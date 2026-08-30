@@ -9,6 +9,58 @@ Long-term project memory for development-emergent decisions and lessons.
 
 Store only settled decisions, conventions, and important context that emerged during development and cannot be reliably inferred from code or documentation. Do not duplicate product specifications or design system content.
 
+The sections below are historical records unless a newer dated section
+supersedes them. For the current repository map, read [`docs/wiki/`](../../docs/wiki/)
+and then verify the source tree before making an implementation decision.
+
+## Current repository baseline (2026-08-30)
+
+- The project wiki is now under `docs/wiki/`. Its pages cover architecture,
+  role/route boundaries, domain data, guarded development commands,
+  operations/security, and the dated current-state handoff. `README.md`,
+  `PRODUCT.md`, `DESIGN.md`, `prisma/schema.prisma`, and the source tree remain
+  authoritative over the wiki snapshot.
+- Vecalss remains a Next.js App Router LMS with Voyager (student), Kapten
+  (tutor/content author), and Administrator role boundaries. The current page
+  tree includes learner Materi/Kuis/Tryout/Vera AI flows, Kapten authoring and
+  operations, and the admin enrollment/import/audit/AI control-plane surfaces.
+- The Kuis versioning contract foundation is settled in `13497c9`: semantic
+  SHA-256 identity for a normalized assessment definition, explicit distinction
+  between unlimited (`null`) and numeric attempts, monotonic `draft → active →
+  superseded` lifecycle, editor/catalogue/student/results projections, and
+  schedule transitions. Generated IDs and operational schedule/visibility
+  fields are not semantic version identity. Persistence, runtime participation,
+  and historical-results cutover remain a separate follow-up; do not claim the
+  contract layer alone is a complete product rollout.
+- Durable Kuis Set/Pool/Blueprint assembly binding is an earlier completed
+  boundary and remains distinct from the new versioning contracts. It preserves
+  server-owned Ready identity, fixed-set snapshots, direct/fixed compatibility,
+  and fail-closed rejection of CAT Pool for Kuis.
+- The mentor reference rollout is settled across the visible Dashboard,
+  Tryout, Quiz, Materi, Media, Settings, Packages, and Bank Soal groups:
+  normal page content remains in document flow, while navigation/inventory/
+  picker/editor panes retain only intentional bounded scrolling. Dense table
+  and list internals remain stable. Expanded rollout browser QA was deferred.
+- The current design-consistency P1 migration is complete after explicit user
+  confirmation: seven native operational selects use the shared
+  `ReferenceSelect`, and two raw operational tables use shared table
+  primitives. Guarded TypeScript, targeted ESLint, mentor static contracts,
+  and `git diff --check` passed. The broader admin-import contract still stops
+  at a pre-existing English-copy assertion; this is a baseline distinction,
+  not evidence that the primitive migration failed. Browser QA was not run.
+- Test-suite coverage is intentionally contract-oriented. `c47d620` and
+  `5f18555` register the `scripts/test-*` files through package test commands
+  and add the suite-manifest check. New tests must be exposed by a package
+  script so the manifest remains complete.
+- The repository currently has 47 Prisma migration directories, including the
+  recent Tryout banner and question-revision identity migrations. That count is
+  migration history, not proof that every configured local database is current;
+  check guarded `prisma migrate status` before any database mutation.
+- All Node, pnpm, Prisma, test, build, worker, and script launches continue to
+  require `_harness/resource-guard.sh`. Browser verification remains an
+  explicit-permission workflow with route, role/session, and checklist stated
+  before using `ego-browser`.
+
 ## Conventions
 
 - Admin student preview reads use a server-resolved fixed fixture subject and a

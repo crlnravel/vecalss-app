@@ -1,5 +1,45 @@
 # Session Handoff
 
+## Project wiki and harness context refresh (2026-08-30)
+
+- Objective: publish a navigable project wiki and make durable harness memory,
+  feature tracking, progress, and handoff reflect the current repository after
+  the active product agent's explicit completion confirmation.
+- Coordination gate: the Design Consistency Review agent reported its P1
+  select/raw-table migration and guarded verification complete; the user then
+  confirmed it may be marked complete. Documentation work began only after
+  that confirmation. Other active agents confirmed no ownership of the wiki,
+  memory, or tracking paths.
+- Current source baseline: Next.js App Router/React/strict TypeScript,
+  Prisma/PostgreSQL, Redis/BullMQ, role-specific Voyager/Kapten/Admin routes,
+  Vera AI learner and admin-control-plane surfaces, durable Tryout release
+  boundaries, Kuis assembly binding, and the new Kuis versioning contract
+  layer. The Prisma migration directory currently contains 47 migrations.
+- Documentation added: `docs/wiki/index.md`, `architecture.md`,
+  `user-journeys.md`, `domains-and-data.md`,
+  `development-and-verification.md`, `operations-and-security.md`, and
+  `current-state.md`.
+- Harness state updated: `_harness/memory/project.md` received a dated
+  current-baseline section; `feature_list.json` received `feat-029` through
+  `feat-033`; this progress log and handoff received this session record.
+- Verification ledger: P1 guarded TypeScript, targeted ESLint, mentor static
+  contracts, and `git diff --check` were confirmed by the owning agent. The
+  broader admin-import contract stops at a pre-existing English-copy
+  assertion. Browser QA was not run because explicit permission was not
+  granted. This documentation task's `jq`, scoped `git diff --check`, and
+  project-specific harness audit pass (3.9/5, Good). The generic
+  `validate-harness.mjs` reports false missing-state failures because it only
+  discovers legacy root-level state files instead of this repository's
+  `_harness/tracking` layout.
+- Ownership boundary: do not stage or alter the other agents' product changes,
+  harness-core edits, skill files, or untracked assets. The intended commit
+  contains only `docs/wiki/*`, `_harness/memory/project.md`, and the three
+  `_harness/tracking` files.
+- Commit boundary: the final documentation-only micro-commit contains only the
+  scoped wiki, memory, and tracking paths. Its commit hash is available in the
+  repository history; unrelated product and harness-core changes remain
+  unstaged. No browser verification is part of this handoff.
+
 ## Tryout banner configuration for Kapten (2026-08-28)
 
 - Objective: let Kapten attach and change a banner image on a Tryout from

@@ -223,6 +223,46 @@
       "dependencies": ["feat-025", "feat-026", "feat-027"],
       "status": "complete",
       "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts test script (30 checks passing); TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh"
+    },
+    {
+      "id": "feat-029",
+      "name": "Kuis Versioning Contract Foundation",
+      "description": "Define semantic Kuis assessment identity, monotonic version lifecycle, learner/editor/catalogue/results projections, and post-close schedule transitions",
+      "dependencies": ["feat-017"],
+      "status": "complete",
+      "evidence": "13497c9; lib/quiz/versioning-digest.ts, versioning-lifecycle.ts, versioning-projections.ts, and versioning-schedule.ts; pnpm test:kuis-versioning, guarded TypeScript, focused ESLint, and git diff --check pass. Persistence, runtime participation, and historical-results cutover remain separate follow-up work."
+    },
+    {
+      "id": "feat-030",
+      "name": "Operational UI Primitive Migration",
+      "description": "Replace the identified operational native selects and raw tables with the shared reference select and table primitives while preserving dense data behavior",
+      "dependencies": ["feat-021"],
+      "status": "complete",
+      "evidence": "Design Consistency Review P1 completion confirmed by the user; seven native selects now use ReferenceSelect and two raw operational tables use shared Table primitives. Guarded TypeScript, targeted ESLint, mentor static contracts, and git diff --check pass. Broader admin-import verification stops at a pre-existing English-copy assertion; browser QA was not run."
+    },
+    {
+      "id": "feat-031",
+      "name": "Kuis Editor Reference Parity",
+      "description": "Align the Kuis editor inventory, issue markers, add control, preview switch, and primary editor actions with the Bank Soal workspace language",
+      "dependencies": ["feat-017", "feat-021"],
+      "status": "complete",
+      "evidence": "4eaae2a; pnpm test:kuis-ui-first-workspace and focused TypeScript/ESLint/diff-check evidence pass; browser QA remains a separately gated follow-up."
+    },
+    {
+      "id": "feat-032",
+      "name": "Contract Test Suite Manifest",
+      "description": "Keep every scripts/test-* file discoverable through a package test command and validate the repository test-surface manifest",
+      "dependencies": ["feat-001"],
+      "status": "complete",
+      "evidence": "c47d620 and 5f18555; scripts/test-suite-manifest.ts checks missing references and unregistered test files, and package scripts expose the current contract suites."
+    },
+    {
+      "id": "feat-033",
+      "name": "Project Wiki and Harness Context Refresh",
+      "description": "Publish a navigable project wiki and refresh durable harness memory, feature tracking, progress, and session handoff with the current repository baseline",
+      "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
+      "status": "complete",
+      "evidence": "docs/wiki/* plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, ownership boundaries, verification caveats, and follow-up queue recorded without staging unrelated product changes."
     }
   ]
 }

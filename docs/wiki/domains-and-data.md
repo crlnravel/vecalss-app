@@ -1,0 +1,80 @@
+# Domains and data
+
+`prisma/schema.prisma` is the authoritative data model. This page groups the
+current aggregates so a maintainer can find the right boundary before editing
+or querying a model.
+
+## Domain map
+
+| Domain | Main models and code | Notes |
+| --- | --- | --- |
+| Account and access | `User`, `AuthSession`, `PasswordResetToken`, `RoleAssignment`, `StudentProfile`, `TutorProfile`; `lib/auth/` | Opaque hashed session tokens, role gates, onboarding/password state, and authorized-home redirects. |
+| Enrollment and operations | `EnrollmentHandoff`, `EnrollmentImport`, `EnrollmentImportRow`, dispatch records, `AuditLog`, notifications | Admin-owned enrollment/import workflows and auditable operational commands. |
+| Taxonomy and Materi | `ExamProgram`, `ExamEvent`, `Subject`, `Subtest`, `Topic`, `Module`, `ModuleAsset`, `ModuleProgress` | Student content and progress are projected through Materi services; managed documents and media use private delivery boundaries. |
+| Question Bank | `QuestionBank`, `Question`, `QuestionRevision`, revision options, folders/categories, calibration rows | Ready/review/retired revision lifecycle and source-digest validation feed Kuis/Tryout assembly. |
+| Kuis | `StandaloneQuiz`, `StandaloneQuizItem`, participation/attempt/answer models, legacy `ModuleQuiz` models | Standalone Kuis keeps assessment snapshots and canonical attempt/scoring/release axes separate from legacy ModuleQuiz. |
+| Reusable assessment packages | `ReusableQuestionPackage`, package versions/scopes/rules/items | Supports fixed sets, random pools, blueprints, and CAT pools; Ready identity is version-owned. |
+| Tryout | `TryoutPackage`, sections/items/options, admissions/assignments, delivery sessions, attempts/runs/answers, releases | Published content is pinned by immutable `AssessmentRelease`; operations read through safe participant projections. |
+| Learning signals | topic/subtest performance and recommendations | Feeds learner-facing progress and recommendation boundaries; do not infer product claims from fixture data. |
+| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, usage, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes, request idempotency/fingerprints, privacy-safe admin aggregates, and lifecycle governance. |
+| Media and CMS | `Asset`, `MediaFolder`, announcements, landing sections | Media scope/state and signed preview/thumbnail paths are validated before exposure. |
+
+## Assessment invariants
+
+The assessment model deliberately separates concerns:
+
+- Kuis and Tryout attempts, scoring, and result release use independent state
+  axes. A submitted attempt is not automatically a released result.
+- Kuis and Tryout runtime scoring reads immutable form/run snapshots and
+  materialized answer/breakdown fields; calculation JSON remains audit/replay
+  evidence.
+- A published Tryout creates or reuses one immutable `AssessmentRelease` for
+  the publication identity. It pins content, source identity, scoring
+  configuration, media, and assembly provenance.
+- Tryout aggregation is valid only after the required canonical section runs
+  seal. Malformed, incomplete, rankingless, or contradictory legacy data is
+  kept review-required/hidden rather than guessed into a score.
+- Student preview uses a fixed safe subject and must not create learner
+  attempts, sessions, external writes, notifications, or analytics.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Active: publish / validate
+    Active --> Superseded: publish replacement
+    Superseded --> [*]
+    Draft: New editable definition
+    Active: Published version
+    Superseded: Historical version
+```
+
+The Kuis versioning contract layer in `lib/quiz/versioning-*` uses the states
+`draft`, `active`, and `superseded`. Its semantic SHA-256 digest includes
+versioned definition/question/choice/source identity while ignoring generated
+IDs and operational schedule/visibility fields. Explicit `null` attempts
+remain distinct from a numeric attempt limit. The latest contract slice is
+covered by `scripts/test-kuis-versioning.ts`; persistence/runtime delivery
+cutover is a separate follow-up.
+
+## Assembly identity
+
+Reusable package modes are `fixed_set`, `random_pool`, `blueprint`, and
+`cat_pool`. Ready versions are server-owned and validate source revision,
+content, media, scope, quota, shortage, and (for CAT) canonical calibration
+metadata. Pool and Blueprint resolution occurs while creating the immutable
+Tryout release; runtime does not draw from mutable authoring data.
+
+Standalone Kuis supports durable Set/Pool/Blueprint assembly identity through
+the applied Kuis assembly-binding migrations. CAT Pool is rejected for Kuis;
+existing direct/fixed routes remain compatible.
+
+## Vera AI data boundary
+
+Vera AI has both learner-facing and administrator-facing surfaces. The admin
+control plane aggregates requests, quota, reliability, incidents, providers,
+routing, cost, and policy bundles without returning student conversation text.
+Privacy suppression is applied to small cohorts and complementary groups. The
+request service tracks idempotency, fingerprints, retry state, provider/routing
+metadata, quota reservations, retention, and lifecycle operations. Changes to
+these boundaries belong in `lib/vera-ai/` and `lib/admin/ai/`, not in route
+components alone.

@@ -1,5 +1,44 @@
 # Session Progress Log
 
+## Project wiki and harness context refresh (2026-08-30)
+
+- [x] Waited for the active Design Consistency Review agent to finish its
+  verification and obtain the user's explicit completion confirmation before
+  starting this documentation task.
+- [x] Audited the current route tree, role/session gates, package scripts,
+  Prisma migration history, Kuis versioning contracts, recent Vera AI/admin
+  work, mentor reference rollout, and the shared working-tree ownership.
+- [x] Added the navigable `docs/wiki/` set: index, architecture,
+  users/journeys/routes, domains/data, development/verification,
+  operations/security, and current-state handoff.
+- [x] Refreshed `_harness/memory/project.md` with the current settled baseline,
+  Kuis contract boundary, P1 primitive migration evidence, test-manifest rule,
+  migration-history caveat, and browser/resource-guard conventions.
+- [x] Added `feat-029` through `feat-033` to the feature tracker for the Kuis
+  contract foundation, operational primitive migration, Kuis editor parity,
+  test-suite manifest, and this wiki/harness refresh.
+- [x] Preserved all unrelated product, harness-core, skill, and agent-owned
+  dirty files; only the wiki and the explicitly owned memory/tracking files are
+  in scope for this session.
+- [x] Validated the scoped JSON with `jq`, checked Markdown/source links by
+  inspection, ran `git diff --check`, and ran the project-specific harness
+  audit (`_harness/skills/harness/audit.py`): 3.9/5, Good. The generic
+  `validate-harness.mjs` was also invoked through the resource guard but scores
+  legacy root-level state paths rather than this repository's `_harness/`
+  layout, so its missing-state failures are recorded as a validator mismatch.
+- [x] Committed only the scoped wiki, memory, and tracking paths in the
+  documentation-only micro-commit for this session.
+
+### Current documentation decisions
+
+- The wiki is a dated source snapshot and links to code/docs rather than
+  pretending to replace them.
+- The latest Kuis versioning work is recorded as a contract foundation; its
+  persistence/runtime delivery follow-up is intentionally not marked complete.
+- P1 select/table migration verification is recorded as complete after user
+  confirmation, while the pre-existing admin-import English-copy assertion and
+  browser-permission boundary remain explicit caveats.
+
 ## Vera AI Admin Operational Control Plane V1 Rollout (2026-08-28)
 
 - [x] Divided the production AI Admin Dashboard plan into 7 structured tickets:

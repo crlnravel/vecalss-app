@@ -1,0 +1,74 @@
+# Current state and handoff
+
+> Snapshot recorded 30 August 2026. This page is a dated handoff; re-check
+> `git status`, the source tree, and the harness tracking files before starting
+> another implementation slice.
+
+## Completed or confirmed recent slices
+
+| Slice | Current evidence | Status and boundary |
+| --- | --- | --- |
+| Vera AI admin control plane | `feat-022`–`feat-028`; admin AI route family and focused control-plane contracts | Complete: metrics, quota, reliability, incidents, providers/routing, policy governance, redirects, and test coverage are present. |
+| Mentor reference rollout | `feat-021`; mentor dashboard, Tryout, Quiz, Materi, Media, Settings, Packages, and Bank Soal adapters | Complete: document-flow scrolling and bounded pane exceptions are intentional; dense table/list internals were preserved. Browser QA for the expanded rollout was deferred. |
+| Kuis assembly binding | Existing `feat-017` evidence and migrations `20260823100000_*` / `20260823110000_*` | Complete: durable Set/Pool/Blueprint identity and server-owned Ready validation; CAT Pool remains rejected for Kuis. |
+| Kuis versioning contracts | Commit `13497c9` and `scripts/test-kuis-versioning.ts` | Complete contract foundation: semantic digest, lifecycle, editor/catalogue/student/results projections, and schedule transitions. Persistence/runtime delivery/UI cutover remains a separate follow-up. |
+| Kuis editor parity | Commit `4eaae2a`, `pnpm test:kuis-ui-first-workspace` evidence | Complete focused parity slice: Bank Soal-like inventory, issue markers, add control, preview switch, and editor action treatment. |
+| Vera regression alignment | Commit `3746e8d` | Complete focused Sprint 5 test alignment and revision-FK fixture restoration. |
+| Test-suite manifest | Commits `c47d620` and `5f18555` | Complete: package scripts expose `scripts/test-*` files and the manifest test checks registration and scope. |
+| Operational primitive migration | Current working-tree P1 change confirmed complete by the Design Consistency Review agent after explicit user confirmation | Seven native selects use the shared `ReferenceSelect`; two raw operational tables use shared table primitives. Guarded tsc, targeted ESLint, mentor static tests, and diff-check pass. Browser QA was skipped. |
+
+## Verification ledger
+
+The most recent confirmed P1 evidence is:
+
+- guarded TypeScript check: pass;
+- targeted ESLint: pass;
+- mentor static contracts: pass;
+- `git diff --check`: pass;
+- broader admin-import contract: stops at its pre-existing English-copy
+  assertion;
+- browser verification: not run because the required explicit permission was
+  not granted for this slice.
+
+This documentation task does not claim a fresh Prisma migration status, full
+production build, or browser result. Run those through the guarded workflow
+when the next implementation owner needs them.
+
+## Working-tree ownership
+
+The shared tree contains product changes from several completed or closing
+agent sessions, including Vera AI, admin screens, mentor surfaces, media, and
+design primitives. This wiki and harness refresh must remain isolated to:
+
+- `docs/wiki/*`;
+- `_harness/memory/project.md`;
+- `_harness/tracking/feature_list.json`;
+- `_harness/tracking/progress.md`;
+- `_harness/tracking/session-handoff.md`.
+
+Do not stage unrelated dirty product files when committing this documentation
+slice.
+
+## Follow-up queue
+
+1. If Kuis versioning is promoted beyond its contract foundation, add the
+   persistence, server mutation, runtime participation, and historical-results
+   cutover behind the existing digest/lifecycle contracts.
+2. Obtain explicit browser permission before validating the P1 primitive
+   migration or any deferred mentor rollout route. Record routes, role, and
+   checklist in the handoff.
+3. Re-run the broader admin-import contract after its independent English-copy
+   baseline is addressed; keep the baseline distinction in the evidence.
+4. Re-check configured-database migration status before any schema mutation;
+   the wiki records migration history, not an assertion that every local
+   database is current.
+
+## Restart checklist
+
+1. Read [`AGENTS.md`](../../AGENTS.md), then the current
+   [`_harness/tracking/session-handoff.md`](../../_harness/tracking/session-handoff.md).
+2. Run `git status --short --branch` and preserve existing ownership.
+3. Read [`_harness/tracking/feature_list.json`](../../_harness/tracking/feature_list.json)
+   and choose one explicit unfinished feature.
+4. Route to the relevant wiki page and source boundary before editing.
+5. Use the shared resource guard and update the handoff before yielding.
