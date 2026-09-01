@@ -311,10 +311,14 @@ async function main() {
     assert.equal(current.stale, false);
     console.log("admin import dispatch DB/Redis checks passed");
   } finally {
-    await client.query("DELETE FROM audit_logs WHERE target_id = $1::uuid", [importId]).catch(() => undefined);
+    // Audit logs are append-only production evidence. This disposable test
+    // database intentionally leaves the fixture rows in place.
     await client.query("DELETE FROM enrollment_imports WHERE id = ANY($1::uuid[])", [fairImportIds]).catch(() => undefined);
     await client.query("DELETE FROM enrollment_imports WHERE id = $1::uuid", [importId]).catch(() => undefined);
-    await client.query("DELETE FROM users WHERE id = $1::uuid", [adminId]).catch(() => undefined);
+    await client.query(
+      "UPDATE users SET status = 'soft_deleted', soft_deleted_at = COALESCE(soft_deleted_at, NOW()), updated_at = NOW() WHERE id = $1::uuid",
+      [adminId],
+    ).catch(() => undefined);
     await client.end().catch(() => undefined);
     await redis.quit().catch(() => undefined);
     const { prisma } = await import("@/lib/prisma");

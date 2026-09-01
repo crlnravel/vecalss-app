@@ -284,6 +284,30 @@ async function main() {
       [retryImportId],
     );
     assert.equal(retryFinal.rows[0]?.status, "completed");
+    const retryAuditRows = await client.query<{
+      action: string;
+      completed_from_audit_id: string | null;
+      id: string;
+      result_status: string | null;
+    }>(
+      `SELECT id,
+              action,
+              metadata->>'completedFromAuditId' AS completed_from_audit_id,
+              metadata->'result'->>'status' AS result_status
+         FROM audit_logs
+        WHERE target_id = $1::uuid
+          AND target_type = 'enrollment_import'
+          AND action IN ('enrollment_import.retry_queued', 'enrollment_import.retry_completed', 'enrollment_import.finalized')`,
+      [retryImportId],
+    );
+    assert.equal(retryAuditRows.rows.filter((row) => row.action === "enrollment_import.retry_queued").length, 1);
+    assert.equal(retryAuditRows.rows.filter((row) => row.action === "enrollment_import.retry_completed").length, 1);
+    assert.equal(retryAuditRows.rows.filter((row) => row.action === "enrollment_import.finalized").length, 1);
+    const retryQueuedAudit = retryAuditRows.rows.find((row) => row.action === "enrollment_import.retry_queued");
+    const retryCompletedAudit = retryAuditRows.rows.find((row) => row.action === "enrollment_import.retry_completed");
+    assert.ok(retryQueuedAudit);
+    assert.equal(retryCompletedAudit?.completed_from_audit_id, retryQueuedAudit?.id);
+    assert.equal(retryCompletedAudit?.result_status, "completed");
     for (let index = 0; index < 25; index += 1) {
       await client.query(
         `INSERT INTO audit_logs (id, actor_user_id, action, target_type, target_id, metadata)
@@ -704,7 +728,8 @@ async function main() {
     console.log("admin import processing DB/Redis checks passed");
   } finally {
     await processingQueue?.close().catch(() => undefined);
-    await client.query("DELETE FROM audit_logs WHERE actor_user_id = ANY($1::uuid[]) OR target_id = ANY($2::uuid[])", [[adminId, otherAdminId], [importId, retryImportId, reapImportId, boundaryCreateImportId, boundaryUpdateImportId, cancelImportId, partialImportId, failedTerminalImportId, raceImportId]]).catch(() => undefined);
+    // Audit logs are append-only production evidence. This disposable test
+    // database intentionally leaves the fixture rows in place.
     await client.query("DELETE FROM enrollment_imports WHERE id = ANY($1::uuid[])", [[importId, retryImportId, reapImportId, boundaryCreateImportId, boundaryUpdateImportId, cancelImportId, partialImportId, failedTerminalImportId, raceImportId]]).catch(() => undefined);
     if (createdUserIds.length > 0) {
       await client.query("DELETE FROM enrollment_handoffs WHERE user_id = ANY($1::uuid[])", [createdUserIds]).catch(() => undefined);
@@ -714,8 +739,10 @@ async function main() {
       await client.query("DELETE FROM role_assignments WHERE user_id = ANY($1::uuid[])", [createdUserIds]).catch(() => undefined);
       await client.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [createdUserIds]).catch(() => undefined);
     }
-    await client.query("DELETE FROM audit_logs WHERE actor_user_id = ANY($1::uuid[])", [[adminId, otherAdminId]]).catch(() => undefined);
-    await client.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [[adminId, otherAdminId]]).catch(() => undefined);
+    await client.query(
+      "UPDATE users SET status = 'soft_deleted', soft_deleted_at = COALESCE(soft_deleted_at, NOW()), updated_at = NOW() WHERE id = ANY($1::uuid[])",
+      [[adminId, otherAdminId]],
+    ).catch(() => undefined);
     await client.end().catch(() => undefined);
     await redis.quit().catch(() => undefined);
     const { prisma } = await import("@/lib/prisma");

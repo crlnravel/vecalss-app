@@ -40,6 +40,16 @@ const ADMIN_STUDENT_PREVIEW_FIXTURE = {
   previewPurpose: "admin.student-preview",
 };
 
+const DEMO_AUDIT_LOG_NAMESPACE = "vecalss.demo.audit-log.v1";
+const DEMO_AUDIT_LOG_IDS = [
+  "00000000-0000-4000-8000-000000000101",
+  "00000000-0000-4000-8000-000000000102",
+  "00000000-0000-4000-8000-000000000103",
+  "00000000-0000-4000-8000-000000000104",
+  "00000000-0000-4000-8000-000000000105",
+  "00000000-0000-4000-8000-000000000106",
+];
+
 const DEMO_STUDENTS = [
   { email: "dimas@vecalss.local", fullName: "Dimas Saputra", key: "completed" },
   { email: "leila@vecalss.local", fullName: "Leila Maheswari", key: "secondCompleted" },
@@ -609,6 +619,109 @@ async function seedLearningProgress(client, { completedStudentId, primaryStudent
   }
 }
 
+async function seedAuditLogs(
+  client,
+  {
+    adminUserId,
+    cohortId,
+    completedStudentId,
+    primaryStudentId,
+    systemConfigId,
+    tutorUserId,
+  },
+) {
+  const auditRows = [
+    {
+      action: "enrollment_handoff.released",
+      actorUserId: adminUserId,
+      hoursAgo: 144,
+      id: DEMO_AUDIT_LOG_IDS[0],
+      metadata: { method: "invite_link" },
+      targetId: primaryStudentId,
+      targetType: "user",
+    },
+    {
+      action: "enrollment_handoff.completed",
+      actorUserId: adminUserId,
+      hoursAgo: 120,
+      id: DEMO_AUDIT_LOG_IDS[1],
+      metadata: { method: "invite_link" },
+      targetId: primaryStudentId,
+      targetType: "user",
+    },
+    {
+      action: "admission.approved",
+      actorUserId: adminUserId,
+      hoursAgo: 96,
+      id: DEMO_AUDIT_LOG_IDS[2],
+      metadata: { cohortId },
+      targetId: completedStudentId,
+      targetType: "user",
+    },
+    {
+      action: "notification.kelas_sent",
+      actorUserId: tutorUserId,
+      hoursAgo: 72,
+      id: DEMO_AUDIT_LOG_IDS[3],
+      metadata: { recipientCount: SEEDED_STUDENTS.length + 2 },
+      targetId: cohortId,
+      targetType: "cohort",
+    },
+    {
+      action: "result.bundle_released",
+      actorUserId: tutorUserId,
+      hoursAgo: 48,
+      id: DEMO_AUDIT_LOG_IDS[4],
+      metadata: { release: "demo" },
+      targetId: completedStudentId,
+      targetType: "user",
+    },
+    {
+      action: "system_config.updated",
+      actorUserId: adminUserId,
+      hoursAgo: 24,
+      id: DEMO_AUDIT_LOG_IDS[5],
+      metadata: { configKey: "demo.usability_context" },
+      targetId: systemConfigId,
+      targetType: "system_config",
+    },
+  ];
+
+  for (const row of auditRows) {
+    const metadata = {
+      ...row.metadata,
+      seedKey: `${DEMO_AUDIT_LOG_NAMESPACE}:${row.id}`,
+    };
+    const inserted = await client.query(
+      `INSERT INTO audit_logs (
+         id, actor_user_id, action, target_type, target_id, metadata, occurred_at
+       ) VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::jsonb, NOW() - ($7::int * INTERVAL '1 hour'))
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
+      [row.id, row.actorUserId, row.action, row.targetType, row.targetId, JSON.stringify(metadata), row.hoursAgo],
+    );
+    if (inserted.rowCount) continue;
+
+    const existing = await client.query(
+      `SELECT actor_user_id, action, target_type, target_id, metadata
+       FROM audit_logs
+       WHERE id = $1::uuid`,
+      [row.id],
+    );
+    const record = existing.rows[0];
+    if (
+      !record
+      || record.actor_user_id !== row.actorUserId
+      || record.action !== row.action
+      || record.target_type !== row.targetType
+      || record.target_id !== row.targetId
+      || record.metadata?.seedKey !== metadata.seedKey
+    ) {
+      throw new Error(`The immutable audit seed identity ${row.id} is already used by another event.`);
+    }
+  }
+}
+
 async function seedOperationalContext(client, { adminUserId, cohortId, completedStudentId, primaryStudentId, tryoutId, tutorUserId }) {
   for (const studentId of [primaryStudentId, completedStudentId]) {
     await client.query(
@@ -714,15 +827,26 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
     );
   }
 
-  await client.query(
+  const systemConfig = await client.query(
     `INSERT INTO system_configs (config_key, config_value, updated_by_user_id)
      VALUES ('demo.usability_context', $1::jsonb, $2)
      ON CONFLICT (config_key) DO UPDATE
        SET config_value = EXCLUDED.config_value,
            updated_by_user_id = EXCLUDED.updated_by_user_id,
-           updated_at = NOW()`,
+           updated_at = NOW()
+     RETURNING id`,
     [JSON.stringify({ cohort: "Kelas Persiapan SNBT 2027", purpose: "Demonstrasi produk dan pengujian kegunaan", seededAt: new Date().toISOString() }), adminUserId],
   );
+  const systemConfigId = systemConfig.rows[0]?.id;
+  if (!systemConfigId) throw new Error("The demo usability system config could not be resolved for audit seeding.");
+  await seedAuditLogs(client, {
+    adminUserId,
+    cohortId,
+    completedStudentId,
+    primaryStudentId,
+    systemConfigId,
+    tutorUserId,
+  });
 }
 
 async function main() {

@@ -375,13 +375,14 @@ async function main() {
             OR source_entity_id = ANY($2::uuid[])`,
         [notificationIds, cohortIds],
       );
-      await client.query(
-        "DELETE FROM audit_logs WHERE action = 'notification.kelas_sent' AND target_id = ANY($1::uuid[])",
-        [cohortIds],
-      );
+      // Audit logs are append-only production evidence. This disposable test
+      // database intentionally leaves the fixture rows in place.
       await client.query("DELETE FROM cohort_students WHERE id = ANY($1::uuid[])", [membershipIds]);
       await client.query("DELETE FROM role_assignments WHERE id = ANY($1::uuid[])", [roleAssignmentIds]);
-      await client.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [userIds]);
+      await client.query(
+        "UPDATE users SET status = 'soft_deleted', soft_deleted_at = COALESCE(soft_deleted_at, NOW()), updated_at = NOW() WHERE id = ANY($1::uuid[])",
+        [userIds],
+      );
       await client.query("DELETE FROM cohorts WHERE id = ANY($1::uuid[])", [cohortIds]);
     } finally {
       await prismaClient?.$disconnect();

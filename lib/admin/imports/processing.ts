@@ -1290,7 +1290,7 @@ async function persistRetryGenerationResult(
   },
 ) {
   const audits = await tx.auditLog.findMany({
-    select: { id: true, metadata: true },
+    select: { actorUserId: true, id: true, metadata: true, targetId: true, targetType: true },
     where: {
       action: "enrollment_import.retry_queued",
       targetId: importId,
@@ -1298,15 +1298,19 @@ async function persistRetryGenerationResult(
     },
   });
   const matchingAudits = audits.filter((audit) => retryAuditMetadata(audit.metadata ?? null)?.generation === generation);
-  await Promise.all(matchingAudits.map((audit) => tx.auditLog.update({
-      data: {
-        metadata: {
-          ...(asObject(audit.metadata ?? null) ?? {}),
-          result: { counts, status },
-        } as Prisma.InputJsonValue,
-      },
-      where: { id: audit.id },
-    })));
+  await Promise.all(matchingAudits.map((audit) => tx.auditLog.create({
+    data: {
+      action: "enrollment_import.retry_completed",
+      actorUserId: audit.actorUserId,
+      metadata: {
+        ...(asObject(audit.metadata ?? null) ?? {}),
+        completedFromAuditId: audit.id,
+        result: { counts, status },
+      } as Prisma.InputJsonValue,
+      targetId: audit.targetId,
+      targetType: audit.targetType,
+    },
+  })));
 }
 
 async function finalizeImportGeneration({
@@ -1521,12 +1525,12 @@ async function retryEnrollmentImport(input: RetryEnrollmentImportInput): Promise
     }>>`
       SELECT id, metadata
       FROM audit_logs
-      WHERE action = 'enrollment_import.retry_queued'
+      WHERE action IN ('enrollment_import.retry_queued', 'enrollment_import.retry_completed')
         AND actor_user_id = ${input.actorUserId}::uuid
         AND target_id = ${input.importId}::uuid
         AND target_type = 'enrollment_import'
         AND metadata ->> 'requestKey' = ${requestKey}
-      ORDER BY occurred_at DESC
+      ORDER BY occurred_at DESC, id DESC
     `;
     const matchingRetry = retryAudits
       .map((audit) => retryAuditMetadata(audit.metadata ?? null))

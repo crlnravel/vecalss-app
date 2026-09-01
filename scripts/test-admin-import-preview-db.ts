@@ -216,12 +216,16 @@ async function countRows(client: pg.Client, table: string) {
 
 async function cleanupFixture(client: pg.Client, fixture: Fixture) {
   if (fixture.importIds.length) {
-    await client.query("DELETE FROM audit_logs WHERE target_id = ANY($1::uuid[])", [fixture.importIds]);
+    // Audit logs are append-only production evidence. This disposable test
+    // database intentionally leaves the fixture rows in place.
     await client.query("DELETE FROM enrollment_imports WHERE id = ANY($1::uuid[])", [fixture.importIds]);
   }
   await client.query("DELETE FROM auth_sessions WHERE user_id = ANY($1::uuid[])", [[fixture.adminId, fixture.ownerId]]);
   await client.query("DELETE FROM role_assignments WHERE user_id = ANY($1::uuid[])", [[fixture.adminId, fixture.ownerId]]);
-  await client.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [[fixture.adminId, fixture.ownerId]]);
+  await client.query(
+    "UPDATE users SET status = 'soft_deleted', soft_deleted_at = COALESCE(soft_deleted_at, NOW()), updated_at = NOW() WHERE id = ANY($1::uuid[])",
+    [[fixture.adminId, fixture.ownerId]],
+  );
 }
 
 async function requireStatus(response: Response, expected: number) {

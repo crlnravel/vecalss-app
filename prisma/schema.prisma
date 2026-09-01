@@ -4643,6 +4643,8 @@ model SystemConfig {
 }
 
 model AuditLog {
+  /// Audit rows are append-only. The database migration rejects UPDATE,
+  /// DELETE, and TRUNCATE so historical evidence cannot be rewritten.
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorUserId String?  @map("actor_user_id") @db.Uuid
   action      String   @db.VarChar(120)
@@ -4653,7 +4655,7 @@ model AuditLog {
   userAgent   String?  @map("user_agent") @db.Text
   occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
 
-  actor User? @relation(fields: [actorUserId], references: [id])
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([actorUserId])
   @@index([action])

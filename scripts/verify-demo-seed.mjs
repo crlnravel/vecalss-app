@@ -112,6 +112,38 @@ async function main() {
       "Every historical attempt must contain seven releaseable runs.",
     );
 
+    const auditSeed = await client.query(
+      `SELECT action, metadata->>'seedKey' AS seed_key
+         FROM audit_logs
+        WHERE metadata->>'seedKey' LIKE 'vecalss.demo.audit-log.v1:%'
+        ORDER BY occurred_at, id`,
+    );
+    assert.equal(auditSeed.rowCount, 6, "The demonstration seed must contain six immutable audit events.");
+    assert.deepEqual(
+      auditSeed.rows.map((row) => row.action).sort(),
+      [
+        "admission.approved",
+        "enrollment_handoff.completed",
+        "enrollment_handoff.released",
+        "notification.kelas_sent",
+        "result.bundle_released",
+        "system_config.updated",
+      ].sort(),
+      "The demonstration audit seed must cover the expected operational events.",
+    );
+    assert(
+      auditSeed.rows.every((row) => /^vecalss\.demo\.audit-log\.v1:[0-9a-f-]{36}$/u.test(row.seed_key)),
+      "Every demonstration audit event must have a stable seed identity.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM pg_trigger
+                             WHERE tgname IN ('audit_logs_immutable', 'audit_logs_truncate_immutable')
+                               AND NOT tgisinternal`),
+      2,
+      "The audit log append-only triggers must be installed.",
+    );
+
     const normalizedScores = await client.query(
       `SELECT attempts.id,
               attempts.score::numeric AS final_score,
@@ -161,6 +193,7 @@ async function main() {
       { area: "Tryout sections", records: 7 },
       { area: "Participant states", records: 6 },
       { area: "Released attempts", records: 3 },
+      { area: "Audit events", records: 6 },
     ]);
     console.log("Demonstration seed verification passed.");
   } finally {

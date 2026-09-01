@@ -17,6 +17,9 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const processingSource = await readFile(resolve(root, "lib/admin/imports/processing.ts"), "utf8");
+const auditSchemaSource = await readFile(resolve(root, "prisma/schema.prisma"), "utf8");
+const auditMigrationSource = await readFile(resolve(root, "prisma/migrations/20260901090000_make_audit_logs_immutable/migration.sql"), "utf8");
+const seedSource = await readFile(resolve(root, "prisma/seed.mjs"), "utf8");
 const handoffSource = await readFile(resolve(root, "lib/admin/imports/handoff-file.ts"), "utf8");
 const workerSource = await readFile(resolve(root, "workers/admin-import-worker.ts"), "utf8");
 const handoffRouteSource = await readFile(resolve(root, "app/api/admin/imports/[importId]/handoff-file/route.ts"), "utf8");
@@ -88,6 +91,16 @@ assert.match(processingSource, /expectedGeneration/u);
 assert.match(processingSource, /idempotencyKey/u);
 assert.match(processingSource, /metadata ->> 'requestKey'/u);
 assert.match(processingSource, /persistRetryGenerationResult/u);
+assert.match(processingSource, /enrollment_import\.retry_completed/u);
+assert.doesNotMatch(processingSource, /auditLog\.update(?:Many)?/u);
+assert.match(auditSchemaSource, /model AuditLog[\s\S]*onDelete: Restrict[\s\S]*onUpdate: Restrict/u);
+assert.match(auditMigrationSource, /BEFORE UPDATE OR DELETE ON "audit_logs"/u);
+assert.match(auditMigrationSource, /BEFORE TRUNCATE ON "audit_logs"/u);
+assert.match(auditMigrationSource, /audit logs are immutable/u);
+assert.match(seedSource, /seedAuditLogs/u);
+assert.match(seedSource, /INSERT INTO audit_logs/u);
+assert.match(seedSource, /ON CONFLICT \(id\) DO NOTHING/u);
+assert.match(seedSource, /seedKey/u);
 assert.match(processingSource, /completed_at < \$\{importCutoff\}/u);
 assert.match(processingSource, /SELECT id[\s\S]*FROM enrollment_imports[\s\S]*FOR UPDATE/u);
 assert.match(processingSource, /previousGeneration/u);
