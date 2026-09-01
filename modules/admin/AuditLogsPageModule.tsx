@@ -6,7 +6,6 @@ import { useState, type FormEvent } from "react";
 
 import {
   ReferencePageHeader,
-  ReferenceSectionHeading,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
@@ -405,19 +404,11 @@ function AuditLogsPageModule({
     >
       <div className="space-y-8">
         <ReferencePageHeader
-           actions={<ReferenceSurface className="px-3.5 py-2.5 text-sm text-secondary-700" variant="inset">{total.toLocaleString("id-ID")} event tercatat</ReferenceSurface>}
            description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
            title="Log audit"
         />
 
-        <ReferenceSurface as="section" aria-labelledby="audit-log-table-heading" className="overflow-hidden">
-          <div className="px-5 pt-5 sm:px-6" id="audit-log-table-heading">
-            <ReferenceSectionHeading
-               description="Cari, filter, atau urutkan riwayat audit saat ini."
-               title="Event tercatat"
-            />
-          </div>
-
+        <ReferenceSurface as="section" aria-label="Riwayat audit" className="overflow-hidden">
           <DataTable
              caption="Event administrasi yang tercatat"
             clearFiltersHref={clearFiltersHref}
