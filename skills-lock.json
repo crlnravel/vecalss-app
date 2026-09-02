@@ -1,11 +1,53 @@
 {
   "version": 1,
   "skills": {
+    "Agentic UX Design - Relationship-Centric Interfaces": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "relationship-design/skills/relationship-design/SKILL.md",
+      "computedHash": "abfc172573cc91ee0faee6066ae15b0e46598e9029de8400e202d606e45d6d69"
+    },
+    "bencium-controlled-ux-designer": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "bencium-controlled-ux-designer/skills/bencium-controlled-ux-designer/SKILL.md",
+      "computedHash": "4aacbb29e05d9e45600105fbdcb24b38fa7de40d29db025f05a1b121308afc5c"
+    },
+    "bencium-impact-designer": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "bencium-impact-designer/skills/bencium-impact-designer/SKILL.md",
+      "computedHash": "a1811508c23426aebfdac4fc449c3985a505c3cd0edf00582a7b7aac664f0bb7"
+    },
+    "bencium-innovative-ux-designer": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "bencium-innovative-ux-designer/skills/bencium-innovative-ux-designer/SKILL.md",
+      "computedHash": "e39e56d3960a6caefb28d66e47ad9eb83bd5927ba6e97423a4af150e0f0b82c2"
+    },
+    "design-audit": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "design-audit/skills/design-audit/SKILL.md",
+      "computedHash": "18044a5dfff442f951c5fcead39da4ebd84096cca39e3cb848e677d84938faef"
+    },
     "harness-creator": {
       "source": "walkinglabs/learn-harness-engineering",
       "sourceType": "github",
       "skillPath": "skills/harness-creator/SKILL.md",
       "computedHash": "703331a042d7cbfc0f80409703c998e414b5a1da29fa67602e0d173c45abf573"
+    },
+    "renaissance-architecture": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "renaissance-architecture/skills/renaissance-architecture/SKILL.md",
+      "computedHash": "e0027fbb08b5b8f7698851c5dccf21998539bd65ae85e1c870dca585cbe34289"
+    },
+    "ui-typography": {
+      "source": "bencium/bencium-marketplace",
+      "sourceType": "github",
+      "skillPath": "typography/skills/typography/SKILL.md",
+      "computedHash": "1e2ca6a20a9180dedd9ae9039e743bf2609fb4ad0608ee5cafe739fcef04e7ec"
     }
   }
 }
