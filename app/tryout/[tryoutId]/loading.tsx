@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TryoutDetailLoading() {
   return (
-    <main className="min-h-svh bg-[#f7faf8] px-4 py-8 md:px-8">
+    <main aria-busy="true" aria-label="Memuat detail Tryout" className="min-h-svh bg-voyage-canvas px-4 py-8 md:px-8" role="status">
       <div className="mx-auto grid w-full max-w-[42rem] gap-4 sm:gap-5">
         <Skeleton className="size-11 rounded-xl" />
         <Skeleton className="h-56 rounded-2xl" />

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TryoutAttemptLoading() {
   return (
-    <main className="min-h-svh bg-[#f7faf8] px-4 py-6 sm:px-6 lg:px-8">
+    <main aria-busy="true" aria-label="Memulihkan percobaan Tryout" className="min-h-svh bg-voyage-canvas px-4 py-6 sm:px-6 lg:px-8" role="status">
       <div className="mx-auto grid max-w-6xl gap-5">
         <Skeleton className="h-16 rounded-2xl" />
         <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">

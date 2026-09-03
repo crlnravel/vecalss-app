@@ -3,14 +3,11 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   CheckCircle,
-  CircleNotch,
   Clock,
   Flag,
   GraduationCap,
   Printer,
-  SpinnerGap,
   Target,
   TrendUp,
   WarningCircle,
@@ -21,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { TypedRouteState } from "@/components/ui/typed-route-state";
 import { House, RefreshCw } from "@/lib/icons";
 import {
   AssessmentResultNavigation,
@@ -30,6 +28,7 @@ import {
 import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentReviewAnswerOption";
 import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
 import { cn } from "@/lib/utils";
+import { unstable_rethrow } from "next/navigation";
 import { participantTryoutResultAction } from "./participant-actions";
 
 type ReviewItem = {
@@ -101,19 +100,29 @@ function formatTime(seconds: number) {
 
 function ParticipantResultModule({ attemptId }: { attemptId: string }) {
   const [result, setResult] = useState<Result | null>(null);
-  const [message, setMessage] = useState("Memuat hasil tryout…");
+  const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
 
   const load = useCallback(async () => {
-    setMessage("Memuat hasil tryout…");
-    const response = await participantTryoutResultAction(attemptId);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
+    setLoadState("loading");
+    setLoadError(null);
+    try {
+      const response = await participantTryoutResultAction(attemptId);
+      if (!response.ok) {
+        setLoadState("error");
+        setLoadError(response.message);
+        return;
+      }
+      setResult(response.result as Result);
+      setLoadState("ready");
+      setLoadError(null);
+    } catch (loadResultError) {
+      unstable_rethrow(loadResultError);
+      setLoadState("error");
+      setLoadError(loadResultError instanceof Error ? loadResultError.message : "Hasil Tryout belum dapat dimuat.");
     }
-    setResult(response.result as Result);
-    setMessage("");
   }, [attemptId]);
 
   useEffect(() => {
@@ -122,23 +131,26 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
   }, [load]);
 
   if (!result) {
+    if (loadState === "error") {
+      return (
+        <TypedRouteState
+          context="Konteks percobaan tetap dipertahankan saat kamu mencoba lagi."
+          description={loadError ?? "Hasil Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."}
+          kind="error"
+          onRetry={() => void load()}
+          returnHref="/tryout"
+          returnLabel="Kembali ke Tryout"
+          title="Hasil Tryout belum dapat dimuat"
+        />
+      );
+    }
+
     return (
-      <main className="flex min-h-svh items-center justify-center bg-secondary-50 px-5">
-        <div className="w-full max-w-2xl text-center">
-          <CircleNotch className="mx-auto animate-spin text-5xl text-primary-700" />
-          <h1 className="mt-5 font-heading text-3xl font-semibold tracking-[-0.035em]">Menyiapkan paket hasilmu</h1>
-          <p className="mt-3 text-secondary-600">{message}</p>
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {["Memeriksa jawaban", "Menghitung skor", "Menyusun analisis"].map((label, index) => (
-              <div className="rounded-2xl border border-primary-100 bg-white p-4" key={label}>
-                {index === 2 ? <SpinnerGap className="mx-auto animate-spin text-primary-700" /> : <Check className="mx-auto text-primary-700" />}
-                <p className="mt-2 text-sm font-semibold">{label}</p>
-              </div>
-            ))}
-          </div>
-          <Button className="mt-6" onClick={() => void load()} variant="brandOutline">Coba lagi</Button>
-        </div>
-      </main>
+      <TypedRouteState
+        description="Memeriksa hasil percobaan Tryout dari server. Hasil belum dianggap tersedia sebelum pemeriksaan selesai."
+        kind="loading"
+        title="Menyiapkan hasil Tryout"
+      />
     );
   }
 

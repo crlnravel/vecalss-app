@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TypedRouteState } from "@/components/ui/typed-route-state";
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
 import {
   getAdminPreviewBeranda,
@@ -91,32 +92,35 @@ const previewSurfaces: Record<string, PreviewSurface> = {
   },
 };
 
-function PreviewUnavailable({ message, standalone = false }: { message: string; standalone?: boolean }) {
-  const content = (
-      <Card className="w-full max-w-xl border-primary-100 bg-white shadow-[0_24px_70px_-44px_rgba(1,76,56,0.42)]">
-        <CardHeader>
-          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Student preview unavailable</h1>
-          <CardDescription>{message}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm leading-6 text-secondary-600">
-            No preview student data was loaded. Ask an operations owner to repair the managed fixture or enable the capability.
-          </p>
-          <Button className="mt-5" nativeButton={false} render={<Link href="/admin" />} variant="brandOutline">
-            Kembali ke admin
-          </Button>
-        </CardContent>
-      </Card>
-  );
+type PreviewUnavailableReason = "context" | "missing" | "unsupported";
 
-  return standalone ? (
-    <main className="grid min-h-svh place-items-center bg-secondary-50 px-4 py-10 text-secondary-900">
-      {content}
-    </main>
-  ) : (
-    <section aria-label="Student preview unavailable" className="grid min-h-[40svh] place-items-center text-secondary-900" role="alert">
-      {content}
-    </section>
+function PreviewUnavailable({
+  message,
+  reason = "missing",
+  standalone = false,
+}: {
+  message: string;
+  reason?: PreviewUnavailableReason;
+  standalone?: boolean;
+}) {
+  const title = reason === "context"
+    ? "Preview siswa belum tersedia"
+    : reason === "unsupported"
+      ? "Surface preview belum didukung"
+      : "Resource preview tidak ditemukan";
+  const kind = reason === "context" ? "error" : reason === "missing" ? "not-found" : "unavailable";
+
+  return (
+    <TypedRouteState
+      as={standalone ? "main" : "section"}
+      className={standalone ? "min-h-svh" : "min-h-[40svh]"}
+      context={reason === "context" ? "Tidak ada data preview yang dimuat. Minta pemilik operasi memperbaiki fixture terkelola atau mengaktifkan capability." : undefined}
+      description={message}
+      kind={kind}
+      returnHref="/admin"
+      returnLabel="Kembali ke admin"
+      title={title}
+    />
   );
 }
 
@@ -368,7 +372,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.name ?? "Materi tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewMateriCourseSurface course={data.data} />
-        : <PreviewUnavailable message="Materi yang diminta tidak tersedia atau belum published." />,
+        : <PreviewUnavailable message="Materi yang diminta tidak tersedia atau belum published." reason="missing" />,
       context: data.context,
     });
   }
@@ -379,7 +383,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data.lesson?.title ?? "Materi tidak ditemukan",
       children: data.data.course && data.data.lesson
         ? <AdminStudentPreviewMateriLessonSurface course={data.data.course} lesson={data.data.lesson} />
-        : <PreviewUnavailable message="Lesson yang diminta tidak tersedia atau belum published." />,
+        : <PreviewUnavailable message="Lesson yang diminta tidak tersedia atau belum published." reason="missing" />,
       context: data.context,
     });
   }
@@ -400,7 +404,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.name ?? "Kuis tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewQuizSubjectSurface subject={data.data} />
-        : <PreviewUnavailable message="Subjek Kuis tidak tersedia atau belum memiliki kuis yang terbit." />,
+        : <PreviewUnavailable message="Subjek Kuis tidak tersedia atau belum memiliki kuis yang terbit." reason="missing" />,
       context: data.context,
     });
   }
@@ -411,7 +415,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.title ?? "Kuis tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewQuizDetailSurface quiz={data.data} />
-        : <PreviewUnavailable message="Kuis yang diminta tidak tersedia atau belum published." />,
+        : <PreviewUnavailable message="Kuis yang diminta tidak tersedia atau belum published." reason="missing" />,
       context: data.context,
     });
   }
@@ -432,7 +436,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.title ?? "Tryout tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewTryoutDetailSurface tryout={data.data} />
-        : <PreviewUnavailable message="Tryout yang diminta tidak tersedia atau belum published." />,
+        : <PreviewUnavailable message="Tryout yang diminta tidak tersedia atau belum published." reason="missing" />,
       context: data.context,
     });
   }
@@ -441,7 +445,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     activeLabel: data.surface.activeLabel,
     breadcrumbLabel: data.surface.breadcrumbLabel,
     children: data.surface.title === "Student preview"
-        ? <PreviewUnavailable message="This student preview surface is not supported yet." />
+        ? <PreviewUnavailable message="Surface student preview ini belum didukung." reason="unsupported" />
       : <PreviewPlaceholder context={data.context} surface={data.surface} />,
     context: data.context,
   });
@@ -464,7 +468,7 @@ export default async function AdminStudentPreviewPage({
     data = await resolvePreviewPageData(slug, editBanners);
   } catch (error) {
     if (isAdminStudentPreviewUnavailableError(error)) {
-      return <PreviewUnavailable message={error.message} standalone />;
+      return <PreviewUnavailable message={error.message} reason="context" standalone />;
     }
 
     throw error;

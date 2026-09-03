@@ -7,7 +7,6 @@ import {
   CalendarBlank,
   Check,
   Clock,
-  CircleNotch,
   ClockCountdown,
   Flag,
   ListChecks,
@@ -34,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { TypedRouteState } from "@/components/ui/typed-route-state";
 import { Minus, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
@@ -212,6 +212,8 @@ function ParticipantAttemptStatusScreen({
 
 function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const [state, setState] = useState<State | null>(null);
+  const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState("Memulihkan tryout dari server…");
   const [busy, setBusy] = useState(false);
   const [index, setIndex] = useState(0);
@@ -223,15 +225,24 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const [submitOpen, setSubmitOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const activeRunRef = useRef<string | null>(null);
+  const stateRef = useRef<State | null>(null);
   const router = useRouter();
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
 
   const refresh = useCallback(async () => {
     setBusy(true);
+    setLoadState(stateRef.current ? "ready" : "loading");
+    setLoadError(null);
     try {
       const response = await tryoutAttemptStateAction(attemptId);
       if (!response.ok) {
-        setMessage(response.message);
+        if (stateRef.current) {
+          setMessage(response.message);
+        } else {
+          setLoadState("error");
+          setLoadError(response.message);
+          setMessage("");
+        }
         return;
       }
       const nextState = response.result as State;
@@ -258,11 +269,21 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
           setMarked(new Set());
         }
       }
+      stateRef.current = nextState;
       setState(nextState);
+      setLoadState("ready");
+      setLoadError(null);
       setMessage(restoredPositionMessage);
     } catch (refreshError) {
       unstable_rethrow(refreshError);
-      setMessage(refreshError instanceof Error ? refreshError.message : "Tryout belum dapat dimuat.");
+      const failureMessage = refreshError instanceof Error ? refreshError.message : "Tryout belum dapat dimuat.";
+      if (stateRef.current) {
+        setMessage(failureMessage);
+      } else {
+        setLoadState("error");
+        setLoadError(failureMessage);
+        setMessage("");
+      }
     } finally {
       setBusy(false);
     }
@@ -426,10 +447,26 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   };
 
   if (!state) {
+    if (loadState === "error") {
+      return (
+        <TypedRouteState
+          context="Konteks percobaan tetap dipertahankan saat kamu mencoba lagi."
+          description={loadError ?? "Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."}
+          kind="error"
+          onRetry={() => void refresh()}
+          returnHref="/tryout"
+          returnLabel="Kembali ke Tryout"
+          title="Percobaan Tryout belum dapat dimuat"
+        />
+      );
+    }
+
     return (
-      <main className="flex min-h-svh items-center justify-center bg-[#f7faf8] px-5 text-secondary-700">
-        <div className="text-center"><CircleNotch className="mx-auto animate-spin text-4xl text-primary-700" /><p className="mt-4">{message}</p></div>
-      </main>
+      <TypedRouteState
+        description="Memulihkan percobaan Tryout dari server. Jawaban yang tersimpan tidak diubah."
+        kind="loading"
+        title="Memulihkan percobaan Tryout"
+      />
     );
   }
 
