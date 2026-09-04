@@ -56,6 +56,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { MediaAssetPreview, MediaPickerDialog } from "@/modules/media/media-library";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
@@ -101,8 +102,10 @@ type ReleaseMeta = {
   publishedAt: string;
 };
 type TryoutDraft = {
+  admissionMode?: Mode;
   assessmentRelease?: ReleaseMeta | null;
   bannerMediaId?: string | null;
+  defaultReleasePolicy?: DefaultPolicy | "inherit" | "scheduled";
   description: string;
   id: string;
   locked: boolean;
@@ -111,6 +114,12 @@ type TryoutDraft = {
   title: string;
   updatedAt: number;
 };
+
+function defaultPolicyForDraft(value?: TryoutDraft["defaultReleasePolicy"]): DefaultPolicy {
+  return value === "immediate" || value === "manual" || value === "automatic_at_end"
+    ? value
+    : "automatic_at_end";
+}
 type SourceBank = {
   categories?: Array<{ id: string; name: string }>;
   description: string;
@@ -977,7 +986,9 @@ function useTryoutBuilderState({
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
 }) {
   const initialFormDraft = useMemo<TryoutDraft>(() => normalize(initialDraft ?? {
+    admissionMode: "open",
     bannerMediaId: null,
+    defaultReleasePolicy: "automatic_at_end",
     description: "",
     id: id ?? "baru",
     locked: false,
@@ -1185,7 +1196,9 @@ function useTryoutBuilderState({
     dispatch({ error: null, type: "setError" });
     try {
       const result = await saveTryoutAction({
+        admissionMode: id ? undefined : draftToSave.admissionMode ?? "open",
         bannerMediaId: draftToSave.bannerMediaId ?? null,
+        defaultResultReleasePolicy: id ? undefined : defaultPolicyForDraft(draftToSave.defaultReleasePolicy),
         description: draftToSave.description,
         id,
         sections: draftToSave.sections.map((section) => ({
@@ -1587,20 +1600,43 @@ function TryoutPhaseNavigation({
 
 function TryoutDeliveryTab({
   changeDeliveryArea,
+  createPolicy,
   deliveryArea,
   id,
+  onCreatePolicyChange,
   onSaveDraft,
   operationsInitial,
 }: {
   changeDeliveryArea: (area: DeliveryArea) => void;
+  createPolicy: { admissionMode: Mode; defaultReleasePolicy: DefaultPolicy };
   deliveryArea: DeliveryArea;
   id?: string;
+  onCreatePolicyChange: (policy: { admissionMode: Mode; defaultReleasePolicy: DefaultPolicy }) => void;
   onSaveDraft: () => void;
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
 }) {
   return (
     <TabsContent className="mt-0 min-w-0 w-full" value="schedule">
-      {!id || !operationsInitial ? (
+      {!id ? (
+        <section aria-labelledby="create-schedule-policy-title" className="grid gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-secondary-900" id="create-schedule-policy-title">Aturan akses awal</h2>
+            <p className="mt-1 text-sm leading-6 text-secondary-600">Pilih kebijakan sebelum menyimpan draf pertama. Pilihan ini akan diterapkan saat Tryout dibuat.</p>
+          </div>
+          <KaptenTryoutPolicyPageModule
+            embedded
+            initial={{
+              admissionMode: createPolicy.admissionMode,
+              defaultReleasePolicy: createPolicy.defaultReleasePolicy,
+              id: "",
+              title: "Tryout baru",
+            }}
+            mode="create"
+            onCreatePolicyChange={onCreatePolicyChange}
+            onNext={onSaveDraft}
+          />
+        </section>
+      ) : !operationsInitial ? (
         <WorkspaceUnavailable onSaveDraft={onSaveDraft} />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
@@ -1628,7 +1664,16 @@ function TryoutDeliveryTab({
             {deliveryArea === "policy" ? (
               <section aria-labelledby="schedule-policy-title">
                 <h2 className="mb-4 text-xl font-semibold text-secondary-900" id="schedule-policy-title">Aturan akses</h2>
-                <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} onNext={() => changeDeliveryArea("sessions")} />
+                <KaptenTryoutPolicyPageModule
+                  embedded
+                  initial={{
+                    admissionMode: operationsInitial.admissionMode as Mode,
+                    defaultReleasePolicy: operationsInitial.defaultReleasePolicy as DefaultPolicy,
+                    id: operationsInitial.id,
+                    title: operationsInitial.title,
+                  }}
+                  onNext={() => changeDeliveryArea("sessions")}
+                />
               </section>
             ) : null}
             {deliveryArea === "sessions" ? (
@@ -1889,8 +1934,13 @@ function KaptenTryoutBuilderPageModule({
 
             <TryoutDeliveryTab
               changeDeliveryArea={changeDeliveryArea}
+              createPolicy={{
+                admissionMode: draft.admissionMode ?? "open",
+                defaultReleasePolicy: defaultPolicyForDraft(draft.defaultReleasePolicy),
+              }}
               deliveryArea={deliveryArea}
               id={id}
+              onCreatePolicyChange={(policy) => updateDraft((current) => ({ ...current, ...policy }))}
               onSaveDraft={() => void save("draft")}
               operationsInitial={operationsInitial}
             />

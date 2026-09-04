@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AssessmentAttemptState, AttemptStatus, ContentStatus, MediaAssetState, MediaLibraryScope, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AttemptStatus, ContentStatus, MediaAssetState, MediaLibraryScope, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAdmissionMode, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutResultReleasePolicy, TryoutTestType } from "@/generated/prisma/client";
 import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { distinctTryoutUsageCounts, summarizePackageLifecycle, type PackageLifecycleItem } from "@/lib/tryout/package-lifecycle";
@@ -25,7 +25,7 @@ type PackageVersionReadiness = {
   itemCount: number;
   sourceQuestionIds: string[];
 };
-type SaveTryoutInput = { bannerMediaId?: string | null; description: string; id?: string; publicationIntentKey?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
+type SaveTryoutInput = { admissionMode?: "open" | "approval_required" | "invitation_only"; bannerMediaId?: string | null; defaultResultReleasePolicy?: "immediate" | "manual" | "automatic_at_end"; description: string; id?: string; publicationIntentKey?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
 class TryoutValidationError extends Error {}
 type PackageConflictCode = "package_conflict";
 class PackageConflictError extends TryoutValidationError {
@@ -271,8 +271,10 @@ function hasArchivedPackageBinding(record: TryoutPackageBindingRecord) {
 function toTryoutDto(record: TryoutReadRecord) {
   const release = record.assessmentReleases[0] ?? null;
   return {
+    admissionMode: record.admissionMode,
     assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null,
     bannerMediaId: record.bannerMediaId,
+    defaultReleasePolicy: record.defaultResultReleasePolicy,
     description: record.description ?? "",
     id: record.id,
     locked: record.attempts.length > 0,
@@ -647,6 +649,8 @@ function validateTryoutInput(input: SaveTryoutInput) {
     if (legacySection.packageVersionId) throw new TryoutValidationError("Paket Soal sudah diarsipkan. Pilih soal langsung dari Bank Soal.");
   }
   if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
+  if (input.admissionMode !== undefined && !["open", "approval_required", "invitation_only"].includes(input.admissionMode)) throw new TryoutValidationError("Kebijakan akses Tryout tidak valid.");
+  if (input.defaultResultReleasePolicy !== undefined && !["immediate", "manual", "automatic_at_end"].includes(input.defaultResultReleasePolicy)) throw new TryoutValidationError("Kebijakan rilis hasil Tryout tidak valid.");
   if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tepat tujuh Test subject.");
   if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1 || (section.testType === "cat" && (!Number.isInteger(section.catItemCount) || section.catItemCount! < 1)))) throw new TryoutValidationError("Konfigurasi durasi atau jumlah soal CAT tidak valid.");
 }
@@ -694,9 +698,9 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (participantAccessibleRelease) throw new TryoutValidationError("Tryout memiliki sesi aktif yang telah mengikat AssessmentRelease. Tutup atau arsipkan sesi sebelum mengganti baris fisik.");
       await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
       await tx.tryoutSection.deleteMany({ where: { tryoutId: id } });
-      await tx.tryoutPackage.update({ where: { id }, data: { bannerMediaId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
+      await tx.tryoutPackage.update({ where: { id }, data: { admissionMode: input.admissionMode as TryoutAdmissionMode | undefined, bannerMediaId, defaultResultReleasePolicy: input.defaultResultReleasePolicy as TryoutResultReleasePolicy | undefined, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
     } else {
-      const created = await tx.tryoutPackage.create({ data: { bannerMediaId, code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
+      const created = await tx.tryoutPackage.create({ data: { admissionMode: (input.admissionMode ?? "open") as TryoutAdmissionMode, bannerMediaId, code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, defaultResultReleasePolicy: (input.defaultResultReleasePolicy ?? "automatic_at_end") as TryoutResultReleasePolicy, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
     }
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });

@@ -539,7 +539,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     setBusy(true);
     setMessage(null);
     try {
-      const payload = await sendCommand(`/api/admin/ai-policy/bundles/${targetBundleId}/rollback`, {
+      const payload = await sendCommand(`/api/admin/ai-policy/${targetBundleId}/rollback`, {
         clientRequestId: createRequestId("rollback"),
         reason: reason.trim(),
       });

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
-import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
@@ -28,29 +27,42 @@ import {
   configureTryoutDefaultResultReleaseAction,
 } from "@/modules/mentor/tryout-actions";
 
+type TryoutPolicyInitial = {
+  admissionMode: Mode;
+  defaultReleasePolicy: DefaultPolicy;
+  id: string;
+  title: string;
+};
+
+type CreatePolicyChange = {
+  admissionMode: Mode;
+  defaultReleasePolicy: DefaultPolicy;
+};
+
 function KaptenTryoutPolicyPageModule({
   embedded = false,
   initial,
   mode = "edit",
+  onCreatePolicyChange,
   onNext,
 }: {
   embedded?: boolean;
-  initial: TryoutOperationsView;
+  initial: TryoutPolicyInitial;
   mode?: "create" | "edit";
+  onCreatePolicyChange?: (policy: CreatePolicyChange) => void;
   onNext?: () => void;
 }) {
   const initialAdmissionMode = mode === "create" ? "open" : initial.admissionMode as Mode;
+  const initialDefaultReleasePolicy = initial.defaultReleasePolicy as DefaultPolicy;
   const [admissionMode, setAdmissionMode] = useState<Mode>(initialAdmissionMode);
-  const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(
-    initial.defaultReleasePolicy as DefaultPolicy,
-  );
+  const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(initialDefaultReleasePolicy);
   const [pendingAdmissionMode, setPendingAdmissionMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
   const tryoutHref = `/mentor/tryout/${initial.id}`;
 
   const admissionChanged = admissionMode !== initialAdmissionMode;
-  const releaseChanged = defaultReleasePolicy !== initial.defaultReleasePolicy;
+  const releaseChanged = defaultReleasePolicy !== initialDefaultReleasePolicy;
 
   const requestAdmissionMode = (next: Mode) => {
     if (next === admissionMode) return;
@@ -58,13 +70,27 @@ function KaptenTryoutPolicyPageModule({
   };
 
   const confirmAdmissionMode = () => {
-    if (pendingAdmissionMode) setAdmissionMode(pendingAdmissionMode);
+    if (pendingAdmissionMode) {
+      setAdmissionMode(pendingAdmissionMode);
+      onCreatePolicyChange?.({ admissionMode: pendingAdmissionMode, defaultReleasePolicy });
+    }
     setPendingAdmissionMode(null);
   };
 
   const handleSave = async () => {
     if (!admissionChanged && !releaseChanged) {
-      setNotice({ message: "Tidak ada perubahan untuk disimpan.", tone: "default" });
+      setNotice({
+        message: mode === "create"
+          ? "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya."
+          : "Tidak ada perubahan untuk disimpan.",
+        tone: "default",
+      });
+      onNext?.();
+      return;
+    }
+
+    if (mode === "create") {
+      setNotice({ message: "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya.", tone: "default" });
       onNext?.();
       return;
     }
@@ -133,7 +159,11 @@ function KaptenTryoutPolicyPageModule({
           <OptionSet
             label="Jadwal rilis hasil"
             labelTooltip="Kebijakan ini digunakan oleh sesi yang memilih Ikuti kebijakan Tryout."
-            onValueChange={setDefaultReleasePolicy}
+            onValueChange={(value) => {
+              const nextPolicy = value as DefaultPolicy;
+              setDefaultReleasePolicy(nextPolicy);
+              onCreatePolicyChange?.({ admissionMode, defaultReleasePolicy: nextPolicy });
+            }}
             options={(["immediate", "automatic_at_end", "manual"] as DefaultPolicy[]).map((value) => ({
               label: policyLabels[value],
               tooltip: value === "immediate"

@@ -88,6 +88,8 @@ includes(policy, 'method,', "Policy commands must expose an explicit HTTP method
 includes(policy, 'expectedRevision: draft.revision', "Policy commands must send the persisted revision.");
 includes(policy, 'validationDigest: draft.validationDigest', "Policy approval/preview commands must send the validation digest.");
 includes(policy, 'drafts/${draft.id}/activate', "Policy activation must target the draft-specific server route.");
+includes(policy, 'ai-policy/${targetBundleId}/rollback', "Policy rollback must target the existing bundle rollback route.");
+excludes(policy, 'ai-policy/bundles/${targetBundleId}/rollback', "Policy rollback must not target a nonexistent bundles route.");
 const copyValue = read("modules/admin/components/copy-value-button.tsx");
 includes(copyValue, "isMaskedValue", "Masked admin values must be detected before copy.");
 includes(copyValue, "disabled={masked}", "Masked admin values must disable copy.");
@@ -134,12 +136,24 @@ excludes(vera, "DAILY_TOKEN_USAGE", "Vera must not fabricate a fallback quota us
 excludes(vera, "DAILY_TOKEN_LIMIT", "Vera must not fabricate a fallback quota limit value.");
 
 const tryoutPolicy = read("modules/mentor/KaptenTryoutPolicyPageModule.tsx");
+const tryoutBuilder = read("modules/mentor/KaptenTryoutBuilderPageModule.tsx");
+const tryoutRepository = read("lib/tryout/repository.ts");
 const tryoutActions = read("modules/mentor/tryout-actions.ts");
 includes(tryoutPolicy, "initial.admissionMode", "Tryout edit mode must initialize from persisted admission mode.");
+includes(tryoutPolicy, 'mode === "create"', "Tryout create mode must have an explicit branch.");
+includes(tryoutPolicy, "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya.", "Tryout create mode must disclose that policy is applied on the first draft save.");
 excludes(tryoutPolicy, 'useState<Mode>("open")', "Tryout edit mode must not reset admission to open.");
 includes(tryoutPolicy, "tryout-admission-confirmation", "Admission changes must require confirmation.");
 includes(tryoutPolicy, "Pengaturan akses peserta Tryout", "Admission confirmation must name its audit context.");
 includes(tryoutPolicy, "Perlu persetujuan", "Restricted admission mode must be selectable when deliberate.");
+includes(tryoutBuilder, 'mode="create"', "Tryout create route must render the create-mode policy surface.");
+includes(tryoutBuilder, "onCreatePolicyChange", "Tryout create policy changes must flow back to the draft before saving.");
+includes(tryoutBuilder, "admissionMode: id ? undefined : draftToSave.admissionMode ?? \"open\"", "Tryout create saves must carry the selected admission mode without resetting edit state.");
+includes(tryoutBuilder, "defaultResultReleasePolicy: id ? undefined : defaultPolicyForDraft(draftToSave.defaultReleasePolicy)", "Tryout create saves must carry the selected release policy without resetting edit state.");
+includes(tryoutRepository, "admissionMode?: \"open\" | \"approval_required\" | \"invitation_only\"", "Tryout persistence must accept the create admission policy.");
+includes(tryoutRepository, "defaultResultReleasePolicy?: \"immediate\" | \"manual\" | \"automatic_at_end\"", "Tryout persistence must accept the create release policy.");
+includes(tryoutRepository, "admissionMode: (input.admissionMode ?? \"open\")", "New Tryout records must persist the visible open default when unchanged.");
+includes(tryoutRepository, "defaultResultReleasePolicy: (input.defaultResultReleasePolicy ?? \"automatic_at_end\")", "New Tryout records must persist the visible release default.");
 includes(tryoutActions, "revalidatePath(`/mentor/tryout/${tryoutId}/operations/policy`)", "Tryout policy changes must refresh the persisted policy view.");
 
 console.log(`PASS ui-ux-uix-02: ${checks} checks`);
