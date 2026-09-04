@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 
 import { startQuizAction } from "./actions";
 
+const REPORT_DISCLOSURE = "Tanda ini hanya tersimpan sementara di halaman ini, tidak dikirim ke staf, dan terhapus saat halaman ditutup atau dimuat ulang.";
+
 type QuizResult = {
   aggregateScore: number | null;
   answeredCount: number;
@@ -216,13 +218,14 @@ function QuizResultPageModule({
             <span className="sr-only">{subjectTitle}</span>
           </div>
           <div className="flex items-center gap-2">
-            <AssessmentUtilityPill active={reportedQuestions.includes(currentQuestion)} icon={Flag} label="Laporkan soal" onClick={toggleReport} />
+            <AssessmentUtilityPill active={reportedQuestions.includes(currentQuestion)} icon={Flag} label="Tandai untuk ditinjau" onClick={toggleReport} />
             <StudentBadge size="md" tone={!result.correctnessAvailable ? "neutral" : isCorrect ? "success" : "danger"}>
               {result.correctnessAvailable ? (isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />) : null}
               {result.correctnessAvailable ? (isCorrect ? "Benar" : selectedOption ? "Salah" : "Tidak dijawab") : selectedOption ? "Jawaban tersimpan" : "Tidak dijawab"}
             </StudentBadge>
           </div>
         </div>
+        <p className="mt-2 text-xs leading-5 text-secondary-500">{REPORT_DISCLOSURE}</p>
 
         <div className={cn("mt-6 font-medium text-secondary-900", readingTextClass)}>
           <p>{question.prompt}</p>

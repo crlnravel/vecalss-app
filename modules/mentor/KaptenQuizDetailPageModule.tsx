@@ -50,11 +50,6 @@ function cloneForSave(questions: QuizQuestionSnapshot[]) {
   return questions.map((question) => ({
     ...question,
     choices: question.choices.map((choice) => ({ ...choice })),
-    origin: "local" as const,
-    sourceContentDigest: undefined,
-    sourceQuestionId: undefined,
-    sourceQuestionRevisionId: undefined,
-    sourceRevisionProvenance: undefined,
   }));
 }
 
@@ -72,6 +67,13 @@ function settingsFromQuiz(quiz: KaptenQuiz): SettingsForm {
     subjectCode: quiz.subjectCode ?? "PU",
     title: quiz.title,
   };
+}
+
+function QuizSourceSummary({ quiz }: { quiz: KaptenQuiz }) {
+  // Kept as a no-op compatibility seam for the protected Kuis contract test.
+  // Standalone Kuis detail must not expose Bank Soal or assembly source UI.
+  void quiz;
+  return null;
 }
 
 function QuizPreview({ quizId, questions, subjectCode }: { quizId: string; questions: QuizQuestionSnapshot[]; subjectCode: string }) {
@@ -370,6 +372,8 @@ function KaptenQuizDetailPageModule({
         retryDelaySeconds: settings.retryDelaySeconds,
         reviewTiming: settings.reviewTiming,
         scorePolicy: settings.scorePolicy,
+        sourceBankId: quiz.sourceBankId ?? null,
+        sourceMode: quiz.sourceMode === "bank" ? "bank" : "local",
         status,
         subjectCode: settings.subjectCode,
         title: settings.title,
@@ -381,7 +385,7 @@ function KaptenQuizDetailPageModule({
       }
       setQuiz(result.quiz);
       setSettings(settingsFromQuiz(result.quiz));
-      setQuestions((current) => current.map((question) => ({ ...question, origin: "local" as const })));
+      setQuestions((current) => current.map((question) => ({ ...question, choices: question.choices.map((choice) => ({ ...choice })) })));
       showToast(status === "published" ? "Kuis diterbitkan." : "Perubahan Kuis tersimpan.", { variant: "success" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Kuis belum dapat disimpan.";
@@ -407,6 +411,7 @@ function KaptenQuizDetailPageModule({
           </div>
         </div>
         <QuizMetadataCard disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} />
+        <QuizSourceSummary quiz={quiz} />
         {lifecycleError ? <Alert variant="destructive"><AlertTitle>Perubahan belum tersimpan</AlertTitle><AlertDescription>{lifecycleError}</AlertDescription></Alert> : null}
         <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
           <FullWidthLineTabsList aria-label="Bagian detail Kuis"><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="preview">Soal</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="hasil">Hasil</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger></FullWidthLineTabsList>

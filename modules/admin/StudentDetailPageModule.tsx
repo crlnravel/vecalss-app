@@ -6,8 +6,10 @@ import {
   ChevronLeft,
   Target,
 } from "@/lib/icons";
+import { StudentDetailTargetExamSelect } from "./components/student-detail-target-exam-select";
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type {
   ExamEvent,
@@ -166,8 +168,16 @@ function StudentDetailPageModule({
 }) {
   const profile = student.studentProfile;
   const { firstName, lastName } = splitStudentName(student.fullName);
+  const persistedTargetExamId = profile?.targetExamEventId ?? "";
   const targetExam = profile?.targetExamEvent?.name ?? "Belum diatur";
   const targetExamDate = formatExamDate(profile?.targetExamEvent?.examDate ?? null);
+  const targetExamIsInactive = Boolean(
+    persistedTargetExamId &&
+      !examEvents.some((examEvent) => examEvent.id === persistedTargetExamId),
+  );
+  const inactiveTargetExamLabel = targetExam !== "Belum diatur"
+    ? targetExam
+    : "Target tersimpan";
   const targetUniversity =
     profile?.targetUniversity?.shortName ||
     profile?.targetUniversity?.name ||
@@ -240,7 +250,7 @@ function StudentDetailPageModule({
                 <span className="font-medium text-secondary-900">Password</span>
                 <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
                   <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
-                   <CopyValueButton ariaLabel="Salin password tersembunyi" iconOnly value={maskedPassword} />
+                   <CopyValueButton ariaLabel="Password tersamarkan, tidak dapat disalin" iconOnly value={maskedPassword} />
                 </div>
               </div>
               <div className="min-w-0 space-y-2 text-sm">
@@ -254,7 +264,14 @@ function StudentDetailPageModule({
             </div>
           </DetailSection>
 
-          <StudentDetailForm>
+          <StudentDetailForm
+            blockedField={targetExamIsInactive
+              ? {
+                  name: "targetExamEventId",
+                  value: persistedTargetExamId,
+                }
+              : undefined}
+          >
             <input name="userId" type="hidden" value={student.id} />
             <input name="returnPath" type="hidden" value={returnPath} />
 
@@ -287,25 +304,34 @@ function StudentDetailPageModule({
 
             <DetailSection title="Profil enrollment">
               <div className="grid gap-5 md:grid-cols-2">
-                <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                   <span className="font-medium text-secondary-900">Target ujian</span>
-                  <select
-                    className={`${detailFieldClassName} appearance-auto cursor-pointer pr-12`}
-                    defaultValue={profile?.targetExamEventId ?? ""}
-                    name="targetExamEventId"
-                  >
-                    <option value="">Atur nanti</option>
-                    {examEvents.map((examEvent) => (
-                      <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
-                    ))}
-                  </select>
+                <Field className="min-w-0 gap-2 text-sm md:col-span-2">
+                  <FieldLabel className="text-sm font-medium leading-5 text-secondary-900" htmlFor="student-target-exam">Target ujian</FieldLabel>
+                  <StudentDetailTargetExamSelect
+                    initialValue={persistedTargetExamId}
+                    options={[
+                      { label: "Atur nanti", value: "" },
+                      ...(targetExamIsInactive
+                        ? [{
+                            disabled: true,
+                            label: `${inactiveTargetExamLabel} (sudah tidak aktif)`,
+                            value: persistedTargetExamId,
+                          }]
+                        : []),
+                      ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
+                    ]}
+                  />
+                  {targetExamIsInactive ? (
+                    <p className="text-xs leading-5 text-student-status-attention-fg" role="alert">
+                      Target ujian tersimpan sudah tidak aktif. Pilih target baru atau Atur nanti sebelum menyimpan.
+                    </p>
+                  ) : null}
                   {targetExam !== "Belum diatur" ? (
                     <span className="flex items-center gap-1.5 text-xs text-secondary-600">
                       <CalendarDays aria-hidden="true" size={14} />
                       {targetExamDate ? `Tanggal ujian · ${targetExamDate}` : "Tanggal ujian belum diatur"}
                     </span>
                   ) : null}
-                </label>
+                </Field>
 
                 <div className="min-w-0 space-y-2 text-sm">
                    <span className="font-medium text-secondary-900">Universitas</span>

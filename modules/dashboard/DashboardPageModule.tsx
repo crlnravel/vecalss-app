@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -13,6 +12,7 @@ import {
   Activity,
   Gauge,
   History,
+  Info,
   ListChecks,
   UserRound,
   Target,
@@ -29,16 +29,8 @@ import {
 } from "@/components/ui/empty";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   ExamEvent,
   Major,
@@ -53,15 +45,6 @@ import {
 } from "@/lib/student/banner-content";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import { cn } from "@/lib/utils";
-
-const Bar = dynamic(() => import("recharts").then((module) => module.Bar));
-const BarChart = dynamic(() => import("recharts").then((module) => module.BarChart));
-const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid));
-const PolarAngleAxis = dynamic(() => import("recharts").then((module) => module.PolarAngleAxis));
-const PolarGrid = dynamic(() => import("recharts").then((module) => module.PolarGrid));
-const Radar = dynamic(() => import("recharts").then((module) => module.Radar));
-const RadarChart = dynamic(() => import("recharts").then((module) => module.RadarChart));
-const XAxis = dynamic(() => import("recharts").then((module) => module.XAxis));
 
 type DashboardProfile = StudentProfile & {
   targetExamEvent: ExamEvent | null;
@@ -103,39 +86,6 @@ const chapterTabs = [
   { label: "Literasi Bahasa Inggris", value: "LBE" },
   { label: "Penalaran Matematika", value: "PM" },
 ];
-
-const emptyMastery = [
-  { subject: "PU", value: 0 },
-  { subject: "PPU", value: 0 },
-  { subject: "PBM", value: 0 },
-  { subject: "PK", value: 0 },
-  { subject: "LBI", value: 0 },
-  { subject: "LBE", value: 0 },
-];
-
-const emptyActivity = [
-  { day: "Sen", minutes: 0 },
-  { day: "Sel", minutes: 0 },
-  { day: "Rab", minutes: 0 },
-  { day: "Kam", minutes: 0 },
-  { day: "Jum", minutes: 0 },
-  { day: "Sab", minutes: 0 },
-  { day: "Min", minutes: 0 },
-];
-
-const activityChartConfig = {
-  minutes: {
-    color: "#82c8b2",
-    label: "Menit belajar",
-  },
-} satisfies ChartConfig;
-
-const masteryChartConfig = {
-  value: {
-    color: "#b6d9cc",
-    label: "Penguasaan",
-  },
-} satisfies ChartConfig;
 
 function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "Voyager";
@@ -211,13 +161,14 @@ function DashboardPageModule({
               </div>
               <div className="flex flex-wrap gap-3">
                 <HeroCountdownPill daysLeft={examDaysLeft} />
-                <HeroXpPill level={7} progress={68} total={100} xp="1.840" />
+                <HeroDataPill />
               </div>
             </div>
           </CardHeader>
         </Card>
       </section>
 
+      <DashboardDataNotice />
       <QuickAccessSection />
       <DailyMissionSection />
       <AnalyticsSection />
@@ -239,33 +190,28 @@ function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
   );
 }
 
-function HeroXpPill({
-  level,
-  progress,
-  total,
-  xp,
-}: {
-  level: number;
-  progress: number;
-  total: number;
-  xp: string;
-}) {
+function HeroDataPill() {
   return (
-    <div className="inline-flex min-h-10 overflow-hidden rounded-full bg-primary-700 text-white shadow-[0_14px_30px_-22px_rgba(1,76,56,0.58)]">
-      <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-secondary-700">
-        <span className="text-base font-bold leading-none text-primary-700">XP</span>
-        <span className="text-lg font-bold leading-none">{xp}</span>
-      </div>
-      <div className="flex min-w-32 items-center gap-2.5 px-3.5 py-2">
-        <div>
-          <p className="text-xs font-bold leading-none">Tingkat {level}</p>
-          <div className="mt-1 h-1.5 w-[72px] overflow-hidden rounded-full bg-primary-950/30">
-            <div className="h-full rounded-full bg-white/86" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-        <span className="text-xs font-bold leading-none">{progress}/{total}</span>
-      </div>
+    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary-200 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
+      <Info aria-hidden="true" className="size-[18px] text-primary-700" />
+      <span className="text-sm font-semibold leading-none">XP belum tersedia</span>
     </div>
+  );
+}
+
+function DashboardDataNotice() {
+  return (
+    <Card className="border-primary-200 bg-primary-50/70 shadow-none">
+      <CardContent className="flex items-start gap-3 px-5 py-4">
+        <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
+        <div>
+          <p className="text-sm font-semibold text-secondary-900">Data dashboard belum tersedia</p>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">
+            Ringkasan aktivitas di bawah belum tersambung ke sumber live. Nilai XP, misi, dan analitik tidak akan dianggap tersimpan sampai data tersedia.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -315,26 +261,24 @@ function QuickAccessSection() {
 function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-4" id="daily-mission">
-      <DashboardSectionHeading icon={Target} title="Misi Harian Day 1" />
+      <DashboardSectionHeading icon={Target} title="Misi Harian" />
       <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
         <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
           <CardDescription className="text-sm text-secondary-500">
-            Yuk, selesaikan tugas harian kamu!
+            Belum tersedia karena sumber aktivitas belum tersambung.
           </CardDescription>
-          <CardAction className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-secondary-600">0/3</span>
-            <Progress aria-label="Progres misi harian" className="w-24 gap-0" value={0} />
-          </CardAction>
+          <span className="shrink-0 text-xs font-semibold text-secondary-500">Belum dimulai</span>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 px-5 pb-5">
           {dailyMissionItems.map((mission) => (
-            <label
-              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-secondary-300 bg-white px-3.5 py-2.5 transition-colors hover:border-primary-200 hover:bg-primary-50/25"
+            <div
+              aria-disabled="true"
+              className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-secondary-50/60 px-3.5 py-2.5 text-secondary-500"
               key={mission}
             >
-              <Checkbox aria-label={mission} className="size-5 rounded-full border-secondary-300 bg-white" />
-              <span className="text-sm font-medium text-secondary-800">{mission}</span>
-            </label>
+              <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full border border-secondary-300 bg-white text-xs">–</span>
+              <span className="text-sm font-medium">{mission}</span>
+            </div>
           ))}
         </CardContent>
       </Card>
@@ -365,35 +309,24 @@ function AnalyticsCard({ children, description, title }: { children: React.React
 }
 
 function AccuracyCard() {
-  return (
-    <AnalyticsCard description="Lakukan lebih banyak latihan untuk melihat analisis akurasi..." title="Akurasi">
-      <div className="relative flex min-h-[230px] w-full items-center justify-center">
-        <ChartContainer className="h-[220px] w-full max-w-[270px]" config={masteryChartConfig}>
-          <RadarChart data={emptyMastery}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--secondary-500)", fontSize: 10 }} />
-            <Radar dataKey="value" fill="var(--color-value)" fillOpacity={0.16} stroke="var(--color-value)" strokeWidth={2} />
-          </RadarChart>
-        </ChartContainer>
-        <span className="pointer-events-none absolute rounded-full border border-secondary-300 bg-white px-2.5 py-1 text-xs font-semibold text-secondary-700">
-          0%
-        </span>
-      </div>
-    </AnalyticsCard>
-  );
+  return <UnavailableAnalyticsCard description="Belum ada sumber aktivitas untuk menghitung akurasi." title="Akurasi" />;
 }
 
 function PracticeActivityCard() {
+  return <UnavailableAnalyticsCard description="Belum ada sumber aktivitas untuk menampilkan tren." title="Aktivitas Latihan" />;
+}
+
+function UnavailableAnalyticsCard({ description, title }: { description: string; title: string }) {
   return (
-    <AnalyticsCard description="7 hari terakhir" title="Aktivitas Latihan">
-      <ChartContainer className="h-[230px] w-full" config={activityChartConfig}>
-        <BarChart data={emptyActivity} margin={{ left: -18, right: 4, top: 12, bottom: 0 }}>
-          <CartesianGrid vertical={false} strokeDasharray="4 4" />
-          <XAxis axisLine={false} dataKey="day" tickLine={false} tickMargin={8} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="minutes" fill="var(--color-minutes)" radius={[8, 8, 3, 3]} />
-        </BarChart>
-      </ChartContainer>
+    <AnalyticsCard description={description} title={title}>
+      <Empty className="min-h-[230px] gap-3 border-0 p-4">
+        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-secondary-500" variant="icon">
+          <Info />
+        </EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle className="text-sm font-medium text-secondary-600">Belum tersedia</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     </AnalyticsCard>
   );
 }

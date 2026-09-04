@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ComponentProps,
   useCallback,
   useEffect,
   useMemo,
@@ -100,7 +101,7 @@ import {
   FullWidthLineTabsList,
   FullWidthLineTabsTrigger,
 } from "@/components/ui/full-width-line-tabs";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
@@ -113,7 +114,7 @@ import {
   veraPracticeHistory,
   veraStudioTools,
   veraToolModes,
-  type VeraContextSource,
+  type VeraContextSource as VeraContextSourceSeed,
   type VeraContextTypeId,
   type VeraMaterialHistory,
   type VeraPracticeHistory,
@@ -122,6 +123,12 @@ import {
 } from "./data";
 
 type WorkspaceTab = "chat" | "context" | "studio";
+type VeraDataState = "loading" | "live" | "unavailable";
+
+type VeraContextSource = VeraContextSourceSeed & {
+  releasedAt?: string;
+  subtitle?: string;
+};
 
 type VeraBackendConversation = {
   id: string;
@@ -156,6 +163,8 @@ type VeraBackendContextSource = {
   sourceId: string;
   title: string | null;
   displayOrder: number;
+  releasedAt?: string;
+  subtitle?: string;
 };
 
 type VeraBackendContext = {
@@ -282,19 +291,22 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  const value = (await response.json().catch(() => ({ error: "invalid_response" }))) as T & {
-    error?: string;
-  };
 
   if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => ({ error: "invalid_response" }))) as { error?: string };
     throw new VeraRequestError(
-      value.error ?? "request_failed",
-      value as Record<string, unknown>,
+      errorPayload.error ?? "request_failed",
+      errorPayload as Record<string, unknown>,
     );
   }
 
-  return value;
+  return response.json() as Promise<T>;
 }
+
+const RELATIVE_DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "short",
+});
 
 function relativeTime(value: string) {
   const minutes = Math.max(
@@ -314,10 +326,7 @@ function relativeTime(value: string) {
     return `${Math.round(minutes / 60)} jam lalu`;
   }
 
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(value));
+  return RELATIVE_DATE_FORMATTER.format(new Date(value));
 }
 
 const veraErrorLabels: Record<string, string> = {
@@ -354,6 +363,7 @@ const veraErrorLabels: Record<string, string> = {
     "Data tujuan berubah di perangkat lain. Muat ulang lalu coba lagi.",
   unauthenticated: "Sesi login berakhir. Silakan masuk kembali.",
   usage_unavailable: "Penggunaan Vera belum dapat dimuat.",
+  sources_unavailable: "Daftar sumber belajar Vera belum dapat dimuat.",
   vera_unavailable: "Vera sedang tidak tersedia. Coba lagi sebentar.",
 };
 
@@ -376,6 +386,7 @@ function mapBackendConversation(conversation: VeraBackendConversation): StudySes
     sourceIds: [],
     generatedTools: [],
     messages: [],
+    provenance: { asOf: conversation.updatedAt, state: "live" },
     version: conversation.version,
     contextVersion: conversation.contextVersion,
   };
@@ -386,13 +397,18 @@ function mapBackendMessage(message: VeraBackendMessage): VeraMessage {
     id: message.id,
     role: message.role === "assistant" ? "vera" : "student",
     body: message.text ?? "Konten tidak tersedia.",
+    contentState: message.contentState,
     createdAt: relativeTime(message.createdAt),
+    requestErrorCode: message.request?.errorCode ?? null,
+    requestState: message.request?.status ?? null,
   };
 }
 
 function mapBackendSource(source: VeraBackendSource): VeraContextSource {
   return {
     id: source.sourceId,
+    releasedAt: source.releasedAt,
+    subtitle: source.subtitle,
     title: source.title,
     type: source.sourceType,
   };
@@ -412,8 +428,11 @@ type VeraMessage = {
   id: string;
   role: "vera" | "student";
   body: string;
+  contentState?: string;
   createdAt: string;
   citations?: string[];
+  requestErrorCode?: string | null;
+  requestState?: string | null;
 };
 
 type StudySession = {
@@ -423,6 +442,10 @@ type StudySession = {
   sourceIds: string[];
   generatedTools: VeraToolId[];
   messages: VeraMessage[];
+  provenance?: {
+    asOf?: string | null;
+    state: "live" | "snapshot" | "cached" | "demo" | "unavailable";
+  };
   version?: number;
   contextVersion?: number;
 };
@@ -437,8 +460,6 @@ const studioToolIds: VeraToolId[] = [
 
 const MAX_CONTEXTS_PER_SESSION = 6;
 const CONTEXT_PAGE_SIZE = 3;
-const DAILY_TOKEN_USAGE = 3200;
-const DAILY_TOKEN_LIMIT = 10000;
 
 const toolIcons: Record<VeraToolId, AppIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
@@ -644,6 +665,8 @@ type VeraAiWorkspaceProps = {
   sessions: StudySession[];
   usage: VeraBackendUsage | null;
   backendMode: boolean;
+  dataAsOf: string | null;
+  dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
 };
 
@@ -691,6 +714,8 @@ function VeraAiWorkspace({
   sessionSidebarCollapsed,
   sessions,
   usage,
+  dataAsOf,
+  dataState,
   workspaceTab,
 }: VeraAiWorkspaceProps) {
   return (
@@ -706,84 +731,92 @@ function VeraAiWorkspace({
         </h1>
 
         <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
-          <div className="flex h-full min-h-0 min-w-0 gap-3">
-            <aside
-              className={cn(
-                "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
-                sessionSidebarCollapsed ? "w-16" : "w-72",
-              )}
-            >
-              <SessionSidebar
-                activeSessionId={activeSession.id}
-                collapsed={sessionSidebarCollapsed}
-                onNewSession={onNewSession}
-                onSetCollapsed={onSessionSidebarCollapsedChange}
-                onSelectSession={onSelectSession}
-                sessions={sessions}
-              />
-            </aside>
-            <Tabs
-              className="min-h-0 min-w-0 flex-1 gap-0"
-              onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
-              value={workspaceTab}
-            >
-              <VeraStatusBanner
-                busy={busy}
-                error={error}
-                notice={notice}
-                onCancel={onCancelRequest}
-                onRetry={onRetry}
-                progress={progress}
-              />
-              <WorkspaceTabs onChange={onSetWorkspaceTab} />
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
-                <ChatWorkspace
-                  activeSession={activeSession}
+          {dataState === "live" ? (
+            <div className="flex h-full min-h-0 min-w-0 gap-3">
+              <aside
+                className={cn(
+                  "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
+                  sessionSidebarCollapsed ? "w-16" : "w-72",
+                )}
+              >
+                <SessionSidebar
+                  activeSessionId={activeSession.id}
+                  collapsed={sessionSidebarCollapsed}
+                  onNewSession={onNewSession}
+                  onSetCollapsed={onSessionSidebarCollapsedChange}
+                  onSelectSession={onSelectSession}
+                  sessions={sessions}
+                />
+              </aside>
+              <Tabs
+                className="min-h-0 min-w-0 flex-1 gap-0"
+                onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
+                value={workspaceTab}
+              >
+                <VeraProvenanceBanner dataAsOf={dataAsOf} session={activeSession} />
+                <VeraStatusBanner
                   busy={busy}
-                  className="flex"
-                  draft={draft}
-                  onDraftChange={onDraftChange}
+                  error={error}
+                  notice={notice}
                   onCancel={onCancelRequest}
-                  onRenameSession={onRenameSession}
-                  onSend={onSend}
-                  provisionalText={provisionalText}
+                  onRetry={onRetry}
+                  progress={progress}
                 />
-              </TabsContent>
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
-                <ContextWorkspace
-                  activeSourceIds={activeSession.sourceIds}
-                  className="flex"
-                  key={`${activeSession.id}-${workspaceTab}`}
-                  onOpenAddContext={onOpenAddContext}
-                  onRemoveContexts={onRemoveContexts}
-                  onToggleContext={onToggleContext}
-                  sources={contextSources}
-                />
-              </TabsContent>
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
-                <StudioPanel
-                  activeArtifact={activeArtifact}
-                  activeArtifactDetail={activeArtifactDetail}
-                  className="flex"
-                  generatedArtifacts={generatedArtifacts}
-                  generatedArtifactSummaries={generatedArtifactSummaries}
-                  busy={busy}
-                  onCloseArtifact={onCloseArtifact}
-                  onExpandArtifact={onExpandArtifact}
-                  onGenerateTool={onGenerateTool}
-                  onOpenArtifact={onOpenArtifact}
-                  onMaterializeArtifact={onMaterializeArtifact}
-                  onApplyArtifact={onApplyArtifact}
-                  selectedSources={selectedSources}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
+                <WorkspaceTabs onChange={onSetWorkspaceTab} />
+                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
+                  <ChatWorkspace
+                    activeSession={activeSession}
+                    busy={busy}
+                    className="flex"
+                    draft={draft}
+                    onDraftChange={onDraftChange}
+                    onCancel={onCancelRequest}
+                    onRenameSession={onRenameSession}
+                    onSend={onSend}
+                    provisionalText={provisionalText}
+                  />
+                </TabsContent>
+                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
+                  <ContextWorkspace
+                    activeSourceIds={activeSession.sourceIds}
+                    className="flex"
+                    key={`${activeSession.id}-${workspaceTab}`}
+                    onOpenAddContext={onOpenAddContext}
+                    onRemoveContexts={onRemoveContexts}
+                    onToggleContext={onToggleContext}
+                    sources={contextSources}
+                  />
+                </TabsContent>
+                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
+                  <StudioPanel
+                    activeArtifact={activeArtifact}
+                    activeArtifactDetail={activeArtifactDetail}
+                    className="flex"
+                    generatedArtifacts={generatedArtifacts}
+                    generatedArtifactSummaries={generatedArtifactSummaries}
+                    busy={busy}
+                    onCloseArtifact={onCloseArtifact}
+                    onExpandArtifact={onExpandArtifact}
+                    onGenerateTool={onGenerateTool}
+                    onOpenArtifact={onOpenArtifact}
+                    onMaterializeArtifact={onMaterializeArtifact}
+                    onApplyArtifact={onApplyArtifact}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
+            <VeraDataStatePanel
+              dataState={dataState}
+              error={error}
+              onRetry={onRetry}
+            />
+          )}
 
         </main>
       </div>
 
-      {contextDialogOpen ? (
+      {contextDialogOpen && dataState === "live" ? (
         <AddContextDialog
           onOpenChange={onContextDialogOpenChange}
           onSave={onSaveContext}
@@ -800,7 +833,6 @@ function VeraAiWorkspace({
           }
         }}
         open={Boolean(fullscreenArtifact)}
-        selectedSources={selectedSources}
         backendArtifact={fullscreenArtifactDetail}
         tool={fullscreenArtifact}
       />
@@ -808,7 +840,7 @@ function VeraAiWorkspace({
   );
 }
 
-function VeraAiPageModuleFallback({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
+function useVeraAiFallbackState({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
@@ -1070,57 +1102,62 @@ function VeraAiPageModuleFallback({ notificationFeed, session }: { notificationF
     setWorkspaceTab("studio");
   }
 
-  return (
-    <VeraAiWorkspace
-      activeArtifact={activeArtifact}
-      activeArtifactDetail={null}
-      activeSession={activeSession}
-      backendMode={false}
-      busy={false}
-      contextDialogOpen={contextDialogOpen}
-      contextSources={contextSources}
-      draft={draft}
-      error={null}
-      fullscreenArtifact={fullscreenArtifact}
-      fullscreenArtifactDetail={null}
-      generatedArtifacts={generatedArtifacts}
-      generatedArtifactSummaries={[]}
-      notice={null}
-      notificationFeed={notificationFeed}
-      onApplyArtifact={() => undefined}
-      onCancelRequest={() => undefined}
-      onCloseArtifact={() => setActiveArtifactId(null)}
-      onCloseFullscreen={() => setFullscreenArtifactId(null)}
-      onContextDialogOpenChange={setContextDialogOpen}
-      onDraftChange={setDraft}
-      onExpandArtifact={setFullscreenArtifactId}
-      onGenerateTool={handleToolRequest}
-      onMaterializeArtifact={() => undefined}
-      onNewSession={handleNewSession}
-      onOpenAddContext={() => setContextDialogOpen(true)}
-      onOpenArtifact={handleOpenArtifact}
-      onRetry={() => undefined}
-      onRemoveContexts={handleRemoveContexts}
-      onRenameSession={handleRenameSession}
-      onSaveContext={handleSaveContext}
-      onSend={handleSend}
-      onSelectSession={handleSelectSession}
-      onSessionSidebarCollapsedChange={setSessionSidebarCollapsed}
-      onSetWorkspaceTab={setWorkspaceTab}
-      onToggleContext={handleToggleContext}
-      progress={null}
-      provisionalText={null}
-      selectedSources={selectedSources}
-      session={session}
-      sessionSidebarCollapsed={sessionSidebarCollapsed}
-      sessions={sessions}
-      usage={null}
-      workspaceTab={workspaceTab}
-    />
-  );
+  return {
+    activeArtifact,
+    activeArtifactDetail: null,
+    activeSession,
+    backendMode: false,
+    busy: false,
+    contextDialogOpen,
+    contextSources,
+    draft,
+    error: null,
+    fullscreenArtifact,
+    fullscreenArtifactDetail: null,
+    generatedArtifacts,
+    generatedArtifactSummaries: [],
+    notice: null,
+    notificationFeed,
+    onApplyArtifact: () => undefined,
+    onCancelRequest: () => undefined,
+    onCloseArtifact: () => setActiveArtifactId(null),
+    onCloseFullscreen: () => setFullscreenArtifactId(null),
+    onContextDialogOpenChange: setContextDialogOpen,
+    onDraftChange: setDraft,
+    onExpandArtifact: setFullscreenArtifactId,
+    onGenerateTool: handleToolRequest,
+    onMaterializeArtifact: () => undefined,
+    onNewSession: handleNewSession,
+    onOpenAddContext: () => setContextDialogOpen(true),
+    onOpenArtifact: handleOpenArtifact,
+    onRetry: () => undefined,
+    onRemoveContexts: handleRemoveContexts,
+    onRenameSession: handleRenameSession,
+    onSaveContext: handleSaveContext,
+    onSend: handleSend,
+    onSelectSession: handleSelectSession,
+    onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
+    onSetWorkspaceTab: setWorkspaceTab,
+    onToggleContext: handleToggleContext,
+    progress: null,
+    provisionalText: null,
+    selectedSources,
+    session,
+    sessionSidebarCollapsed,
+    sessions,
+    usage: null,
+    dataAsOf: null,
+    dataState: "unavailable",
+    workspaceTab,
+  };
 }
 
-function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
+function VeraAiPageModuleFallback({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
+  const workspaceProps = useVeraAiFallbackState({ notificationFeed, session });
+  return <VeraAiWorkspace {...workspaceProps} />;
+}
+
+function useVeraAiModuleState({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
@@ -1167,6 +1204,8 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
     useState(true);
   const [backendMode, setBackendMode] = useState(false);
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
+  const [dataState, setDataState] = useState<VeraDataState>("loading");
   const [backendError, setBackendError] = useState<string | null>(null);
   const [backendContext, setBackendContext] =
     useState<VeraBackendContext | null>(null);
@@ -1230,9 +1269,10 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
         `/api/vera-ai/conversations/${conversationId}/artifacts?limit=50`,
       ),
     ]);
-    const generatedTools = artifactPage.artifacts
-      .map((artifact) => artifact.artifactType)
-      .filter(isToolId);
+    const generatedTools = artifactPage.artifacts.reduce<VeraToolId[]>((acc, artifact) => {
+      if (isToolId(artifact.artifactType)) acc.push(artifact.artifactType);
+      return acc;
+    }, []);
 
     setBackendContext(contextDto);
     setBackendArtifacts(artifactPage.artifacts);
@@ -1267,6 +1307,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
 
   const hydrate = useCallback(async () => {
     try {
+      setDataState("loading");
       setBackendError(null);
       const [conversationResult, sourceResult, usageResult] = await Promise.allSettled([
         requestJson<{
@@ -1281,11 +1322,19 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       if (conversationResult.status === "rejected") {
         throw conversationResult.reason;
       }
+      if (sourceResult.status === "rejected") {
+        throw new VeraRequestError("sources_unavailable", {
+          cause: sourceResult.reason,
+        });
+      }
+      if (usageResult.status === "rejected") {
+        throw new VeraRequestError("usage_unavailable", {
+          cause: usageResult.reason,
+        });
+      }
       const conversationPage = conversationResult.value;
-      const sourcePage =
-        sourceResult.status === "fulfilled" ? sourceResult.value : null;
-      const usageDto =
-        usageResult.status === "fulfilled" ? usageResult.value : null;
+      const sourcePage = sourceResult.value;
+      const usageDto = usageResult.value;
       const mappedSessions = conversationPage.conversations.map(
         mapBackendConversation,
       );
@@ -1293,9 +1342,8 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
         conversationPage.defaultConversationId ?? mappedSessions[0]?.id ?? "";
 
       setSessions(mappedSessions);
-      setContextSources(sourcePage?.sources.map(mapBackendSource) ?? []);
+      setContextSources(sourcePage.sources.map(mapBackendSource));
       setUsage(usageDto);
-      setBackendMode(true);
       setActiveSessionId(defaultConversationId);
 
       if (defaultConversationId) {
@@ -1304,8 +1352,22 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
         setBackendContext(null);
         setBackendArtifacts([]);
       }
+      setDataAsOf(new Date().toISOString());
+      setBackendMode(true);
+      setDataState("live");
     } catch (caught) {
       setBackendMode(false);
+      setDataState("unavailable");
+      setDataAsOf(null);
+      setSessions([]);
+      setContextSources([]);
+      setActiveSessionId("");
+      setActiveArtifactId(null);
+      setActiveArtifactDetail(null);
+      setBackendContext(null);
+      setBackendArtifacts([]);
+      setUsage(null);
+      setLastFailed(null);
       setBackendError(veraErrorMessage(caught));
     }
   }, [loadConversation]);
@@ -1344,6 +1406,10 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   }
 
   function handleSelectSession(nextSessionId: string) {
+    if (dataState !== "live" || !backendMode) {
+      return;
+    }
+
     setActiveSessionId(nextSessionId);
     setActiveArtifactId(null);
     setActiveArtifactDetail(null);
@@ -1351,31 +1417,21 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     setDraft("");
     setWorkspaceTab("chat");
 
-    if (backendMode) {
-      setBackendContext(null);
-      setError(null);
-      setNotice(null);
-      void loadConversation(nextSessionId).catch((caught) => {
-        setError(veraErrorMessage(caught));
-      });
-    }
+    setLastFailed(null);
+    setBackendContext(null);
+    setError(null);
+    setNotice(null);
+    void loadConversation(nextSessionId).catch((caught) => {
+      setError(veraErrorMessage(caught));
+    });
   }
 
   function handleNewSession() {
-    if (busy) {
+    if (busy || dataState !== "live" || !backendMode) {
       return;
     }
 
-    if (backendMode) {
-      void createBackendConversation();
-      return;
-    }
-
-    const nextSession = createNewStudySession();
-    setSessions((current) => [nextSession, ...current]);
-    setActiveSessionId(nextSession.id);
-    setActiveArtifactId(null);
-    setWorkspaceTab("chat");
+    void createBackendConversation();
   }
 
   function handleRenameSession(nextTitle: string) {
@@ -1385,16 +1441,11 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       return;
     }
 
-    if (backendMode) {
-      void renameBackendConversation(title);
+    if (dataState !== "live" || !backendMode) {
       return;
     }
 
-    updateActiveSession((current) => ({
-      ...current,
-      title,
-      updatedAt: "Baru saja",
-    }));
+    void renameBackendConversation(title);
   }
 
   function handleSaveContext(
@@ -1406,196 +1457,85 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       MAX_CONTEXTS_PER_SESSION,
     );
 
-    if (backendMode) {
-      setContextDialogOpen(false);
-      void replaceBackendContext(limitedSourceIds);
+    if (dataState !== "live" || !backendMode) {
       return;
     }
 
-    if (addedSources.length > 0) {
-      setContextSources((current) => {
-        const existingIds = new Set(current.map((source) => source.id));
-
-        return [
-          ...current,
-          ...addedSources.filter((source) => !existingIds.has(source.id)),
-        ];
-      });
-    }
-
-    updateActiveSession((current) => ({
-      ...current,
-      sourceIds: limitedSourceIds,
-      updatedAt: "Baru saja",
-    }));
     setContextDialogOpen(false);
+    void replaceBackendContext(limitedSourceIds);
   }
 
   function handleRemoveContexts(sourceIds: string[]) {
-    const removedSourceIds = new Set(sourceIds);
-
-    if (backendMode) {
-      void replaceBackendContext(
-        activeSession.sourceIds.filter((sourceId) => !removedSourceIds.has(sourceId)),
-      );
+    if (dataState !== "live" || !backendMode) {
       return;
     }
 
-    setContextSources((current) =>
-      current.filter((source) => !removedSourceIds.has(source.id)),
-    );
-    setSessions((current) =>
-      current.map((item) => {
-        const nextSourceIds = item.sourceIds.filter(
-          (sourceId) => !removedSourceIds.has(sourceId),
-        );
+    const removedSourceIds = new Set(sourceIds);
 
-        return nextSourceIds.length === item.sourceIds.length
-          ? item
-          : {
-              ...item,
-              sourceIds: nextSourceIds,
-              updatedAt: "Baru saja",
-            };
-      }),
+    void replaceBackendContext(
+      activeSession.sourceIds.filter((sourceId) => !removedSourceIds.has(sourceId)),
     );
   }
 
   function handleToggleContext(sourceId: string, active: boolean) {
-    if (backendMode) {
-      if (active === activeSession.sourceIds.includes(sourceId)) {
-        return;
-      }
-
-      const nextSourceIds = active
-        ? [...activeSession.sourceIds, sourceId]
-        : activeSession.sourceIds.filter((id) => id !== sourceId);
-
-      if (
-        active &&
-        !activeSession.sourceIds.includes(sourceId) &&
-        activeSession.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
-      ) {
-        setError(veraErrorLabels.context_limit_reached);
-        return;
-      }
-
-      void replaceBackendContext(nextSourceIds);
+    if (dataState !== "live" || !backendMode) {
       return;
     }
 
-    updateActiveSession((current) => {
-      if (!active) {
-        return {
-          ...current,
-          sourceIds: current.sourceIds.filter((id) => id !== sourceId),
-          updatedAt: "Baru saja",
-        };
-      }
+    if (active === activeSession.sourceIds.includes(sourceId)) {
+      return;
+    }
 
-      if (
-        current.sourceIds.includes(sourceId) ||
-        current.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
-      ) {
-        return current;
-      }
+    const nextSourceIds = active
+      ? [...activeSession.sourceIds, sourceId]
+      : activeSession.sourceIds.filter((id) => id !== sourceId);
 
-      return {
-        ...current,
-        sourceIds: [...current.sourceIds, sourceId],
-        updatedAt: "Baru saja",
-      };
-    });
+    if (
+      active &&
+      activeSession.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
+    ) {
+      setError(veraErrorLabels.context_limit_reached);
+      return;
+    }
+
+    void replaceBackendContext(nextSourceIds);
   }
 
   function handleSend() {
     const nextDraft = draft.trim();
 
-    if (busy || !nextDraft) {
+    if (busy || dataState !== "live" || !backendMode || !nextDraft) {
       return;
     }
 
-    if (backendMode) {
-      void streamRequest("chat", nextDraft, null);
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-
-    updateActiveSession((current) => ({
-      ...current,
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-${Date.now()}`,
-          role: "student",
-          body: nextDraft,
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-${Date.now()}`,
-          role: "vera",
-          body: buildGeneralReply(nextDraft, citations),
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setDraft("");
+    void streamRequest("chat", nextDraft, null);
   }
 
   function handleToolRequest(toolId: VeraToolId) {
     const tool = veraStudioTools.find((item) => item.id === toolId);
 
-    if (busy || !tool) {
+    if (busy || dataState !== "live" || !backendMode || !tool) {
       return;
     }
 
-    if (backendMode) {
-      setWorkspaceTab("studio");
-      void streamRequest("studio", toolRequestLabels[toolId], toolId);
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-    updateActiveSession((current) => ({
-      ...current,
-      generatedTools: moveItemToFront(current.generatedTools, toolId),
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-tool-${Date.now()}`,
-          role: "student",
-          body: toolRequestLabels[toolId],
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-tool-${Date.now()}`,
-          role: "vera",
-          body: `${tool.outputTitle} sudah aku siapkan di Vera Studio. Hasilnya tersimpan di sesi ini, jadi kamu bisa kembali membacanya kapan saja.`,
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setActiveArtifactId(toolId);
     setWorkspaceTab("studio");
+    void streamRequest("studio", toolRequestLabels[toolId], toolId);
   }
 
   function handleOpenArtifact(toolId: VeraToolId) {
+    if (dataState !== "live" || !backendMode) {
+      return;
+    }
+
     setActiveArtifactId(toolId);
     setWorkspaceTab("studio");
 
-    if (backendMode) {
-      const summary = backendArtifacts.find(
-        (artifact) => artifact.artifactType === toolId,
-      );
+    const summary = backendArtifacts.find(
+      (artifact) => artifact.artifactType === toolId,
+    );
 
-      if (summary) {
-        void openBackendArtifact(summary.id);
-      }
+    if (summary) {
+      void openBackendArtifact(summary.id);
     }
   }
 
@@ -1799,6 +1739,10 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     toolId: VeraToolId | null,
     retryOfRequestId: string | null = null,
   ) {
+    if (dataState !== "live" || !backendMode) {
+      return;
+    }
+
     const conversationId = activeSession.id;
 
     if (!conversationId) {
@@ -2076,7 +2020,8 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       return;
     }
 
-    if (!lastFailed) {
+    if (dataState !== "live" || !backendMode || !lastFailed) {
+      setLastFailed(null);
       setError(null);
       void hydrate();
       return;
@@ -2146,57 +2091,62 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     }
   }
 
-  return (
-    <VeraAiWorkspace
-      activeArtifact={activeArtifact}
-      activeArtifactDetail={activeArtifactDetail}
-      activeSession={activeSession}
-      backendMode={backendMode}
-      busy={busy}
-      contextDialogOpen={contextDialogOpen}
-      contextSources={contextSources}
-      draft={draft}
-      error={backendError ?? error}
-      fullscreenArtifact={fullscreenArtifact}
-      fullscreenArtifactDetail={fullscreenArtifactDetail}
-      generatedArtifacts={generatedArtifacts}
-      generatedArtifactSummaries={backendArtifacts}
-      notice={notice}
-      notificationFeed={notificationFeed}
-      onApplyArtifact={handleApplyArtifact}
-      onCancelRequest={handleCancelRequest}
-      onCloseArtifact={() => {
-        setActiveArtifactId(null);
-        setActiveArtifactDetail(null);
-      }}
-      onCloseFullscreen={() => setFullscreenArtifactId(null)}
-      onContextDialogOpenChange={setContextDialogOpen}
-      onDraftChange={setDraft}
-      onExpandArtifact={setFullscreenArtifactId}
-      onGenerateTool={handleToolRequest}
-      onMaterializeArtifact={handleMaterializeArtifact}
-      onNewSession={handleNewSession}
-      onOpenAddContext={() => setContextDialogOpen(true)}
-      onOpenArtifact={handleOpenArtifact}
-      onRemoveContexts={handleRemoveContexts}
-      onRenameSession={handleRenameSession}
-      onRetry={handleRetry}
-      onSaveContext={handleSaveContext}
-      onSelectSession={handleSelectSession}
-      onSend={handleSend}
-      onSessionSidebarCollapsedChange={setSessionSidebarCollapsed}
-      onSetWorkspaceTab={setWorkspaceTab}
-      onToggleContext={handleToggleContext}
-      progress={progress}
-      provisionalText={provisionalText}
-      selectedSources={selectedSources}
-      session={session}
-      sessionSidebarCollapsed={sessionSidebarCollapsed}
-      sessions={sessions}
-      usage={usage}
-      workspaceTab={workspaceTab}
-    />
-  );
+  return {
+    activeArtifact,
+    activeArtifactDetail,
+    activeSession,
+    backendMode,
+    busy,
+    contextDialogOpen,
+    contextSources,
+    draft,
+    error: backendError ?? error,
+    fullscreenArtifact,
+    fullscreenArtifactDetail,
+    generatedArtifacts,
+    generatedArtifactSummaries: backendArtifacts,
+    notice,
+    notificationFeed,
+    onApplyArtifact: handleApplyArtifact,
+    onCancelRequest: handleCancelRequest,
+    onCloseArtifact: () => {
+      setActiveArtifactId(null);
+      setActiveArtifactDetail(null);
+    },
+    onCloseFullscreen: () => setFullscreenArtifactId(null),
+    onContextDialogOpenChange: setContextDialogOpen,
+    onDraftChange: setDraft,
+    onExpandArtifact: setFullscreenArtifactId,
+    onGenerateTool: handleToolRequest,
+    onMaterializeArtifact: handleMaterializeArtifact,
+    onNewSession: handleNewSession,
+    onOpenAddContext: () => setContextDialogOpen(true),
+    onOpenArtifact: handleOpenArtifact,
+    onRemoveContexts: handleRemoveContexts,
+    onRenameSession: handleRenameSession,
+    onRetry: handleRetry,
+    onSaveContext: handleSaveContext,
+    onSelectSession: handleSelectSession,
+    onSend: handleSend,
+    onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
+    onSetWorkspaceTab: setWorkspaceTab,
+    onToggleContext: handleToggleContext,
+    progress,
+    provisionalText,
+    selectedSources,
+    session,
+    sessionSidebarCollapsed,
+    sessions,
+    usage,
+    dataAsOf,
+    dataState,
+    workspaceTab,
+  };
+}
+
+function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
+  const workspaceProps = useVeraAiModuleState({ notificationFeed, session });
+  return <VeraAiWorkspace {...workspaceProps} />;
 }
 
 function VeraStatusBanner({
@@ -2261,6 +2211,75 @@ function VeraStatusBanner({
   );
 }
 
+const DATA_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
+function VeraProvenanceBanner({
+  dataAsOf,
+  session,
+}: {
+  dataAsOf: string | null;
+  session: StudySession;
+}) {
+  const state = session.provenance?.state ?? "live";
+  const asOf = dataAsOf ? new Date(dataAsOf) : null;
+  const timestamp = asOf && !Number.isNaN(asOf.getTime())
+    ? DATA_TIMESTAMP_FORMATTER.format(asOf)
+    : "belum tersedia";
+
+  return (
+    <div
+      aria-label="Status sumber data Vera"
+      className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs text-secondary-600"
+      role="status"
+    >
+      <span className="font-semibold text-primary-900">Sumber data: {state}</span>
+      <span>Dimuat {timestamp} · konteks dan hasil mengikuti status server</span>
+    </div>
+  );
+}
+
+function VeraDataStatePanel({
+  dataState,
+  error,
+  onRetry,
+}: {
+  dataState: Exclude<VeraDataState, "live">;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  const loading = dataState === "loading";
+
+  return (
+    <section
+      aria-live={loading ? "polite" : "assertive"}
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-primary-100 bg-white px-6 py-12 text-center shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
+      role={loading ? "status" : "alert"}
+    >
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+        {loading ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <Gauge className="size-5" />}
+      </span>
+      <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-secondary-950">
+        {loading ? "Memuat ruang kerja Vera…" : "Data Vera belum tersedia"}
+      </h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-secondary-600">
+        {loading
+          ? "Sesi, sumber belajar, dan penggunaan sedang dimuat dari server."
+          : error ?? "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server."}
+      </p>
+      {!loading ? (
+        <Button className="mt-6 rounded-full" onClick={onRetry} variant="brand">
+          <RotateCcw data-icon="inline-start" />
+          Coba lagi
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
 function VeraTopBar({
   notificationFeed,
   session,
@@ -2317,12 +2336,11 @@ function VeraTopBar({
 }
 
 function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
-  const usedUnits = usage?.usedQuotaUnits ?? DAILY_TOKEN_USAGE;
-  const limitUnits = usage?.quotaLimitUnits ?? DAILY_TOKEN_LIMIT;
-  const usagePercent = Math.min(
-    100,
-    Math.round((usedUnits / Math.max(1, limitUnits)) * 100),
-  );
+  const usedUnits = usage?.usedQuotaUnits ?? null;
+  const limitUnits = usage?.quotaLimitUnits ?? null;
+  const usagePercent = usage && limitUnits && limitUnits > 0
+    ? Math.min(100, Math.round((usage.usedQuotaUnits / limitUnits) * 100))
+    : null;
   const usageState = usage
     ? !usage.redisAvailable
       ? "Pembatas permintaan tidak tersedia"
@@ -2330,21 +2348,23 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
         ? "Penyedia AI tidak tersedia"
         : usage.quotaDebtUnits > 0
           ? `Overrun ${usage.quotaDebtUnits} unit`
-          : usedUnits + usage.reservedQuotaUnits >= limitUnits
+          : usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits
             ? "Kuota habis"
             : usage.reservedQuotaUnits > 0
               ? `${usage.reservedQuotaUnits} unit sedang diproses`
               : usage.rawTokenUsageState === "unknown"
                 ? "Penggunaan token belum diketahui"
                 : "Tersedia"
-    : "Menghubungkan ke penggunaan Vera…";
+    : "Data penggunaan belum tersedia dari server.";
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button
-            aria-label={`Penggunaan Vera ${usagePercent} persen`}
+            aria-label={usagePercent === null
+              ? "Penggunaan Vera belum tersedia"
+              : `Penggunaan Vera ${usagePercent} persen`}
             className="rounded-full px-2.5"
             size="sm"
             variant="ghost"
@@ -2353,27 +2373,35 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
       >
         <Gauge data-icon="inline-start" />
         <span className="hidden text-xs tabular-nums sm:inline">
-          {usagePercent}%
+          {usagePercent === null ? "—" : `${usagePercent}%`}
         </span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80" sideOffset={10}>
         <PopoverHeader>
           <PopoverTitle>Penggunaan Vera</PopoverTitle>
           <PopoverDescription>
-            {usageState}. Batas penggunaan diperbarui setiap hari.
+            {usageState}
           </PopoverDescription>
         </PopoverHeader>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3 text-xs">
-            <span className="font-semibold text-secondary-800">Unit hari ini</span>
-            <span className="tabular-nums text-secondary-500">
-              {usedUnits.toLocaleString("id-ID")} / {limitUnits.toLocaleString("id-ID")}
-            </span>
+        {usage && usagePercent !== null && usedUnits !== null && limitUnits !== null ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-semibold text-secondary-800">Unit periode ini</span>
+              <span className="tabular-nums text-secondary-500">
+                {usedUnits.toLocaleString("id-ID")} / {limitUnits.toLocaleString("id-ID")}
+              </span>
+            </div>
+            <Progress aria-label="Penggunaan token Vera" value={usagePercent} />
+            <p className="text-xs leading-5 text-secondary-500">
+              Periode {usage.usageDate ?? "belum tersedia"} · zona {usage.quotaTimezone ?? "belum tersedia"}
+            </p>
           </div>
-          <Progress aria-label="Penggunaan token Vera" value={usagePercent} />
-          <p className="text-xs text-secondary-400">Reset pukul 00.00 WIB</p>
-        </div>
+        ) : (
+          <p className="text-sm leading-6 text-secondary-600">
+            Angka kuota dan waktu reset tidak ditampilkan sampai sumber akun berhasil dibaca.
+          </p>
+        )}
 
       </PopoverContent>
     </Popover>
@@ -2635,6 +2663,17 @@ const contextTypeLabels: Record<VeraContextTypeId, string> = {
 };
 
 function contextMetadataForSource(source: VeraContextSource) {
+  const backendMetadata = [
+    source.subtitle,
+    source.releasedAt
+      ? `Dirilis ${DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}`
+      : null,
+  ].filter(Boolean);
+
+  if (backendMetadata.length > 0) {
+    return backendMetadata.join(" • ");
+  }
+
   if (source.type === "practice") {
     const practice = veraPracticeHistory.find(
       (item) => item.title === source.title,
@@ -2998,6 +3037,9 @@ function ContextCard({
             {contextTypeLabels[source.type]}
           </StudentBadge>
         </span>
+        <span className="mt-1 block truncate text-xs text-secondary-500">
+          {contextMetadataForSource(source)}
+        </span>
       </span>
       <span className="flex shrink-0 items-center gap-1">
         <Button
@@ -3081,6 +3123,15 @@ function MessageCard({
   message: VeraMessage;
 }) {
   const isStudent = message.role === "student";
+  const stateNotice = [
+    message.contentState && message.contentState !== "encrypted"
+      ? `Konten: ${message.contentState}`
+      : null,
+    message.requestState && message.requestState !== "succeeded"
+      ? `Permintaan: ${message.requestState}`
+      : null,
+    message.requestErrorCode ? `Kode: ${message.requestErrorCode}` : null,
+  ].filter(Boolean).join(" · ");
 
   if (isStudent) {
     return (
@@ -3090,6 +3141,9 @@ function MessageCard({
       >
         <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
           <p>{message.body}</p>
+          {stateNotice ? (
+            <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
+          ) : null}
           <p className="mt-1.5 text-right text-[11px] text-white/60">
             {message.createdAt}
           </p>
@@ -3117,6 +3171,9 @@ function MessageCard({
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
           <p className="text-xs text-secondary-400">{message.createdAt}</p>
         </div>
+        {stateNotice ? (
+          <p className="mt-1 text-xs text-secondary-500">{stateNotice}</p>
+        ) : null}
         <BubbleContent className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
@@ -3236,7 +3293,6 @@ function StudioPanel({
   onMaterializeArtifact,
   onApplyArtifact,
   onOpenArtifact,
-  selectedSources,
 }: {
   activeArtifact: VeraStudioTool | null;
   activeArtifactDetail: VeraBackendArtifactDetail | null;
@@ -3250,7 +3306,6 @@ function StudioPanel({
   onMaterializeArtifact: () => void;
   onApplyArtifact: (target: VeraBackendArtifactTarget) => void;
   onOpenArtifact: (toolId: VeraToolId) => void;
-  selectedSources: VeraContextSource[];
 }) {
   if (activeArtifact) {
     return (
@@ -3275,7 +3330,6 @@ function StudioPanel({
             compact
             key={activeArtifact.id}
             backendArtifact={activeArtifactDetail}
-            selectedSources={selectedSources}
             tool={activeArtifact}
           />
           {activeArtifactDetail ? (
@@ -3452,7 +3506,7 @@ function StudioArtifactCard({
           </span>
           <span className="mt-1 block line-clamp-2 text-xs leading-5 text-secondary-500">
             {summary
-              ? `${summary.artifactType} · ${summary.lifecycleState} · ${relativeTime(summary.createdAt)}`
+              ? `${summary.artifactType} · ${summary.lifecycleState} · hasil ${summary.resultState} · konteks ${summary.contextState} · ${relativeTime(summary.createdAt)}`
               : tool.outputBody}
           </span>
           <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary-700">
@@ -3468,19 +3522,14 @@ function StudioArtifactCard({
 function StudioArtifactDocument({
   backendArtifact,
   compact = false,
-  selectedSources,
   tool,
 }: {
   backendArtifact?: VeraBackendArtifactDetail | null;
   compact?: boolean;
-  selectedSources: VeraContextSource[];
   tool: VeraStudioTool;
 }) {
-  const mode = veraToolModes[tool.id];
   const Icon = toolIcons[tool.id];
-  const markdown =
-    backendArtifact?.markdown ??
-    buildStudioArtifactMarkdown(tool, mode, selectedSources);
+  const markdown = backendArtifact?.markdown;
 
   return (
     <article
@@ -3497,7 +3546,34 @@ function StudioArtifactDocument({
         </span>
       </div>
 
-      <StudioArtifactMarkdown compact={compact} content={markdown} />
+      {backendArtifact ? (
+        <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
+          <div>
+            <dt className="font-semibold text-secondary-500">Siklus</dt>
+            <dd className="mt-1 text-secondary-800">{backendArtifact.lifecycle.state}</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-secondary-500">Hasil</dt>
+            <dd className="mt-1 text-secondary-800">{backendArtifact.resultState}</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-secondary-500">Konteks</dt>
+            <dd className="mt-1 text-secondary-800">{backendArtifact.contextState}</dd>
+          </div>
+        </dl>
+      ) : null}
+
+      {markdown ? (
+        <StudioArtifactMarkdown compact={compact} content={markdown} />
+      ) : (
+        <div
+          aria-live="polite"
+          className="mt-6 rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-5 text-sm leading-6 text-secondary-600"
+          role="status"
+        >
+          Dokumen hasil belum tersedia dari server.
+        </div>
+      )}
     </article>
   );
 }
@@ -3596,13 +3672,11 @@ function FullscreenArtifactDialog({
   backendArtifact,
   onOpenChange,
   open,
-  selectedSources,
   tool,
 }: {
   backendArtifact: VeraBackendArtifactDetail | null;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  selectedSources: VeraContextSource[];
   tool: VeraStudioTool | null;
 }) {
   if (!tool) {
@@ -3644,7 +3718,6 @@ function FullscreenArtifactDialog({
           <div className="min-h-0 flex-1 overflow-y-auto bg-white px-3 py-4 md:px-8 md:py-8">
             <StudioArtifactDocument
               backendArtifact={backendArtifact}
-              selectedSources={selectedSources}
               tool={tool}
             />
           </div>
@@ -3941,6 +4014,308 @@ function AddContextDialog({
   );
 }
 
+function AddContextPracticeTab({
+  backendCatalogSources,
+  backendMode,
+  draftSourceIds,
+  onPracticePageChange,
+  onToggleSource,
+  pendingAddedSourceIdSet,
+  practicePage,
+  practicePageCount,
+  visiblePracticeItems,
+}: {
+  backendCatalogSources: VeraContextSource[];
+  backendMode: boolean;
+  draftSourceIds: string[];
+  onPracticePageChange: (page: number) => void;
+  onToggleSource: (sourceId: string) => void;
+  pendingAddedSourceIdSet: Set<string>;
+  practicePage: number;
+  practicePageCount: number;
+  visiblePracticeItems: VeraPracticeHistory[];
+}) {
+  const practiceSources = backendMode
+    ? backendCatalogSources.filter((source) => source.type === "practice")
+    : [];
+  const draftSourceIdSet = new Set(draftSourceIds);
+
+  return (
+    <TabsContent className="min-h-0 overflow-hidden" value="practice">
+      <ScrollArea className="h-full">
+        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+          <div className="flex flex-col gap-3">
+            {backendMode ? (
+              practiceSources.length > 0 ? (
+                practiceSources.map((source) => (
+                  <BackendContextOption
+                    key={source.id}
+                    onToggle={() => onToggleSource(source.id)}
+                    selected={draftSourceIdSet.has(source.id)}
+                    source={source}
+                  />
+                ))
+              ) : (
+                <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                  Belum ada hasil latihan yang tersedia.
+                </div>
+              )
+            ) : visiblePracticeItems.length > 0 ? (
+              visiblePracticeItems.map((item) => {
+                const source = sourceForTitle(item.title);
+                const selected = Boolean(
+                  source && pendingAddedSourceIdSet.has(source.id),
+                );
+
+                return (
+                  <PracticeContextOption
+                    item={item}
+                    key={item.id}
+                    onToggle={() => source && onToggleSource(source.id)}
+                    selected={selected}
+                  />
+                );
+              })
+            ) : (
+              <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                Semua hasil latihan sudah ditambahkan.
+              </div>
+            )}
+          </div>
+          {!backendMode ? (
+            <ContextPagination
+              className="mt-auto"
+              onPageChange={onPracticePageChange}
+              page={practicePage}
+              pageCount={practicePageCount}
+            />
+          ) : null}
+        </div>
+      </ScrollArea>
+    </TabsContent>
+  );
+}
+
+function AddContextMaterialTab({
+  backendMaterialSources,
+  backendMode,
+  draftSourceIds,
+  filteredMaterials,
+  materialPage,
+  materialPageCount,
+  materialQuery,
+  onMaterialPageChange,
+  onMaterialQueryChange,
+  onToggleSource,
+  pendingAddedSourceIdSet,
+  visibleMaterialItems,
+}: {
+  backendMaterialSources: VeraContextSource[];
+  backendMode: boolean;
+  draftSourceIds: string[];
+  filteredMaterials: VeraMaterialHistory[];
+  materialPage: number;
+  materialPageCount: number;
+  materialQuery: string;
+  onMaterialPageChange: (page: number) => void;
+  onMaterialQueryChange: (query: string) => void;
+  onToggleSource: (sourceId: string) => void;
+  pendingAddedSourceIdSet: Set<string>;
+  visibleMaterialItems: VeraMaterialHistory[];
+}) {
+  const draftSourceIdSet = new Set(draftSourceIds);
+
+  return (
+    <TabsContent className="min-h-0 overflow-hidden" value="material">
+      <ScrollArea className="h-full">
+        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+            <Input
+              aria-label="Cari materi Vecalss"
+              className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+              onChange={(event) => {
+                onMaterialQueryChange(event.target.value);
+                onMaterialPageChange(1);
+              }}
+              placeholder="Cari materi Vecalss..."
+              value={materialQuery}
+            />
+          </div>
+          <div className="mt-3 flex flex-col gap-3">
+            {backendMode ? (
+              backendMaterialSources.length > 0 ? (
+                backendMaterialSources.map((source) => (
+                  <BackendContextOption
+                    key={source.id}
+                    onToggle={() => onToggleSource(source.id)}
+                    selected={draftSourceIdSet.has(source.id)}
+                    source={source}
+                  />
+                ))
+              ) : (
+                <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                  {materialQuery.trim()
+                    ? "Materi tidak ditemukan."
+                    : "Belum ada materi yang tersedia."}
+                </div>
+              )
+            ) : filteredMaterials.length > 0 ? (
+              visibleMaterialItems.map((item) => {
+                const source = sourceForTitle(item.title);
+                const selected = Boolean(
+                  source && pendingAddedSourceIdSet.has(source.id),
+                );
+
+                return (
+                  <MaterialContextOption
+                    item={item}
+                    key={item.id}
+                    onToggle={() => source && onToggleSource(source.id)}
+                    selected={selected}
+                  />
+                );
+              })
+            ) : (
+              <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                {materialQuery.trim()
+                  ? "Materi tidak ditemukan."
+                  : "Semua materi sudah ditambahkan."}
+              </div>
+            )}
+          </div>
+          {!backendMode && filteredMaterials.length > 0 ? (
+            <ContextPagination
+              className="mt-auto"
+              onPageChange={onMaterialPageChange}
+              page={materialPage}
+              pageCount={materialPageCount}
+            />
+          ) : null}
+        </div>
+      </ScrollArea>
+    </TabsContent>
+  );
+}
+
+function AddContextDocumentTab({
+  backendMode,
+  draftSourceIds,
+  onToggleSource,
+  onUploadedFileNameChange,
+  onUploadedSourceChange,
+  uploadedFileName,
+  uploadedSource,
+}: {
+  backendMode: boolean;
+  draftSourceIds: string[];
+  onToggleSource: (sourceId: string) => void;
+  onUploadedFileNameChange: (name: string | null) => void;
+  onUploadedSourceChange: (source: VeraContextSource | null) => void;
+  uploadedFileName: string | null;
+  uploadedSource: VeraContextSource | null;
+}) {
+  return (
+    <TabsContent className="min-h-0 overflow-hidden" value="document">
+      <ScrollArea className="h-full">
+        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+          {backendMode ? (
+            <div className="flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-background p-6 text-center">
+              <FileText className="size-6 text-secondary-400" />
+              <p className="mt-3 text-sm font-semibold text-secondary-900">
+                Dokumen belum tersedia
+              </p>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
+                Vera saat ini hanya dapat memakai materi dan hasil latihan
+                yang sudah dirilis.
+              </p>
+            </div>
+          ) : (
+            <>
+              <label
+                className={cn(
+                  "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
+                  "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
+                )}
+              >
+                <input
+                  accept=".pdf,.txt,text/plain,application/pdf"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+
+                    if (file) {
+                      const previousSourceId = uploadedSource?.id;
+                      const nextSource: VeraContextSource = {
+                        id: `uploaded-${Date.now()}`,
+                        title: file.name,
+                        type: "document",
+                      };
+
+                      if (previousSourceId) {
+                        onToggleSource(previousSourceId);
+                      }
+
+                      onUploadedSourceChange(nextSource);
+                      onUploadedFileNameChange(file.name);
+                      onToggleSource(nextSource.id);
+                    }
+                  }}
+                  type="file"
+                />
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
+                  <Upload className="size-4" />
+                </span>
+                <span className="mt-3 text-sm font-semibold text-secondary-950">
+                  Upload dokumen belajar
+                </span>
+                <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
+                  Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
+                  TXT untuk catatan, rangkuman, dan materi eksternal.
+                </span>
+                <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
+                  Pilih file
+                </span>
+              </label>
+              {uploadedSource ? (
+                <Attachment className="mt-3 w-full" state="done">
+                  <AttachmentMedia>
+                    <FileText />
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle>
+                      {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
+                    </AttachmentTitle>
+                    <AttachmentDescription>
+                      {draftSourceIds.includes(uploadedSource.id)
+                        ? "Dipakai di sesi ini"
+                        : "Ditambahkan ke perpustakaan — pakai dari tab Konteks"}
+                    </AttachmentDescription>
+                  </AttachmentContent>
+                  <AttachmentActions>
+                    <AttachmentAction
+                      aria-label="Lepas dokumen"
+                      onClick={() => {
+                        if (draftSourceIds.includes(uploadedSource.id)) {
+                          onToggleSource(uploadedSource.id);
+                        }
+                        onUploadedSourceChange(null);
+                        onUploadedFileNameChange(null);
+                      }}
+                    >
+                      <X />
+                    </AttachmentAction>
+                  </AttachmentActions>
+                </Attachment>
+              ) : null}
+            </>
+          )}
+        </div>
+      </ScrollArea>
+    </TabsContent>
+  );
+}
+
 function AddContextTabs({
   activeTab,
   backendCatalogSources,
@@ -3991,268 +4366,77 @@ function AddContextTabs({
   visiblePracticeItems: VeraPracticeHistory[];
 }) {
   return (
-          <Tabs
-            className="min-h-0 flex-1 gap-0"
-            onValueChange={(value) =>
-              onActiveTabChange(value as VeraContextTypeId)
-            }
-            value={activeTab}
+    <Tabs
+      className="min-h-0 flex-1 gap-0"
+      onValueChange={(value) =>
+        onActiveTabChange(value as VeraContextTypeId)
+      }
+      value={activeTab}
+    >
+      <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
+        <FullWidthLineTabsList className="md:!h-12">
+          <FullWidthLineTabsTrigger
+            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
+            value="practice"
           >
-            <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
-              <TabsList
-                className="grid h-12 w-full grid-cols-3 justify-start gap-1 p-0 md:flex md:h-13 md:w-fit"
-                variant="line"
-              >
-                <TabsTrigger
-                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-44 md:justify-start md:px-4 md:text-sm"
-                  value="practice"
-                >
-                  <ListChecks data-icon="inline-start" />
-                  Hasil Latihan
-                </TabsTrigger>
-                <TabsTrigger
-                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-34 md:justify-start md:px-4 md:text-sm"
-                  value="material"
-                >
-                  <BookOpen data-icon="inline-start" />
-                  Materi
-                </TabsTrigger>
-                <TabsTrigger
-                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-36 md:justify-start md:px-4 md:text-sm"
-                  disabled={backendMode}
-                  value="document"
-                >
-                  <FileText data-icon="inline-start" />
-                  Dokumen
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <ListChecks data-icon="inline-start" />
+            Hasil Latihan
+          </FullWidthLineTabsTrigger>
+          <FullWidthLineTabsTrigger
+            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
+            value="material"
+          >
+            <BookOpen data-icon="inline-start" />
+            Materi
+          </FullWidthLineTabsTrigger>
+          <FullWidthLineTabsTrigger
+            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
+            disabled={backendMode}
+            value="document"
+          >
+            <FileText data-icon="inline-start" />
+            Dokumen
+          </FullWidthLineTabsTrigger>
+        </FullWidthLineTabsList>
+      </div>
 
-            <TabsContent className="min-h-0 overflow-hidden" value="practice">
-              <ScrollArea className="h-full">
-                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                  <div className="flex flex-col gap-3">
-                    {backendMode ? (
-                      backendCatalogSources.filter(
-                        (source) => source.type === "practice",
-                      ).length > 0 ? (
-                        backendCatalogSources
-                          .filter((source) => source.type === "practice")
-                          .map((source) => (
-                            <BackendContextOption
-                              key={source.id}
-                              onToggle={() => onToggleSource(source.id)}
-                              selected={draftSourceIds.includes(source.id)}
-                              source={source}
-                            />
-                          ))
-                      ) : (
-                        <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                          Belum ada hasil latihan yang tersedia.
-                        </div>
-                      )
-                    ) : visiblePracticeItems.length > 0 ? (
-                      visiblePracticeItems.map((item) => {
-                        const source = sourceForTitle(item.title);
-                        const selected = Boolean(
-                          source && pendingAddedSourceIdSet.has(source.id),
-                        );
+      <AddContextPracticeTab
+        backendCatalogSources={backendCatalogSources}
+        backendMode={backendMode}
+        draftSourceIds={draftSourceIds}
+        onPracticePageChange={onPracticePageChange}
+        onToggleSource={onToggleSource}
+        pendingAddedSourceIdSet={pendingAddedSourceIdSet}
+        practicePage={practicePage}
+        practicePageCount={practicePageCount}
+        visiblePracticeItems={visiblePracticeItems}
+      />
 
-                        return (
-                          <PracticeContextOption
-                            item={item}
-                            key={item.id}
-                            onToggle={() => source && onToggleSource(source.id)}
-                            selected={selected}
-                          />
-                        );
-                      })
-                    ) : (
-                      <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                        Semua hasil latihan sudah ditambahkan.
-                      </div>
-                    )}
-                  </div>
-                  {!backendMode ? (
-                    <ContextPagination
-                      className="mt-auto"
-                      onPageChange={onPracticePageChange}
-                      page={practicePage}
-                      pageCount={practicePageCount}
-                    />
-                  ) : null}
-                </div>
-              </ScrollArea>
-            </TabsContent>
+      <AddContextMaterialTab
+        backendMaterialSources={backendMaterialSources}
+        backendMode={backendMode}
+        draftSourceIds={draftSourceIds}
+        filteredMaterials={filteredMaterials}
+        materialPage={materialPage}
+        materialPageCount={materialPageCount}
+        materialQuery={materialQuery}
+        onMaterialPageChange={onMaterialPageChange}
+        onMaterialQueryChange={onMaterialQueryChange}
+        onToggleSource={onToggleSource}
+        pendingAddedSourceIdSet={pendingAddedSourceIdSet}
+        visibleMaterialItems={visibleMaterialItems}
+      />
 
-            <TabsContent className="min-h-0 overflow-hidden" value="material">
-              <ScrollArea className="h-full">
-                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                    <Input
-                      aria-label="Cari materi Vecalss"
-                      className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
-                      onChange={(event) => {
-                        onMaterialQueryChange(event.target.value);
-                        onMaterialPageChange(1);
-                      }}
-                      placeholder="Cari materi Vecalss..."
-                      value={materialQuery}
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-col gap-3">
-                    {backendMode ? (
-                      backendMaterialSources.length > 0 ? (
-                        backendMaterialSources.map((source) => (
-                          <BackendContextOption
-                            key={source.id}
-                            onToggle={() => onToggleSource(source.id)}
-                            selected={draftSourceIds.includes(source.id)}
-                            source={source}
-                          />
-                        ))
-                      ) : (
-                        <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                          {materialQuery.trim()
-                            ? "Materi tidak ditemukan."
-                            : "Belum ada materi yang tersedia."}
-                        </div>
-                      )
-                    ) : filteredMaterials.length > 0 ? (
-                      visibleMaterialItems.map((item) => {
-                        const source = sourceForTitle(item.title);
-                        const selected = Boolean(
-                          source && pendingAddedSourceIdSet.has(source.id),
-                        );
-
-                        return (
-                          <MaterialContextOption
-                            item={item}
-                            key={item.id}
-                            onToggle={() => source && onToggleSource(source.id)}
-                            selected={selected}
-                          />
-                        );
-                      })
-                    ) : (
-                      <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                        {materialQuery.trim()
-                          ? "Materi tidak ditemukan."
-                          : "Semua materi sudah ditambahkan."}
-                      </div>
-                    )}
-                  </div>
-                  {!backendMode && filteredMaterials.length > 0 ? (
-                    <ContextPagination
-                      className="mt-auto"
-                      onPageChange={onMaterialPageChange}
-                      page={materialPage}
-                      pageCount={materialPageCount}
-                    />
-                  ) : null}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent className="min-h-0 overflow-hidden" value="document">
-              <ScrollArea className="h-full">
-                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                  {backendMode ? (
-                    <div className="flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-background p-6 text-center">
-                      <FileText className="size-6 text-secondary-400" />
-                      <p className="mt-3 text-sm font-semibold text-secondary-900">
-                        Dokumen belum tersedia
-                      </p>
-                      <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
-                        Vera saat ini hanya dapat memakai materi dan hasil latihan
-                        yang sudah dirilis.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                  <label
-                    className={cn(
-                      "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
-                      "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
-                    )}
-                  >
-                    <input
-                      accept=".pdf,.txt,text/plain,application/pdf"
-                      className="sr-only"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-
-                          if (file) {
-                            const previousSourceId = uploadedSource?.id;
-                            const nextSource: VeraContextSource = {
-                              id: `uploaded-${Date.now()}`,
-                              title: file.name,
-                              type: "document",
-                            };
-
-                            if (previousSourceId) {
-                              onToggleSource(previousSourceId);
-                            }
-
-                            onUploadedSourceChange(nextSource);
-                            onUploadedFileNameChange(file.name);
-                            onToggleSource(nextSource.id);
-                          }
-                        }}
-                      type="file"
-                    />
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
-                      <Upload className="size-4" />
-                    </span>
-                    <span className="mt-3 text-sm font-semibold text-secondary-950">
-                      Upload dokumen belajar
-                    </span>
-                    <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
-                      Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
-                      TXT untuk catatan, rangkuman, dan materi eksternal.
-                    </span>
-                    <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
-                      Pilih file
-                    </span>
-                  </label>
-                  {uploadedSource ? (
-                    <Attachment className="mt-3 w-full" state="done">
-                      <AttachmentMedia>
-                        <FileText />
-                      </AttachmentMedia>
-                      <AttachmentContent>
-                        <AttachmentTitle>
-                          {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
-                        </AttachmentTitle>
-                        <AttachmentDescription>
-                          {draftSourceIds.includes(uploadedSource.id)
-                            ? "Dipakai di sesi ini"
-                            : "Ditambahkan ke perpustakaan — pakai dari tab Konteks"}
-                        </AttachmentDescription>
-                      </AttachmentContent>
-                      <AttachmentActions>
-                        <AttachmentAction
-                          aria-label="Lepas dokumen"
-                          onClick={() => {
-                            if (draftSourceIds.includes(uploadedSource.id)) {
-                              onToggleSource(uploadedSource.id);
-                            }
-                            onUploadedSourceChange(null);
-                            onUploadedFileNameChange(null);
-                          }}
-                        >
-                          <X />
-                        </AttachmentAction>
-                      </AttachmentActions>
-                    </Attachment>
-                  ) : null}
-                    </>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+      <AddContextDocumentTab
+        backendMode={backendMode}
+        draftSourceIds={draftSourceIds}
+        onToggleSource={onToggleSource}
+        onUploadedFileNameChange={onUploadedFileNameChange}
+        onUploadedSourceChange={onUploadedSourceChange}
+        uploadedFileName={uploadedFileName}
+        uploadedSource={uploadedSource}
+      />
+    </Tabs>
   );
 }
 
@@ -4282,14 +4466,19 @@ function BackendContextOption({
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-10">
         <Icon className="size-4" aria-hidden="true" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-secondary-950 md:text-base">
-          {source.title}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-secondary-950 md:text-base">
+            {source.title}
+          </span>
+          <span className="block truncate text-xs text-secondary-500">
+            {source.subtitle ?? contextTypeLabels[source.type]}
+          </span>
+          {source.releasedAt ? (
+            <span className="block truncate text-[11px] text-secondary-400">
+              Dirilis {DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}
+            </span>
+          ) : null}
         </span>
-        <span className="block truncate text-xs text-secondary-500">
-          {contextTypeLabels[source.type]}
-        </span>
-      </span>
       {selected ? <Check className="shrink-0 text-primary-700" /> : null}
     </button>
   );

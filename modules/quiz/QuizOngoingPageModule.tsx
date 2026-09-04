@@ -42,6 +42,8 @@ import { saveQuizAnswerAction, submitQuizAction } from "./actions";
 
 import type { QuizAttempt, QuizAttemptNavState, QuizItem } from "./data";
 
+const REPORT_DISCLOSURE = "Tanda ini hanya tersimpan sementara di halaman ini, tidak dikirim ke staf, dan terhapus saat halaman ditutup atau dimuat ulang.";
+
 function QuizOngoingPageModule({
   attempt,
   attemptId,
@@ -311,7 +313,7 @@ function QuizOngoingScreen({
                   <AssessmentUtilityPill
                     active={viewState.reported}
                     icon={Flag}
-                    label="Laporkan soal"
+                    label="Tandai untuk ditinjau"
                     onClick={onToggleReport}
                   />
                   <AssessmentIconButton
@@ -326,6 +328,7 @@ function QuizOngoingScreen({
                   />
                 </div>
               </div>
+              <p className="mt-2 text-xs leading-5 text-secondary-500">{REPORT_DISCLOSURE}</p>
 
               <div className={cn("mt-7 space-y-5 font-medium text-secondary-800", readingTextClass)}>
                 {currentQuizQuestion?.passage.map((paragraph) => (
@@ -355,7 +358,7 @@ function QuizOngoingScreen({
               ))}
             </section>
           </div>
-          {message ? <p className="mt-3 text-sm font-medium text-student-status-danger-fg">{message}</p> : null}
+          {message ? <p aria-live="polite" className="mt-3 text-sm font-medium text-student-status-danger-fg" role="status">{message}</p> : null}
         </div>
       }
       dialog={

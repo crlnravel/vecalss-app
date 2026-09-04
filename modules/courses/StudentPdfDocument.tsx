@@ -13,13 +13,18 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 type StudentPdfDocumentProps = {
   file: string;
   fullscreen?: boolean;
+  onError?: () => void;
+  onReady?: () => void;
   title: string;
 };
 
-function StudentPdfDocument({ file, fullscreen = false, title }: StudentPdfDocumentProps) {
+const PAGE_BATCH_SIZE = 3;
+
+function StudentPdfDocument({ file, fullscreen = false, onError, onReady, title }: StudentPdfDocumentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [numPages, setNumPages] = useState(0);
+  const [visiblePageCount, setVisiblePageCount] = useState(PAGE_BATCH_SIZE);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -60,11 +65,16 @@ function StudentPdfDocument({ file, fullscreen = false, title }: StudentPdfDocum
             <p>Gunakan tombol buka atau download di bawah untuk mengakses dokumen.</p>
           </div>
         )}
-        onLoadSuccess={({ numPages: loadedNumPages }) => setNumPages(loadedNumPages)}
+        onLoadError={() => onError?.()}
+        onLoadSuccess={({ numPages: loadedNumPages }) => {
+          setNumPages(loadedNumPages);
+          setVisiblePageCount(Math.min(PAGE_BATCH_SIZE, loadedNumPages));
+          onReady?.();
+        }}
       >
         {numPages > 0 ? (
           <div aria-label={title} className="flex flex-col items-center gap-4">
-            {Array.from({ length: numPages }, (_, index) => (
+            {Array.from({ length: Math.min(numPages, visiblePageCount) }, (_, index) => (
               <Page
                 className="max-w-full overflow-hidden rounded-xl bg-white shadow-[0_14px_32px_-28px_rgba(23,107,77,0.55)] ring-1 ring-[#d9e5de]"
                 key={`${file}-${index + 1}`}
@@ -74,6 +84,15 @@ function StudentPdfDocument({ file, fullscreen = false, title }: StudentPdfDocum
                 width={pageWidth}
               />
             ))}
+            {visiblePageCount < numPages ? (
+              <button
+                className="min-h-11 rounded-xl border border-[#b7ddc3] bg-white px-4 py-2 text-sm font-semibold text-[#285641] outline-none hover:bg-[#eef9f2] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+                onClick={() => setVisiblePageCount((count) => Math.min(numPages, count + PAGE_BATCH_SIZE))}
+                type="button"
+              >
+                Tampilkan halaman berikutnya ({Math.min(PAGE_BATCH_SIZE, numPages - visiblePageCount)})
+              </button>
+            ) : null}
           </div>
         ) : null}
       </Document>

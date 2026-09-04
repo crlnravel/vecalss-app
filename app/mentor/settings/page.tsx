@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { getKaptenSettings } from "@/modules/mentor/settings-actions";
 import { KaptenSettingsPageModule } from "@/modules/mentor/KaptenContentPageModules";
 
 export const metadata: Metadata = {
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 
 export default async function MentorSettingsPage() {
   const session = await requireTutorSession();
+  const settings = await getKaptenSettings();
 
-  return <KaptenSettingsPageModule session={session} />;
+  return <KaptenSettingsPageModule initialSettings={settings} session={session} />;
 }

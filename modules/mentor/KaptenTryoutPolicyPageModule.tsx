@@ -1,11 +1,23 @@
 "use client";
 
+import { AlertTriangle } from "@/lib/icons";
 import { useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
+import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
   OperationNotice,
@@ -19,43 +31,70 @@ import {
 function KaptenTryoutPolicyPageModule({
   embedded = false,
   initial,
+  mode = "edit",
   onNext,
 }: {
   embedded?: boolean;
   initial: TryoutOperationsView;
+  mode?: "create" | "edit";
   onNext?: () => void;
 }) {
-  const [admissionMode, setAdmissionMode] = useState<Mode>("open");
+  const initialAdmissionMode = mode === "create" ? "open" : initial.admissionMode as Mode;
+  const [admissionMode, setAdmissionMode] = useState<Mode>(initialAdmissionMode);
   const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(
     initial.defaultReleasePolicy as DefaultPolicy,
   );
+  const [pendingAdmissionMode, setPendingAdmissionMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
   const tryoutHref = `/mentor/tryout/${initial.id}`;
 
+  const admissionChanged = admissionMode !== initialAdmissionMode;
+  const releaseChanged = defaultReleasePolicy !== initial.defaultReleasePolicy;
+
+  const requestAdmissionMode = (next: Mode) => {
+    if (next === admissionMode) return;
+    setPendingAdmissionMode(next);
+  };
+
+  const confirmAdmissionMode = () => {
+    if (pendingAdmissionMode) setAdmissionMode(pendingAdmissionMode);
+    setPendingAdmissionMode(null);
+  };
+
   const handleSave = async () => {
+    if (!admissionChanged && !releaseChanged) {
+      setNotice({ message: "Tidak ada perubahan untuk disimpan.", tone: "default" });
+      onNext?.();
+      return;
+    }
+
     setBusy(true);
     try {
-      const [admission, release] = await Promise.all([
-        configureTryoutAdmissionAction(
+      if (admissionChanged) {
+        const admission = await configureTryoutAdmissionAction(
           initial.id,
           admissionMode,
           "Pengaturan akses peserta Tryout",
-        ),
-        configureTryoutDefaultResultReleaseAction(
+        );
+        if (!admission.ok) {
+          setNotice({ message: admission.message ?? "Kebijakan akses peserta gagal disimpan.", tone: "error" });
+          return;
+        }
+      }
+
+      if (releaseChanged) {
+        const release = await configureTryoutDefaultResultReleaseAction(
           initial.id,
           defaultReleasePolicy,
           "Pengaturan jadwal rilis hasil Tryout",
-        ),
-      ]);
-      if (!admission.ok) {
-        setNotice({ message: admission.message ?? "Kebijakan admission gagal disimpan.", tone: "error" });
-        return;
+        );
+        if (!release.ok) {
+          setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
+          return;
+        }
       }
-      if (!release.ok) {
-        setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
-        return;
-      }
+
       setNotice(null);
       onNext?.();
     } catch (saveError) {
@@ -80,10 +119,10 @@ function KaptenTryoutPolicyPageModule({
         <ReferenceSurface as="section" aria-label="Akses peserta" className="p-5 sm:p-6">
           <OptionSet
             label="Akses peserta"
-            onValueChange={setAdmissionMode}
+            onValueChange={requestAdmissionMode}
             options={[
-              { disabled: true, label: "Perlu persetujuan", value: "approval_required" },
-              { disabled: true, label: "Undangan saja", value: "invitation_only" },
+              { label: "Perlu persetujuan", value: "approval_required" },
+              { label: "Undangan saja", value: "invitation_only" },
               { label: "Terbuka", value: "open" },
             ]}
             required
@@ -114,6 +153,29 @@ function KaptenTryoutPolicyPageModule({
           {busy ? "Menyimpan…" : "Selanjutnya"}
         </Button>
       </div>
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setPendingAdmissionMode(null);
+        }}
+        open={Boolean(pendingAdmissionMode)}
+      >
+        <AlertDialogContent data-testid="tryout-admission-confirmation" size="sm" variant="warning">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
+            <AlertDialogTitle>Konfirmasi perubahan akses peserta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Akses peserta akan berubah dari {modeLabels[admissionMode]} menjadi {pendingAdmissionMode ? modeLabels[pendingAdmissionMode] : "pilihan baru"}. Perubahan ini memengaruhi siapa yang dapat mendaftar dan akan dicatat dalam konteks audit “Pengaturan akses peserta Tryout”. Lanjutkan?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAdmissionMode} variant="brand">
+              Konfirmasi perubahan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Root>
   );
 }

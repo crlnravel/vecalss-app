@@ -81,11 +81,33 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         <AiControlPlaneNav activeTab="providers" />
 
         {error && (
-          <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <AlertCircle className="size-5 shrink-0 text-red-600" />
-            <p>{error}</p>
+            <p className="min-w-0 flex-1">{error}</p>
+            <Button disabled={isLoading} onClick={() => void loadProviders()} size="sm" type="button" variant="brandOutline">
+              Coba lagi
+            </Button>
           </div>
         )}
+
+        {isLoading && !data ? (
+          <div aria-live="polite" className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm" role="status">
+            <div className="h-5 w-48 animate-pulse rounded bg-secondary-100 motion-reduce:animate-none" />
+            <div className="grid gap-4 md:grid-cols-3">
+              {["gateway-1", "gateway-2", "gateway-3"].map((key) => (
+                <div className="h-40 animate-pulse rounded-3xl bg-secondary-50 motion-reduce:animate-none" key={key} />
+              ))}
+            </div>
+            <p className="text-sm text-secondary-600">Memuat status provider dari sumber admin…</p>
+          </div>
+        ) : null}
+
+        {!isLoading && !data && !error ? (
+          <div className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
+            <p className="text-sm font-semibold text-secondary-900">Belum ada data provider</p>
+            <p className="mt-1 text-sm text-secondary-600">Segarkan untuk meminta snapshot baru dari control plane admin.</p>
+          </div>
+        ) : null}
 
         {data && <AiFreshnessBanner freshness={data.freshness} />}
 

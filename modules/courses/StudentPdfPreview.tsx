@@ -66,6 +66,7 @@ function StudentPdfPreview({
   const [resolvedKey, setResolvedKey] = useState<string | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
+  const [renderedKey, setRenderedKey] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -78,7 +79,7 @@ function StudentPdfPreview({
   const unavailableMessage = isManaged
     ? "Dokumen PDF managed belum dapat dibuka. Coba muat ulang halaman atau gunakan jalur kembali ke Materi."
     : "Dokumen PDF belum tersedia untuk dibaca. Kembali ke Materi untuk memilih unit lain.";
-  const requestKey = `${documentDeliveryUrl ?? ""}:${requestVersion}`;
+  const requestKey = `${documentDeliveryUrl ?? ""}:${hostedUrl}:${document?.managedAssetId ?? ""}:${requestVersion}`;
   const state: DocumentPreviewState = !shouldResolveDelivery && isHosted
     ? "ready"
     : !shouldResolveDelivery
@@ -92,6 +93,8 @@ function StudentPdfPreview({
   const downloadUrl = shouldResolveDelivery
     ? resolvedDownloadUrl ?? getDownloadUrl(previewUrl)
     : getDownloadUrl(hostedUrl);
+  const documentActionsReady = state === "ready" && Boolean(previewUrl);
+  const completionReady = documentActionsReady && renderedKey === requestKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +214,14 @@ function StudentPdfPreview({
             <p className="font-semibold text-[#285641]">Menyiapkan PDF untuk dibaca…</p>
           </div>
         ) : state === "ready" && previewUrl ? (
-          <StudentPdfDocument file={previewUrl} fullscreen={isFullscreen} title={previewTitle} />
+          <StudentPdfDocument
+            file={previewUrl}
+            fullscreen={isFullscreen}
+            key={requestKey}
+            onError={() => setRenderedKey(null)}
+            onReady={() => setRenderedKey(requestKey)}
+            title={previewTitle}
+          />
         ) : (
           <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
             <FileText aria-hidden="true" className="size-9 text-[#9ab4a4]" />
@@ -232,12 +242,12 @@ function StudentPdfPreview({
         )}
       </div>
 
-      {completionAction || actions || (state === "ready" && previewUrl) ? (
+      {documentActionsReady && (completionAction || actions || documentActionsReady) ? (
         <div className="flex items-center gap-2" role="group">
-          {completionAction}
-          {actions || (state === "ready" && previewUrl) ? (
+          {completionReady ? completionAction : null}
+          {actions || documentActionsReady ? (
             <div aria-label={state === "ready" ? "Aksi dokumen PDF" : "Aksi bacaan"} className="flex shrink-0 items-center gap-1" role="group">
-              {state === "ready" && previewUrl ? (
+              {documentActionsReady ? (
                 <>
                   <Tooltip>
                     <TooltipTrigger
@@ -245,7 +255,7 @@ function StudentPdfPreview({
                         <Button
                           aria-label="Buka PDF"
                           nativeButton={false}
-                          render={<a aria-label="Buka PDF" href={previewUrl} rel="noreferrer" target="_blank" />}
+                          render={<a aria-label="Buka PDF" href={previewUrl ?? ""} rel="noreferrer" target="_blank" />}
                           size="icon-lg"
                           title="Buka PDF"
                           variant="brandOutline"
@@ -262,7 +272,7 @@ function StudentPdfPreview({
                         <Button
                           aria-label="Download PDF"
                           nativeButton={false}
-                          render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl} />}
+                          render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />}
                           size="icon-lg"
                           title="Download PDF"
                           variant="brandOutline"

@@ -18,6 +18,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
+import { saveKaptenSettingsAction } from "@/modules/mentor/settings-actions";
 import {
   DropdownField,
   PageIntro,
@@ -34,7 +35,15 @@ import {
   type KaptenQuiz,
   type KaptenTryout,
 } from "@/modules/mentor/mock-data";
-import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
+
+type KaptenSettings = {
+  contentLanguage: "id" | "en";
+  email: string;
+  profileName: string;
+  savedAt: string | null;
+  subjectCode: "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM";
+  userId: string;
+};
 
 function CreateButton({ href, label }: { href: string; label: string }) {
   return (
@@ -206,25 +215,6 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
   );
 }
 
-function splitName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-
-  return {
-    firstName: parts[0] ?? "",
-    lastName: parts.slice(1).join(" ") || "",
-  };
-}
-
-function getInitials(fullName: string) {
-  return fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
 function SettingsSection({
   children,
   description,
@@ -259,9 +249,70 @@ function SettingsSection({
   );
 }
 
-function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
-  const initials = getInitials(session.user.fullName);
-  const { firstName, lastName } = splitName(session.user.fullName);
+function KaptenSettingsPageModule({
+  initialSettings,
+  session,
+}: {
+  initialSettings: KaptenSettings;
+  session: SessionContext;
+}) {
+  const [savedSettings, setSavedSettings] = useState(() => initialSettings);
+  const [draft, setDraft] = useState(() => initialSettings);
+  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const dirty =
+    draft.profileName !== savedSettings.profileName ||
+    draft.email !== savedSettings.email ||
+    draft.subjectCode !== savedSettings.subjectCode ||
+    draft.contentLanguage !== savedSettings.contentLanguage;
+  const saving = status === "saving";
+
+  const updateDraft = <K extends "profileName" | "email" | "subjectCode" | "contentLanguage">(
+    key: K,
+    value: KaptenSettings[K],
+  ) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setStatus("idle");
+    setStatusMessage(null);
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!dirty || saving) return;
+
+    setStatus("saving");
+    setStatusMessage(null);
+    let result: Awaited<ReturnType<typeof saveKaptenSettingsAction>>;
+    try {
+      result = await saveKaptenSettingsAction({
+        contentLanguage: draft.contentLanguage,
+        email: draft.email,
+        profileName: draft.profileName,
+        subjectCode: draft.subjectCode,
+      });
+    } catch {
+      setStatus("error");
+      setStatusMessage("Pengaturan belum tersimpan. Coba lagi.");
+      return;
+    }
+
+    if (!result.ok) {
+      setStatus("error");
+      setStatusMessage(result.message);
+      return;
+    }
+
+    setSavedSettings(result.settings);
+    setDraft(result.settings);
+    setStatus("success");
+    setStatusMessage(result.message);
+  };
+
+  const handleCancel = () => {
+    setDraft(savedSettings);
+    setStatus("idle");
+    setStatusMessage(null);
+  };
 
   return (
     <MentorWorkspaceShell
@@ -277,7 +328,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
         title="Pengaturan"
       />
 
-      <div className="grid min-w-0 gap-6">
+      <form className="grid min-w-0 gap-6" onSubmit={handleSubmit}>
           <SettingsSection
             description="Atur detail akun Kapten."
             id="akun"
@@ -285,48 +336,47 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           >
             <div className="grid gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-first-name">
-                    Nama depan
+                <Field className="sm:col-span-2">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-profile-name">
+                    Nama profil
                   </FieldLabel>
                   <FieldInput
                     className={REFERENCE_CONTROL_CLASS_NAMES.input}
-                    defaultValue={firstName}
-                    id="kapten-first-name"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-last-name">
-                    Nama belakang
-                  </FieldLabel>
-                  <FieldInput
-                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
-                    defaultValue={lastName}
-                    id="kapten-last-name"
+                    id="kapten-profile-name"
+                    onChange={(event) => updateDraft("profileName", event.target.value)}
+                    value={draft.profileName}
                   />
                 </Field>
 
                 <Field className="sm:col-span-2">
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-email">
-                    Email
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-tutor-email">
+                    Email tutor
                   </FieldLabel>
                   <FieldInput
                     className={REFERENCE_CONTROL_CLASS_NAMES.input}
-                    defaultValue={session.user.email}
-                    id="kapten-email"
+                    id="kapten-tutor-email"
+                    onChange={(event) => updateDraft("email", event.target.value)}
                     type="email"
+                    value={draft.email}
                   />
                 </Field>
-              </div>
 
-              <div className="grid w-fit max-w-full min-w-0 gap-2">
-                <p className="text-xs font-semibold leading-5 tracking-[0.04em] text-secondary-600">
-                  Profile picture
-                </p>
-                <div className="flex w-fit max-w-full min-w-0 justify-start rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)]">
-                  <ProfilePhotoEditor initials={initials} showLabel={false} />
-                </div>
+                <Field className="sm:col-span-2">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-user-id">
+                    User ID
+                  </FieldLabel>
+                  <FieldInput
+                    aria-describedby="kapten-user-id-help"
+                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
+                    disabled
+                    id="kapten-user-id"
+                    readOnly
+                    value={draft.userId}
+                  />
+                  <p className="text-xs leading-5 text-secondary-500" id="kapten-user-id-help">
+                    User ID hanya untuk referensi dan tidak dapat diubah.
+                  </p>
+                </Field>
               </div>
             </div>
           </SettingsSection>
@@ -344,10 +394,10 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 <DropdownField
                   className={REFERENCE_CONTROL_CLASS_NAMES.select}
                   id="kapten-default-subject"
-                  onValueChange={() => undefined}
+                  onValueChange={(value) => updateDraft("subjectCode", value as KaptenSettings["subjectCode"])}
                   options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))}
                   placeholder="Pilih subjek"
-                  value="PU"
+                  value={draft.subjectCode}
                 />
               </Field>
 
@@ -358,15 +408,29 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 <DropdownField
                   className={REFERENCE_CONTROL_CLASS_NAMES.select}
                   id="kapten-language"
-                  onValueChange={() => undefined}
+                  onValueChange={(value) => updateDraft("contentLanguage", value as KaptenSettings["contentLanguage"])}
                   options={[{ label: "Indonesia", value: "id" }, { label: "Inggris", value: "en" }]}
                   placeholder="Pilih bahasa"
-                  value="id"
+                  value={draft.contentLanguage}
                 />
               </Field>
             </div>
           </SettingsSection>
-      </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p aria-live="polite" className="text-sm leading-6 text-secondary-600">
+              {statusMessage ?? (dirty ? "Perubahan belum disimpan." : "Tidak ada perubahan.")}
+            </p>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
+              <Button disabled={!dirty || saving} onClick={handleCancel} type="button" variant="brandOutline">
+                Batal
+              </Button>
+              <Button disabled={!dirty || saving} type="submit" variant="reference">
+                {saving ? "Menyimpan…" : "Simpan pengaturan"}
+              </Button>
+            </div>
+          </div>
+      </form>
     </MentorWorkspaceShell>
   );
 }

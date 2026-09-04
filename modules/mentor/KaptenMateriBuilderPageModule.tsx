@@ -390,11 +390,21 @@ function MateriBuilderEditor({
                 <FileText className="size-5" />
               </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-secondary-900">{selectedDocumentName}</p>
-                {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Placeholder</p> : null}
+                <p className="truncate text-sm font-bold text-secondary-900">
+                  {hasDocumentName ? selectedDocumentName : "Belum ada PDF dipilih"}
+                </p>
+                {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Pilih PDF dari pustaka media untuk melanjutkan.</p> : null}
               </div>
             </div>
-            <Button disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="reference">
+            <Button
+              aria-describedby={errors.documentAssetId || errors.documentMimeType ? "materi-document-error" : undefined}
+              aria-invalid={Boolean(errors.documentAssetId || errors.documentMimeType)}
+              disabled={isArchived}
+              onClick={onOpenPicker}
+              size="sm"
+              type="button"
+              variant="reference"
+            >
               {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
             </Button>
           </div>
@@ -515,7 +525,7 @@ function KaptenMateriBuilderPageModule({
   const readiness = Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
     ? "ready"
     : "incomplete";
-  const selectedDocumentName = builderState.documentName.trim() || "test.pdf";
+  const selectedDocumentName = builderState.documentName.trim();
 
   useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
 

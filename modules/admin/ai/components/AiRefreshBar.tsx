@@ -11,19 +11,25 @@ type AiRefreshBarProps = {
   className?: string;
 };
 
+const REFRESH_TIME_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "Asia/Jakarta",
+});
+
+function formatRefreshTime(date: Date | null | undefined): string {
+  if (!date || Number.isNaN(date.getTime())) return "Belum diperbarui";
+  return `${REFRESH_TIME_FORMATTER.format(date)} WIB`;
+}
+
 export function AiRefreshBar({
   lastRefreshedAt,
   isLoading = false,
   onRefresh,
   className,
 }: AiRefreshBarProps) {
-  const formattedTime = lastRefreshedAt
-    ? lastRefreshedAt.toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }) + " WIB"
-    : "Baru saja";
+  const formattedTime = formatRefreshTime(lastRefreshedAt);
 
   return (
     <div
@@ -35,7 +41,7 @@ export function AiRefreshBar({
       <div className="flex items-center gap-2 font-medium">
         <Clock className="size-3.5 text-secondary-400" />
         <span>Terakhir diperbarui:</span>
-        <span className="font-semibold text-secondary-800">{formattedTime}</span>
+        <span aria-live="polite" className="font-semibold text-secondary-800">{formattedTime}</span>
       </div>
 
       <Button
