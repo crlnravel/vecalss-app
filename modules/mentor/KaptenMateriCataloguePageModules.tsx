@@ -463,7 +463,7 @@ function MateriSubjectCatalogueEmptyState({
   hasActiveFilters: boolean;
 }) {
   return (
-    <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
+    <div className="flex flex-col items-center px-5 py-8 text-center sm:px-8 sm:py-10">
       <FileText aria-hidden="true" className="size-7 text-primary-300" />
       <h2 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-secondary-900">
         {hasActiveFilters ? "Tidak ada lesson yang cocok" : "Belum ada lesson"}
@@ -477,7 +477,7 @@ function MateriSubjectCatalogueEmptyState({
         <Button
           className="mt-5"
           render={<Link href={clearFiltersHref} />}
-          size="sm"
+          size="default"
           variant="brandOutline"
         >
           Reset filter
@@ -625,7 +625,7 @@ function MateriSubjectCatalogueScreen({
                 aria-label="Buat materi baru"
                 nativeButton={false}
                 render={<Link href={buildCreateHref(subject.slug, returnTo)} />}
-                size="sm"
+                size="default"
                 variant="brand"
               >
                 <Plus />

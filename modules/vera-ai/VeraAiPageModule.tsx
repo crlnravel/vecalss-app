@@ -721,11 +721,14 @@ function VeraAiWorkspace({
   workspaceTab,
   returnToHref,
 }: VeraAiWorkspaceProps) {
+  const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
+
   return (
     <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar
           notificationFeed={notificationFeed}
+          onOpenSessionSidebar={() => setMobileSessionOpen(true)}
           returnToHref={returnToHref}
           session={session}
           usage={usage}
@@ -739,7 +742,7 @@ function VeraAiWorkspace({
             <div className="flex h-full min-h-0 min-w-0 gap-3">
               <aside
                 className={cn(
-                  "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
+                  "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 motion-reduce:transition-none md:block",
                   sessionSidebarCollapsed ? "w-16" : "w-72",
                 )}
               >
@@ -819,6 +822,33 @@ function VeraAiWorkspace({
 
         </main>
       </div>
+
+      {dataState === "live" ? (
+        <Dialog open={mobileSessionOpen} onOpenChange={setMobileSessionOpen}>
+          <DialogContent
+            className="flex h-[calc(100svh-2rem)] max-h-none w-[calc(100%-1rem)] max-w-md flex-col gap-3 overflow-hidden p-3 md:hidden"
+            showCloseButton={false}
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>Sesi belajar</DialogTitle>
+              <DialogDescription>
+                Pilih riwayat sesi atau buat sesi belajar baru.
+              </DialogDescription>
+            </DialogHeader>
+            <SessionPanel
+              activeSessionId={activeSession.id}
+              className="flex min-h-0 flex-1"
+              onCollapse={() => setMobileSessionOpen(false)}
+              onNewSession={onNewSession}
+              onSelectSession={(sessionId) => {
+                onSelectSession(sessionId);
+                setMobileSessionOpen(false);
+              }}
+              sessions={sessions}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {contextDialogOpen && dataState === "live" ? (
         <AddContextDialog
@@ -2196,7 +2226,7 @@ function VeraStatusBanner({
         <Button
           className="shrink-0 rounded-full"
           onClick={onCancel}
-          size="sm"
+          size="default"
           variant="outline"
         >
           <X data-icon="inline-start" />
@@ -2206,7 +2236,7 @@ function VeraStatusBanner({
         <Button
           className="shrink-0 rounded-full"
           onClick={onRetry}
-          size="sm"
+          size="default"
           variant="outline"
         >
           <RotateCcw data-icon="inline-start" />
@@ -2288,11 +2318,13 @@ function VeraDataStatePanel({
 
 function VeraTopBar({
   notificationFeed,
+  onOpenSessionSidebar,
   returnToHref,
   session,
   usage,
 }: {
   notificationFeed: StudentNotificationFeed;
+  onOpenSessionSidebar: () => void;
   returnToHref: string;
   session: SessionContext;
   usage: VeraBackendUsage | null;
@@ -2302,7 +2334,7 @@ function VeraTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-85"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-opacity motion-reduce:transition-none hover:opacity-85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
           href={returnToHref}
         >
           <Image
@@ -2324,11 +2356,22 @@ function VeraTopBar({
 
       <div className="ml-auto flex items-center gap-2">
         <Button
+          aria-label="Buka sesi belajar"
+          className="rounded-full border border-primary-100 bg-white shadow-sm md:hidden"
+          onClick={onOpenSessionSidebar}
+          size="icon"
+          title="Sesi belajar"
+          type="button"
+          variant="ghost"
+        >
+          <MessageCircleMore aria-hidden="true" />
+        </Button>
+        <Button
           aria-label="Ke dashboard"
           className="rounded-full border border-primary-100 bg-white shadow-sm"
           nativeButton={false}
           render={<Link href="/dashboard" />}
-          size="icon-sm"
+          size="icon"
           variant="ghost"
         >
           <House />
@@ -2374,7 +2417,7 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
               ? "Penggunaan Vera belum tersedia"
               : `Penggunaan Vera ${usagePercent} persen`}
             className="rounded-full px-2.5"
-            size="sm"
+            size="default"
             variant="ghost"
           />
         }
@@ -2487,7 +2530,7 @@ function SessionSidebar({
     >
       <button
         aria-label="Buka sidebar sesi"
-        className="flex size-10 items-center justify-center rounded-xl transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+        className="flex size-11 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
         onClick={() => onSetCollapsed(false)}
         title="Buka sidebar sesi"
         type="button"
@@ -2500,7 +2543,7 @@ function SessionSidebar({
           aria-label="Buat sesi belajar baru"
           className="rounded-xl"
           onClick={onNewSession}
-          size="icon-sm"
+          size="icon"
           title="Sesi baru"
           variant="ghost"
         >
@@ -2510,7 +2553,7 @@ function SessionSidebar({
           aria-label="Buka percakapan"
           className="rounded-xl"
           onClick={() => onSetCollapsed(false)}
-          size="icon-sm"
+          size="icon"
           title="Daftar percakapan"
           variant="ghost"
         >
@@ -2545,7 +2588,7 @@ function SessionPanel({
               aria-label="Buat sesi belajar baru"
               className="rounded-full"
               onClick={onNewSession}
-              size="icon-sm"
+              size="icon"
               variant="ghost"
             >
               <Plus />
@@ -2555,7 +2598,7 @@ function SessionPanel({
                 aria-label="Minimalkan sidebar sesi"
                 className="rounded-full"
                 onClick={onCollapse}
-                size="icon-sm"
+                size="icon"
                 variant="ghost"
               >
                 <PanelLeftClose />
@@ -2580,7 +2623,7 @@ function SessionPanel({
               <button
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group relative flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
+                  "group relative flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
                   active
                     ? "border-primary-200 bg-primary-50 text-primary-950"
                     : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
@@ -2837,7 +2880,7 @@ function ContextWorkspace({
                   setSelectionMode((current) => !current);
                   setSelectedSourceIds(new Set());
                 }}
-                size="sm"
+                size="default"
                 variant="brandOutline"
               >
                 {selectionMode ? <X data-icon="inline-start" /> : <ListChecks data-icon="inline-start" />}
@@ -2849,7 +2892,7 @@ function ContextWorkspace({
                 aria-label="Tambah konteks"
                 className="rounded-full"
                 onClick={onOpenAddContext}
-                size="sm"
+                size="default"
                 variant="brand"
               >
                 <Plus data-icon="inline-start" />
@@ -2908,7 +2951,7 @@ function ContextWorkspace({
                   className="ml-auto rounded-full"
                   disabled={selectedCount === 0}
                   onClick={() => requestRemoval([...selectedSourceIds])}
-                  size="sm"
+                  size="default"
                   variant="destructive"
                 >
                   <Trash2 data-icon="inline-start" />
@@ -3019,7 +3062,7 @@ function ContextCard({
   return (
     <article
       className={cn(
-        "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 md:gap-3",
+        "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none md:gap-3",
         active
           ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
           : "border-primary-100 hover:border-primary-200 hover:bg-primary-50/20",
@@ -3054,7 +3097,7 @@ function ContextCard({
           aria-label={`Hapus ${source.title}`}
           className="text-secondary-400 hover:text-destructive"
           onClick={onRemove}
-          size="icon-xs"
+          size="icon"
           title={`Hapus ${source.title}`}
           variant="ghost"
         >
@@ -3094,7 +3137,7 @@ function EditableSessionTitle({
         <Input
           aria-label="Judul sesi belajar"
           autoFocus
-          className="h-8 min-w-40 px-2 text-sm font-semibold"
+          className="h-11 min-w-40 px-2 text-sm font-semibold"
           onBlur={save}
           onChange={(event) => setDraftTitle(event.target.value)}
           onKeyDown={(event) => {
@@ -3116,7 +3159,7 @@ function EditableSessionTitle({
         aria-label={`Ubah judul sesi ${title}`}
         className="shrink-0 rounded-full"
         onClick={() => setEditing(true)}
-        size="icon-xs"
+        size="icon"
         variant="ghost"
       >
         <Pencil />
@@ -3219,7 +3262,7 @@ function ProvisionalMessageCard({ body }: { body: string }) {
       <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
-          <LoaderCircle className="size-3.5 animate-spin text-primary-600" />
+          <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
         </div>
         <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-[0.95rem] leading-7 text-secondary-700">
           {body || "Vera sedang menyusun jawaban…"}
@@ -3250,10 +3293,10 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] transition-shadow focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
+        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
-            className="h-10 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
+            className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             placeholder="Tanyakan konsep, soal, atau langkah belajarmu..."
@@ -3264,7 +3307,7 @@ function ChatComposer({
               aria-label="Batalkan permintaan Vera"
               className="rounded-full"
               onClick={onCancel}
-              size="icon-sm"
+              size="icon"
               type="button"
               variant="outline"
             >
@@ -3275,7 +3318,7 @@ function ChatComposer({
               aria-label="Kirim pertanyaan ke Vera"
               className="rounded-full"
               disabled={!draft.trim()}
-              size="icon-sm"
+              size="icon"
               type="submit"
               variant="brand"
             >
@@ -3324,7 +3367,7 @@ function StudioPanel({
               aria-label="Perbesar dokumen"
               className="rounded-full"
               onClick={() => onExpandArtifact(activeArtifact.id)}
-              size="icon-sm"
+              size="icon"
               variant="ghost"
             >
               <Maximize2 />
@@ -3467,11 +3510,11 @@ function StudioToolRow({
 
   return (
     <button
-      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 motion-reduce:transition-none hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onGenerate}
       type="button"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-700 transition-transform duration-200 group-hover:-translate-y-0.5">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-700 transition-transform duration-200 motion-safe:group-hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none">
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -3479,7 +3522,7 @@ function StudioToolRow({
           {tool.title}
         </span>
       </span>
-      <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform duration-200 group-hover:translate-x-0.5" />
+      <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none" />
     </button>
   );
 }
@@ -3499,7 +3542,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
@@ -3717,7 +3760,7 @@ function FullscreenArtifactDialog({
               aria-label="Tutup Vera Studio"
               className="rounded-full border-0"
               onClick={() => onOpenChange(false)}
-              size="icon-sm"
+              size="icon"
               variant="ghost"
             >
               <X />
@@ -3912,7 +3955,7 @@ function AddContextDialog({
               <Button
                 aria-label="Tutup dialog tambah konteks"
                 className="absolute right-5 top-5 rounded-full shadow-sm md:right-6 md:top-6"
-                size="icon-sm"
+                size="icon"
                 variant="outline"
               />
             }
@@ -4141,7 +4184,7 @@ function AddContextMaterialTab({
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
             <Input
               aria-label="Cari materi Vecalss"
-              className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+              className="h-11 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
               onChange={(event) => {
                 onMaterialQueryChange(event.target.value);
                 onMaterialPageChange(1);
@@ -4242,7 +4285,7 @@ function AddContextDocumentTab({
             <>
               <label
                 className={cn(
-                  "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
+                  "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors motion-reduce:transition-none",
                   "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
                 )}
               >
@@ -4463,7 +4506,7 @@ function BackendContextOption({
     <button
       aria-pressed={selected}
       className={cn(
-        "flex min-h-18 w-full items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
+        "flex min-h-18 w-full items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
         selected
           ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
           : "border-primary-100 bg-background hover:border-primary-200 hover:bg-primary-50/40",
@@ -4629,7 +4672,7 @@ function ContextOption({
       </span>
       <span
         className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+          "flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none",
           selected
             ? "border-primary-700 bg-primary-700 text-white"
             : "border-primary-200 bg-white text-transparent group-hover:border-primary-400",
@@ -4677,7 +4720,7 @@ function PanelHeader({
             aria-label="Kembali ke daftar hasil"
             className="-ml-1 rounded-full border-0"
             onClick={backAction}
-            size="icon-sm"
+            size="icon"
             variant="ghost"
           >
             <ChevronLeft />

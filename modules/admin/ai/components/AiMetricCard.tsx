@@ -58,7 +58,7 @@ export function AiMetricCard({ title, metric, subCaption, className }: AiMetricC
   return (
     <div
       className={cn(
-        "flex flex-col rounded-2xl border border-primary-100 bg-white p-4 shadow-xs transition-all hover:border-primary-200",
+        "flex flex-col rounded-2xl border border-primary-100 bg-white p-4 shadow-xs transition-all motion-reduce:transition-none hover:border-primary-200",
         className,
       )}
     >

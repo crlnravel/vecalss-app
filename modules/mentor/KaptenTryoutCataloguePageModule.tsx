@@ -12,6 +12,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { cn } from "@/lib/utils";
 import type { SessionContext } from "@/lib/auth/types";
 import { CatalogueSearchInput, PaginationControls } from "@/modules/mentor/components/kapten-ui";
@@ -50,31 +51,20 @@ function TryoutStatusTabs({
   }), [items]);
 
   return (
-    <div
+    <CompactFilterTabs
       aria-label="Filter status Tryout"
-      className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1"
-      role="group"
-    >
-      {tryoutStatusTabs.map((tab) => {
-        const isActive = value === tab.value;
-
-        return (
-          <button
-            aria-pressed={isActive}
-            className={cn(
-              "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold text-secondary-500 transition-[background-color,color,box-shadow] duration-200 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-              isActive && "bg-white text-secondary-900 shadow-[0_12px_28px_-22px_rgba(23,107,77,0.72)]",
-            )}
-            key={tab.value || "all"}
-            onClick={() => onChange(tab.value)}
-            type="button"
-          >
+      items={tryoutStatusTabs.map((tab) => ({
+        label: (
+          <>
             <span>{tab.label}</span>
-            <span className="text-xs font-medium text-secondary-500">({counts[tab.value]})</span>
-          </button>
-        );
-      })}
-    </div>
+            <span className="text-xs font-medium opacity-70">({counts[tab.value]})</span>
+          </>
+        ),
+        value: tab.value,
+      }))}
+      onValueChange={onChange}
+      value={value}
+    />
   );
 }
 
@@ -113,7 +103,7 @@ function TryoutCard({ item }: { item: TryoutItem }) {
       </div>
       <ChevronRight
         aria-hidden="true"
-        className="mt-1 size-5 shrink-0 text-secondary-400 transition-transform duration-200 group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5 sm:mt-0"
+        className="mt-1 size-5 shrink-0 text-secondary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-safe:group-focus-visible:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none sm:mt-0"
       />
     </Link>
   );
@@ -147,7 +137,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
               aria-label="Buat Tryout"
               nativeButton={false}
               render={<Link href="/mentor/tryout/create" />}
-              size="sm"
+              size="default"
               variant="brand"
             >
               <Plus />
@@ -181,7 +171,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
                   <Button
                     nativeButton={false}
                     render={<Link href="/mentor/tryout/create" />}
-                    size="sm"
+                    size="default"
                     variant="brand"
                   >
                     <Plus />
@@ -197,7 +187,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
             <ReferenceSurface className="min-h-56" variant="inset">
               <ReferenceEmptyState
                 action={
-                  <Button onClick={clearFilters} size="sm" variant="brandOutline">
+                  <Button onClick={clearFilters} size="default" variant="brandOutline">
                     Hapus filter
                   </Button>
                 }

@@ -198,12 +198,10 @@ function StudentAccountMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
+          aria-label="Menu akun"
           render={
             <Button
-              aria-label={isAdmin ? "Buka menu admin" : isTutor ? "Buka menu Kapten" : "Buka menu pengguna"}
-              className="rounded-full p-1"
-              size="icon-sm"
-              type="button"
+              className="size-11 rounded-full bg-primary-100 p-0 text-xs font-semibold text-primary-900 hover:bg-primary-200"
               variant="ghost"
             />
           }

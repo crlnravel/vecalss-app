@@ -180,7 +180,7 @@ function ParticipantAttemptStatusScreen({
             <div className="grid gap-3 sm:grid-cols-3">
               {["Memeriksa jawaban", "Menghitung skor", "Menyiapkan analisis"].map((label, itemIndex) => (
                 <div className="rounded-2xl bg-primary-50 p-4 text-center" key={label}>
-                  {itemIndex === 2 ? <SpinnerGap className="mx-auto animate-spin text-2xl text-primary-700" /> : <Check className="mx-auto text-2xl text-primary-700" />}
+                  {itemIndex === 2 ? <SpinnerGap className="mx-auto animate-spin text-2xl text-primary-700 motion-reduce:animate-none" /> : <Check className="mx-auto text-2xl text-primary-700" />}
                   <p className="mt-2 text-sm font-semibold">{label}</p>
                 </div>
               ))}
@@ -204,7 +204,7 @@ function ParticipantAttemptStatusScreen({
                       <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4 text-primary-700" />{formatDuration(candidate.section.durationSeconds)}</span>
                     </div>
                   </div>
-                  {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
+                  {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin motion-reduce:animate-none" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
                 </article>
               );
             })}
@@ -636,7 +636,7 @@ function ParticipantAttemptScreen({
                       className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatusClass)}
                       role={saveState === "error" ? "alert" : "status"}
                     >
-                      {saveState === "saving" ? <SpinnerGap aria-hidden="true" className="size-3.5 shrink-0 animate-spin" /> : saveState === "saved" ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <WarningCircle aria-hidden="true" className="size-3.5 shrink-0" />}
+                      {saveState === "saving" ? <SpinnerGap aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveState === "saved" ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <WarningCircle aria-hidden="true" className="size-3.5 shrink-0" />}
                       <span className="truncate">{saveStatusLabel}</span>
                     </span>
                   ) : null}
@@ -728,7 +728,7 @@ function ParticipantAttemptScreen({
           aria-label="Keluar dari tryout"
           disabled={busy}
           onClick={() => setExitOpen(true)}
-          size="icon-sm"
+          size="icon"
           title="Keluar dari tryout"
           variant="ghost"
         >
@@ -755,7 +755,7 @@ function ParticipantAttemptScreen({
               title="Coretan sementara dinonaktifkan"
               type="button"
             >
-              <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
+              <span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300">
                 <PenTool className="size-6" />
               </span>
             </button>
@@ -767,7 +767,7 @@ function ParticipantAttemptScreen({
                 size="lg"
                 variant="brand"
               >
-                {selected ? <><SpinnerGap className="animate-spin" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}
+                {selected ? <><SpinnerGap className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}
               </Button>
             ) : index >= items.length - 1 ? (
               <Button
@@ -789,13 +789,13 @@ function ParticipantAttemptScreen({
         </AssessmentNavigationFooter>
       }
       header={
-        <div className="relative flex min-h-20 items-center justify-center bg-white px-12 py-2 sm:min-h-20 sm:px-16">
+        <div className="relative grid min-h-20 grid-cols-1 justify-items-center gap-2 bg-white px-14 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-0 sm:px-16 sm:py-2">
           <h2 className="sr-only">{tryoutTitle} · {run.section.title} · Bagian {run.sequenceNo}/{runCount}</h2>
-          <div className="scale-75">
+          <div className="scale-75 sm:col-start-2">
             <BrandLockup />
           </div>
 
-          <div className="absolute right-4 flex items-center gap-2 sm:right-8">
+          <div className="flex w-full max-w-sm min-w-0 items-center justify-center gap-2 sm:col-start-3 sm:w-auto sm:justify-self-end">
             <div
               aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}
               className={cn(
@@ -808,7 +808,20 @@ function ParticipantAttemptScreen({
               <ClockCountdown className="size-4" />
               <span>{formatTimer(run.serverDeadlineAt, now)}</span>
             </div>
-            {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="sr-only" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
+            {run.fullscreenPrompt ? (
+              <Button
+                aria-label="Masuk layar penuh"
+                className="gap-2 rounded-full"
+                onClick={() => void enterFullscreen()}
+                size="default"
+                title="Masuk layar penuh"
+                type="button"
+                variant="brandOutline"
+              >
+                <ArrowsOut aria-hidden="true" />
+                <span className="hidden sm:inline">Layar penuh</span>
+              </Button>
+            ) : null}
           </div>
         </div>
       }

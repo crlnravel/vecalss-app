@@ -7,6 +7,7 @@ import {
   ReferencePageHeader,
 } from "@/components/dashboard";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
@@ -22,7 +23,12 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
             {item.title}
           </p>
           {item.unread ? (
-            <span aria-label="Belum dibaca" className="size-2 rounded-full bg-student-status-attention-border" />
+            <>
+              <StudentBadge size="xs" tone="attention">
+                Belum dibaca
+              </StudentBadge>
+              <span aria-hidden="true" className="size-2 rounded-full bg-student-status-attention-border" />
+            </>
           ) : null}
         </div>
         <p className="mt-1 text-sm leading-6 text-secondary-600">
@@ -74,7 +80,7 @@ function NotificationsPageModule({
         <ReferencePageHeader
           actions={
             <form action={markAllNotificationsReadAction}>
-              <Button disabled={!hasUnread} size="sm" type="submit" variant="ghost">
+              <Button disabled={!hasUnread} size="default" type="submit" variant="ghost">
                 Tandai sudah dibaca
               </Button>
             </form>

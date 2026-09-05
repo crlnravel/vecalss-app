@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
+import { TabsList, TabsTrigger } from "./tabs";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
@@ -15,6 +16,34 @@ type CompactFilterTabsProps<TValue extends string> = {
   onValueChange: (value: TValue) => void;
   value: TValue;
 };
+
+type CompactTabsListProps = Omit<ComponentProps<typeof TabsList>, "variant">;
+type CompactTabsTriggerProps = ComponentProps<typeof TabsTrigger>;
+
+function CompactTabsList({ className, ...props }: CompactTabsListProps) {
+  return (
+    <TabsList
+      className={cn(
+        "!flex !h-[44px] !w-fit !max-w-full !justify-start !gap-1 !overflow-x-auto !rounded-2xl !bg-transparent !p-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className,
+      )}
+      variant="default"
+      {...props}
+    />
+  );
+}
+
+function CompactTabsTrigger({ className, ...props }: CompactTabsTriggerProps) {
+  return (
+    <TabsTrigger
+      className={cn(
+        "!h-[44px] !min-h-[44px] !min-w-[44px] !flex-none rounded-full bg-secondary-100 px-4 text-xs font-medium text-secondary-600 transition-[background-color,color,box-shadow] motion-reduce:transition-none data-active:bg-primary-700 data-active:text-white focus-visible:border-primary-700 focus-visible:ring-primary-700/25",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 function CompactFilterTabs<TValue extends string>({
   "aria-label": ariaLabel,
@@ -38,10 +67,11 @@ function CompactFilterTabs<TValue extends string>({
         return (
           <Button
             aria-pressed={selected}
-            className="rounded-full"
+            className="min-h-[44px] min-w-[44px] rounded-full"
             key={item.value}
             onClick={() => onValueChange(item.value)}
             size="default"
+            type="button"
             variant={selected ? "brand" : "context"}
           >
             {item.label}
@@ -52,5 +82,10 @@ function CompactFilterTabs<TValue extends string>({
   );
 }
 
-export type { CompactFilterTabItem, CompactFilterTabsProps };
-export { CompactFilterTabs };
+export type {
+  CompactFilterTabItem,
+  CompactFilterTabsProps,
+  CompactTabsListProps,
+  CompactTabsTriggerProps,
+};
+export { CompactFilterTabs, CompactTabsList, CompactTabsTrigger };

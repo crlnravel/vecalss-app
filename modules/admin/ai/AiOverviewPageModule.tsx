@@ -88,14 +88,18 @@ export function AiOverviewPageModule({
         </div>
 
         {error && (
-          <div className="mt-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div
+            aria-live="assertive"
+            className="mt-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            role="alert"
+          >
             <AlertCircle className="size-5 shrink-0 text-red-600" />
             <p>{error}</p>
           </div>
         )}
 
         {isLoading && !data ? (
-          <div className="mt-8 space-y-10 animate-pulse">
+          <div className="mt-8 space-y-10 animate-pulse motion-reduce:animate-none">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="h-32 rounded-2xl bg-secondary-100" />
@@ -122,22 +126,27 @@ export function AiOverviewPageModule({
             {/* Volume & quota health */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Requests Over Time */}
-              <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between gap-4 border-b border-primary-50 pb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-secondary-950">API Request Vera AI Hari Ini</h3>
+              <section
+                aria-labelledby="ai-overview-requests-heading"
+                className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary-50 pb-4">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-secondary-950" id="ai-overview-requests-heading">
+                      API Request Vera AI Hari Ini
+                    </h2>
                     <p className="mt-1 text-xs text-secondary-500">Jumlah API Request yang masuk sepanjang hari</p>
                   </div>
                   <Link
                     href="/admin/ai/usage"
-                    className="flex shrink-0 items-center gap-1 text-xs font-bold text-primary-700 hover:underline"
+                    className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl text-xs font-bold text-primary-700 transition-colors motion-reduce:transition-none hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
                   >
                      <span>Lihat detail</span>
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </div>
 
-                <div className="mt-6 flex h-40 items-end gap-2 sm:gap-3">
+                <div aria-hidden="true" className="mt-6 flex h-40 items-end gap-2 sm:gap-3">
                   {data.requestsOverTime.map((slot, index) => {
                     const totalSlot = slot.succeeded + slot.fallback + slot.failed + slot.pendingOrStaged;
                     const heightPercent = Math.max(10, Math.round((totalSlot / maxRequestCount) * 100));
@@ -147,7 +156,7 @@ export function AiOverviewPageModule({
                         {totalSlot > 0 ? (
                           <div
                             style={{ height: `${heightPercent}%` }}
-                            className="w-full rounded-t-lg bg-primary-700 transition-all"
+                            className="w-full rounded-t-lg bg-primary-700 transition-[height] motion-reduce:transition-none"
                             title={`${totalSlot.toLocaleString("id-ID")} API Request pada ${slot.timeLabel}`}
                           />
                         ) : (
@@ -161,27 +170,46 @@ export function AiOverviewPageModule({
                   })}
                 </div>
 
+                <ul aria-label="Rincian API Request per rentang empat jam" className="sr-only">
+                  {data.requestsOverTime.map((slot) => {
+                    const totalSlot = slot.succeeded + slot.fallback + slot.failed + slot.pendingOrStaged;
+                    return (
+                      <li key={`${slot.timeLabel}-summary`}>
+                        {slot.timeLabel}: {totalSlot.toLocaleString("id-ID")} total API Request; {slot.succeeded.toLocaleString("id-ID")} berhasil; {slot.fallback.toLocaleString("id-ID")} fallback; {slot.failed.toLocaleString("id-ID")} gagal; {slot.pendingOrStaged.toLocaleString("id-ID")} menunggu atau dipentaskan.
+                      </li>
+                    );
+                  })}
+                </ul>
+
                 <div className="mt-4 border-t border-primary-50 pt-3 text-xs text-secondary-500">
                   Setiap batang menunjukkan jumlah API Request dalam rentang empat jam.
                 </div>
-              </div>
+              </section>
 
               {/* Quota Health Component */}
-              <AiQuotaGauge quotaHealth={data.quotaHealth} />
+              <section aria-labelledby="ai-overview-quota-heading">
+                <h2 className="sr-only" id="ai-overview-quota-heading">Kesehatan kuota</h2>
+                <AiQuotaGauge quotaHealth={data.quotaHealth} />
+              </section>
             </div>
 
             {/* Feature usage */}
             <div className="grid gap-6">
               {/* Feature Usage */}
-              <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between gap-4 border-b border-primary-50 pb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-secondary-950">Pemakaian Kuota per Fitur</h3>
+              <section
+                aria-labelledby="ai-overview-features-heading"
+                className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary-50 pb-4">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-secondary-950" id="ai-overview-features-heading">
+                      Pemakaian Kuota per Fitur
+                    </h2>
                     <p className="mt-1 text-xs text-secondary-500">Fitur yang paling banyak digunakan hari ini</p>
                   </div>
                   <Link
                     href="/admin/ai/usage"
-                    className="flex shrink-0 items-center gap-1 text-xs font-bold text-primary-700 hover:underline"
+                    className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl text-xs font-bold text-primary-700 transition-colors motion-reduce:transition-none hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
                   >
                      <span>Lihat semua</span>
                     <ArrowRight className="size-3.5" />
@@ -201,13 +229,13 @@ export function AiOverviewPageModule({
                       <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-100">
                         <div
                           style={{ width: `${item.sharePercentage}%` }}
-                          className="h-full rounded-full bg-primary-700 transition-all duration-500"
+                          className="h-full rounded-full bg-primary-700 transition-[width] duration-500 motion-reduce:transition-none"
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
 
             </div>
           </div>

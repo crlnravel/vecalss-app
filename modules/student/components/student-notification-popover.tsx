@@ -31,7 +31,7 @@ function StudentNotificationPopover({
 
   if (renderedItems.length === 0) {
     return (
-      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon-sm" variant="ghost">
+      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon" variant="ghost">
         <Bell />
       </Button>
     );
@@ -44,7 +44,7 @@ function StudentNotificationPopover({
           <Button
             aria-label="Notifikasi"
             className="relative"
-            size="icon-sm"
+            size="icon"
             type="button"
             variant="ghost"
           />
@@ -64,7 +64,7 @@ function StudentNotificationPopover({
 
       <PopoverContent
         align="end"
-        className="w-[360px] gap-0 p-0"
+        className="w-[min(360px,calc(100vw-2rem))] gap-0 p-0"
         sideOffset={8}
       >
         <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
@@ -83,7 +83,12 @@ function StudentNotificationPopover({
                       {item.title}
                     </p>
                     {item.unread ? (
-                      <span className="size-2 shrink-0 rounded-full bg-student-status-attention-border" />
+                      <>
+                        <StudentBadge size="xs" tone="attention">
+                          Belum dibaca
+                        </StudentBadge>
+                        <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-student-status-attention-border" />
+                      </>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm leading-6 text-secondary-600">
@@ -100,7 +105,7 @@ function StudentNotificationPopover({
               <div key={item.id}>
                 <Link
                   href={`/notifications/${item.id}`}
-                  className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
+                  className="flex gap-3 px-4 py-4 transition-colors motion-reduce:transition-none hover:bg-primary-50/80"
                   prefetch={false}
                 >
                   {entry}
@@ -115,7 +120,7 @@ function StudentNotificationPopover({
 
         <div className="border-t border-primary-100 px-4 py-3">
           <Button
-            className="h-auto w-auto justify-start px-0 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
+            className="min-h-11 h-auto w-auto justify-start px-3 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
             nativeButton={false}
             render={<Link href="/notifications" />}
             variant="ghost"

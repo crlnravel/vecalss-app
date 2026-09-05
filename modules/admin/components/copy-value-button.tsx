@@ -65,7 +65,7 @@ function CopyValueButton({
       className={iconOnly ? "justify-center" : undefined}
       disabled={masked}
       onClick={() => void handleCopy()}
-      size={iconOnly ? "icon-sm" : "sm"}
+      size={iconOnly ? "icon" : "default"}
       title={masked ? "Nilai tersamarkan tidak dapat disalin" : undefined}
       type="button"
       variant={iconOnly ? "ghost" : "brandOutline"}

@@ -36,7 +36,7 @@ function AiRequestClassificationCard({
     <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
-          <h3 className="text-base font-bold text-secondary-950">Arsitektur Klasifikasi Permintaan</h3>
+          <h2 className="text-base font-bold text-secondary-950">Arsitektur Klasifikasi Permintaan</h2>
           <p className="mt-0.5 text-xs text-secondary-500">
             Total {classification.attemptedAdmissions.toLocaleString("id-ID")} percobaan masuk ke sistem Vera
           </p>
@@ -134,7 +134,7 @@ function AiGracefulDegradationCard({
     <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
-          <h3 className="text-base font-bold text-secondary-950">Efektivitas Graceful Degradation</h3>
+          <h2 className="text-base font-bold text-secondary-950">Efektivitas Graceful Degradation</h2>
           <p className="mt-0.5 text-xs text-secondary-500">
             Distribusi jalur pemulihan saat model primer mengalami timeout atau degradasi upstream
           </p>
@@ -142,66 +142,75 @@ function AiGracefulDegradationCard({
       </div>
 
       <div className="mt-5 space-y-2">
-        <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-secondary-100">
+        <div
+          aria-label={`Distribusi graceful degradation: primary LLM ${(breakdown.primaryLlmShare * 100).toFixed(1)}%, model alternatif ${(breakdown.alternativeModelShare * 100).toFixed(1)}%, bank kandidat ${(breakdown.cachedCandidateBankShare * 100).toFixed(1)}%, bank statis ${(breakdown.staticQuestionBankShare * 100).toFixed(1)}%, tidak dapat dipulihkan ${(breakdown.unrecoverableShare * 100).toFixed(1)}%`}
+          className="flex h-3.5 w-full overflow-hidden rounded-full bg-secondary-100"
+          role="img"
+        >
           <div
             style={{ width: `${breakdown.primaryLlmShare * 100}%` }}
+            aria-hidden="true"
             className="bg-primary-700"
             title="Primary LLM"
           />
           <div
             style={{ width: `${breakdown.alternativeModelShare * 100}%` }}
+            aria-hidden="true"
             className="bg-amber-400"
             title="Model alternatif"
           />
           <div
             style={{ width: `${breakdown.cachedCandidateBankShare * 100}%` }}
+            aria-hidden="true"
             className="bg-teal-500"
             title="Bank kandidat tersimpan"
           />
           <div
             style={{ width: `${breakdown.staticQuestionBankShare * 100}%` }}
+            aria-hidden="true"
             className="bg-purple-500"
             title="Bank statis"
           />
           <div
             style={{ width: `${breakdown.unrecoverableShare * 100}%` }}
+            aria-hidden="true"
             className="bg-red-500"
             title="Tidak dapat dipulihkan"
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-2">
-          <div className="flex items-center gap-1.5">
+        <ul aria-label="Rincian graceful degradation" className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
+          <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-primary-700" />
             <span className="text-secondary-600">
               Primary LLM: <strong>{(breakdown.primaryLlmShare * 100).toFixed(1)}%</strong>
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
+          </li>
+          <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-amber-400" />
             <span className="text-secondary-600">
               Alternative Model: <strong>{(breakdown.alternativeModelShare * 100).toFixed(1)}%</strong>
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
+          </li>
+          <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-teal-500" />
             <span className="text-secondary-600">
               Cached Bank: <strong>{(breakdown.cachedCandidateBankShare * 100).toFixed(1)}%</strong>
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
+          </li>
+          <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-purple-500" />
             <span className="text-secondary-600">
               Static Bank: <strong>{(breakdown.staticQuestionBankShare * 100).toFixed(1)}%</strong>
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
+          </li>
+          <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-red-500" />
             <span className="text-secondary-600">
               Gagal: <strong>{(breakdown.unrecoverableShare * 100).toFixed(1)}%</strong>
             </span>
-          </div>
-        </div>
+          </li>
+        </ul>
       </div>
     </div>
   );
@@ -219,7 +228,7 @@ function AiIncidentTaxonomySection({
   return (
     <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
       <div className="border-b border-primary-50 pb-4">
-        <h3 className="text-base font-bold text-secondary-950">Taksonomi Insiden per Domain Operasional</h3>
+        <h2 className="text-base font-bold text-secondary-950">Taksonomi Insiden per Domain Operasional</h2>
         <p className="mt-0.5 text-xs text-secondary-500">
           Insiden dipisahkan berdasarkan domain untuk diagnosis akar masalah yang cepat dan tepat
         </p>
@@ -238,11 +247,12 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all cursor-pointer",
+                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
                 )}
+                aria-pressed={selectedIncident?.label === item.label}
               >
                 <div className="flex items-center gap-3">
                   <AlertCircle className="size-4 text-primary-700 shrink-0" />
@@ -271,11 +281,12 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all cursor-pointer",
+                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
                 )}
+                aria-pressed={selectedIncident?.label === item.label}
               >
                 <div className="flex items-center gap-3">
                   <AlertCircle
@@ -316,11 +327,12 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all cursor-pointer",
+                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
                 )}
+                aria-pressed={selectedIncident?.label === item.label}
               >
                 <div className="flex items-center gap-3">
                   <AlertCircle
@@ -361,7 +373,7 @@ function AiIncidentCohortDrilldown({
   return (
     <div className="sticky top-24 rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
       <div className="border-b border-primary-50 pb-4">
-        <h3 className="text-base font-bold text-secondary-950">Detail Cohort Insiden</h3>
+        <h2 className="text-base font-bold text-secondary-950">Detail Cohort Insiden</h2>
         <p className="mt-0.5 text-xs text-secondary-500">
           {selectedIncident ? selectedIncident.label : "Pilih insiden untuk melihat rincian agregat"}
         </p>
@@ -435,7 +447,7 @@ function AiIncidentCohortDrilldown({
         </div>
       ) : (
         <p className="mt-5 text-xs text-secondary-500 italic">
-          Klik salah satu insiden untuk menampilkan detail agregat.
+          Pilih salah satu insiden untuk menampilkan detail agregat.
         </p>
       )}
     </div>
@@ -510,10 +522,10 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
         />
 
         {error && (
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
             <AlertCircle className="size-5 shrink-0 text-red-600" />
             <p className="min-w-0 flex-1">{error}</p>
-            <Button disabled={isLoading} onClick={() => void loadReliability()} size="sm" type="button" variant="brandOutline">
+            <Button disabled={isLoading} onClick={() => void loadReliability()} size="default" type="button" variant="brandOutline">
               Coba lagi
             </Button>
           </div>

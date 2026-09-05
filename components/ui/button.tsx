@@ -15,7 +15,10 @@ function Button({
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        "motion-reduce:translate-y-0 motion-reduce:transform-none motion-reduce:transition-none",
+      )}
       nativeButton={render ? false : nativeButton}
       render={render}
       {...props}

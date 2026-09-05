@@ -243,6 +243,11 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
   const markers = reviewItems.map((item, index) => ({
     id: `${item.subtest}-${index}`,
     number: index + 1,
+    outcome: itemState(item) === "correct"
+      ? "correct"
+      : itemState(item) === "wrong"
+        ? "incorrect"
+        : "unanswered",
     state: index + 1 === currentQuestion
       ? "current"
       : itemState(item) === "correct"
@@ -379,13 +384,13 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {weakRuns.map((run, index) => (
               <Link
-                className="group flex min-h-16 items-center gap-3 rounded-2xl bg-primary-50 p-3 outline-none transition-colors hover:bg-primary-100 focus-visible:ring-4 focus-visible:ring-primary-700/20"
+                className="group flex min-h-16 items-center gap-3 rounded-2xl bg-primary-50 p-3 outline-none transition-colors motion-reduce:transition-none hover:bg-primary-100 focus-visible:ring-4 focus-visible:ring-primary-700/20"
                 href={courseHref(run.subtest)}
                 key={run.subtest}
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-primary-800">{index + 1}</span>
                 <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{run.subtestName}</strong><span className="text-xs text-secondary-500">Akurasi {run.accuracy}% · buka materi</span></span>
-                <ArrowRight className="shrink-0 text-primary-700 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="shrink-0 text-primary-700 transition-transform motion-safe:group-hover:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none" />
               </Link>
             ))}
           </div>

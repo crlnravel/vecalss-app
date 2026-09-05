@@ -26,6 +26,14 @@ type AssessmentQuestionMarker = {
 };
 
 type AssessmentResultMarkerState = "correct" | "current" | "incorrect" | "neutral" | "unanswered";
+type AssessmentResultMarkerOutcome = "correct" | "incorrect" | "unanswered";
+
+type AssessmentResultMarkerItem = {
+  id?: string;
+  number: number;
+  outcome?: AssessmentResultMarkerOutcome;
+  state: AssessmentResultMarkerState;
+};
 
 function pointFor(event: PointerEvent<SVGSVGElement>) {
   const bounds = event.currentTarget.getBoundingClientRect();
@@ -142,7 +150,7 @@ function AssessmentQuestionNavigation({
           aria-expanded={pickerOpen}
           aria-label="Daftar semua soal"
           className={cn(
-            "inline-flex size-10 shrink-0 items-center justify-center rounded-full text-primary-700 transition-colors focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+            "inline-flex size-11 shrink-0 items-center justify-center rounded-full text-primary-700 transition-colors motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
             pickerOpen && "bg-primary-700/15",
           )}
           onClick={() => setPickerOpen((open) => !open)}
@@ -174,7 +182,7 @@ function AssessmentQuestionNavigation({
               <h2 className="text-lg font-semibold">Pilih nomor soal</h2>
               <button
                 aria-label="Tutup daftar soal"
-                className="inline-flex size-9 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
+                className="inline-flex size-11 items-center justify-center rounded-full text-secondary-300 transition-colors motion-reduce:transition-none hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
                 onClick={closePicker}
                 type="button"
               >
@@ -208,8 +216,10 @@ function AssessmentQuestionMarker({
 
   return (
     <button
+      aria-current={marker.state === "active" ? "step" : undefined}
+      aria-label={`Soal ${marker.number}${marker.state === "answered" ? " (sudah dijawab)" : marker.state === "flagged" ? " (ditandai)" : marker.state === "locked" ? " (terkunci)" : ""}`}
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        "flex size-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         marker.state === "active" &&
           "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_rgba(1,76,56,0.75)] ring-2 ring-primary-200 ring-offset-2",
         marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
@@ -238,8 +248,9 @@ function AssessmentQuestionPickerMarker({
   return (
     <button
       aria-current={marker.state === "active" ? "step" : undefined}
+      aria-label={`Soal ${marker.number}${marker.state === "answered" ? " (sudah dijawab)" : marker.state === "flagged" ? " (ditandai)" : marker.state === "locked" ? " (terkunci)" : ""}`}
       className={cn(
-        "flex aspect-square min-h-0 items-center justify-center rounded-xl border-2 text-base font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-lg",
+        "flex aspect-square min-h-11 min-w-11 items-center justify-center rounded-xl border-2 text-base font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-lg",
         marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_rgba(1,76,56,0.8)]",
         marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
         marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
@@ -379,9 +390,10 @@ function AssessmentAnnotationOverlay({
           <button
             aria-label={`Gunakan warna ${swatch}`}
             className={cn(
-              "size-7 rounded-full border-2 transition-transform focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
-              color === swatch ? "scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_rgba(16,36,29,0.14)]",
+              "size-11 rounded-full border-2 transition-transform motion-safe:scale-100 motion-reduce:scale-100 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
+              color === swatch ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_rgba(16,36,29,0.14)]",
             )}
+            aria-pressed={color === swatch}
             key={swatch}
             onClick={() => setColor(swatch)}
             style={{ backgroundColor: swatch }}
@@ -391,7 +403,7 @@ function AssessmentAnnotationOverlay({
         <span aria-hidden="true" className="mx-1 h-7 w-px bg-secondary-200" />
         <button
           aria-label="Urungkan coretan terakhir"
-          className="inline-flex size-9 items-center justify-center rounded-full text-secondary-600 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
+          className="inline-flex size-11 items-center justify-center rounded-full text-secondary-600 transition-colors motion-reduce:transition-none hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
           disabled={!strokes.length}
           onClick={() => setStrokes((current) => current.slice(0, -1))}
           type="button"
@@ -400,7 +412,7 @@ function AssessmentAnnotationOverlay({
         </button>
         <button
           aria-label="Hapus semua coretan"
-          className="inline-flex size-9 items-center justify-center rounded-full text-student-status-danger-fg transition-colors hover:bg-student-status-danger-bg focus-visible:ring-3 focus-visible:ring-student-status-danger-border focus-visible:outline-none"
+          className="inline-flex size-11 items-center justify-center rounded-full text-student-status-danger-fg transition-colors motion-reduce:transition-none hover:bg-student-status-danger-bg focus-visible:ring-3 focus-visible:ring-student-status-danger-border focus-visible:outline-none"
           disabled={!strokes.length}
           onClick={() => setStrokes([])}
           type="button"
@@ -410,7 +422,7 @@ function AssessmentAnnotationOverlay({
         <span aria-hidden="true" className="mx-1 h-7 w-px bg-secondary-200" />
         <button
           aria-label="Tutup mode coretan"
-          className="inline-flex size-9 items-center justify-center rounded-full text-secondary-600 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
+          className="inline-flex size-11 items-center justify-center rounded-full text-secondary-600 transition-colors motion-reduce:transition-none hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
           onClick={onClose}
           ref={closeButtonRef}
           type="button"
@@ -440,7 +452,7 @@ function AssessmentIconButton({
   return (
     <button
       aria-label={ariaLabel}
-      className="inline-flex size-12 items-center justify-center rounded-full border border-primary-100 bg-transparent text-secondary-600 transition-colors hover:bg-primary-50"
+      className="inline-flex size-12 items-center justify-center rounded-full border border-primary-100 bg-transparent text-secondary-600 transition-colors motion-reduce:transition-none hover:bg-primary-50"
       onClick={onClick}
       type="button"
     >
@@ -462,8 +474,9 @@ function AssessmentUtilityPill({
 }) {
   return (
     <button
+      aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-primary-100 bg-transparent px-5 py-3 text-sm font-medium transition-colors",
+        "inline-flex min-h-11 items-center gap-2 rounded-full border border-primary-100 bg-transparent px-5 py-3 text-sm font-medium transition-colors motion-reduce:transition-none",
         active
           ? "bg-primary-50 text-primary-800"
           : "text-secondary-600 hover:bg-primary-50 hover:text-primary-800",
@@ -576,7 +589,7 @@ function AssessmentResultNavigation({
   onSelect,
 }: {
   compact?: boolean;
-  items: Array<{ id?: string; number: number; state: AssessmentResultMarkerState }>;
+  items: AssessmentResultMarkerItem[];
   label?: ReactNode;
   onSelect: (number: number) => void;
 }) {
@@ -606,14 +619,25 @@ function AssessmentResultMarker({
   onClick,
 }: {
   compact?: boolean;
-  marker: { id?: string; number: number; state: AssessmentResultMarkerState };
+  marker: AssessmentResultMarkerItem;
   onClick: () => void;
 }) {
+  const outcome = marker.outcome ?? (marker.state === "correct" || marker.state === "incorrect" || marker.state === "unanswered" ? marker.state : undefined);
+  const outcomeLabel = outcome === "correct"
+    ? "benar"
+    : outcome === "incorrect"
+      ? "salah"
+      : outcome === "unanswered"
+        ? "tidak dijawab"
+        : "sedang ditinjau";
+  const outcomeCue = outcome === "correct" ? "✓" : outcome === "incorrect" ? "×" : outcome === "unanswered" ? "—" : null;
+
   return (
     <button
       aria-current={marker.state === "current" ? "step" : undefined}
+      aria-label={`Soal ${marker.number}, ${outcomeLabel}`}
       className={cn(
-        "flex items-center justify-center border font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        "flex min-h-11 min-w-11 items-center justify-center border font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         compact ? "size-11 rounded-xl text-xs" : "aspect-square rounded-xl text-sm",
         marker.state === "correct" && "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg",
         marker.state === "incorrect" && "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
@@ -624,7 +648,10 @@ function AssessmentResultMarker({
       onClick={onClick}
       type="button"
     >
-      {marker.number}
+      <span aria-hidden="true" className="inline-flex flex-col items-center gap-0.5 leading-none">
+        <span>{marker.number}</span>
+        {outcomeCue ? <span className="text-xs font-bold">{outcomeCue}</span> : null}
+      </span>
     </button>
   );
 }
@@ -656,7 +683,7 @@ function AssessmentAnswerOption({
   return (
     <button
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-[1.25rem] border bg-white text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
+        "group flex w-full items-center gap-2.5 rounded-[1.25rem] border bg-white text-left shadow-none transition-all duration-200 motion-reduce:transition-none hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
         optionScaleClass,
         selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}

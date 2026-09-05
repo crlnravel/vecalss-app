@@ -17,7 +17,7 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
     <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
-          <h3 className="text-base font-bold text-secondary-950">Kapasitas & Headroom Sistem Vera AI</h3>
+          <h2 className="text-base font-bold text-secondary-950">Kapasitas & Headroom Sistem Vera AI</h2>
           <p className="mt-0.5 text-xs text-secondary-500">
             Deteksi dini beban puncak sistem sebelum berdampak pada antrean atau latensi siswa
           </p>
@@ -57,11 +57,19 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                 </div>
               </div>
 
-              <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-100">
+              <div
+                aria-label={item.label}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={Math.max(0, Math.min(100, item.value))}
+                aria-valuetext={`${item.value}% ${item.status}`}
+                className="h-2 w-full overflow-hidden rounded-full bg-secondary-100"
+                role="meter"
+              >
                 <div
                   style={{ width: `${item.value}%` }}
                   className={cn(
-                    "h-full rounded-full transition-all duration-500",
+                    "h-full rounded-full transition-all duration-500 motion-reduce:transition-none",
                     isCritical ? "bg-red-600" : isElevated ? "bg-amber-500" : "bg-primary-700",
                   )}
                 />

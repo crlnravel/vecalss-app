@@ -53,10 +53,19 @@ function DoodleBackdrop() {
 
 function StepProgress({ step }: { step: number }) {
   return (
-    <div className="mx-auto flex w-full max-w-[33rem] items-center gap-2 px-5 pt-6 sm:px-0">
+    <div
+      aria-label={`Langkah ${step} dari 3`}
+      aria-valuemax={3}
+      aria-valuemin={1}
+      aria-valuenow={Math.max(1, Math.min(3, step))}
+      aria-valuetext={`Langkah ${step} dari 3`}
+      className="mx-auto flex w-full max-w-[33rem] items-center gap-2 px-5 pt-6 sm:px-0"
+      role="progressbar"
+    >
       {[0, 1, 2].map((item) => (
         <span
-          className={`h-1 flex-1 rounded-full transition-colors duration-500 ${item < step ? "bg-[#b7e85d]" : "bg-slate-200"}`}
+          aria-hidden="true"
+          className={`h-1 flex-1 rounded-full transition-colors duration-500 motion-reduce:transition-none ${item < step ? "bg-[#b7e85d]" : "bg-slate-200"}`}
           key={item}
         />
       ))}
@@ -81,11 +90,12 @@ function ChoiceCard({
 }) {
   return (
     <button
+      aria-pressed={selected}
       className={`group flex min-h-[78px] w-full items-center gap-4 rounded-[1.35rem] border bg-white px-4 py-3 text-left transition-all duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#29b9cc] ${
         selected
           ? "border-[#f7ca48] bg-[#fffdf4] shadow-[0_12px_28px_-20px_rgba(167,124,0,.55)]"
-          : "border-slate-200 hover:-translate-y-0.5 hover:border-[#91dce7] hover:shadow-[0_12px_26px_-22px_rgba(42,83,98,.5)]"
-      }`}
+          : "border-slate-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-[#91dce7] hover:shadow-[0_12px_26px_-22px_rgba(42,83,98,.5)]"
+      } motion-reduce:translate-y-0 motion-reduce:transition-none`}
       onClick={onClick}
       type="button"
     >
@@ -97,7 +107,7 @@ function ChoiceCard({
         {description ? <span className="mt-0.5 block text-sm leading-5 text-slate-500">{description}</span> : null}
         {children}
       </span>
-      <span className={`grid size-6 shrink-0 place-items-center rounded-full border-2 transition ${selected ? "border-[#edbf34] bg-[#ffda59] text-slate-900" : "border-slate-300"}`}>
+      <span aria-hidden="true" className={`grid size-6 shrink-0 place-items-center rounded-full border-2 transition motion-reduce:transition-none ${selected ? "border-[#edbf34] bg-[#ffda59] text-slate-900" : "border-slate-300"}`}>
         {selected ? <Check size={14} weight="bold" /> : null}
       </span>
     </button>
@@ -107,7 +117,7 @@ function ChoiceCard({
 function SkipOnboardingButton({ children }: { children: React.ReactNode }) {
   return (
     <form action={skipOnboardingAction}>
-      <button className="text-sm font-medium text-slate-400 underline-offset-4 transition hover:text-slate-600 hover:underline" type="submit">
+      <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-slate-400 underline-offset-4 transition hover:text-slate-600 hover:underline motion-reduce:transition-none" type="submit">
         {children}
       </button>
     </form>
@@ -164,7 +174,7 @@ function OnboardingForm({
             <StepProgress step={step} />
             <button
               aria-label="Kembali ke langkah sebelumnya"
-              className="mt-5 grid size-10 place-items-center rounded-full text-slate-600 transition hover:bg-white focus-visible:outline-3 focus-visible:outline-[#29b9cc]"
+              className="mt-5 grid size-11 place-items-center rounded-full text-slate-600 transition hover:bg-white focus-visible:outline-3 focus-visible:outline-[#29b9cc] motion-reduce:transition-none"
               onClick={() => setStep((current) => Math.max(0, current - 1))}
               type="button"
             >
@@ -239,7 +249,7 @@ function OnboardingForm({
             {chosenUniversity ? <p className="mt-3 text-sm text-slate-500">Keren, <span className="font-bold text-slate-700">{chosenUniversity.shortName ?? chosenUniversity.name}</span> masuk daftar tujuanmu.</p> : null}
             <div className="mt-9 flex flex-col items-center gap-4">
               <Button className="w-full" onClick={() => setStep(3)} size="onboarding" type="button" variant="onboarding">Lanjut <ArrowRight size={18} weight="bold" /></Button>
-              <button className="text-sm font-medium text-slate-400 hover:text-slate-600" onClick={() => setStep(3)} type="button">Lewati dulu</button>
+              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-slate-400 transition hover:text-slate-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#29b9cc] motion-reduce:transform-none motion-reduce:transition-none" onClick={() => setStep(3)} type="button">Lewati dulu</button>
             </div>
           </section>
         ) : null}
@@ -252,13 +262,13 @@ function OnboardingForm({
             </div>
             <h1 className="max-w-[17ch] font-heading text-4xl leading-[1.08] font-extrabold tracking-[-0.045em] text-slate-900 sm:text-5xl">Terima kasih sudah berbagi.</h1>
             <p className="mt-5 max-w-sm text-base leading-7 text-slate-500">Kami akan menyiapkan pengalaman belajar yang lebih personal untukmu.</p>
-            {state.message ? <p className="mt-5 w-full max-w-sm rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-left text-sm text-student-status-danger-fg">{state.message}</p> : null}
+            {state.message ? <p aria-live="assertive" className="mt-5 w-full max-w-sm rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-left text-sm text-student-status-danger-fg" role="alert">{state.message}</p> : null}
             <form action={formAction} className="mt-9 flex w-full max-w-sm flex-col items-center gap-4">
               <input name="targetExamEventId" type="hidden" value={examId} />
               <input name="targetUniversityId" type="hidden" value={universityId} />
               <input name="targetMajorId" type="hidden" value={majorId} />
               <Button className="w-full" size="onboarding" type="submit" variant="onboarding">Mulai belajar <ArrowRight size={19} weight="bold" /></Button>
-              <button className="text-sm font-medium text-slate-400 hover:text-slate-600" formAction={skipOnboardingAction} type="submit">Atur nanti aja</button>
+              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-slate-400 hover:text-slate-600" formAction={skipOnboardingAction} type="submit">Atur nanti aja</button>
             </form>
           </section>
         ) : null}

@@ -132,9 +132,17 @@ function QuizResultPageModule({
   const isCorrect = result.correctnessAvailable && (selectedOption?.correct ?? false);
   const markers = result.questions.map((reviewQuestion, index) => {
     const answer = reviewQuestion.options.find((option) => option.id === reviewQuestion.selectedOptionId);
+    const outcome = !answer
+      ? "unanswered"
+      : !result.correctnessAvailable
+        ? undefined
+        : answer.correct
+          ? "correct"
+          : "incorrect";
     return {
       id: reviewQuestion.id,
       number: index + 1,
+      outcome,
       state: index + 1 === currentQuestion
         ? "current"
         : !answer

@@ -71,8 +71,8 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
               variant="reference"
               className="gap-2"
             >
-              <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
-               <span>Segarkan</span>
+              <RefreshCw className={cn("size-4 motion-reduce:animate-none", isLoading && "animate-spin")} />
+              <span>Segarkan</span>
             </Button>
           </div>
         </div>
@@ -81,10 +81,10 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         <AiControlPlaneNav activeTab="providers" />
 
         {error && (
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
             <AlertCircle className="size-5 shrink-0 text-red-600" />
             <p className="min-w-0 flex-1">{error}</p>
-            <Button disabled={isLoading} onClick={() => void loadProviders()} size="sm" type="button" variant="brandOutline">
+            <Button disabled={isLoading} onClick={() => void loadProviders()} size="default" type="button" variant="brandOutline">
               Coba lagi
             </Button>
           </div>
@@ -116,7 +116,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
             {/* Gateways Health Cards */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-secondary-950">Gateway Upstream</h3>
+                <h2 className="text-base font-bold text-secondary-950">Gateway Upstream</h2>
                 <span className="text-xs text-secondary-500">
                    {data.gateways.filter((g) => g.status === "healthy").length} dari {data.gateways.length} gateway aktif
                 </span>
@@ -131,7 +131,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
                     <div
                       key={gw.gateway}
                       className={cn(
-                        "rounded-3xl border p-5 shadow-sm transition-all",
+                        "rounded-3xl border p-5 shadow-sm transition-all motion-reduce:transition-none",
                         isDisabled
                           ? "border-secondary-200 bg-secondary-50/50 opacity-75"
                           : isHealthy
@@ -181,8 +181,8 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
 
                       {/* Credential Fingerprint */}
                       <div className="mt-4 rounded-xl border border-secondary-100 bg-secondary-50/70 p-2.5 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-secondary-600">{gw.credentialFingerprint}</span>
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <span className="min-w-0 break-words font-mono text-secondary-600">{gw.credentialFingerprint}</span>
                           <span className="font-bold text-[10px] text-primary-700 uppercase">
                             {gw.credentialHealth === "valid" ? "VALID & TERVERIFIKASI" : gw.credentialHealth}
                           </span>
@@ -201,9 +201,9 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
             {/* Capability Routing Chain Visualizer */}
             <div>
               <div className="mb-4">
-                <h3 className="text-base font-bold text-secondary-950">
+                <h2 className="text-base font-bold text-secondary-950">
                   Rantai Routing Kemampuan: Konfigurasi vs Perilaku Aktual
-                </h3>
+                </h2>
                 <p className="mt-0.5 text-xs text-secondary-500">
                   Perbandingan jalur eksekusi yang dikonfigurasi dengan hasil observasi penyelesaian aktual 24 jam terakhir
                 </p>

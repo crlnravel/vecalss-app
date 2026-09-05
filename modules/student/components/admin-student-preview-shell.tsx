@@ -56,7 +56,7 @@ function AdminStudentPreviewShell({
         <SidebarInset className="bg-transparent">
           <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0" />
+              <SidebarTrigger className="shrink-0" size="icon" />
 
               <div className="hidden min-w-0 flex-1 md:block">
                 <Breadcrumb>
