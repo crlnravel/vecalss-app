@@ -420,7 +420,7 @@ function SectionRail({
               <Button
                 aria-current={active ? "page" : undefined}
                 aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
-                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-normal transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
+                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-normal transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                 disabled={disabled}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
@@ -793,7 +793,7 @@ function TryoutSectionsTab({
                   const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
                   const checkboxId = `source-question-${question.id}`;
                   return (
-                    <article className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
+                    <article className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
                       <div className="flex min-w-0 items-start gap-3">
                         <Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} />
                         <div className="min-w-0 flex-1">
@@ -1657,7 +1657,7 @@ function TryoutDeliveryTab({
                 return (
                   <Button
                     aria-current={active ? "page" : undefined}
-                    className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
+                    className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                     key={area.value}
                     onClick={() => changeDeliveryArea(area.value)}
                     variant="ghost"

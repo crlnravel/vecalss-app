@@ -1059,7 +1059,7 @@ function QuestionBankBuilderScreen({
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas">
       {/* Full page editor top header */}
-      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_rgba(23,107,77,0.42)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
+      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           <Button
             aria-label="Kembali ke detail bank soal"
