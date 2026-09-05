@@ -1,7 +1,7 @@
 import { cva } from "class-variance-authority";
 
 const studentCatalogueCardVariants = cva(
-  "group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary-100 outline-none shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition-[transform,border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-visible:ring-4 focus-visible:ring-primary-400/30 motion-reduce:transition-none",
+  "group relative min-w-0 overflow-hidden rounded-[2rem] border border-primary-100 outline-none shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[transform,border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] focus-visible:ring-4 focus-visible:ring-primary-400/30 motion-reduce:transition-none",
   {
     variants: {
       variant: {

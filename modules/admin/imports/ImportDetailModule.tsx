@@ -1032,7 +1032,7 @@ function ImportDetailView({
               <label className={cn(
                 REFERENCE_SURFACE_CLASS_NAMES.inset,
                 "flex min-h-20 cursor-pointer items-start gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
-                handoffMethod === "invite_link" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
+                handoffMethod === "invite_link" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]" : "hover:bg-primary-50/90",
               )}>
                 <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("invite_link")} type="radio" value="invite_link" />
                 <span><span className="block text-sm font-semibold text-secondary-900">Link undangan</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Bagikan manual · kedaluwarsa setelah 24 jam · penerima membuat password</span></span>
@@ -1040,7 +1040,7 @@ function ImportDetailView({
               <label className={cn(
                 REFERENCE_SURFACE_CLASS_NAMES.inset,
                 "flex min-h-20 cursor-pointer items-start gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
-                handoffMethod === "temporary_password" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
+                handoffMethod === "temporary_password" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]" : "hover:bg-primary-50/90",
               )}>
                 <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("temporary_password")} type="radio" value="temporary_password" />
                 <span><span className="block text-sm font-semibold text-secondary-900">Password sementara</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Bagikan manual · hanya ditampilkan sekali · penerima harus menggantinya saat login pertama</span></span>

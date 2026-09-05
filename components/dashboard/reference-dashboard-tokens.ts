@@ -8,11 +8,11 @@
  */
 const REFERENCE_SURFACE_CLASS_NAMES = {
   inset:
-    "rounded-3xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)]",
+    "rounded-3xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]",
   raised:
-    "rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]",
+    "rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]",
   raisedInteractive:
-    "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-within:border-primary-300 focus-within:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]",
+    "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]",
 } as const;
 
 const REFERENCE_FIELD_LABEL_CLASS_NAME =
@@ -20,18 +20,18 @@ const REFERENCE_FIELD_LABEL_CLASS_NAME =
 
 const REFERENCE_CONTROL_CLASS_NAMES = {
   input:
-    "min-h-11 w-full rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
+    "min-h-11 w-full rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
   select:
-    "flex min-h-11 min-w-0 w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-left text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 data-popup-open:border-primary-500/65 data-popup-open:ring-4 data-popup-open:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
+    "flex min-h-11 min-w-0 w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-left text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 data-popup-open:border-primary-500/65 data-popup-open:ring-4 data-popup-open:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
   choice:
-    "flex min-h-11 min-w-0 w-full items-center gap-3 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-within:border-primary-500/65 focus-within:ring-4 focus-within:ring-primary-700/15 has-[[data-checked]]:border-primary-500/65 has-[[data-checked]]:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-55",
+    "flex min-h-11 min-w-0 w-full items-center gap-3 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-within:border-primary-500/65 focus-within:ring-4 focus-within:ring-primary-700/15 has-[[data-checked]]:border-primary-500/65 has-[[data-checked]]:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-55",
   file:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
 } as const;
 
 const REFERENCE_NAV_CLASS_NAMES = {
   active:
-    "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)]",
+    "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
   base: "text-secondary-500 hover:bg-primary-50/70 hover:text-secondary-900",
 } as const;
 

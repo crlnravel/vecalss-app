@@ -31,7 +31,7 @@ function AdminLoading() {
               <section>
                 <LoadingBlock className="h-7 w-40" />
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {Array.from({ length: 2 }, (_, index) => <LoadingBlock className="h-[88px] bg-white shadow-[0_18px_34px_-30px_rgba(1,76,56,0.45)]" key={index} />)}
+                  {Array.from({ length: 2 }, (_, index) => <LoadingBlock className="h-[88px] bg-white shadow-[0_18px_34px_-30px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]" key={index} />)}
                 </div>
               </section>
 

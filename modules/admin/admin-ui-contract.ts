@@ -6,7 +6,7 @@
  * one-off hex values and radius variants.
  */
 const ADMIN_CARD_CLASS_NAME =
-  "rounded-4xl border border-primary-100 bg-white shadow-[0_20px_52px_-42px_rgba(1,76,56,0.42)]";
+  "rounded-4xl border border-primary-100 bg-white shadow-[0_20px_52px_-42px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]";
 
 const ADMIN_INSET_CLASS_NAME =
   "rounded-3xl border border-primary-100 bg-primary-50/70";

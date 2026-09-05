@@ -111,7 +111,7 @@ function BannerPreviewPanel({
   return (
     <section
       aria-label="Student banner preview"
-      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_rgba(26,72,61,0.65)]"
+      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
     >
       <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div>
@@ -200,7 +200,7 @@ function BannerEditorCard({
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
             aria-label="Heading"
-            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
+            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}

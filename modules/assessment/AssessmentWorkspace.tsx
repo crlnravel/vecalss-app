@@ -35,6 +35,11 @@ type AssessmentResultMarkerItem = {
   state: AssessmentResultMarkerState;
 };
 
+const ANNOTATION_SWATCHES = [
+  { color: "var(--student-status-info-fg)", label: "biru informasi" },
+  { color: "var(--student-status-danger-fg)", label: "merah kesalahan" },
+] as const;
+
 function pointFor(event: PointerEvent<SVGSVGElement>) {
   const bounds = event.currentTarget.getBoundingClientRect();
   return `${event.clientX - bounds.left},${event.clientY - bounds.top}`;
@@ -273,7 +278,7 @@ function AssessmentAnnotationOverlay({
   open: boolean;
   onClose: () => void;
 }) {
-  const [color, setColor] = useState("#014c38");
+  const [color, setColor] = useState("var(--voyage-deep)");
   const [strokes, setStrokes] = useState<Array<{ color: string; points: string[] }>>([]);
   const [activeStroke, setActiveStroke] = useState<string[] | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -386,17 +391,17 @@ function AssessmentAnnotationOverlay({
       </svg>
 
       <div className="absolute top-[8.5rem] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-[1.5rem] border border-primary-200 bg-white px-3 py-2 shadow-[0_20px_48px_-20px_rgba(1,76,56,0.55)] sm:top-[12rem]">
-        {["#2f6df6", "#dc2626"].map((swatch) => (
+        {ANNOTATION_SWATCHES.map((swatch) => (
           <button
-            aria-label={`Gunakan warna ${swatch}`}
+            aria-label={`Gunakan warna ${swatch.label}`}
             className={cn(
               "size-11 rounded-full border-2 transition-transform motion-safe:scale-100 motion-reduce:scale-100 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
-              color === swatch ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_rgba(16,36,29,0.14)]",
+              color === swatch.color ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_rgba(16,36,29,0.14)]",
             )}
-            aria-pressed={color === swatch}
-            key={swatch}
-            onClick={() => setColor(swatch)}
-            style={{ backgroundColor: swatch }}
+            aria-pressed={color === swatch.color}
+            key={swatch.color}
+            onClick={() => setColor(swatch.color)}
+            style={{ backgroundColor: swatch.color }}
             type="button"
           />
         ))}

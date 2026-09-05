@@ -25,7 +25,7 @@ const defaultToastClassNames: ToastClassnames = {
   info: toastVariantClassNames.info,
   success: toastVariantClassNames.success,
   title: "pr-8 text-sm font-semibold text-secondary-950",
-  toast: "group/sonner-toast relative w-[min(calc(100vw-2rem),28rem)] rounded-2xl border px-4 py-3 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)]",
+  toast: "group/sonner-toast relative w-[min(calc(100vw-2rem),28rem)] rounded-2xl border px-4 py-3 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]",
   warning: toastVariantClassNames.warning,
 };
 

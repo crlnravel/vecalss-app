@@ -277,7 +277,7 @@ function ReferenceStatCard({
         </span>
         {Icon ? <Icon aria-hidden={true} className="size-4 text-primary-700" /> : null}
       </div>
-      <div className="mt-3 flex size-20 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)]">
+      <div className="mt-3 flex size-20 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]">
         <span className="font-heading text-3xl leading-none font-semibold tracking-[-0.03em] text-secondary-900">
           {value}
         </span>

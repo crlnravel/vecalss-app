@@ -2292,7 +2292,7 @@ function VeraDataStatePanel({
   return (
     <section
       aria-live={loading ? "polite" : "assertive"}
-      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-primary-100 bg-white px-6 py-12 text-center shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-primary-100 bg-white px-6 py-12 text-center shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
       role={loading ? "status" : "alert"}
     >
       <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
@@ -2526,7 +2526,7 @@ function SessionSidebar({
   return (
     <nav
       aria-label="Sidebar sesi Vera"
-      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
+      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
     >
       <button
         aria-label="Buka sidebar sesi"
@@ -3064,7 +3064,7 @@ function ContextCard({
       className={cn(
         "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none md:gap-3",
         active
-          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
+          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
           : "border-primary-100 hover:border-primary-200 hover:bg-primary-50/20",
         activationDisabled && "opacity-65",
       )}
@@ -3190,7 +3190,7 @@ function MessageCard({
         align="end"
         className="max-w-[84%]"
       >
-        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
+        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
           <p>{message.body}</p>
           {stateNotice ? (
             <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
@@ -3293,7 +3293,7 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
+        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
             className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
@@ -3542,7 +3542,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
@@ -3937,7 +3937,7 @@ function AddContextDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_rgba(1,76,56,0.5)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
+        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
         showCloseButton={false}
         variant="default"
       >
@@ -4508,7 +4508,7 @@ function BackendContextOption({
       className={cn(
         "flex min-h-18 w-full items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
         selected
-          ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
+          ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
           : "border-primary-100 bg-background hover:border-primary-200 hover:bg-primary-50/40",
       )}
       onClick={onToggle}
@@ -4646,7 +4646,7 @@ function ContextOption({
     <Button
       aria-pressed={selected}
       className={cn(
-        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_rgba(1,76,56,0.4)] md:min-h-24 md:gap-4 md:px-5",
+        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_color-mix(in_oklab,var(--voyage-deep)_40%,transparent)] md:min-h-24 md:gap-4 md:px-5",
         disabled && "cursor-not-allowed opacity-45",
       )}
       disabled={disabled}
@@ -4694,7 +4694,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)] md:h-full",
         className,
       )}
     >

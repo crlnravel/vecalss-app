@@ -77,7 +77,7 @@ function AdminNavigationGroup({
               <SidebarMenuButton
                 className={cn(
                   "h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
-                  "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)]",
+                  "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
                   "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
                   item.id === activeSection &&
                     "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!",
@@ -90,7 +90,7 @@ function AdminNavigationGroup({
                   className={cn(
                     "flex size-4 shrink-0 items-center justify-center [&>svg]:size-4",
                     item.id === activeSection &&
-                      "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] [&>svg]:size-5",
+                      "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] [&>svg]:size-5",
                   )}
                 >
                   <item.icon />
@@ -113,7 +113,7 @@ function AdminPortalNav({ activeSection }: {
 
   return (
     <Sidebar
-      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-4xl [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] [&>div]:ring-0"
+      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-4xl [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
       collapsible="icon"
       variant="floating"
     >

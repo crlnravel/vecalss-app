@@ -138,12 +138,12 @@ function DashboardPageModule({
       session={session}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-200 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
+        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-200 bg-[linear-gradient(125deg,var(--voyage-surface)_0%,var(--voyage-sea-glass-wash)_48%,var(--voyage-sea-glass)_100%)] shadow-[0_28px_90px_-58px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
             <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
             <Image
               alt=""
-              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(1,76,56,0.18)] xl:w-[26rem]"
+              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
               height={416}
               sizes="(min-width: 1280px) 416px, 352px"
               src="/brand/mascot-vecalss.png"
@@ -184,7 +184,7 @@ function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
     daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`;
 
   return (
-    <div className="inline-flex min-h-10 items-center gap-2.5 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
+    <div className="inline-flex min-h-10 items-center gap-2.5 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
       <CalendarCheck className="size-[18px] text-primary-700" />
       <span className="text-base font-bold leading-none text-primary-700">{label}</span>
     </div>
@@ -193,7 +193,7 @@ function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
 
 function HeroDataPill() {
   return (
-    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary-200 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
+    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary-200 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
       <Info aria-hidden="true" className="size-[18px] text-primary-700" />
       <span className="text-sm font-semibold leading-none">XP belum tersedia</span>
     </div>

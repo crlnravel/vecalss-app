@@ -53,7 +53,7 @@ function ModeCardTabs<TValue extends string>({
               className={cn(
                 "group flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-left text-secondary-700 transition-[background-color,border-color,box-shadow,color]",
                 "border-primary-100 bg-transparent hover:border-primary-300 hover:bg-white/70",
-                "data-active:border-primary-500 data-active:bg-white data-active:text-primary-950 data-active:shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]",
+                "data-active:border-primary-500 data-active:bg-white data-active:text-primary-950 data-active:shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300",
                 "disabled:pointer-events-none disabled:opacity-50",
               )}

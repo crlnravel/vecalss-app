@@ -142,7 +142,7 @@ function PreviewPlaceholder({
 
   return (
     <section className="grid gap-6">
-      <Card className="border-primary-100 bg-white shadow-[0_24px_70px_-50px_rgba(1,76,56,0.42)]">
+      <Card className="border-primary-100 bg-white shadow-[0_24px_70px_-50px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
         <CardHeader>
           <p className="text-xs font-bold tracking-[0.16em] text-primary-700 uppercase">Admin-only surface</p>
           <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900">{surface.title}</h1>
@@ -329,7 +329,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     const bannerEditor = data.bannerEditor ? (
       <section
         aria-label="Edit student banners"
-        className="rounded-[2rem] border border-primary-200 bg-white p-5 shadow-[0_24px_58px_-44px_rgba(1,76,56,0.38)] sm:p-7"
+        className="rounded-[2rem] border border-primary-200 bg-white p-5 shadow-[0_24px_58px_-44px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] sm:p-7"
       >
         <StudentBannerEditor
           action={updateAdminStudentPreviewBannersAction}

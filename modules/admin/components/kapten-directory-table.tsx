@@ -417,7 +417,7 @@ function KaptenDirectoryTable({
         filters={filters}
         getRowId={(person) => person.id}
         onRowClick={setSelectedKapten}
-        rowClassName={(person) => focus === person.id ? "bg-primary-50/70 shadow-[inset_0_0_0_2px_rgba(26,107,60,0.18)]" : undefined}
+        rowClassName={(person) => focus === person.id ? "bg-primary-50/70 shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--voyage-leaf)_18%,transparent)]" : undefined}
         rowProps={(person) => ({ "data-directory-row": "true", id: `kapten-${person.id}`, tabIndex: -1 })}
         rows={kapten}
         search={{

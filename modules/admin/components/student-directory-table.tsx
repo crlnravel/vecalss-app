@@ -515,7 +515,7 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(18rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
+          className="w-[min(18rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
           side="left"
           sideOffset={6}
         >
@@ -581,7 +581,7 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
+          className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
           side="left"
           sideOffset={6}
         >
@@ -787,7 +787,7 @@ function StudentDirectoryTable({
         getRowId={(student) => student.id}
         onRowClick={demo ? undefined : setPreviewStudent}
         rowClassName={(student) => cn(
-          focus === student.id && "bg-primary-50/70 shadow-[inset_0_0_0_2px_rgba(26,107,60,0.18)]",
+          focus === student.id && "bg-primary-50/70 shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--voyage-leaf)_18%,transparent)]",
         )}
         rowProps={(student) => ({
           "data-directory-query": dataQuery,

@@ -183,8 +183,8 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative flex min-h-16 items-center gap-3 rounded-3xl border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]"
-              : "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_rgba(23,107,77,0.55)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_rgba(23,107,77,0.7)]",
+              ? "group relative flex min-h-16 items-center gap-3 rounded-3xl border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              : "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]",
             selectedItemIds.has(folderItem.id) && "border-primary-300 bg-primary-50/60",
           )}
         >
@@ -226,7 +226,7 @@ function useMediaLibraryScreenState({
           aria-label={`Pilih ${asset.name}`}
           aria-pressed={selectedAssetId === asset.id}
           className={cn(
-            "group relative aspect-[1.35] overflow-hidden rounded-xl border bg-primary-50/70 transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-300 hover:shadow-[0_14px_28px_-22px_rgba(23,107,77,0.8)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25",
+            "group relative aspect-[1.35] overflow-hidden rounded-xl border bg-primary-50/70 transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-300 hover:shadow-[0_14px_28px_-22px_color-mix(in_oklab,var(--voyage-forest)_80%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25",
             selectedAssetId === asset.id ? "border-primary-700 ring-2 ring-primary-700/20" : "border-primary-100",
           )}
           key={asset.id}
@@ -247,9 +247,9 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]"
-              : "group relative overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_rgba(23,107,77,0.7)] transition-[border-color,box-shadow,transform] hover:z-10 hover:scale-[1.015] hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_rgba(23,107,77,0.75)]",
-            selectedItemIds.has(asset.id) && "border-primary-300 shadow-[0_18px_34px_-22px_rgba(23,107,77,0.8)]",
+              ? "group relative overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              : "group relative overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:scale-[1.015] hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]",
+            selectedItemIds.has(asset.id) && "border-primary-300 shadow-[0_18px_34px_-22px_color-mix(in_oklab,var(--voyage-forest)_80%,transparent)]",
           )}
         >
           <div className="relative aspect-[1.84] overflow-hidden bg-primary-50/75">
