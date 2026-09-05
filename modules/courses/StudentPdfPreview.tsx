@@ -28,7 +28,7 @@ const StudentPdfDocument = dynamic(
   () => import("./StudentPdfDocument").then((module) => module.StudentPdfDocument),
   {
     loading: () => (
-      <div className="flex min-h-[22rem] items-center justify-center px-6 text-center text-sm font-semibold text-[#285641]">
+      <div className="flex min-h-[22rem] items-center justify-center px-6 text-center text-sm font-semibold text-[var(--voyage-muted-ink)]">
         Menyiapkan halaman PDF…
       </div>
     ),
@@ -199,19 +199,19 @@ function StudentPdfPreview({
       className={cn(
         "flex w-full flex-col gap-4 p-4",
         className,
-        isFullscreen && "h-screen min-h-0 bg-[#f7faf8]",
+        isFullscreen && "h-screen min-h-0 bg-[var(--voyage-canvas)]",
       )}
     >
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border border-[#d9e5de] bg-white",
-          isFullscreen && "min-h-0 flex-1 rounded-none border-0 bg-[#f7faf8]",
+          "relative overflow-hidden rounded-2xl border border-[var(--voyage-soft-border)] bg-white",
+          isFullscreen && "min-h-0 flex-1 rounded-none border-0 bg-[var(--voyage-canvas)]",
         )}
       >
         {state === "loading" ? (
-          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
-            <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[#2f8a5d] motion-reduce:animate-none" />
-            <p className="font-semibold text-[#285641]">Menyiapkan PDF untuk dibaca…</p>
+          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[var(--voyage-muted-ink)] md:min-h-[34rem]">
+            <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--voyage-leaf)] motion-reduce:animate-none" />
+            <p className="font-semibold text-[var(--voyage-muted-ink)]">Menyiapkan PDF untuk dibaca…</p>
           </div>
         ) : state === "ready" && previewUrl ? (
           <StudentPdfDocument
@@ -223,9 +223,9 @@ function StudentPdfPreview({
             title={previewTitle}
           />
         ) : (
-          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
-            <FileText aria-hidden="true" className="size-9 text-[#9ab4a4]" />
-            <p className="font-semibold text-[#285641]">PDF belum dapat ditampilkan.</p>
+          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[var(--voyage-muted-ink)] md:min-h-[34rem]">
+            <FileText aria-hidden="true" className="size-9 text-[var(--voyage-muted-ink)]" />
+            <p className="font-semibold text-[var(--voyage-muted-ink)]">PDF belum dapat ditampilkan.</p>
             <p className="max-w-[48ch] leading-6">{unavailableMessage}</p>
             {isManaged ? (
               <Button
@@ -314,7 +314,7 @@ function StudentPdfPreview({
         </div>
       ) : null}
 
-      <p className="text-left text-xs leading-5 text-[#718077]">
+      <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">
         {state === "ready"
           ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas."
           : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}

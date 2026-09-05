@@ -16,7 +16,7 @@ function AuthShell({
     <main className="min-h-screen bg-secondary-50 text-secondary-900">
       <div className="grid min-h-screen lg:grid-cols-[minmax(420px,0.9fr)_minmax(520px,1.1fr)]">
         <aside className="relative isolate flex min-h-[500px] flex-col overflow-hidden bg-primary-800 px-5 py-6 text-white md:px-10 lg:h-screen lg:min-h-screen lg:px-12 lg:py-10">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_78%,rgba(122,189,168,0.34),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_78%,color-mix(in_oklab,var(--voyage-sea-glass)_34%,transparent),transparent_34%),linear-gradient(180deg,color-mix(in_oklab,var(--voyage-surface)_4%,transparent),transparent_42%)]" />
           <Link
             href="/"
             className="relative z-10 inline-flex w-fit items-center gap-3"
@@ -50,7 +50,7 @@ function AuthShell({
             <div className="absolute bottom-24 left-1/2 h-9 w-[64%] -translate-x-1/2 rounded-full bg-secondary-900/22 blur-xl" />
             <Image
               alt="Vecalss mascot"
-              className="relative z-10 h-auto w-full object-contain drop-shadow-[0_30px_34px_rgba(2,47,36,0.3)]"
+              className="relative z-10 h-auto w-full object-contain drop-shadow-[0_30px_34px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)]"
               height={620}
               priority
               sizes="(min-width: 1024px) 39vw, 76vw"
@@ -74,7 +74,7 @@ function AuthShell({
               <p className="mt-4 text-lg leading-7 text-secondary-600">{description}</p>
             </div>
 
-            <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_rgba(1,76,56,0.48)] md:px-8 md:py-8">
+            <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-8 md:py-8">
               {children}
             </div>
           </div>

@@ -45,7 +45,7 @@ function LoginForm({
         <FieldLabel htmlFor="login-email">Email</FieldLabel>
         <FieldInput
           autoComplete="email"
-          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
+          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] placeholder:text-secondary-400 focus-visible:bg-white"
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
@@ -62,7 +62,7 @@ function LoginForm({
         <FieldLabel htmlFor="login-password">Password</FieldLabel>
         <FieldInput
           autoComplete="current-password"
-          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
+          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] placeholder:text-secondary-400 focus-visible:bg-white"
           id="login-password"
           name="password"
           placeholder="Masukkan password"
@@ -84,7 +84,7 @@ function LoginForm({
       </div>
 
       <SubmitButton
-        className="min-h-[54px] w-full rounded-xl text-base font-semibold shadow-[0_16px_30px_-22px_rgba(1,76,56,0.7)]"
+        className="min-h-[54px] w-full rounded-xl text-base font-semibold shadow-[0_16px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]"
         pendingLabel="Memproses..."
         size="lg"
         type="submit"

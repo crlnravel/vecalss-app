@@ -25,7 +25,7 @@ function MarketingHeader({
       className="sticky top-0 z-40 w-screen bg-white/94 backdrop-blur"
       style={{ marginLeft: "calc(50% - 50vw)" }}
     >
-      <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between border-b border-[#014C38]/10 px-4 py-4 md:px-8 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between border-b border-[var(--voyage-deep)]/10 px-4 py-4 md:px-8 lg:px-10">
         <Link
           aria-label="Vecalss homepage"
           className="group inline-flex min-h-12 items-center gap-3 rounded-[10px] pr-3 transition-opacity hover:opacity-80"
@@ -42,7 +42,7 @@ function MarketingHeader({
             />
           </span>
           <span
-            className="text-xl font-normal leading-none tracking-[0.08em] text-[#014C38] uppercase md:text-3xl"
+            className="text-xl font-normal leading-none tracking-[0.08em] text-[var(--voyage-deep)] uppercase md:text-3xl"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
@@ -58,7 +58,7 @@ function MarketingHeader({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${isActive ? "text-[#014C38]" : "text-[#014C38]/62 hover:text-[#014C38]"}`}
+                  className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${isActive ? "text-[var(--voyage-deep)]" : "text-[var(--voyage-deep)]/62 hover:text-[var(--voyage-deep)]"}`}
                 >
                   {item.label}
                 </Link>
@@ -76,16 +76,16 @@ function MarketingHeader({
         </div>
 
         <details className="relative lg:hidden">
-          <summary aria-label="Menu navigasi" className="flex size-12 list-none items-center justify-center rounded-full border border-[#014C38]/12 bg-white text-[#014C38] [&::-webkit-details-marker]:hidden">
+          <summary aria-label="Menu navigasi" className="flex size-12 list-none items-center justify-center rounded-full border border-[var(--voyage-deep)]/12 bg-white text-[var(--voyage-deep)] [&::-webkit-details-marker]:hidden">
             <Menu className="size-5" />
           </summary>
-          <div className="absolute right-0 top-full mt-3 w-[18rem] rounded-2xl border border-[#014C38]/10 bg-white p-4 shadow-[0_24px_64px_-44px_rgba(1,76,56,0.24)]">
+          <div className="absolute right-0 top-full mt-3 w-[18rem] rounded-2xl border border-[var(--voyage-deep)]/10 bg-white p-4 shadow-[0_24px_64px_-44px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
             <nav className="flex flex-col gap-4">
               {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[#014C38]/70 transition-colors hover:bg-[#014C38]/5 hover:text-[#014C38]"
+                  className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[var(--voyage-deep)]/70 transition-colors hover:bg-[var(--voyage-deep)]/5 hover:text-[var(--voyage-deep)]"
                 >
                   {item.label}
                 </Link>

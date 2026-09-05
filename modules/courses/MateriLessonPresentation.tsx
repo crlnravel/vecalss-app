@@ -73,10 +73,10 @@ function MateriVideoPreview({
   return (
     <section aria-label="Video pendamping" className="mt-8 space-y-3 md:mt-10">
       <div>
-        <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">Pendamping (opsional)</p>
-        <p className="mt-1 text-sm font-semibold text-[#285641]">Video pembelajaran</p>
+        <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">Pendamping (opsional)</p>
+        <p className="mt-1 text-sm font-semibold text-[var(--voyage-muted-ink)]">Video pembelajaran</p>
       </div>
-      <div className="overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[#d9e5de] md:rounded-[2rem]">
+      <div className="overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[var(--voyage-soft-border)] md:rounded-[2rem]">
         <div className="relative aspect-video w-full">
           <iframe
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -128,7 +128,7 @@ function MateriLessonPresentation({
       : `Materi ${subject}`;
   const providerLink = videoUrls ? (
     <a
-      className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl px-1 text-sm font-semibold text-[#426757] underline decoration-[#b7ddc3] underline-offset-4 outline-none hover:text-[#173c2d] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+      className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl px-1 text-sm font-semibold text-[var(--voyage-muted-ink)] underline decoration-[var(--voyage-sea-glass)] underline-offset-4 outline-none hover:text-[var(--voyage-ink)] focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30"
       href={videoUrls.openUrl}
       rel="noreferrer"
       target="_blank"
@@ -141,14 +141,14 @@ function MateriLessonPresentation({
     <>
       <header className="mt-2">
         {showSectionLabel ? (
-          <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">
+          <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
             Bagian{position === undefined ? "" : ` ${position + 1}`}
           </p>
         ) : null}
-        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.25rem]`}>
+        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[var(--voyage-ink)] text-balance md:text-4xl lg:text-[2.25rem]`}>
           {title.trim() || "Materi tanpa judul"}
         </h1>
-        {subjectDetails ? <p className="mt-2 text-base text-[#66766e] md:text-lg">{subjectDetails}</p> : null}
+        {subjectDetails ? <p className="mt-2 text-base text-[var(--voyage-muted-ink)] md:text-lg">{subjectDetails}</p> : null}
       </header>
 
       {isDocumentMode ? (
@@ -173,7 +173,7 @@ function MateriLessonPresentation({
             />
           )}
         </section>
-      ) : <div className="mt-7 overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[#d9e5de] md:mt-9 md:rounded-[2rem]">
+      ) : <div className="mt-7 overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[var(--voyage-soft-border)] md:mt-9 md:rounded-[2rem]">
         <div className="relative aspect-video w-full">
           {videoUrls ? <iframe
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

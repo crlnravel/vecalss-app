@@ -286,17 +286,17 @@ function LockedLessonState({
   nextLesson?: CourseLesson;
 }) {
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col items-center rounded-[2rem] border border-[#dce3df] bg-white px-6 py-12 text-center md:px-10 md:py-16">
-      <span className="grid size-16 place-items-center rounded-[1.5rem] bg-[#eef1ef] text-[#7d8982]">
+    <section className="mx-auto flex w-full max-w-3xl flex-col items-center rounded-[2rem] border border-[var(--secondary-200)] bg-white px-6 py-12 text-center md:px-10 md:py-16">
+      <span className="grid size-16 place-items-center rounded-[1.5rem] bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)]">
         <LockKeyhole className="size-8" />
       </span>
-      <p className="mt-6 text-xs font-bold tracking-[0.14em] text-[#9aa3b2] uppercase">
+      <p className="mt-6 text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
         Bagian {lesson.position + 1}
       </p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-[#172132] md:text-4xl">
+      <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-[var(--voyage-ink)] md:text-4xl">
         Bagian ini masih terkunci
       </h1>
-      <p className="mt-4 max-w-[58ch] text-sm leading-7 text-[#727d8f] md:text-base">
+      <p className="mt-4 max-w-[58ch] text-sm leading-7 text-[var(--voyage-muted-ink)] md:text-base">
         {lesson.title} akan terbuka setelah kamu mengikuti urutan jalur belajar.
         Kamu juga bisa memilih “Skip ke sini” dari halaman materi.
       </p>
@@ -351,7 +351,7 @@ function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
         "mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm leading-6",
         feedback.tone === "error"
           ? "bg-student-status-danger-bg text-student-status-danger-fg"
-          : "bg-[#eaf9f4] text-[#176d5b]",
+          : "bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]",
       )}
       role="status"
     >

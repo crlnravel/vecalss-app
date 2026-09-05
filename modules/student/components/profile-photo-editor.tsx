@@ -97,11 +97,11 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
     <div className={showLabel ? "flex flex-col items-start gap-3 pt-2" : "flex flex-col items-start gap-3"}>
       {showLabel ? <p className="text-base leading-7 text-primary-900">Profile picture</p> : null}
       <div className="group/photo relative">
-        <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_rgba(1,76,56,0.32)]">
+        <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_color-mix(in_oklab,var(--voyage-deep)_32%,transparent)]">
           {committedPhotoSrc ? (
             <AvatarImage alt="Foto profil" src={committedPhotoSrc} />
           ) : null}
-          <AvatarFallback className="bg-[linear-gradient(135deg,#d7ebe3_0%,#7abda8_100%)] text-2xl font-semibold text-primary-800 transition duration-200 group-hover/photo:brightness-[0.72] group-focus-within/photo:brightness-[0.72]">
+          <AvatarFallback className="bg-[linear-gradient(135deg,var(--primary-100)_0%,var(--primary-300)_100%)] text-2xl font-semibold text-primary-800 transition duration-200 group-hover/photo:brightness-[0.72] group-focus-within/photo:brightness-[0.72]">
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -118,7 +118,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                   onClick={openUploadDialog}
                   type="button"
                 >
-                  <Camera className="size-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
+                  <Camera className="size-6 drop-shadow-[0_1px_2px_color-mix(in_oklab,var(--secondary-900)_55%,transparent)]" />
                 </button>
               }
             />
@@ -151,7 +151,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
         }}
         open={isUploadDialogOpen}
       >
-        <DialogContent className="max-w-[32rem] border border-primary-100 bg-[#fbfffd] shadow-[0_24px_80px_-30px_rgba(1,76,56,0.45)]" variant="default">
+        <DialogContent className="max-w-[32rem] border border-primary-100 bg-[var(--voyage-canvas)] shadow-[0_24px_80px_-30px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]" variant="default">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-secondary-950">
               Unggah foto profil
@@ -166,7 +166,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                   {draftPhotoSrc ? (
                     <AvatarImage alt="Pratinjau foto profil" src={draftPhotoSrc} />
                   ) : null}
-                  <AvatarFallback className="bg-[linear-gradient(135deg,#d7ebe3_0%,#7abda8_100%)] text-lg font-semibold text-primary-800">
+                  <AvatarFallback className="bg-[linear-gradient(135deg,var(--primary-100)_0%,var(--primary-300)_100%)] text-lg font-semibold text-primary-800">
                     {initials}
                   </AvatarFallback>
                 </Avatar>

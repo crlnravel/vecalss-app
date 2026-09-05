@@ -97,66 +97,66 @@ function AdminStudentPreviewTryoutRestart({ tryout }: { tryout: AdminPreviewTryo
   };
 
   return (
-    <section className="grid gap-4 rounded-[2rem] border border-[#d6e5db] bg-white p-5 shadow-[0_24px_60px_-48px_rgba(23,107,77,0.5)] md:p-6">
+    <section className="grid gap-4 rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white p-5 shadow-[0_24px_60px_-48px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)] md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">Akses preview</p>
-          <h2 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-[#173c2d]">Restart Tryout</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f776a]">
+          <p className="text-xs font-extrabold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">Akses preview</p>
+          <h2 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-[var(--voyage-ink)]">Restart Tryout</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--voyage-muted-ink)]">
             Buat sesi retake khusus admin tanpa membuat attempt, jawaban, notifikasi, atau progress learner.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#eef8f1] px-3 py-2 text-xs font-bold text-[#176b4d]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voyage-sea-glass-wash)] px-3 py-2 text-xs font-bold text-[var(--voyage-forest)]">
           <ShieldCheck className="size-4" /> Fixture tetap
         </span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[#e2ece5] bg-[#f7faf8] px-4 py-3">
-          <p className="text-xs font-bold tracking-[0.12em] text-[#477060] uppercase">Admission</p>
-          <p className="mt-1 text-sm font-semibold text-[#173c2d]">
+        <div className="rounded-2xl border border-[var(--secondary-200)] bg-[var(--voyage-canvas)] px-4 py-3">
+          <p className="text-xs font-bold tracking-[0.12em] text-[var(--voyage-muted-ink)] uppercase">Admission</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--voyage-ink)]">
             {tryout.admission.status === null ? "Belum ada" : tryout.admission.status === "active" ? "Active" : `${tryout.admission.status} · repair diperlukan`}
           </p>
         </div>
-        <div className="rounded-2xl border border-[#e2ece5] bg-[#f7faf8] px-4 py-3">
-          <p className="text-xs font-bold tracking-[0.12em] text-[#477060] uppercase">Assignment current</p>
-          <p className="mt-1 text-sm font-semibold text-[#173c2d]">
+        <div className="rounded-2xl border border-[var(--secondary-200)] bg-[var(--voyage-canvas)] px-4 py-3">
+          <p className="text-xs font-bold tracking-[0.12em] text-[var(--voyage-muted-ink)] uppercase">Assignment current</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--voyage-ink)]">
             {tryout.assignments.current ? "Active · riwayat dipertahankan" : "Belum ada"}
           </p>
         </div>
       </div>
 
       {tryout.assignments.current ? (
-        <div className="rounded-2xl border border-[#d6e5db] bg-[#f7faf8] px-4 py-3">
-          <p className="text-xs font-bold tracking-[0.12em] text-[#477060] uppercase">Current assignment</p>
-          <p className="mt-1 text-sm font-semibold text-[#173c2d]">{tryout.assignments.current.name}</p>
-          <p className="mt-1 text-xs leading-5 text-[#5f776a]">
+        <div className="rounded-2xl border border-[var(--voyage-soft-border)] bg-[var(--voyage-canvas)] px-4 py-3">
+          <p className="text-xs font-bold tracking-[0.12em] text-[var(--voyage-muted-ink)] uppercase">Current assignment</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--voyage-ink)]">{tryout.assignments.current.name}</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--voyage-muted-ink)]">
             {scheduleLabels[tryout.assignments.current.scheduleStatus]} · ditugaskan {formatSchedule(tryout.assignments.current.assignedAt)}
           </p>
         </div>
       ) : null}
 
       <div className="grid gap-2">
-        <p className="text-xs font-bold tracking-[0.12em] text-[#477060] uppercase">Sesi sumber yang aman</p>
+        <p className="text-xs font-bold tracking-[0.12em] text-[var(--voyage-muted-ink)] uppercase">Sesi sumber yang aman</p>
         {sourceSessions.length ? sourceSessions.map((session) => (
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#e2ece5] px-4 py-3 transition has-[:checked]:border-[#176b4d] has-[:checked]:bg-[#eef8f1]" key={session.id}>
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--secondary-200)] px-4 py-3 transition has-[:checked]:border-[var(--voyage-forest)] has-[:checked]:bg-[var(--voyage-sea-glass-wash)]" key={session.id}>
             <input
               checked={sourceId === session.id}
-              className="mt-1 accent-[#176b4d]"
+              className="mt-1 accent-[var(--voyage-forest)]"
               name={`preview-source-${tryout.id}`}
               onChange={() => setSourceId(session.id)}
               type="radio"
               value={session.id}
             />
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-[#173c2d]">{session.name}</span>
-              <span className="mt-1 block text-xs leading-5 text-[#5f776a]">
+              <span className="block text-sm font-bold text-[var(--voyage-ink)]">{session.name}</span>
+              <span className="mt-1 block text-xs leading-5 text-[var(--voyage-muted-ink)]">
                 {scheduleLabels[session.scheduleStatus]} · {formatSchedule(session.availableFrom)}–{formatSchedule(session.availableUntil)} WIB
               </span>
             </span>
           </label>
         )) : (
-          <p className="rounded-2xl border border-dashed border-[#e2ece5] px-4 py-4 text-sm leading-6 text-[#5f776a]">
+          <p className="rounded-2xl border border-dashed border-[var(--secondary-200)] px-4 py-4 text-sm leading-6 text-[var(--voyage-muted-ink)]">
             Tidak ada sesi active/closed yang aman sebagai sumber restart. Future dan archived hanya dapat dibaca.
           </p>
         )}
@@ -164,28 +164,28 @@ function AdminStudentPreviewTryoutRestart({ tryout }: { tryout: AdminPreviewTryo
 
       {tryout.assignments.history.length ? (
         <div className="grid gap-2">
-          <p className="text-xs font-bold tracking-[0.12em] text-[#477060] uppercase">Riwayat superseded</p>
+          <p className="text-xs font-bold tracking-[0.12em] text-[var(--voyage-muted-ink)] uppercase">Riwayat superseded</p>
           {tryout.assignments.history.map((assignment) => (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#f7faf8] px-4 py-3 text-sm" key={assignment.id}>
-              <span className="font-semibold text-[#173c2d]">{assignment.name}</span>
-              <span className="text-xs font-bold text-[#5f776a]">Superseded · {formatSchedule(assignment.assignedAt)}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[var(--voyage-canvas)] px-4 py-3 text-sm" key={assignment.id}>
+              <span className="font-semibold text-[var(--voyage-ink)]">{assignment.name}</span>
+              <span className="text-xs font-bold text-[var(--voyage-muted-ink)]">Superseded · {formatSchedule(assignment.assignedAt)}</span>
             </div>
           ))}
         </div>
       ) : null}
 
       {notice ? (
-        <p className={notice.tone === "error" ? "rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm leading-6 text-[#a63832]" : "rounded-2xl bg-[#eef8f1] px-4 py-3 text-sm leading-6 text-[#176b4d]"} role="status">
+        <p className={notice.tone === "error" ? "rounded-2xl bg-[var(--danger-50)] px-4 py-3 text-sm leading-6 text-[var(--danger-700)]" : "rounded-2xl bg-[var(--voyage-sea-glass-wash)] px-4 py-3 text-sm leading-6 text-[var(--voyage-forest)]"} role="status">
           {notice.message}
         </p>
       ) : null}
 
       {tryout.restart.reason === "assignment_invariant" ? (
-        <p className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm leading-6 text-[#a63832]" role="alert">
+        <p className="rounded-2xl bg-[var(--danger-50)] px-4 py-3 text-sm leading-6 text-[var(--danger-700)]" role="alert">
           State assignment preview tidak konsisten. Riwayat tetap read-only dan restart dinonaktifkan sampai operations owner memperbaikinya.
         </p>
       ) : tryout.restart.reason === "admission_repair_required" ? (
-        <p className="rounded-2xl bg-[#fff8e8] px-4 py-3 text-sm leading-6 text-[#925816]" role="status">
+        <p className="rounded-2xl bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-[var(--voyage-warm-sun-ink)]" role="status">
           Admission preview memerlukan repair eksplisit; restart tidak mengubah status admission secara diam-diam.
         </p>
       ) : null}

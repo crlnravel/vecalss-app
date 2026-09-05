@@ -45,16 +45,16 @@ function PreviewSurfaceHeader({
   title: string;
 }) {
   return (
-    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_58%,#2f8a5d_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_rgba(1,76,56,0.7)] md:px-10 md:py-9">
+    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-72"
+        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
       />
       <div className="relative max-w-2xl">
         <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
           {title}
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-[#e7f5eb] md:text-base">
+        <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base">
           {description}
         </p>
       </div>
@@ -92,12 +92,12 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
 
   return (
     <section className="grid gap-7">
-      <Card className="relative min-h-[290px] overflow-hidden rounded-[2rem] border border-primary-200 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
+      <Card className="relative min-h-[290px] overflow-hidden rounded-[2rem] border border-primary-200 bg-[linear-gradient(125deg,var(--voyage-surface)_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
           <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
           <Image
             alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(1,76,56,0.18)] xl:w-[26rem]"
+            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
             height={416}
             sizes="(min-width: 1280px) 416px, 352px"
             src="/brand/mascot-vecalss.png"
@@ -120,10 +120,10 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-3">
-            <span className="inline-flex min-h-10 items-center rounded-full border border-white/80 bg-white/90 px-4 py-2 text-sm font-bold text-primary-700 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
+            <span className="inline-flex min-h-10 items-center rounded-full border border-white/80 bg-white/90 px-4 py-2 text-sm font-bold text-primary-700 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
               {daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`}
             </span>
-            <span className="inline-flex min-h-10 items-center rounded-full bg-primary-700 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_30px_-22px_rgba(1,76,56,0.58)]">
+            <span className="inline-flex min-h-10 items-center rounded-full bg-primary-700 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_58%,transparent)]">
               Preview read-only
             </span>
           </div>
@@ -198,10 +198,10 @@ function AdminStudentPreviewMateriCatalogueSurface({
       {courses.length > 0 ? (
         <section aria-labelledby="preview-course-list-title" className="flex flex-col gap-4">
           <div className="flex items-center gap-4 px-1">
-            <h2 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[#173c2d] md:text-xl" id="preview-course-list-title">
+            <h2 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)] md:text-xl" id="preview-course-list-title">
               Subtes terbit
             </h2>
-            <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+            <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
           </div>
           <div className="flex flex-col gap-4">
             {courses.map((course) => (
@@ -210,23 +210,23 @@ function AdminStudentPreviewMateriCatalogueSurface({
                 key={course.slug}
                 variant="materi"
               >
-                <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+                <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-20 md:rounded-[1.6rem]">
                   <BookOpen className="size-7 md:size-9" strokeWidth={2.2} />
                 </span>
                 <div className="mt-4 min-w-0 md:mt-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">TPA</span>
-                    <span className="size-1 rounded-full bg-[#9dcab0]" />
-                    <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">{course.code}</span>
+                    <span className="text-xs font-extrabold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">TPA</span>
+                    <span className="size-1 rounded-full bg-[var(--primary-300)]" />
+                    <span className="text-xs font-extrabold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">{course.code}</span>
                   </div>
                   <h2 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance md:text-2xl">{course.name}</h2>
-                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[#5f776a] sm:text-sm">
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[var(--voyage-muted-ink)] sm:text-sm">
                     <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> {course.lessons.length} unit</span>
                     <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" /> Published</span>
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-end border-t border-[#e2ece5] pt-4 md:mt-0 md:border-t-0 md:pt-0">
-                  <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+                <div className="mt-4 flex items-center justify-end border-t border-[var(--secondary-200)] pt-4 md:mt-0 md:border-t-0 md:pt-0">
+                  <span className="grid size-11 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
                     <ChevronRight className="size-5" strokeWidth={2.6} />
                   </span>
                 </div>
@@ -235,9 +235,9 @@ function AdminStudentPreviewMateriCatalogueSurface({
           </div>
         </section>
       ) : (
-        <div className="rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
-          <p className="text-base font-extrabold text-[#173c2d]">Belum ada bacaan terbit</p>
-          <p className="mt-2 text-sm text-[#5f776a]">Bacaan yang tersedia akan muncul di sini.</p>
+        <div className="rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)]">
+          <p className="text-base font-extrabold text-[var(--voyage-ink)]">Belum ada bacaan terbit</p>
+          <p className="mt-2 text-sm text-[var(--voyage-muted-ink)]">Bacaan yang tersedia akan muncul di sini.</p>
         </div>
       )}
       <PreviewNavigation activeLabel="Materi" />
@@ -269,22 +269,22 @@ function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPrevi
             key={lesson.code}
             variant="materi"
           >
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f5ec] text-[#176b4d]">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]">
               <FileText className="size-6" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold tracking-[0.14em] text-[#477060] uppercase">Bagian {lesson.position + 1}</p>
-              <h2 className="mt-1 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[#173c2d]">{lesson.title}</h2>
-              {lesson.summary ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f776a]">{lesson.summary}</p> : null}
-              <p className="mt-2 text-xs font-semibold text-[#5f776a]">PDF published · read-only</p>
+              <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">Bagian {lesson.position + 1}</p>
+              <h2 className="mt-1 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)]">{lesson.title}</h2>
+              {lesson.summary ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--voyage-muted-ink)]">{lesson.summary}</p> : null}
+              <p className="mt-2 text-xs font-semibold text-[var(--voyage-muted-ink)]">PDF published · read-only</p>
             </div>
-            <ChevronRight className="size-5 shrink-0 text-[#176b4d]" />
+            <ChevronRight className="size-5 shrink-0 text-[var(--voyage-forest)]" />
           </StudentCatalogueCard>
         ))}
       </div>
       {course.lessons.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-[#d6e5db] bg-white px-6 py-12 text-center">
-          <p className="font-semibold text-[#173c2d]">Belum ada lesson published</p>
+        <div className="rounded-[2rem] border border-dashed border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center">
+          <p className="font-semibold text-[var(--voyage-ink)]">Belum ada lesson published</p>
         </div>
       ) : null}
     </section>
@@ -326,7 +326,7 @@ function AdminStudentPreviewMateriLessonSurface({
         videoUrl={lesson.optionalVideo?.mediaUrl}
       />
       <PreviewContentBlocks content={lesson.content} summary={lesson.summary} />
-      <div className="mt-6 rounded-2xl border border-[#f0c98a] bg-[#fff8e8] px-4 py-3 text-sm leading-6 text-secondary-700">
+      <div className="mt-6 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         Preview hanya membaca konten terbit. Tombol selesai, skip, progress, dan aksi learner sengaja tidak tersedia.
       </div>
     </article>
@@ -345,7 +345,7 @@ function PreviewContentBlocks({
   return (
     <section aria-label="Ringkasan konten Materi" className="mt-8 grid gap-4">
       {summary ? (
-        <Card className="rounded-3xl border border-[#d6e5db] bg-white shadow-none">
+        <Card className="rounded-3xl border border-[var(--voyage-soft-border)] bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-lg">Ringkasan</CardTitle>
             <CardDescription className="whitespace-pre-wrap text-sm leading-7 text-secondary-600">{summary}</CardDescription>
@@ -353,7 +353,7 @@ function PreviewContentBlocks({
         </Card>
       ) : null}
       {content.map((block, index) => (
-        <Card className="rounded-3xl border border-[#d6e5db] bg-white shadow-none" key={`${block.title ?? "content"}-${block.body.slice(0, 32)}`}>
+        <Card className="rounded-3xl border border-[var(--voyage-soft-border)] bg-white shadow-none" key={`${block.title ?? "content"}-${block.body.slice(0, 32)}`}>
           <CardHeader>
             <CardTitle className="text-lg">{block.title ?? `Catatan ${index + 1}`}</CardTitle>
           </CardHeader>
@@ -424,8 +424,8 @@ function AdminStudentPreviewTryoutCatalogueSurface({
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
       <PreviewSurfaceHeader description={banner.description} title={banner.title} />
 
-      <div className="flex items-center gap-3 rounded-2xl border border-[#f0c98a] bg-[#fff8e8] px-4 py-3 text-sm leading-6 text-secondary-700">
-        <ShieldCheck className="size-5 shrink-0 text-[#9a5c16]" />
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
+        <ShieldCheck className="size-5 shrink-0 text-[var(--voyage-warm-sun-ink)]" />
         <span>Tryout hanya dibaca melalui data published. Preview tidak membuat attempt, jawaban, nilai, atau progress siswa.</span>
       </div>
 
@@ -435,7 +435,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
             <h2 className="shrink-0 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl" id="preview-tryout-list-title">
               Tryout terbit
             </h2>
-            <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+            <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {tryouts.map((tryout) => {
@@ -449,7 +449,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
                 <StudentCatalogueCard href={buildAdminStudentPreviewTryoutRoute(tryout.id)} key={tryout.id} variant="tryout">
                   <div className="relative flex h-full flex-col p-6 md:p-7">
                     <div className="relative flex items-start justify-between gap-3">
-                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-16">
+                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-16">
                         <ListChecks className="size-7 md:size-8" strokeWidth={2.2} />
                       </span>
                       {currentSession ? <TryoutScheduleBadge status={currentSession.scheduleStatus} /> : null}
@@ -464,7 +464,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
                         <Timer className="size-4" />
                         {tryout.sections.length} bagian · {activeOrClosedSessions.length} sesi aman
                       </span>
-                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
                         <ChevronRight className="size-5" strokeWidth={2.6} />
                       </span>
                     </div>
@@ -523,7 +523,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         </span>
       </div>
 
-      <Card className="rounded-[2rem] border border-[#f0c98a] bg-[#fff8e8] shadow-none">
+      <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
           <CardTitle className="text-lg">Tampilan read-only</CardTitle>
           <CardDescription>Halaman ini memeriksa surface siswa tanpa memuat attempt atau jawaban. Restart preview hanya tersedia sebagai aksi eksplisit admin.</CardDescription>

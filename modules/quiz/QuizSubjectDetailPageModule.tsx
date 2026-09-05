@@ -18,7 +18,7 @@ import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { type QuizItem, type QuizSubject } from "./data";
 
 const QUIZ_BADGE_CLASS_NAME =
-  "border-0 font-medium shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]";
+  "border-0 font-medium shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]";
 
 function QuizSubjectDetailPageModule({
   notificationFeed,
@@ -43,7 +43,7 @@ function QuizSubjectDetailPageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-[0_28px_72px_-44px_rgba(1,76,56,0.75)]">
+        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-[0_28px_72px_-44px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-32 -right-16 size-80 rounded-full border-[18px] border-white/10"
@@ -63,7 +63,7 @@ function QuizSubjectDetailPageModule({
                   variant="ghost"
                 />
                 <StudentBadge
-                  className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]`}
+                  className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]`}
                   size="sm"
                   tone="category"
                 >
@@ -105,7 +105,7 @@ function QuizSubjectDetailPageModule({
               />
               <Image
                 alt=""
-                className="absolute right-[-1rem] bottom-[-4rem] h-auto w-[16rem] max-w-none object-contain drop-shadow-[0_30px_48px_rgba(1,76,56,0.4)] md:right-[-1rem] md:bottom-[-5rem] md:w-[22rem] lg:right-[-2rem] lg:w-[27rem]"
+                className="absolute right-[-1rem] bottom-[-4rem] h-auto w-[16rem] max-w-none object-contain drop-shadow-[0_30px_48px_color-mix(in_oklab,var(--voyage-deep)_40%,transparent)] md:right-[-1rem] md:bottom-[-5rem] md:w-[22rem] lg:right-[-2rem] lg:w-[27rem]"
                 height={464}
                 priority
                 sizes="(min-width: 1280px) 432px, (min-width: 768px) 352px, 256px"
@@ -160,7 +160,7 @@ function QuizSubjectDetailPageModule({
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   const hasReviewableResult = Boolean(quiz.isCompleted && quiz.latestAttemptId);
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-white text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
+    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-white text-left text-primary-900 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_52%,transparent)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] motion-reduce:transition-none">
       <div className="relative z-10 flex flex-col px-3 py-5 sm:px-4 sm:py-6 md:px-5 md:py-7">
         <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">
           {quiz.title}

@@ -28,14 +28,14 @@ import type {
 
 function QuizPreviewHeader({ description, title }: { description: string; title: string }) {
   return (
-    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_58%,#2f8a5d_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_rgba(1,76,56,0.7)] md:px-10 md:py-9">
+    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-72"
+        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
       />
       <div className="relative max-w-2xl">
         <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">{title}</h1>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-[#e7f5eb] md:text-base">{description}</p>
+        <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base">{description}</p>
       </div>
     </header>
   );
@@ -118,8 +118,8 @@ function AdminStudentPreviewQuizCatalogueSurface({
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
       <QuizPreviewHeader description={banner.description} title={banner.title} />
 
-      <div className="flex items-center gap-3 rounded-2xl border border-[#f0c98a] bg-[#fff8e8] px-4 py-3 text-sm leading-6 text-secondary-700">
-        <span className="font-bold text-[#9a5c16]">Read-only</span>
+      <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
+        <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Read-only</span>
         <span>Kuis hanya dibaca untuk memeriksa tampilan siswa. Tidak ada percobaan, jawaban, atau nilai yang dibuat.</span>
       </div>
 
@@ -131,14 +131,14 @@ function AdminStudentPreviewQuizCatalogueSurface({
                 <h2 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-secondary-900 md:text-xl" id={`preview-quiz-group-${group.track}`}>
                   Subjek {group.track}
                 </h2>
-                <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+                <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {group.subjects.map((subject) => (
                   <StudentCatalogueCard href={buildAdminStudentPreviewQuizRoute(subject.slug)} key={subject.slug} variant="kuis">
                     <div className="flex items-start justify-between gap-4">
-                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-20 md:rounded-[1.6rem]">
                         <ListChecks className="size-7 md:size-9" strokeWidth={2.2} />
                       </span>
                       <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">{subject.code}</span>
@@ -154,7 +154,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
                         <BookOpenCheck className="size-4" />
                         {subject.quizzes.length} kuis terbit
                       </span>
-                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
                         <ChevronRight className="size-5" strokeWidth={2.6} />
                       </span>
                     </div>
@@ -228,7 +228,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
 
 function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary; subjectSlug: string }) {
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,#eef8f1_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)]">
+    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,var(--voyage-sea-glass-wash)_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_52%,transparent)]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-18%] top-0 h-36 rounded-[50%] bg-white/65 blur-3xl" />
       <div className="relative z-10 flex flex-col p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -284,7 +284,7 @@ function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuiz
       </div>
       <QuizSchedule availability={quiz.availability} />
 
-      <Card className="rounded-[2rem] border border-[#f0c98a] bg-[#fff8e8] shadow-none">
+      <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
           <CardTitle className="text-lg">Tampilan read-only</CardTitle>
           <CardDescription>Jawaban dan penilaian tidak tersedia di admin student preview. Membuka halaman ini tidak membuat state learner.</CardDescription>

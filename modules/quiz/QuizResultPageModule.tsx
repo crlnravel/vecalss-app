@@ -218,7 +218,7 @@ function QuizResultPageModule({
       }
       title={result.title}
     >
-      <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-8">
+      <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8">
         {restartMessage ? <p className="mb-5 text-sm font-medium text-student-status-danger-fg" role="alert">{restartMessage}</p> : null}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
           <div className="min-w-0">

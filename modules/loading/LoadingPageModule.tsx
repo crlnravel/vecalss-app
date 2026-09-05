@@ -5,7 +5,7 @@ export function LoadingPageModule() {
     <main
       aria-busy="true"
       aria-live="polite"
-      className="relative min-h-screen overflow-hidden bg-white text-[#173C2D]"
+      className="relative min-h-screen overflow-hidden bg-white text-[var(--voyage-ink)]"
     >
       <div
         aria-hidden="true"
@@ -20,22 +20,22 @@ export function LoadingPageModule() {
       >
         <path
           d="M-80 665c188-248 326-238 467-69 130 156 252 235 386 77 132-156 274-260 743-309"
-          stroke="#176B4D"
+          stroke="var(--voyage-forest)"
           strokeDasharray="8 13"
           strokeLinecap="round"
           strokeOpacity="0.34"
           strokeWidth="3"
         />
-        <circle cx="190" cy="565" fill="#FFD766" r="8" />
-        <circle cx="1145" cy="432" fill="#176B4D" opacity="0.72" r="9" />
+        <circle cx="190" cy="565" fill="var(--voyage-warm-sun)" r="8" />
+        <circle cx="1145" cy="432" fill="var(--voyage-forest)" opacity="0.72" r="9" />
       </svg>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-56 right-[-8rem] z-0 size-[34rem] rounded-full bg-[#B7DDC3]/25 blur-3xl"
+        className="pointer-events-none absolute -top-56 right-[-8rem] z-0 size-[34rem] rounded-full bg-[var(--voyage-sea-glass)]/25 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-[-12rem] left-[-8rem] z-0 size-[32rem] rounded-full bg-[#FFD766]/12 blur-3xl"
+        className="pointer-events-none absolute bottom-[-12rem] left-[-8rem] z-0 size-[32rem] rounded-full bg-[var(--voyage-warm-sun)]/12 blur-3xl"
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-7 sm:px-8 md:px-10 md:py-9">
@@ -50,7 +50,7 @@ export function LoadingPageModule() {
                 src="/brand/logo-mark-cropped.png"
               />
             </span>
-            <span className="font-logo text-lg tracking-[0.1em] text-[#014C38] sm:text-xl">
+            <span className="font-logo text-lg tracking-[0.1em] text-[var(--voyage-deep)] sm:text-xl">
               VECALSS
             </span>
           </div>
@@ -71,9 +71,9 @@ export function LoadingPageModule() {
             </div>
 
             <div className="flex flex-col justify-center px-1 py-2 sm:px-4 lg:px-0 lg:py-12">
-              <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold tracking-[-0.065em] text-[#FFD766]">
+              <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold tracking-[-0.065em] text-[var(--voyage-warm-sun)]">
                 Menyusun
-                <span className="mt-2 block text-[#173C2D]">rute belajarmu</span>
+                <span className="mt-2 block text-[var(--voyage-ink)]">rute belajarmu</span>
               </h1>
               <p
                 aria-label="Halaman sedang dimuat"

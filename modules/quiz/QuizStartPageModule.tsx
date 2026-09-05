@@ -57,7 +57,7 @@ function QuizStartPageModule({
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-4xl items-center px-5 py-12">
-      <section className="w-full rounded-[2rem] border border-primary-100 bg-white p-7 shadow-[0_24px_56px_-38px_rgba(1,76,56,0.5)] sm:p-10">
+      <section className="w-full rounded-[2rem] border border-primary-100 bg-white p-7 shadow-[0_24px_56px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">{subjectTitle}</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{quiz.title}</h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-secondary-600">Quiz belum dimulai. Periksa jumlah soal dan kebijakan percobaan, lalu tekan Mulai ketika siap.</p>
@@ -70,7 +70,7 @@ function QuizStartPageModule({
           <PolicyStat label="Jawaban benar" value={policy.correctAnswerVisibility === "hide" ? "Disembunyikan" : "Ditampilkan"} />
         </div>
         {policy.retryDelaySeconds ? <p className="mt-5 text-sm text-secondary-500">Percobaan ulang memiliki jeda sebelum dapat dimulai kembali.</p> : null}
-        {message ? <p className="mt-5 text-sm font-medium text-red-700" role="alert">{message}</p> : null}
+        {message ? <p className="mt-5 text-sm font-medium text-danger-700" role="alert">{message}</p> : null}
         <div className="mt-8 flex flex-wrap gap-3">
           <Button disabled={isStarting} onClick={() => { void start(); }} size="lg" variant="brand">
             {isStarting ? "Memulai…" : "Mulai quiz"}

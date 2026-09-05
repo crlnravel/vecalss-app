@@ -39,7 +39,7 @@ function ContactForm() {
   });
 
   return (
-    <div className="overflow-hidden rounded-4xl border border-[#014C38]/10 bg-[#014C38]/[0.025] shadow-[0_30px_90px_-72px_rgba(1,76,56,0.42)]">
+    <div className="overflow-hidden rounded-4xl border border-[var(--voyage-deep)]/10 bg-[var(--voyage-deep)]/[0.025] shadow-[0_30px_90px_-72px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
       <form
         className="px-6 py-8 md:px-8 lg:px-10 lg:py-10"
         noValidate
@@ -82,7 +82,7 @@ function ContactForm() {
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
                       autoComplete="name"
-                      className="rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                      className="rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -96,7 +96,7 @@ function ContactForm() {
                     />
                     {error ? (
                       <p
-                        className="text-sm text-red-700"
+                        className="text-sm text-danger-700"
                         id={`${field.name}-error`}
                         role="alert"
                       >
@@ -129,7 +129,7 @@ function ContactForm() {
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
                       autoComplete="email"
-                      className="rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                      className="rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -143,7 +143,7 @@ function ContactForm() {
                     />
                     {error ? (
                       <p
-                        className="text-sm text-red-700"
+                        className="text-sm text-danger-700"
                         id={`${field.name}-error`}
                         role="alert"
                       >
@@ -175,7 +175,7 @@ function ContactForm() {
                     <FieldTextarea
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
-                      className="min-h-[190px] rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                      className="min-h-[190px] rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -188,7 +188,7 @@ function ContactForm() {
                     />
                     {error ? (
                       <p
-                        className="text-sm text-red-700"
+                        className="text-sm text-danger-700"
                         id={`${field.name}-error`}
                         role="alert"
                       >
@@ -204,7 +204,7 @@ function ContactForm() {
           {submissionState === "ready" ? (
             <p
               aria-live="polite"
-              className="rounded-2xl border border-[#014C38]/12 bg-white px-4 py-3 text-sm leading-6 text-[#014C38]/72"
+              className="rounded-2xl border border-[var(--voyage-deep)]/12 bg-white px-4 py-3 text-sm leading-6 text-[var(--voyage-deep)]/72"
             >
               Formulir sudah lengkap. Detail ini siap diteruskan setelah endpoint
               kontak Vecalss dihubungkan.

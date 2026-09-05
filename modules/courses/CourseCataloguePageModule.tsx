@@ -63,16 +63,16 @@ function CourseCataloguePageModule({
       session={session}
     >
       <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_58%,#2f8a5d_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_rgba(1,76,56,0.7)] md:px-10 md:py-9">
+        <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-72"
+            className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
           />
           <div className="relative max-w-2xl">
             <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
               {banner.title}
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-[#e7f5eb] md:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base">
               {banner.description}
             </p>
           </div>
@@ -85,12 +85,12 @@ function CourseCataloguePageModule({
           >
             <div className="flex items-center gap-4 px-1">
               <h2
-                className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[#173c2d] md:text-xl"
+                className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)] md:text-xl"
                 id="course-list-title"
               >
                 Subtes
               </h2>
-              <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+              <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
             </div>
 
             <div className="flex flex-col gap-4">
@@ -142,17 +142,17 @@ function CourseRowCard({
   const Icon = courseIcons[course.icon];
   return (
     <StudentCatalogueCard href={`/courses/${course.slug}`} variant="materi">
-      <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+      <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-20 md:rounded-[1.6rem]">
         <Icon className="size-7 md:size-9" strokeWidth={2.2} />
       </span>
 
       <div className="mt-4 min-w-0 md:mt-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+          <span className="text-xs font-extrabold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
             {courseCategoryLabel}
           </span>
-          <span className="size-1 rounded-full bg-[#9dcab0]" />
-          <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+          <span className="size-1 rounded-full bg-[var(--primary-300)]" />
+          <span className="text-xs font-extrabold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
             {course.code}
           </span>
         </div>
@@ -160,7 +160,7 @@ function CourseRowCard({
           {course.description}
         </h2>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[#5f776a] sm:text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[var(--voyage-muted-ink)] sm:text-sm">
           <span className="inline-flex items-center gap-1.5">
             <BookOpen className="size-4" /> {course.lessons.length} unit
           </span>
@@ -169,17 +169,17 @@ function CourseRowCard({
           </span>
         </div>
 
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e2ece5]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--secondary-200)]">
           <div
             aria-hidden="true"
-            className="h-full rounded-full bg-[linear-gradient(90deg,#176b4d_0%,#41997d_100%)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            className="h-full rounded-full bg-[linear-gradient(90deg,var(--voyage-forest)_0%,var(--primary-400)_100%)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
             style={{ width: `${state.completionPercentage}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end border-t border-[#e2ece5] pt-4 md:mt-0 md:border-t-0 md:pt-0">
-        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+      <div className="mt-4 flex items-center justify-end border-t border-[var(--secondary-200)] pt-4 md:mt-0 md:border-t-0 md:pt-0">
+        <span className="grid size-11 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
           <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>

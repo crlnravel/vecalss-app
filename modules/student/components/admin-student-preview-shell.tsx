@@ -50,11 +50,11 @@ function AdminStudentPreviewShell({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
+      <div className="flex min-h-svh w-full bg-[var(--voyage-canvas)] text-secondary-900">
         <StudentSidebar activeLabel={activeLabel} previewMode />
 
         <SidebarInset className="bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[var(--voyage-canvas)]/90 backdrop-blur-xl">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0" size="icon" />
 
@@ -95,10 +95,10 @@ function AdminStudentPreviewShell({
             <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
               <aside
                 aria-label="Admin student preview"
-                className="flex flex-col gap-4 rounded-3xl border border-[#f0c98a] bg-[#fff8e8] px-5 py-4 shadow-[0_18px_38px_-28px_rgba(153,92,22,0.45)] md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-4 rounded-3xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-5 py-4 shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--warning-700)_45%,transparent)] md:flex-row md:items-center md:justify-between"
               >
                 <div>
-                  <p className="text-xs font-bold tracking-[0.16em] text-[#9a5c16] uppercase">Student preview</p>
+                  <p className="text-xs font-bold tracking-[0.16em] text-[var(--voyage-warm-sun-ink)] uppercase">Student preview</p>
                   <p className="mt-1 text-sm font-semibold text-secondary-900">
                     Menampilkan pengalaman siswa untuk {context.student.displayName}
                   </p>

@@ -61,7 +61,7 @@ function QuizCataloguePageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-10">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 px-6 py-8 text-white shadow-[0_28px_72px_-44px_rgba(1,76,56,0.75)] md:min-h-[18rem] md:px-10 md:py-10">
+        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 px-6 py-8 text-white shadow-[0_28px_72px_-44px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-white/10"
@@ -85,7 +85,7 @@ function QuizCataloguePageModule({
           >
             <Image
               alt=""
-              className="h-auto w-full object-contain drop-shadow-[0_30px_48px_rgba(1,76,56,0.35)]"
+              className="h-auto w-full object-contain drop-shadow-[0_30px_48px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)]"
               height={464}
               priority
               sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
@@ -109,7 +109,7 @@ function QuizCataloguePageModule({
                 >
                   Subjek {group.code}
                 </h2>
-                <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+                <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -136,7 +136,7 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
       variant="kuis"
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-20 md:rounded-[1.6rem]">
           <Icon className="size-7 md:size-9" strokeWidth={2.2} />
         </span>
         <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">
@@ -164,7 +164,7 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
             {stats.totalQuestions} soal
           </span>
         </div>
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
           <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>

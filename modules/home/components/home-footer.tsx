@@ -24,7 +24,7 @@ const contactLinks = [
 
 function HomeFooter() {
   return (
-    <footer className="bg-[#014C38] text-white">
+    <footer className="bg-[var(--voyage-deep)] text-white">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 py-14 md:px-10 lg:px-16 lg:py-16">
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
           <div className="max-w-[28rem]">

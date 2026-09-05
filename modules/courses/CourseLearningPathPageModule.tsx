@@ -106,7 +106,7 @@ function CourseLearningPathPageModule({
       searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >
-      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[#173c2d]">
+      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[var(--voyage-canvas)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--voyage-ink)]">
 
         <div className="pointer-events-none sticky top-3 z-30 mx-auto h-0 w-full max-w-[48rem] px-4 pt-3 sm:px-6">
           <div className="pointer-events-auto">
@@ -155,10 +155,10 @@ function CourseLearningPathPageModule({
               </ol>
             </div>
           ) : (
-            <div className="mx-auto max-w-2xl rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
-              <BookOpen className="mx-auto size-10 text-[#9ab4a4]" />
-              <p className="mt-4 text-base font-extrabold text-[#173c2d]">Belum ada bacaan terbit</p>
-              <p className="mt-2 text-sm leading-6 text-[#5f776a]">Bacaan untuk subtes ini akan muncul setelah diterbitkan.</p>
+            <div className="mx-auto max-w-2xl rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)]">
+              <BookOpen className="mx-auto size-10 text-[var(--voyage-muted-ink)]" />
+              <p className="mt-4 text-base font-extrabold text-[var(--voyage-ink)]">Belum ada bacaan terbit</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--voyage-muted-ink)]">Bacaan untuk subtes ini akan muncul setelah diterbitkan.</p>
             </div>
           )}
         </section>
@@ -195,36 +195,36 @@ function SubjectSelector({
         render={
           <button
             className={cn(
-              "group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 px-4 py-3 text-left outline-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 ease-out focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5",
+              "group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 px-4 py-3 text-left outline-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 ease-out focus-visible:ring-4 focus-visible:ring-[var(--voyage-leaf)]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5",
               isPending
-                ? "cursor-wait border-[#e0eae3] bg-[#f7faf8] opacity-70 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.35)]"
-                : "border-[#d6e5db] bg-white shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] data-popup-open:-translate-y-0.5 data-popup-open:border-[#9dcab0] data-popup-open:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]",
+                ? "cursor-wait border-[var(--secondary-200)] bg-[var(--voyage-canvas)] opacity-70 shadow-[0_12px_30px_-26px_color-mix(in_oklab,var(--voyage-forest)_35%,transparent)]"
+                : "border-[var(--voyage-soft-border)] bg-white shadow-[0_18px_42px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)] motion-safe:hover:-translate-y-0.5 hover:border-[var(--primary-300)] hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] data-popup-open:-translate-y-0.5 data-popup-open:border-[var(--primary-300)] data-popup-open:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]",
             )}
             type="button"
           />
         }
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.68rem] font-bold tracking-[0.16em] text-[#98a1b1] uppercase sm:text-xs">
+          <span className="block text-[0.68rem] font-bold tracking-[0.16em] text-[var(--voyage-muted-ink)] uppercase sm:text-xs">
             Materi
           </span>
-          <span className="mt-1 flex min-w-0 items-center gap-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-[#1b2534] sm:hidden">
+          <span className="mt-1 flex min-w-0 items-center gap-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-[var(--voyage-ink)] sm:hidden">
             <span className="truncate">{course.title}</span>
-            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-4 shrink-0 animate-spin text-[#5f776a]" role="status" /> : null}
+            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-4 shrink-0 animate-spin text-[var(--voyage-muted-ink)]" role="status" /> : null}
           </span>
-          <span className="mt-1 hidden min-w-0 items-center gap-2 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[#1b2534] sm:flex md:text-xl">
+          <span className="mt-1 hidden min-w-0 items-center gap-2 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)] sm:flex md:text-xl">
             <span className="truncate">{course.description} ({course.title})</span>
-            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-5 shrink-0 animate-spin text-[#5f776a]" role="status" /> : null}
+            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-5 shrink-0 animate-spin text-[var(--voyage-muted-ink)]" role="status" /> : null}
           </span>
         </span>
         {!isPending ? (
-          <ChevronDown className="size-6 shrink-0 text-[#5f776a] transition-transform motion-reduce:transform-none group-data-popup-open:rotate-180" />
+          <ChevronDown className="size-6 shrink-0 text-[var(--voyage-muted-ink)] transition-transform motion-reduce:transform-none group-data-popup-open:rotate-180" />
         ) : null}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="center"
-        className="max-h-[min(34rem,var(--available-height))] rounded-[2rem] border border-[#d6e5db] bg-white p-2"
+        className="max-h-[min(34rem,var(--available-height))] rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white p-2"
         sideOffset={10}
       >
         {courses.map((subject, index) => {
@@ -233,16 +233,16 @@ function SubjectSelector({
           return (
             <DropdownMenuItem
               className={cn(
-                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] transition-[transform,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-1 hover:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:translate-x-1 focus:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] data-highlighted:translate-x-1 data-highlighted:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:bg-[#edf7f0] focus:text-[#173c2d] motion-safe:active:scale-[0.99] motion-reduce:transition-none sm:min-h-16",
-                isActive && "bg-[#e8f5ec] ring-2 ring-[#b7ddc3]",
+                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[var(--voyage-ink)] transition-[transform,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-1 hover:shadow-[0_10px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] focus:translate-x-1 focus:shadow-[0_10px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] data-highlighted:translate-x-1 data-highlighted:shadow-[0_10px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] focus:bg-[var(--voyage-sea-glass-wash)] focus:text-[var(--voyage-ink)] motion-safe:active:scale-[0.99] motion-reduce:transition-none sm:min-h-16",
+                isActive && "bg-[var(--voyage-sea-glass-wash)] ring-2 ring-[var(--voyage-sea-glass)]",
               )}
               key={subject.slug}
               onClick={() => handleCourseChange(subject.slug)}
             >
               <span
                 className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-xl bg-[#f2f6f3] text-sm font-extrabold sm:size-10",
-                  isActive && "bg-white text-[#176b4d]",
+                  "grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--secondary-100)] text-sm font-extrabold sm:size-10",
+                  isActive && "bg-white text-[var(--voyage-forest)]",
                 )}
               >
                 {index + 1}
@@ -251,13 +251,13 @@ function SubjectSelector({
                 <span className="block truncate text-sm font-extrabold sm:text-base">
                   {subject.description}
                 </span>
-                <span className="mt-0.5 block text-xs font-semibold text-[#98a1b1]">
+                <span className="mt-0.5 block text-xs font-semibold text-[var(--voyage-muted-ink)]">
                   {subject.title} · {subject.lessons.length} unit
                 </span>
               </span>
               {isActive ? (
                 <Check
-                  className="size-5 shrink-0 text-[#176b4d]"
+                  className="size-5 shrink-0 text-[var(--voyage-forest)]"
                   strokeWidth={3}
                 />
               ) : null}
@@ -315,7 +315,7 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
       <path
         d={path}
         fill="none"
-        stroke="#e0eee5"
+        stroke="var(--secondary-200)"
         strokeLinecap="round"
         strokeWidth="64"
         vectorEffect="non-scaling-stroke"
@@ -323,7 +323,7 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
       <path
         d={path}
         fill="none"
-        stroke="#4c9a70"
+        stroke="var(--voyage-leaf)"
         strokeDasharray="22 38"
         strokeLinecap="round"
         strokeWidth="10"
@@ -364,19 +364,19 @@ function LearningPathStage({
             ? "justify-self-start sm:ml-[8%] lg:ml-[12%]"
             : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
           isLocked
-            ? "border-[#d9e0dc] bg-[#f0f3f1] text-[#7b8780] shadow-[0_9px_0_#d5dcd8,0_24px_44px_-32px_rgba(39,62,51,0.45)]"
+            ? "border-[var(--secondary-200)] bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-ink)_45%,transparent)]"
             : isCompleted
-              ? "border-[#b7ddc3] bg-white text-[#173c2d] shadow-[0_9px_0_#b7ddc3,0_24px_44px_-32px_rgba(23,107,77,0.5)]"
-              : "border-[#176b4d] bg-[#176b4d] text-white shadow-[0_9px_0_#0f563b,0_26px_48px_-30px_rgba(23,107,77,0.68)]",
+              ? "border-[var(--voyage-sea-glass)] bg-white text-[var(--voyage-ink)] shadow-[0_9px_0_var(--voyage-sea-glass),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]"
+              : "border-[var(--voyage-forest)] bg-[var(--voyage-forest)] text-white shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
         )}
       >
         <span
           className={cn(
             "flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.35rem] border text-center sm:size-20 sm:rounded-[1.6rem]",
             isLocked
-              ? "border-[#cfd7d2] bg-[#e5e9e7]"
+              ? "border-[var(--secondary-300)] bg-[var(--secondary-200)]"
               : isCompleted
-                ? "border-[#cbe5d3] bg-[#e8f5ec] text-[#176b4d]"
+                ? "border-[var(--primary-100)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]"
                 : "border-white/35 bg-white/10",
           )}
         >
@@ -391,13 +391,13 @@ function LearningPathStage({
         <div className="min-w-0 flex-1">
           <h2 className={cn(
             "line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl",
-            isLocked && "text-[#7b8780]",
+            isLocked && "text-[var(--voyage-muted-ink)]",
           )}>
             {lesson.title}
           </h2>
           <div className={cn(
             "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm",
-            isLocked ? "text-[#89958e]" : "text-current/85",
+            isLocked ? "text-[var(--voyage-muted-ink)]" : "text-current/85",
           )}>
             <span className="inline-flex items-center gap-1.5">
               <FileText className="size-3.5" /> Bacaan PDF
@@ -406,7 +406,7 @@ function LearningPathStage({
           {lesson.optionalVideo && !isLocked ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm">
               <a
-                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30"
                 href={lesson.optionalVideo.mediaUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -445,10 +445,10 @@ function LearningPathStage({
             className="pointer-events-none absolute -top-20 -left-14 z-30 block size-24 sm:-top-24 sm:-left-20 sm:size-28"
             role="img"
           >
-            <span className="absolute right-1 bottom-1 left-1 h-5 rounded-[50%] bg-[#bfe9dd]/65 blur-[1px]" />
+            <span className="absolute right-1 bottom-1 left-1 h-5 rounded-[50%] bg-[var(--voyage-sea-glass)]/65 blur-[1px]" />
             <Image
               alt=""
-              className="absolute top-1/2 left-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_10px_rgba(20,75,55,0.24)] sm:h-36"
+              className="absolute top-1/2 left-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_10px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:h-36"
               height={338}
               priority={index < 2}
               src="/brand/voyage-assets/kapal-bajak-laut-vecalss.png"
@@ -460,10 +460,10 @@ function LearningPathStage({
         {isLocked ? (
           <span
             aria-label={`${lesson.title} terkunci`}
-            className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[#eef1ef] text-[#9aa49f] shadow-[0_9px_0_#d4dad6,0_24px_42px_-24px_rgba(61,78,69,0.44)] sm:size-28 sm:rounded-[2.35rem]"
+            className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_42px_-24px_color-mix(in_oklab,var(--voyage-ink)_44%,transparent)] sm:size-28 sm:rounded-[2.35rem]"
           >
             <Play className="size-10 sm:size-12" strokeWidth={2.2} />
-            <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#dfe5e1]">
+            <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--secondary-200)]">
               <LockKeyhole className="size-4" />
             </span>
           </span>
@@ -471,16 +471,16 @@ function LearningPathStage({
           <Link
             aria-label={`${isCompleted ? "Baca ulang" : "Baca"} ${lesson.title}`}
             className={cn(
-              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
+              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[var(--voyage-leaf)]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
               isCompleted
-                ? "bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[0_9px_0_#7abda8,0_28px_46px_-24px_rgba(23,107,77,0.65)] motion-safe:active:shadow-[0_3px_0_#7abda8]"
-                : "bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[0_10px_0_#7abda8,0_30px_50px_-22px_rgba(23,107,77,0.72)] motion-safe:active:shadow-[0_3px_0_#7abda8]",
+                ? "bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[0_9px_0_var(--primary-300),0_28px_46px_-24px_color-mix(in_oklab,var(--voyage-forest)_65%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]"
+                : "bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[0_10px_0_var(--primary-300),0_30px_50px_-22px_color-mix(in_oklab,var(--voyage-forest)_72%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]",
             )}
             href={href}
           >
             <Play className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />
             {isCompleted ? (
-              <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#e6f4eb] text-[#176b4d]">
+              <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]">
                 <Check className="size-4" strokeWidth={3} />
               </span>
             ) : null}
