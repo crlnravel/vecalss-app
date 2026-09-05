@@ -21,6 +21,7 @@ description: Project structure and module lookup
 | `public/` | Static assets | Brand assets, landing assets, images. |
 | `content/` | Repository-managed content | MDX and similar content files. |
 | `.agents/skills/` | Reusable agent skills | Cross-project capabilities, including `agent-resource-guard`. |
+| `.agents/rules/` | Workspace agent rules | Agent rules discovered hierarchically (e.g., RTK CLI proxy). |
 | `_harness/` | Agent harness | Routing, rules, workflow, catalog, memory, tracking, GC. |
 | `_harness/tracking/` | Session and feature tracking | `feature_list.json`, `progress.md`, `session-handoff.md`. |
 | `_harness/memory/` | Agent memory | `project.md` (durable), `agents/*.local.md` (ephemeral). |

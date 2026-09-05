@@ -151,6 +151,24 @@ list; the confirmation rule and the CPU/process rule are separate gates.
 - This is strict TypeScript; consult installed Next.js 16 docs rather than assuming older Next patterns
 - Use the `@/` import alias
 
+### Token efficiency and CLI proxy (RTK)
+
+- **Mandatory default:** Proxy supported CLI and shell commands through `rtk` whenever possible to filter, group, and summarize output before LLM context ingestion (saving 60–90%+ context tokens).
+- **Supported command coverage:**
+  - Git / GitHub: `rtk git status`, `rtk git diff`, `rtk git log`, `rtk git commit`, `rtk gh ...`
+  - Search & inspection: `rtk grep`, `rtk rg`, `rtk find`, `rtk ls`, `rtk tree`, `rtk read`
+  - Diagnostics / runners: `rtk err <cmd>`, `rtk test <cmd>`, `rtk summary <cmd>`, `rtk json`
+  - Node & package scripts: `rtk pnpm ...`, `rtk lint`, `rtk tsc`, `rtk prisma ...`
+- **Resource guard synergy:** RTK compresses output; it does not replace CPU and process throttling. All Node, package, script, test, build, lint, and Prisma commands must still run through `_harness/resource-guard.sh`:
+  ```bash
+  ./_harness/resource-guard.sh run -- rtk pnpm lint
+  ./_harness/resource-guard.sh run -- rtk pnpm verify
+  ./_harness/resource-guard.sh run -- rtk pnpm test:<area>
+  ./_harness/resource-guard.sh run -- rtk pnpm exec prisma <args>
+  ```
+- Non-heavy commands (e.g. `rtk git status`, `rtk git diff`, `rtk grep`, `rtk find`) do not start Node or heavy background workers and can be run with `rtk` directly without the guard.
+- **Escape hatch:** Use `rtk proxy <cmd>` when raw, uncompressed output is strictly necessary for low-level debugging or troubleshooting.
+
 ### Browser testing and verification
 
 - Use **ego-browser** for all browser testing — not Chrome, Firefox, or Safari

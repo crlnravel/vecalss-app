@@ -72,27 +72,27 @@ The UX confirmation step is a hard gate. Do not proceed to schema/backend work u
 2. Locate the affected code using `_harness/catalog.md` and `_harness/routing.md`.
 3. Fix the root cause. Prefer fixes that prevent recurrence over patches.
 4. Run the focused `test:*` script for the affected area through the resource guard.
-5. Run `./_harness/resource-guard.sh run -- pnpm lint` and, if the fix is cross-cutting, `./_harness/resource-guard.sh run -- pnpm verify`.
+5. Run `./_harness/resource-guard.sh run -- rtk pnpm lint` and, if the fix is cross-cutting, `./_harness/resource-guard.sh run -- rtk pnpm verify`.
 
 ## Prisma migration procedure
 
 1. Edit `prisma/schema.prisma`.
 2. Create the migration against a **local development database only**:
    ```bash
-   ./_harness/resource-guard.sh run -- pnpm exec prisma migrate dev --name <descriptive-name>
+   ./_harness/resource-guard.sh run -- rtk pnpm exec prisma migrate dev --name <descriptive-name>
    ```
 3. Review the generated SQL in `prisma/migrations/`.
 4. Regenerate the Prisma client:
    ```bash
-   ./_harness/resource-guard.sh run -- pnpm db:generate
+   ./_harness/resource-guard.sh run -- rtk pnpm db:generate
    ```
 5. Verify migration status:
    ```bash
-   ./_harness/resource-guard.sh run -- pnpm exec prisma migrate status
+   ./_harness/resource-guard.sh run -- rtk pnpm exec prisma migrate status
    ```
 6. For deployment, use:
    ```bash
-   ./_harness/resource-guard.sh run -- pnpm exec prisma migrate deploy
+   ./_harness/resource-guard.sh run -- rtk pnpm exec prisma migrate deploy
    ```
    Never use `prisma db push` for deployment.
 
@@ -107,7 +107,7 @@ The UX confirmation step is a hard gate. Do not proceed to schema/backend work u
 1. Edit the source in `design-tokens/palette.mjs`.
 2. Regenerate:
    ```bash
-   ./_harness/resource-guard.sh run -- pnpm tokens
+   ./_harness/resource-guard.sh run -- rtk pnpm tokens
    ```
 3. Include the regenerated `app/generated-theme.css` in the commit.
 4. Never edit `app/generated-theme.css` directly.
@@ -117,7 +117,7 @@ The UX confirmation step is a hard gate. Do not proceed to schema/backend work u
 ### During iteration
 
 ```bash
-./_harness/resource-guard.sh run -- pnpm lint
+./_harness/resource-guard.sh run -- rtk pnpm lint
 ```
 
 ### Focused domain checks
@@ -125,7 +125,7 @@ The UX confirmation step is a hard gate. Do not proceed to schema/backend work u
 Run the relevant named test script for the area changed:
 
 ```bash
-./_harness/resource-guard.sh run -- pnpm test:<area-name>
+./_harness/resource-guard.sh run -- rtk pnpm test:<area-name>
 ```
 
 There is no repository-wide `pnpm test` command. Choose the narrowest named
@@ -135,7 +135,7 @@ appropriate local database and environment variables.
 For import-worker changes, also run:
 
 ```bash
-./_harness/resource-guard.sh run -- pnpm admin:imports-worker:check
+./_harness/resource-guard.sh run -- rtk pnpm admin:imports-worker:check
 ```
 
 ### Browser verification gate
@@ -151,14 +151,14 @@ Before performing any verification using a browser (**ego-browser**):
 ### Before declaring completion
 
 ```bash
-./_harness/resource-guard.sh run -- pnpm verify    # lint + production build
+./_harness/resource-guard.sh run -- rtk pnpm verify    # lint + production build
 ```
 
 ### Completion checklist
 
-- [ ] `pnpm lint` passes through `_harness/resource-guard.sh`
-- [ ] Relevant `test:*` scripts pass (report which ones were run)
-- [ ] `pnpm verify` passes through `_harness/resource-guard.sh` (for integration-ready or release-relevant work)
+- [ ] `rtk pnpm lint` (or `rtk lint`) passes through `_harness/resource-guard.sh`
+- [ ] Relevant `test:*` scripts pass via `rtk` (report which ones were run)
+- [ ] `rtk pnpm verify` passes through `_harness/resource-guard.sh` (for integration-ready or release-relevant work)
 - [ ] Browser verification performed only after explicit user confirmation (specifying route(s), role, and verification items)
 - [ ] Report exactly which commands ran and whether they passed
 - [ ] Do not claim success when required checks fail
@@ -219,7 +219,7 @@ When things go wrong mid-task, follow these procedures instead of pushing forwar
 ### Build breaks
 
 1. Stop. Do not continue implementing features on top of a broken build.
-2. Run `./_harness/resource-guard.sh run -- pnpm lint` to isolate the issue.
+2. Run `./_harness/resource-guard.sh run -- rtk pnpm lint` to isolate the issue.
 3. If the error is in your recent changes, fix and commit.
 4. If the error predates your changes, document it and surface to the user.
 
@@ -239,7 +239,7 @@ When things go wrong mid-task, follow these procedures instead of pushing forwar
 ### Uncommitted mess
 
 1. If you have many uncommitted changes across unrelated areas, stop and triage:
-   - `git diff --stat` to see what's touched.
+   - `rtk git diff --stat` to see what's touched.
    - Stage and commit each logical unit separately.
    - Do not create a single "catch-all" commit.
 2. If changes conflict with each other, surface to the user.

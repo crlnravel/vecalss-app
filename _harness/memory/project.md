@@ -500,3 +500,11 @@ and then verify the source tree before making an implementation decision.
 - The former order was Kuis binding before realtime hardening. Both slices are
   now complete; the remaining separate backlog item is the invitation-picker
   UI. Do not reopen AS-08 without a new defect.
+
+## RTK CLI proxy adoption for agent token efficiency (2026-09-06)
+
+- Adopted `rtk` (Rust Token Killer) across all agents to compress and filter CLI outputs before LLM context ingestion (saving 60–90%+ context tokens).
+- Supported commands: `rtk git ...`, `rtk gh ...`, `rtk grep ...`, `rtk rg ...`, `rtk find ...`, `rtk ls ...`, `rtk read ...`, `rtk err ...`, `rtk test ...`, `rtk pnpm ...`, `rtk lint`, `rtk tsc`, `rtk prisma ...`.
+- Synergy with shared resource guard: Process safety remains mandatory. Any Node, package, test, build, lint, or Prisma command must still run under `_harness/resource-guard.sh run -- rtk pnpm <command>`.
+- Non-heavy shell commands (`rtk git status`, `rtk git diff`, etc.) may run `rtk` directly.
+- Escape hatch: `rtk proxy <cmd>` provides raw unfiltered output when required for low-level debugging.

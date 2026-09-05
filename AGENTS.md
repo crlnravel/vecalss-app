@@ -70,6 +70,15 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Keep the configured launch budget and one active CPU-heavy command group; stop agent-owned servers and workers before handoff.
 - Never bypass the guard with direct launches, background/watch/parallel modes, or a retry loop.
 
+### Token efficiency and CLI proxy (rtk)
+
+- **Use RTK whenever possible:** Prefix supported CLI and shell commands with `rtk` (e.g. `rtk git status`, `rtk git diff`, `rtk grep`, `rtk find`, `rtk ls`, `rtk read`) to filter and summarize command output before LLM context ingestion, saving tokens.
+- **Resource guard pairing:** For any Node, package, test, build, lint, or Prisma command, RTK must run inside the shared resource guard:
+  `./_harness/resource-guard.sh run -- rtk pnpm <command>` (e.g. `./_harness/resource-guard.sh run -- rtk pnpm lint`, `./_harness/resource-guard.sh run -- rtk pnpm verify`, `./_harness/resource-guard.sh run -- rtk pnpm test:<area>`).
+- Never bypass `_harness/resource-guard.sh` for process-heavy or Node-starting commands when using RTK.
+- Use `rtk proxy <command>` only when raw unfiltered output is strictly necessary for debugging.
+
+
 ### Design and UI policy
 
 - **For any task involving UI, components, styling, layout, or visual design:** Read and follow `DESIGN.md` as the authoritative design system. `DESIGN.md` links to focused guidelines in `docs/design-guidelines/` — load the narrowest relevant guide for the work at hand.
