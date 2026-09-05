@@ -368,6 +368,11 @@ const veraErrorLabels: Record<string, string> = {
   vera_unavailable: "Vera sedang tidak tersedia. Coba lagi sebentar.",
 };
 
+function formatVeraRequestErrorCode(code: string | null | undefined) {
+  if (!code) return null;
+  return veraErrorLabels[code] ?? "Terjadi kendala saat memproses permintaan.";
+}
+
 function veraErrorMessage(error: unknown) {
   const code =
     error instanceof VeraRequestError
@@ -488,7 +493,7 @@ const initialMessages: VeraMessage[] = [
   {
     id: "ratio-next",
     role: "vera",
-    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan drill yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
+    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan latihan adaptif yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
     createdAt: "Baru saja",
   },
 ];
@@ -496,7 +501,7 @@ const initialMessages: VeraMessage[] = [
 const initialSessions: StudySession[] = [
   {
     id: "ratio-review",
-    title: "Review Rasio Hari Ini",
+    title: "Tinjauan Rasio Hari Ini",
     updatedAt: "Baru saja",
     sourceIds: ["tryout-04", "module-ratio", "personal-summary"],
     generatedTools: ["analysis", "summary"],
@@ -504,7 +509,7 @@ const initialSessions: StudySession[] = [
   },
   {
     id: "wrong-answer-review",
-    title: "Review Jawaban Salah",
+    title: "Tinjauan Jawaban Salah",
     updatedAt: "Kemarin",
     sourceIds: ["tryout-04", "quiz-pk-02"],
     generatedTools: ["review"],
@@ -512,9 +517,9 @@ const initialSessions: StudySession[] = [
       {
         id: "wrong-answer-welcome",
         role: "vera",
-        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Quiz PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
+        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Kuis PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
         createdAt: "Kemarin",
-        citations: ["Tryout SNBT 04", "Quiz PK Modul 02"],
+        citations: ["Tryout SNBT 04", "Kuis PK Modul 02"],
       },
     ],
   },
@@ -582,11 +587,82 @@ const emptyStudySession: StudySession = {
 const toolRequestLabels: Record<VeraToolId, string> = {
   analysis: "Analisis kelemahanku dari konteks sesi ini.",
   route: "Susun rute belajar dari konteks sesi ini.",
-  drill: "Buat drill adaptif dari kelemahanku.",
+  drill: "Buat latihan adaptif dari kelemahanku.",
   review: "Jelaskan jawaban salah yang paling penting.",
   ptn: "Bantu susun strategi PTN dari progresku.",
   summary: "Buat ringkasan sesi belajar ini.",
 };
+
+const VERA_ARTIFACT_TYPE_LABELS: Record<string, string> = {
+  analysis: "Analisis kelemahan",
+  drill: "Latihan adaptif",
+  ptn: "Strategi PTN",
+  review: "Tinjauan jawaban",
+  route: "Rute belajar",
+  summary: "Ringkasan belajar",
+};
+
+const VERA_PROVENANCE_LABELS: Record<string, string> = {
+  cached: "Data tersimpan sementara",
+  demo: "Data demo",
+  live: "Data live",
+  snapshot: "Data snapshot",
+  unavailable: "Data tidak tersedia",
+};
+
+const VERA_STATE_LABELS: Record<string, string> = {
+  active: "Aktif",
+  available: "Tersedia",
+  backend_visible: "Terlihat dari server",
+  cancelled: "Dibatalkan",
+  coarsened: "Disederhanakan",
+  consumed: "Sudah digunakan",
+  deleted: "Dihapus",
+  encrypted: "Tersandi",
+  expired: "Kedaluwarsa",
+  failed: "Gagal",
+  fallback: "Respons cadangan",
+  legacy_plaintext: "Teks lama tanpa enkripsi",
+  forward_only: "Hanya berlaku ke depan",
+  live: "Live",
+  materialized: "Disimpan",
+  pending: "Menunggu",
+  processing: "Diproses",
+  purged: "Dihapus",
+  purging: "Sedang dihapus",
+  queued: "Dalam antrean",
+  rejected: "Ditolak",
+  released: "Dirilis",
+  retired: "Dipensiunkan",
+  staged: "Disiapkan",
+  succeeded: "Berhasil",
+  suppressed: "Disembunyikan",
+  unavailable: "Tidak tersedia",
+  unchanged: "Tidak berubah",
+  visible: "Terlihat",
+};
+
+function humanizeVeraToken(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function formatVeraArtifactType(value: string) {
+  return VERA_ARTIFACT_TYPE_LABELS[value] ?? humanizeVeraToken(value);
+}
+
+function formatVeraProvenanceState(value: string) {
+  return VERA_PROVENANCE_LABELS[value] ?? humanizeVeraToken(value);
+}
+
+function formatVeraState(value: string | null | undefined) {
+  if (!value) return "Belum tersedia";
+  return VERA_STATE_LABELS[value] ?? humanizeVeraToken(value);
+}
 
 function isToolId(value: string | null): value is VeraToolId {
   return Boolean(
@@ -2272,7 +2348,7 @@ function VeraProvenanceBanner({
       className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs text-secondary-600"
       role="status"
     >
-      <span className="font-semibold text-primary-900">Sumber data: {state}</span>
+      <span className="font-semibold text-primary-900">Sumber data: {formatVeraProvenanceState(state)}</span>
       <span>Dimuat {timestamp} · konteks dan hasil mengikuti status server</span>
     </div>
   );
@@ -2914,7 +2990,7 @@ function ContextWorkspace({
                 aria-label="Cari konteks belajar"
                 className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari judul, tipe, atau topik konteks..."
+                placeholder="Cari judul, tipe, atau topik konteks…"
                 value={query}
               />
             </div>
@@ -3176,12 +3252,14 @@ function MessageCard({
   const isStudent = message.role === "student";
   const stateNotice = [
     message.contentState && message.contentState !== "encrypted"
-      ? `Konten: ${message.contentState}`
+      ? `Konten: ${formatVeraState(message.contentState)}`
       : null,
     message.requestState && message.requestState !== "succeeded"
-      ? `Permintaan: ${message.requestState}`
+      ? `Permintaan: ${formatVeraState(message.requestState)}`
       : null,
-    message.requestErrorCode ? `Kode: ${message.requestErrorCode}` : null,
+    message.requestErrorCode
+      ? `Keterangan: ${formatVeraRequestErrorCode(message.requestErrorCode)}`
+      : null,
   ].filter(Boolean).join(" · ");
 
   if (isStudent) {
@@ -3299,7 +3377,7 @@ function ChatComposer({
             className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
-            placeholder="Tanyakan konsep, soal, atau langkah belajarmu..."
+            placeholder="Tanyakan konsep, soal, atau langkah belajarmu…"
             value={draft}
           />
           {busy ? (
@@ -3557,7 +3635,7 @@ function StudioArtifactCard({
           </span>
           <span className="mt-1 block line-clamp-2 text-xs leading-5 text-secondary-500">
             {summary
-              ? `${summary.artifactType} · ${summary.lifecycleState} · hasil ${summary.resultState} · konteks ${summary.contextState} · ${relativeTime(summary.createdAt)}`
+              ? `${formatVeraArtifactType(summary.artifactType)} · ${formatVeraState(summary.lifecycleState)} · hasil ${formatVeraState(summary.resultState)} · konteks ${formatVeraState(summary.contextState)} · ${relativeTime(summary.createdAt)}`
               : tool.outputBody}
           </span>
           <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary-700">
@@ -3601,15 +3679,15 @@ function StudioArtifactDocument({
         <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
           <div>
             <dt className="font-semibold text-secondary-500">Siklus</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.lifecycle.state}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.lifecycle.state)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Hasil</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.resultState}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.resultState)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Konteks</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.contextState}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.contextState)}</dd>
           </div>
         </dl>
       ) : null}
@@ -4189,7 +4267,7 @@ function AddContextMaterialTab({
                 onMaterialQueryChange(event.target.value);
                 onMaterialPageChange(1);
               }}
-              placeholder="Cari materi Vecalss..."
+              placeholder="Cari materi Vecalss…"
               value={materialQuery}
             />
           </div>

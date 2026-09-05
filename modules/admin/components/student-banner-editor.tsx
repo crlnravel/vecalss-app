@@ -45,28 +45,28 @@ const bannerDefinitions: Array<{
   route: string;
 }> = [
   {
-    description: "Main student banner.",
+    description: "Banner utama siswa.",
     icon: House,
     key: "beranda",
     label: "Beranda",
     route: "/dashboard",
   },
   {
-    description: "Materials banner.",
+    description: "Banner materi.",
     icon: BookOpen,
     key: "materi",
     label: "Materi",
     route: "/courses",
   },
   {
-    description: "Quiz banner.",
+    description: "Banner kuis.",
     icon: ListChecks,
     key: "kuis",
     label: "Kuis",
     route: "/quiz",
   },
   {
-    description: "Tryout banner.",
+    description: "Banner tryout.",
     icon: Gauge,
     key: "tryout",
     label: "Tryout",
@@ -88,13 +88,13 @@ const confirmationCopy: Record<BannerIntent, {
 }> = {
   "save-draft": {
     confirmLabel: "Simpan draf",
-    description: "Perubahan empat banner siswa akan disimpan sebagai draf privat. Siswa tetap melihat versi published sampai kamu memilih Publish.",
+    description: "Perubahan pada empat banner siswa akan disimpan sebagai draf privat. Siswa tetap melihat versi yang diterbitkan sampai kamu memilih Terbitkan.",
     title: "Simpan draf banner?",
   },
   publish: {
-    confirmLabel: "Publish banner",
-    description: "Draf banner siswa yang sudah disimpan akan dipublikasikan untuk pengalaman siswa. Ini tidak mengubah progress, account, atau state learner.",
-    title: "Publish draf banner siswa?",
+    confirmLabel: "Terbitkan banner",
+    description: "Draf banner siswa yang sudah disimpan akan diterbitkan untuk pengalaman siswa. Ini tidak mengubah kemajuan, akun, atau status siswa.",
+    title: "Terbitkan draf banner siswa?",
   },
 };
 
@@ -147,7 +147,7 @@ function BannerSubmitButton({
       disabled={disabled}
       {...props}
     >
-      {pending ? (pendingLabel ?? "Working...") : children}
+      {pending ? (pendingLabel ?? "Memproses…") : children}
     </Button>
   );
 }
@@ -163,17 +163,17 @@ function BannerPreviewPanel({
 }) {
   return (
     <section
-      aria-label="Student banner preview"
+      aria-label="Pratinjau banner siswa"
       className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
     >
       <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Preview</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Student page banners</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Uses the current form text.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Pratinjau</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Banner halaman siswa</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Menggunakan teks dari formulir saat ini.</p>
         </div>
         <Button onClick={onClose} size="sm" type="button" variant="ghost">
-          Close preview
+          Tutup pratinjau
         </Button>
       </div>
 
@@ -247,12 +247,12 @@ function BannerEditorCard({
               document.getElementById(`${key}-title`)?.focus();
             }}
           >
-            Heading
+            Judul
           </FieldLabel>
           <Input
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
-            aria-label="Heading"
+            aria-label="Judul"
             className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
@@ -271,12 +271,12 @@ function BannerEditorCard({
               document.getElementById(`${key}-description`)?.focus();
             }}
           >
-            Supporting text
+            Teks pendukung
           </FieldLabel>
           <SyntaxHighlightedTextarea
             aria-describedby={descriptionError ? `${key}-description-error` : undefined}
             aria-invalid={Boolean(descriptionError)}
-            aria-label="Supporting text"
+            aria-label="Teks pendukung"
             className="min-h-36"
             defaultValue={state.fields?.[descriptionField] ?? banner.description}
             id={`${key}-description`}
@@ -323,8 +323,8 @@ function StudentBannerEditor({
   const isInputDirty = dirtyVersion !== null && dirtyVersion === currentVersion;
   const canPublish = draftHasChanges && !isInputDirty;
   const publishBlockedCopy = isInputDirty
-    ? "Simpan draf sebelum Publish agar versi yang dikonfirmasi sama dengan input terbaru."
-    : "Publish aktif setelah ada draf banner yang tersimpan.";
+    ? "Simpan draf sebelum menerbitkan agar versi yang dikonfirmasi sama dengan input terbaru."
+    : "Terbitkan tersedia setelah ada draf banner yang tersimpan.";
   const toastKey = JSON.stringify([
     state.status,
     currentVersion,
@@ -334,9 +334,9 @@ function StudentBannerEditor({
 
   const resultToastMessage = state.status === "success"
     ? state.published
-      ? "Published."
-      : "Draft saved."
-    : state.message ?? "Couldn’t save.";
+      ? "Banner diterbitkan."
+      : "Draf tersimpan."
+    : state.message ?? "Banner tidak dapat disimpan.";
   const dismissedToastKeyRef = useRef<string | null>(null);
   const setDismissedToastKey = (key: string) => {
     dismissedToastKeyRef.current = key;
@@ -412,9 +412,9 @@ function StudentBannerEditor({
       {previewMode ? (
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Banner editor</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banners</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Preview tetap read-only untuk progress dan account siswa. Editor ini adalah satu-satunya write scope konten; Restart Tryout adalah aksi operasional assignment/session terpisah dengan konfirmasi sendiri.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Editor banner</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banner</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Pratinjau tetap hanya-baca untuk kemajuan dan akun siswa. Editor ini adalah satu-satunya cakupan perubahan konten; pengulangan Tryout adalah tindakan operasional penugasan dan sesi yang terpisah dengan konfirmasi sendiri.</p>
           </div>
           {previewHref ? (
             <Button
@@ -423,7 +423,7 @@ function StudentBannerEditor({
               size="sm"
               variant="ghost"
             >
-              Close editor
+              Tutup editor
             </Button>
           ) : null}
         </header>
@@ -458,23 +458,23 @@ function StudentBannerEditor({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draftHasChanges ? "bg-warning-100 text-warning-800" : "bg-primary-50 text-primary-800"}`}>
-                {draftHasChanges ? "Unpublished draft" : "Published"}
+                {draftHasChanges ? "Draf belum diterbitkan" : "Diterbitkan"}
               </span>
               <p className="text-sm font-medium text-secondary-900">
-                {draftHasChanges ? "Students see the published copy." : "Matches the published copy."}
+                {draftHasChanges ? "Siswa melihat salinan yang diterbitkan." : "Sama dengan salinan yang diterbitkan."}
               </p>
             </div>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">Save draft hanya mengubah draf privat. Publish mempublikasikan draf yang sudah tersimpan setelah konfirmasi dan readback; Restart Tryout tetap merupakan aksi operasional assignment/session yang terpisah.</p>
+            <p className="mt-1 text-sm leading-6 text-secondary-600">Simpan draf hanya mengubah draf privat. Terbitkan menerbitkan draf yang sudah tersimpan setelah konfirmasi dan pembacaan ulang; pengulangan Tryout tetap merupakan tindakan operasional penugasan dan sesi yang terpisah.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={handlePreview} size="lg" type="button" variant="brandOutline">
-              Preview
+              Pratinjau
             </Button>
-            <BannerSubmitButton name="intent" pendingLabel="Saving draft…" size="lg" type="submit" value="save-draft" variant="brandOutline">
-              Save draft
+            <BannerSubmitButton name="intent" pendingLabel="Menyimpan draf…" size="lg" type="submit" value="save-draft" variant="brandOutline">
+              Simpan draf
             </BannerSubmitButton>
-            <BannerSubmitButton blocked={!canPublish} name="intent" pendingLabel="Publishing…" size="lg" type="submit" value="publish" variant="brand">
-              {canPublish ? "Publish" : "Save draft before Publish"}
+            <BannerSubmitButton blocked={!canPublish} name="intent" pendingLabel="Menerbitkan…" size="lg" type="submit" value="publish" variant="brand">
+              {canPublish ? "Terbitkan" : "Simpan draf sebelum menerbitkan"}
             </BannerSubmitButton>
           </div>
         </div>

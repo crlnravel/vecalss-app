@@ -378,7 +378,7 @@ function CatalogueSearchInput({
 
 function SearchPanel({
   id = "kapten-content-search",
-  placeholder = "Cari di halaman ini...",
+  placeholder = "Cari di halaman ini…",
 }: {
   id?: string;
   placeholder?: string;

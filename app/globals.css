@@ -172,6 +172,8 @@
     @apply bg-background font-sans text-foreground;
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1, "liga" 1;
+    font-kerning: normal;
+    font-variant-numeric: proportional-nums lining-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background: var(--background);

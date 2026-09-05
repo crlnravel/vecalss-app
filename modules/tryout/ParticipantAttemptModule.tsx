@@ -3,20 +3,20 @@
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowsOut,
-  CalendarBlank,
+  AlertTriangle,
+  CalendarDays,
   Check,
   Clock,
   ClockCountdown,
+  CircleAlert,
+  Expand,
   Flag,
   ListChecks,
-  PenNib as PenTool,
+  LoaderCircle,
+  PenTool,
   Play,
-  SpinnerGap,
-  UserCircle,
-  Warning,
-  WarningCircle,
-} from "@phosphor-icons/react";
+  UserRound,
+} from "@/lib/icons";
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -156,12 +156,12 @@ function ParticipantAttemptStatusScreen({
               <div className="min-w-0"><dt className="text-xs text-secondary-500">Total durasi</dt><dd className="mt-1 font-semibold">{formatDuration(totalDuration)}</dd></div>
             </div>
             <div className="flex items-center gap-3 p-5 sm:p-6">
-              <UserCircle aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+              <UserRound aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
               <div className="min-w-0"><dt className="text-xs text-secondary-500">Disusun oleh</dt><dd className="mt-1 truncate font-semibold" title={tryoutOrganizer}>{tryoutOrganizer}</dd></div>
             </div>
             {tryoutEventName ? (
               <div className="flex items-center gap-3 p-5 sm:p-6">
-                <CalendarBlank aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+                <CalendarDays aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
                 <div className="min-w-0"><dt className="text-xs text-secondary-500">Event</dt><dd className="mt-1 truncate font-semibold" title={tryoutEventName}>{tryoutEventName}</dd></div>
               </div>
             ) : (
@@ -173,14 +173,14 @@ function ParticipantAttemptStatusScreen({
           </dl>
         </section>
 
-        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><WarningCircle />{message}</p> : null}
+        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><CircleAlert />{message}</p> : null}
 
         {finished ? (
           <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
             <div className="grid gap-3 sm:grid-cols-3">
               {["Memeriksa jawaban", "Menghitung skor", "Menyiapkan analisis"].map((label, itemIndex) => (
                 <div className="rounded-2xl bg-primary-50 p-4 text-center" key={label}>
-                  {itemIndex === 2 ? <SpinnerGap className="mx-auto animate-spin text-2xl text-primary-700 motion-reduce:animate-none" /> : <Check className="mx-auto text-2xl text-primary-700" />}
+                  {itemIndex === 2 ? <LoaderCircle className="mx-auto animate-spin text-2xl text-primary-700 motion-reduce:animate-none" /> : <Check className="mx-auto text-2xl text-primary-700" />}
                   <p className="mt-2 text-sm font-semibold">{label}</p>
                 </div>
               ))}
@@ -204,7 +204,7 @@ function ParticipantAttemptStatusScreen({
                       <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4 text-primary-700" />{formatDuration(candidate.section.durationSeconds)}</span>
                     </div>
                   </div>
-                  {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin motion-reduce:animate-none" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
+                  {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
                 </article>
               );
             })}
@@ -405,7 +405,7 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
       await refresh();
     } catch (beginError) {
       unstable_rethrow(beginError);
-      setMessage(beginError instanceof Error ? beginError.message : "Test belum dapat dimulai.");
+      setMessage(beginError instanceof Error ? beginError.message : "Bagian ini belum dapat dimulai.");
     } finally {
       setBusy(false);
     }
@@ -424,7 +424,7 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
       await refresh();
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage(submitError instanceof Error ? submitError.message : "Test belum dapat dikirim.");
+      setMessage(submitError instanceof Error ? submitError.message : "Bagian ini belum dapat dikirim.");
     } finally {
       setBusy(false);
     }
@@ -636,7 +636,7 @@ function ParticipantAttemptScreen({
                       className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatusClass)}
                       role={saveState === "error" ? "alert" : "status"}
                     >
-                      {saveState === "saving" ? <SpinnerGap aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveState === "saved" ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <WarningCircle aria-hidden="true" className="size-3.5 shrink-0" />}
+                      {saveState === "saving" ? <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveState === "saved" ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />}
                       <span className="truncate">{saveStatusLabel}</span>
                     </span>
                   ) : null}
@@ -663,7 +663,7 @@ function ParticipantAttemptScreen({
 
               {message ? (
                 <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role={saveState === "error" ? "alert" : "status"}>
-                  <WarningCircle aria-hidden="true" />{message}
+                  <CircleAlert aria-hidden="true" />{message}
                 </p>
               ) : null}
 
@@ -690,7 +690,7 @@ function ParticipantAttemptScreen({
           <AlertDialog onOpenChange={(open) => { if (!busy) setExitOpen(open); }} open={exitOpen}>
             <AlertDialogContent variant="danger">
               <AlertDialogHeader>
-                <AlertDialogMedia variant="danger"><Warning /></AlertDialogMedia>
+                <AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia>
                 <AlertDialogTitle>Keluar dari tryout?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Jawaban yang sudah tersimpan tetap aman. Kamu bisa kembali lagi untuk melanjutkan bagian ini.
@@ -705,7 +705,7 @@ function ParticipantAttemptScreen({
           <AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}>
             <AlertDialogContent pending={busy} variant="warning">
               <AlertDialogHeader>
-                <AlertDialogMedia variant="warning"><Warning /></AlertDialogMedia>
+                <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
                 <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan bagian ini?"}</AlertDialogTitle>
                 <AlertDialogDescription>
                   {unansweredCount ? (
@@ -767,7 +767,7 @@ function ParticipantAttemptScreen({
                 size="lg"
                 variant="brand"
               >
-                {selected ? <><SpinnerGap className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}
+                {selected ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}
               </Button>
             ) : index >= items.length - 1 ? (
               <Button
@@ -818,7 +818,7 @@ function ParticipantAttemptScreen({
                 type="button"
                 variant="brandOutline"
               >
-                <ArrowsOut aria-hidden="true" />
+                <Expand aria-hidden="true" />
                 <span className="hidden sm:inline">Layar penuh</span>
               </Button>
             ) : null}

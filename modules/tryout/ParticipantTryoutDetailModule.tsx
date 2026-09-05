@@ -1,12 +1,12 @@
 import {
   ArrowRight,
   Clock,
+  CircleAlert,
   HourglassMedium,
   Info,
   ListChecks,
-  LockKey,
-  WarningCircle,
-} from "@phosphor-icons/react/dist/ssr";
+  LockKeyhole,
+} from "@/lib/icons";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -210,7 +210,7 @@ function TryoutSectionList({
                       className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600"
                       role="img"
                     >
-                      <LockKey className="size-5" />
+                      <LockKeyhole className="size-5" />
                     </span>
                   ) : null}
                 </article>
@@ -319,7 +319,7 @@ function ParticipantTryoutDetailModule({
       : tryout.admissionStatus === "rejected" ||
           tryout.admissionStatus === "revoked"
         ? {
-            icon: WarningCircle,
+            icon: CircleAlert,
             message:
               tryout.admissionStatus === "rejected"
                 ? "Pendaftaran ini tidak disetujui. Hubungi Kapten jika kamu memerlukan penjelasan atau ingin mengikuti sesi lain."
@@ -332,7 +332,7 @@ function ParticipantTryoutDetailModule({
           }
         : tryout.admissionMode === "invitation_only" && !hasEnrolled
           ? {
-              icon: LockKey,
+              icon: LockKeyhole,
               message:
                 "Tryout ini hanya dapat diikuti melalui undangan Kapten. Jika kamu seharusnya mendapat akses, hubungi Kapten.",
               title: "Khusus peserta undangan",

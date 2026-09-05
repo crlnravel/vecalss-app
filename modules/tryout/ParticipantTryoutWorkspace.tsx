@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  ArrowCounterClockwise,
   BookOpenText,
   Buildings,
-  CalendarBlank,
+  CalendarDays,
   Clock,
-  MagnifyingGlass,
-} from "@phosphor-icons/react";
+  RefreshCw,
+  Search,
+} from "@/lib/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -114,7 +114,7 @@ function ParticipantTryoutWorkspace({
       breadcrumbLabel="Tryout"
       mainClassName="gap-8"
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari tryout..."
+      searchPlaceholder="Cari tryout…"
       session={session}
       showSearch={false}
     >
@@ -151,11 +151,11 @@ function ParticipantTryoutWorkspace({
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <label className="relative block w-full">
             <span className="sr-only">Cari tryout</span>
-            <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               className="h-12 rounded-2xl border-primary-100 bg-primary-50/60 pl-11 shadow-none"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari tryout..."
+              placeholder="Cari tryout…"
               value={query}
             />
           </label>
@@ -229,7 +229,7 @@ function ParticipantTryoutWorkspace({
                         </span>
                       </div>
                       <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-secondary-600">
-                        <CalendarBlank className="mt-0.5 size-4 shrink-0 text-secondary-400" />
+                        <CalendarDays className="mt-0.5 size-4 shrink-0 text-secondary-400" />
                         {formatSchedule(primarySession?.availableFrom)}
                       </p>
                     </div>
@@ -266,7 +266,7 @@ function ParticipantTryoutWorkspace({
                     }}
                     variant="brandOutline"
                   >
-                    <ArrowCounterClockwise /> Reset pencarian
+                    <RefreshCw /> Reset pencarian
                   </Button>
                 ) : undefined
               }

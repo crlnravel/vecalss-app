@@ -154,7 +154,7 @@ function EnrollmentPageModule({
     <PortalShell
       activeAdminSection="students"
       audience="admin"
-       description="Telusuri akun siswa dan buka salah satunya untuk mengelola akses atau handoff enrollment."
+       description="Telusuri akun siswa dan buka salah satunya untuk mengelola akses atau serah-terima pendaftaran."
       session={session}
        title="Siswa"
     >
@@ -186,7 +186,11 @@ function EnrollmentPageModule({
              Data demo sementara sedang aktif. Hapus <code className="font-semibold">demo=1</code> dari URL untuk kembali ke data siswa aktif.
           </FormNotice>
         ) : null}
-        {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
+        {error ? (
+          <FormNotice label={error === "invalid-directory-query" ? "Perlu perhatian" : undefined} tone="danger">
+            {errorMessages[error] ?? error}
+          </FormNotice>
+        ) : null}
 
            <ReferenceSurface as="section" aria-label="Direktori siswa" className="overflow-hidden">
           <StudentDirectoryTable
@@ -245,7 +249,7 @@ function EnrollmentPageModule({
             </div>
             {pageCount > 1 ? (
               <nav aria-label="Halaman direktori siswa" className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} dari {pageCount}</span>
                 <div className="flex min-w-0 items-center gap-0.5">
                   {page > 1 ? (
                     <Link aria-label="Halaman direktori siswa sebelumnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>

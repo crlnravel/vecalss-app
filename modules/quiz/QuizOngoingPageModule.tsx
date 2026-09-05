@@ -167,7 +167,7 @@ function QuizOngoingPageModule({
 
   async function submitQuiz() {
     if (savingQuestions.length) {
-      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim quiz.");
+      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim kuis.");
       return;
     }
     setIsSubmitting(true);
@@ -181,7 +181,7 @@ function QuizOngoingPageModule({
       router.push(`/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(response.result.attemptId)}`);
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage(submitError instanceof Error ? submitError.message : "Quiz belum dapat dikirim.");
+      setMessage(submitError instanceof Error ? submitError.message : "Kuis belum dapat dikirim.");
     } finally {
       setIsSubmitting(false);
     }
@@ -369,8 +369,7 @@ function QuizOngoingScreen({
               <AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia>
               <AlertDialogTitle>Keluar dari Latihan?</AlertDialogTitle>
               <AlertDialogDescription>
-                Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
-                Sayang banget kan!🥲
+                Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar sekarang dan kembali melanjutkan sesi ini nanti.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -383,11 +382,11 @@ function QuizOngoingScreen({
           <AlertDialogContent pending={viewState.submitting} variant="warning">
             <AlertDialogHeader>
               <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
-              <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan quiz ini?"}</AlertDialogTitle>
+              <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan kuis ini?"}</AlertDialogTitle>
               <AlertDialogDescription>
                 {unansweredCount ? (
-                  <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum mengirim quiz.</>
-                ) : "Setelah dikirim, jawabanmu akan dikunci dan hasil quiz akan disiapkan."}
+                  <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum mengirim kuis.</>
+                ) : "Setelah dikirim, jawabanmu akan dikunci dan hasil kuis akan disiapkan."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

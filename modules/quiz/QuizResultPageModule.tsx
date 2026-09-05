@@ -102,7 +102,7 @@ function QuizResultPageModule({
 
       router.replace(`/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`);
     } catch (error) {
-      setRestartMessage(error instanceof Error ? error.message : "Quiz belum dapat dimulai kembali.");
+      setRestartMessage(error instanceof Error ? error.message : "Kuis belum dapat dimulai kembali.");
     } finally {
       setIsRestarting(false);
     }
@@ -111,12 +111,12 @@ function QuizResultPageModule({
   if (!result.isSubmitted) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-14">
-        <h1 className="text-3xl font-semibold text-secondary-900">Quiz belum dikirim</h1>
-        <p className="mt-3 text-secondary-600">Kembali ke quiz untuk menyelesaikan dan mengirim jawabanmu.</p>
+        <h1 className="text-3xl font-semibold text-secondary-900">Kuis belum dikirim</h1>
+        <p className="mt-3 text-secondary-600">Kembali ke kuis untuk menyelesaikan dan mengirim jawabanmu.</p>
         <BackButton
           className="mt-6"
           href={`/quiz/${subjectSlug}`}
-          label="Kembali ke daftar quiz"
+          label="Kembali ke daftar kuis"
           variant="brand"
         >
           <ArrowLeft />
@@ -161,7 +161,7 @@ function QuizResultPageModule({
         <>
           {result.canRestart && !isAttemptLimitReached ? (
             <Button
-              aria-label="Ulangi quiz"
+              aria-label="Ulangi kuis"
               aria-busy={isRestarting}
               className="inline-flex"
               disabled={isRestarting}
@@ -173,11 +173,11 @@ function QuizResultPageModule({
             </Button>
           ) : null}
           <Button
-            aria-label="Kembali ke menu quiz"
+            aria-label="Kembali ke menu kuis"
             className="hidden sm:inline-flex"
             nativeButton={false}
             render={<Link href="/quiz" />}
-            title="Kembali ke menu quiz"
+            title="Kembali ke menu kuis"
             variant="brand"
           >
             <House />

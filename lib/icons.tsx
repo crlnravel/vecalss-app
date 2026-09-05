@@ -34,10 +34,12 @@ import {
   ChatCircleDots as PhosphorMessageCircleMore,
   Check as PhosphorCheck,
   CheckCircle as PhosphorCheckCircle,
+  ClockCountdown as PhosphorClockCountdown,
   Clipboard as PhosphorClipboard,
   ClipboardText as PhosphorClipboardList,
   Clock as PhosphorClock,
   ClockCounterClockwise as PhosphorHistory,
+  Compass as PhosphorCompass,
   Copy as PhosphorCopy,
   DotsThree as PhosphorMoreHorizontal,
   Download as PhosphorDownload,
@@ -55,6 +57,7 @@ import {
   Gauge as PhosphorGauge,
   Gear as PhosphorSettings,
   GraduationCap as PhosphorGraduationCap,
+  HourglassMedium as PhosphorHourglassMedium,
   House as PhosphorHouse,
   Image as PhosphorImage,
   ImageBroken as PhosphorImageOff,
@@ -68,6 +71,7 @@ import {
   Lock as PhosphorLock,
   LockKey as PhosphorLockKeyhole,
   MagnifyingGlass as PhosphorSearch,
+  MapPin as PhosphorMapPin,
   Minus as PhosphorMinus,
   NotePencil as PhosphorNotebookPen,
   Package as PhosphorPackage,
@@ -75,6 +79,7 @@ import {
   Play as PhosphorPlay,
   PenNib as PhosphorPenTool,
   Pencil as PhosphorPencil,
+  Printer as PhosphorPrinter,
   Plus as PhosphorPlus,
   Question as PhosphorCircleHelp,
   Robot as PhosphorBot,
@@ -93,6 +98,7 @@ import {
   Target as PhosphorTarget,
   Tag as PhosphorTag,
   Timer as PhosphorTimer,
+  TrendUp as PhosphorTrendUp,
   Trash as PhosphorTrash2,
   Translate as PhosphorLanguages,
   Upload as PhosphorUpload,
@@ -103,6 +109,7 @@ import {
   Warning as PhosphorAlertTriangle,
   WarningCircle as PhosphorAlertCircle,
   WarningCircle as PhosphorCircleAlert,
+  WifiHigh as PhosphorWifiHigh,
   X as PhosphorX,
   XCircle as PhosphorCircleX,
 } from "@phosphor-icons/react/dist/ssr";
@@ -156,6 +163,8 @@ export const Clipboard = PhosphorClipboard;
 export const ClipboardList = PhosphorClipboardList;
 export const Clock = PhosphorClock;
 export const Clock3 = PhosphorClock;
+export const ClockCountdown = PhosphorClockCountdown;
+export const Compass = PhosphorCompass;
 export const Copy = PhosphorCopy;
 export const Diff = PhosphorSlidersHorizontal;
 export const Download = PhosphorDownload;
@@ -177,6 +186,7 @@ export const FolderPlus = PhosphorFolderPlus;
 export const Gauge = PhosphorGauge;
 export const GraduationCap = PhosphorGraduationCap;
 export const History = PhosphorHistory;
+export const HourglassMedium = PhosphorHourglassMedium;
 export const House = PhosphorHouse;
 export const Image = PhosphorImage;
 export const ImageOff = PhosphorImageOff;
@@ -196,6 +206,7 @@ export const LogOut = PhosphorSignOut;
 export const Maximize2 = PhosphorArrowsOut;
 export const Minimize2 = PhosphorArrowsIn;
 export const Menu = PhosphorList;
+export const MapPin = PhosphorMapPin;
 export const MessageCircle = PhosphorMessageCircle;
 export const MessageCircleMore = PhosphorMessageCircleMore;
 export const MessageCircleQuestionMark = PhosphorCircleHelp;
@@ -211,6 +222,7 @@ export const PenTool = PhosphorPenTool;
 export const Pencil = PhosphorPencil;
 export const Play = PhosphorPlay;
 export const Plus = PhosphorPlus;
+export const Printer = PhosphorPrinter;
 export const RefreshCw = PhosphorRefreshCw;
 export const RotateCcw = PhosphorRotateCcw;
 export const Save = PhosphorSave;
@@ -231,6 +243,7 @@ export const TableIcon = PhosphorTable;
 export const Tag = PhosphorTag;
 export const Timer = PhosphorTimer;
 export const TimerReset = PhosphorRotateCcw;
+export const TrendUp = PhosphorTrendUp;
 export const Trash2 = PhosphorTrash2;
 export const Unlink = PhosphorUnlink;
 export const Upload = PhosphorUpload;
@@ -238,6 +251,7 @@ export const UserPlus = PhosphorUserPlus;
 export const UserRound = PhosphorUserRound;
 export const Users = PhosphorUsers;
 export const Video = PhosphorVideo;
+export const WifiHigh = PhosphorWifiHigh;
 export const X = PhosphorX;
 export const XIcon = PhosphorX;
 export const Zap = PhosphorZap;

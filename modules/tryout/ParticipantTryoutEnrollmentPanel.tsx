@@ -3,12 +3,12 @@
 import {
   ArrowRight,
   Buildings,
-  CaretDown,
   Check,
+  ChevronDown,
   GraduationCap,
-  MagnifyingGlass,
-  SpinnerGap,
-} from "@phosphor-icons/react";
+  LoaderCircle,
+  Search,
+} from "@/lib/icons";
 import Image from "next/image";
 import { unstable_rethrow } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -62,7 +62,7 @@ function UniversityPicker({
           <span className={selectedUniversity ? "truncate" : "truncate text-secondary-500"}>
             {selectedUniversity?.name ?? "Pilih universitas"}
           </span>
-          <CaretDown className="text-secondary-500" />
+          <ChevronDown className="text-secondary-500" />
         </PopoverTrigger>
         <PopoverContent
           align="start"
@@ -70,12 +70,12 @@ function UniversityPicker({
           initialFocus={false}
         >
           <div className="relative">
-            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari universitas target"
               className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Cari universitas..."
+              placeholder="Cari universitas…"
               value={query}
             />
           </div>
@@ -149,7 +149,7 @@ function MajorPicker({
           <span className={selectedMajor ? "truncate" : "truncate text-secondary-500"}>
             {!selectedUniversityId ? "Pilih universitas terlebih dahulu" : selectedMajor?.name ?? "Pilih jurusan"}
           </span>
-          <CaretDown className="text-secondary-500" />
+          <ChevronDown className="text-secondary-500" />
         </PopoverTrigger>
         <PopoverContent
           align="start"
@@ -157,12 +157,12 @@ function MajorPicker({
           initialFocus={false}
         >
           <div className="relative">
-            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari jurusan target"
               className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Cari jurusan..."
+              placeholder="Cari jurusan…"
               value={query}
             />
           </div>
@@ -238,7 +238,7 @@ function EnrollmentConfirmationDialog({
           <Button disabled={busy} onClick={onConfirm} type="button" variant="brand">
             {busy ? (
               <>
-                <SpinnerGap className="animate-spin" />
+                <LoaderCircle className="animate-spin" />
                 Mendaftarkan…
               </>
             ) : (

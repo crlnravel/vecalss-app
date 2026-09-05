@@ -3,16 +3,16 @@
 import {
   ArrowLeft,
   ArrowRight,
-  CheckCircle,
+  CheckCircle2,
   Clock,
+  CircleAlert,
   Flag,
   GraduationCap,
   Printer,
   Target,
   TrendUp,
-  WarningCircle,
   X,
-} from "@phosphor-icons/react";
+} from "@/lib/icons";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -209,9 +209,9 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
     return (
       <main className="flex min-h-svh items-center justify-center bg-secondary-50 px-5 py-10">
         <section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-10" role="status">
-          <WarningCircle aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" />
+          <CircleAlert aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" />
           <h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1>
-          <p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat direview dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p>
+          <p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat ditinjau dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p>
           <Button className="mt-6" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brand"><ArrowLeft />Kembali ke tryout</Button>
         </section>
       </main>
@@ -295,7 +295,7 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
           <div className="flex items-center gap-2">
             <AssessmentUtilityPill active={reportedQuestions.includes(currentQuestion)} icon={Flag} label="Laporkan soal" onClick={toggleReport} />
             <span className={cn("inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold", state === "correct" ? "bg-student-status-success-bg text-student-status-success-fg" : state === "wrong" ? "bg-student-status-danger-bg text-student-status-danger-fg" : "bg-student-status-attention-bg text-student-status-attention-fg")}>
-              {state === "correct" ? <CheckCircle className="size-4" /> : state === "wrong" ? <X className="size-4" /> : <Clock className="size-4" />}
+              {state === "correct" ? <CheckCircle2 className="size-4" /> : state === "wrong" ? <X className="size-4" /> : <Clock className="size-4" />}
               {state === "correct" ? "Benar" : state === "wrong" ? "Salah" : "Tidak dijawab"}
             </span>
           </div>

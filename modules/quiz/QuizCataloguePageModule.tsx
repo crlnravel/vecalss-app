@@ -57,7 +57,7 @@ function QuizCataloguePageModule({
       activeLabel="Kuis"
       breadcrumbLabel="Kuis"
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari subjek kuis atau topik latihan..."
+      searchPlaceholder="Cari subjek kuis atau topik latihan…"
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-10">

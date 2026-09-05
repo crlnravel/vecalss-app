@@ -9,7 +9,7 @@ import {
   GraduationCap,
   MapPin,
   Target,
-} from "@phosphor-icons/react";
+} from "@/lib/icons";
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";

@@ -2,14 +2,14 @@
 
 import {
   ArrowRight,
-  ArrowsClockwise,
-  CheckCircle,
+  CheckCircle2,
   Compass,
   Eye,
-  SpinnerGap,
-  WarningCircle,
+  CircleAlert,
+  LoaderCircle,
+  RefreshCw,
   WifiHigh,
-} from "@phosphor-icons/react";
+} from "@/lib/icons";
 import Link from "next/link";
 import { ChevronLeft } from "@/lib/icons";
 import { unstable_rethrow } from "next/navigation";
@@ -30,7 +30,7 @@ import { formatSchedule } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils
 
 const rules = [
   { description: "Gunakan koneksi yang stabil. Jawaban tersimpan otomatis dan status penyimpanan akan terlihat selama ujian.", icon: WifiHigh, title: "Koneksi stabil" },
-  { description: "Timer server terus berjalan saat halaman dimuat ulang, ditutup, atau perangkat berpindah aplikasi.", icon: ArrowsClockwise, title: "Waktu terus berjalan" },
+  { description: "Timer server terus berjalan saat halaman dimuat ulang, ditutup, atau perangkat berpindah aplikasi.", icon: RefreshCw, title: "Waktu terus berjalan" },
   { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama. Pada CAT, jawaban terkunci setelah dikirim.", icon: Compass, title: "Ikuti format soal" },
   { description: "Perpindahan tab, hilang fokus, dan keluar dari layar penuh dicatat sebagai peringatan tanpa penalti skor otomatis.", icon: Eye, title: "Aktivitas layar dicatat" },
 ];
@@ -100,7 +100,7 @@ function ParticipantWaitingRoomModule({
           <ChevronLeft aria-hidden="true" className="size-5" />
         </BackButton>
         <div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12">
-          <CheckCircle aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
+          <CheckCircle2 aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1>
           <p className="text-secondary-600">{resultReady ? "Hasilmu siap diperiksa saat kebijakan rilis mengizinkan." : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p>
           <Button className="mx-auto" nativeButton={false} render={<Link href={resultReady ? buildStudentAttemptHref(attempt.id, { result: true, returnTo: returnToHref, session: assignment.id }) : buildStudentAttemptHref(attempt.id, { returnTo: returnToHref, session: assignment.id })} />} variant="brand">
@@ -139,7 +139,7 @@ function ParticipantWaitingRoomModule({
           </dl>
         </section>
 
-        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert"><WarningCircle aria-hidden="true" />{message}</p> : null}
+        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert"><CircleAlert aria-hidden="true" />{message}</p> : null}
 
         <section aria-labelledby="tryout-guide-title">
           <h2 className="font-heading text-xl font-semibold tracking-[-0.025em]" id="tryout-guide-title">Panduan tryout</h2>
@@ -161,7 +161,7 @@ function ParticipantWaitingRoomModule({
           <div className="mt-8 grid gap-3">
             {blockedReason ? <p className="text-sm leading-6 text-secondary-600" id="start-tryout-help" role="status">{blockedReason}</p> : null}
             <Button aria-busy={busy} aria-describedby={blockedReason ? "start-tryout-help" : undefined} className="w-full" disabled={!canStart || busy} onClick={() => void handleStart()} size="lg" variant="brand">
-              {busy ? <><SpinnerGap className="animate-spin" />Menyiapkan…</> : "Mulai"}
+              {busy ? <><LoaderCircle className="animate-spin" />Menyiapkan…</> : "Mulai"}
             </Button>
           </div>
         </section>

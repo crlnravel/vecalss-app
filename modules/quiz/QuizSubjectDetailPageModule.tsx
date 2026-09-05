@@ -39,7 +39,7 @@ function QuizSubjectDetailPageModule({
       activeLabel="Kuis"
       breadcrumbLabel={subject.title}
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari kuis di subjek ini..."
+      searchPlaceholder="Cari kuis di subjek ini…"
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
@@ -166,7 +166,7 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
           {quiz.title}
         </h3>
         <p className="mt-2 line-clamp-3 max-w-[40ch] text-xs leading-5 text-primary-800">
-          Paket latihan siap pakai untuk drilling {subject.title.toLowerCase()}.
+          Paket latihan siap pakai untuk latihan {subject.title.toLowerCase()}.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">
