@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, CircleHelp, FileUp, Upload } from "@/lib/icons";
+import { ArrowDownToLine, CircleHelp, FileUp, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -219,18 +219,18 @@ function ImportsIntakeModule({
                    <TooltipContent>Setiap file hanya boleh berisi satu peran.</TooltipContent>
                 </Tooltip>
               </div>
-              <div className="relative mt-3">
-                <select
-                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "appearance-none pr-11 font-medium")}
+              <div className="mt-3">
+                <ReferenceSelect
+                  aria-label="Peran import"
                   disabled={busy}
                   id="import-role"
-                  onChange={(event) => handleRoleChange(event.target.value as ImportRole)}
+                  onValueChange={(value) => handleRoleChange(value as ImportRole)}
+                  options={[
+                    { label: "Siswa", value: "student" },
+                    { label: "Kapten", value: "tutor" },
+                  ]}
                   value={role}
-                >
-                   <option value="student">Siswa</option>
-                  <option value="tutor">Kapten</option>
-                </select>
-                <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary-700" size={18} />
+                />
               </div>
             </ReferenceSurface>
           ) : null}

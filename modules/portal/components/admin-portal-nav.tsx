@@ -7,10 +7,8 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
-  Eye,
   History,
   LayoutDashboard,
-  BarChart3,
   SlidersHorizontal,
   Sparkles,
   Users,
@@ -31,10 +29,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "ai" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
+type AdminSection = "overview" | "ai" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -55,8 +52,8 @@ const adminDirectoryNavigation: AdminNavigationItem[] = [
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
 ];
 
-const adminPreviewNavigation: AdminNavigationItem[] = [
-  { href: "/admin/student-preview", icon: Eye, id: "student-preview", label: "Student preview" },
+const adminContentNavigation: AdminNavigationItem[] = [
+  { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Banner maker" },
 ];
 
 function AdminNavigationGroup({
@@ -108,12 +105,8 @@ function AdminNavigationGroup({
   );
 }
 
-function AdminPortalNav({
-  activeSection,
-  studentPreviewEnabled = isAdminStudentPreviewEnabled(),
-}: {
+function AdminPortalNav({ activeSection }: {
   activeSection: AdminSection;
-  studentPreviewEnabled?: boolean;
 }) {
   const { isMobile, state } = useSidebar();
   const isCompactReferenceMark = !isMobile && state === "collapsed";
@@ -140,20 +133,18 @@ function AdminPortalNav({
         <AdminNavigationGroup
           activeSection={activeSection}
           items={adminOperationNavigation}
-           label="Operasional"
+          label="Operasional"
+        />
+        <AdminNavigationGroup
+          activeSection={activeSection}
+          items={adminContentNavigation}
+          label="Konten"
         />
         <AdminNavigationGroup
           activeSection={activeSection}
           items={adminDirectoryNavigation}
-           label="Direktori"
+          label="Direktori"
         />
-        {studentPreviewEnabled ? (
-          <AdminNavigationGroup
-            activeSection={activeSection}
-            items={adminPreviewNavigation}
-            label="Preview"
-          />
-        ) : null}
       </SidebarContent>
 
       <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">

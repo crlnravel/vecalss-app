@@ -13,6 +13,10 @@ import {
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import {
+  ReferenceSelect,
+  type ReferenceSelectProps,
+} from "@/components/dashboard/reference-dashboard-controls";
 import { saveOnboardingAction, skipOnboardingAction } from "@/modules/student/actions";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
@@ -22,6 +26,25 @@ const examDateFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   year: "numeric",
 });
+
+const ONBOARDING_SELECT_CLASS_NAMES = {
+  icon: "text-[#55bcca]",
+  item: "data-[highlighted]:bg-[#c7eef4] data-[highlighted]:text-slate-800 data-[selected]:bg-[#c7eef4] data-[selected]:text-slate-800",
+  popup: "border-slate-200 text-slate-700 shadow-none",
+  trigger: "border-slate-200 bg-white text-slate-700 shadow-none hover:border-slate-200 hover:bg-white focus-visible:border-[#55bcca] focus-visible:ring-[#c7eef4] data-popup-open:border-[#55bcca] data-popup-open:ring-[#c7eef4]",
+} as const;
+
+type OnboardingSelectProps = Omit<ReferenceSelectProps, "classNames">;
+
+function OnboardingSelect({ className, ...props }: OnboardingSelectProps) {
+  return (
+    <ReferenceSelect
+      {...props}
+      className={className}
+      classNames={ONBOARDING_SELECT_CLASS_NAMES}
+    />
+  );
+}
 
 function DoodleBackdrop() {
   return (
@@ -103,7 +126,7 @@ function ChoiceCard({
         <Icon size={23} weight="duotone" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-bold tracking-[-0.02em] text-slate-800">{title}</span>
+        <span className="block text-base font-bold tracking-[-0.02em] text-slate-800">{title}</span>
         {description ? <span className="mt-0.5 block text-sm leading-5 text-slate-500">{description}</span> : null}
         {children}
       </span>
@@ -236,16 +259,38 @@ function OnboardingForm({
             <label className="mt-9 block text-sm font-bold text-slate-700" htmlFor="university">Pilih kampus</label>
             <div className="relative mt-2">
               <MapPin className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#55bcca]" size={20} weight="duotone" />
-              <select className="h-14 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-11 text-[15px] font-medium text-slate-700 outline-none transition focus:border-[#55bcca] focus:ring-3 focus:ring-[#c7eef4]" id="university" onChange={(event) => chooseUniversity(event.target.value)} value={universityId}>
-                <option value="">Pilih nanti</option>
-                {universities.map((university) => <option key={university.id} value={university.id}>{university.shortName ? `${university.shortName} — ${university.name}` : university.name}</option>)}
-              </select>
+              <OnboardingSelect
+                aria-label="Pilih kampus"
+                className="h-14 pl-11"
+                id="university"
+                onValueChange={chooseUniversity}
+                options={[
+                  { label: "Pilih nanti", value: "" },
+                  ...universities.map((university) => ({
+                    label: university.shortName ? `${university.shortName} — ${university.name}` : university.name,
+                    value: university.id,
+                  })),
+                ]}
+                placeholder="Pilih nanti"
+                value={universityId}
+              />
             </div>
             <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="major">Jurusan yang kamu incar</label>
-            <select className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 text-[15px] font-medium text-slate-700 outline-none transition focus:border-[#55bcca] focus:ring-3 focus:ring-[#c7eef4]" id="major" onChange={(event) => setMajorId(event.target.value)} value={majorId}>
-              <option value="">Pilih nanti</option>
-              {availableMajors.map((major) => <option key={major.id} value={major.id}>{major.name}{!universityId ? ` · ${major.university.shortName ?? major.university.name}` : ""}</option>)}
-            </select>
+            <OnboardingSelect
+              aria-label="Jurusan yang kamu incar"
+              className="mt-2 h-14"
+              id="major"
+              onValueChange={setMajorId}
+              options={[
+                { label: "Pilih nanti", value: "" },
+                ...availableMajors.map((major) => ({
+                  label: `${major.name}${!universityId ? ` · ${major.university.shortName ?? major.university.name}` : ""}`,
+                  value: major.id,
+                })),
+              ]}
+              placeholder="Pilih nanti"
+              value={majorId}
+            />
             {chosenUniversity ? <p className="mt-3 text-sm text-slate-500">Keren, <span className="font-bold text-slate-700">{chosenUniversity.shortName ?? chosenUniversity.name}</span> masuk daftar tujuanmu.</p> : null}
             <div className="mt-9 flex flex-col items-center gap-4">
               <Button className="w-full" onClick={() => setStep(3)} size="onboarding" type="button" variant="onboarding">Lanjut <ArrowRight size={18} weight="bold" /></Button>

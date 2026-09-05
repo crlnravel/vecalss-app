@@ -80,8 +80,8 @@ async function main() {
       [subtestId, `RAS-${userId.slice(0, 6)}`],
     );
     await client.query(
-      `INSERT INTO question_banks (id, name, code, created_by_user_id, updated_by_user_id)
-       VALUES ($1::uuid, 'Random Assembly Schema Bank', $2, $3::uuid, $3::uuid)`,
+      `INSERT INTO question_banks (id, name, code, purpose, created_by_user_id, updated_by_user_id)
+       VALUES ($1::uuid, 'Random Assembly Schema Bank', $2, 'tryout'::question_bank_purpose, $3::uuid, $3::uuid)`,
       [bankId, `RAS-BANK-${userId.slice(0, 6)}`, userId],
     );
     await client.query(

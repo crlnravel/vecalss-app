@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { fieldControlClassName } from "@/components/ui/field-constants";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
@@ -14,6 +15,9 @@ import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
 function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, formAction] = useActionState(createKaptenEnrollmentAction, EMPTY_FORM_STATE);
+  const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">(
+    () => state.fields?.handoffMethod === "invite_link" ? "invite_link" : "temporary_password",
+  );
 
   return (
     <form
@@ -73,18 +77,24 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
 
         <Field>
            <FieldLabel htmlFor="kapten-handoff-method">Handoff kredensial</FieldLabel>
-          <select
-             aria-label="Handoff kredensial"
+          <ReferenceSelect
+            aria-label="Handoff kredensial"
             aria-describedby={state.fieldErrors?.handoffMethod ? "kapten-handoff-method-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.handoffMethod)}
-            className={fieldControlClassName}
-            defaultValue={state.fields?.handoffMethod ?? "temporary_password"}
+            className={state.fieldErrors?.handoffMethod ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
             id="kapten-handoff-method"
             name="handoffMethod"
-          >
-             <option value="temporary_password">Password sementara</option>
-             <option value="invite_link">Link undangan (24 jam)</option>
-          </select>
+            onValueChange={(value) => {
+              if (value === "invite_link" || value === "temporary_password") {
+                setHandoffMethod(value);
+              }
+            }}
+            options={[
+              { label: "Password sementara", value: "temporary_password" },
+              { label: "Link undangan (24 jam)", value: "invite_link" },
+            ]}
+            value={handoffMethod}
+          />
           <FieldError error={state.fieldErrors?.handoffMethod} id="kapten-handoff-method-error" />
         </Field>
 

@@ -321,9 +321,10 @@ async function persistDrill(input: {
     };
   });
   const revalidated = await lockAndRevalidateDrillCandidates(input.tx, input.request.studentId, input.authority);
+  const candidatesByRevisionId = new Map(input.authority.candidates.map((candidate) => [candidate.questionRevisionId, candidate]));
   const candidates: Array<(typeof input.authority.candidates)[number] & { correctOptionKey: string; explanation: string | null }> = [];
   for (const item of requested) {
-    const frozen = input.authority.candidates.find((candidate) => candidate.questionRevisionId === item.questionRevisionId);
+    const frozen = candidatesByRevisionId.get(item.questionRevisionId);
     const candidate = revalidated.get(item.questionRevisionId);
     const output = object(rawItems[item.ordinal - 1], "drill item");
     if (!frozen || !candidate || frozen.questionId !== item.questionId || frozen.topicId !== stringValue(output.topicId, "topicId") || frozen.difficulty !== stringValue(output.difficulty, "difficulty")) {

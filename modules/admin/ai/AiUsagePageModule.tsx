@@ -52,18 +52,19 @@ function getUsageRange(period: PeriodOption) {
   };
 }
 
+const RANGE_DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
 function formatRange(from: string, to: string) {
-  const formatter = new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
   const fromDate = new Date(from);
   const toDate = new Date(to);
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return "Periode yang dipilih";
   return fromDate.toDateString() === toDate.toDateString()
-    ? formatter.format(fromDate)
-    : `${formatter.format(fromDate)} – ${formatter.format(toDate)}`;
+    ? RANGE_DATE_FORMATTER.format(fromDate)
+    : `${RANGE_DATE_FORMATTER.format(fromDate)} – ${RANGE_DATE_FORMATTER.format(toDate)}`;
 }
 
 function formatSelectedMetric(data: VeraAiUsageBreakdownDto["items"][number], metric: MetricOption) {

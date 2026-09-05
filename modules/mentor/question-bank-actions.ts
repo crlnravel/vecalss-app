@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTutorSession } from "@/lib/auth/access";
+import type { QuestionBankPurpose } from "@/generated/prisma/client";
 import {
   assignQuestionBankCategories,
   createQuestionBankCategory,
@@ -26,6 +27,8 @@ import {
   setQuestionBankCategories,
   updateQuestionBankLifecycle,
   type ListQuestionBanksOptions,
+  type ListQuestionBankSourceOptions,
+  type ListQuestionBankSourceQuestionsOptions,
   updateQuestionRevisionLifecycle,
   type SaveBankInput,
   type QuestionRevisionLifecycleStatus,
@@ -163,14 +166,14 @@ async function moveQuestionBanksToFolderAction(bankIds: string[], folderId: stri
   catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat dipindahkan saat ini."); }
 }
 
-async function listQuestionBankFoldersAction() {
+async function listQuestionBankFoldersAction(purpose: QuestionBankPurpose) {
   await requireTutorSession();
-  return listQuestionBankFolders();
+  return listQuestionBankFolders(purpose);
 }
 
-async function listQuestionBankFolderTreeAction() {
+async function listQuestionBankFolderTreeAction(purpose: QuestionBankPurpose) {
   await requireTutorSession();
-  return listQuestionBankFolderTree();
+  return listQuestionBankFolderTree(purpose);
 }
 
 async function getQuestionBankFolderPathAction(folderId: string | null) {
@@ -178,9 +181,9 @@ async function getQuestionBankFolderPathAction(folderId: string | null) {
   return getQuestionBankFolderPath(folderId);
 }
 
-async function listQuestionBankCategoriesAction() {
+async function listQuestionBankCategoriesAction(purpose: QuestionBankPurpose) {
   await requireTutorSession();
-  return listQuestionBankCategories();
+  return listQuestionBankCategories(purpose);
 }
 
 async function listQuestionBankPageAction(options: ListQuestionBanksOptions & { page?: number; pageSize?: number } = {}) {
@@ -188,12 +191,12 @@ async function listQuestionBankPageAction(options: ListQuestionBanksOptions & { 
   return listQuestionBankPage(options);
 }
 
-async function listQuestionBankSourcePageAction(options: ListQuestionBanksOptions & { page?: number; pageSize?: number } = {}) {
+async function listQuestionBankSourcePageAction(options: ListQuestionBankSourceOptions & { page?: number; pageSize?: number }) {
   await requireTutorSession();
   return listQuestionBankSourcePage(options);
 }
 
-async function listQuestionBankSourceQuestionsAction(bankId: string, options: { page?: number; pageSize?: number; search?: string; subjectCode?: string } = {}) {
+async function listQuestionBankSourceQuestionsAction(bankId: string, options: ListQuestionBankSourceQuestionsOptions) {
   await requireTutorSession();
   return listQuestionBankSourceQuestions(bankId, options);
 }

@@ -86,6 +86,7 @@ type AssemblyPreview = {
 type AssemblyAttachmentSummary = {
   bankIds: string[];
   bankNames: string[];
+  bankPurposes: AssemblyBankPurpose[];
   categoryIds: string[];
   categoryNames: string[];
   definitionDigest: string | null;
@@ -123,6 +124,7 @@ const sourceInclude = {
       folderId: true,
       id: true,
       name: true,
+      purpose: true,
       status: true,
     },
   },
@@ -131,7 +133,7 @@ const sourceInclude = {
 
 const versionInclude = {
   bankScopes: {
-    include: { questionBank: { select: { id: true, name: true, status: true } } },
+    include: { questionBank: { select: { id: true, name: true, purpose: true, status: true } } },
     orderBy: { questionBankId: "asc" as const },
   },
   categoryScopes: {
@@ -152,7 +154,7 @@ const versionInclude = {
   },
   package: { select: { createdByUserId: true, description: true, id: true, mode: true, sourceBankId: true, subtestId: true, title: true } },
   rule: true,
-  sourceBank: { select: { id: true, name: true, status: true } },
+  sourceBank: { select: { id: true, name: true, purpose: true, status: true } },
   subtest: { select: { code: true, id: true, isActive: true, name: true } },
 } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 
@@ -458,10 +460,22 @@ function candidateIssues(
   return blockers;
 }
 
-async function readScopeState(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition) {
+type AssemblyBankPurpose = "quiz" | "tryout";
+
+function expectedPurposeForTarget(target: AssemblyAttachmentTarget): AssemblyBankPurpose {
+  if (target === "kuis") return "quiz";
+  if (target === "tryout") return "tryout";
+  throw new AssemblyValidationError("scope", "Target attachment assembly tidak valid.", { target });
+}
+
+async function readScopeState(
+  tx: Prisma.TransactionClient,
+  definition: NormalizedAssemblyDefinition,
+  expectedPurpose: AssemblyBankPurpose = "tryout",
+) {
   const [subtest, banks, folders, categoryAssignments] = await Promise.all([
     tx.subtest.findUnique({ where: { id: definition.subtestId }, select: { code: true, id: true, isActive: true, name: true } }),
-    tx.questionBank.findMany({ where: { id: { in: definition.scope.bankIds } }, select: { folderId: true, id: true, name: true, status: true } }),
+    tx.questionBank.findMany({ where: { id: { in: definition.scope.bankIds } }, select: { folderId: true, id: true, name: true, purpose: true, status: true } }),
     definition.scope.folderIds.length
       ? tx.questionBankFolder.findMany({ where: { id: { in: definition.scope.folderIds } }, select: { id: true, name: true } })
       : Promise.resolve([]),
@@ -487,6 +501,13 @@ async function readScopeState(tx: Prisma.TransactionClient, definition: Normaliz
       blockers.push(issue("archived_bank", "Bank Soal cakupan sudah diarsipkan.", { bankId }));
     } else if (bank.status !== ContentStatus.published) {
       blockers.push(issue("bank_inactive", "Bank Soal cakupan belum berstatus Ready.", { bankId, status: bank.status }));
+    }
+    if (bank && bank.purpose !== expectedPurpose) {
+      blockers.push(issue("scope", `Assembly hanya dapat memakai Bank Soal tujuan ${expectedPurpose === "quiz" ? "Kuis" : "Tryout"}.`, {
+        bankId,
+        expectedPurpose,
+        purpose: bank.purpose,
+      }));
     }
   }
   const folderIds = new Set(folders.map((folder) => folder.id));
@@ -537,8 +558,8 @@ async function readCalibrations(tx: Prisma.TransactionClient, revisionIds: reado
   }]));
 }
 
-async function assertScope(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition) {
-  const state = await readScopeState(tx, definition);
+async function assertScope(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition, expectedPurpose: AssemblyBankPurpose = "tryout") {
+  const state = await readScopeState(tx, definition, expectedPurpose);
   if (state.blockers.length) throwIssue(state.blockers[0]);
   return state;
 }
@@ -637,7 +658,8 @@ async function nextVersionNo(tx: Prisma.TransactionClient, packageId: string) {
 function toAssemblyVersionDto(version: VersionRecord) {
   return {
     bankIds: version.bankScopes.map((scope) => scope.questionBankId),
-    bankScopes: version.bankScopes.map((scope) => ({ id: scope.questionBank.id, name: scope.questionBank.name })),
+    bankScopes: version.bankScopes.map((scope) => ({ id: scope.questionBank.id, name: scope.questionBank.name, purpose: scope.questionBank.purpose })),
+    bankPurposes: version.bankScopes.map((scope) => scope.questionBank.purpose as AssemblyBankPurpose),
     candidates: version.items.map((item) => ({
       difficulty: item.difficulty,
       prompt: item.prompt,
@@ -676,6 +698,7 @@ function toAttachmentSummary(version: VersionRecord, readiness: AssemblyReadines
   return {
     bankIds: dto.bankIds,
     bankNames: dto.bankScopes.map((scope) => scope.name),
+    bankPurposes: dto.bankPurposes,
     categoryIds: dto.categoryIds,
     categoryNames: dto.categoryScopes.map((scope) => scope.name),
     definitionDigest: dto.definitionDigest,
@@ -693,6 +716,15 @@ function toAttachmentSummary(version: VersionRecord, readiness: AssemblyReadines
     subtest: dto.subtest?.code ?? "",
     versionNo: dto.versionNo,
   };
+}
+
+function assemblyVersionMatchesPurpose(
+  version: Pick<VersionRecord, "bankScopes" | "sourceBank">,
+  expectedPurpose: AssemblyBankPurpose,
+) {
+  return version.sourceBank.purpose === expectedPurpose
+    && version.bankScopes.length > 0
+    && version.bankScopes.every((scope) => scope.questionBank.purpose === expectedPurpose);
 }
 
 async function readVersionForResponse(tx: Prisma.TransactionClient, versionId: string) {
@@ -913,13 +945,23 @@ async function readyVersionForAttachment(
   targetSubtestCode: string,
   targetTestType: AssemblyAttachmentTestType,
 ) {
+  expectedPurposeForTarget(target);
   const version = await tx.reusableQuestionPackageVersion.findFirst({
     where: { id: versionId, package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
     include: versionInclude,
   });
   if (!version) throw new AssemblyValidationError("not_found", "Assembly Ready tidak ditemukan atau sudah tidak tersedia.", { versionId });
+  const expectedPurpose = expectedPurposeForTarget(target);
+  if (!assemblyVersionMatchesPurpose(version, expectedPurpose)) {
+    throw new AssemblyValidationError("scope", `Assembly ${target === "kuis" ? "Kuis" : "Tryout"} hanya dapat memakai Bank Soal tujuan ${expectedPurpose === "quiz" ? "Kuis" : "Tryout"}.`, {
+      expectedPurpose,
+      sourceBankPurpose: version.sourceBank.purpose,
+      versionId,
+    });
+  }
   assertAssemblyAttachmentCompatibility({
     bankIds: version.bankScopes.map((scope) => scope.questionBankId),
+    bankPurposes: version.bankScopes.map((scope) => scope.questionBank.purpose),
     mode: version.mode as AssemblyMode,
     subtestCode: version.subtest?.code ?? "",
     target,
@@ -929,40 +971,48 @@ async function readyVersionForAttachment(
   return version;
 }
 
-async function listReadyAssemblyRevisions(): Promise<AssemblyAttachmentSummary[]> {
+async function listReadyAssemblyRevisions(target: AssemblyAttachmentTarget = "tryout"): Promise<AssemblyAttachmentSummary[]> {
+  const expectedPurpose = expectedPurposeForTarget(target);
   return prisma.$transaction(async (tx) => {
     const versions = await tx.reusableQuestionPackageVersion.findMany({
       where: { package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
       include: versionInclude,
       orderBy: [{ package: { title: "asc" } }, { versionNo: "desc" }],
     });
-    return Promise.all(
+    const summaries = await Promise.all(
       versions.map(async (version) => {
         const report = await collectReadiness(tx, definitionInputForVersion(version), {
           expectedDefinitionDigest: version.definitionDigest,
           expectedPackageMode: version.package.mode as AssemblyMode,
           expectedSourceBankId: version.sourceBankId,
           expectedSubtestId: version.subtestId,
+          expectedPurpose,
           snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
         });
-        return toAttachmentSummary(version, report.readiness);
+        return { summary: toAttachmentSummary(version, report.readiness), version };
       }),
     );
+    return summaries
+      .filter(({ version }) => assemblyVersionMatchesPurpose(version, expectedPurpose))
+      .map(({ summary }) => summary);
   });
 }
 
-async function getReadyAssemblyRevision(versionId: string): Promise<AssemblyAttachmentSummary | null> {
+async function getReadyAssemblyRevision(versionId: string, target: AssemblyAttachmentTarget = "tryout"): Promise<AssemblyAttachmentSummary | null> {
+  const expectedPurpose = expectedPurposeForTarget(target);
   return prisma.$transaction(async (tx) => {
     const version = await tx.reusableQuestionPackageVersion.findFirst({
       where: { id: versionId, package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
       include: versionInclude,
     });
     if (!version) return null;
+    if (!assemblyVersionMatchesPurpose(version, expectedPurpose)) return null;
     const report = await collectReadiness(tx, definitionInputForVersion(version), {
       expectedDefinitionDigest: version.definitionDigest,
       expectedPackageMode: version.package.mode as AssemblyMode,
       expectedSourceBankId: version.sourceBankId,
       expectedSubtestId: version.subtestId,
+      expectedPurpose,
       snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
     });
     return toAttachmentSummary(version, report.readiness);
@@ -982,6 +1032,7 @@ async function getReadyAssemblyAttachment(
       expectedPackageMode: version.package.mode as AssemblyMode,
       expectedSourceBankId: version.sourceBankId,
       expectedSubtestId: version.subtestId,
+      expectedPurpose: expectedPurposeForTarget(target),
       snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
     });
     if (!report.readiness.ready) throwIssue(report.readiness.blockers[0] ?? issue("stale_candidate", "Assembly Ready tidak dapat dipakai untuk attachment."));
@@ -1007,7 +1058,7 @@ async function getAssemblyDraftForEdit(packageId: string, actorId: string, optio
   });
 }
 
-async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition) {
+async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition, expectedPurpose: AssemblyBankPurpose = "tryout") {
   return tx.question.findMany({
     where: {
       currentRevision: { status: QuestionRevisionStatus.ready },
@@ -1015,6 +1066,7 @@ async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: N
         is: {
           ...(definition.scope.categoryIds.length ? { categories: { some: { categoryId: { in: definition.scope.categoryIds } } } } : {}),
           ...(definition.scope.folderIds.length ? { folderId: { in: definition.scope.folderIds } } : {}),
+          purpose: expectedPurpose,
           status: ContentStatus.published,
         },
       },
@@ -1032,6 +1084,7 @@ type ReadinessOptions = {
   expectedPackageMode?: AssemblyMode | null;
   expectedSourceBankId?: string | null;
   expectedSubtestId?: string | null;
+  expectedPurpose?: AssemblyBankPurpose;
   snapshotItems?: readonly VersionItemRecord[];
 };
 
@@ -1059,7 +1112,8 @@ async function collectReadiness(
     };
   }
 
-  const scopeState = await readScopeState(tx, definition);
+  const expectedPurpose = options.expectedPurpose ?? "tryout";
+  const scopeState = await readScopeState(tx, definition, expectedPurpose);
   const blockers = [...scopeState.blockers];
 
   if (options.expectedPackageMode !== undefined && options.expectedPackageMode !== definition.mode) {
@@ -1135,7 +1189,7 @@ async function collectReadiness(
   let sources: SourceRecord[] = [];
   let eligibleSources: SourceRecord[] = [];
   if (definition.mode === "blueprint") {
-    const scopeSources = await queryBlueprintSources(tx, definition);
+    const scopeSources = await queryBlueprintSources(tx, definition, expectedPurpose);
     for (const source of scopeSources) blockers.push(...sourceContentIssues(source, definition.subtestId, definition.scope.bankIds));
     eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds).length === 0);
   } else {
@@ -1303,9 +1357,10 @@ async function resolveReadyAssemblyForKuis(
       versionId,
     });
   }
-  const scopeState = await assertScope(tx, definition);
+  const scopeState = await assertScope(tx, definition, "quiz");
   assertAssemblyAttachmentCompatibility({
     bankIds: definition.scope.bankIds,
+    bankPurposes: scopeState.banks.map((bank) => bank.purpose),
     mode: definition.mode,
     subtestCode: version.subtest?.code ?? "",
     target: "kuis",
@@ -1377,7 +1432,7 @@ async function resolveReadyAssemblyForKuis(
     if (version.items.length) {
       throw new AssemblyValidationError("scope", "Blueprint Ready tidak boleh membawa snapshot kandidat fisik.", { itemCount: version.items.length, versionId });
     }
-    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    const report = await collectReadiness(tx, definitionInputForVersion(version), { expectedPurpose: "quiz" });
     if (report.readiness.blockers.length) throwIssue(report.readiness.blockers[0]);
     let selectedSources;
     try {

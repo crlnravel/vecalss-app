@@ -166,7 +166,7 @@ assert.match(intakeModule, /kapten\.v1/u);
 assert.match(intakeModule, /No accounts were changed/u);
 assert.match(intakeModule, /resetImportFileSelection/u);
 assert.match(intakeModule, /key=\{role\}/u);
-assert.match(intakeModule, /<select/u);
+assert.match(intakeModule, /ReferenceSelect/u);
 assert.match(intakeModule, /1\. Choose a role/u);
 assert.match(intakeModule, /2\. Get the CSV template/u);
 assert.match(intakeModule, /3\. Upload the file/u);

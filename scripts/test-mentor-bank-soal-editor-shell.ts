@@ -35,7 +35,7 @@ assert.doesNotMatch(builder, /Unfiled/u);
 assert.doesNotMatch(detailRoute, /initialFolderTree|listQuestionBankFolderTree/u);
 assert.doesNotMatch(editorRoute, /initialFolderTree|listQuestionBankFolderTree/u);
 assert.match(builder, /<FieldLabel[^>]*>Subtest<\/FieldLabel>/u);
-assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{result\.result\.bank\.id\}`/u);
+assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{result\.result\.bank\.id\}\?purpose=\$\{result\.result\.bank\.purpose\}`/u);
 assert.match(builder, /requestExit: \(route: string\) => void/u);
 assert.match(editorScreen, /onClick=\{\(\) => actions\.requestExit\(detailHref\)\}/u);
 assert.match(builder, /title: "Keluar tanpa menyimpan\?"/u);

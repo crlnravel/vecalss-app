@@ -211,14 +211,19 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+const LOCAL_QUOTA_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: MOCK_USAGE_TIMEZONE,
+  year: "numeric",
+});
+
 function localQuotaDate(date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: MOCK_USAGE_TIMEZONE,
-    year: "numeric",
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const parts = LOCAL_QUOTA_DATE_FORMATTER.formatToParts(date);
+  const values = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = part.value;
+  }
 
   return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
 }
@@ -505,7 +510,8 @@ export async function seedMockAiUsage({ databaseUrl = requireDatabaseUrl(), dryR
     if (dryRun) return summary;
 
     await client.query("BEGIN");
-    await client.query("DELETE FROM ai_requests WHERE client_request_id LIKE $1", [`${MOCK_USAGE_NAMESPACE}:%`]);
+    const namespacePattern = `${MOCK_USAGE_NAMESPACE}:%`;
+    await client.query("DELETE FROM ai_requests WHERE client_request_id LIKE $1", [namespacePattern]);
     await client.query("DELETE FROM ai_admission_events WHERE policy_bundle_version = $1", [MOCK_USAGE_POLICY_VERSION]);
 
     for (const request of requests) await insertRequest(client, request);

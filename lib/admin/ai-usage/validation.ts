@@ -41,15 +41,25 @@ function parseDate(value: string, field: string): { year: number; month: number;
   return { year, month, day, iso: value };
 }
 
+const VALID_IANA_TIMEZONES = new Set(Intl.supportedValuesOf("timeZone"));
+
 function assertTimeZone(timezone: string): string {
   const normalized = timezone.trim() || DEFAULT_TIMEZONE;
   if (normalized.length > 64 || normalized.includes("\u0000")) invalidQuery("Zona waktu tidak valid.");
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: normalized }).format();
-  } catch {
+  if (!VALID_IANA_TIMEZONES.has(normalized)) {
     invalidQuery("Zona waktu harus merupakan zona IANA yang valid.");
   }
   return normalized;
+}
+
+function partsToValues(parts: Intl.DateTimeFormatPart[]): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+  return values;
 }
 
 function offsetAt(instant: Date, timezone: string): number {
@@ -63,7 +73,7 @@ function offsetAt(instant: Date, timezone: string): number {
     second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(instant);
-  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const values = partsToValues(parts);
   const localAsUtc = Date.UTC(
     Number(values.year),
     Number(values.month) - 1,
@@ -128,7 +138,7 @@ function parseInclude(value: string | undefined): ReadonlySet<VeraReportInclude>
 
 function defaultRange(now: Date, timezone: string): { from: string; to: string } {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
-  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const values = partsToValues(parts);
   const today = `${values.year}-${values.month}-${values.day}`;
   return { from: addDays(today, -6), to: addDays(today, 1) };
 }
@@ -205,7 +215,7 @@ export function isSafeReportKey(value: string | null): value is string {
 
 export function dateForDisplay(instant: Date, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(instant);
-  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const values = partsToValues(parts);
   return `${values.year}-${values.month}-${values.day}`;
 }
 

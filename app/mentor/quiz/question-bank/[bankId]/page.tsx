@@ -18,11 +18,9 @@ export const metadata: Metadata = {
 
 export default async function MentorQuestionBankDetailPage({ params }: MentorQuestionBankPageProps) {
   const [{ bankId }, session] = await Promise.all([params, requireTutorSession()]);
-  const [initial, initialCategories] = await Promise.all([
-    getQuestionBankForEdit(bankId),
-    listQuestionBankCategories(),
-  ]);
+  const initial = await getQuestionBankForEdit(bankId);
   if (!initial) notFound();
+  const initialCategories = await listQuestionBankCategories(initial.bank.purpose ?? "quiz");
   return (
     <KaptenQuestionBankDetailPageModule
       bankId={bankId}

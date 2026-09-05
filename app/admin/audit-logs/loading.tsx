@@ -4,7 +4,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ADMIN_CARD_CLASS_NAME } from "@/modules/admin/admin-ui-contract";
-import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { AdminPortalNav } from "@/modules/portal/components/admin-portal-nav";
 
 function LoadingBlock({ className }: { className: string }) {
@@ -22,12 +21,10 @@ function AuditLogRowSkeleton() {
 }
 
 export default function AuditLogsLoading() {
-  const studentPreviewEnabled = isAdminStudentPreviewEnabled();
-
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
       <div aria-busy="true" aria-label="Memuat log audit" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
-        <AdminPortalNav activeSection="audit-logs" studentPreviewEnabled={studentPreviewEnabled} />
+        <AdminPortalNav activeSection="audit-logs" />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
           <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">

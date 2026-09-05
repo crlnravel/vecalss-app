@@ -105,10 +105,15 @@ export function canonicalJson(value: unknown): string {
 function normalizeSourceIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
-  return [...new Set(value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean))].sort((left, right) => left.localeCompare(right));
+  const unique = new Set<string>();
+  for (const item of value) {
+    if (typeof item === "string") {
+      const trimmed = item.trim();
+      if (trimmed) unique.add(trimmed);
+    }
+  }
+
+  return [...unique].sort((left, right) => left.localeCompare(right));
 }
 
 /**
@@ -184,19 +189,26 @@ export function hmacFingerprint(
 }
 
 export function selectionDigest(selection: VeraContextSelection[]): string {
-  const canonical = JSON.stringify(selection
-    .map(({ sourceType, sourceId }) => ({ sourceId: sourceId.trim(), sourceType }))
-    .filter(({ sourceId }) => sourceId)
-    .sort((left, right) => `${left.sourceType}:${left.sourceId}`.localeCompare(`${right.sourceType}:${right.sourceId}`))
-    .filter((entry, index, entries) => index === 0 || JSON.stringify(entry) !== JSON.stringify(entries[index - 1])));
-
-  return sha256Hex(canonical);
+  const normalized: Array<{ sourceId: string; sourceType: VeraContextSourceType }> = [];
+  for (const { sourceType, sourceId } of selection) {
+    const trimmed = sourceId.trim();
+    if (trimmed) {
+      normalized.push({ sourceId: trimmed, sourceType });
+    }
+  }
+  normalized.sort((left, right) => `${left.sourceType}:${left.sourceId}`.localeCompare(`${right.sourceType}:${right.sourceId}`));
+  const deduped = normalized.filter((entry, index, entries) => index === 0 || JSON.stringify(entry) !== JSON.stringify(entries[index - 1]));
+  return sha256Hex(JSON.stringify(deduped));
 }
 
 export function normalizeSelection(selection: VeraContextSelection[]): VeraContextSelection[] {
-  const normalized = selection
-    .map(({ sourceType, sourceId }) => ({ sourceType, sourceId: sourceId.trim() }))
-    .filter(({ sourceType, sourceId }) => sourceId && sourceType !== "document");
+  const normalized: VeraContextSelection[] = [];
+  for (const { sourceType, sourceId } of selection) {
+    const trimmed = sourceId.trim();
+    if (trimmed && sourceType !== "document") {
+      normalized.push({ sourceType, sourceId: trimmed });
+    }
+  }
 
   if (selection.some(({ sourceType }) => sourceType === "document")) {
     throw new VeraContractError(

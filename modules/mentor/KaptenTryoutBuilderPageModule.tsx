@@ -16,7 +16,7 @@ import {
   Search,
   Trash2,
 } from "@/lib/icons";
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch } from "react";
 import { imageMediaMimeTypes } from "@/lib/media/domain";
 import type { MediaAssetDto } from "@/lib/media/types";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
@@ -360,7 +360,7 @@ function SourceBankList({
   sourceBanks,
 }: {
   activeSectionSubtest: SubjectCode;
-  browseBankId: string;
+  browseBankId: string | null;
   disabled: boolean;
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   onSelectBank: (bankId: string) => void;
@@ -700,7 +700,7 @@ function TryoutSectionsTab({
   activeDirectQuestions: DirectQuestionDraft[];
   activeSection: TestDraft;
   activeSourceQuestions: SourceQuestion[];
-  browseBankId: string;
+  browseBankId: string | null;
   draft: TryoutDraft;
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   onBankPageNext: () => void;
@@ -1413,6 +1413,7 @@ function useTryoutBuilderState({
         const result = await listQuestionBankSourcePageAction({
           page: sourceBankPage,
           pageSize: 20,
+          purpose: "tryout",
           search: sourceBankSearch,
           subjectCoverage: [activeSection.subtest],
         });
@@ -1437,6 +1438,7 @@ function useTryoutBuilderState({
         const result = await listQuestionBankSourceQuestionsAction(browseBankId, {
           page: sourceQuestionPage,
           pageSize: SOURCE_QUESTION_PAGE_SIZE,
+          purpose: "tryout",
           search: sourceQuestionSearch,
           subjectCode: activeSection.subtest,
         });
@@ -1531,6 +1533,7 @@ function TryoutPhaseNavigation({
   mode,
   saving,
   visiblePhaseDefinitions,
+  workspace,
 }: {
   activePhase: WorkspacePhase;
   activePhaseDefinition?: WorkspacePhaseDefinition;
@@ -1540,6 +1543,7 @@ function TryoutPhaseNavigation({
   mode: WorkflowMode;
   saving: boolean;
   visiblePhaseDefinitions: WorkspacePhaseDefinition[];
+  workspace: Workspace;
 }) {
   return (
     <>
@@ -1579,21 +1583,26 @@ function TryoutPhaseNavigation({
       </Tabs>
 
       {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
-        <div className="mt-5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
-            {activePhaseDefinition.items.map((item) => (
-              <FullWidthLineTabsTrigger
-                className="min-w-max"
-                disabled={saving}
-                key={item.value}
-                onClick={() => changeWorkspace(item.value)}
-                value={item.value}
-              >
-                {item.label}
-              </FullWidthLineTabsTrigger>
-            ))}
-          </FullWidthLineTabsList>
-        </div>
+        <Tabs
+          className="mt-5 min-w-0"
+          onValueChange={(value) => changeWorkspace(value as Workspace)}
+          value={workspace}
+        >
+          <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
+              {activePhaseDefinition.items.map((item) => (
+                <FullWidthLineTabsTrigger
+                  className="min-w-max"
+                  disabled={saving}
+                  key={item.value}
+                  value={item.value}
+                >
+                  {item.label}
+                </FullWidthLineTabsTrigger>
+              ))}
+            </FullWidthLineTabsList>
+          </div>
+        </Tabs>
       ) : null}
     </>
   );
@@ -1642,7 +1651,7 @@ function TryoutDeliveryTab({
       ) : (
         <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
           <aside aria-label="Area Delivery" className="grid gap-2 lg:sticky lg:top-5 lg:self-start">
-            <div aria-label="Policy, Sessions, Participants" className="grid gap-2" role="tablist">
+            <nav aria-label="Policy, Sessions, Participants" className="grid gap-2">
               {deliveryAreas.map((area) => {
                 const active = deliveryArea === area.value;
                 return (
@@ -1651,14 +1660,13 @@ function TryoutDeliveryTab({
                     className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                     key={area.value}
                     onClick={() => changeDeliveryArea(area.value)}
-                    role="tab"
                     variant="ghost"
                   >
                     {area.label}
                   </Button>
                 );
               })}
-            </div>
+            </nav>
           </aside>
 
           <div className="min-w-0">
@@ -1725,6 +1733,251 @@ function TryoutFooterActions({
         {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
       </div>
     </footer>
+  );
+}
+
+function TryoutBuilderHeader({
+  dispatch,
+  draft,
+  error,
+  guardExternalNavigation,
+  hasActiveAttempt,
+  id,
+  initialParent,
+  mode,
+  routeNormalizationNotice,
+  saving,
+}: {
+  dispatch: Dispatch<BuilderAction>;
+  draft: TryoutDraft;
+  error: string | null;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  hasActiveAttempt: boolean;
+  id?: string;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  mode: "draft" | "published";
+  routeNormalizationNotice: string | null;
+  saving: boolean;
+}) {
+  return (
+    <>
+      <div className="flex min-w-0 items-start gap-3">
+        <Button aria-label="Kembali ke semua Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+        <ReferencePageHeader
+          className="min-w-0 flex-1"
+          description={(
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {mode === "published" ? <span>Kelola akses, sesi, dan hasil untuk Tryout ini.</span> : null}
+              <ReferenceStatusBadge appearance="mentor" size="xs" status={mode === "published" ? "published" : "draft"} />
+            </span>
+          )}
+          title={mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}
+          actions={mode === "published" ? (
+            <>
+              <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
+                <FilePenLine />Jadikan draf
+              </Button>
+              <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
+                <Copy />Duplikat draf baru
+              </Button>
+            </>
+          ) : undefined}
+        />
+      </div>
+
+      {error ? (
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
+          <CircleAlert className="mt-1 size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+      {routeNormalizationNotice ? (
+        <ReferenceSurface className="mt-4 flex items-start gap-2 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
+          {routeNormalizationNotice}
+        </ReferenceSurface>
+      ) : null}
+      {draft.locked ? (
+        <ReferenceSurface className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <Lock className="mt-1 size-4 shrink-0" />
+          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
+        </ReferenceSurface>
+      ) : null}
+      {initialParent && mode === "draft" ? (
+        <ReferenceSurface className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
+          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
+        </ReferenceSurface>
+      ) : null}
+    </>
+  );
+}
+
+function TryoutWorkspaceTabs({
+  activeBrowseBank,
+  activeCode,
+  activeDirectQuestions,
+  activePhase,
+  activeSection,
+  activeSourceQuestions,
+  browseBankId,
+  changeActiveCode,
+  changeDeliveryArea,
+  changeWorkspace,
+  deliveryArea,
+  dispatch,
+  draft,
+  guardExternalNavigation,
+  id,
+  metadataSaving,
+  mode,
+  operationsInitial,
+  save,
+  saveMetadata,
+  saving,
+  sectionReadiness,
+  selectedSessionId,
+  selectedSourceQuestionIdsSet,
+  sourceBankLoading,
+  sourceBankPage,
+  sourceBankSearch,
+  sourceBankTotal,
+  sourceBanks,
+  sourceQuestionLoading,
+  sourceQuestionPage,
+  sourceQuestionSearch,
+  sourceQuestionTotal,
+  toggleDirectQuestion,
+  update,
+  updateDraft,
+  workspace,
+}: {
+  activeBrowseBank?: SourceBank;
+  activeCode: SubjectCode;
+  activeDirectQuestions: DirectQuestionDraft[];
+  activePhase: WorkspacePhase;
+  activeSection: TryoutDraft["sections"][number];
+  activeSourceQuestions: SourceQuestion[];
+  browseBankId: string | null;
+  changeActiveCode: (code: SubjectCode) => void;
+  changeDeliveryArea: (area: DeliveryArea) => void;
+  changeWorkspace: (workspace: Workspace) => void;
+  deliveryArea: DeliveryArea;
+  dispatch: Dispatch<BuilderAction>;
+  draft: TryoutDraft;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  id?: string;
+  metadataSaving: boolean;
+  mode: "draft" | "published";
+  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
+  save: (intent: "draft" | "published") => Promise<boolean>;
+  saveMetadata: () => Promise<void>;
+  saving: boolean;
+  sectionReadiness: Record<SubjectCode, SectionReadiness>;
+  selectedSessionId?: string;
+  selectedSourceQuestionIdsSet: Set<string>;
+  sourceBankLoading: boolean;
+  sourceBankPage: number;
+  sourceBankSearch: string;
+  sourceBankTotal: number;
+  sourceBanks: SourceBank[];
+  sourceQuestionLoading: boolean;
+  sourceQuestionPage: number;
+  sourceQuestionSearch: string;
+  sourceQuestionTotal: number;
+  toggleDirectQuestion: (question: SourceQuestion) => void;
+  update: (subtest: SubjectCode, change: Partial<TryoutDraft["sections"][number]>) => void;
+  updateDraft: (updater: (current: TryoutDraft) => TryoutDraft) => void;
+  workspace: Workspace;
+}) {
+  return (
+    <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
+      <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:items-start" : "mt-6 w-full"}>
+        {activePhase === "build" ? (
+          <SectionRail
+            activeCode={activeCode}
+            disabled={saving}
+            onSelect={changeActiveCode}
+            readiness={sectionReadiness}
+            sections={draft.sections}
+          />
+        ) : null}
+
+        <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
+          <TryoutBasicsTab
+            draft={draft}
+            metadataSaving={metadataSaving}
+            mode={mode}
+            onBannerChange={(bannerMediaId) => updateDraft((current) => ({ ...current, bannerMediaId }))}
+            onDescriptionChange={(desc) => updateDraft((current) => ({ ...current, description: desc }))}
+            onSaveMetadata={() => void saveMetadata()}
+            onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))}
+            saving={saving}
+          />
+
+          <TryoutSectionsTab
+            activeBrowseBank={activeBrowseBank}
+            activeDirectQuestions={activeDirectQuestions}
+            activeSection={activeSection}
+            activeSourceQuestions={activeSourceQuestions}
+            browseBankId={browseBankId}
+            draft={draft}
+            guardExternalNavigation={guardExternalNavigation}
+            onBankPageNext={() => dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })}
+            onBankSearchChange={(search) => dispatch({ search, type: "setSourceBankSearch" })}
+            onQuestionPageChange={(page) => dispatch({ page, type: "setSourceQuestionPage" })}
+            onQuestionSearchChange={(search) => dispatch({ search, type: "setSourceQuestionSearch" })}
+            onSelectBank={(bankId) => dispatch({ bankId, type: "setBrowseBankId" })}
+            onToggleQuestion={toggleDirectQuestion}
+            onUpdateSection={(change) => update(activeSection.subtest, change)}
+            selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
+            sourceBankLoading={sourceBankLoading}
+            sourceBankSearch={sourceBankSearch}
+            sourceBankTotal={sourceBankTotal}
+            sourceBanks={sourceBanks}
+            sourceQuestionLoading={sourceQuestionLoading}
+            sourceQuestionPage={sourceQuestionPage}
+            sourceQuestionSearch={sourceQuestionSearch}
+            sourceQuestionTotal={sourceQuestionTotal}
+            saving={saving}
+          />
+
+          <TryoutDeliveryTab
+            changeDeliveryArea={changeDeliveryArea}
+            createPolicy={{
+              admissionMode: draft.admissionMode ?? "open",
+              defaultReleasePolicy: defaultPolicyForDraft(draft.defaultReleasePolicy),
+            }}
+            deliveryArea={deliveryArea}
+            id={id}
+            onCreatePolicyChange={(policy) => updateDraft((current) => ({ ...current, ...policy }))}
+            onSaveDraft={() => void save("draft")}
+            operationsInitial={operationsInitial}
+          />
+
+          <TabsContent className="mt-0 min-w-0 w-full" value="live">
+            {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
+          </TabsContent>
+
+          <TabsContent className="mt-0 min-w-0 w-full" value="attempts">
+            {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
+          </TabsContent>
+
+          <TabsContent className="mt-0 min-w-0 w-full" value="results">
+            {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
+          </TabsContent>
+
+          <TryoutReviewTab
+            draft={draft}
+            onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
+            saving={saving}
+            setPublishOpen={(open) => dispatch({ open, type: "setPublishOpen" })}
+          />
+        </div>
+      </div>
+    </Tabs>
   );
 }
 
@@ -1820,56 +2073,18 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 items-start gap-3">
-        <Button aria-label="Kembali ke semua Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
-          <ChevronLeft aria-hidden="true" className="size-5" />
-        </Button>
-        <ReferencePageHeader
-          className="min-w-0 flex-1"
-          description={(
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {mode === "published" ? <span>Kelola akses, sesi, dan hasil untuk Tryout ini.</span> : null}
-              <ReferenceStatusBadge appearance="mentor" size="xs" status={mode === "published" ? "published" : "draft"} />
-            </span>
-          )}
-          title={mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}
-          actions={mode === "published" ? (
-            <>
-              <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
-                <FilePenLine />Jadikan draf
-              </Button>
-              <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
-                <Copy />Duplikat draf baru
-              </Button>
-            </>
-          ) : undefined}
-        />
-      </div>
-
-      {error ? (
-        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
-          <CircleAlert className="mt-1 size-4 shrink-0" />
-          {error}
-        </p>
-      ) : null}
-      {routeNormalizationNotice ? (
-        <ReferenceSurface className="mt-4 flex items-start gap-2 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
-          {routeNormalizationNotice}
-        </ReferenceSurface>
-      ) : null}
-      {draft.locked ? (
-        <ReferenceSurface className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <Lock className="mt-1 size-4 shrink-0" />
-          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
-        </ReferenceSurface>
-      ) : null}
-      {initialParent && mode === "draft" ? (
-        <ReferenceSurface className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
-          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
-        </ReferenceSurface>
-      ) : null}
+      <TryoutBuilderHeader
+        dispatch={dispatch}
+        draft={draft}
+        error={error}
+        guardExternalNavigation={guardExternalNavigation}
+        hasActiveAttempt={hasActiveAttempt}
+        id={id}
+        initialParent={initialParent}
+        mode={mode}
+        routeNormalizationNotice={routeNormalizationNotice}
+        saving={saving}
+      />
 
       <TryoutPhaseNavigation
         activePhase={activePhase}
@@ -1880,93 +2095,48 @@ function KaptenTryoutBuilderPageModule({
         mode={mode}
         saving={saving}
         visiblePhaseDefinitions={visiblePhaseDefinitions}
+        workspace={workspace}
       />
 
-      <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:items-start" : "mt-6 w-full"}>
-          {activePhase === "build" ? (
-            <SectionRail
-              activeCode={activeCode}
-              disabled={saving}
-              onSelect={changeActiveCode}
-              readiness={sectionReadiness}
-              sections={draft.sections}
-            />
-          ) : null}
-
-          <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
-            <TryoutBasicsTab
-              draft={draft}
-              metadataSaving={metadataSaving}
-              mode={mode}
-              onBannerChange={(bannerMediaId) => updateDraft((current) => ({ ...current, bannerMediaId }))}
-              onDescriptionChange={(desc) => updateDraft((current) => ({ ...current, description: desc }))}
-              onSaveMetadata={() => void saveMetadata()}
-              onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))}
-              saving={saving}
-            />
-
-            <TryoutSectionsTab
-              activeBrowseBank={activeBrowseBank}
-              activeDirectQuestions={activeDirectQuestions}
-              activeSection={activeSection}
-              activeSourceQuestions={activeSourceQuestions}
-              browseBankId={browseBankId}
-              draft={draft}
-              guardExternalNavigation={guardExternalNavigation}
-              onBankPageNext={() => dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })}
-              onBankSearchChange={(search) => dispatch({ search, type: "setSourceBankSearch" })}
-              onQuestionPageChange={(page) => dispatch({ page, type: "setSourceQuestionPage" })}
-              onQuestionSearchChange={(search) => dispatch({ search, type: "setSourceQuestionSearch" })}
-              onSelectBank={(bankId) => dispatch({ bankId, type: "setBrowseBankId" })}
-              onToggleQuestion={toggleDirectQuestion}
-              onUpdateSection={(change) => update(activeSection.subtest, change)}
-              selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
-              sourceBankLoading={sourceBankLoading}
-              sourceBankSearch={sourceBankSearch}
-              sourceBankTotal={sourceBankTotal}
-              sourceBanks={sourceBanks}
-              sourceQuestionLoading={sourceQuestionLoading}
-              sourceQuestionPage={sourceQuestionPage}
-              sourceQuestionSearch={sourceQuestionSearch}
-              sourceQuestionTotal={sourceQuestionTotal}
-              saving={saving}
-            />
-
-            <TryoutDeliveryTab
-              changeDeliveryArea={changeDeliveryArea}
-              createPolicy={{
-                admissionMode: draft.admissionMode ?? "open",
-                defaultReleasePolicy: defaultPolicyForDraft(draft.defaultReleasePolicy),
-              }}
-              deliveryArea={deliveryArea}
-              id={id}
-              onCreatePolicyChange={(policy) => updateDraft((current) => ({ ...current, ...policy }))}
-              onSaveDraft={() => void save("draft")}
-              operationsInitial={operationsInitial}
-            />
-
-            <TabsContent className="mt-0 min-w-0 w-full" value="live">
-              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
-            </TabsContent>
-
-            <TabsContent className="mt-0 min-w-0 w-full" value="attempts">
-              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
-            </TabsContent>
-
-            <TabsContent className="mt-0 min-w-0 w-full" value="results">
-              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
-            </TabsContent>
-
-            <TryoutReviewTab
-              draft={draft}
-              onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
-              saving={saving}
-              setPublishOpen={(open) => dispatch({ open, type: "setPublishOpen" })}
-            />
-          </div>
-        </div>
-      </Tabs>
+      <TryoutWorkspaceTabs
+        activeBrowseBank={activeBrowseBank}
+        activeCode={activeCode}
+        activeDirectQuestions={activeDirectQuestions}
+        activePhase={activePhase}
+        activeSection={activeSection}
+        activeSourceQuestions={activeSourceQuestions}
+        browseBankId={browseBankId}
+        changeActiveCode={changeActiveCode}
+        changeDeliveryArea={changeDeliveryArea}
+        changeWorkspace={changeWorkspace}
+        deliveryArea={deliveryArea}
+        dispatch={dispatch}
+        draft={draft}
+        guardExternalNavigation={guardExternalNavigation}
+        id={id}
+        metadataSaving={metadataSaving}
+        mode={mode}
+        operationsInitial={operationsInitial}
+        save={save}
+        saveMetadata={saveMetadata}
+        saving={saving}
+        sectionReadiness={sectionReadiness}
+        selectedSessionId={selectedSessionId}
+        selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
+        sourceBankLoading={sourceBankLoading}
+        sourceBankPage={sourceBankPage}
+        sourceBankSearch={sourceBankSearch}
+        sourceBankTotal={sourceBankTotal}
+        sourceBanks={sourceBanks}
+        sourceQuestionLoading={sourceQuestionLoading}
+        sourceQuestionPage={sourceQuestionPage}
+        sourceQuestionSearch={sourceQuestionSearch}
+        sourceQuestionTotal={sourceQuestionTotal}
+        toggleDirectQuestion={toggleDirectQuestion}
+        update={update}
+        updateDraft={updateDraft}
+        workspace={workspace}
+      />
 
       <TryoutFooterActions
         commitWorkspaceChange={commitWorkspaceChange}

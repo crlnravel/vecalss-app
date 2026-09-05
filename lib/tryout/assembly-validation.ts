@@ -94,6 +94,7 @@ type AssemblyErrorDetails = Record<string, unknown>;
 
 type AssemblyAttachmentCompatibilityInput = {
   bankIds: readonly string[];
+  bankPurposes: readonly ("quiz" | "tryout")[];
   mode: AssemblyMode;
   subtestCode: string;
   target: AssemblyAttachmentTarget;
@@ -254,6 +255,18 @@ function assemblyCompatibleWithTestType(mode: AssemblyMode, targetTestType: Asse
 }
 
 function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatibilityInput) {
+  if (input.target !== "kuis" && input.target !== "tryout") {
+    throw new AssemblyValidationError("scope", "Target attachment assembly tidak valid.", { target: input.target });
+  }
+  const expectedPurpose = input.target === "kuis" ? "quiz" : "tryout";
+  if (input.bankPurposes.length !== input.bankIds.length || input.bankPurposes.some((purpose) => purpose !== expectedPurpose)) {
+    throw new AssemblyValidationError("scope", `Assembly ${input.target === "kuis" ? "Kuis" : "Tryout"} hanya dapat memakai Bank Soal tujuan ${expectedPurpose === "quiz" ? "Kuis" : "Tryout"}.`, {
+      bankIds: input.bankIds,
+      bankPurposes: input.bankPurposes,
+      expectedPurpose,
+      target: input.target,
+    });
+  }
   if (input.target === "kuis" && input.mode === "cat_pool") {
     throw new AssemblyValidationError("invalid_mode", "CAT Pool tidak didukung oleh Kuis.", {
       mode: input.mode,

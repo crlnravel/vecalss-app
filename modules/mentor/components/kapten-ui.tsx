@@ -12,12 +12,11 @@ import {
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -318,46 +317,6 @@ function PaginationLinks({
   );
 }
 
-type CatalogueFilterOption = {
-  label: string;
-  value: string;
-};
-
-function CatalogueFilter({
-  label,
-  onValueChange,
-  options,
-  value,
-}: {
-  label: string;
-  onValueChange: (value: string) => void;
-  options: CatalogueFilterOption[];
-  value: string;
-}) {
-  const selected = options.find((option) => option.value === value)?.label ?? label;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={label}
-        render={<Button className="h-11 min-w-40 justify-between rounded-xl border-primary-100 bg-white px-4 text-sm font-medium text-secondary-950 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
-      >
-        <span className="truncate">{selected}</span>
-        <ChevronDown aria-hidden className="size-4 text-secondary-600" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-52">
-        <DropdownMenuRadioGroup onValueChange={onValueChange} value={value}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value || "all"} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 type DropdownFieldOption = { label: string; value: string };
 
 function DropdownField({
@@ -379,30 +338,17 @@ function DropdownField({
   placeholder: string;
   value: string;
 }) {
-  const selected = options.find((option) => option.value === value)?.label ?? placeholder;
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={ariaLabel ?? placeholder}
-        disabled={disabled}
-        id={id}
-        render={<Button className={cn("h-12 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" , className)} variant="context" />}
-      >
-        <span className="truncate">{selected}</span>
-        <ChevronDown aria-hidden className="size-4 shrink-0 text-secondary-500" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-(--anchor-width)">
-        <DropdownMenuRadioGroup onValueChange={onValueChange} value={value}>
-          {value === "" ? <DropdownMenuRadioItem value="" disabled>{placeholder}</DropdownMenuRadioItem> : null}
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ReferenceSelect
+      aria-label={ariaLabel ?? placeholder}
+      className={className}
+      disabled={disabled}
+      id={id}
+      onValueChange={onValueChange}
+      options={options}
+      placeholder={placeholder}
+      value={value}
+    />
   );
 }
 
@@ -483,7 +429,6 @@ function EmptyState({
 }
 
 export {
-  CatalogueFilter,
   CatalogueSearchInput,
   DropdownField,
   EmptyState,

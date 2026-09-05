@@ -70,6 +70,13 @@ enum ContentStatus {
   @@map("content_status")
 }
 
+enum QuestionBankPurpose {
+  quiz
+  tryout
+
+  @@map("question_bank_purpose")
+}
+
 enum MediaLibraryScope {
   kapten
   admin
@@ -1749,6 +1756,7 @@ model QuestionBank {
   name            String        @db.VarChar(200)
   description     String?       @db.Text
   folderId        String?       @map("folder_id") @db.Uuid
+  purpose         QuestionBankPurpose
   status          ContentStatus @default(draft)
   revision        Int           @default(1)
   createdByUserId String        @map("created_by_user_id") @db.Uuid
@@ -1768,6 +1776,7 @@ model QuestionBank {
   reusableQuestionPackageVersionBankScopes ReusableQuestionPackageVersionBankScope[]
 
   @@index([folderId])
+  @@index([purpose, status])
   @@map("question_banks")
 }
 

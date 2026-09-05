@@ -859,7 +859,7 @@ function DataTable<T>({
     if (search.hiddenFields) {
       Object.entries(search.hiddenFields).forEach(([name, hiddenValue]) => {
         const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
-        values.filter(Boolean).forEach((value) => params.append(name, value));
+        values.filter(Boolean).forEach((hiddenField) => params.append(name, hiddenField));
       });
     }
 

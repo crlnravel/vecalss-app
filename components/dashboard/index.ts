@@ -33,7 +33,9 @@ export {
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "./reference-dashboard-tokens";
 export { ReferenceSelect } from "./reference-dashboard-controls";
-export type { ReferenceSelectOption } from "./reference-dashboard-controls";
+export type { ReferenceSelectClassNames, ReferenceSelectOption, ReferenceSelectProps } from "./reference-dashboard-controls";
+export { ReferenceSelectField } from "./reference-select-field";
+export type { ReferenceSelectFieldProps } from "./reference-select-field";
 export type {
   ReferenceIconTone,
   ReferenceStatus,

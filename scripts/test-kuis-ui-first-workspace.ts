@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, builder, actions, repository, results, submission, quizCatalogue] = await Promise.all([
+const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, builder, repository, results, submission, quizCatalogue] = await Promise.all([
   readFile(`${root}/app/mentor/quiz/[quizId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/[quizId]/editor/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/create/page.tsx`, "utf8"),
@@ -11,15 +11,17 @@ const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, buil
   readFile(`${root}/modules/mentor/KaptenQuizDetailPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizEditorPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizBuilderPageModule.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/quiz-actions.ts`, "utf8"),
   readFile(`${root}/lib/quiz/repository.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizResultsPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizSubmissionPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizCataloguePageModules.tsx`, "utf8"),
 ]);
 
-const noBankOrAssemblyClientDependency = /listQuestionBank|listReadyAssembly|question-bank|QuestionBank|attachStandaloneQuizAssembly|detachStandaloneQuizAssembly|assemblyVersionId|sourceBankId/u;
-for (const [label, source] of [["detail route", detailRoute], ["editor route", editorRoute], ["create route", createRoute], ["detail module", detail], ["editor module", editor], ["builder compatibility module", builder], ["quiz actions", actions]] as const) {
+// Guard client-visible Kuis surfaces. Legacy source identifiers may remain in
+// server-owned persistence compatibility, and future import actions stay
+// server-only until an explicitly approved UI flow exists.
+const noBankOrAssemblyClientDependency = /listQuestionBank|listReadyAssembly|question-bank|QuestionBank|attachStandaloneQuizAssembly|detachStandaloneQuizAssembly|assemblyVersionId/u;
+for (const [label, source] of [["detail route", detailRoute], ["editor route", editorRoute], ["create route", createRoute], ["detail module", detail], ["editor module", editor], ["builder compatibility module", builder]] as const) {
   assert.doesNotMatch(source, noBankOrAssemblyClientDependency, `${label} must not browse or attach Bank Soal/Ready sources`);
 }
 

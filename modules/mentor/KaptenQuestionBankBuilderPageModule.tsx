@@ -132,6 +132,7 @@ type QuestionBankEditorState = {
 type LocalQuestionBankState = {
   categoryIds: string[];
   description: string;
+  purpose: "quiz" | "tryout";
   questions: BankQuestion[];
   subjectCode: string;
   title: string;
@@ -887,6 +888,7 @@ function QuestionBankCategoryPicker({
 type QuestionBankBuilderFormState = {
   categoryIds: string[];
   description: string;
+  purpose: "quiz" | "tryout";
   questions: BankQuestion[];
   subjectCode: string;
   title: string;
@@ -952,7 +954,7 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
 
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
+      <div className="min-w-0"><Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`} />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? `Buat Bank Soal ${builderState.purpose === "quiz" ? "Kuis" : "Tryout"}` : builderState.title}</h1><MentorBadge size="xs" tone="category">{builderState.purpose === "quiz" ? "Kuis" : "Tryout"}</MentorBadge></div>{state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
       <div className="flex flex-wrap items-center gap-2">
         <Button aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
         {mode === "edit" && state.isDraftLifecycle ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || Boolean(lifecycleDisabledReason)} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
@@ -976,6 +978,10 @@ function QuestionBankMetadataForm({ actions, builderState, categories, state }: 
           required
           value={builderState.title}
         />
+      </Field>
+      <Field>
+        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-purpose">Digunakan untuk</FieldLabel>
+        <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled id="bank-purpose" value={builderState.purpose === "quiz" ? "Kuis" : "Tryout"} />
       </Field>
       <QuestionBankCategoryPicker
         categories={categories}
@@ -1020,7 +1026,7 @@ function QuestionBankBuilderScreen({
   const confirmationDialogVariant = confirmation?.dialogVariant ?? "danger";
   const confirmationActionVariant = confirmation?.actionVariant ?? "destructive";
   const targetBankId = bankId ?? builderState.title;
-  const detailHref = `/mentor/quiz/question-bank/${targetBankId}`;
+  const detailHref = `/mentor/quiz/question-bank/${targetBankId}?purpose=${builderState.purpose}`;
 
   const questionIssues = state.readiness.issues.filter(
     (issue) => issue.questionId === state.activeQuestionId,
@@ -1270,7 +1276,7 @@ function useQuestionBankPersistence({
   async function saveDraft() {
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
-      const result = await saveQuestionBankAction({ description: builderState.description, id: bankIdRef.current, questions: builderState.questions, revision: revisionRef.current, title: builderState.title });
+      const result = await saveQuestionBankAction({ description: builderState.description, id: bankIdRef.current, purpose: builderState.purpose, questions: builderState.questions, revision: revisionRef.current, title: builderState.title });
       if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
       revisionRef.current = result.result.bank.revision;
       bankIdRef.current = result.result.bank.id;
@@ -1279,6 +1285,7 @@ function useQuestionBankPersistence({
       const contentState = {
         categoryIds: desiredCategoryIds,
         description: savedBank.description,
+        purpose: savedBank.purpose,
         questions: result.result.questions,
         subjectCode: builderState.subjectCode,
         title: savedBank.title,
@@ -1298,7 +1305,7 @@ function useQuestionBankPersistence({
       setServerReadiness(result.result.readiness);
       updateEditor({ hasUnsavedChanges: false, lifecycleStatus: result.result.bank.status });
       showToast(mode === "create" ? "Bank Soal dibuat." : "Perubahan Bank Soal tersimpan.", { variant: "success" });
-      if (mode === "create") updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}` });
+      if (mode === "create") updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}` });
     } catch (saveError) {
       updateEditor({ lifecycleError: saveError instanceof Error ? saveError.message : "Bank Soal belum dapat disimpan." });
     } finally {
@@ -1342,6 +1349,7 @@ function useQuestionBankBuilderState({
   initialQuestions = [],
   initialReadiness = null,
   mode,
+  purpose = "quiz",
 }: {
   bankId?: string;
   initialActiveQuestionId?: string;
@@ -1349,11 +1357,13 @@ function useQuestionBankBuilderState({
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
+  purpose?: "quiz" | "tryout";
 }) {
   const router = useRouter();
   const initialBuilderState: LocalQuestionBankState = {
     categoryIds: initialBank?.categoryIds ?? [],
     description: initialBank?.description ?? "",
+    purpose: initialBank?.purpose ?? purpose,
     questions: initialQuestions,
     subjectCode: initialBank?.subjectCode ?? "PU",
     title: initialBank?.title ?? "",
@@ -1767,7 +1777,7 @@ function useQuestionBankBuilderState({
     bankIdRef,
     builderState,
     mode,
-    onBankNoLongerEditable: (id) => updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${id}` }),
+    onBankNoLongerEditable: (id) => updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}` }),
     revisionRef,
     setServerReadiness,
     setLocalBuilderState,
@@ -1821,6 +1831,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialQuestions = [],
   initialReadiness = null,
   mode,
+  purpose = "quiz",
   session,
 }: {
   bankId?: string;
@@ -1830,6 +1841,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
+  purpose?: "quiz" | "tryout";
   session: SessionContext;
 }) {
   const {
@@ -1851,6 +1863,7 @@ function KaptenQuestionBankBuilderPageModule({
     initialQuestions,
     initialReadiness,
     mode,
+    purpose,
   });
 
   return (

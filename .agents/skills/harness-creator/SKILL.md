@@ -33,7 +33,8 @@ Every useful coding-agent harness has five subsystems:
 
 1. Inspect what already exists: instruction files, feature/state files, verification commands, docs, package manifests.
 2. Ask only for missing context that cannot be inferred safely: target agent, desired file name, tolerance for structure, and whether overwriting is allowed.
-3. Prefer a minimal harness first. Add memory, tool safety, multi-agent, or benchmark details only when the user's problem calls for them.
+3. During setup, ask whether agents share host CPU/process capacity. If they do, load the reusable `agent-resource-guard` skill and collect its thresholds before generating rules.
+4. Prefer a minimal harness first. Add memory, tool safety, multi-agent, or benchmark details only when the user's problem calls for them.
 
 ## Common Tasks
 
@@ -53,6 +54,18 @@ Options:
 - `--force` only after confirming overwrites are acceptable.
 
 Then explain what was created and how the user should replace placeholder feature entries.
+
+When setup identifies shared-host contention, configure the separate resource
+guard skill before finalizing the harness:
+
+```bash
+node .agents/skills/agent-resource-guard/scripts/setup-resource-guard.mjs \
+  --target /path/to/project --interactive
+```
+
+Keep the selected thresholds in the generated policy and reference that policy
+from the target `AGENTS.md` or rules document. Do not silently enable a global
+default for a project that does not need shared-host protection.
 
 ### Audit an existing harness
 

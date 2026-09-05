@@ -82,9 +82,13 @@ function safeEqual(left: string, right: string): boolean {
 function learnerPayload(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(learnerPayload);
   if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-    .filter(([key]) => !/(?:digest|hash|cipher|prompt|provider|schema)/iu.test(key))
-    .map(([key, nested]) => [key, learnerPayload(nested)]));
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (!/(?:digest|hash|cipher|prompt|provider|schema)/iu.test(key)) {
+      result[key] = learnerPayload(nested);
+    }
+  }
+  return result;
 }
 
 export class VeraLearnerService {
@@ -340,29 +344,30 @@ export class VeraLearnerService {
       if (conversation.contextVersion !== input.expectedContextVersion) {
         throw new VeraLearnerServiceError("context_version_conflict", 409, { context: await this.readContext(input.studentId, input.conversationId) });
       }
-      const resolved: Array<{ sourceType: "material" | "practice"; sourceId: string; title: string; digest: string }> = [];
-      for (const source of normalized) {
-        if (source.sourceType === "material") {
-          const moduleRow = await tx.module.findFirst({ where: { id: source.sourceId, status: "published", publishedAt: { lte: now } }, select: { id: true, title: true, updatedAt: true } });
-          if (!moduleRow) throw new VeraLearnerServiceError("context_release_unavailable", 410);
-          resolved.push({ sourceType: "material", sourceId: moduleRow.id, title: moduleRow.title, digest: sha256Hex(`${moduleRow.id}:${moduleRow.updatedAt.toISOString()}`) });
-        } else {
-          const attempt = await tx.standaloneQuizAttempt.findFirst({
-            where: { id: source.sourceId, status: "scored", scoringState: "scored", releaseState: "released", participation: { studentId: input.studentId } },
-            include: { participation: { include: { quiz: { select: { title: true } } } } },
-          });
-          if (attempt) {
-            resolved.push({ sourceType: "practice", sourceId: attempt.id, title: attempt.participation.quiz.title, digest: sha256Hex(canonicalJson({ formSnapshot: attempt.formSnapshot, policySnapshot: attempt.policySnapshot })) });
+      const resolved: Array<{ sourceType: "material" | "practice"; sourceId: string; title: string; digest: string }> = await Promise.all(
+        normalized.map(async (source) => {
+          if (source.sourceType === "material") {
+            const moduleRow = await tx.module.findFirst({ where: { id: source.sourceId, status: "published", publishedAt: { lte: now } }, select: { id: true, title: true, updatedAt: true } });
+            if (!moduleRow) throw new VeraLearnerServiceError("context_release_unavailable", 410);
+            return { sourceType: "material" as const, sourceId: moduleRow.id, title: moduleRow.title, digest: sha256Hex(`${moduleRow.id}:${moduleRow.updatedAt.toISOString()}`) };
           } else {
-            const tryout = await tx.tryoutAttempt.findFirst({
-              where: { id: source.sourceId, studentId: input.studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseDigest: { not: null } },
-              select: { id: true, assessmentReleaseDigest: true, tryout: { select: { title: true } } },
+            const attempt = await tx.standaloneQuizAttempt.findFirst({
+              where: { id: source.sourceId, status: "scored", scoringState: "scored", releaseState: "released", participation: { studentId: input.studentId } },
+              include: { participation: { include: { quiz: { select: { title: true } } } } },
             });
-            if (!tryout || !tryout.assessmentReleaseDigest) throw new VeraLearnerServiceError("context_release_unavailable", 410);
-            resolved.push({ sourceType: "practice", sourceId: tryout.id, title: tryout.tryout.title, digest: tryout.assessmentReleaseDigest });
+            if (attempt) {
+              return { sourceType: "practice" as const, sourceId: attempt.id, title: attempt.participation.quiz.title, digest: sha256Hex(canonicalJson({ formSnapshot: attempt.formSnapshot, policySnapshot: attempt.policySnapshot })) };
+            } else {
+              const tryout = await tx.tryoutAttempt.findFirst({
+                where: { id: source.sourceId, studentId: input.studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseDigest: { not: null } },
+                select: { id: true, assessmentReleaseDigest: true, tryout: { select: { title: true } } },
+              });
+              if (!tryout || !tryout.assessmentReleaseDigest) throw new VeraLearnerServiceError("context_release_unavailable", 410);
+              return { sourceType: "practice" as const, sourceId: tryout.id, title: tryout.tryout.title, digest: tryout.assessmentReleaseDigest };
+            }
           }
-        }
-      }
+        }),
+      );
       const digest = selectionDigest(resolved.map((source) => ({ sourceType: source.sourceType, sourceId: source.sourceId })));
       await tx.aiConversationSource.deleteMany({ where: { conversationId: conversation.id } });
       if (resolved.length) {
@@ -522,7 +527,14 @@ export class VeraLearnerService {
       lifecycle: { state: artifact.lifecycle.state, revision: artifact.lifecycle.lifecycleRevision, deletionState: artifact.lifecycle.deletionState },
       resultState: contentAvailable ? artifact.request?.status ?? "unavailable" : "unavailable",
       contextState: contextAvailable ? "available" : "unavailable",
-      citations: contextAvailable ? artifact.request?.sources.filter((source) => source.snapshotState === "available").map((source) => ({ key: source.citationKey, label: source.citationLabel ?? source.titleSnapshot })) ?? [] : [],
+      citations: contextAvailable && artifact.request?.sources
+        ? artifact.request.sources.reduce<Array<{ key: string; label: string }>>((acc, source) => {
+            if (source.snapshotState === "available") {
+              acc.push({ key: source.citationKey, label: source.citationLabel ?? source.titleSnapshot ?? source.citationKey });
+            }
+            return acc;
+          }, [])
+        : [],
       applyCapabilities,
       sourceEntity: artifact.sourceEntityId ? { type: artifact.sourceEntityType, id: artifact.sourceEntityId, revision: artifact.sourceEntityRevision } : null,
     };

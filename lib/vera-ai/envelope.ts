@@ -344,12 +344,15 @@ export class EnvelopeService {
   }
 
   async rotateAsync(envelope: AiEncryptedPayload): Promise<AiEncryptedPayload> {
-    const oldKey = await (this.registry as EnvelopeKeyRegistry | AsyncEnvelopeKeyRegistry).unwrapDataKey(envelope.keyRef, envelope.wrappedDek);
-    const nextRef = await (this.registry as EnvelopeKeyRegistry | AsyncEnvelopeKeyRegistry).rotateObjectKey(envelope.keyRef);
+    const registry = this.registry as EnvelopeKeyRegistry | AsyncEnvelopeKeyRegistry;
+    const [oldKey, nextRef] = await Promise.all([
+      registry.unwrapDataKey(envelope.keyRef, envelope.wrappedDek),
+      registry.rotateObjectKey(envelope.keyRef),
+    ]);
     return {
       ...envelope,
       keyRef: nextRef,
-      wrappedDek: await (this.registry as EnvelopeKeyRegistry | AsyncEnvelopeKeyRegistry).wrapDataKey(nextRef, oldKey),
+      wrappedDek: await registry.wrapDataKey(nextRef, oldKey),
     };
   }
 

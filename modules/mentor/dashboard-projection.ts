@@ -192,23 +192,23 @@ function projectMentorDashboardProjection({ materi, now, quizzes, tryouts, tutor
   const scheduledKuis = recentKuis
     .filter((resource) => resource.scheduledAt !== null && resource.status !== "archived")
     .sort(compareDashboardResourcesBySchedule);
-  const scheduledTryout = tryouts
-    .filter((record) => record.ownerId === tutorId && record.status === "published")
-    .flatMap((record) => {
-      const session = record.deliverySessions
-        .filter((candidate) => isFutureActiveSession(candidate, now))
-        .sort((left, right) => {
-          const leftAvailableFrom = getDashboardTimestampMillis(left.availableFrom);
-          const rightAvailableFrom = getDashboardTimestampMillis(right.availableFrom);
-          if (leftAvailableFrom === null) return rightAvailableFrom === null ? left.id.localeCompare(right.id) : 1;
-          if (rightAvailableFrom === null) return -1;
-          if (leftAvailableFrom !== rightAvailableFrom) return leftAvailableFrom < rightAvailableFrom ? -1 : 1;
-          return left.id.localeCompare(right.id);
-        })[0];
-      const resource = session ? toDashboardTryoutResource(record, session) : null;
-      return resource ? [resource] : [];
-    })
-    .sort(compareDashboardResourcesBySchedule);
+  const scheduledTryout: DashboardResource[] = [];
+  for (const record of tryouts) {
+    if (record.ownerId !== tutorId || record.status !== "published") continue;
+    const session = record.deliverySessions
+      .filter((candidate) => isFutureActiveSession(candidate, now))
+      .sort((left, right) => {
+        const leftAvailableFrom = getDashboardTimestampMillis(left.availableFrom);
+        const rightAvailableFrom = getDashboardTimestampMillis(right.availableFrom);
+        if (leftAvailableFrom === null) return rightAvailableFrom === null ? left.id.localeCompare(right.id) : 1;
+        if (rightAvailableFrom === null) return -1;
+        if (leftAvailableFrom !== rightAvailableFrom) return leftAvailableFrom < rightAvailableFrom ? -1 : 1;
+        return left.id.localeCompare(right.id);
+      })[0];
+    const resource = session ? toDashboardTryoutResource(record, session) : null;
+    if (resource) scheduledTryout.push(resource);
+  }
+  scheduledTryout.sort(compareDashboardResourcesBySchedule);
 
   return {
     ...createEmptyDashboardProjection(),

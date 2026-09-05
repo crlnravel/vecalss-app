@@ -51,7 +51,6 @@ import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/fi
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
@@ -697,7 +696,7 @@ function KaptenQuizEditorPageModule({
     const inventory = <QuestionInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onDelete={setPendingDeleteId} onMove={moveQuestion} onSelect={selectQuestion} questions={form.questions} />;
     const mobileInventory = <QuizMobileInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onSelect={selectQuestion} questions={form.questions} />;
     const questionEditor = activeQuestion ? (
-      <Tabs className="min-w-0 gap-4" onValueChange={setQuestionEditorTab} value={questionEditorTab}>
+      <div className="flex min-w-0 flex-col gap-4">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
           <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">
@@ -709,9 +708,8 @@ function KaptenQuizEditorPageModule({
             />
           </label>
         </div>
-        <TabsContent className="m-0 min-w-0" value="edit"><QuestionForm disabled={editorDisabled} onAddChoice={addChoice} onChange={updateActiveQuestion} onOpenMedia={setMediaPickerTarget} onRemoveChoice={removeChoice} onRemoveMedia={removeMedia} question={activeQuestion} /></TabsContent>
-        <TabsContent className="m-0 min-w-0" value="preview"><QuestionPreview question={activeQuestion} /></TabsContent>
-      </Tabs>
+        {questionEditorTab === "edit" ? <QuestionForm disabled={editorDisabled} onAddChoice={addChoice} onChange={updateActiveQuestion} onOpenMedia={setMediaPickerTarget} onRemoveChoice={removeChoice} onRemoveMedia={removeMedia} question={activeQuestion} /> : <QuestionPreview question={activeQuestion} />}
+      </div>
     ) : (
       <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" variant="inset"><ReferenceEmptyState action={<Button disabled={editorDisabled} onClick={addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal</Button>} description="Daftar soalmu masih kosong. Tambahkan soal pertama dari panel di sebelah kiri." icon={CircleHelp} title="Pilih soal untuk mulai mengedit" /></ReferenceSurface>
     );

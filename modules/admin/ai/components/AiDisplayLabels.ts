@@ -18,10 +18,12 @@ export function formatAiFeatureLabel(value: string) {
   );
 }
 
+const IDR_CURRENCY_FORMATTER = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
 export function formatAiCurrency(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Math.max(0, value));
+  return IDR_CURRENCY_FORMATTER.format(Math.max(0, value));
 }

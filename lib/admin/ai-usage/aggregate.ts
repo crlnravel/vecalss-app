@@ -96,7 +96,10 @@ function aggregateMetrics(rows: MetricRows, now: Date, activeStudents: number | 
 
   const terminal = rows.filter((row) => TERMINAL_STATUSES.has(row.status));
   metrics.quotaUnits = numericSum(terminal.map((row) => row.quotaUnitsConsumed));
-  metrics.reservedQuotaUnits = numericSum(rows.filter((row) => row.status === "pending" || row.status === "staged").map((row) => row.quotaUnitsReserved));
+  metrics.reservedQuotaUnits = rows.reduce<number>(
+    (sum, row) => (row.status === "pending" || row.status === "staged" ? sum + (typeof row.quotaUnitsReserved === "number" && Number.isFinite(row.quotaUnitsReserved) ? row.quotaUnitsReserved : 0) : sum),
+    0,
+  );
   const promptValues = terminal.map((row) => row.inputTokens).filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   const completionValues = terminal.map((row) => row.outputTokens).filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   metrics.promptTokens = promptValues.length > 0 ? numericSum(promptValues) : null;

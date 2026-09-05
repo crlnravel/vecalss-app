@@ -3,24 +3,18 @@
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, ChevronDown } from "@/lib/icons";
+import { AlertCircle } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
   ReferencePageHeader,
+  ReferenceSelectField,
   ReferenceSurface,
 } from "@/components/dashboard";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Field,
   FieldInput,
@@ -86,50 +80,6 @@ function ProfileSection({
       </div>
       <div>{children}</div>
     </section>
-  );
-}
-
-function SelectField({
-  id,
-  label,
-  name,
-  onChange,
-  options,
-  value,
-}: {
-  id: string;
-  label: string;
-  name?: string;
-  onChange: (value: string) => void;
-  options: Array<{ label: string; value: string }>;
-  value: string;
-}) {
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Pilih nanti";
-
-  return (
-    <Field>
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={id}>{label}</FieldLabel>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label={label}
-          id={id}
-          render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "font-normal")} variant="context" />}
-        >
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronDown aria-hidden className="size-4 shrink-0 text-secondary-500" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width)">
-          <DropdownMenuRadioGroup onValueChange={(nextValue) => onChange(String(nextValue))} value={value}>
-            {options.map((option) => (
-              <DropdownMenuRadioItem closeOnClick key={option.value || "empty"} value={option.value}>
-                {option.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <input name={name ?? id} type="hidden" value={value} />
-    </Field>
   );
 }
 
@@ -269,11 +219,12 @@ function SettingsPageModule({
         >
           <ReferenceSurface className="p-5 md:p-6">
             <div className="grid gap-5 md:grid-cols-2">
-              <SelectField
+              <ReferenceSelectField
+                className="font-normal"
                 id="profile-target-exam"
                 label="Ujian target"
                 name="targetExamEventId"
-                onChange={setTargetExamEventId}
+                onValueChange={setTargetExamEventId}
                 options={[
                   { label: "Pilih nanti", value: "" },
                   ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
@@ -281,11 +232,12 @@ function SettingsPageModule({
                 value={targetExamEventId}
               />
 
-              <SelectField
+              <ReferenceSelectField
+                className="font-normal"
                 id="profile-target-university"
                 label="Kampus tujuan"
                 name="targetUniversityId"
-                onChange={handleUniversityChange}
+                onValueChange={handleUniversityChange}
                 options={[
                   { label: "Pilih nanti", value: "" },
                   ...universities.map((university) => ({
@@ -296,11 +248,12 @@ function SettingsPageModule({
                 value={targetUniversityId}
               />
 
-              <SelectField
+              <ReferenceSelectField
+                className="font-normal"
                 id="profile-target-major"
                 label="Jurusan tujuan"
                 name="targetMajorId"
-                onChange={setTargetMajorId}
+                onValueChange={setTargetMajorId}
                 options={[
                   { label: "Pilih nanti", value: "" },
                   ...availableMajors.map((major) => ({

@@ -233,11 +233,26 @@ export async function lockAndRevalidateDrillCandidates(
   authority: FrozenDrillAuthority,
 ): Promise<Map<string, FrozenDrillCandidate & { correctOptionKey: string; explanation: string | null }>> {
   if (authority.version !== "vera-drill-candidates-v1" || authority.candidateSetDigest !== sha256Hex(canonicalJson(authority.candidates))) return new Map();
-  const standaloneAttemptIds = [...new Set(authority.candidates.filter((item) => item.sourceKind === "standalone_quiz").map((item) => item.attemptId))].sort();
-  const tryoutAttemptIds = [...new Set(authority.candidates.filter((item) => item.sourceKind === "tryout").map((item) => item.attemptId))].sort();
-  const standaloneItemIds = [...new Set(authority.candidates.filter((item) => item.sourceKind === "standalone_quiz").map((item) => item.assessmentItemId))].sort();
-  const tryoutItemIds = [...new Set(authority.candidates.filter((item) => item.sourceKind === "tryout").map((item) => item.assessmentItemId))].sort();
-  const revisionIds = [...new Set(authority.candidates.map((item) => item.questionRevisionId))].sort();
+  const standaloneAttemptSet = new Set<string>();
+  const tryoutAttemptSet = new Set<string>();
+  const standaloneItemSet = new Set<string>();
+  const tryoutItemSet = new Set<string>();
+  const revisionSet = new Set<string>();
+  for (const item of authority.candidates) {
+    revisionSet.add(item.questionRevisionId);
+    if (item.sourceKind === "standalone_quiz") {
+      standaloneAttemptSet.add(item.attemptId);
+      standaloneItemSet.add(item.assessmentItemId);
+    } else if (item.sourceKind === "tryout") {
+      tryoutAttemptSet.add(item.attemptId);
+      tryoutItemSet.add(item.assessmentItemId);
+    }
+  }
+  const standaloneAttemptIds = [...standaloneAttemptSet].sort();
+  const tryoutAttemptIds = [...tryoutAttemptSet].sort();
+  const standaloneItemIds = [...standaloneItemSet].sort();
+  const tryoutItemIds = [...tryoutItemSet].sort();
+  const revisionIds = [...revisionSet].sort();
   if (standaloneAttemptIds.length) await tx.$queryRaw(Prisma.sql`SELECT id FROM standalone_quiz_attempts WHERE id IN (${Prisma.join(standaloneAttemptIds.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY id FOR SHARE`);
   if (tryoutAttemptIds.length) await tx.$queryRaw(Prisma.sql`SELECT id FROM tryout_attempts WHERE id IN (${Prisma.join(tryoutAttemptIds.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY id FOR SHARE`);
   if (tryoutAttemptIds.length) await tx.$queryRaw(Prisma.sql`SELECT ar.id FROM assessment_releases ar JOIN tryout_attempts ta ON ta.assessment_release_id = ar.id WHERE ta.id IN (${Prisma.join(tryoutAttemptIds.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY ar.id FOR SHARE OF ar`);
@@ -250,25 +265,38 @@ export async function lockAndRevalidateDrillCandidates(
   const current = (await Promise.all(sources.map((sourceId) => candidatesForSource(tx, studentId, sourceId)))).flat();
   const currentByRevision = new Map(current.map((item) => [item.questionRevisionId, item]));
   const result = new Map<string, FrozenDrillCandidate & { correctOptionKey: string; explanation: string | null }>();
-  for (const frozen of authority.candidates) {
-    const resolved = currentByRevision.get(frozen.questionRevisionId);
-    if (!resolved || sha256Hex(canonicalJson(resolved)) !== sha256Hex(canonicalJson(frozen))) continue;
-    const source = frozen.sourceKind === "standalone_quiz"
-      ? await tx.standaloneQuizAttempt.findUnique({ where: { id: frozen.attemptId }, select: { formSnapshot: true, policySnapshot: true } })
-      : null;
-    let correctOptionKey: string | null = null;
-    let explanation: string | null = null;
-    if (source) {
-      const item = parseStandaloneSnapshot(source.formSnapshot)?.find((candidate) => candidate.id === frozen.assessmentItemId);
-      correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
-      explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
-    } else {
-      const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId: frozen.attemptId }, orderBy: { sequenceNo: "asc" }, select: { contentSnapshot: true, catSnapshot: true } });
-      const item = runs.flatMap((run) => parseTryoutItems(run.contentSnapshot, selectedTryoutItemIds(run.catSnapshot)) ?? []).find((candidate) => candidate.id === frozen.assessmentItemId);
-      correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
-      explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
+  const candidateResults = await Promise.all(
+    authority.candidates.map(async (frozen) => {
+      const resolved = currentByRevision.get(frozen.questionRevisionId);
+      if (!resolved || sha256Hex(canonicalJson(resolved)) !== sha256Hex(canonicalJson(frozen))) {
+        return null;
+      }
+      const source = frozen.sourceKind === "standalone_quiz"
+        ? await tx.standaloneQuizAttempt.findUnique({ where: { id: frozen.attemptId }, select: { formSnapshot: true, policySnapshot: true } })
+        : null;
+      let correctOptionKey: string | null = null;
+      let explanation: string | null = null;
+      if (source) {
+        const item = parseStandaloneSnapshot(source.formSnapshot)?.find((candidate) => candidate.id === frozen.assessmentItemId);
+        correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
+        explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
+      } else {
+        const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId: frozen.attemptId }, orderBy: { sequenceNo: "asc" }, select: { contentSnapshot: true, catSnapshot: true } });
+        const item = runs.flatMap((run) => parseTryoutItems(run.contentSnapshot, selectedTryoutItemIds(run.catSnapshot)) ?? []).find((candidate) => candidate.id === frozen.assessmentItemId);
+        correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
+        explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
+      }
+      if (correctOptionKey) {
+        return { questionRevisionId: frozen.questionRevisionId, value: { ...frozen, correctOptionKey, explanation } };
+      }
+      return null;
+    }),
+  );
+
+  for (const entry of candidateResults) {
+    if (entry) {
+      result.set(entry.questionRevisionId, entry.value);
     }
-    if (correctOptionKey) result.set(frozen.questionRevisionId, { ...frozen, correctOptionKey, explanation });
   }
   return result;
 }

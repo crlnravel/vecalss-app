@@ -641,12 +641,12 @@ function ParticipantAttemptScreen({
                     </span>
                   ) : null}
                   <div className="flex shrink-0 items-center gap-2">
-                  <AssessmentUtilityPill
-                    active={reported.has(item.id)}
-                    icon={Flag}
-                    label="Laporkan soal"
-                    onClick={onToggleReport}
-                  />
+                    <AssessmentUtilityPill
+                      active={reported.has(item.id)}
+                      icon={Flag}
+                      label="Laporkan soal"
+                      onClick={onToggleReport}
+                    />
                   <AssessmentIconButton
                     ariaLabel="Perkecil ukuran font"
                     icon={Minus}

@@ -2,18 +2,9 @@
 
 import { useActionState, useCallback, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ReferenceSelectField } from "@/components/dashboard";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ExamEvent } from "@/generated/prisma/client";
-import { ChevronDown, CircleHelp } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import type { FormState } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -54,45 +45,20 @@ function StudentDropdownField({
   options: StudentDropdownOption[];
   value: string;
 }) {
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Atur nanti";
-
   return (
-    <Field>
-      <div className="flex items-center gap-1.5">
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        {help ? (
-          <Tooltip>
-            <TooltipTrigger render={<Button aria-label={`${label} guidance`} size="icon-xs" type="button" variant="ghost" />}>
-              <CircleHelp aria-hidden="true" size={15} />
-            </TooltipTrigger>
-            <TooltipContent>{help}</TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label={label}
-          aria-describedby={error ? `${id}-error` : undefined}
-          aria-invalid={Boolean(error)}
-          id={id}
-          render={<Button className="min-w-0 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 py-3.5 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25" variant="context" />}
-        >
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width)">
-          <DropdownMenuRadioGroup onValueChange={(nextValue) => onValueChange(String(nextValue))} value={value}>
-            {options.map((option) => (
-              <DropdownMenuRadioItem closeOnClick key={option.value || "empty"} value={option.value}>
-                {option.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <input name={name} type="hidden" value={value} />
-      <FieldError error={error} id={`${id}-error`} />
-    </Field>
+    <ReferenceSelectField
+      aria-label={label}
+      className={error ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
+      error={error}
+      help={help}
+      id={id}
+      label={label}
+      name={name}
+      onValueChange={onValueChange}
+      options={options}
+      placeholder="Atur nanti"
+      value={value}
+    />
   );
 }
 

@@ -27,18 +27,23 @@ async function main() {
     const tryoutId = tryoutResult.rows[0].id;
 
     const bankQuestionCounts = await client.query(
-      `SELECT subtests.code, COUNT(*)::int AS count
+      `SELECT question_banks.code AS bank_code, question_banks.purpose, subtests.code, COUNT(*)::int AS count
          FROM questions
          JOIN question_banks ON question_banks.id = questions.question_bank_id
          JOIN subtests ON subtests.id = questions.subtest_id
-        WHERE question_banks.code = 'seed:assessment:mixed-subject-bank:v1'
-          AND questions.code LIKE 'seed:demo:question:%'
+        WHERE question_banks.code IN ('seed:assessment:quiz-bank:v1', 'seed:assessment:tryout-bank:v1')
+          AND questions.code LIKE 'seed:demo:%:question:%'
           AND questions.status = 'published'
-        GROUP BY subtests.code
-        ORDER BY subtests.code`,
+        GROUP BY question_banks.code, question_banks.purpose, subtests.code
+        ORDER BY question_banks.code, subtests.code`,
     );
-    assert.equal(bankQuestionCounts.rowCount, 7, "Every UTBK subtest must be represented in the question bank.");
+    assert.equal(bankQuestionCounts.rowCount, 14, "Every UTBK subtest must be represented in both purpose-specific banks.");
     assert(bankQuestionCounts.rows.every((row) => row.count === 3), "Every UTBK subtest must contain three reviewed questions.");
+    assert.deepEqual(
+      new Set(bankQuestionCounts.rows.map((row) => row.purpose)),
+      new Set(["quiz", "tryout"]),
+      "The demonstration must contain separate Kuis and Tryout banks.",
+    );
 
     assert.equal(
       await scalar(client, "SELECT COUNT(*)::int AS value FROM standalone_quizzes WHERE idempotency_key LIKE 'seed:demo:quiz:%'"),
@@ -54,9 +59,28 @@ async function main() {
       "Every demonstration quiz must contain three questions.",
     );
     assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM standalone_quizzes quizzes
+                              JOIN question_banks banks ON banks.id = quizzes.source_bank_id
+                             WHERE quizzes.idempotency_key LIKE 'seed:demo:quiz:%'
+                               AND banks.purpose = 'quiz'`),
+      7,
+      "Every demonstration Kuis must use the Quiz-purpose bank.",
+    );
+    assert.equal(
       await scalar(client, "SELECT COUNT(*)::int AS value FROM reusable_question_packages WHERE code LIKE 'seed:demo:package:%' AND status = 'published'"),
       7,
       "The demonstration catalogue must contain seven ready reusable packages.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM reusable_question_packages packages
+                              JOIN question_banks banks ON banks.id = packages.source_bank_id
+                             WHERE packages.code LIKE 'seed:demo:package:%'
+                               AND packages.status = 'published'
+                               AND banks.purpose = 'tryout'`),
+      7,
+      "Every demonstration package must use the Tryout-purpose bank.",
     );
     assert.equal(
       await scalar(client, `SELECT COUNT(*)::int AS value FROM tryout_sections WHERE tryout_id = $1`, [tryoutId]),
@@ -67,6 +91,16 @@ async function main() {
       await scalar(client, `SELECT COUNT(*)::int AS value FROM tryout_items WHERE tryout_id = $1`, [tryoutId]),
       21,
       "The published tryout must contain 21 frozen items.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_items items
+                              JOIN questions questions ON questions.id = items.source_question_id
+                              JOIN question_banks banks ON banks.id = questions.question_bank_id
+                             WHERE items.tryout_id = $1
+                               AND banks.purpose = 'tryout'`, [tryoutId]),
+      21,
+      "Every published Tryout item must come from the Tryout-purpose bank.",
     );
     assert.equal(
       await scalar(client, `SELECT COUNT(*)::int AS value FROM tryout_sections WHERE tryout_id = $1 AND test_type = 'cat'`, [tryoutId]),
@@ -180,14 +214,15 @@ async function main() {
       `SELECT COUNT(*)::int AS value FROM (
          SELECT title AS value FROM tryout_packages WHERE code = 'seed:assessment:tryout:evaluasi-program:v1'
          UNION ALL SELECT description FROM tryout_packages WHERE code = 'seed:assessment:tryout:evaluasi-program:v1'
-         UNION ALL SELECT name FROM question_banks WHERE code = 'seed:assessment:mixed-subject-bank:v1'
-         UNION ALL SELECT description FROM question_banks WHERE code = 'seed:assessment:mixed-subject-bank:v1'
+         UNION ALL SELECT name FROM question_banks WHERE code IN ('seed:assessment:quiz-bank:v1', 'seed:assessment:tryout-bank:v1')
+         UNION ALL SELECT description FROM question_banks WHERE code IN ('seed:assessment:quiz-bank:v1', 'seed:assessment:tryout-bank:v1')
        ) copy WHERE value ILIKE '%baseline%' OR value ILIKE '%tryout baseline%'`,
     );
     assert.equal(prohibitedCopy, 0, "User-facing demonstration copy must not contain placeholder language.");
 
     console.table([
-      { area: "Question bank", records: 21 },
+      { area: "Question banks", records: 2 },
+      { area: "Purpose-specific bank questions", records: 42 },
       { area: "Standalone quizzes", records: 7 },
       { area: "Reusable package versions", records: 7 },
       { area: "Tryout sections", records: 7 },

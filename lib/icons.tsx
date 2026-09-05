@@ -156,7 +156,6 @@ export const Clipboard = PhosphorClipboard;
 export const ClipboardList = PhosphorClipboardList;
 export const Clock = PhosphorClock;
 export const Clock3 = PhosphorClock;
-export const Cpu = PhosphorBrain;
 export const Copy = PhosphorCopy;
 export const Diff = PhosphorSlidersHorizontal;
 export const Download = PhosphorDownload;

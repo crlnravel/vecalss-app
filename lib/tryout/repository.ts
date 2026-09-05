@@ -65,7 +65,7 @@ const sourceInclude = {
 const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
 const packageLifecycleInclude = { sourceBank: { select: { id: true, name: true } }, subtest: { select: { code: true, id: true, name: true } }, items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
-const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true } } } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
+const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true, purpose: true } } } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 type TryoutReadRecord = Prisma.TryoutPackageGetPayload<{ include: typeof tryoutInclude }>;
 type TryoutPackageBindingRecord = { sections: Array<{ items: Array<{ packageVersionId: string | null }>; packageVersionId: string | null }> };
 
@@ -113,6 +113,7 @@ function assertReadySources(sources: Prisma.QuestionGetPayload<{ include: typeof
     const options = revision?.options ?? source.options;
     return source.questionBankId !== sourceBankId
       || source.questionBank?.status === ContentStatus.archived
+      || source.questionBank?.purpose !== "tryout"
       || source.status === ContentStatus.archived
       || revision?.status !== QuestionRevisionStatus.ready
       || source.subtest?.code !== subtest
@@ -133,6 +134,7 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
     const options = revision?.options ?? source.options;
     const selection = selectionById.get(source.id);
     return source.questionBank?.status === ContentStatus.archived
+      || source.questionBank?.purpose !== "tryout"
       || source.status === ContentStatus.archived
       || source.questionBank === null
       || source.subtest?.code !== subtest
@@ -434,8 +436,8 @@ async function commitPackageReadyVersion(tx: Prisma.TransactionClient, packageId
   await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
   const pkg = await tx.reusableQuestionPackage.findFirst({ where: { id: packageId, createdByUserId: actorId }, include: { subtest: true, items: { orderBy: { sortOrder: "asc" } } } });
   if (!pkg) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
-  const sourceBank = await tx.questionBank.findUnique({ where: { id: pkg.sourceBankId }, select: { id: true } });
-  if (!sourceBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
+  const sourceBank = await tx.questionBank.findUnique({ where: { id: pkg.sourceBankId }, select: { id: true, purpose: true } });
+  if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Paket hanya dapat memakai Bank Soal tujuan Tryout.");
   const sources = await readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId);
   assertPackageItemRevisions(pkg.items, sources);
 
@@ -525,8 +527,8 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
 
     const subtest = await tx.subtest.findUnique({ where: { code: input.subtest } });
     if (!subtest) throw new TryoutValidationError("Subtest Paket tidak ditemukan.");
-    const sourceBank = await tx.questionBank.findUnique({ where: { id: input.sourceBankId }, select: { id: true } });
-    if (!sourceBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
+    const sourceBank = await tx.questionBank.findUnique({ where: { id: input.sourceBankId }, select: { id: true, purpose: true } });
+    if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Paket hanya dapat memakai Bank Soal tujuan Tryout.");
     if (current?.subtestId && current.subtestId !== subtest.id) throw new TryoutValidationError("Subtest Paket tidak dapat diubah setelah dibuat.");
     if (current?.sourceBankId && current.sourceBankId !== input.sourceBankId) throw new TryoutValidationError("Bank sumber Paket tidak dapat diubah.");
 

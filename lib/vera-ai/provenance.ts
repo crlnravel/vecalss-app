@@ -64,13 +64,20 @@ export function assertT11MigrationInventoryComplete(entries: MigrationInventoryE
     entry,
   ]));
   const missing = [...expected.keys()].filter((key) => !actual.has(key));
-  const wrongClass = [...actual.values()]
-    .filter((entry) => expected.has(`${entry.sourceTable}:${entry.sourceField}`))
-    .filter((entry) => expected.get(`${entry.sourceTable}:${entry.sourceField}`) !== entry.contentClass)
-    .map((entry) => `${entry.sourceTable}:${entry.sourceField}`);
-  const unclassified = [...actual.values()]
-    .filter((entry) => expected.has(`${entry.sourceTable}:${entry.sourceField}`) && entry.unclassifiedPlaintext > 0)
-    .map((entry) => `${entry.sourceTable}:${entry.sourceField}`);
+  const wrongClass: string[] = [];
+  const unclassified: string[] = [];
+  for (const entry of actual.values()) {
+    const key = `${entry.sourceTable}:${entry.sourceField}`;
+    const expectedClass = expected.get(key);
+    if (expectedClass !== undefined) {
+      if (expectedClass !== entry.contentClass) {
+        wrongClass.push(key);
+      }
+      if (entry.unclassifiedPlaintext > 0) {
+        unclassified.push(key);
+      }
+    }
+  }
   if (missing.length || wrongClass.length || unclassified.length) {
     throw new VeraContractError(
       "legacy_context_rejected",
@@ -88,10 +95,14 @@ export function assertMigrationInventoryComplete(entries: MigrationInventoryEntr
   ]));
   const actual = new Set(entries.map((entry) => `${entry.sourceTable}:${entry.sourceField}`));
   const missing = [...expected.keys()].filter((key) => !actual.has(key));
-  const wrongClass = entries
-    .filter((entry) => expected.has(`${entry.sourceTable}:${entry.sourceField}`))
-    .filter((entry) => expected.get(`${entry.sourceTable}:${entry.sourceField}`) !== entry.contentClass)
-    .map((entry) => `${entry.sourceTable}:${entry.sourceField}`);
+  const wrongClass: string[] = [];
+  for (const entry of entries) {
+    const key = `${entry.sourceTable}:${entry.sourceField}`;
+    const expectedClass = expected.get(key);
+    if (expectedClass !== undefined && expectedClass !== entry.contentClass) {
+      wrongClass.push(key);
+    }
+  }
   const unclassified = entries.filter((entry) => entry.unclassifiedPlaintext > 0);
   if (missing.length || wrongClass.length || unclassified.length) {
     throw new VeraContractError(

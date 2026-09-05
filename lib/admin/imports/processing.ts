@@ -1530,7 +1530,9 @@ async function retryEnrollmentImport(input: RetryEnrollmentImportInput): Promise
         AND target_id = ${input.importId}::uuid
         AND target_type = 'enrollment_import'
         AND metadata ->> 'requestKey' = ${requestKey}
-      ORDER BY occurred_at DESC, id DESC
+      ORDER BY occurred_at DESC,
+               CASE WHEN action = 'enrollment_import.retry_completed' THEN 1 ELSE 0 END DESC,
+               id DESC
     `;
     const matchingRetry = retryAudits
       .map((audit) => retryAuditMetadata(audit.metadata ?? null))

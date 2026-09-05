@@ -58,7 +58,7 @@ const releaseTryoutInclude = {
       packageVersion: {
         include: {
           bankScopes: {
-            include: { questionBank: { select: { id: true, name: true, status: true } } },
+            include: { questionBank: { select: { id: true, name: true, purpose: true, status: true } } },
             orderBy: { questionBankId: "asc" as const },
           },
           categoryScopes: {
@@ -79,6 +79,7 @@ const releaseTryoutInclude = {
           },
           package: { select: { code: true, id: true, mode: true, status: true, title: true } },
           rule: true,
+          sourceBank: { select: { id: true, name: true, purpose: true, status: true } },
           subtest: { select: { code: true, id: true, isActive: true, name: true } },
         },
       },
@@ -152,6 +153,7 @@ const releaseSourceInclude = {
       folderId: true,
       id: true,
       name: true,
+      purpose: true,
       status: true,
     },
   },
@@ -409,6 +411,13 @@ function sourceReadinessIssues(
       status: bank?.status,
     }));
   }
+  if (bank?.purpose !== "tryout") {
+    blockers.push(resolutionBlocker("scope", "Tryout hanya dapat dirilis dari Bank Soal tujuan Tryout.", {
+      bankId: bank?.id,
+      purpose: bank?.purpose,
+      expectedPurpose: "tryout",
+    }));
+  }
   if (source.status === ContentStatus.archived) {
     blockers.push(resolutionBlocker("stale_candidate", "Soal kandidat sudah diarsipkan.", { sourceQuestionId: source.id }));
   } else if (source.status !== ContentStatus.published) {
@@ -570,6 +579,7 @@ type ReleaseAssemblyVersionRecord = Prisma.ReusableQuestionPackageVersionGetPayl
     items: typeof releaseTryoutInclude.sections.include.packageVersion.include.items;
     package: typeof releaseTryoutInclude.sections.include.packageVersion.include.package;
     rule: true;
+    sourceBank: typeof releaseTryoutInclude.sections.include.packageVersion.include.sourceBank;
     subtest: typeof releaseTryoutInclude.sections.include.packageVersion.include.subtest;
   };
 }>;
@@ -655,6 +665,7 @@ async function queryBlueprintSourceIds(
         is: {
           ...(version.categoryScopes.length ? { categories: { some: { categoryId: { in: version.categoryScopes.map((scope) => scope.categoryId) } } } } : {}),
           ...(version.folderScopes.length ? { folderId: { in: version.folderScopes.map((scope) => scope.folderId) } } : {}),
+          purpose: "tryout",
           status: ContentStatus.published,
         },
       },
@@ -818,7 +829,7 @@ async function resolveAndMaterializeAssemblies(
     where: { id: { in: [...new Set(versionIds)] } },
     include: {
       bankScopes: {
-        include: { questionBank: { select: { id: true, name: true, status: true } } },
+        include: { questionBank: { select: { id: true, name: true, purpose: true, status: true } } },
         orderBy: { questionBankId: "asc" },
       },
       categoryScopes: {
@@ -839,6 +850,7 @@ async function resolveAndMaterializeAssemblies(
       },
       package: { select: { code: true, id: true, mode: true, status: true, title: true } },
       rule: true,
+      sourceBank: { select: { id: true, name: true, purpose: true, status: true } },
       subtest: { select: { code: true, id: true, isActive: true, name: true } },
     },
   });
@@ -847,6 +859,19 @@ async function resolveAndMaterializeAssemblies(
     resolutionError("stale_candidate", "Versi Ready assembly tidak lagi ditemukan.", {
       requestedVersionIds: [...new Set(versionIds)].sort(),
       foundVersionIds: versions.map((version) => version.id).sort(),
+    });
+  }
+  const wrongPurposeBanks = versions.flatMap((version) => version.bankScopes
+    .filter((scope) => scope.questionBank.purpose !== "tryout")
+    .map((scope) => ({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose, versionId: version.id })));
+  const wrongPurposeSourceBanks = versions.flatMap((version) => version.sourceBank.purpose !== "tryout"
+    ? [{ bankId: version.sourceBank.id, purpose: version.sourceBank.purpose, versionId: version.id }]
+    : []);
+  wrongPurposeBanks.push(...wrongPurposeSourceBanks);
+  if (wrongPurposeBanks.length) {
+    resolutionError("scope", "Tryout hanya dapat mematerialisasi assembly dari Bank Soal tujuan Tryout.", {
+      expectedPurpose: "tryout",
+      wrongPurposeBanks,
     });
   }
 
@@ -1348,6 +1373,12 @@ async function assertTryoutReleaseEligibility(
           },
           packageVersion: {
             select: {
+              bankScopes: {
+                select: {
+                  questionBank: { select: { id: true, purpose: true } },
+                  questionBankId: true,
+                },
+              },
               mode: true,
               subtestId: true,
               items: {
@@ -1360,6 +1391,7 @@ async function assertTryoutReleaseEligibility(
                   subtestId: true,
                 },
               },
+              sourceBank: { select: { id: true, purpose: true } },
               status: true,
             },
           },
@@ -1370,6 +1402,31 @@ async function assertTryoutReleaseEligibility(
   });
   if (!tryout || tryout.status !== ContentStatus.published) {
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
+  }
+  const scopedBanks = tryout.sections.flatMap((section) => section.packageVersion?.bankScopes ?? []);
+  const selectedQuestionIds = [...new Set(tryout.sections.flatMap((section) => [
+    ...section.items.map((item) => item.sourceQuestionId),
+    ...(section.packageVersion?.items ?? []).map((item) => item.sourceQuestionId),
+  ]).filter((id): id is string => Boolean(id)))];
+  const selectedSources = selectedQuestionIds.length
+    ? await tx.question.findMany({
+      where: { id: { in: selectedQuestionIds } },
+      select: { id: true, questionBank: { select: { id: true, purpose: true } } },
+    })
+    : [];
+  const wrongPurposeSources = [
+    ...scopedBanks
+      .filter((scope) => scope.questionBank.purpose !== "tryout")
+      .map((scope) => ({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose })),
+    ...tryout.sections.flatMap((section) => section.packageVersion?.sourceBank && section.packageVersion.sourceBank.purpose !== "tryout"
+      ? [{ bankId: section.packageVersion.sourceBank.id, purpose: section.packageVersion.sourceBank.purpose }]
+      : []),
+    ...selectedSources
+      .filter((source) => source.questionBank?.purpose !== "tryout")
+      .map((source) => ({ bankId: source.questionBank?.id ?? null, purpose: source.questionBank?.purpose ?? null, sourceQuestionId: source.id })),
+  ];
+  if (wrongPurposeSources.length) {
+    throw new Error("Tryout hanya dapat memakai soal dari Bank Soal tujuan Tryout.");
   }
   const latestArchivedReleasePayload = tryout.assessmentReleases[0]?.payload as {
     tryout?: { revision?: unknown };

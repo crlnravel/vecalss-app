@@ -26,6 +26,22 @@ let cachedArtifactCommandService: VeraArtifactCommandService | null = null;
 let cachedDrillService: VeraDrillService | null = null;
 let cachedLifecycleService: VeraLifecycleService | null = null;
 
+const TIMEZONE_DATE_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+function formatLocalDateInTimezone(date: Date, timeZone: string): string {
+  let formatter = TIMEZONE_DATE_FORMATTERS.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    TIMEZONE_DATE_FORMATTERS.set(timeZone, formatter);
+  }
+  return formatter.format(date);
+}
+
 /**
  * Select the only dev POC provider ahead of the normal mock/default chain.
  * The POC adapter performs the complete explicit environment gate itself;
@@ -113,10 +129,12 @@ export async function readVeraUsageDto(studentId: string, db: typeof prisma = pr
       tx.billingAccount.findUnique({ where: { studentId }, select: { planCode: true, status: true } }),
     ]);
     const timezone = profile?.timezone ?? "Asia/Jakarta";
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    const parts = formatLocalDateInTimezone(now, timezone);
     const usageDate = new Date(`${parts}T00:00:00.000Z`);
-    const ledger = await tx.aiUsageDaily.findUnique({ where: { studentId_usageDate_ledgerVersion: { studentId, usageDate, ledgerVersion: "vera_quota_v1" } } });
-    const policy = await tx.aiPolicyBundle.findFirst({ where: { state: { in: ["active", "scheduled"] }, effectiveAt: { lte: now } }, orderBy: { effectiveAt: "desc" } });
+    const [ledger, policy] = await Promise.all([
+      tx.aiUsageDaily.findUnique({ where: { studentId_usageDate_ledgerVersion: { studentId, usageDate, ledgerVersion: "vera_quota_v1" } } }),
+      tx.aiPolicyBundle.findFirst({ where: { state: { in: ["active", "scheduled"] }, effectiveAt: { lte: now } }, orderBy: { effectiveAt: "desc" } }),
+    ]);
     const planCode = billing?.planCode?.trim().toLowerCase() ?? null;
     const limit = planCode === "pro" ? 20_000 : 10_000;
     return {

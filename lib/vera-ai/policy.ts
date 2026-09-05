@@ -152,11 +152,11 @@ export type VeraPolicySnapshot = {
   maxProviderAttempts: 2;
 };
 
+const VALID_IANA_TIMEZONES = new Set(Intl.supportedValuesOf("timeZone"));
+
 function assertTimezone(timezone: string): string {
   const normalized = timezone.trim() || "Asia/Jakarta";
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: normalized }).format();
-  } catch {
+  if (!VALID_IANA_TIMEZONES.has(normalized)) {
     throw new VeraContractError("vera_not_active", "Zona waktu profil tidak valid.", 422);
   }
   return normalized;

@@ -342,6 +342,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
           categoryId: bankCategoryFilter || undefined,
           page: sourceBankPage,
           pageSize: SOURCE_BANK_PAGE_SIZE,
+          purpose: "tryout",
           search: bankSearch,
           subjectCoverage: draft.subtest ? [draft.subtest] : undefined,
         });
@@ -363,6 +364,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
         const result = await listQuestionBankSourceQuestionsAction(draft.sourceBankId, {
           page: sourceQuestionPage,
           pageSize: SOURCE_QUESTION_PAGE_SIZE,
+          purpose: "tryout",
           search: questionSearch,
         });
         if (cancelled || !result) return;

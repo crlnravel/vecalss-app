@@ -32,6 +32,11 @@ The scripts use only Node.js built-in modules. They can be run after copying the
 
 `create-harness.mjs` detects common project types and package managers. It supports Node/npm/pnpm/yarn/bun, Python, Go, Rust, Maven, Gradle, and .NET at a basic verification-command level.
 
+For shared-host CPU/process protection, install or copy the separate
+`agent-resource-guard` skill and run its setup helper during harness setup. It
+renders a configurable guard and policy without coupling resource limits to the
+generic harness creator.
+
 ## What It Checks
 
 `validate-harness.mjs` scores the five harness subsystems:

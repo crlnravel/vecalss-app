@@ -102,6 +102,22 @@ function lifecycleStatus(code: LifecycleErrorCode): number {
   }
 }
 
+const TIMEZONE_DATE_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+function formatLocalDateInTimezone(date: Date, timeZone: string): string {
+  let formatter = TIMEZONE_DATE_FORMATTERS.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    TIMEZONE_DATE_FORMATTERS.set(timeZone, formatter);
+  }
+  return formatter.format(date);
+}
+
 export type LifecycleAcceptedDto = {
   operationId: string;
   resultKind: "export_job" | "conversation_delete" | "artifact_delete";
@@ -291,27 +307,29 @@ async function enqueueEnvelopePurgeWorkItems(
   recoveryDeadlineAt: Date,
 ): Promise<string[]> {
   const distinct = [...new Set(keyRefs.filter((value) => value.trim().length > 0))].sort(compareCanonical);
-  for (const keyRef of distinct) {
-    const objectId = deterministicWorkItemId(operationId, keyRef);
-    await tx.aiPurgeWorkItem.upsert({
-      where: { operationId_objectType_objectId: { operationId, objectType: "envelope_key", objectId } },
-      create: {
-        id: randomUUID(),
-        operationId,
-        objectType: "envelope_key",
-        objectId,
-        state: "pending",
-        claimId: keyRef,
-        keyLineageDigest: sha256Hex(keyRef),
-        recoveryDeadlineAt,
-      },
-      update: {
-        claimId: keyRef,
-        keyLineageDigest: sha256Hex(keyRef),
-        recoveryDeadlineAt,
-      },
-    });
-  }
+  await Promise.all(
+    distinct.map((keyRef) => {
+      const objectId = deterministicWorkItemId(operationId, keyRef);
+      return tx.aiPurgeWorkItem.upsert({
+        where: { operationId_objectType_objectId: { operationId, objectType: "envelope_key", objectId } },
+        create: {
+          id: randomUUID(),
+          operationId,
+          objectType: "envelope_key",
+          objectId,
+          state: "pending",
+          claimId: keyRef,
+          keyLineageDigest: sha256Hex(keyRef),
+          recoveryDeadlineAt,
+        },
+        update: {
+          claimId: keyRef,
+          keyLineageDigest: sha256Hex(keyRef),
+          recoveryDeadlineAt,
+        },
+      });
+    }),
+  );
   return distinct;
 }
 
@@ -353,30 +371,32 @@ async function enqueueObjectPurgeWorkItems(
     const typeOrder = compareCanonical(left.objectType, right.objectType);
     return typeOrder === 0 ? compareCanonical(left.objectId, right.objectId) : typeOrder;
   });
-  for (const item of ordered) {
-    const lineageDigest = sha256Hex(canonicalExportJson({
-      objectType: item.objectType,
-      objectId: item.objectId,
-      keyRefs: item.keyRefs ?? [],
-    }));
-    await tx.aiPurgeWorkItem.upsert({
-      where: { operationId_objectType_objectId: { operationId, objectType: item.objectType, objectId: item.objectId } },
-      create: {
-        id: randomUUID(),
-        operationId,
+  await Promise.all(
+    ordered.map((item) => {
+      const lineageDigest = sha256Hex(canonicalExportJson({
         objectType: item.objectType,
         objectId: item.objectId,
-        state: "pending",
-        claimId: `lineage:${item.objectType}:${item.objectId}`,
-        keyLineageDigest: lineageDigest,
-        recoveryDeadlineAt,
-      },
-      update: {
-        keyLineageDigest: lineageDigest,
-        recoveryDeadlineAt,
-      },
-    });
-  }
+        keyRefs: item.keyRefs ?? [],
+      }));
+      return tx.aiPurgeWorkItem.upsert({
+        where: { operationId_objectType_objectId: { operationId, objectType: item.objectType, objectId: item.objectId } },
+        create: {
+          id: randomUUID(),
+          operationId,
+          objectType: item.objectType,
+          objectId: item.objectId,
+          state: "pending",
+          claimId: `lineage:${item.objectType}:${item.objectId}`,
+          keyLineageDigest: lineageDigest,
+          recoveryDeadlineAt,
+        },
+        update: {
+          keyLineageDigest: lineageDigest,
+          recoveryDeadlineAt,
+        },
+      });
+    }),
+  );
 }
 
 /**
@@ -623,18 +643,16 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...sources.map(({ id }) => id),
   ];
   const activeKeyRows = await tx.aiEnvelopeKey.findMany({ where: { state: "active" }, select: { keyRef: true, objectId: true } });
-  const keyRefs = [...new Set([
-    ...exactKeyRefs,
-    ...activeKeyRows
-      .filter(({ objectId, keyRef }) => ownershipMarkers.some((marker) => objectId.includes(marker) || keyRef.includes(marker)))
-      .map(({ keyRef }) => keyRef),
-    // A lineage digest is intentionally content-free. It cannot decrypt a
-    // row, but matching it to the durable key registry closes the gap for
-    // legacy envelopes whose payload has already been retired.
-    ...activeKeyRows
-      .filter(({ objectId, keyRef }) => lineageDigests.some((digest) => digest === sha256Hex(keyRef) || objectId.includes(digest)))
-      .map(({ keyRef }) => keyRef),
-  ])].sort(compareCanonical);
+  const keyRefsSet = new Set(exactKeyRefs);
+  for (const { objectId, keyRef } of activeKeyRows) {
+    if (ownershipMarkers.some((marker) => objectId.includes(marker) || keyRef.includes(marker))) {
+      keyRefsSet.add(keyRef);
+    }
+    if (lineageDigests.some((digest) => digest === sha256Hex(keyRef) || objectId.includes(digest))) {
+      keyRefsSet.add(keyRef);
+    }
+  }
+  const keyRefs = [...keyRefsSet].sort(compareCanonical);
 
   await enqueueObjectPurgeWorkItems(tx, operationId, [
     ...requestIds.map((objectId) => ({ objectType: "ai_request", objectId })),
@@ -692,10 +710,6 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     const terminal = request.status === "succeeded" || request.status === "fallback" || request.status === "failed";
     if (terminal) continue;
     const stage = stageByRequest.get(request.id);
-    // Unknown provider usage is not a numeric zero and must never be promoted
-    // to known accounting during account cleanup.  The reservation is the
-    // conservative charge; the terminal request remains explicitly unknown so
-    // reports can exclude it from known-token denominators.
     const usageState = stage?.tokenUsageState ?? request.tokenUsageState;
     const usageKnown = usageState === "known"
       && (stage ? stage.quotaUnitsConsumed !== null : request.quotaUnitsConsumed !== null);
@@ -703,7 +717,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
       ? (stage?.quotaUnitsConsumed ?? request.quotaUnitsConsumed ?? request.quotaUnitsReserved)
       : request.quotaUnitsReserved;
     const daily = dailyRows.find((candidate) => {
-      const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: candidate.quotaTimezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(request.createdAt);
+      const localDate = formatLocalDateInTimezone(request.createdAt, candidate.quotaTimezone);
       return candidate.usageDate.toISOString().slice(0, 10) === localDate;
     });
     if (daily) {
@@ -712,38 +726,67 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
       const used = currentDaily.usedQuotaUnits + actual;
       const debt = Math.max(0, used + released - currentDaily.quotaLimitUnitsSnapshot);
       const quotaOverrunLockUntil = debt > 0 ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : currentDaily.quotaOverrunLockUntil;
-      await tx.aiUsageDaily.update({ where: { id: daily.id }, data: { reservedQuotaUnits: released, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil, finalizedRequestCount: { increment: 1 } } });
       dailyState.set(daily.id, { ...currentDaily, reservedQuotaUnits: released, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil, finalizedRequestCount: currentDaily.finalizedRequestCount + 1 });
     }
-    const requestUpdate = await tx.aiRequest.updateMany({
-      where: { id: request.id, version: request.version, status: { notIn: ["succeeded", "fallback", "failed"] } },
-      data: {
-        studentId: null,
-        conversationId: null,
-        userMessageId: null,
-        assistantMessageId: null,
-        promptTemplate: null,
-        providerRequestRef: null,
-        providerTaskDigest: null,
-        status: "failed",
-        errorCode: "account_deleted",
-        quotaUnitsConsumed: actual,
-        quotaOverrunUnits: usageKnown ? Math.max(0, actual - request.quotaUnitsReserved) : 0,
-        tokenUsageState: usageKnown ? "known" : usageState === "not_applicable" ? "not_applicable" : "unknown",
-        usageAccountingState: usageKnown
-          ? (actual > request.quotaUnitsReserved ? "overrun_debt" : "known")
-          : "unknown",
-        idempotencyEvidenceState: "tombstoned",
-        ownerState: "account_deleted",
-        ownerReferenceDigest,
-        accountDeletedAt: now,
-        finalizedAt: now,
-        version: { increment: 1 },
-      },
-    });
-    if (requestUpdate.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "A request changed while account cleanup was settling it.", 409);
-    settledRequestIds.add(request.id);
   }
+
+  await Promise.all(
+    [...dailyState.values()].map((currentDaily) =>
+      tx.aiUsageDaily.update({
+        where: { id: currentDaily.id },
+        data: {
+          reservedQuotaUnits: currentDaily.reservedQuotaUnits,
+          usedQuotaUnits: currentDaily.usedQuotaUnits,
+          quotaDebtUnits: currentDaily.quotaDebtUnits,
+          quotaOverrunLockUntil: currentDaily.quotaOverrunLockUntil,
+          finalizedRequestCount: currentDaily.finalizedRequestCount,
+        },
+      }),
+    ),
+  );
+
+  await Promise.all(
+    requests.map(async (request) => {
+      const terminal = request.status === "succeeded" || request.status === "fallback" || request.status === "failed";
+      if (terminal) return;
+      const stage = stageByRequest.get(request.id);
+      const usageState = stage?.tokenUsageState ?? request.tokenUsageState;
+      const usageKnown = usageState === "known"
+        && (stage ? stage.quotaUnitsConsumed !== null : request.quotaUnitsConsumed !== null);
+      const actual = usageKnown
+        ? (stage?.quotaUnitsConsumed ?? request.quotaUnitsConsumed ?? request.quotaUnitsReserved)
+        : request.quotaUnitsReserved;
+
+      const requestUpdate = await tx.aiRequest.updateMany({
+        where: { id: request.id, version: request.version, status: { notIn: ["succeeded", "fallback", "failed"] } },
+        data: {
+          studentId: null,
+          conversationId: null,
+          userMessageId: null,
+          assistantMessageId: null,
+          promptTemplate: null,
+          providerRequestRef: null,
+          providerTaskDigest: null,
+          status: "failed",
+          errorCode: "account_deleted",
+          quotaUnitsConsumed: actual,
+          quotaOverrunUnits: usageKnown ? Math.max(0, actual - request.quotaUnitsReserved) : 0,
+          tokenUsageState: usageKnown ? "known" : usageState === "not_applicable" ? "not_applicable" : "unknown",
+          usageAccountingState: usageKnown
+            ? (actual > request.quotaUnitsReserved ? "overrun_debt" : "known")
+            : "unknown",
+          idempotencyEvidenceState: "tombstoned",
+          ownerState: "account_deleted",
+          ownerReferenceDigest,
+          accountDeletedAt: now,
+          finalizedAt: now,
+          version: { increment: 1 },
+        },
+      });
+      if (requestUpdate.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "A request changed while account cleanup was settling it.", 409);
+      settledRequestIds.add(request.id);
+    }),
+  );
 
   if (allConversationIds.length > 0) {
     await tx.aiMessage.updateMany({ where: { conversationId: { in: allConversationIds } }, data: { contentMarkdown: null, metadata: Prisma.DbNull, contentState: "purging", metadataState: "purging" } });
@@ -847,17 +890,19 @@ export class VeraLifecycleService {
     return this.db.$transaction(async (tx) => {
       await lockStudent(tx, input.studentId);
       await lockIdempotency(tx, input.studentId, "export_create", input.idempotencyKey);
-      const now = await dbNow(tx);
       // Account-deletion state is an admission boundary, not merely a UI
       // concern.  Re-check it after the owner row is locked so a concurrent
       // cleanup cannot race a newly accepted export into the deleted account.
-      const owner = await tx.user.findUnique({ where: { id: input.studentId }, select: { status: true, softDeletedAt: true } });
+      const [now, owner, existing] = await Promise.all([
+        dbNow(tx),
+        tx.user.findUnique({ where: { id: input.studentId }, select: { status: true, softDeletedAt: true } }),
+        tx.aiIdempotencyKey.findFirst({
+          where: { studentId: input.studentId, operation: "export_create", clientRequestId: input.idempotencyKey },
+        }),
+      ]);
       if (!owner || owner.status !== "active" || owner.softDeletedAt !== null) {
         throw new VeraLifecycleError("account_deleted", "Exports are unavailable for a deleted account.");
       }
-      const existing = await tx.aiIdempotencyKey.findFirst({
-        where: { studentId: input.studentId, operation: "export_create", clientRequestId: input.idempotencyKey },
-      });
       if (existing) {
         if (existing.state === "expired" || now >= existing.expiresAt) {
           await tx.aiIdempotencyKey.updateMany({
@@ -967,8 +1012,10 @@ export class VeraLifecycleService {
     return this.db.$transaction(async (tx) => {
       await lockStudent(tx, input.studentId);
       await lockIdempotency(tx, input.studentId, "conversation_delete", input.idempotencyKey);
-      const now = await dbNow(tx);
-      const existing = await tx.aiIdempotencyKey.findFirst({ where: { studentId: input.studentId, operation: "conversation_delete", clientRequestId: input.idempotencyKey } });
+      const [now, existing] = await Promise.all([
+        dbNow(tx),
+        tx.aiIdempotencyKey.findFirst({ where: { studentId: input.studentId, operation: "conversation_delete", clientRequestId: input.idempotencyKey } }),
+      ]);
       if (existing) {
         if (existing.state === "expired" || now >= existing.expiresAt) throw new VeraLifecycleError("idempotency_key_expired", "The idempotency key has expired.");
         if (existing.requestFingerprint !== fingerprint) throw new VeraLifecycleError("idempotency_conflict", "The idempotency key payload differs from the stored request.");
@@ -1026,8 +1073,10 @@ export class VeraLifecycleService {
     return this.db.$transaction(async (tx) => {
       await lockStudent(tx, input.studentId);
       await lockIdempotency(tx, input.studentId, "artifact_delete", input.idempotencyKey);
-      const now = await dbNow(tx);
-      const existing = await tx.aiIdempotencyKey.findFirst({ where: { studentId: input.studentId, operation: "artifact_delete", clientRequestId: input.idempotencyKey } });
+      const [now, existing] = await Promise.all([
+        dbNow(tx),
+        tx.aiIdempotencyKey.findFirst({ where: { studentId: input.studentId, operation: "artifact_delete", clientRequestId: input.idempotencyKey } }),
+      ]);
       if (existing) {
         if (existing.state === "expired" || now >= existing.expiresAt) throw new VeraLifecycleError("idempotency_key_expired", "The idempotency key has expired.");
         if (existing.requestFingerprint !== fingerprint) throw new VeraLifecycleError("idempotency_conflict", "The idempotency key payload differs from the stored request.");
@@ -1206,16 +1255,17 @@ export class VeraLifecycleService {
       // locked persisted parts inside the finalizer transaction so a stale or
       // replayed worker cannot finalize a different package.
       const scoped = this.envelope.forClient(tx);
-      const plaintext = [] as Buffer[];
-      for (const part of parts) {
-        const envelope = asEnvelope(part.ciphertextEnvelope);
-        if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "Export part envelope is malformed.");
-        const bytes = await scoped.decryptAsync(envelope);
-        if (bytes.byteLength !== part.plaintextBytes || sha256Hex(bytes) !== part.partDigest) {
-          throw new VeraLifecycleError("export_payload_unavailable", "Export part digest does not match its envelope.");
-        }
-        plaintext.push(bytes);
-      }
+      const plaintext = await Promise.all(
+        parts.map(async (part) => {
+          const envelope = asEnvelope(part.ciphertextEnvelope);
+          if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "Export part envelope is malformed.");
+          const bytes = await scoped.decryptAsync(envelope);
+          if (bytes.byteLength !== part.plaintextBytes || sha256Hex(bytes) !== part.partDigest) {
+            throw new VeraLifecycleError("export_payload_unavailable", "Export part digest does not match its envelope.");
+          }
+          return bytes;
+        }),
+      );
       const packageBytes = Buffer.concat(plaintext);
       const snapshotDigest = exportSnapshotDigest(packageBytes);
       if (snapshotDigest !== input.snapshotDigest || packageBytes.byteLength !== input.packageBytes) {
@@ -1233,16 +1283,20 @@ export class VeraLifecycleService {
       if (updatedJob.count !== 1) throw new VeraLifecycleError("export_payload_unavailable", "The materialization claim was fenced during finalization.");
       const operationUpdate = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, state: "processing", version: job.operation.version }, data: { state: "ready", resultState: "ready", exportExpiresAt: downloadExpiresAt, expiresAt: new Date(downloadExpiresAt.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
       if (operationUpdate.count !== 1) throw new VeraLifecycleError("export_payload_unavailable", "The export lifecycle version was fenced during finalization.");
-      const operation = await tx.aiLifecycleOperation.findUniqueOrThrow({ where: { id: input.operationId } });
-      const readyJob = await tx.aiExportJob.findUniqueOrThrow({ where: { id: input.exportId } });
+      const [operation, readyJob] = await Promise.all([
+        tx.aiLifecycleOperation.findUniqueOrThrow({ where: { id: input.operationId } }),
+        tx.aiExportJob.findUniqueOrThrow({ where: { id: input.exportId } }),
+      ]);
       return { job: readyJob, operation };
     });
   }
 
   private async markExportFailure(exportId: string, errorCode: string, terminal: boolean, claimId?: string, fence?: number): Promise<void> {
     await this.db.$transaction(async (tx) => {
-      const now = await dbNow(tx);
-      const job = await tx.aiExportJob.findUnique({ where: { id: exportId } });
+      const [now, job] = await Promise.all([
+        dbNow(tx),
+        tx.aiExportJob.findUnique({ where: { id: exportId } }),
+      ]);
       if (!job || job.state === "ready" || job.state === "expired") return;
       if (claimId !== undefined && (job.materializationClaimId !== claimId || job.materializationFence !== fence)) return;
       if (!terminal && now < job.recoveryDeadlineAt) {
@@ -1357,14 +1411,16 @@ export class VeraLifecycleService {
                 if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "A terminal export part envelope is malformed; purge remains retryable.", 409);
                 return envelope;
               });
-              for (const envelope of parsedParts) {
-                postCommitKeyRefs.push(envelope.keyRef);
-                await tx.aiPurgeWorkItem.upsert({
-                  where: { operationId_objectType_objectId: { operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef) } },
-                  create: { id: randomUUID(), operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef), state: "pending", claimId: envelope.keyRef, keyLineageDigest: sha256Hex(envelope.keyRef), recoveryDeadlineAt: deadlines.terminalRetentionExpiresAt },
-                  update: { claimId: envelope.keyRef },
-                });
-              }
+              postCommitKeyRefs.push(...parsedParts.map((envelope) => envelope.keyRef));
+              await Promise.all(
+                parsedParts.map((envelope) =>
+                  tx.aiPurgeWorkItem.upsert({
+                    where: { operationId_objectType_objectId: { operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef) } },
+                    create: { id: randomUUID(), operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef), state: "pending", claimId: envelope.keyRef, keyLineageDigest: sha256Hex(envelope.keyRef), recoveryDeadlineAt: deadlines.terminalRetentionExpiresAt },
+                    update: { claimId: envelope.keyRef },
+                  }),
+                ),
+              );
               // The package parts may have been deleted by a committed reaper
               // transaction immediately before a worker crashed.  Rediscover
               // the durable key work from the operation row so the next pass
@@ -1445,8 +1501,10 @@ export class VeraLifecycleService {
   }
 
   async downloadExport(input: { exportId: string; studentId?: string; grant?: string }): Promise<ExportDownload> {
-    const claim = await this.claimDownload(input);
-    const parts = await this.db.aiExportPart.findMany({ where: { exportJobId: input.exportId }, orderBy: { ordinal: "asc" } });
+    const [claim, parts] = await Promise.all([
+      this.claimDownload(input),
+      this.db.aiExportPart.findMany({ where: { exportJobId: input.exportId }, orderBy: { ordinal: "asc" } }),
+    ]);
     if (parts.length === 0 || parts.some((part, index) => part.ordinal !== index)) {
       // A ready export without its complete part set is no longer a valid
       // ready transition.  Persist a terminal integrity failure with the
@@ -1455,9 +1513,13 @@ export class VeraLifecycleService {
       await this.terminalizeCorruptReadyExport(input.exportId, "export_parts_missing");
       throw new VeraLifecycleError("export_unavailable", "Export parts are unavailable.");
     }
-    const plaintext: Buffer[] = [];
+    let plaintext: Buffer[];
     try {
-      for (const part of parts) plaintext.push(await this.envelope.decryptAsync(asEnvelope(part.ciphertextEnvelope) as AiEncryptedPayload));
+      plaintext = await Promise.all(
+        parts.map((part) =>
+          this.envelope.decryptAsync(asEnvelope(part.ciphertextEnvelope) as AiEncryptedPayload),
+        ),
+      );
     } catch {
       throw new VeraLifecycleError("export_unavailable", "Export parts are unavailable.");
     }
@@ -1465,8 +1527,10 @@ export class VeraLifecycleService {
     if (bytes.byteLength !== claim.packageBytes || sha256Hex(bytes) !== claim.snapshotDigest) throw new VeraLifecycleError("export_unavailable", "Export package integrity check failed.");
     if (claim.grantClaimId) {
       await this.db.$transaction(async (tx) => {
-        const now = await dbNow(tx);
-        const updated = await tx.aiExportJob.updateMany({ where: { id: input.exportId, exportAccessGrantState: "claiming", exportAccessGrantClaimId: claim.grantClaimId, exportAccessGrantVersion: claim.grantVersion }, data: { exportAccessGrantState: "consumed", exportAccessGrantLeaseExpiresAt: null, exportAccessGrantVersion: { increment: 1 } } });
+        const [now, updated] = await Promise.all([
+          dbNow(tx),
+          tx.aiExportJob.updateMany({ where: { id: input.exportId, exportAccessGrantState: "claiming", exportAccessGrantClaimId: claim.grantClaimId, exportAccessGrantVersion: claim.grantVersion }, data: { exportAccessGrantState: "consumed", exportAccessGrantLeaseExpiresAt: null, exportAccessGrantVersion: { increment: 1 } } }),
+        ]);
         if (updated.count !== 1) throw new VeraLifecycleError("export_access_consumed", "The export access grant was already consumed.");
         void now;
       });
@@ -1549,44 +1613,48 @@ export class VeraLifecycleService {
       this.db.aiArtifact.findMany({ where: { studentId, createdAt: { lte: exportAsOf }, lifecycle: { state: "visible", deletionState: "active" } }, select: { id: true, artifactType: true, createdAt: true, contentMarkdownCiphertext: true, payloadCiphertext: true, lifecycle: { select: { state: true, deletionState: true } } } }),
     ]);
     if (conversations.length > 500 || conversations.reduce((sum, row) => sum + row.messages.length, 0) > 10_000 || artifacts.length > 1_000) throw new VeraLifecycleError("export_size_limit", "Export exceeds a bounded row cap.");
-    const resultConversations = [] as Array<Record<string, unknown>>;
-    for (const conversation of conversations) {
-      const messages = [] as Array<Record<string, unknown>>;
-      for (const message of conversation.messages) {
-        const contentEnvelope = asEnvelope(message.contentEnvelope);
-        if (!contentEnvelope || message.contentState !== "encrypted") throw new VeraLifecycleError("export_payload_unavailable", "A learner-visible message has no available envelope.");
-        const content = await this.envelope.decryptTextAsync(contentEnvelope);
-        if (Buffer.byteLength(content, "utf8") > 256 * 1024) throw new VeraLifecycleError("export_size_limit", "A message exceeds the learner-visible size cap.");
-        const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "message", message.id), role: message.role, contentMarkdown: content, createdAt: formatExportInstant(message.createdAt) };
-        const metadataEnvelope = asEnvelope(message.metadataEnvelope);
-        if (metadataEnvelope && message.metadataState === "encrypted") {
-          const metadata = JSON.parse(await this.envelope.decryptTextAsync(metadataEnvelope)) as unknown;
-          projection.visibleMetadata = metadata;
-        }
-        messages.push(projection);
-      }
-      messages.sort((left, right) => compareCanonical(`${String(left.createdAt)}:${String(left.publicReference)}`, `${String(right.createdAt)}:${String(right.publicReference)}`));
-      const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "conversation", conversation.id), createdAt: formatExportInstant(conversation.createdAt), messages };
-      if (conversation.title !== null) projection.title = conversation.title.normalize("NFC");
-      resultConversations.push(projection);
-    }
+    const resultConversations = await Promise.all(
+      conversations.map(async (conversation) => {
+        const messages = await Promise.all(
+          conversation.messages.map(async (message) => {
+            const contentEnvelope = asEnvelope(message.contentEnvelope);
+            if (!contentEnvelope || message.contentState !== "encrypted") throw new VeraLifecycleError("export_payload_unavailable", "A learner-visible message has no available envelope.");
+            const content = await this.envelope.decryptTextAsync(contentEnvelope);
+            if (Buffer.byteLength(content, "utf8") > 256 * 1024) throw new VeraLifecycleError("export_size_limit", "A message exceeds the learner-visible size cap.");
+            const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "message", message.id), role: message.role, contentMarkdown: content, createdAt: formatExportInstant(message.createdAt) };
+            const metadataEnvelope = asEnvelope(message.metadataEnvelope);
+            if (metadataEnvelope && message.metadataState === "encrypted") {
+              const metadata = JSON.parse(await this.envelope.decryptTextAsync(metadataEnvelope)) as unknown;
+              projection.visibleMetadata = metadata;
+            }
+            return projection;
+          }),
+        );
+        messages.sort((left, right) => compareCanonical(`${String(left.createdAt)}:${String(left.publicReference)}`, `${String(right.createdAt)}:${String(right.publicReference)}`));
+        const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "conversation", conversation.id), createdAt: formatExportInstant(conversation.createdAt), messages };
+        if (conversation.title !== null) projection.title = conversation.title.normalize("NFC");
+        return projection;
+      }),
+    );
     resultConversations.sort((left, right) => compareCanonical(String(left.publicReference), String(right.publicReference)));
-    const resultArtifacts = [] as Array<Record<string, unknown>>;
-    for (const artifact of artifacts) {
-      const contentEnvelope = asEnvelope(artifact.contentMarkdownCiphertext);
-      if (!contentEnvelope) throw new VeraLifecycleError("export_payload_unavailable", "A learner-visible artifact has no available envelope.");
-      const content = await this.envelope.decryptTextAsync(contentEnvelope);
-      if (Buffer.byteLength(content, "utf8") > 256 * 1024) throw new VeraLifecycleError("export_size_limit", "An artifact exceeds the learner-visible size cap.");
-      const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "artifact", artifact.id), featureLabel: String(artifact.artifactType), createdAt: formatExportInstant(artifact.createdAt), contentMarkdown: content, contextState: "available" };
-      const payloadEnvelope = asEnvelope(artifact.payloadCiphertext);
-      if (payloadEnvelope) {
-        const payload = JSON.parse(await this.envelope.decryptTextAsync(payloadEnvelope)) as unknown;
-        const structuredBytes = Buffer.byteLength(canonicalExportJson(payload), "utf8");
-        if (structuredBytes > 512 * 1024) throw new VeraLifecycleError("export_size_limit", "An artifact structured-data projection exceeds the learner-visible size cap.");
-        projection.visibleStructuredData = payload;
-      }
-      resultArtifacts.push(projection);
-    }
+
+    const resultArtifacts = await Promise.all(
+      artifacts.map(async (artifact) => {
+        const contentEnvelope = asEnvelope(artifact.contentMarkdownCiphertext);
+        if (!contentEnvelope) throw new VeraLifecycleError("export_payload_unavailable", "A learner-visible artifact has no available envelope.");
+        const content = await this.envelope.decryptTextAsync(contentEnvelope);
+        if (Buffer.byteLength(content, "utf8") > 256 * 1024) throw new VeraLifecycleError("export_size_limit", "An artifact exceeds the learner-visible size cap.");
+        const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "artifact", artifact.id), featureLabel: String(artifact.artifactType), createdAt: formatExportInstant(artifact.createdAt), contentMarkdown: content, contextState: "available" };
+        const payloadEnvelope = asEnvelope(artifact.payloadCiphertext);
+        if (payloadEnvelope) {
+          const payload = JSON.parse(await this.envelope.decryptTextAsync(payloadEnvelope)) as unknown;
+          const structuredBytes = Buffer.byteLength(canonicalExportJson(payload), "utf8");
+          if (structuredBytes > 512 * 1024) throw new VeraLifecycleError("export_size_limit", "An artifact structured-data projection exceeds the learner-visible size cap.");
+          projection.visibleStructuredData = payload;
+        }
+        return projection;
+      }),
+    );
     resultArtifacts.sort((left, right) => compareCanonical(String(left.publicReference), String(right.publicReference)));
     return { schemaVersion: "vera.export.v1", product: "Vera AI", exportAsOf: formatExportInstant(exportAsOf), conversations: resultConversations, artifacts: resultArtifacts };
   }
@@ -1783,22 +1851,24 @@ export class VeraLifecycleService {
         throw new VeraLifecycleError("capability_denied", "Two distinct operators are required to release a retention hold.", 403);
       }
       const operatorIds = [requestedA.operatorId, requestedB.operatorId];
-      const authorizedRows = await tx.user.findMany({
-        where: {
-          id: { in: operatorIds },
-          status: "active",
-          softDeletedAt: null,
-          roleAssignments: { some: { role: "admin", revokedAt: null } },
-        },
-        select: {
-          id: true,
-          roleAssignments: { where: { role: "admin", revokedAt: null }, select: { id: true } },
-        },
-      });
-      const grants = await tx.aiCapabilityGrant.findMany({
-        where: { userId: { in: operatorIds }, isActive: true, capability: { in: ["canManageAiPolicy", "canManageAiGovernance"] } },
-        select: { id: true, userId: true, capability: true },
-      });
+      const [authorizedRows, grants] = await Promise.all([
+        tx.user.findMany({
+          where: {
+            id: { in: operatorIds },
+            status: "active",
+            softDeletedAt: null,
+            roleAssignments: { some: { role: "admin", revokedAt: null } },
+          },
+          select: {
+            id: true,
+            roleAssignments: { where: { role: "admin", revokedAt: null }, select: { id: true } },
+          },
+        }),
+        tx.aiCapabilityGrant.findMany({
+          where: { userId: { in: operatorIds }, isActive: true, capability: { in: ["canManageAiPolicy", "canManageAiGovernance"] } },
+          select: { id: true, userId: true, capability: true },
+        }),
+      ]);
       if (authorizedRows.length !== 2) throw new VeraLifecycleError("capability_denied", "Both hold-release operators must be current admins.", 403);
       const authorizedById = new Map(authorizedRows.map((row) => [row.id, row]));
       const grantsById = new Map<string, typeof grants>();
@@ -2056,9 +2126,11 @@ export class VeraLifecycleService {
     const registry = this.envelope.forClient(this.db);
     for (const keyRef of [...new Set(keyRefs)].sort(compareCanonical)) {
       const claim = await this.db.$transaction(async (tx) => {
-        const now = await dbNow(tx);
-        const keyRow = await tx.aiEnvelopeKey.findUnique({ where: { keyRef }, select: { state: true } });
-        const workItem = await tx.aiPurgeWorkItem.findFirst({ where: { operationId, objectType: "envelope_key", claimId: keyRef } });
+        const [now, keyRow, workItem] = await Promise.all([
+          dbNow(tx),
+          tx.aiEnvelopeKey.findUnique({ where: { keyRef }, select: { state: true } }),
+          tx.aiPurgeWorkItem.findFirst({ where: { operationId, objectType: "envelope_key", claimId: keyRef } }),
+        ]);
         if (!keyRow) {
           if (workItem && workItem.state !== "completed") {
             await tx.aiPurgeWorkItem.updateMany({ where: { id: workItem.id, state: { not: "completed" } }, data: { state: "failed_retryable", errorCode: "key_registry_missing", errorDigest: sha256Hex(keyRef), leaseExpiresAt: null, updatedAt: now } });
@@ -2105,8 +2177,8 @@ export class VeraLifecycleService {
       try {
         await registry.purgeAsync({ keyRef } as AiEncryptedPayload);
         await this.db.$transaction(async (tx) => {
-          const now = await dbNow(tx);
           if (!claim.workItemId) return;
+          const now = await dbNow(tx);
           await tx.aiPurgeWorkItem.updateMany({ where: { id: claim.workItemId, state: "claimed", fence: claim.fence, claimId: keyRef }, data: { state: "completed", leaseExpiresAt: null, errorCode: null, errorDigest: null, updatedAt: now } });
         });
       } catch (error) {
@@ -2163,29 +2235,35 @@ export class VeraLifecycleService {
       // P2025 as a failed deletion.
       const processing = await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, version: operation.version, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "processing", version: { increment: 1 } } });
       if (processing.count !== 1) return null;
-      const messages = await tx.aiMessage.findMany({ where: { conversationId: conversation.id }, select: { id: true, contentEnvelope: true, metadataEnvelope: true } });
-      const artifacts = await tx.aiArtifact.findMany({ where: { conversationId: conversation.id }, select: { id: true, titleCiphertext: true, contentMarkdownCiphertext: true, payloadCiphertext: true } });
+      const [messages, artifacts, requests, analyses, adaptiveSessions, ptnSessions] = await Promise.all([
+        tx.aiMessage.findMany({ where: { conversationId: conversation.id }, select: { id: true, contentEnvelope: true, metadataEnvelope: true } }),
+        tx.aiArtifact.findMany({ where: { conversationId: conversation.id }, select: { id: true, titleCiphertext: true, contentMarkdownCiphertext: true, payloadCiphertext: true } }),
+        tx.aiRequest.findMany({ where: { conversationId: conversation.id }, select: { id: true } }),
+        tx.weaknessAnalysis.findMany({ where: { conversationId: conversation.id }, select: { id: true, resultEnvelope: true } }),
+        tx.adaptivePracticeSession.findMany({ where: { sourceConversationId: conversation.id }, select: { id: true, resultEnvelope: true, appliedPlanEnvelope: true } }),
+        tx.ptnStrategySession.findMany({ where: { conversationId: conversation.id }, select: { id: true, resultEnvelope: true, appliedStrategyEnvelope: true } }),
+      ]);
       await tx.aiMessage.updateMany({ where: { conversationId: conversation.id }, data: { contentState: "purging", metadataState: "purging" } });
-      const requests = await tx.aiRequest.findMany({ where: { conversationId: conversation.id }, select: { id: true } });
       const requestIds = requests.map(({ id }) => id);
-      const stages = requestIds.length > 0
-        ? await tx.aiRequestResultStage.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedResultCiphertext: true } })
-        : [];
-      const packs = requestIds.length > 0
-        ? await tx.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedTaskCiphertext: true, canonicalBytesCiphertext: true, conversationMessageManifestCiphertext: true } })
-        : [];
-      const sources = requestIds.length > 0
-        ? await tx.aiRequestSource.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, boundedSnapshotCiphertext: true } })
-        : [];
-      const analyses = await tx.weaknessAnalysis.findMany({ where: { conversationId: conversation.id }, select: { id: true, resultEnvelope: true } });
-      const adaptiveSessions = await tx.adaptivePracticeSession.findMany({ where: { sourceConversationId: conversation.id }, select: { id: true, resultEnvelope: true, appliedPlanEnvelope: true } });
-      const adaptiveItems = adaptiveSessions.length > 0
-        ? await tx.adaptivePracticeItem.findMany({ where: { adaptiveSessionId: { in: adaptiveSessions.map(({ id }) => id) } }, select: { id: true, promptSnapshotCiphertext: true, optionSnapshotCiphertext: true, scoringSnapshotCiphertext: true } })
-        : [];
-      const ptnSessions = await tx.ptnStrategySession.findMany({ where: { conversationId: conversation.id }, select: { id: true, resultEnvelope: true, appliedStrategyEnvelope: true } });
-      for (const request of requests) {
-        await tx.aiRequestResultStage.updateMany({ where: { requestId: request.id }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } });
-        await tx.aiContextPack.updateMany({ where: { requestId: request.id }, data: { provenanceState: "unavailable", purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } });
+      const [stages, packs, sources, adaptiveItems] = await Promise.all([
+        requestIds.length > 0
+          ? tx.aiRequestResultStage.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedResultCiphertext: true } })
+          : [],
+        requestIds.length > 0
+          ? tx.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedTaskCiphertext: true, canonicalBytesCiphertext: true, conversationMessageManifestCiphertext: true } })
+          : [],
+        requestIds.length > 0
+          ? tx.aiRequestSource.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, boundedSnapshotCiphertext: true } })
+          : [],
+        adaptiveSessions.length > 0
+          ? tx.adaptivePracticeItem.findMany({ where: { adaptiveSessionId: { in: adaptiveSessions.map(({ id }) => id) } }, select: { id: true, promptSnapshotCiphertext: true, optionSnapshotCiphertext: true, scoringSnapshotCiphertext: true } })
+          : [],
+      ]);
+      if (requestIds.length > 0) {
+        await Promise.all([
+          tx.aiRequestResultStage.updateMany({ where: { requestId: { in: requestIds } }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } }),
+          tx.aiContextPack.updateMany({ where: { requestId: { in: requestIds } }, data: { provenanceState: "unavailable", purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } }),
+        ]);
       }
       const artifactIds = artifacts.map(({ id }) => id);
       if (artifactIds.length > 0) {
@@ -2265,16 +2343,18 @@ export class VeraLifecycleService {
       throw error;
     }
     await this.db.$transaction(async (tx) => {
-      const now = await dbNow(tx);
       // The marker transaction may have committed before a new hold was
       // attached. Re-lock every applicable hold immediately before deleting
       // any message/artifact/key-backed target so a late legal hold wins over
       // the finalization CAS as well as over marker publication.
-      const holdIds = await lockApplicableHolds(tx, {
-        studentId: marker.studentId,
-        conversationId: marker.conversationId,
-        artifactIds: marker.artifactIds,
-      });
+      const [now, holdIds] = await Promise.all([
+        dbNow(tx),
+        lockApplicableHolds(tx, {
+          studentId: marker.studentId,
+          conversationId: marker.conversationId,
+          artifactIds: marker.artifactIds,
+        }),
+      ]);
       if (holdIds.length > 0) {
         await tx.aiLifecycleOperation.updateMany({
           where: { id: operationId, state: "processing" },
@@ -2444,12 +2524,14 @@ export class VeraLifecycleService {
       throw error;
     }
     await this.db.$transaction(async (tx) => {
-      const now = await dbNow(tx);
-      const holdIds = await lockApplicableHolds(tx, {
-        studentId: marker.studentId,
-        conversationId: marker.conversationId,
-        artifactIds: [marker.artifactId],
-      });
+      const [now, holdIds] = await Promise.all([
+        dbNow(tx),
+        lockApplicableHolds(tx, {
+          studentId: marker.studentId,
+          conversationId: marker.conversationId,
+          artifactIds: [marker.artifactId],
+        }),
+      ]);
       if (holdIds.length > 0) {
         await tx.aiLifecycleOperation.updateMany({
           where: { id: operationId, state: "processing" },
@@ -2643,8 +2725,10 @@ export class VeraLifecycleService {
       return completed;
     } catch (error) {
       await this.db.$transaction(async (tx) => {
-        const now = await dbNow(tx);
-        const current = await tx.aiKeyDestructionClaim.findUnique({ where: { id: marker.claimId }, select: { claimVersion: true, recoveryDeadlineAt: true, state: true } });
+        const [now, current] = await Promise.all([
+          dbNow(tx),
+          tx.aiKeyDestructionClaim.findUnique({ where: { id: marker.claimId }, select: { claimVersion: true, recoveryDeadlineAt: true, state: true } }),
+        ]);
         if (!current || current.state !== "executing" || current.claimVersion !== marker.claimVersion) return;
         const terminal = current.recoveryDeadlineAt !== null && now >= current.recoveryDeadlineAt;
         await tx.aiKeyDestructionClaim.updateMany({
@@ -2724,26 +2808,28 @@ export class VeraLifecycleService {
       if (!operation) throw new VeraLifecycleError("export_state_mismatch", "Export lifecycle operation is unavailable.");
 
       const operatorIds = [requestedA.operatorId, requestedB.operatorId];
-      const authorizedRows = await tx.user.findMany({
-        where: {
-          id: { in: operatorIds },
-          status: "active",
-          softDeletedAt: null,
-          roleAssignments: { some: { role: "admin", revokedAt: null } },
-        },
-        select: {
-          id: true,
-          roleAssignments: { where: { role: "admin", revokedAt: null }, select: { id: true, role: true } },
-        },
-      });
-      const activeGrants = await tx.aiCapabilityGrant.findMany({
-        where: {
-          userId: { in: operatorIds },
-          isActive: true,
-          capability: { in: ["canManageAiPolicy", "canManageAiGovernance"] },
-        },
-        select: { id: true, userId: true, capability: true },
-      });
+      const [authorizedRows, activeGrants] = await Promise.all([
+        tx.user.findMany({
+          where: {
+            id: { in: operatorIds },
+            status: "active",
+            softDeletedAt: null,
+            roleAssignments: { some: { role: "admin", revokedAt: null } },
+          },
+          select: {
+            id: true,
+            roleAssignments: { where: { role: "admin", revokedAt: null }, select: { id: true, role: true } },
+          },
+        }),
+        tx.aiCapabilityGrant.findMany({
+          where: {
+            userId: { in: operatorIds },
+            isActive: true,
+            capability: { in: ["canManageAiPolicy", "canManageAiGovernance"] },
+          },
+          select: { id: true, userId: true, capability: true },
+        }),
+      ]);
       if (authorizedRows.length !== 2) throw new VeraLifecycleError("capability_denied", "Both operators must remain currently authorized admins.", 403);
       const authorizedById = new Map(authorizedRows.map((row) => [row.id, row]));
       const grantsById = new Map<string, typeof activeGrants>();

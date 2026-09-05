@@ -47,6 +47,7 @@ import { showToast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
+import { questionBankPurposeLabel } from "@/lib/question-bank/purpose";
 import {
   getQuestionBankReadinessFromDrafts,
   type QuestionBankReadiness,
@@ -116,7 +117,7 @@ function QuestionBankDetailHeaderBar({
         <Button
           aria-label="Kembali ke Bank Soal"
           nativeButton={false}
-          render={<Link href="/mentor/quiz/question-bank" />}
+          render={<Link href={`/mentor/quiz/question-bank?purpose=${bank.purpose ?? "quiz"}`} />}
           size="icon-sm"
           title="Kembali ke Bank Soal"
           variant="ghost"
@@ -320,6 +321,9 @@ function QuestionBankMetadataCard({
 
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <StatusPill status={bank.status} />
+            <MentorBadge size="sm" tone="category">
+              Digunakan untuk {questionBankPurposeLabel(bank.purpose ?? "quiz")}
+            </MentorBadge>
           </div>
         </div>
 
@@ -643,7 +647,7 @@ function QuestionBankQuestionsSection({
       className="w-full shadow-sm sm:w-auto"
       disabled={editorLocked}
       nativeButton={editorLocked}
-      render={editorLocked ? undefined : <Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+      render={editorLocked ? undefined : <Link href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`} />}
       size="default"
       type="button"
       variant="brand"
@@ -669,7 +673,7 @@ function QuestionBankQuestionsSection({
         {editorLocked ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex w-full sm:w-auto" tabIndex={0} />}>
+              <TooltipTrigger render={<span className="inline-flex w-full sm:w-auto" />}>
                 {editorButton}
               </TooltipTrigger>
               <TooltipContent>{editorLockReason}</TooltipContent>
@@ -689,7 +693,7 @@ function QuestionBankQuestionsSection({
             <Button
               className="mt-6"
               nativeButton={false}
-              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`} />}
               variant="brand"
             >
               <Plus />
@@ -818,6 +822,7 @@ function KaptenQuestionBankDetailPageModule({
       const result = await saveQuestionBankAction({
         description: bank.description,
         id: bank.id,
+        purpose: bank.purpose ?? "quiz",
         questions,
         revision: bank.revision,
         title: trimmed,
@@ -854,6 +859,7 @@ function KaptenQuestionBankDetailPageModule({
       const result = await saveQuestionBankAction({
         description: trimmed,
         id: bank.id,
+        purpose: bank.purpose ?? "quiz",
         questions,
         revision: bank.revision,
         title: bank.title,

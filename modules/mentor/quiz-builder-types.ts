@@ -37,6 +37,7 @@ export type QuizBuilderState = {
   retryDelaySeconds: number | null;
   reviewTiming: QuizReviewTiming;
   scorePolicy: QuizScorePolicy;
+  sourceMode: "local" | "bank";
   sourceBankId: string;
   subjectCode: string;
   title: string;

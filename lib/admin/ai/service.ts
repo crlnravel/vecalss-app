@@ -18,6 +18,11 @@ import type {
   VeraAiUsageBreakdownDto,
 } from "./contracts";
 
+const ACTIVE_POLICY_ACTIVATED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 function parseUsageDate(value: string | undefined, endOfDay = false) {
   if (!value) return undefined;
 
@@ -42,84 +47,82 @@ export class VeraAiControlPlaneService {
     const prevFrom = new Date(from.getTime() - (to.getTime() - from.getTime()));
 
     // Strict projection: NEVER select message, prompt, or response content!
-    const dbRequests = await this.prisma.aiRequest.findMany({
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
-      select: {
-        id: true,
-        studentId: true,
-        createdAt: true,
-        featureKey: true,
-        gateway: true,
-        upstreamProvider: true,
-        model: true,
-        status: true,
-        inputTokens: true,
-        outputTokens: true,
-        quotaUnitsReserved: true,
-        quotaUnitsConsumed: true,
-        quotaOverrunUnits: true,
-        tokenUsageState: true,
-        latencyMs: true,
-        timeToFirstTokenMs: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10000,
-    });
-
-    const prevDbRequests = await this.prisma.aiRequest.findMany({
-      where: {
-        createdAt: { gte: prevFrom, lt: from },
-      },
-      select: {
-        id: true,
-        studentId: true,
-        createdAt: true,
-        featureKey: true,
-        gateway: true,
-        upstreamProvider: true,
-        model: true,
-        status: true,
-        inputTokens: true,
-        outputTokens: true,
-        quotaUnitsReserved: true,
-        quotaUnitsConsumed: true,
-        quotaOverrunUnits: true,
-        tokenUsageState: true,
-        latencyMs: true,
-        timeToFirstTokenMs: true,
-      },
-      take: 10000,
-    });
-
-    const dbAdmissions = await this.prisma.aiAdmissionEvent.findMany({
-      where: {
-        occurredAt: { gte: from, lte: to },
-      },
-      select: {
-        id: true,
-        studentId: true,
-        occurredAt: true,
-        featureKey: true,
-        gateway: true,
-        upstreamProvider: true,
-        model: true,
-        reason: true,
-      },
-      orderBy: { occurredAt: "desc" },
-      take: 10000,
-    });
-
-    // Active policy bundle
-    const activePolicy = await this.prisma.aiPolicyBundle.findFirst({
-      where: { state: "active" },
-      orderBy: { effectiveAt: "desc" },
-      select: {
-        bundleVersion: true,
-        effectiveAt: true,
-      },
-    });
+    const [dbRequests, prevDbRequests, dbAdmissions, activePolicy] = await Promise.all([
+      this.prisma.aiRequest.findMany({
+        where: {
+          createdAt: { gte: from, lte: to },
+        },
+        select: {
+          id: true,
+          studentId: true,
+          createdAt: true,
+          featureKey: true,
+          gateway: true,
+          upstreamProvider: true,
+          model: true,
+          status: true,
+          inputTokens: true,
+          outputTokens: true,
+          quotaUnitsReserved: true,
+          quotaUnitsConsumed: true,
+          quotaOverrunUnits: true,
+          tokenUsageState: true,
+          latencyMs: true,
+          timeToFirstTokenMs: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10000,
+      }),
+      this.prisma.aiRequest.findMany({
+        where: {
+          createdAt: { gte: prevFrom, lt: from },
+        },
+        select: {
+          id: true,
+          studentId: true,
+          createdAt: true,
+          featureKey: true,
+          gateway: true,
+          upstreamProvider: true,
+          model: true,
+          status: true,
+          inputTokens: true,
+          outputTokens: true,
+          quotaUnitsReserved: true,
+          quotaUnitsConsumed: true,
+          quotaOverrunUnits: true,
+          tokenUsageState: true,
+          latencyMs: true,
+          timeToFirstTokenMs: true,
+        },
+        take: 10000,
+      }),
+      this.prisma.aiAdmissionEvent.findMany({
+        where: {
+          occurredAt: { gte: from, lte: to },
+        },
+        select: {
+          id: true,
+          studentId: true,
+          occurredAt: true,
+          featureKey: true,
+          gateway: true,
+          upstreamProvider: true,
+          model: true,
+          reason: true,
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 10000,
+      }),
+      this.prisma.aiPolicyBundle.findFirst({
+        where: { state: "active" },
+        orderBy: { effectiveAt: "desc" },
+        select: {
+          bundleVersion: true,
+          effectiveAt: true,
+        },
+      }),
+    ]);
 
     const requests: RawAiRequestRecord[] = dbRequests.map((r) => ({
       id: r.id,
@@ -177,7 +180,7 @@ export class VeraAiControlPlaneService {
       now,
       activePolicyVersion: activePolicy?.bundleVersion ?? "VERA-POLICY-027",
       activePolicyActivatedAt: activePolicy?.effectiveAt
-        ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(activePolicy.effectiveAt)
+        ? ACTIVE_POLICY_ACTIVATED_AT_FORMATTER.format(activePolicy.effectiveAt)
         : "27 Aug 2026, 14:20 WIB",
     };
   }

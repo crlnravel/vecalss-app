@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { AriaAttributes, ReactNode } from "react";
 
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 
@@ -14,10 +14,19 @@ type ReferenceSelectOption = {
   value: string;
 };
 
+type ReferenceSelectClassNames = {
+  icon?: string;
+  item?: string;
+  popup?: string;
+  trigger?: string;
+};
+
 type ReferenceSelectProps = {
   "aria-describedby"?: string;
   "aria-label"?: string;
+  "aria-invalid"?: AriaAttributes["aria-invalid"];
   className?: string;
+  classNames?: ReferenceSelectClassNames;
   disabled?: boolean;
   id?: string;
   name?: string;
@@ -31,7 +40,9 @@ type ReferenceSelectProps = {
 function ReferenceSelect({
   "aria-describedby": ariaDescribedby,
   "aria-label": ariaLabel,
+  "aria-invalid": ariaInvalid,
   className,
+  classNames,
   disabled = false,
   id,
   name,
@@ -41,20 +52,26 @@ function ReferenceSelect({
   required = false,
   value,
 }: ReferenceSelectProps) {
+  const toInternalValue = (optionValue: string) => (optionValue === "" ? null : optionValue);
+
   return (
     <SelectPrimitive.Root
-      items={options.map(({ label, value: optionValue }) => ({ label, value: optionValue }))}
+      items={options.map(({ label, value: optionValue }) => ({ label, value: toInternalValue(optionValue) }))}
+      disabled={disabled}
+      id={id}
       name={name}
       onValueChange={(nextValue) => {
-        if (typeof nextValue === "string") onValueChange(nextValue);
+        if (nextValue === null) onValueChange("");
+        else if (typeof nextValue === "string") onValueChange(nextValue);
       }}
       required={required}
-      value={value || null}
+      value={toInternalValue(value)}
     >
       <SelectPrimitive.Trigger
         aria-describedby={ariaDescribedby}
+        aria-invalid={ariaInvalid}
         aria-label={ariaLabel}
-        className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, className)}
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, classNames?.trigger, className)}
         disabled={disabled}
         id={id}
       >
@@ -69,17 +86,27 @@ function ReferenceSelect({
           className="isolate z-50 outline-none"
           sideOffset={6}
         >
-          <SelectPrimitive.Popup className="max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-3xl border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_rgba(23,107,77,0.5)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+          <SelectPrimitive.Popup className={cn("max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-3xl border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_rgba(23,107,77,0.5)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", classNames?.popup)}>
             <SelectPrimitive.List className="max-h-72 overflow-y-auto">
-              {options.map((option) => (
-                <SelectPrimitive.Item
-                  className="group relative flex w-full cursor-default items-center rounded-2xl px-3 py-2.5 pr-9 text-sm font-medium outline-none data-[highlighted]:bg-primary-50 data-[highlighted]:text-primary-900 data-[selected]:bg-primary-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-45"
-                  disabled={option.disabled}
+              {options.map((option) => option.disabled ? (
+                <div
+                  aria-disabled="true"
+                  aria-selected="false"
+                  className={cn("relative flex w-full items-center rounded-2xl px-3 py-2.5 pr-9 text-sm font-medium opacity-45", classNames?.item)}
+                  data-disabled="true"
                   key={option.value}
-                  value={option.value}
+                  role="option"
+                >
+                  {option.label}
+                </div>
+              ) : (
+                <SelectPrimitive.Item
+                  className={cn("group relative flex w-full cursor-default items-center rounded-2xl px-3 py-2.5 pr-9 text-sm font-medium outline-none data-[highlighted]:bg-primary-50 data-[highlighted]:text-primary-900 data-[selected]:bg-primary-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-45", classNames?.item)}
+                  key={option.value}
+                  value={toInternalValue(option.value)}
                 >
                   <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
-                  <span className="pointer-events-none absolute right-3 flex size-4 items-center justify-center text-primary-700">
+                  <span className={cn("pointer-events-none absolute right-3 flex size-4 items-center justify-center text-primary-700", classNames?.icon)}>
                     <SelectPrimitive.ItemIndicator>
                       <Check aria-hidden="true" className="size-4" />
                     </SelectPrimitive.ItemIndicator>
@@ -95,4 +122,4 @@ function ReferenceSelect({
 }
 
 export { ReferenceSelect };
-export type { ReferenceSelectOption };
+export type { ReferenceSelectClassNames, ReferenceSelectOption, ReferenceSelectProps };

@@ -21,6 +21,7 @@ const [repository, actions, builder, createPage, editPage, tryoutRepository, rel
 for (const mode of ["fixed_set", "random_pool", "blueprint", "cat_pool"] as const) {
   assert.doesNotThrow(() => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["tryout"],
     mode,
     subtestCode: "PU",
     target: "tryout",
@@ -32,6 +33,7 @@ for (const mode of ["fixed_set", "random_pool", "blueprint", "cat_pool"] as cons
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["tryout"],
     mode: "random_pool",
     subtestCode: "PU",
     target: "tryout",
@@ -48,6 +50,7 @@ assert.equal(assemblyCompatibleWithTestType("fixed_set", "cat"), false);
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["tryout"],
     mode: "cat_pool",
     subtestCode: "PU",
     target: "tryout",
@@ -59,6 +62,7 @@ assert.throws(
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["tryout"],
     mode: "fixed_set",
     subtestCode: "PU",
     target: "tryout",

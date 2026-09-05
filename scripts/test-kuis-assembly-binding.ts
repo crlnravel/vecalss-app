@@ -27,6 +27,7 @@ const [schema, migration, identityMigration, repository, assemblyRepository, act
 for (const mode of ["fixed_set", "random_pool", "blueprint"] as const) {
   assert.doesNotThrow(() => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["quiz"],
     mode,
     subtestCode: "PU",
     target: "kuis",
@@ -38,6 +39,7 @@ for (const mode of ["fixed_set", "random_pool", "blueprint"] as const) {
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
+    bankPurposes: ["quiz"],
     mode: "cat_pool",
     subtestCode: "PU",
     target: "kuis",
@@ -49,6 +51,7 @@ assert.throws(
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1", "bank-2"],
+    bankPurposes: ["quiz", "quiz"],
     mode: "blueprint",
     subtestCode: "PU",
     target: "kuis",
@@ -88,7 +91,7 @@ assert.match(repository, /materializedAssembly\?: boolean/u);
 assert.match(repository, /!options\.materializedAssembly/u);
 assert.match(assemblyRepository, /if \(definition\.mode === "fixed_set"\)[\s\S]*?version\.items\.map\(kuisItemFromVersionItem\)/u);
 assert.doesNotMatch(assemblyRepository, /if \(definition\.mode === "fixed_set" \|\| definition\.mode === "random_pool"\) \{\s*const candidates = version\.items\.map\(candidateFromVersionItem\);\s*await assertCandidates/u);
-assert.match(repository, /revalidateStoredBankItems/u);
+assert.match(repository, /assertStoredBankItemLineage/u);
 assert.match(repository, /attachStandaloneQuizAssembly/u);
 assert.match(repository, /detachStandaloneQuizAssembly/u);
 assert.match(repository, /assemblyVersionId: record.assemblyPackageVersionId \?\? undefined/u);

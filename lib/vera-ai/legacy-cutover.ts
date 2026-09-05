@@ -71,13 +71,15 @@ export function isWithinLegacyValidationWindow(now = new Date()): boolean {
     && now.getTime() < VERA_LEGACY_VALIDATION_END_AT.getTime();
 }
 
+const JAKARTA_CALENDAR_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function jakartaCalendarDate(value: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
+  const parts = JAKARTA_CALENDAR_DATE_FORMATTER.formatToParts(value);
   const year = parts.find((part) => part.type === "year")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
   const day = parts.find((part) => part.type === "day")?.value;
@@ -192,37 +194,39 @@ export class PrismaLegacyCutoverService {
         unclassifiedPlaintext: field.contentClass === "content_free" ? 0 : (byKey.get(`${field.sourceTable}:${field.sourceField}`) ?? 0),
       }));
       const auditNow = now;
-      for (const entry of entries) {
-        const status = entry.rowCount === 0 ? "validated" : entry.contentClass === "content_free" ? "discovered" : "blocked";
-        const classification = entry.rowCount === 0 ? "zero_rows" : entry.contentClass === "content_free" ? "digest_only" : "review_required";
-        const action = entry.contentClass === "content_free" ? "preserve_read_only" : "backfill_envelope";
-        const existing = await tx.aiContentMigrationAudit.findFirst({
-          where: { sourceTable: entry.sourceTable, sourceField: entry.sourceField, sourceObjectId: null, migrationVersion: VERA_LEGACY_INVENTORY_MIGRATION_VERSION },
-          select: { id: true },
-        });
-        const data = {
-          sourceTable: entry.sourceTable,
-          sourceField: entry.sourceField,
-          sourceObjectId: null,
-          contentClass: entry.contentClass,
-          sourceDigest: sha256Hex(`${entry.sourceTable}:${entry.sourceField}:${entry.rowCount}`),
-          migrationVersion: VERA_LEGACY_INVENTORY_MIGRATION_VERSION,
-          state: entry.rowCount === 0 ? "zero_rows" as const : entry.contentClass === "content_free" ? "pending" as const : "blocked" as const,
-          details: { inventory: true, rowCount: entry.rowCount, runbook: VERA_LEGACY_RETIREMENT_RUNBOOK_VERSION },
-          tableName: entry.sourceTable,
-          columnName: entry.sourceField,
-          rowCount: entry.rowCount,
-          classification,
-          action,
-          status,
-          rollbackBoundary: "pre-retirement",
-          updatedAt: auditNow,
-        } satisfies Prisma.AiContentMigrationAuditUncheckedCreateInput;
-        // Migration evidence is append-only. A repeated inventory run never
-        // mutates the original audit row; callers can compare the returned
-        // count/digest and append a new migration-version row if it changes.
-        if (!existing) await tx.aiContentMigrationAudit.create({ data: { ...data, createdAt: auditNow } });
-      }
+      await Promise.all(
+        entries.map(async (entry) => {
+          const status = entry.rowCount === 0 ? "validated" : entry.contentClass === "content_free" ? "discovered" : "blocked";
+          const classification = entry.rowCount === 0 ? "zero_rows" : entry.contentClass === "content_free" ? "digest_only" : "review_required";
+          const action = entry.contentClass === "content_free" ? "preserve_read_only" : "backfill_envelope";
+          const existing = await tx.aiContentMigrationAudit.findFirst({
+            where: { sourceTable: entry.sourceTable, sourceField: entry.sourceField, sourceObjectId: null, migrationVersion: VERA_LEGACY_INVENTORY_MIGRATION_VERSION },
+            select: { id: true },
+          });
+          const data = {
+            sourceTable: entry.sourceTable,
+            sourceField: entry.sourceField,
+            sourceObjectId: null,
+            contentClass: entry.contentClass,
+            sourceDigest: sha256Hex(`${entry.sourceTable}:${entry.sourceField}:${entry.rowCount}`),
+            migrationVersion: VERA_LEGACY_INVENTORY_MIGRATION_VERSION,
+            state: entry.rowCount === 0 ? "zero_rows" as const : entry.contentClass === "content_free" ? "pending" as const : "blocked" as const,
+            details: { inventory: true, rowCount: entry.rowCount, runbook: VERA_LEGACY_RETIREMENT_RUNBOOK_VERSION },
+            tableName: entry.sourceTable,
+            columnName: entry.sourceField,
+            rowCount: entry.rowCount,
+            classification,
+            action,
+            status,
+            rollbackBoundary: "pre-retirement",
+            updatedAt: auditNow,
+          } satisfies Prisma.AiContentMigrationAuditUncheckedCreateInput;
+          // Migration evidence is append-only. A repeated inventory run never
+          // mutates the original audit row; callers can compare the returned
+          // count/digest and append a new migration-version row if it changes.
+          if (!existing) await tx.aiContentMigrationAudit.create({ data: { ...data, createdAt: auditNow } });
+        }),
+      );
       return entries;
     });
   }

@@ -160,7 +160,7 @@ const eligibilitySource = release.slice(release.indexOf("async function assertTr
 const mutableCatGate = eligibilitySource.slice(eligibilitySource.indexOf("const catItems"), eligibilitySource.indexOf("const revisionIds"));
 assert.match(
   mutableCatGate,
-  /filter\(\(section\) => section\.testType === "cat" && section\.packageVersion\?\.mode !== ReusableQuestionPackageMode\.cat_pool\)/u,
+  /section\.testType !== "cat" \|\| section\.packageVersion\?\.mode === ReusableQuestionPackageMode\.cat_pool/u,
   "mixed CAT Pool + direct-CAT releases must revalidate only the direct-CAT candidates",
 );
 

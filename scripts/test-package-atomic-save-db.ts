@@ -277,8 +277,8 @@ async function main() {
       [actorId, `package-atomic-${actorId}@example.test`],
     );
     await client.query(
-      `INSERT INTO question_banks (id, code, name, status, created_by_user_id, updated_by_user_id)
-       VALUES ($1::uuid, $2, 'Package Atomic Save Bank', 'published'::content_status, $3::uuid, $3::uuid)`,
+      `INSERT INTO question_banks (id, code, name, purpose, status, created_by_user_id, updated_by_user_id)
+       VALUES ($1::uuid, $2, 'Package Atomic Save Bank', 'tryout'::question_bank_purpose, 'published'::content_status, $3::uuid, $3::uuid)`,
       [bankId, `PACKAGE-ATOMIC-${actorId.slice(0, 8)}`, actorId],
     );
     await client.query("BEGIN");

@@ -5,6 +5,7 @@ import {
   ContentStatus,
   DifficultyLevel,
   Prisma,
+  QuestionBankPurpose,
   QuestionRevisionProvenance,
   QuestionRevisionStatus,
   QuestionType,
@@ -42,6 +43,7 @@ import {
   setQuestionBankCategories,
   type QuestionBankErrorCode,
 } from "./organization";
+import { assertQuestionBankPurpose, isQuestionBankPurpose, questionBankPurposeLabel } from "./purpose";
 
 const SUBJECT_CODES = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 const TEMPORARY_QUESTION_ID_PATTERN = /^(?:pu|ppu|pbm|pk|lbi|lbe|pm)-question-\d+$/i;
@@ -61,6 +63,7 @@ type BankQuestionInput = {
 type SaveBankInput = {
   description: string;
   id?: string;
+  purpose: QuestionBankPurpose;
   questions: BankQuestionInput[];
   revision?: number;
   title: string;
@@ -104,6 +107,7 @@ type QuestionBankDto = QuestionBankOrganization & QuestionBankDiscovery & {
   id: string;
   primaryMetric: string;
   progress: number;
+  purpose: QuestionBankPurpose;
   questionCount: number;
   resourceType: "question-bank";
   reusableIn: string[];
@@ -123,10 +127,15 @@ type ListQuestionBanksOptions = {
   categoryId?: string;
   categoryIds?: string[];
   folderId?: string | null;
+  purpose?: QuestionBankPurpose;
   search?: string;
   sort?: QuestionBankSort;
   status?: ContentStatus;
   subjectCoverage?: string[];
+};
+
+type ListQuestionBankSourceOptions = Omit<ListQuestionBanksOptions, "purpose"> & {
+  purpose: QuestionBankPurpose;
 };
 
 type QuestionBankListPage = {
@@ -285,13 +294,14 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
       folder: bank.folder ? { id: bank.folder.id, name: bank.folder.name } : null,
       folderId: bank.folderId,
       folderPath,
-      href: `/mentor/quiz/question-bank/${bank.id}`,
+      href: `/mentor/quiz/question-bank/${bank.id}?purpose=${bank.purpose}`,
       id: bank.id,
       primaryMetric: `${metrics.questionCount} soal`,
       progress: metrics.questionCount ? Math.round(metrics.readyCount / metrics.questionCount * 100) : 0,
       questionCount: metrics.questionCount,
       resourceType: "question-bank" as const,
-      reusableIn: ["Quiz", "Tryout"],
+      purpose: bank.purpose,
+      reusableIn: [questionBankPurposeLabel(bank.purpose)],
       revision: bank.revision,
       status: bank.status,
       subjectCoverage: metrics.subjectCoverage,
@@ -352,6 +362,9 @@ function codeFromTitle(title: string) {
 }
 
 function validate(input: SaveBankInput) {
+  if (!isQuestionBankPurpose(input.purpose)) {
+    throw new QuestionBankError("Tujuan Bank Soal wajib dipilih.", { code: "invalid_input" });
+  }
   const subjectCodes = [...new Set(input.questions.map((question) => question.subjectCode))];
   const questionIds = input.questions.flatMap((question) => question.id ? [question.id] : []);
   if (!input.title.trim()) throw new QuestionBankError("Judul Bank Soal wajib diisi.");
@@ -414,6 +427,7 @@ function toDto(
 function buildListWhere(options: ListQuestionBanksOptions = {}): Prisma.QuestionBankWhereInput {
   const conditions: Prisma.QuestionBankWhereInput[] = [];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
+  if (options.purpose) conditions.push({ purpose: assertQuestionBankPurpose(options.purpose) });
   if (options.folderId !== undefined) conditions.push({ folderId: options.folderId });
   if (options.status) conditions.push({ status: options.status });
   if (categoryIds.length) conditions.push({ categories: { some: { categoryId: { in: categoryIds } } } });
@@ -500,9 +514,11 @@ function buildReadySourceQuestionCondition(questionAlias: string, bankAlias: str
   `;
 }
 
-function buildSourceBankWhereSql(options: ListQuestionBanksOptions = {}): Prisma.Sql {
+function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma.Sql {
+  const purpose = assertQuestionBankPurpose(options.purpose);
   const conditions: Prisma.Sql[] = [
-    Prisma.sql`b.status <> ${ContentStatus.archived}`,
+    Prisma.sql`b.purpose = ${purpose}`,
+    Prisma.sql`b.status = ${ContentStatus.published}`,
     Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND rq.status <> ${ContentStatus.archived} AND ${buildReadySourceQuestionCondition("rq", "b")})`,
   ];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
@@ -549,7 +565,8 @@ function buildSourceBankWhereSql(options: ListQuestionBanksOptions = {}): Prisma
   return Prisma.join(conditions, " AND ");
 }
 
-async function listQuestionBankSourcePage(options: ListQuestionBanksOptions & { page?: number; pageSize?: number } = {}): Promise<QuestionBankSourcePage> {
+async function listQuestionBankSourcePage(options: ListQuestionBankSourceOptions & { page?: number; pageSize?: number }): Promise<QuestionBankSourcePage> {
+  const purpose = assertQuestionBankPurpose(options.purpose);
   const pageSize = Math.min(25, Math.max(1, options.pageSize ?? 20));
   const page = Math.max(1, options.page ?? 1);
   const rows = await prisma.$queryRaw<Array<{ id: string; total: number }>>(Prisma.sql`
@@ -565,7 +582,7 @@ async function listQuestionBankSourcePage(options: ListQuestionBanksOptions & { 
     return { items: [], page, pageSize, total: Number(total) };
   }
   const [records, folderRows, metrics] = await Promise.all([
-    prisma.questionBank.findMany({ where: { id: { in: ids } }, include: bankCatalogInclude }),
+    prisma.questionBank.findMany({ where: { id: { in: ids }, purpose }, include: bankCatalogInclude }),
     getFolderRows(),
     getBankMetrics(ids),
   ]);
@@ -582,12 +599,24 @@ async function listQuestionBankSourcePage(options: ListQuestionBanksOptions & { 
   };
 }
 
-async function listQuestionBankSourceQuestions(bankId: string, options: { page?: number; pageSize?: number; search?: string; subjectCode?: string } = {}): Promise<QuestionBankSourceQuestionPage | null> {
+type ListQuestionBankSourceQuestionsOptions = {
+  page?: number;
+  pageSize?: number;
+  purpose: QuestionBankPurpose;
+  search?: string;
+  subjectCode?: string;
+};
+
+async function listQuestionBankSourceQuestions(bankId: string, options: ListQuestionBankSourceQuestionsOptions): Promise<QuestionBankSourceQuestionPage | null> {
+  const purpose = assertQuestionBankPurpose(options.purpose);
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 100));
   const page = Math.max(1, options.page ?? 1);
+  const bank = await prisma.questionBank.findUnique({ where: { id: bankId, purpose }, include: bankCatalogInclude });
+  if (!bank || bank.status !== ContentStatus.published) return null;
   const questionConditions: Prisma.Sql[] = [
     Prisma.sql`q.question_bank_id = ${bankId}::uuid`,
     Prisma.sql`q.status <> ${ContentStatus.archived}`,
+    Prisma.sql`EXISTS (SELECT 1 FROM question_banks qb WHERE qb.id = q.question_bank_id AND qb.purpose = ${purpose} AND qb.status = ${ContentStatus.published})`,
     buildReadySourceQuestionCondition("q"),
   ];
   if (options.subjectCode) {
@@ -610,8 +639,6 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
   `);
-  const bank = await prisma.questionBank.findUnique({ where: { id: bankId }, include: bankCatalogInclude });
-  if (!bank || bank.status === ContentStatus.archived) return null;
   const [folderRows, metrics] = await Promise.all([getFolderRows(), getBankMetrics([bankId])]);
   const bankDto = toCatalogDto(bank, folderRows, metrics.get(bankId) ?? { questionCount: 0, readyCount: 0, subjectCoverage: [] }).bank;
   const ids = rows.map((row) => row.id);
@@ -648,7 +675,7 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
   };
 }
 
-async function listQuestionBankSources(options: ListQuestionBanksOptions = {}) {
+async function listQuestionBankSources(options: ListQuestionBankSourceOptions) {
   return (await listQuestionBankSourcePage({ ...options, page: 1, pageSize: 20 })).items;
 }
 
@@ -968,6 +995,12 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           { code: "archived_locked" },
         );
       }
+      if (current.purpose !== input.purpose) {
+        throw new QuestionBankError("Tujuan Bank Soal tidak dapat diubah.", {
+          code: "invalid_input",
+          details: { currentPurpose: current.purpose, requestedPurpose: input.purpose },
+        });
+      }
       status = current.status;
     }
 
@@ -979,6 +1012,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           code: codeFromTitle(input.title),
           description: input.description.trim() || null,
           name: input.title.trim(),
+          purpose: input.purpose,
           createdByUserId: actorId,
           updatedByUserId: actorId,
         },
@@ -1430,6 +1464,8 @@ export {
 };
 export type {
   ListQuestionBanksOptions,
+  ListQuestionBankSourceOptions,
+  ListQuestionBankSourceQuestionsOptions,
   QuestionBankSort,
   BankQuestionDto,
   QuestionBankDiscovery,

@@ -74,8 +74,14 @@ async function buildAuthority(
     lock: boolean;
   },
 ): Promise<VeraStudioIdentityAuthority> {
-  const materialIds = sortedUnique(input.selection.filter((source) => source.sourceType === "material").map((source) => source.sourceId));
-  const practiceIds = sortedUnique(input.selection.filter((source) => source.sourceType === "practice").map((source) => source.sourceId));
+  const materialIdsList: string[] = [];
+  const practiceIdsList: string[] = [];
+  for (const source of input.selection) {
+    if (source.sourceType === "material") materialIdsList.push(source.sourceId);
+    else if (source.sourceType === "practice") practiceIdsList.push(source.sourceId);
+  }
+  const materialIds = sortedUnique(materialIdsList);
+  const practiceIds = sortedUnique(practiceIdsList);
   if (input.selection.some((source) => source.sourceType === "document")) throw new Error("studio_authority_unavailable");
   const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
   const now = clock[0]?.now;
@@ -133,7 +139,10 @@ export async function prepareStudioAuthority(
   db: typeof defaultPrisma,
   input: { studentId: string; selection: VeraContextSelection[] },
 ): Promise<{ identity: VeraStudioIdentityAuthority; drill: FrozenDrillAuthority | null }> {
-  const practiceIds = input.selection.filter((source) => source.sourceType === "practice").map((source) => source.sourceId);
+  const practiceIds: string[] = [];
+  for (const source of input.selection) {
+    if (source.sourceType === "practice") practiceIds.push(source.sourceId);
+  }
   const drill = practiceIds.length ? await prepareFrozenDrillAuthority(db, input.studentId, practiceIds) : null;
   const identity = await db.$transaction(
     (tx) => buildAuthority(tx, { ...input, drillAuthority: drill, lock: false }),

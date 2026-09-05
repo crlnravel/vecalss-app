@@ -510,8 +510,10 @@ export class VeraPrismaChatOrchestrator {
       write("request.failed", { requestId: admission.requestId, code, provisional: false });
       return;
     }
-    const encrypted = await this.envelope.encryptAsync(JSON.stringify(normalized), `ai-result:${admission.requestId}`);
-    const finalizeNow = await this.admission.databaseNow();
+    const [encrypted, finalizeNow] = await Promise.all([
+      this.envelope.encryptAsync(JSON.stringify(normalized), `ai-result:${admission.requestId}`),
+      this.admission.databaseNow(),
+    ]);
     await this.admission.stageResult({
       requestId: admission.requestId,
       result: normalized,

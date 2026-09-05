@@ -1,11 +1,12 @@
 import "server-only";
 
-import { ContentStatus, Prisma } from "@/generated/prisma/client";
+import { ContentStatus, Prisma, QuestionBankPurpose } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
 
 import { questionBankFolderLabel } from "./labels";
+import { assertQuestionBankPurpose } from "./purpose";
 
 const MAX_FOLDER_DEPTH = 512;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -298,18 +299,31 @@ function buildQuestionBankFolderTree(
   return roots;
 }
 
-async function listQuestionBankFolders() {
-  const rows = await prisma.questionBankFolder.findMany({
-    include: { _count: { select: { banks: true } } },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-  });
-  return rows.map(folderDto);
+async function listQuestionBankFolders(purpose: QuestionBankPurpose) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
+  const [rows, counts] = await Promise.all([
+    prisma.questionBankFolder.findMany({
+      select: { createdAt: true, id: true, name: true, parentId: true, updatedAt: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
+    prisma.questionBank.groupBy({
+      by: ["folderId"],
+      where: { purpose: normalizedPurpose },
+      _count: { _all: true },
+    }),
+  ]);
+  const countByFolderId = new Map(counts.flatMap((row) => row.folderId ? [[row.folderId, row._count._all] as const] : []));
+  return rows.map((row) => folderDto({
+    ...row,
+    _count: { banks: countByFolderId.get(row.id) ?? 0 },
+  }));
 }
 
-async function listQuestionBankFolderTree() {
+async function listQuestionBankFolderTree(purpose: QuestionBankPurpose) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   const [folders, unfiledBankCount] = await Promise.all([
-    listQuestionBankFolders(),
-    prisma.questionBank.count({ where: { folderId: null } }),
+    listQuestionBankFolders(normalizedPurpose),
+    prisma.questionBank.count({ where: { folderId: null, purpose: normalizedPurpose } }),
   ]);
   return buildQuestionBankFolderTree(folders, { includeUnfiled: true, unfiledBankCount });
 }
@@ -470,13 +484,22 @@ async function removeQuestionBankFolder(
   }
 }
 
-async function listQuestionBankCategories() {
-  const rows = await prisma.questionBankCategory.findMany({
-    include: { _count: { select: { banks: true } } },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-  });
+async function listQuestionBankCategories(purpose: QuestionBankPurpose) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
+  const [rows, counts] = await Promise.all([
+    prisma.questionBankCategory.findMany({
+      select: { createdAt: true, id: true, name: true, updatedAt: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
+    prisma.questionBankCategoryAssignment.groupBy({
+      by: ["categoryId"],
+      where: { questionBank: { purpose: normalizedPurpose } },
+      _count: { _all: true },
+    }),
+  ]);
+  const countByCategoryId = new Map(counts.map((row) => [row.categoryId, row._count._all]));
   return rows.map((row) => ({
-    bankCount: row._count.banks,
+    bankCount: countByCategoryId.get(row.id) ?? 0,
     createdAt: row.createdAt.toISOString(),
     id: row.id,
     name: row.name,

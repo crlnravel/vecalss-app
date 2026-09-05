@@ -16,8 +16,8 @@ import {
 } from "@/lib/icons";
 
 import { useDebugAccountSwitcher } from "@/components/debug-account-switcher-provider";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { StudentBadge } from "@/components/ui/student-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +41,9 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
@@ -93,6 +93,221 @@ function LogoutDialogFooter() {
   );
 }
 
+function DebugAccountSwitcherDialog({
+  debugAccounts,
+  debugAccountsError,
+  isDebugSwitcherOpen,
+  isLoadingDebugAccounts,
+  selectedAccount,
+  selectedAccountId,
+  sessionUserId,
+  setIsDebugSwitcherOpen,
+  setSelectedAccountId,
+  switchAccount,
+  switchingAccountId,
+}: {
+  debugAccounts: DebugAccount[] | null;
+  debugAccountsError: string | null;
+  isDebugSwitcherOpen: boolean;
+  isLoadingDebugAccounts: boolean;
+  selectedAccount: DebugAccount | null;
+  selectedAccountId: string;
+  sessionUserId: string;
+  setIsDebugSwitcherOpen: (open: boolean) => void;
+  setSelectedAccountId: (id: string) => void;
+  switchAccount: (id: string) => Promise<void>;
+  switchingAccountId: string | null;
+}) {
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (switchingAccountId === null) {
+          setIsDebugSwitcherOpen(open);
+        }
+      }}
+      open={isDebugSwitcherOpen}
+    >
+      <DialogContent
+        className="max-w-md"
+        pending={switchingAccountId !== null}
+        variant="info"
+      >
+        <DialogHeader>
+          <DialogTitle>Ganti Akun</DialogTitle>
+        </DialogHeader>
+
+        <div aria-live="polite" className="min-h-24">
+          {isLoadingDebugAccounts ? (
+            <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600">
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+              Memuat akun…
+            </div>
+          ) : debugAccountsError ? (
+            <p
+              className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
+              role="alert"
+            >
+              {debugAccountsError}
+            </p>
+          ) : debugAccounts?.length ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Pilih Akun"
+                disabled={switchingAccountId !== null}
+                id="debug-account-select"
+                render={
+                  <Button
+                    className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40"
+                    variant="context"
+                  />
+                }
+              >
+                {selectedAccount ? (
+                  <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-secondary-900">
+                        {selectedAccount.fullName}
+                      </span>
+                      {selectedAccount.id === sessionUserId ? (
+                        <StudentBadge size="xs" tone="active">
+                          Aktif
+                        </StudentBadge>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-secondary-500">
+                      <span className="truncate">{selectedAccount.email}</span>
+                      <span>•</span>
+                      <span className="font-medium text-secondary-700">
+                        {selectedAccount.roles
+                          .map((r) => debugRoleLabels[r] ?? r)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-secondary-500">Pilih akun…</span>
+                )}
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-secondary-500"
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-(--anchor-width) min-w-[280px] p-1.5"
+              >
+                <DropdownMenuRadioGroup
+                  onValueChange={(value) => setSelectedAccountId(value)}
+                  value={selectedAccountId}
+                >
+                  {debugAccounts.map((account) => {
+                    const isCurrentAccount = account.id === sessionUserId;
+                    return (
+                      <DropdownMenuRadioItem
+                        closeOnClick
+                        key={account.id}
+                        value={account.id}
+                        className="flex items-center justify-between gap-3 py-2.5 pr-8 pl-3 rounded-2xl cursor-pointer"
+                      >
+                        <div className="flex min-w-0 flex-col gap-0.5 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-semibold text-secondary-900">
+                              {account.fullName}
+                            </span>
+                            {isCurrentAccount ? (
+                              <StudentBadge size="xs" tone="active">
+                                Aktif
+                              </StudentBadge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-secondary-500">
+                            <span className="truncate">{account.email}</span>
+                            <span>•</span>
+                            <span className="font-medium text-secondary-700">
+                              {account.roles
+                                .map((r) => debugRoleLabels[r] ?? r)
+                                .join(", ")}
+                            </span>
+                          </div>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    );
+                  })}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">
+              Belum ada akun aktif yang bisa dipilih.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            className="w-full sm:w-auto"
+            disabled={
+              !selectedAccountId ||
+              selectedAccountId === sessionUserId ||
+              switchingAccountId !== null ||
+              isLoadingDebugAccounts ||
+              Boolean(debugAccountsError) ||
+              !debugAccounts?.length
+            }
+            onClick={() => {
+              if (selectedAccountId && selectedAccountId !== sessionUserId) {
+                void switchAccount(selectedAccountId);
+              }
+            }}
+            type="button"
+            variant="brand"
+          >
+            {switchingAccountId !== null ? (
+              <>
+                <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+                Memproses…
+              </>
+            ) : (
+              "Ganti akun"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AccountLogoutDialog({
+  audience,
+  isAdmin,
+  isLogoutDialogOpen,
+  isTutor,
+  setIsLogoutDialogOpen,
+}: {
+  audience: AccountMenuAudience;
+  isAdmin: boolean;
+  isLogoutDialogOpen: boolean;
+  isTutor: boolean;
+  setIsLogoutDialogOpen: (open: boolean) => void;
+}) {
+  return (
+    <AlertDialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
+      <AlertDialogContent variant="warning">
+        <AlertDialogHeader>
+          <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
+          <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <form action={logoutAction}>
+          <input name="audience" type="hidden" value={audience} />
+          <LogoutDialogFooter />
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 function StudentAccountMenu({
   audience = "student",
@@ -206,19 +421,22 @@ function StudentAccountMenu({
             />
           }
         >
-          <Avatar className="size-9 border border-primary-100">
-            <AvatarFallback className="bg-primary-700 text-xs font-semibold text-white">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          {initials}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel>
-            <span className="block text-sm font-semibold text-secondary-900">
+        <DropdownMenuContent
+          align="end"
+          className="w-56"
+          sideOffset={8}
+        >
+          <div className="flex flex-col gap-1 px-2 py-1.5">
+            <span className="truncate text-sm font-semibold text-secondary-900">
               {session.user.fullName}
             </span>
-            <span className="block truncate text-xs">{session.user.email}</span>
-          </DropdownMenuLabel>
+            <span className="truncate text-xs text-secondary-500">
+              {session.user.email}
+            </span>
+          </div>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {isAdmin ? (
               <DropdownMenuItem
@@ -279,178 +497,28 @@ function StudentAccountMenu({
       </DropdownMenu>
 
       {debugAccountSwitcherEnabled ? (
-        <Dialog
-          onOpenChange={(open) => {
-            if (switchingAccountId === null) {
-              setIsDebugSwitcherOpen(open);
-            }
-          }}
-          open={isDebugSwitcherOpen}
-        >
-          <DialogContent
-            className="max-w-md"
-            pending={switchingAccountId !== null}
-            variant="info"
-          >
-            <DialogHeader>
-              <DialogTitle>Ganti Akun</DialogTitle>
-            </DialogHeader>
-
-            <div aria-live="polite" className="min-h-24">
-              {isLoadingDebugAccounts ? (
-                <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600">
-                  <LoaderCircle className="animate-spin" />
-                  Memuat akun…
-                </div>
-              ) : debugAccountsError ? (
-                <p
-                  className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-                  role="alert"
-                >
-                  {debugAccountsError}
-                </p>
-              ) : debugAccounts?.length ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    aria-label="Pilih Akun"
-                    disabled={switchingAccountId !== null}
-                    id="debug-account-select"
-                    render={
-                      <Button
-                        className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40"
-                        variant="context"
-                      />
-                    }
-                  >
-                    {selectedAccount ? (
-                      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-semibold text-secondary-900">
-                            {selectedAccount.fullName}
-                          </span>
-                          {selectedAccount.id === session.user.id ? (
-                            <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold text-primary-700">
-                              Aktif
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-secondary-500">
-                          <span className="truncate">{selectedAccount.email}</span>
-                          <span>•</span>
-                          <span className="font-medium text-secondary-700">
-                            {selectedAccount.roles
-                              .map((r) => debugRoleLabels[r] ?? r)
-                              .join(", ")}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-secondary-500">Pilih akun…</span>
-                    )}
-                    <ChevronDown
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-secondary-500"
-                    />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="w-(--anchor-width) min-w-[280px] p-1.5"
-                  >
-                    <DropdownMenuRadioGroup
-                      onValueChange={(value) => setSelectedAccountId(value)}
-                      value={selectedAccountId}
-                    >
-                      {debugAccounts.map((account) => {
-                        const isCurrentAccount = account.id === session.user.id;
-                        return (
-                          <DropdownMenuRadioItem
-                            closeOnClick
-                            key={account.id}
-                            value={account.id}
-                            className="flex items-center justify-between gap-3 py-2.5 pr-8 pl-3 rounded-2xl cursor-pointer"
-                          >
-                            <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate font-semibold text-secondary-900">
-                                  {account.fullName}
-                                </span>
-                                {isCurrentAccount ? (
-                                  <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold text-primary-700">
-                                    Aktif
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-xs text-secondary-500">
-                                <span className="truncate">{account.email}</span>
-                                <span>•</span>
-                                <span className="font-medium text-secondary-700">
-                                  {account.roles
-                                    .map((r) => debugRoleLabels[r] ?? r)
-                                    .join(", ")}
-                                </span>
-                              </div>
-                            </div>
-                          </DropdownMenuRadioItem>
-                        );
-                      })}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">
-                  Belum ada akun aktif yang bisa dipilih.
-                </p>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button
-                className="w-full sm:w-auto"
-                disabled={
-                  !selectedAccountId ||
-                  selectedAccountId === session.user.id ||
-                  switchingAccountId !== null ||
-                  isLoadingDebugAccounts ||
-                  Boolean(debugAccountsError) ||
-                  !debugAccounts?.length
-                }
-                onClick={() => {
-                  if (selectedAccountId && selectedAccountId !== session.user.id) {
-                    void switchAccount(selectedAccountId);
-                  }
-                }}
-                type="button"
-                variant="brand"
-              >
-                {switchingAccountId !== null ? (
-                  <>
-                    <LoaderCircle className="animate-spin" />
-                    Memproses…
-                  </>
-                ) : (
-                  "Ganti akun"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DebugAccountSwitcherDialog
+          debugAccounts={debugAccounts}
+          debugAccountsError={debugAccountsError}
+          isDebugSwitcherOpen={isDebugSwitcherOpen}
+          isLoadingDebugAccounts={isLoadingDebugAccounts}
+          selectedAccount={selectedAccount}
+          selectedAccountId={selectedAccountId}
+          sessionUserId={session.user.id}
+          setIsDebugSwitcherOpen={setIsDebugSwitcherOpen}
+          setSelectedAccountId={setSelectedAccountId}
+          switchAccount={switchAccount}
+          switchingAccountId={switchingAccountId}
+        />
       ) : null}
 
-      <AlertDialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
-        <AlertDialogContent variant="warning">
-          <AlertDialogHeader>
-            <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
-            <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <form action={logoutAction}>
-            <input name="audience" type="hidden" value={audience} />
-            <LogoutDialogFooter />
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AccountLogoutDialog
+        audience={audience}
+        isAdmin={isAdmin}
+        isLogoutDialogOpen={isLogoutDialogOpen}
+        isTutor={isTutor}
+        setIsLogoutDialogOpen={setIsLogoutDialogOpen}
+      />
     </>
   );
 }

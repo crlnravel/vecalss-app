@@ -132,7 +132,14 @@ function asDate(value: Date | string): Date {
 }
 
 function arrayOfStrings(value: readonly string[] | null | undefined): string[] {
-  return [...new Set((value ?? []).filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim()))].sort();
+  const result = new Set<string>();
+  for (const item of value ?? []) {
+    if (typeof item === "string") {
+      const trimmed = item.trim();
+      if (trimmed) result.add(trimmed);
+    }
+  }
+  return [...result].sort();
 }
 
 function arrayOfCapabilities(value: readonly AiCapabilityName[] | null | undefined): AiPolicyCapability[] {
@@ -579,8 +586,8 @@ export class AiPolicyCommandService {
 
   async getMetadata(actor: AiPolicyActor): Promise<AiPolicyMetadataDto> {
     await this.requireAdmin(actor);
-    const capabilities = await this.capabilities(actor);
-    const [active, scheduled, history] = await Promise.all([
+    const [capabilities, active, scheduled, history] = await Promise.all([
+      this.capabilities(actor),
       this.db.aiPolicyBundle.findFirst({ where: { state: AiPolicyState.active }, orderBy: { activatedAt: "desc" }, include: { approvedBy: { select: { id: true, fullName: true, email: true } } } }),
       this.db.aiPolicyBundle.findFirst({ where: { state: AiPolicyState.scheduled }, orderBy: { effectiveAt: "asc" }, include: { approvedBy: { select: { id: true, fullName: true, email: true } } } }),
       this.db.aiPolicyBundle.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { approvedBy: { select: { id: true, fullName: true, email: true } }, auditEvents: { orderBy: { occurredAt: "desc" }, take: 1 } } }),

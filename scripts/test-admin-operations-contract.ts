@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [page, service, consoleModule, consoleError, shell, studentPage, kaptenPage, actions] = await Promise.all([
+const [page, service, consoleModule, consoleError, shell, studentPage, kaptenPage, actions, bannerPage, bannerEditor] = await Promise.all([
   readFile(resolve(root, "app/admin/page.tsx"), "utf8"),
   readFile(resolve(root, "lib/admin/operations/service.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/OperationsConsoleModule.tsx"), "utf8"),
@@ -13,6 +13,8 @@ const [page, service, consoleModule, consoleError, shell, studentPage, kaptenPag
   readFile(resolve(root, "app/admin/enrollment/page.tsx"), "utf8"),
   readFile(resolve(root, "app/admin/kapten/page.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/actions.ts"), "utf8"),
+  readFile(resolve(root, "app/admin/student-banners/page.tsx"), "utf8"),
+  readFile(resolve(root, "modules/admin/components/banner-maker-editor.tsx"), "utf8"),
 ]);
 
 assert.match(page, /requireAdminSession/);
@@ -60,9 +62,18 @@ assert.doesNotMatch(consoleModule, /uppercase[^>]*>People directories/);
 assert.match(shell, /Dashboard/);
 assert.match(shell, /Students/);
 assert.match(shell, /Kapten/);
+assert.match(shell, /Banner maker/);
 assert.doesNotMatch(shell, /Imports/);
 assert.doesNotMatch(shell, /Media/);
-for (const archivedRoute of ["app/admin/docs/page.tsx", "app/admin/student-banners/page.tsx"]) {
+assert.doesNotMatch(shell, /Student preview/);
+assert.match(bannerPage, /getBannerMakerSnapshot/);
+assert.match(bannerPage, /requireAdminSession/);
+assert.match(bannerEditor, /Simpan draf/);
+assert.match(bannerEditor, /Rilis banner/);
+assert.match(bannerEditor, /MediaLibrary/);
+assert.match(bannerEditor, /onPointerMove/);
+assert.match(bannerEditor, /draggable/);
+for (const archivedRoute of ["app/admin/docs/page.tsx"]) {
   await assert.rejects(access(resolve(root, archivedRoute)), /ENOENT/u);
 }
 assert.match(studentPage, /contains: search/);

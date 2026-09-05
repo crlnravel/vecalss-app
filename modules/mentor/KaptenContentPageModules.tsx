@@ -180,7 +180,7 @@ function TryoutRow({ tryout }: { tryout: KaptenTryout }) {
           <p className="text-sm font-semibold text-secondary-900">
             {tryout.primaryMetric}
           </p>
-          <Button render={<Link href={tryout.href} />} size="sm" variant="brandOutline">
+          <Button render={<Link href={tryout.href} />} size="default" variant="brandOutline">
             Buka
           </Button>
         </div>

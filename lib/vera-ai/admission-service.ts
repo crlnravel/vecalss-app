@@ -195,8 +195,8 @@ export class VeraPrismaAdmissionService {
     now: Date;
     featureKey?: string;
   }): Promise<VeraPolicySnapshot> {
-    const policy = await this.resolveActivePolicyBundle(input.tx, input.now);
-    const [billing, profile] = await Promise.all([
+    const [policy, billing, profile] = await Promise.all([
+      this.resolveActivePolicyBundle(input.tx, input.now),
       input.tx.billingAccount.findUnique({ where: { studentId: input.studentId }, select: { planCode: true, status: true } }),
       input.tx.studentProfile.findUnique({ where: { userId: input.studentId }, select: { timezone: true, dailyAiTokenLimit: true } }),
     ]);
@@ -563,29 +563,31 @@ export class VeraPrismaAdmissionService {
           purgeAt: contextPurgeAt,
         },
       });
-      for (const [index, block] of input.pack.blocks.entries()) {
-        const snapshot = encrypted?.sourceSnapshots[index];
-        await tx.aiRequestSource.create({
-          data: {
-            id: randomUUID(),
-            contextPackId,
-            requestId,
-            ordinal: block.ordinal,
-            sourceType: block.sourceType,
-            sourceId: block.sourceId,
-            citationKey: block.citationKey,
-            titleSnapshot: block.titleSnapshot,
-            citationLabel: block.citationLabel,
-            contentDigest: block.contentDigest,
-            boundedSnapshotCiphertext: snapshot ? json(snapshot) : undefined,
-            snapshotBytes: Buffer.byteLength(block.content, "utf8"),
-            truncationJson: json({ truncated: block.truncated }),
-            redactionPolicyVersion: input.pack.redactionPolicyVersion,
-            retentionPolicyVersion: input.retentionPolicyVersion ?? input.policy.bundleVersion,
-            purgeAt: contextPurgeAt,
-          },
-        });
-      }
+      await Promise.all(
+        input.pack.blocks.map((block, index) => {
+          const snapshot = encrypted?.sourceSnapshots[index];
+          return tx.aiRequestSource.create({
+            data: {
+              id: randomUUID(),
+              contextPackId,
+              requestId,
+              ordinal: block.ordinal,
+              sourceType: block.sourceType,
+              sourceId: block.sourceId,
+              citationKey: block.citationKey,
+              titleSnapshot: block.titleSnapshot,
+              citationLabel: block.citationLabel,
+              contentDigest: block.contentDigest,
+              boundedSnapshotCiphertext: snapshot ? json(snapshot) : undefined,
+              snapshotBytes: Buffer.byteLength(block.content, "utf8"),
+              truncationJson: json({ truncated: block.truncated }),
+              redactionPolicyVersion: input.pack.redactionPolicyVersion,
+              retentionPolicyVersion: input.retentionPolicyVersion ?? input.policy.bundleVersion,
+              purgeAt: contextPurgeAt,
+            },
+          });
+        }),
+      );
       await tx.aiUsageDaily.update({ where: { id: ledger.id }, data: { reservedQuotaUnits: { increment: reservation }, acceptedRequestCount: { increment: 1 } } });
       const acceptedKey = await tx.aiIdempotencyKey.updateMany({
         where: { id: idempotencyKey.id, version: idempotencyKey.version, state: AiIdempotencyState.rejected },
@@ -1030,7 +1032,7 @@ export class VeraPrismaAdmissionService {
         const normalizedResult = await this.decodeStagedResult(stage);
         const callback = this.envelope ? createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }) : null;
         if (callback) {
-          await tx.$executeRawUnsafe("SAVEPOINT vera_durable_recovery");
+          await tx.$executeRaw`SAVEPOINT vera_durable_recovery`;
           try {
             await this.finalizeLockedRequest({
               tx,
@@ -1041,11 +1043,11 @@ export class VeraPrismaAdmissionService {
               now,
               persistDurableResult: callback,
             });
-            await tx.$executeRawUnsafe("RELEASE SAVEPOINT vera_durable_recovery");
+            await tx.$executeRaw`RELEASE SAVEPOINT vera_durable_recovery`;
             return;
           } catch (error) {
-            await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT vera_durable_recovery");
-            await tx.$executeRawUnsafe("RELEASE SAVEPOINT vera_durable_recovery");
+            await tx.$executeRaw`ROLLBACK TO SAVEPOINT vera_durable_recovery`;
+            await tx.$executeRaw`RELEASE SAVEPOINT vera_durable_recovery`;
             if (!request.settlementDeadlineAt || request.settlementDeadlineAt > now) {
               throw new VeraAdmissionError({
                 code: error instanceof VeraDurableResultError ? error.code : "durable_recovery_unavailable",

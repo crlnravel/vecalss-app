@@ -62,7 +62,7 @@ assert.match(workspace, /Setelah tryout di-publish dan terdapat siswa mengerjaka
 assert.match(workspace, /AlertDialogContent className="!max-w-xl rounded-5xl gap-5"[\s\S]*AlertDialogFooter className="!justify-stretch grid w-full gap-2"/u, "unsaved-change confirmation must keep its actions inside a responsive modal layout");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
-assert.match(workspace, /<aside aria-label="Area Delivery"[\s\S]*role="tablist"/u, "Delivery areas must use a persistent sidebar rail");
+assert.match(workspace, /<aside aria-label="Area Delivery"[\s\S]*<nav aria-label="Policy, Sessions, Participants"[\s\S]*aria-current=\{active \? "page" : undefined\}/u, "Delivery areas must use a persistent semantic navigation rail");
 assert.doesNotMatch(workspace, /id="delivery-area-title">Delivery/u, "Delivery rail should not show a redundant heading");
 assert.doesNotMatch(workspace, /Siapa yang boleh masuk dan kapan hasil dibuka\.|Jendela waktu dan rilis konten peserta\.|Admission, undangan, dan penugasan peserta\./u, "Delivery rail items must not repeat descriptions");
 assert.doesNotMatch(workspace, /Tryout sudah terbit\. Area authoring disembunyikan/u, "published workspaces must not show the authoring redirect notice");

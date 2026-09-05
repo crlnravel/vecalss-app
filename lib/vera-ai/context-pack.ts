@@ -223,16 +223,18 @@ export async function encryptPreparedContextPackAsync(
   envelope: EnvelopeService,
   objectId: string,
 ): Promise<{ normalizedTaskCiphertext: AiEncryptedPayload; sourceSnapshots: Array<AiEncryptedPayload> }> {
-  const normalizedTaskCiphertext = await envelope.encryptAsync(pack.canonicalTaskBytes, `${objectId}:task`);
-  const sourceSnapshots = await Promise.all(pack.blocks.map((block) => envelope.encryptAsync(
-    JSON.stringify({
-      sourceType: block.sourceType,
-      sourceId: block.sourceId,
-      citationKey: block.citationKey,
-      content: block.content,
-    }),
-    `${objectId}:source:${block.ordinal}`,
-  )));
+  const [normalizedTaskCiphertext, sourceSnapshots] = await Promise.all([
+    envelope.encryptAsync(pack.canonicalTaskBytes, `${objectId}:task`),
+    Promise.all(pack.blocks.map((block) => envelope.encryptAsync(
+      JSON.stringify({
+        sourceType: block.sourceType,
+        sourceId: block.sourceId,
+        citationKey: block.citationKey,
+        content: block.content,
+      }),
+      `${objectId}:source:${block.ordinal}`,
+    ))),
+  ]);
   return { normalizedTaskCiphertext, sourceSnapshots };
 }
 
@@ -242,8 +244,9 @@ export function assertPackInvariant(
 ): void {
   const ordinals = pack.blocks.map((block) => block.ordinal);
   if (new Set(ordinals).size !== ordinals.length) throw new Error("Context pack ordinals must be unique.");
-  if (new Set(sourceOrdinals).size !== sourceOrdinals.length) throw new Error("Request sources must be unique.");
-  if (ordinals.some((ordinal) => !sourceOrdinals.includes(ordinal))) {
+  const sourceOrdinalsSet = new Set(sourceOrdinals);
+  if (sourceOrdinalsSet.size !== sourceOrdinals.length) throw new Error("Request sources must be unique.");
+  if (ordinals.some((ordinal) => !sourceOrdinalsSet.has(ordinal))) {
     throw new Error("Every context manifest block must have a request-source row.");
   }
   if (pack.canonicalTaskBytes.byteLength !== pack.byteCount) throw new Error("Context pack byte count mismatch.");

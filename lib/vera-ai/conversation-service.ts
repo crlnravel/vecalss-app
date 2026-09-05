@@ -99,11 +99,16 @@ export class InMemorySourceCatalog implements SourceCatalog {
   }
 
   async list(studentId: string): Promise<SourceCatalogEntry[]> {
-    return this.entries
-      .filter((entry) =>
-        (entry.ownerStudentId === undefined || entry.ownerStudentId === studentId)
-        && (entry.publicationState === "published" || entry.publicationState === "released"))
-      .map((entry) => ({ ...entry }));
+    const result: SourceCatalogEntry[] = [];
+    for (const entry of this.entries) {
+      if (
+        (entry.ownerStudentId === undefined || entry.ownerStudentId === studentId) &&
+        (entry.publicationState === "published" || entry.publicationState === "released")
+      ) {
+        result.push({ ...entry });
+      }
+    }
+    return result;
   }
 }
 

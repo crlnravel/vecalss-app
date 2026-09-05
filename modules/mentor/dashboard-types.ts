@@ -187,17 +187,20 @@ function overlayDashboardQuizDrafts(
   // The server projection is the ownership/existence proof. A local row that
   // is not already present in this tutor's persisted Kuis set is stale,
   // deleted, foreign, or otherwise unsupported and is omitted.
-  const persistedQuizIds = new Set(
-    [...projection.recentKuis, ...projection.scheduledKuis]
-      .filter((resource) => resource.kind === "quiz")
-      .map((resource) => resource.id),
-  );
+  const persistedQuizIds = new Set<string>();
+  for (const resource of [...projection.recentKuis, ...projection.scheduledKuis]) {
+    if (resource.kind === "quiz") {
+      persistedQuizIds.add(resource.id);
+    }
+  }
   const latestById = new Map<string, DashboardQuizDraftLike>();
 
   for (const draft of drafts) {
-    if (!isDashboardQuizDraftLike(draft) || !persistedQuizIds.has(draft.quiz.id)) continue;
-    const current = latestById.get(draft.quiz.id);
-    if (!current || draft.savedAt > current.savedAt) latestById.set(draft.quiz.id, draft);
+    if (!isDashboardQuizDraftLike(draft)) continue;
+    const quizId = draft.quiz.id;
+    if (!persistedQuizIds.has(quizId)) continue;
+    const current = latestById.get(quizId);
+    if (!current || draft.savedAt > current.savedAt) latestById.set(quizId, draft);
   }
 
   const overlay = (resource: DashboardResource): DashboardResource => {

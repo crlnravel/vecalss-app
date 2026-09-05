@@ -232,10 +232,19 @@ const QUESTIONS = [
   },
 ].map((question, index) => ({ ...question, code: `seed:demo:question:${question.subjectCode.toLowerCase()}:${index + 1}` }));
 
-const BANK = {
-  code: "seed:assessment:mixed-subject-bank:v1",
-  name: "Bank Soal Evaluasi UTBK",
-  description: "Kumpulan soal yang telah ditinjau untuk latihan, penyusunan paket, dan simulasi tujuh subtes UTBK.",
+const BANKS = {
+  quiz: {
+    code: "seed:assessment:quiz-bank:v1",
+    name: "Bank Soal Kuis UTBK",
+    description: "Kumpulan soal yang telah ditinjau untuk latihan Kuis tujuh subtes UTBK.",
+    purpose: "quiz",
+  },
+  tryout: {
+    code: "seed:assessment:tryout-bank:v1",
+    name: "Bank Soal Tryout UTBK",
+    description: "Kumpulan soal yang telah ditinjau untuk penyusunan Tryout tujuh subtes UTBK.",
+    purpose: "tryout",
+  },
 };
 
 const TRYOUT = {
@@ -304,25 +313,28 @@ async function resolveSubtests(client) {
   return subtestIds;
 }
 
-async function upsertQuestionBank(client, tutorId) {
+async function upsertQuestionBank(client, tutorId, purpose) {
+  const bank = BANKS[purpose];
   const result = await client.query(
-    `INSERT INTO question_banks (code, name, description, status, revision, created_by_user_id, updated_by_user_id)
-     VALUES ($1, $2, $3, 'published', 1, $4, $4)
+    `INSERT INTO question_banks (code, name, description, purpose, status, revision, created_by_user_id, updated_by_user_id)
+     VALUES ($1, $2, $3, $4::question_bank_purpose, 'published', 1, $5, $5)
      ON CONFLICT (code) DO UPDATE
        SET name = EXCLUDED.name,
            description = EXCLUDED.description,
+           purpose = EXCLUDED.purpose,
            status = 'published',
            updated_by_user_id = EXCLUDED.updated_by_user_id,
            updated_at = NOW()
      RETURNING id`,
-    [BANK.code, BANK.name, BANK.description, tutorId],
+    [bank.code, bank.name, bank.description, bank.purpose, tutorId],
   );
   return result.rows[0].id;
 }
 
-async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
+async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId }) {
   const seeded = [];
   for (const question of QUESTIONS) {
+    const questionCode = question.code.replace("seed:demo:question:", `seed:demo:${purpose}:question:`);
     const questionResult = await client.query(
       `INSERT INTO questions (
          code, question_bank_id, subtest_id, stem, question_type, difficulty,
@@ -338,7 +350,7 @@ async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
              updated_by_user_id = EXCLUDED.updated_by_user_id,
              updated_at = NOW()
        RETURNING id, current_revision_id, revision`,
-      [question.code, bankId, subtestIds.get(question.subjectCode), question.stem, question.difficulty, question.explanation, tutorId],
+      [questionCode, bankId, subtestIds.get(question.subjectCode), question.stem, question.difficulty, question.explanation, tutorId],
     );
     const questionId = questionResult.rows[0].id;
     const currentRevisionId = questionResult.rows[0].current_revision_id;
@@ -427,7 +439,7 @@ async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
         ORDER BY sort_order`,
       [questionId],
     );
-    seeded.push({ ...question, contentDigest, id: questionId, optionIds: existingOptionResult.rows.map((row, index) => optionIds[index] ?? row.id), revisionId, revisionOptionIds: revisionOptionResult.rows.map((row) => row.id), subtestId: subtestIds.get(question.subjectCode) });
+    seeded.push({ ...question, code: questionCode, contentDigest, id: questionId, optionIds: existingOptionResult.rows.map((row, index) => optionIds[index] ?? row.id), revisionId, revisionOptionIds: revisionOptionResult.rows.map((row) => row.id), subtestId: subtestIds.get(question.subjectCode) });
   }
   return seeded;
 }
@@ -1912,21 +1924,25 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
 }
 
 async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) {
-  const [subtestIds, bankId] = await Promise.all([
+  const [subtestIds, quizBankId, tryoutBankId] = await Promise.all([
     resolveSubtests(client),
-    upsertQuestionBank(client, tutorId),
+    upsertQuestionBank(client, tutorId, "quiz"),
+    upsertQuestionBank(client, tutorId, "tryout"),
   ]);
   await seedQuestionBankOrganization(client, { tutorId });
-  const questions = await upsertQuestions(client, { bankId, subtestIds, tutorId });
-  await upsertCalibrations(client, tutorId, questions);
-  const versionIds = await seedReusablePackages(client, { bankId, questions, subtestIds, tutorId });
+  const [quizQuestions, tryoutQuestions] = await Promise.all([
+    upsertQuestions(client, { bankId: quizBankId, purpose: "quiz", subtestIds, tutorId }),
+    upsertQuestions(client, { bankId: tryoutBankId, purpose: "tryout", subtestIds, tutorId }),
+  ]);
+  await upsertCalibrations(client, tutorId, tryoutQuestions);
+  const versionIds = await seedReusablePackages(client, { bankId: tryoutBankId, questions: tryoutQuestions, subtestIds, tutorId });
   const [quizIds, tryoutId] = await Promise.all([
-    seedQuizzes(client, { bankId, questions, studentIds, subtestIds, tutorId }),
+    seedQuizzes(client, { bankId: quizBankId, questions: quizQuestions, studentIds, subtestIds, tutorId }),
     seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
   ]);
   const assessmentRelease = await upsertAssessmentRelease(client, { tryoutId, tutorId });
   const sessions = await seedTryoutOperations(client, { assessmentRelease, studentIds, tryoutId, tutorId });
-  return { bankId, questionCount: questions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
+  return { bankIds: { quiz: quizBankId, tryout: tryoutBankId }, questionCount: quizQuestions.length + tryoutQuestions.length, quizQuestionCount: quizQuestions.length, tryoutQuestionCount: tryoutQuestions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
 }
 
 async function main() {

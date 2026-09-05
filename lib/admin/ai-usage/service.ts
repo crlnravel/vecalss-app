@@ -287,16 +287,28 @@ function previewPopulationCell(
   timezone: string,
 ): { cell: AiPolicyImpactCell; coarsened: boolean } {
   if (!changed) return { cell: { state: "unchanged" }, coarsened: false };
-  const base = new Set(rows.map((row) => row.studentId).filter((value): value is string => Boolean(value)));
-  const affected = new Set(rows.filter((row) => row.affected).map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+  const base = new Set<string>();
+  const affected = new Set<string>();
+  for (const row of rows) {
+    if (row.studentId) {
+      base.add(row.studentId);
+      if (row.affected) affected.add(row.studentId);
+    }
+  }
   if (base.size < minimum || affected.size < minimum || base.size - affected.size < minimum) {
     return { cell: { state: "suppressed" }, coarsened: false };
   }
   const dates = new Set(rows.map((row) => dateForDisplay(row.at, timezone)));
   const coarsened = dates.size > 1 && [...dates].some((date) => {
     const daily = rows.filter((row) => dateForDisplay(row.at, timezone) === date);
-    const dailyBase = new Set(daily.map((row) => row.studentId).filter((value): value is string => Boolean(value)));
-    const dailyAffected = new Set(daily.filter((row) => row.affected).map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+    const dailyBase = new Set<string>();
+    const dailyAffected = new Set<string>();
+    for (const row of daily) {
+      if (row.studentId) {
+        dailyBase.add(row.studentId);
+        if (row.affected) dailyAffected.add(row.studentId);
+      }
+    }
     return dailyBase.size < minimum || dailyAffected.size < minimum || dailyBase.size - dailyAffected.size < minimum;
   });
   return {

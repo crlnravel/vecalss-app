@@ -15,7 +15,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { LoginAudience, SessionContext } from "@/lib/auth/types";
-import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";
 import { BrandLogo } from "@/modules/home/components/home-primitives";
@@ -32,8 +31,7 @@ const adminSectionLabels = {
   kapten: "Kapten",
   notifications: "Notifikasi",
   overview: "Dashboard",
-  "student-banners": "Banner siswa",
-  "student-preview": "Student preview",
+  "student-banners": "Banner maker",
   students: "Siswa",
 } as const;
 
@@ -47,7 +45,6 @@ const adminSectionRootHrefs = {
   notifications: "/admin/notifications",
   overview: "/admin",
   "student-banners": "/admin/student-banners",
-  "student-preview": "/admin/student-preview",
   students: "/admin/enrollment",
 } as const;
 
@@ -60,7 +57,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -73,12 +70,10 @@ function PortalShell({
     const activeLabel = adminSectionLabels[activeSection];
     const rootHref = adminSectionRootHrefs[activeSection];
     const isRootPage = title === activeLabel;
-    const studentPreviewEnabled = isAdminStudentPreviewEnabled();
-
     return (
       <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
         <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
-          <AdminPortalNav activeSection={activeSection} studentPreviewEnabled={studentPreviewEnabled} />
+          <AdminPortalNav activeSection={activeSection} />
 
           <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
             <header

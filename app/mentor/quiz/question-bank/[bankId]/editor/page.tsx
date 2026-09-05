@@ -26,11 +26,9 @@ export default async function MentorQuestionBankEditorPage({
     searchParams ? searchParams : Promise.resolve<{ question?: string }>({}),
     requireTutorSession(),
   ]);
-  const [initial, initialCategories] = await Promise.all([
-    getQuestionBankForEdit(bankId),
-    listQuestionBankCategories(),
-  ]);
+  const initial = await getQuestionBankForEdit(bankId);
   if (!initial || initial.bank.status !== "draft") notFound();
+  const initialCategories = await listQuestionBankCategories(initial.bank.purpose ?? "quiz");
 
   return (
     <KaptenQuestionBankBuilderPageModule
@@ -41,6 +39,7 @@ export default async function MentorQuestionBankEditorPage({
       initialQuestions={initial.questions}
       initialReadiness={initial.readiness}
       mode="edit"
+      purpose={initial.bank.purpose ?? "quiz"}
       session={session}
     />
   );

@@ -29,8 +29,9 @@ import {
 } from "@/components/ui/empty";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CompactTabsList, CompactTabsTrigger } from "@/components/ui/compact-filter-tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type {
   ExamEvent,
   Major,
@@ -350,17 +351,16 @@ function ChapterSkillsSection() {
       <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
         <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
           <Tabs defaultValue="PU">
-            <TabsList className="flex w-full gap-2 overflow-x-auto bg-transparent p-0">
+            <CompactTabsList aria-label="Pilih bab">
               {chapterTabs.map((chapter) => (
-                <TabsTrigger
-                  className="h-9 flex-none rounded-full bg-secondary-100 px-4 text-xs font-medium text-secondary-600 data-active:bg-primary-700 data-active:text-white"
+                <CompactTabsTrigger
                   key={chapter.value}
                   value={chapter.value}
                 >
                   {chapter.value}
-                </TabsTrigger>
+                </CompactTabsTrigger>
               ))}
-            </TabsList>
+            </CompactTabsList>
             {chapterTabs.map((chapter) => (
               <TabsContent className="mt-2" key={chapter.value} value={chapter.value}>
                 <Empty className="min-h-[350px] border-0 p-5">

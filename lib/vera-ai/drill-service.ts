@@ -107,14 +107,16 @@ export class VeraDrillService {
       const items = await tx.adaptivePracticeItem.findMany({ where: { adaptiveSessionId: session.id }, orderBy: { ordinal: "asc" }, include: { answers: true } });
       if (!items.length || items.some((item) => item.answers.length !== 1)) throw new VeraDrillError("session_incomplete", 409);
       await tx.$queryRaw`SELECT id FROM adaptive_practice_answers WHERE adaptive_session_id = ${session.id}::uuid ORDER BY adaptive_practice_item_id, id FOR UPDATE`;
-      let correctCount = 0;
-      for (const item of items) {
-        const answer = item.answers[0]!;
-        const scoring = await this.decrypt<ScoringSnapshot>(item.scoringSnapshotCiphertext);
-        const isCorrect = answer.selectedOptionKey === scoring.correctOptionKey;
-        if (isCorrect) correctCount += 1;
-        await tx.adaptivePracticeAnswer.update({ where: { id: answer.id }, data: { isCorrect, version: { increment: 1 } } });
-      }
+      const scoredResults = await Promise.all(
+        items.map(async (item) => {
+          const answer = item.answers[0]!;
+          const scoring = await this.decrypt<ScoringSnapshot>(item.scoringSnapshotCiphertext);
+          const isCorrect = answer.selectedOptionKey === scoring.correctOptionKey;
+          await tx.adaptivePracticeAnswer.update({ where: { id: answer.id }, data: { isCorrect, version: { increment: 1 } } });
+          return isCorrect;
+        }),
+      );
+      const correctCount = scoredResults.filter(Boolean).length;
       const clockRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
       const submittedAt = clockRows[0]?.now;
       if (!(submittedAt instanceof Date)) throw new VeraDrillError("vera_unavailable", 503);

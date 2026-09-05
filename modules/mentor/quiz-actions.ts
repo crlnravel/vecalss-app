@@ -6,9 +6,12 @@ import { requireTutorSession } from "@/lib/auth/access";
 import {
   bulkPublishStandaloneQuizzes,
   bulkUnpublishStandaloneQuizzes,
+  importStandaloneQuizBankQuestions,
   QuizValidationError,
   saveStandaloneQuiz,
+  transitionStandaloneQuizSourceMode,
   updateStandaloneQuizLifecycle,
+  type TransitionStandaloneQuizSourceModeInput,
   type SaveStandaloneQuizInput,
 } from "@/lib/quiz/repository";
 
@@ -31,6 +34,36 @@ async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
     console.error("Standalone quiz mutation failed", error);
     return { message: "Quiz tidak dapat disimpan saat ini. Coba lagi.", ok: false as const };
+  }
+}
+
+async function importStandaloneQuizBankQuestionsAction(input: Omit<TransitionStandaloneQuizSourceModeInput, "mode">) {
+  const session = await requireTutorSession();
+  try {
+    const result = await importStandaloneQuizBankQuestions(input, session.user.id);
+    revalidateQuizPaths();
+    revalidatePath(`/mentor/quiz/${input.quizId}`);
+    revalidatePath(`/mentor/quiz/${input.quizId}/editor`);
+    return { ok: true as const, ...result };
+  } catch (error) {
+    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
+    console.error("Standalone quiz bank import failed", error);
+    return { message: "Soal dari Bank Soal Kuis tidak dapat diimpor saat ini.", ok: false as const };
+  }
+}
+
+async function transitionStandaloneQuizSourceModeAction(input: TransitionStandaloneQuizSourceModeInput) {
+  const session = await requireTutorSession();
+  try {
+    const result = await transitionStandaloneQuizSourceMode(input, session.user.id);
+    revalidateQuizPaths();
+    revalidatePath(`/mentor/quiz/${input.quizId}`);
+    revalidatePath(`/mentor/quiz/${input.quizId}/editor`);
+    return { ok: true as const, ...result };
+  } catch (error) {
+    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
+    console.error("Standalone quiz source mode transition failed", error);
+    return { message: "Mode sumber Kuis tidak dapat diubah saat ini.", ok: false as const };
   }
 }
 
@@ -77,6 +110,8 @@ async function updateStandaloneQuizLifecycleAction(id: string, operation: "archi
 export {
   bulkPublishStandaloneQuizzesAction,
   bulkUnpublishStandaloneQuizzesAction,
+  importStandaloneQuizBankQuestionsAction,
   saveStandaloneQuizAction,
+  transitionStandaloneQuizSourceModeAction,
   updateStandaloneQuizLifecycleAction,
 };

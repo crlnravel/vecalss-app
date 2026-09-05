@@ -70,7 +70,8 @@ type JsonRecord = Record<string, unknown>;
 function record(value: unknown, allowed: readonly string[], label: string): JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object.`);
   const candidate = value as JsonRecord;
-  if (Object.keys(candidate).some((key) => !allowed.includes(key))) fail(`${label} contains an unknown field.`);
+  const allowedSet = new Set(allowed);
+  if (Object.keys(candidate).some((key) => !allowedSet.has(key))) fail(`${label} contains an unknown field.`);
   return candidate;
 }
 

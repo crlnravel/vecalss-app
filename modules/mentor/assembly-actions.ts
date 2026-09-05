@@ -29,19 +29,19 @@ function assemblyMessage(error: unknown) {
     : "Assembly soal tidak dapat diproses saat ini.";
 }
 
-async function listReadyAssemblyRevisionsAction() {
+async function listReadyAssemblyRevisionsAction(target: AssemblyAttachmentTarget = "tryout") {
   await assemblyManagementSession();
   try {
-    return { ok: true as const, result: await listReadyAssemblyRevisions() };
+    return { ok: true as const, result: await listReadyAssemblyRevisions(target) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }
 }
 
-async function getReadyAssemblyRevisionAction(versionId: string) {
+async function getReadyAssemblyRevisionAction(versionId: string, target: AssemblyAttachmentTarget = "tryout") {
   await assemblyManagementSession();
   try {
-    return { ok: true as const, result: await getReadyAssemblyRevision(versionId) };
+    return { ok: true as const, result: await getReadyAssemblyRevision(versionId, target) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }

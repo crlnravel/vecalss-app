@@ -4,8 +4,6 @@ import {
   Image as ImageIcon,
   type AppIcon,
 } from "@/lib/icons";
-import { quickCreateItems } from "@/modules/mentor/quick-create-items";
-import { contentTypeMeta, statusLabels } from "@/modules/mentor/resource-types";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import type {
   QuizCorrectAnswerVisibility,
@@ -53,6 +51,7 @@ type KaptenQuiz = KaptenResource & {
   scorePolicy?: QuizScorePolicy;
   sourceBank: string;
   sourceBankId?: string;
+  sourceMode?: "local" | "bank" | "assembly";
 };
 
 type KaptenQuestionBank = KaptenResource & {
@@ -62,6 +61,7 @@ type KaptenQuestionBank = KaptenResource & {
   folder?: { id: string; name: string } | null;
   folderId?: string | null;
   folderPath?: Array<{ id: string | null; name: string }>;
+  purpose?: "quiz" | "tryout";
   questionCount: number;
   revision?: number;
   reusableIn: string[];
@@ -703,18 +703,15 @@ function getSeedQuizContent(quizId: string | undefined) {
 export {
   allResources,
   bankQuestions,
-  contentTypeMeta,
   getQuizById,
   getSeedQuizContent,
   kaptenNotificationItems,
   kaptenSubjects,
   mediaAssets,
   questionBanks,
-  quickCreateItems,
   quizzes,
   recentlyEdited,
   scheduledPublications,
-  statusLabels,
   tryouts,
 };
 
