@@ -3,7 +3,7 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-export default defineConfig({
+const prisma7Config = defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
@@ -12,3 +12,19 @@ export default defineConfig({
     url: process.env["DATABASE_URL"],
   },
 });
+
+// `pnpx prisma` currently resolves the unified Prisma 8 CLI, while this
+// project intentionally keeps Prisma 7 for its ORM and generated client. The
+// unified CLI requires a marker and only knows its own top-level sections, so
+// expose a skills-only config for that command and retain the Prisma 7 config
+// for the app's normal database commands.
+const definePrismaCliConfig = <T extends Record<string, unknown>>(config: T) =>
+  Object.freeze({ ...config, $prismaConfig: 1 as const });
+
+export default process.argv.includes("skills")
+  ? definePrismaCliConfig({
+      skills: {
+        agents: ["agents"],
+      },
+    })
+  : prisma7Config;
