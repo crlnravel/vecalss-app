@@ -263,6 +263,14 @@
       "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
       "status": "complete",
       "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, follow-up queue, stale-handoff labeling, and Vera tracker boundary recorded without staging unrelated product changes."
+    },
+    {
+      "id": "feat-034",
+      "name": "Vecalss Palette Standardization",
+      "description": "Migrate UI color usage to the existing Vecalss palette and semantic status tokens while preserving visual meaning, behavior, layout, and accessibility contracts",
+      "dependencies": ["feat-030"],
+      "status": "complete",
+      "evidence": "3b67d69, 7c57433, c2fe59b, 5af4342, and 91bbceb; learner/public, assessment, mentor/Tryout, admin, dashboard, portal, media, and Vera surfaces tokenized; guarded targeted ESLint, repository-wide pnpm lint (0 errors; 474 warnings), git diff --check, and full pnpm build pass. Browser verification was not run because explicit permission was not granted; protected and active-owner color boundaries remain documented."
     }
   ]
 }

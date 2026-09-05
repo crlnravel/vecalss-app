@@ -64,6 +64,22 @@ and then verify the source tree before making an implementation decision.
   explicit-permission workflow with route, role/session, and checklist stated
   before using `ego-browser`.
 
+## Vecalss palette standardization (2026-09-05)
+
+- The existing Vecalss palette is the source of truth for UI color migration:
+  component color literals and legacy status ramps should map to the existing
+  voyage, surface, and semantic status tokens rather than introduce a second
+  palette. Information, warning, and danger meanings remain distinct.
+- Token source changes belong in `design-tokens/palette.mjs` and generated
+  output is regenerated through the token command; `DESIGN.md` and generated
+  theme output remain protected from direct edits. Token-derived `color-mix()`
+  values are acceptable for scoped shadows and gradients.
+- The 2026-09-05 migration is complete in commits `3b67d69`, `7c57433`,
+  `c2fe59b`, `5af4342`, and `91bbceb`. Remaining raw colors are intentional
+  ownership or library boundaries: banner-maker design data/editor, protected
+  typed-route state, Recharts selector literals, and the released Question
+  Bank builder status utilities.
+
 ## Current Vera policy route wiring (2026-08-31)
 
 - The canonical `/admin/ai/policies` page is admin-gated, resolves actor-scoped

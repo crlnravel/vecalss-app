@@ -1,5 +1,34 @@
 # Session Handoff
 
+## Current handoff — Vecalss palette standardization (2026-09-05)
+
+- Objective: migrate UI color usage to the existing Vecalss token palette while
+  preserving semantic status meaning and all behavior/layout/accessibility
+  contracts.
+- Completed: learner/public, assessment, mentor/Tryout, admin, dashboard,
+  portal, media, and Vera surfaces now use palette-derived colors for the
+  scoped hardcoded colors, legacy utility ramps, shadows, gradients, and
+  annotation swatches. The two released builder files received only their
+  exact raw shadow replacements; no builder status classes or behavior were
+  changed.
+- Commits: `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
+- Verification: guarded targeted ESLint passed with only pre-existing unused
+  variable warnings; guarded repository-wide `pnpm lint` passed with 0 errors
+  and 474 warnings; `git diff --check` passed; guarded `pnpm build` passed
+  through Prisma generation, token regeneration, TypeScript, static page
+  generation, and standalone preparation. The worktree is clean.
+- Files changed: `design-tokens/palette.mjs`, generated/global theme outputs,
+  shared UI primitives, learner/public modules, assessment modules, mentor and
+  Tryout modules, admin/AI modules, dashboard/portal/media/Vera modules, and
+  the two released builder files, as recorded by the five commits above.
+- Decisions and boundaries: `DESIGN.md` and generated theme output remain
+  protected; active banner-maker source/data, `typed-route-state.tsx`, and
+  Recharts selector literals remain unchanged. Browser verification was not
+  authorized, so no browser result is claimed.
+- Recommended next step: if visual confirmation is desired, authorize a
+  browser check with exact routes, role/session, and desktop/mobile checklist;
+  otherwise the palette migration is implementation-complete.
+
 ## Current handoff — Vera policy route wiring (2026-08-31)
 
 - Objective: connect the canonical `/admin/ai/policies` page to the backend

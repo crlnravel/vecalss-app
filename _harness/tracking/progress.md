@@ -1,5 +1,25 @@
 # Session Progress Log
 
+## Vecalss palette standardization (2026-09-05)
+
+- [x] Standardized learner, assessment, mentor, admin, dashboard, portal, and
+  Vera UI color usage around the existing Vecalss palette and semantic status
+  tokens, preserving distinct information, warning, and danger meanings.
+- [x] Replaced tokenizable hardcoded colors, legacy status utility ramps, and
+  shared shadow/gradient literals in five reviewable commits: `3b67d69`,
+  `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
+- [x] Regenerated theme output through the palette workflow; generated CSS,
+  markup, layout, interaction/state behavior, accessibility attributes, and
+  route context were preserved.
+- [x] Guarded targeted ESLint, repository-wide `pnpm lint`, `git diff --check`,
+  and full guarded `pnpm build` pass. Full lint reports 0 errors and 474
+  existing warnings.
+- [x] Browser verification was intentionally skipped because the harness
+  requires explicit route, role/session, and checklist permission. Remaining
+  raw values are documented boundaries: protected route-state/chart selectors,
+  persisted and active banner-maker design data, and the released Question
+  Bank builder status classes.
+
 ## Current Vera policy route wiring (2026-08-31)
 
 - [x] Wired `/admin/ai/policies` to load actor-scoped metadata through
