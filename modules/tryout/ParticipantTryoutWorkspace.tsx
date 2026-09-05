@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
 import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-card";
 import type { SessionContext } from "@/lib/auth/types";
+import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { StudentBannerContent } from "@/lib/student/banner-content";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
@@ -190,8 +191,8 @@ function ParticipantTryoutWorkspace({
               const canEnterWaiting = canEnterParticipantWaitingRoom(tryout);
               const attempt = assignment?.attempt;
               const href = canEnterWaiting
-                ? `/tryout/${tryout.id}/waiting`
-                : `/tryout/${tryout.id}`;
+                ? buildStudentTryoutSubrouteHref(tryout.id, "waiting", { session: primarySession?.id })
+                : buildStudentTryoutHref(tryout.id, { session: primarySession?.id });
               const actionLabel = attempt?.status === "in_progress"
                 ? "Lanjutkan"
                 : attempt

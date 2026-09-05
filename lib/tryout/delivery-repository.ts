@@ -179,6 +179,27 @@ type EligibleSession = {
   tryoutId: string;
 };
 
+type RegistrationAssignment = {
+  id: string;
+  deliverySessionId: string;
+  status: TryoutAssignmentStatus;
+};
+
+function activeRegistrationAssignment(
+  assignments: RegistrationAssignment[],
+  selectedSessionId?: string | null,
+) {
+  const activeAssignments = assignments.filter(
+    (assignment) => assignment.status === TryoutAssignmentStatus.active,
+  );
+  if (selectedSessionId !== undefined && selectedSessionId !== null) {
+    return activeAssignments.find(
+      (assignment) => assignment.deliverySessionId === selectedSessionId,
+    ) ?? null;
+  }
+  return activeAssignments[0] ?? null;
+}
+
 function assertEligibleSession(
   session: EligibleSession | null,
   now: Date,
@@ -568,6 +589,7 @@ async function registerForTryout(
   tryoutId: string,
   studentId: string,
   target?: { majorId: string; universityId: string },
+  selectedSessionId?: string | null,
 ) {
   return prisma.$transaction(async (tx) => {
     // Access-transition lock order is always student -> admission/assignment
@@ -608,37 +630,49 @@ async function registerForTryout(
           assignments: {
             where: { status: TryoutAssignmentStatus.active },
             include: { deliverySession: true },
+            orderBy: { assignedAt: "desc" },
           },
         },
       });
       if (!existing) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+      const existingAssignment = activeRegistrationAssignment(existing.assignments, selectedSessionId);
+      if (selectedSessionId !== undefined && selectedSessionId !== null && existing.status === TryoutAdmissionStatus.active && !existingAssignment) {
+        throw new TryoutDeliveryValidationError("Sesi Tryout yang dipilih belum menjadi penugasanmu.");
+      }
       if (target) {
         await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
       }
-      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.id ?? null, state: "existing" as const, status: existing.status };
+      return { admissionId: existing.id, assignmentId: existingAssignment?.id ?? null, deliverySessionId: existingAssignment?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
     }
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
     if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (tryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const status = tryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
     const now = new Date();
-    let defaultSession: EligibleSession | null = null;
+    let registrationSession: EligibleSession | null = null;
     if (status === TryoutAdmissionStatus.active) {
       try {
-        defaultSession = await findDefaultSession(tx, tryoutId, now);
+        registrationSession = selectedSessionId !== undefined && selectedSessionId !== null
+          ? await findSelectedSession(tx, tryoutId, selectedSessionId, now)
+          : await findDefaultSession(tx, tryoutId, now);
       } catch (error) {
-        if (error instanceof TryoutDeliveryValidationError) {
-          return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+        if (error instanceof TryoutDeliveryValidationError && selectedSessionId == null) {
+          return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
         }
         throw error;
       }
     }
-    if (status === TryoutAdmissionStatus.active && !defaultSession) return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+    // Keep the established local name for the session that will receive a new
+    // registration. It is either the requested session or the default session;
+    // the selection above never falls back when a session was declared.
+    const defaultSession = registrationSession;
+    if (status === TryoutAdmissionStatus.active && !defaultSession) return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
     if (defaultSession) await lockSessionScope(tx, defaultSession);
     await lockTryout(tx, tryoutId);
     const lockedDefaultSession = defaultSession
       ? await findSelectedSession(tx, tryoutId, defaultSession.id, now)
       : null;
+    const lockedRegistrationSession = lockedDefaultSession;
     existing = await tx.tryoutAdmission.findUnique({
       where: { tryoutId_studentId: { studentId, tryoutId } },
       include: {
@@ -650,21 +684,25 @@ async function registerForTryout(
       },
     });
     if (existing) {
+      const existingAssignment = activeRegistrationAssignment(existing.assignments, selectedSessionId);
+      if (selectedSessionId !== undefined && selectedSessionId !== null && existing.status === TryoutAdmissionStatus.active && !existingAssignment) {
+        throw new TryoutDeliveryValidationError("Sesi Tryout yang dipilih belum menjadi penugasanmu.");
+      }
       if (target) await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
-      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.id ?? null, state: "existing" as const, status: existing.status };
+      return { admissionId: existing.id, assignmentId: existingAssignment?.id ?? null, deliverySessionId: existingAssignment?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
     }
     const lockedTryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
     if (!lockedTryout || lockedTryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (lockedTryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const lockedStatus = lockedTryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
-    if (lockedStatus === TryoutAdmissionStatus.active && !lockedDefaultSession) throw new TryoutDeliveryValidationError("Sesi default Tryout tidak tersedia untuk pendaftaran terbuka.");
+    if (lockedStatus === TryoutAdmissionStatus.active && !lockedRegistrationSession) throw new TryoutDeliveryValidationError("Sesi Tryout tidak tersedia untuk pendaftaran terbuka.");
     if (target) {
       await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
     }
     const admission = await tx.tryoutAdmission.create({ data: { status: lockedStatus, studentId, tryoutId } });
-    if (lockedStatus === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, state: "pending_approval" as const, status: lockedStatus };
-    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: lockedDefaultSession!.id } });
-    return { admissionId: admission.id, assignmentId: assignment.id, state: "assigned" as const, status: lockedStatus };
+    if (lockedStatus === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, deliverySessionId: null, state: "pending_approval" as const, status: lockedStatus };
+    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: lockedRegistrationSession!.id } });
+    return { admissionId: admission.id, assignmentId: assignment.id, deliverySessionId: lockedRegistrationSession!.id, state: "assigned" as const, status: lockedStatus };
   });
 }
 

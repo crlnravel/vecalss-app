@@ -98,12 +98,13 @@ function formatTime(seconds: number) {
   return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
 }
 
-function ParticipantResultModule({ attemptId }: { attemptId: string }) {
+function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {
   const [result, setResult] = useState<Result | null>(null);
   const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
+  const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
 
   const load = useCallback(async () => {
     setLoadState("loading");
@@ -138,7 +139,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           description={loadError ?? "Hasil Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."}
           kind="error"
           onRetry={() => void load()}
-          returnHref="/tryout"
+          returnHref={safeReturnHref}
           returnLabel="Kembali ke Tryout"
           title="Hasil Tryout belum dapat dimuat"
         />
@@ -164,7 +165,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           <p className="mt-3 text-sm leading-6 text-secondary-600">{result.status}</p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Button onClick={() => void load()} variant="brand">Periksa lagi</Button>
-            <BackButton href="/tryout" label="Kembali ke tryout" variant="brandOutline"><ArrowLeft /></BackButton>
+            <BackButton href={safeReturnHref} label="Kembali ke tryout" variant="brandOutline"><ArrowLeft /></BackButton>
           </div>
         </div>
       </main>
@@ -211,7 +212,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           <WarningCircle aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" />
           <h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1>
           <p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat direview dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p>
-          <Button className="mt-6" nativeButton={false} render={<Link href="/tryout" />} variant="brand"><ArrowLeft />Kembali ke tryout</Button>
+          <Button className="mt-6" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brand"><ArrowLeft />Kembali ke tryout</Button>
         </section>
       </main>
     );
@@ -255,8 +256,8 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
     <AssessmentResultWorkspace
       headerActions={
         <>
-          <Button className="hidden sm:inline-flex" nativeButton={false} render={<Link href="/tryout" />} variant="brandOutline"><RefreshCw />Ulangi</Button>
-          <Button aria-label="Kembali ke menu tryout" className="hidden sm:inline-flex" nativeButton={false} render={<Link href="/tryout" />} title="Kembali ke menu tryout" variant="brand"><House />Menu</Button>
+          <Button className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brandOutline"><RefreshCw />Ulangi</Button>
+          <Button aria-label="Kembali ke menu tryout" className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} title="Kembali ke menu tryout" variant="brand"><House />Menu</Button>
         </>
       }
       navigation={<AssessmentResultNavigation items={markers} label="Ringkasan soal" onSelect={setCurrentQuestion} />}

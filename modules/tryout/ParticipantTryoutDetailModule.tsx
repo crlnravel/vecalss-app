@@ -13,6 +13,7 @@ import Link from "next/link";
 import { BackButton } from "@/components/ui/back-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { SessionContext } from "@/lib/auth/types";
+import { buildStudentAttemptHref, buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { ChevronLeft } from "@/lib/icons";
@@ -227,7 +228,9 @@ function ParticipantTryoutDetailModule({
   initialUniversityId,
   majors,
   notificationFeed,
+  returnToHref,
   session,
+  sessionId,
   tryout,
   universities,
 }: {
@@ -235,7 +238,9 @@ function ParticipantTryoutDetailModule({
   initialUniversityId: string | null;
   majors: MajorOption[];
   notificationFeed?: StudentNotificationFeed;
+  returnToHref?: string;
   session: SessionContext;
+  sessionId?: string;
   tryout: ParticipantTryout;
   universities: UniversityOption[];
 }) {
@@ -247,7 +252,9 @@ function ParticipantTryoutDetailModule({
     (sum, section) => sum + section.questionCount,
     0,
   );
-  const assignedSession = tryout.assignments[0];
+  const assignedSession = sessionId
+    ? tryout.assignments.find((assignment) => assignment.id === sessionId)
+    : tryout.assignments[0];
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
   const canPreviewSchedule =
@@ -260,17 +267,24 @@ function ParticipantTryoutDetailModule({
           !deliverySession.isExpired,
       )
     : undefined;
+  const selectedSession = sessionId
+    ? tryout.sessions.find((deliverySession) => deliverySession.id === sessionId)
+    : undefined;
   const summarySession =
-    assignedSession ?? (canPreviewSchedule ? defaultOpenSession : undefined);
+    assignedSession ?? selectedSession ?? (canPreviewSchedule ? defaultOpenSession : undefined);
+  const context = {
+    returnTo: returnToHref,
+    session: summarySession?.id ?? sessionId,
+  };
 
-  let actionHref = "/tryout/" + tryout.id;
+  let actionHref = buildStudentTryoutHref(tryout.id, context);
   let actionLabel = "Daftar tryout";
   let canTakeAction = true;
   if (attempt?.status === "in_progress") {
-    actionHref = "/tryout/attempt/" + attempt.id;
+    actionHref = buildStudentAttemptHref(attempt.id, context);
     actionLabel = "Lanjutkan ujian";
   } else if (attempt) {
-    actionHref = "/tryout/attempt/" + attempt.id + "/result";
+    actionHref = buildStudentAttemptHref(attempt.id, { ...context, result: true });
     actionLabel = "Lihat hasil";
   } else if (
     tryout.admissionStatus === "active" &&
@@ -278,10 +292,10 @@ function ParticipantTryoutDetailModule({
     assignedSession.status === "active" &&
     !assignedSession.isExpired
   ) {
-    actionHref = "/tryout/" + tryout.id + "/waiting";
+    actionHref = buildStudentTryoutSubrouteHref(tryout.id, "waiting", context);
     actionLabel = "Mulai";
   } else if (tryout.admissionStatus === "active" && assignedSession) {
-    actionHref = "/tryout/" + tryout.id;
+    actionHref = buildStudentTryoutHref(tryout.id, context);
     actionLabel = "Sesi selesai";
     canTakeAction = false;
   }
@@ -402,7 +416,7 @@ function ParticipantTryoutDetailModule({
               <div className="relative mx-auto w-full px-5 pb-24 pt-8 sm:px-6 sm:pt-10">
                 <BackButton
                   className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
-                  href="/tryout"
+                  href={returnToHref ?? "/tryout"}
                   label="Kembali ke katalog"
                   variant="ghost"
                 >
@@ -495,6 +509,8 @@ function ParticipantTryoutDetailModule({
                 initialMajorId={initialMajorId}
                 initialUniversityId={initialUniversityId}
                 majors={majors}
+                returnToHref={returnToHref}
+                sessionId={summarySession?.id ?? sessionId}
                 tryoutId={tryout.id}
                 universities={universities}
               />

@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { registerForTryoutWithTargetAction } from "@/modules/tryout/participant-actions";
 
@@ -257,12 +258,16 @@ function ParticipantTryoutEnrollmentPanel({
   initialMajorId,
   initialUniversityId,
   majors,
+  returnToHref,
+  sessionId,
   tryoutId,
   universities,
 }: {
   initialMajorId: string | null;
   initialUniversityId: string | null;
   majors: MajorOption[];
+  returnToHref?: string;
+  sessionId?: string;
   tryoutId: string;
   universities: UniversityOption[];
 }) {
@@ -340,7 +345,7 @@ function ParticipantTryoutEnrollmentPanel({
       const response = await registerForTryoutWithTargetAction(tryoutId, {
         majorId: major.id,
         universityId: university.id,
-      });
+      }, sessionId);
       if (!response.ok) {
         setMessage(response.message);
         return;
@@ -352,10 +357,11 @@ function ParticipantTryoutEnrollmentPanel({
         return;
       }
       setConfirmOpen(false);
+      const destinationSessionId = response.result.deliverySessionId;
       window.location.assign(
-        response.result.assignmentId
-          ? `/tryout/${tryoutId}/waiting`
-          : `/tryout/${tryoutId}`,
+        destinationSessionId
+          ? buildStudentTryoutSubrouteHref(tryoutId, "waiting", { returnTo: returnToHref, session: destinationSessionId })
+          : buildStudentTryoutHref(tryoutId, { returnTo: returnToHref, session: sessionId }),
       );
     } catch (registerError) {
       unstable_rethrow(registerError);

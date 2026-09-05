@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import {
+  buildMentorMateriSubjectHref,
+  canonicalContextMessage,
+  canonicalQueryEquals,
+  parseMateriSubjectQuery,
+  type NavigationQueryValue,
+} from "@/lib/navigation/canonical-context";
 import { getMentorMateriCatalogue } from "@/lib/materi/repository";
 import { KaptenMateriSubjectPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
+import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
 type MentorMateriSubjectPageProps = {
   params: Promise<{ subjectSlug: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams: Promise<Record<string, NavigationQueryValue>>;
 };
-
-const MATERI_STATUSES = ["draft", "published", "archived", "scheduled"] as const;
-const MATERI_SORT_KEYS = ["title", "status"] as const;
-
-function readSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
-}
 
 export const metadata: Metadata = {
   title: "Subject Materi Kapten | Vecalss LMS",
@@ -39,30 +40,43 @@ export default async function MentorMateriSubjectPage({
     notFound();
   }
 
-  const requestedStatus = readSearchParam(paramsFromSearch.status);
-  const requestedSort = readSearchParam(paramsFromSearch.sort);
-  const requestedDirection = readSearchParam(paramsFromSearch.direction);
-  const requestedPage = Number.parseInt(readSearchParam(paramsFromSearch.page), 10);
+  const parsedQuery = parseMateriSubjectQuery(paramsFromSearch);
+  if (parsedQuery.issues.length) {
+    return (
+      <MentorWorkspaceShell
+        activeLabel="Materi"
+        breadcrumbLabel={subject.code}
+        searchPlaceholder="Cari lesson..."
+        session={session}
+        sidebarAppearance="reference"
+      >
+        <section
+          aria-labelledby="materi-context-unavailable"
+          className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8"
+          role="alert"
+        >
+          <h1 className="text-lg font-semibold" id="materi-context-unavailable">Konteks materi tidak tersedia</h1>
+          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
+          <p className="mt-2 text-sm leading-6">Pilih filter atau halaman materi yang tersedia untuk melanjutkan.</p>
+        </section>
+      </MentorWorkspaceShell>
+    );
+  }
 
-  const statusFilter = MATERI_STATUSES.includes(requestedStatus as (typeof MATERI_STATUSES)[number])
-    ? requestedStatus
-    : "";
-  const sort = MATERI_SORT_KEYS.includes(requestedSort as (typeof MATERI_SORT_KEYS)[number])
-    ? requestedSort as (typeof MATERI_SORT_KEYS)[number]
-    : "";
-  const sortDirection = requestedDirection === "desc" ? "desc" : "asc";
-  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const query = readSearchParam(paramsFromSearch.q);
+  const canonicalHref = buildMentorMateriSubjectHref(subject.slug, parsedQuery);
+  if (!canonicalQueryEquals(paramsFromSearch, canonicalHref)) {
+    redirect(canonicalHref);
+  }
 
   return (
     <KaptenMateriSubjectPageModule
       catalogue={view.lessons}
-      initialPage={page}
-      initialQuery={query}
-      initialSort={sort}
-      initialSortDirection={sortDirection}
-      initialStatusFilter={statusFilter}
-      key={JSON.stringify({ direction: sortDirection, page, q: query, sort, status: statusFilter, subjectSlug })}
+      initialPage={parsedQuery.page}
+      initialQuery={parsedQuery.q}
+      initialSort={parsedQuery.sort}
+      initialSortDirection={parsedQuery.direction}
+      initialStatusFilter={parsedQuery.status}
+      key={JSON.stringify({ direction: parsedQuery.direction, page: parsedQuery.page, q: parsedQuery.q, sort: parsedQuery.sort, status: parsedQuery.status, subjectSlug })}
       session={session}
       subject={subject}
     />

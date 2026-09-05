@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { AlertCircle, ChevronDown } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
@@ -147,12 +148,14 @@ function SettingsPageModule({
   majors,
   notificationFeed,
   profile,
+  returnToHref,
   session,
   universities,
 }: ProfileOptionData & {
   profile: ProfileData;
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
+  returnToHref?: string;
 }) {
   const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
   const [fullName, setFullName] = useState(() => session.user.fullName);
@@ -212,7 +215,7 @@ function SettingsPageModule({
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
         <ReferencePageHeader
-          actions={<SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">Simpan</SubmitButton>}
+          actions={<div className="flex flex-wrap items-center gap-2">{returnToHref ? <Button nativeButton={false} render={<Link href={returnToHref} />} size="lg" variant="ghost">Kembali</Button> : null}<SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">Simpan</SubmitButton></div>}
           title="Profil"
         />
 

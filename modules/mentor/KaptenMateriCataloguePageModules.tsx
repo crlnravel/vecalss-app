@@ -35,6 +35,12 @@ import {
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
+import {
+  buildMentorMateriCreateHref as buildCanonicalMateriCreateHref,
+  buildMentorMateriDetailHref as buildCanonicalMateriDetailHref,
+  buildMentorMateriSubjectHref as buildCanonicalMateriSubjectHref,
+  type MateriSubjectQuery,
+} from "@/lib/navigation/canonical-context";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
@@ -65,10 +71,8 @@ type MateriCatalogueQuery = {
   status?: string;
 };
 
-function buildCreateHref(subjectSlug?: string) {
-  return subjectSlug
-    ? `/mentor/materi/create?${new URLSearchParams({ subject: subjectSlug })}`
-    : "/mentor/materi/create";
+function buildCreateHref(subjectSlug?: string, returnTo?: string) {
+  return buildCanonicalMateriCreateHref(subjectSlug, returnTo);
 }
 
 function buildEditorHref(
@@ -76,24 +80,20 @@ function buildEditorHref(
   returnTo: string,
   preview = false,
 ) {
-  const query = new URLSearchParams({ returnTo });
-  if (preview) query.set("preview", "1");
-  return `/mentor/materi/${lesson.code}?${query.toString()}`;
+  return buildCanonicalMateriDetailHref(lesson.code, { preview, returnTo });
 }
 
 function buildMateriSubjectHref(
   subjectSlug: string,
   query: MateriCatalogueQuery = {},
 ) {
-  const params = new URLSearchParams();
-  if (query.q?.trim()) params.set("q", query.q.trim());
-  if (query.status) params.set("status", query.status);
-  if (query.sort) params.set("sort", query.sort);
-  if (query.direction === "desc") params.set("direction", query.direction);
-  if (query.page && query.page > 1) params.set("page", String(query.page));
-
-  const serialized = params.toString();
-  return `/mentor/materi/subject/${subjectSlug}${serialized ? `?${serialized}` : ""}`;
+  return buildCanonicalMateriSubjectHref(subjectSlug, {
+    direction: query.direction,
+    page: query.page,
+    q: query.q,
+    sort: query.sort as MateriSubjectQuery["sort"],
+    status: query.status as MateriSubjectQuery["status"],
+  });
 }
 
 function statusLabel(status: KaptenMateriView["status"]) {
@@ -180,11 +180,11 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
         REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
         "group flex min-w-0 flex-col p-4",
       )}
-      href={`/mentor/materi/subject/${subject.slug}`}
+      href={buildMateriSubjectHref(subject.slug)}
     >
       <div className="flex items-start gap-4">
         <MentorBadge
-          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-sm !font-normal text-[#176b4d]"
+          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]"
           size="sm"
           tone="category"
         >
@@ -286,7 +286,13 @@ function KaptenMateriSubjectPageModule({
     sortDirection,
     statusFilter,
   } = state;
-  const returnTo = `/mentor/materi/subject/${subject.slug}`;
+  const returnTo = buildMateriSubjectHref(subject.slug, {
+    direction: sortDirection,
+    page,
+    q: query,
+    sort,
+    status: statusFilter,
+  });
 
   function navigateCatalogue(next: MateriCatalogueQuery = {}) {
     router.push(buildMateriSubjectHref(subject.slug, {
@@ -618,7 +624,7 @@ function MateriSubjectCatalogueScreen({
               <Button
                 aria-label="Buat materi baru"
                 nativeButton={false}
-                render={<Link href={buildCreateHref(subject.slug)} />}
+                render={<Link href={buildCreateHref(subject.slug, returnTo)} />}
                 size="sm"
                 variant="brand"
               >
@@ -683,7 +689,7 @@ function MateriSubjectCatalogueScreen({
               hiddenFields: {
                 ...(statusFilter ? { status: statusFilter } : {}),
                 ...(sort ? { sort } : {}),
-                ...(sort && sortDirection === "desc" ? { direction: sortDirection } : {}),
+                direction: sortDirection,
               },
               label: "Cari materi",
               placeholder: "Cari judul atau status...",

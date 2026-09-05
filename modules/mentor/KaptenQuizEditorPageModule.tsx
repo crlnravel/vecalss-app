@@ -54,6 +54,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
+import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import type { QuizChoice, QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
@@ -115,7 +116,7 @@ function asLocalQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
   };
 }
 
-function getInitialForm(initialQuiz: KaptenQuiz | null | undefined, initialQuestions: QuizQuestionSnapshot[]) {
+function getInitialForm(initialQuiz: KaptenQuiz | null | undefined, initialQuestions: QuizQuestionSnapshot[], initialSubjectCode?: string) {
   const questions = initialQuestions.length ? initialQuestions.map(asLocalQuestion) : [createEmptyQuestion()];
   return {
     attemptsAllowed: initialQuiz?.attemptsAllowed ?? 1,
@@ -128,7 +129,7 @@ function getInitialForm(initialQuiz: KaptenQuiz | null | undefined, initialQuest
     retryDelaySeconds: initialQuiz?.retryDelaySeconds ?? null,
     reviewTiming: initialQuiz?.reviewTiming ?? "immediate",
     scorePolicy: initialQuiz?.scorePolicy ?? "latest",
-    subjectCode: initialQuiz?.subjectCode ?? kaptenSubjects[0]?.code ?? "PU",
+    subjectCode: initialQuiz?.subjectCode ?? initialSubjectCode ?? kaptenSubjects[0]?.code ?? "PU",
     title: initialQuiz?.title ?? "Kuis baru",
   } satisfies QuizEditorForm;
 }
@@ -513,18 +514,20 @@ function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
 function KaptenQuizEditorPageModule({
   initialQuestions = [],
   initialQuiz = null,
+  initialSubjectCode,
   mode,
   quizId,
   session,
 }: {
   initialQuestions?: QuizQuestionSnapshot[];
   initialQuiz?: KaptenQuiz | null;
+  initialSubjectCode?: string;
   mode: "create" | "edit";
   quizId?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
-  const initialForm = useState<QuizEditorForm>(() => getInitialForm(initialQuiz, initialQuestions))[0];
+  const initialForm = useState<QuizEditorForm>(() => getInitialForm(initialQuiz, initialQuestions, initialSubjectCode))[0];
   const [form, setForm] = useState<QuizEditorForm>(initialForm);
   const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(initialQuiz);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(initialForm.questions[0]?.id ?? null);
@@ -668,7 +671,7 @@ function KaptenQuizEditorPageModule({
       setSavedQuiz(result.quiz);
       setHasUnsavedChanges(false);
       showToast("Perubahan Kuis tersimpan.", { variant: "success" });
-      if (!quizId) setPendingRouteReplacement(`/mentor/quiz/${result.quiz.id}/editor`);
+      if (!quizId) setPendingRouteReplacement(buildMentorQuizEditorHref(result.quiz.id, form.subjectCode));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Kuis belum dapat disimpan.");
     } finally {

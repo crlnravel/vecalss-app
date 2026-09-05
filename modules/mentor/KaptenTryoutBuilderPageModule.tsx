@@ -55,6 +55,7 @@ import {
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
+import { buildQuestionBankHref } from "@/lib/navigation/canonical-context";
 import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
@@ -369,7 +370,7 @@ function SourceBankList({
     return (
       <div className="grid gap-3 px-3 py-5">
         <p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSectionSubtest}.</p>
-        <Button className="w-fit" disabled={disabled} nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="reference">Buka Bank Soal</Button>
+        <Button className="w-fit" disabled={disabled} nativeButton={false} onClick={(event) => guardExternalNavigation(buildQuestionBankHref({ purpose: "tryout" }), event)} render={<Link href={buildQuestionBankHref({ purpose: "tryout" })} />} size="sm" variant="reference">Buka Bank Soal</Button>
       </div>
     );
   }

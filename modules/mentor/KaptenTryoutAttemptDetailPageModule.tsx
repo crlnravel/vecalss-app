@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
@@ -58,10 +59,12 @@ function formatTimestamp(value: string | null) {
 }
 
 function KaptenTryoutAttemptDetailPageModule({
+  backHref,
   attemptId,
   initial,
 }: {
   attemptId: string;
+  backHref?: string;
   initial: TryoutOperationsView;
 }) {
   const router = useRouter();
@@ -137,7 +140,7 @@ function KaptenTryoutAttemptDetailPageModule({
           aria-label="Kembali ke detail sesi Tryout"
           className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
           nativeButton={false}
-          render={<Link href={`/mentor/tryout/${initial.id}/operations/sessions/${delivery.id}`} />}
+          render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "schedule" })} />}
           size="icon"
           title="Kembali ke detail sesi Tryout"
           variant="ghost"

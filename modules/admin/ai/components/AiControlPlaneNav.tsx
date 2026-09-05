@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, LayoutDashboard } from "@/lib/icons";
+import { Activity, BarChart3, LayoutDashboard, Server, ShieldCheck } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 export type AiControlPlaneTab =
@@ -20,6 +20,9 @@ const TABS: Array<{
 }> = [
   { id: "overview", label: "Ringkasan", href: "/admin/ai", icon: LayoutDashboard },
   { id: "usage", label: "Pemakaian", href: "/admin/ai/usage", icon: BarChart3 },
+  { id: "reliability", label: "Keandalan", href: "/admin/ai/reliability", icon: Activity },
+  { id: "providers", label: "Providers", href: "/admin/ai/providers", icon: Server },
+  { id: "policies", label: "Policy", href: "/admin/ai/policies", icon: ShieldCheck },
 ];
 
 export function AiControlPlaneNav({ activeTab }: { activeTab?: AiControlPlaneTab }) {

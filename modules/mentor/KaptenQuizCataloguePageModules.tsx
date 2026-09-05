@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { SessionContext } from "@/lib/auth/types";
+import { buildMentorQuizCreateHref } from "@/lib/navigation/canonical-context";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { CatalogueSearchInput, PaginationControls } from "@/modules/mentor/components/kapten-ui";
 import type { KaptenQuiz, KaptenSubject } from "@/modules/mentor/mock-data";
@@ -287,7 +288,7 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
                       <Button
                         aria-label="Buat quiz baru"
                         nativeButton={false}
-                        render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />}
+                        render={<Link href={buildMentorQuizCreateHref(subject.code)} />}
                         size="sm"
                         variant="brand"
                       />
@@ -323,7 +324,7 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
           {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} quiz={quiz} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
             <ReferenceSurface className="min-h-56" variant="inset">
               <ReferenceEmptyState
-                action={<Button nativeButton={false} render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />} size="sm" variant="brand"><Plus />Buat quiz pertama</Button>}
+                action={<Button nativeButton={false} render={<Link href={buildMentorQuizCreateHref(subject.code)} />} size="sm" variant="brand"><Plus />Buat quiz pertama</Button>}
                 description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka."
                 icon={ListChecks}
                 title="Belum ada quiz di subject ini"

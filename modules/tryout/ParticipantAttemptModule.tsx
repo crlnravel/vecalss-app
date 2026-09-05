@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { TypedRouteState } from "@/components/ui/typed-route-state";
+import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import { Minus, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
@@ -112,7 +113,9 @@ function ParticipantAttemptStatusScreen({
   message,
   nextRun,
   onBegin,
+  returnToHref,
   runs,
+  sessionId,
   tryoutDescription,
   tryoutEventName,
   tryoutOrganizer,
@@ -124,7 +127,9 @@ function ParticipantAttemptStatusScreen({
   message: string;
   nextRun?: RunSummary;
   onBegin: (runId: string) => void;
+  returnToHref?: string;
   runs: RunSummary[];
+  sessionId?: string;
   tryoutDescription: string | null;
   tryoutEventName: string | null;
   tryoutOrganizer: string;
@@ -180,7 +185,7 @@ function ParticipantAttemptStatusScreen({
                 </div>
               ))}
             </div>
-            <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
+            <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={buildStudentAttemptHref(attemptId, { result: true, returnTo: returnToHref, session: sessionId })} />} variant="brand">Buka hasil <ArrowRight /></Button>
           </section>
         ) : (
           <div className="grid gap-3">
@@ -210,7 +215,7 @@ function ParticipantAttemptStatusScreen({
   );
 }
 
-function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
+function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {
   const [state, setState] = useState<State | null>(null);
   const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -227,6 +232,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const activeRunRef = useRef<string | null>(null);
   const stateRef = useRef<State | null>(null);
   const router = useRouter();
+  const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
 
   const refresh = useCallback(async () => {
@@ -454,7 +460,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
           description={loadError ?? "Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."}
           kind="error"
           onRetry={() => void refresh()}
-          returnHref="/tryout"
+          returnHref={safeReturnHref}
           returnLabel="Kembali ke Tryout"
           title="Percobaan Tryout belum dapat dimuat"
         />
@@ -473,7 +479,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const nextRun = state.runs.find((candidate) => candidate.status === "pending");
 
   if (!run) {
-    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={busy} finished={state.status !== "in_progress"} message={message} nextRun={nextRun} onBegin={begin} runs={state.runs} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={busy} finished={state.status !== "in_progress"} message={message} nextRun={nextRun} onBegin={begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
   }
 
   if (!item) {
@@ -498,7 +504,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       message={message}
       now={now}
       onIndexChange={setIndex}
-      onExit={() => router.push("/tryout")}
+      onExit={() => router.push(safeReturnHref)}
       onToggleAnnotation={toggleAnnotation}
       onToggleReport={toggleReport}
       reported={reported}

@@ -104,6 +104,7 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
+import { buildStudentReturnHref, isVeraToolId } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
@@ -668,6 +669,7 @@ type VeraAiWorkspaceProps = {
   dataAsOf: string | null;
   dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
+  returnToHref: string;
 };
 
 function VeraAiWorkspace({
@@ -717,12 +719,14 @@ function VeraAiWorkspace({
   dataAsOf,
   dataState,
   workspaceTab,
+  returnToHref,
 }: VeraAiWorkspaceProps) {
   return (
     <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar
           notificationFeed={notificationFeed}
+          returnToHref={returnToHref}
           session={session}
           usage={usage}
         />
@@ -840,13 +844,13 @@ function VeraAiWorkspace({
   );
 }
 
-function useVeraAiFallbackState({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
+function useVeraAiFallbackState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
-  const requestedTool = isToolId(requestedArtifact)
+  const requestedTool = isVeraToolId(requestedArtifact)
     ? requestedArtifact
-    : isToolId(requestedToolParam)
+    : isVeraToolId(requestedToolParam)
       ? requestedToolParam
       : null;
 
@@ -1149,21 +1153,22 @@ function useVeraAiFallbackState({ notificationFeed, session }: { notificationFee
     dataAsOf: null,
     dataState: "unavailable",
     workspaceTab,
+    returnToHref: buildStudentReturnHref(returnToHref),
   };
 }
 
-function VeraAiPageModuleFallback({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
-  const workspaceProps = useVeraAiFallbackState({ notificationFeed, session });
+function VeraAiPageModuleFallback({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }) {
+  const workspaceProps = useVeraAiFallbackState({ notificationFeed, returnToHref, session });
   return <VeraAiWorkspace {...workspaceProps} />;
 }
 
-function useVeraAiModuleState({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
+function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
-  const requestedTool = isToolId(requestedArtifact)
+  const requestedTool = isVeraToolId(requestedArtifact)
     ? requestedArtifact
-    : isToolId(requestedToolParam)
+    : isVeraToolId(requestedToolParam)
       ? requestedToolParam
       : null;
   const [sessions, setSessions] = useState<StudySession[]>(() =>
@@ -2141,11 +2146,12 @@ function useVeraAiModuleState({ notificationFeed, session }: { notificationFeed:
     dataAsOf,
     dataState,
     workspaceTab,
+    returnToHref: buildStudentReturnHref(returnToHref),
   };
 }
 
-function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
-  const workspaceProps = useVeraAiModuleState({ notificationFeed, session });
+function VeraAiPageModule({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }) {
+  const workspaceProps = useVeraAiModuleState({ notificationFeed, returnToHref, session });
   return <VeraAiWorkspace {...workspaceProps} />;
 }
 
@@ -2282,10 +2288,12 @@ function VeraDataStatePanel({
 
 function VeraTopBar({
   notificationFeed,
+  returnToHref,
   session,
   usage,
 }: {
   notificationFeed: StudentNotificationFeed;
+  returnToHref: string;
   session: SessionContext;
   usage: VeraBackendUsage | null;
 }) {
@@ -2293,9 +2301,9 @@ function VeraTopBar({
     <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
-          aria-label="Vecalss dashboard"
+          aria-label="Kembali ke konteks sebelumnya"
           className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-85"
-          href="/dashboard"
+          href={returnToHref}
         >
           <Image
             alt="Vecalss"

@@ -29,9 +29,14 @@ function getTryoutState(tryout: ParticipantTryout, now: number): TryoutState {
   return "upcoming";
 }
 
-function canEnterParticipantWaitingRoom(tryout: ParticipantTryout) {
+function canEnterParticipantWaitingRoom(
+  tryout: ParticipantTryout,
+  selectedSessionId?: string | null,
+) {
   if (tryout.admissionStatus !== "active") return false;
-  const assignment = tryout.assignments[0];
+  const assignment = selectedSessionId !== undefined && selectedSessionId !== null
+    ? tryout.assignments.find((candidate) => candidate.id === selectedSessionId)
+    : tryout.assignments[0];
   if (!assignment) return false;
   return Boolean(
     assignment.attempt ||

@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type {
@@ -37,11 +38,13 @@ const rules = [
 function ParticipantWaitingRoomModule({
   assignment,
   notificationFeed,
+  returnToHref,
   session,
   tryout,
 }: {
   assignment: ParticipantTryoutAssignment;
   notificationFeed?: StudentNotificationFeed;
+  returnToHref?: string;
   session: SessionContext;
   tryout: ParticipantTryout;
 }) {
@@ -77,7 +80,7 @@ function ParticipantWaitingRoomModule({
         setMessage(response.message);
         return;
       }
-      window.location.assign(`/tryout/attempt/${response.result.attemptId}`);
+      window.location.assign(buildStudentAttemptHref(response.result.attemptId, { returnTo: returnToHref, session: assignment.id }));
     } catch (startError) {
       unstable_rethrow(startError);
       setMessage(startError instanceof Error ? startError.message : "Tryout belum dapat dimulai.");
@@ -91,7 +94,7 @@ function ParticipantWaitingRoomModule({
     return (
       <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
         <BackButton
-          href="/tryout"
+          href={returnToHref ?? "/tryout"}
           label="Kembali ke katalog tryout"
         >
           <ChevronLeft aria-hidden="true" className="size-5" />
@@ -100,7 +103,7 @@ function ParticipantWaitingRoomModule({
           <CheckCircle aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1>
           <p className="text-secondary-600">{resultReady ? "Hasilmu siap diperiksa saat kebijakan rilis mengizinkan." : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p>
-          <Button className="mx-auto" nativeButton={false} render={<Link href={resultReady ? `/tryout/attempt/${attempt.id}/result` : `/tryout/attempt/${attempt.id}`} />} variant="brand">
+          <Button className="mx-auto" nativeButton={false} render={<Link href={resultReady ? buildStudentAttemptHref(attempt.id, { result: true, returnTo: returnToHref, session: assignment.id }) : buildStudentAttemptHref(attempt.id, { returnTo: returnToHref, session: assignment.id })} />} variant="brand">
             {resultReady ? "Lihat hasil" : "Lanjutkan ujian"} <ArrowRight />
           </Button>
         </div>
@@ -111,7 +114,7 @@ function ParticipantWaitingRoomModule({
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
       <BackButton
-        href="/tryout"
+        href={returnToHref ?? "/tryout"}
         label="Kembali ke katalog tryout"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />

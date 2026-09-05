@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { buildMentorTryoutAttemptHref, parseMentorTryoutContext } from "@/lib/navigation/canonical-context";
 import { liveStateLabels } from "@/lib/tryout/operations-projections";
 import { participantAttemptStateLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { TryoutRefreshNotice, TryoutRefreshToolbar, useTryoutOperationsRefresh } from "@/modules/mentor/KaptenTryoutOperationsRefresh";
@@ -17,8 +20,15 @@ function formatRemaining(seconds: number | null) {
 }
 
 function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperationsView }) {
+  const searchParams = useSearchParams();
   const { refreshMessage, refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
   const liveByAttemptId = useMemo(() => new Map(view.live.flatMap((item) => item.attemptId ? [[item.attemptId, item] as const] : [])), [view.live]);
+  const parentContext = useMemo(() => {
+    const parsed = parseMentorTryoutContext(new URLSearchParams(searchParams.toString()));
+    return parsed.issues.length
+      ? {}
+      : { delivery: parsed.delivery, parent: parsed.parent, returnTo: parsed.returnTo, workspace: parsed.workspace };
+  }, [searchParams]);
 
   return (
     <section className="grid gap-4" aria-label="Daftar attempt peserta">
@@ -57,7 +67,14 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
                 : participantAttemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
               return (
                 <TableRow className="border-0 hover:bg-primary-50/45" key={attempt.id}>
-                  <TableCell className="max-w-56 truncate px-4 py-3.5 font-semibold text-secondary-900 sm:px-5">{attempt.student}</TableCell>
+                  <TableCell className="max-w-56 truncate px-4 py-3.5 font-semibold text-secondary-900 sm:px-5">
+                    <Link
+                      className="underline decoration-primary-200 underline-offset-4 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                      href={buildMentorTryoutAttemptHref(initial.id, attempt.id, { ...parentContext, participant: attempt.admissionId, session: attempt.sessionId })}
+                    >
+                      {attempt.student}
+                    </Link>
+                  </TableCell>
                   <TableCell className="max-w-48 truncate px-4 py-3.5 text-secondary-700 sm:px-5">{attempt.sessionName}</TableCell>
                   <TableCell className="px-4 py-3.5 sm:px-5">
                     <span className="inline-flex items-center gap-2 text-sm font-medium text-secondary-800">
