@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   useTransition,
@@ -122,7 +123,7 @@ function DataTableFilterChips({
   }
 
   return (
-    <div aria-label="Filter tabel aktif" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5">
+    <div aria-label="Filter tabel aktif" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5" role="group">
       {filters.map((filter) => (
         <span
           className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-secondary-50 px-2.5 py-1.5 text-xs text-secondary-700"
@@ -134,7 +135,7 @@ function DataTableFilterChips({
           {filter.href ? (
             <Link
                aria-label={`Hapus filter ${filter.label}`}
-              className="ml-0.5 inline-flex size-5 items-center justify-center rounded-md text-secondary-500 transition-colors hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
+              className="ml-0.5 inline-flex size-[44px] items-center justify-center rounded-xl text-secondary-500 transition-colors motion-reduce:transition-none hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
               href={filter.href}
             >
               <X aria-hidden="true" size={13} />
@@ -144,7 +145,10 @@ function DataTableFilterChips({
       ))}
       {clearFiltersHref ? (
         <Link
-          className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "ml-1 text-secondary-600")}
+          className={cn(
+            buttonVariants({ size: "default", variant: "ghost" }),
+            "ml-1 min-h-[44px] text-secondary-600 motion-reduce:transform-none motion-reduce:transition-none",
+          )}
           href={clearFiltersHref}
         >
            Hapus semua
@@ -192,6 +196,35 @@ type DataTableGridProps<T> = {
   visibleColumns: readonly DataTableColumn<T>[];
 };
 
+function removeMinimumWidthClasses(className?: string) {
+  return className
+    ?.split(/\s+/)
+    .filter((token) => !/(^|:)!?min-w-/.test(token))
+    .join(" ");
+}
+
+function resolveDataTableClassName({
+  hasRows,
+  isLoading,
+  tableClassName,
+}: {
+  hasRows: boolean;
+  isLoading: boolean;
+  tableClassName?: string;
+}) {
+  const usesDenseMinimumWidth = hasRows || isLoading;
+  const resolvedTableClassName = usesDenseMinimumWidth
+    ? tableClassName
+    : removeMinimumWidthClasses(tableClassName);
+
+  return cn(
+    usesDenseMinimumWidth ? "min-w-[760px]" : "min-w-full",
+    "table-fixed border-separate border-spacing-y-0",
+    resolvedTableClassName,
+    !usesDenseMinimumWidth && "!min-w-full",
+  );
+}
+
 function DataTableSortHeader<T>({
   column,
   sort,
@@ -213,7 +246,7 @@ function DataTableSortHeader<T>({
   return (
     <Link
        aria-label={`Urutkan berdasarkan ${column.label}; aktifkan untuk ${nextAction}`}
-      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+      className="group inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors motion-reduce:transition-none hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
       href={sort.href(nextSortKey, nextDirection)}
       prefetch={false}
     >
@@ -253,7 +286,14 @@ function DataTableGrid<T>({
   visibleColumns,
 }: DataTableGridProps<T>) {
   return (
-    <Table aria-busy={isLoading} className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
+    <Table
+      aria-busy={isLoading}
+      className={resolveDataTableClassName({
+        hasRows: rows.length > 0,
+        isLoading,
+        tableClassName,
+      })}
+    >
       <caption className="sr-only">{caption}</caption>
       <TableHeader>
         <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
@@ -393,12 +433,311 @@ function DataTableGrid<T>({
         }) : (
           <TableRow className="hover:bg-transparent">
             <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection || showRowNumbers ? 1 : 0)}>
-              {emptyState ?? <span className="text-sm text-secondary-700">Tidak ada hasil.</span>}
+              {emptyState ?? (
+                <div className="mx-auto w-full max-w-[calc(100vw-2rem)] text-sm text-secondary-700">
+                  Tidak ada hasil.
+                </div>
+              )}
             </TableCell>
           </TableRow>
         )}
       </TableBody>
     </Table>
+  );
+}
+
+function DataTableSearchForm({
+  cancelPendingSearch,
+  handleSearchChange,
+  handleSearchSubmit,
+  isSearchDebouncing,
+  isSearchPending,
+  search,
+  searchId,
+  searchValue,
+  tableIsLoading,
+}: {
+  cancelPendingSearch: () => void;
+  handleSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  isSearchDebouncing: boolean;
+  isSearchPending: boolean;
+  search: DataTableSearch;
+  searchId: string;
+  searchValue: string;
+  tableIsLoading: boolean;
+}) {
+  return (
+    <form
+      action={search.action}
+      aria-busy={tableIsLoading}
+      className="relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25"
+      method="get"
+      onSubmit={handleSearchSubmit}
+    >
+      {isSearchDebouncing || isSearchPending ? (
+        <LoaderCircle
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin motion-reduce:animate-none text-secondary-400"
+          size={17}
+        />
+      ) : (
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400"
+          size={17}
+        />
+      )}
+      <label className="sr-only" htmlFor={searchId}>
+        {search.label ?? "Cari tabel"}
+      </label>
+      <input
+        className="h-auto min-h-[44px] w-full rounded-2xl border-0 bg-transparent py-2.5 pl-10 pr-11 text-sm text-secondary-900 outline-none transition-[color,background-color] motion-reduce:transition-none placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
+        id={searchId}
+        name="q"
+        onChange={handleSearchChange}
+        placeholder={search.placeholder ?? "Cari di tabel ini…"}
+        type="search"
+        value={searchValue}
+      />
+      {search.hiddenFields
+        ? Object.entries(search.hiddenFields).flatMap(([name, hiddenValue]) => {
+            const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
+            return values.map((value) => (
+              <input key={`${name}-${value}`} name={name} type="hidden" value={value} />
+            ));
+          })
+        : null}
+      {search.value && search.clearHref ? (
+        <Link
+          aria-label="Hapus pencarian tabel"
+          className="absolute right-0 top-1/2 inline-flex size-[44px] -translate-y-1/2 items-center justify-center rounded-xl text-secondary-400 transition-colors motion-reduce:transition-none hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
+          href={search.clearHref}
+          onClick={cancelPendingSearch}
+        >
+          <X aria-hidden="true" size={14} />
+        </Link>
+      ) : null}
+    </form>
+  );
+}
+
+function DataTableActionMenu<T>({
+  columns,
+  hasCustomColumnVisibility,
+  hasSelection,
+  moreMenu,
+  resetColumns,
+  selectionActionMenu,
+  setSelectedIds,
+  setVisibleColumnIds,
+  showColumnVisibility,
+  visibleColumnIds,
+  visibleColumns,
+}: {
+  columns: readonly DataTableColumn<T>[];
+  hasCustomColumnVisibility: boolean;
+  hasSelection: boolean;
+  moreMenu?: ReactNode;
+  resetColumns: () => void;
+  selectionActionMenu: ReactNode;
+  setSelectedIds: (ids: Set<string>) => void;
+  setVisibleColumnIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  showColumnVisibility: boolean;
+  visibleColumnIds: Set<string>;
+  visibleColumns: readonly DataTableColumn<T>[];
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={hasSelection ? "Buka aksi massal" : showColumnVisibility ? "Pilih kolom tabel" : "Buka aksi tabel"}
+            className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl text-secondary-500 motion-reduce:transition-none"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        {hasSelection || !showColumnVisibility ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
+        {hasSelection ? (
+          <>
+            <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
+            {selectionActionMenu}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            {showColumnVisibility ? (
+              <>
+                <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
+                {columns.reduce<ReactNode[]>((items, column) => {
+                  if (column.hideable === false) {
+                    return items;
+                  }
+
+                  items.push(
+                    <DropdownMenuCheckboxItem
+                      checked={visibleColumnIds.has(column.id)}
+                      key={column.id}
+                      onCheckedChange={(checked) => {
+                        if (!checked && visibleColumns.length <= 1) {
+                          return;
+                        }
+
+                        setVisibleColumnIds((current) => {
+                          const next = new Set(current);
+                          if (checked) {
+                            next.add(column.id);
+                          } else {
+                            next.delete(column.id);
+                          }
+                          return next;
+                        });
+                      }}
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>,
+                  );
+                  return items;
+                }, [])}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
+                  Atur ulang kolom
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            {moreMenu ? (
+              <>
+                {showColumnVisibility ? <DropdownMenuSeparator /> : null}
+                {moreMenu}
+              </>
+            ) : null}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type DataTableToolbarFlags = {
+  hasCustomColumnVisibility: boolean;
+  hasSelection: boolean;
+  hasTableMenu: boolean;
+  isSearchDebouncing: boolean;
+  isSearchPending: boolean;
+  showColumnVisibility: boolean;
+  tableIsLoading: boolean;
+};
+
+function DataTableToolbar<T>({
+  cancelPendingSearch,
+  columns,
+  filterPanel,
+  filters,
+  flags,
+  handleSearchChange,
+  handleSearchSubmit,
+  moreMenu,
+  resetColumns,
+  search,
+  searchId,
+  searchValue,
+  selectionActionMenu,
+  setSelectedIds,
+  setVisibleColumnIds,
+  visibleColumnIds,
+  visibleColumns,
+}: {
+  cancelPendingSearch: () => void;
+  columns: readonly DataTableColumn<T>[];
+  filterPanel?: ReactNode;
+  filters: readonly DataTableFilter[];
+  flags: DataTableToolbarFlags;
+  handleSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  moreMenu?: ReactNode;
+  resetColumns: () => void;
+  search?: DataTableSearch;
+  searchId: string;
+  searchValue: string;
+  selectionActionMenu: ReactNode;
+  setSelectedIds: (ids: Set<string>) => void;
+  setVisibleColumnIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  visibleColumnIds: Set<string>;
+  visibleColumns: readonly DataTableColumn<T>[];
+}) {
+  const {
+    hasCustomColumnVisibility,
+    hasSelection,
+    hasTableMenu,
+    isSearchDebouncing,
+    isSearchPending,
+    showColumnVisibility,
+    tableIsLoading,
+  } = flags;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+      {search ? (
+        <DataTableSearchForm
+          cancelPendingSearch={cancelPendingSearch}
+          handleSearchChange={handleSearchChange}
+          handleSearchSubmit={handleSearchSubmit}
+          isSearchDebouncing={isSearchDebouncing}
+          isSearchPending={isSearchPending}
+          search={search}
+          searchId={searchId}
+          searchValue={searchValue}
+          tableIsLoading={tableIsLoading}
+        />
+      ) : (
+        <div className="min-w-0 flex-1" />
+      )}
+
+      <div className="flex items-center gap-2">
+        {filterPanel ? (
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  aria-label="Buka filter tabel"
+                  className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl motion-reduce:transition-none aria-expanded:bg-secondary-50"
+                  size="icon-sm"
+                  type="button"
+                  variant={filters.length ? "contextSelected" : "ghost"}
+                />
+              }
+            >
+              <ListFilter aria-hidden="true" />
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
+              {filterPanel}
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
+        {hasTableMenu ? (
+          <DataTableActionMenu
+            columns={columns}
+            hasCustomColumnVisibility={hasCustomColumnVisibility}
+            hasSelection={hasSelection}
+            moreMenu={moreMenu}
+            resetColumns={resetColumns}
+            selectionActionMenu={selectionActionMenu}
+            setSelectedIds={setSelectedIds}
+            setVisibleColumnIds={setVisibleColumnIds}
+            showColumnVisibility={showColumnVisibility}
+            visibleColumnIds={visibleColumnIds}
+            visibleColumns={visibleColumns}
+          />
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -428,6 +767,7 @@ function DataTable<T>({
   tableClassName,
 }: DataTableProps<T>) {
   const router = useRouter();
+  const searchId = useId();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchValue, setSearchValue] = useState(() => search?.value ?? "");
   const [isSearchDebouncing, setIsSearchDebouncing] = useState(false);
@@ -551,129 +891,33 @@ function DataTable<T>({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-        {search ? (
-          <form aria-busy={tableIsLoading} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25" method="get" onSubmit={handleSearchSubmit}>
-            {isSearchDebouncing || isSearchPending ? (
-              <LoaderCircle aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin text-secondary-400" size={17} />
-            ) : (
-              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
-            )}
-             <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Cari tabel"}</label>
-            <input
-              className="h-11 w-full rounded-2xl border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
-              id="data-table-search"
-              name="q"
-              onChange={handleSearchChange}
-               placeholder={search.placeholder ?? "Cari di tabel ini…"}
-              type="search"
-              value={searchValue}
-            />
-            {search.hiddenFields
-              ? Object.entries(search.hiddenFields).flatMap(([name, hiddenValue]) => {
-                  const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
-                  return values.map((value) => (
-                    <input key={`${name}-${value}`} name={name} type="hidden" value={value} />
-                  ));
-                })
-              : null}
-            {search.value && search.clearHref ? (
-              <Link
-                 aria-label="Hapus pencarian tabel"
-                className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
-                href={search.clearHref}
-                onClick={cancelPendingSearch}
-              >
-                <X aria-hidden="true" size={14} />
-              </Link>
-            ) : null}
-          </form>
-        ) : <div className="min-w-0 flex-1" />}
-
-        <div className="flex items-center gap-2">
-          {filterPanel ? (
-            <Popover>
-              <PopoverTrigger
-                 render={<Button aria-label="Buka filter tabel" className="rounded-lg aria-expanded:bg-secondary-50" size="icon-sm" type="button" variant={filters.length ? "contextSelected" : "ghost"} />}
-              >
-                <ListFilter aria-hidden="true" />
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
-                {filterPanel}
-              </PopoverContent>
-            </Popover>
-          ) : null}
-
-          {hasTableMenu ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button aria-label={hasSelection ? "Buka aksi massal" : showColumnVisibility ? "Pilih kolom tabel" : "Buka aksi tabel"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
-              >
-                {hasSelection || !showColumnVisibility ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
-                {hasSelection ? (
-                  <>
-                    <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
-                    {selectionActionMenu}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    {showColumnVisibility ? (
-                      <>
-                        <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
-                        {columns.reduce<ReactNode[]>((items, column) => {
-                          if (column.hideable === false) {
-                            return items;
-                          }
-
-                          items.push(
-                            <DropdownMenuCheckboxItem
-                              checked={visibleColumnIds.has(column.id)}
-                              key={column.id}
-                              onCheckedChange={(checked) => {
-                                if (!checked && visibleColumns.length <= 1) {
-                                  return;
-                                }
-
-                                setVisibleColumnIds((current) => {
-                                  const next = new Set(current);
-                                  if (checked) {
-                                    next.add(column.id);
-                                  } else {
-                                    next.delete(column.id);
-                                  }
-                                  return next;
-                                });
-                              }}
-                            >
-                              {column.label}
-                            </DropdownMenuCheckboxItem>,
-                          );
-                          return items;
-                        }, [])}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
-                          Atur ulang kolom
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                    {moreMenu ? (
-                      <>
-                        {showColumnVisibility ? <DropdownMenuSeparator /> : null}
-                        {moreMenu}
-                      </>
-                    ) : null}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-
-        </div>
-      </div>
+      <DataTableToolbar
+        cancelPendingSearch={cancelPendingSearch}
+        columns={columns}
+        filterPanel={filterPanel}
+        filters={filters}
+        flags={{
+          hasCustomColumnVisibility,
+          hasSelection,
+          hasTableMenu,
+          isSearchDebouncing,
+          isSearchPending,
+          showColumnVisibility,
+          tableIsLoading,
+        }}
+        handleSearchChange={handleSearchChange}
+        handleSearchSubmit={handleSearchSubmit}
+        moreMenu={moreMenu}
+        resetColumns={resetColumns}
+        search={search}
+        searchId={searchId}
+        searchValue={searchValue}
+        selectionActionMenu={selectionActionMenu}
+        setSelectedIds={setSelectedIds}
+        setVisibleColumnIds={setVisibleColumnIds}
+        visibleColumnIds={visibleColumnIds}
+        visibleColumns={visibleColumns}
+      />
 
       <DataTableFilterChips clearFiltersHref={clearFiltersHref} filters={filters} />
 
@@ -707,4 +951,5 @@ function DataTable<T>({
 }
 
 export { DataTable };
+export { resolveDataTableClassName };
 export type { DataTableColumn, DataTableFilter, DataTableProps, DataTableSearch, DataTableSelection, DataTableSort, DataTableSortDirection };

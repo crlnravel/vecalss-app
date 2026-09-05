@@ -75,13 +75,13 @@ function PageIntro({
 }) {
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <div className="max-w-3xl">
+      <div className="min-w-0 max-w-3xl">
         {eyebrow ? (
           <p className="kicker-label text-secondary-500">{eyebrow}</p>
         ) : null}
         <h1
           className={cn(
-            "text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl",
+            "break-words text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl",
             eyebrow ? "mt-2" : "",
           )}
         >
@@ -109,7 +109,7 @@ function SectionHeading({
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <h2 className="text-2xl leading-tight font-semibold text-secondary-900">
           {title}
         </h2>
@@ -146,7 +146,7 @@ function ResourceRow({
     <Link
       href={resource.href}
       className={cn(
-        "group flex flex-col border transition-[transform,border-color,background-color,box-shadow] duration-200 md:flex-row md:items-center motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5",
+        "group flex flex-col border transition-[transform,border-color,background-color,box-shadow] duration-200 motion-reduce:transform-none motion-reduce:transition-none md:flex-row md:items-center motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5",
         compact
           ? "gap-3 rounded-2xl px-4 py-3 md:gap-3"
           : "gap-4 rounded-3xl px-4 py-4",
@@ -181,7 +181,7 @@ function ResourceRow({
       <div className="flex items-center justify-end md:min-w-8">
         <ArrowRight
           className={cn(
-            "text-secondary-400 transition-transform group-hover:translate-x-1",
+            "text-secondary-400 motion-safe:transition-transform motion-reduce:transition-none motion-safe:group-hover:translate-x-1",
             compact ? "size-3.5" : "size-4",
           )}
         />
@@ -199,8 +199,10 @@ function QuickCreateMenu({ label }: { label?: string } = {}) {
         render={
           <Button
             aria-label={label ?? "Buat cepat"}
+            className="min-h-[44px] min-w-[44px] motion-reduce:transition-none"
             size={hasLabel ? "sm" : "icon"}
             title={label ?? "Buat cepat"}
+            type="button"
             variant={hasLabel ? "brand" : "brandOutline"}
           />
         }
@@ -239,7 +241,9 @@ function PaginationControls({
         aria-label="Halaman sebelumnya"
         disabled={page === 1}
         onClick={() => onPageChange(page - 1)}
+        className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
         size="icon-sm"
+        type="button"
         variant="ghost"
       >
         <ChevronLeft />
@@ -251,7 +255,9 @@ function PaginationControls({
         aria-label="Halaman berikutnya"
         disabled={page === pageCount}
         onClick={() => onPageChange(page + 1)}
+        className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
         size="icon-sm"
+        type="button"
         variant="ghost"
       >
         <ChevronRight />
@@ -276,6 +282,7 @@ function PaginationLinks({
       {previousHref ? (
         <Button
           aria-label="Halaman sebelumnya"
+          className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
           nativeButton={false}
           render={<Link href={previousHref} />}
           size="icon-sm"
@@ -284,7 +291,7 @@ function PaginationLinks({
           <ChevronLeft />
         </Button>
       ) : (
-        <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" variant="ghost">
+        <Button aria-label="Halaman sebelumnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="ghost">
           <ChevronLeft />
         </Button>
       )}
@@ -294,6 +301,7 @@ function PaginationLinks({
       {nextHref ? (
         <Button
           aria-label="Halaman berikutnya"
+          className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
           nativeButton={false}
           render={<Link href={nextHref} />}
           size="icon-sm"
@@ -302,7 +310,7 @@ function PaginationLinks({
           <ChevronRight />
         </Button>
       ) : (
-        <Button aria-label="Halaman berikutnya" disabled size="icon-sm" variant="ghost">
+        <Button aria-label="Halaman berikutnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="ghost">
           <ChevronRight />
         </Button>
       )}
@@ -410,9 +418,9 @@ function CatalogueSearchInput({
   return (
     <label className="relative block w-full">
       <span className="sr-only">{placeholder}</span>
-      <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
+      <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
       <input
-        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11 text-secondary-900")}
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11 text-secondary-900 motion-reduce:transition-none")}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type="search"
@@ -423,15 +431,20 @@ function CatalogueSearchInput({
 }
 
 function SearchPanel({
+  id = "kapten-content-search",
   placeholder = "Cari di halaman ini...",
 }: {
+  id?: string;
   placeholder?: string;
 }) {
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" />
+      <label className="sr-only" htmlFor={id}>{placeholder}</label>
+      <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" />
       <input
-        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11")}
+        aria-label={placeholder}
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11 motion-reduce:transition-none")}
+        id={id}
         placeholder={placeholder}
         type="search"
       />
@@ -457,9 +470,9 @@ function EmptyState({
         {description}
       </p>
       <Button
-        className="mt-5"
+        className="mt-5 min-h-[44px] motion-reduce:transition-none"
         render={<Link href={href} />}
-        size="sm"
+        size="default"
         variant="brand"
       >
         <Plus />

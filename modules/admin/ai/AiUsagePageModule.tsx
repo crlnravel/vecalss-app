@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, ChevronDown } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,9 +17,9 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { VeraAiUsageBreakdownDto } from "@/lib/admin/ai/contracts";
 import { AiControlPlaneNav } from "./components/AiControlPlaneNav";
 import { AiFreshnessBanner } from "./components/AiFreshnessBanner";
+import { AiHourlyLockChart } from "./components/AiHourlyLockChart";
 import { AiRefreshBar } from "./components/AiRefreshBar";
 import { formatAiCurrency, formatAiFeatureLabel } from "./components/AiDisplayLabels";
-import { cn } from "@/lib/utils";
 
 type MetricOption = "quota_units" | "requests" | "tokens" | "cost";
 type PeriodOption = "today" | "7days" | "30days";
@@ -132,10 +133,21 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         <AiControlPlaneNav activeTab="usage" />
 
         {error && (
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div
+            aria-live="assertive"
+            className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            role="alert"
+          >
             <AlertCircle className="size-5 shrink-0 text-red-600" />
             <p className="min-w-0 flex-1">{error}</p>
-            <Button disabled={isLoading} onClick={() => void loadUsage()} size="sm" type="button" variant="brandOutline">
+            <Button
+              className="min-h-[44px]"
+              disabled={isLoading}
+              onClick={() => void loadUsage()}
+              size="sm"
+              type="button"
+              variant="brandOutline"
+            >
               Coba lagi
             </Button>
           </div>
@@ -150,7 +162,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         ) : null}
 
         {!isLoading && !data && !error ? (
-          <div className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
+          <div aria-live="polite" className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
             <p className="text-sm font-semibold text-secondary-900">Belum ada data penggunaan</p>
             <p className="mt-1 text-sm text-secondary-600">Segarkan untuk meminta snapshot pada periode yang dipilih.</p>
           </div>
@@ -159,32 +171,18 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         {data ? <AiFreshnessBanner freshness={data.freshness} /> : null}
 
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div
+          <CompactFilterTabs
             aria-label="Ukuran penggunaan"
-            className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1"
-            role="group"
-          >
-            {(Object.keys(METRIC_LABELS) as MetricOption[]).map((option) => (
-              <button
-                key={option}
-                aria-pressed={metric === option}
-                className={cn(
-                  "inline-flex min-h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold text-secondary-500 transition-[background-color,color,box-shadow] duration-200 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-                  metric === option && "bg-white text-secondary-900 shadow-[0_12px_28px_-22px_rgba(23,107,77,0.72)]",
-                )}
-                onClick={() => setMetric(option)}
-                type="button"
-              >
-                {METRIC_LABELS[option]}
-              </button>
-            ))}
-          </div>
+            items={(Object.keys(METRIC_LABELS) as MetricOption[]).map((option) => ({ label: METRIC_LABELS[option], value: option }))}
+            onValueChange={setMetric}
+            value={metric}
+          />
 
-          <div className="flex shrink-0 items-center gap-2 text-xs">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
             <span className="font-semibold text-secondary-500">Periode</span>
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button variant="reference" size="sm" className="h-9 gap-1.5 rounded-xl text-xs font-bold" />}
+                render={<Button type="button" variant="reference" size="sm" className="h-auto min-h-[44px] gap-1.5 rounded-xl text-xs font-bold" />}
               >
                 {PERIOD_LABELS[period]}
                 <ChevronDown className="size-3.5 text-secondary-400" />
@@ -204,6 +202,8 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
 
         {data && (
           <div className="space-y-6">
+            <AiHourlyLockChart quotaHealth={data.quotaHealth} />
+
             <section className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-1 border-b border-primary-50 pb-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                 <div>
@@ -233,13 +233,15 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                           )}
                         </div>
                         <div
-                          aria-label={`${formatAiFeatureLabel(item.label)}: ${item.sharePercentage}% dari total`}
+                          aria-label={item.privacyState === "suppressed"
+                            ? `${formatAiFeatureLabel(item.label)}: Data disembunyikan untuk menjaga privasi siswa.`
+                            : `${formatAiFeatureLabel(item.label)}: ${item.sharePercentage}% dari total`}
                           className="h-2.5 w-full overflow-hidden rounded-full bg-secondary-100"
                           role="img"
                         >
                           <div
                             style={{ width: `${item.privacyState === "suppressed" ? 0 : item.sharePercentage}%` }}
-                            className={`h-full rounded-full transition-all duration-500 ${item.privacyState === "suppressed" ? "bg-secondary-300" : "bg-primary-700"}`}
+                            className={`h-full rounded-full transition-[width,background-color] duration-500 motion-reduce:transition-none ${item.privacyState === "suppressed" ? "bg-secondary-300" : "bg-primary-700"}`}
                           />
                         </div>
                       </div>
