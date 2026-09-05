@@ -65,7 +65,7 @@ export function AiMetricCard({ title, metric, subCaption, className }: AiMetricC
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-secondary-600">{title}</span>
         {metric.state === "partial" && (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+          <span className="rounded-full bg-warning-50 px-2 py-0.5 text-[10px] font-bold text-warning-700 border border-warning-200">
             {Math.round(metric.coverage * 100)}% cakupan
           </span>
         )}
@@ -86,7 +86,7 @@ export function AiMetricCard({ title, metric, subCaption, className }: AiMetricC
                 ? "text-secondary-500"
                 : isPositive
                 ? "text-primary-700"
-                : "text-red-600",
+                : "text-danger-600",
             )}
           >
             {!isNeutral && (

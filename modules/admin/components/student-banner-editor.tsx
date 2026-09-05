@@ -349,7 +349,7 @@ function StudentBannerEditor({
         <div className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between`}>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draftHasChanges ? "bg-amber-100 text-amber-800" : "bg-primary-50 text-primary-800"}`}>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draftHasChanges ? "bg-warning-100 text-warning-800" : "bg-primary-50 text-primary-800"}`}>
                 {draftHasChanges ? "Unpublished draft" : "Published"}
               </span>
               <p className="text-sm font-medium text-secondary-900">

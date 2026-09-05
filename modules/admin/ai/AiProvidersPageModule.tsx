@@ -81,8 +81,8 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         <AiControlPlaneNav activeTab="providers" />
 
         {error && (
-          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-            <AlertCircle className="size-5 shrink-0 text-red-600" />
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
+            <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p className="min-w-0 flex-1">{error}</p>
             <Button disabled={isLoading} onClick={() => void loadProviders()} size="default" type="button" variant="brandOutline">
               Coba lagi
@@ -136,7 +136,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
                           ? "border-secondary-200 bg-secondary-50/50 opacity-75"
                           : isHealthy
                           ? "border-primary-100 bg-white"
-                          : "border-amber-200 bg-amber-50/20",
+                          : "border-warning-200 bg-warning-50/20",
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -148,7 +148,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
                               ? "bg-secondary-200 text-secondary-700"
                               : isHealthy
                               ? "bg-primary-50 text-primary-800 border border-primary-100"
-                              : "bg-amber-100 text-amber-800",
+                              : "bg-warning-100 text-warning-800",
                           )}
                         >
                           {isHealthy && <CheckCircle2 className="size-3" />}

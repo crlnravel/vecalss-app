@@ -130,7 +130,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       cell: (item) => (
         <div className="grid min-w-0 max-w-full justify-items-start gap-1 overflow-hidden">
           <PackageStatusPill status={item.availability} />
-          {item.hasDraftChanges ? <span className="inline-flex max-w-full truncate rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900" title="Perubahan draf"><span className="sm:hidden">Draf baru</span><span className="hidden sm:inline">Perubahan draf</span></span> : null}
+          {item.hasDraftChanges ? <span className="inline-flex max-w-full truncate rounded-full border border-warning-200 bg-warning-50 px-2.5 py-1 text-xs font-semibold text-warning-900" title="Perubahan draf"><span className="sm:hidden">Draf baru</span><span className="hidden sm:inline">Perubahan draf</span></span> : null}
           <PackageRowAction item={item} />
         </div>
       ),

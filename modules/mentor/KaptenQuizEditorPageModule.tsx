@@ -271,7 +271,7 @@ function QuestionInventory({
                     isActive
                       ? "border-primary-200 bg-primary-50"
                       : issueCount > 0
-                        ? "border-amber-300 bg-amber-50/70 hover:border-amber-400 hover:bg-amber-50"
+                        ? "border-warning-300 bg-warning-50/70 hover:border-warning-400 hover:bg-warning-50"
                         : "hover:border-primary-100 hover:bg-primary-50/60",
                   )}
                   key={question.id}
@@ -427,7 +427,7 @@ function QuizMobileInventory({
       </div>
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
         <span>{questions.length} soal di Kuis</span>
-        {incompleteCount > 0 ? <span className="font-semibold text-amber-900">{incompleteCount} perlu diperbaiki</span> : null}
+        {incompleteCount > 0 ? <span className="font-semibold text-warning-900">{incompleteCount} perlu diperbaiki</span> : null}
       </div>
     </div>
   );

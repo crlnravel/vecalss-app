@@ -358,7 +358,7 @@ function QuestionBankFolderDialog({
             <FieldInput autoFocus className={REFERENCE_CONTROL_CLASS_NAMES.input} id="folder-name" maxLength={160} onChange={(event) => onFolderNameChange(event.target.value)} value={folderName} />
           </Field>
         )}
-        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg" role="alert">{folderError}</p> : null}
         <DialogFooter>
           <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
           <Button disabled={isApplying || (folderDialog?.kind !== "move" && !folderName.trim())} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
@@ -410,7 +410,7 @@ function QuestionBankMoveDialog({
             value={folderParentId ?? selectedBank?.folderId ?? ""}
           />
         </Field>
-        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg" role="alert">{folderError}</p> : null}
         <DialogFooter>
           <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
           <Button disabled={isApplying} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Memindahkan…" : "Pindahkan"}</Button>
@@ -455,7 +455,7 @@ function QuestionBankCategorySelectionDialog({
             </label>
           )) : <p className="text-sm text-secondary-500">Belum ada kategori. Buat dari menu kategori.</p>}
         </div>
-        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg" role="alert">{folderError}</p> : null}
         <DialogFooter>
           <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
           <Button disabled={isApplying} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan kategori"}</Button>
@@ -540,7 +540,7 @@ function QuestionBankCategoryManagementDialog({
           ))}
           {!categories.length && categoryEditor?.kind !== "create" ? <p className="rounded-2xl bg-primary-50/50 px-3 py-4 text-sm text-secondary-500">Belum ada kategori bersama.</p> : null}
         </div>
-        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg" role="alert">{folderError}</p> : null}
       </DialogContent>
     </Dialog>
   );
@@ -575,7 +575,7 @@ function QuestionBankLifecycleConfirmationDialog({
           <AlertDialogTitle>{pendingConfirmation?.title ?? lifecycleCopy[0]}</AlertDialogTitle>
           <AlertDialogDescription>{pendingConfirmation?.description ?? lifecycleCopy[1]}</AlertDialogDescription>
         </AlertDialogHeader>
-        {lifecycleError || folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{lifecycleError ?? folderError}</p> : null}
+        {lifecycleError || folderError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg" role="alert">{lifecycleError ?? folderError}</p> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isApplying} onClick={onCancel}>Batal</AlertDialogCancel>
           <AlertDialogAction disabled={isApplying} onClick={onConfirm} variant={pendingConfirmation ? "destructive" : "brand"}>

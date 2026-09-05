@@ -651,7 +651,7 @@ function MateriSubjectCatalogueScreen({
           <ReferenceSurface
             aria-live="assertive"
             as="div"
-            className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            className="border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
             role="alert"
             variant="inset"
           >

@@ -39,9 +39,9 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
                       isCritical
-                        ? "bg-red-50 text-red-700 border border-red-200"
+                        ? "bg-student-status-danger-bg text-student-status-danger-fg border border-student-status-danger-border"
                         : isElevated
-                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        ? "bg-warning-50 text-warning-700 border border-warning-200"
                         : "bg-primary-50 text-primary-700 border border-primary-100",
                     )}
                   >
@@ -70,7 +70,7 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                   style={{ width: `${item.value}%` }}
                   className={cn(
                     "h-full rounded-full transition-all duration-500 motion-reduce:transition-none",
-                    isCritical ? "bg-red-600" : isElevated ? "bg-amber-500" : "bg-primary-700",
+                    isCritical ? "bg-danger-600" : isElevated ? "bg-warning-500" : "bg-primary-700",
                   )}
                 />
               </div>

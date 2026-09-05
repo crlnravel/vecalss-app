@@ -38,7 +38,7 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
           />
           <div
             style={{ width: `${reservedPercentage}%` }}
-            className="bg-amber-400 transition-all duration-500"
+            className="bg-warning-400 transition-all duration-500"
             title={`Disiapkan: ${reservedPercentage}%`}
           />
           <div
@@ -57,7 +57,7 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-amber-400" />
+            <span className="size-2.5 rounded-full bg-warning-400" />
             <span className="font-semibold text-secondary-700">
               Disiapkan: {reservedUnits.toLocaleString("id-ID")} ({reservedPercentage}%)
             </span>

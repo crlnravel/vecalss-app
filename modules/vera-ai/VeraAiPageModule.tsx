@@ -2214,7 +2214,7 @@ function VeraStatusBanner({
       className={cn(
         "mb-2 flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-xs font-medium",
         error
-          ? "border-rose-200 bg-rose-50 text-rose-700"
+          ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
           : "border-primary-100 bg-primary-50 text-primary-800",
       )}
       role={error ? "alert" : "status"}

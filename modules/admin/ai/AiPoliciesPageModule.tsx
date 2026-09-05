@@ -278,7 +278,7 @@ function PolicyEditorView({
                   step.done
                     ? "bg-primary-800 text-white"
                     : step.current
-                    ? "bg-amber-100 text-amber-900 border border-amber-300 ring-2 ring-amber-200"
+                    ? "bg-warning-100 text-warning-900 border border-warning-300 ring-2 ring-warning-200"
                     : "bg-secondary-100 text-secondary-500",
                 )}
               >
@@ -307,7 +307,7 @@ function PolicyEditorView({
               <p className="text-xs text-secondary-600">Alokasi kuota harian untuk siswa tier Premium</p>
             </div>
             <div className="flex items-center gap-3 font-mono text-sm">
-              <span className="rounded-lg bg-red-50 px-2.5 py-1 text-red-700 border border-red-200 line-through">
+              <span className="rounded-lg bg-student-status-danger-bg px-2.5 py-1 text-student-status-danger-fg border border-student-status-danger-border line-through">
                 20 unit / hari
               </span>
               <ArrowRight className="size-4 text-secondary-400" />
@@ -323,7 +323,7 @@ function PolicyEditorView({
               <p className="text-xs text-secondary-600">Konsumsi unit kuota untuk sesi adaptive drill soal</p>
             </div>
             <div className="flex items-center gap-3 font-mono text-sm">
-              <span className="rounded-lg bg-red-50 px-2.5 py-1 text-red-700 border border-red-200 line-through">
+              <span className="rounded-lg bg-student-status-danger-bg px-2.5 py-1 text-student-status-danger-fg border border-student-status-danger-border line-through">
                 4 unit
               </span>
               <ArrowRight className="size-4 text-secondary-400" />
@@ -339,7 +339,7 @@ function PolicyEditorView({
               <p className="text-xs text-secondary-600">Waktu tunggu sebelum dialihkan ke model fallback</p>
             </div>
             <div className="flex items-center gap-3 font-mono text-sm">
-              <span className="rounded-lg bg-red-50 px-2.5 py-1 text-red-700 border border-red-200 line-through">
+              <span className="rounded-lg bg-student-status-danger-bg px-2.5 py-1 text-student-status-danger-fg border border-student-status-danger-border line-through">
                 10.000 ms
               </span>
               <ArrowRight className="size-4 text-secondary-400" />
@@ -403,14 +403,14 @@ function PolicyEditorView({
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-sm line-through text-secondary-400">141</span>
               <ArrowRight className="size-3 text-secondary-400" />
-              <span className="text-xl font-extrabold text-amber-700">162</span>
+              <span className="text-xl font-extrabold text-warning-700">162</span>
             </div>
-            <p className="mt-1 text-[11px] font-bold text-amber-700">+15% beban puncak</p>
+            <p className="mt-1 text-[11px] font-bold text-warning-700">+15% beban puncak</p>
           </div>
         </div>
 
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          <AlertTriangle className="size-5 shrink-0 text-amber-700 mt-0.5" />
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-warning-200 bg-warning-50 p-4 text-xs text-warning-900">
+          <AlertTriangle className="size-5 shrink-0 text-warning-700 mt-0.5" />
           <div>
             <p className="font-bold">Potensi Risiko Kapasitas Terdeteksi</p>
             <p className="mt-0.5 leading-relaxed">
@@ -459,7 +459,7 @@ function PolicyEditorView({
                     Menunggu persetujuan dari operator independen.
                   </p>
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-white p-3 border border-secondary-200 text-secondary-600">
-                    <Lock className="size-4 shrink-0 text-amber-600" />
+                    <Lock className="size-4 shrink-0 text-warning-600" />
                     <span>
                       Operator yang menyunting draf tidak dapat menyetujui revisinya sendiri.
                     </span>
@@ -479,7 +479,7 @@ function PolicyEditorView({
                     onClick={() => setRevisionState("draft")}
                     type="button"
                     variant="ghost"
-                    className="text-red-700"
+                    className="text-student-status-danger-fg"
                   >
                     Tolak Draf
                   </Button>
@@ -742,10 +742,10 @@ export function AiPoliciesPageModule({
         {error && (
           <div
             aria-live="assertive"
-            className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            className="flex items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
             role="alert"
           >
-            <AlertTriangle className="size-5 shrink-0 text-red-600" />
+            <AlertTriangle className="size-5 shrink-0 text-danger-600" />
             <p>{error}</p>
           </div>
         )}
@@ -804,7 +804,7 @@ export function AiPoliciesPageModule({
           >
             <span>Review Usulan & Diff</span>
             {revisionState === "pending_approval" && (
-              <span className="size-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="size-2 rounded-full bg-warning-400 animate-pulse" />
             )}
           </button>
           <button

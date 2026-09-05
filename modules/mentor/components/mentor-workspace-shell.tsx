@@ -61,7 +61,7 @@ function MentorNavigationConfirmDialog({
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent
-        className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
+        className="gap-5 border-danger-100 bg-white p-6 sm:max-w-lg"
         variant="danger"
       >
         <AlertDialogHeader>

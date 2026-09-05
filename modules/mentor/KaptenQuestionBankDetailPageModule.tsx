@@ -500,7 +500,7 @@ function QuestionBankQuestionCard({
       className={cn(
         "rounded-xl border p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5",
         hasIssues
-          ? "border-amber-300 bg-amber-50/60 hover:border-amber-400"
+          ? "border-warning-300 bg-warning-50/60 hover:border-warning-400"
           : "border-primary-100 bg-white hover:border-primary-200",
       )}
       key={question.id}
