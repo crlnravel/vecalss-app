@@ -72,6 +72,7 @@ function PreviewNavigation({ activeLabel = "Beranda" }: { activeLabel?: "Beranda
         ["Tryout", buildAdminStudentPreviewRoute("/tryout")],
       ].map(([label, href]) => (
         <Button
+          aria-current={label === activeLabel ? "page" : undefined}
           key={href}
           nativeButton={false}
           render={<Link href={href} />}

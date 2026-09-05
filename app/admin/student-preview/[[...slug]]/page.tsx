@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { TypedRouteState } from "@/components/ui/typed-route-state";
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
 import {
   getAdminPreviewBeranda,
@@ -31,8 +30,12 @@ import {
   isAdminStudentPreviewUnavailableError,
   type AdminStudentPreviewContext,
 } from "@/lib/admin/student-preview";
-import { buildAdminStudentPreviewRoute } from "@/lib/student/preview-routes";
+import {
+  buildAdminStudentPreviewMateriRoute,
+  buildAdminStudentPreviewRoute,
+} from "@/lib/student/preview-routes";
 import { AdminStudentPreviewShell } from "@/modules/student/components/admin-student-preview-shell";
+import { AdminStudentPreviewUnavailable } from "@/modules/student/components/admin-student-preview-unavailable";
 import { StudentBannerEditor } from "@/modules/admin/components/student-banner-editor";
 import { updateAdminStudentPreviewBannersAction } from "@/modules/admin/student-banners-actions";
 import {
@@ -92,38 +95,6 @@ const previewSurfaces: Record<string, PreviewSurface> = {
   },
 };
 
-type PreviewUnavailableReason = "context" | "missing" | "unsupported";
-
-function PreviewUnavailable({
-  message,
-  reason = "missing",
-  standalone = false,
-}: {
-  message: string;
-  reason?: PreviewUnavailableReason;
-  standalone?: boolean;
-}) {
-  const title = reason === "context"
-    ? "Preview siswa belum tersedia"
-    : reason === "unsupported"
-      ? "Surface preview belum didukung"
-      : "Resource preview tidak ditemukan";
-  const kind = reason === "context" ? "error" : reason === "missing" ? "not-found" : "unavailable";
-
-  return (
-    <TypedRouteState
-      as={standalone ? "main" : "section"}
-      className={standalone ? "min-h-svh" : "min-h-[40svh]"}
-      context={reason === "context" ? "Tidak ada data preview yang dimuat. Minta pemilik operasi memperbaiki fixture terkelola atau mengaktifkan capability." : undefined}
-      description={message}
-      kind={kind}
-      returnHref="/admin"
-      returnLabel="Kembali ke admin"
-      title={title}
-    />
-  );
-}
-
 const PREVIEW_PLACEHOLDER_LINKS = [
   ["Beranda", buildAdminStudentPreviewRoute("/")],
   ["Materi", buildAdminStudentPreviewRoute("/courses")],
@@ -163,7 +134,13 @@ function PreviewPlaceholder({
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {links.map(([label, href]) => (
-            <Button key={href} nativeButton={false} render={<Link href={href} />} variant={label === surface.activeLabel ? "brand" : "brandOutline"}>
+            <Button
+              aria-current={label === surface.activeLabel ? "page" : undefined}
+              key={href}
+              nativeButton={false}
+              render={<Link href={href} />}
+              variant={label === surface.activeLabel ? "brand" : "brandOutline"}
+            >
               {label}
             </Button>
           ))}
@@ -195,6 +172,7 @@ function decodePreviewSegment(value: string) {
 }
 
 function renderPreviewShell({
+  bannerEditMode = false,
   breadcrumbLabel,
   children,
   context,
@@ -202,6 +180,7 @@ function renderPreviewShell({
   isRootPage = false,
 }: {
   activeLabel: PreviewSurface["activeLabel"];
+  bannerEditMode?: boolean;
   breadcrumbLabel: string;
   children: React.ReactNode;
   context: AdminStudentPreviewContext;
@@ -210,6 +189,7 @@ function renderPreviewShell({
   return (
     <AdminStudentPreviewShell
       activeLabel={activeLabel}
+      bannerEditMode={bannerEditMode}
       breadcrumbLabel={breadcrumbLabel}
       context={context}
       isRootPage={isRootPage}
@@ -352,6 +332,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
         </>
       ),
       context: data.context,
+      bannerEditMode: Boolean(data.bannerEditor),
       isRootPage: true,
     });
   }
@@ -372,7 +353,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.name ?? "Materi tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewMateriCourseSurface course={data.data} />
-        : <PreviewUnavailable message="Materi yang diminta tidak tersedia atau belum published." reason="missing" />,
+        : <AdminStudentPreviewUnavailable description="Materi yang diminta tidak tersedia atau belum dipublikasikan dalam context Preview ini." returnHref={buildAdminStudentPreviewRoute("/courses")} returnLabel="Kembali ke Materi" variant="resource" />,
       context: data.context,
     });
   }
@@ -383,7 +364,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data.lesson?.title ?? "Materi tidak ditemukan",
       children: data.data.course && data.data.lesson
         ? <AdminStudentPreviewMateriLessonSurface course={data.data.course} lesson={data.data.lesson} />
-        : <PreviewUnavailable message="Lesson yang diminta tidak tersedia atau belum published." reason="missing" />,
+        : <AdminStudentPreviewUnavailable description="Lesson yang diminta tidak tersedia atau belum dipublikasikan dalam context Preview ini." returnHref={data.data.course ? buildAdminStudentPreviewMateriRoute(data.data.course.slug) : buildAdminStudentPreviewRoute("/courses")} returnLabel="Kembali ke Materi" variant="resource" />,
       context: data.context,
     });
   }
@@ -404,7 +385,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.name ?? "Kuis tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewQuizSubjectSurface subject={data.data} />
-        : <PreviewUnavailable message="Subjek Kuis tidak tersedia atau belum memiliki kuis yang terbit." reason="missing" />,
+        : <AdminStudentPreviewUnavailable description="Subjek Kuis yang diminta tidak tersedia atau belum memiliki kuis yang dipublikasikan." returnHref={buildAdminStudentPreviewRoute("/quiz")} returnLabel="Kembali ke Kuis" variant="resource" />,
       context: data.context,
     });
   }
@@ -415,7 +396,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.title ?? "Kuis tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewQuizDetailSurface quiz={data.data} />
-        : <PreviewUnavailable message="Kuis yang diminta tidak tersedia atau belum published." reason="missing" />,
+        : <AdminStudentPreviewUnavailable description="Kuis yang diminta tidak tersedia atau belum dipublikasikan dalam context Preview ini." returnHref={buildAdminStudentPreviewRoute("/quiz")} returnLabel="Kembali ke Kuis" variant="resource" />,
       context: data.context,
     });
   }
@@ -436,7 +417,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
       breadcrumbLabel: data.data?.title ?? "Tryout tidak ditemukan",
       children: data.data
         ? <AdminStudentPreviewTryoutDetailSurface tryout={data.data} />
-        : <PreviewUnavailable message="Tryout yang diminta tidak tersedia atau belum published." reason="missing" />,
+        : <AdminStudentPreviewUnavailable description="Tryout yang diminta tidak tersedia atau belum dipublikasikan dalam context Preview ini." returnHref={buildAdminStudentPreviewRoute("/tryout")} returnLabel="Kembali ke Tryout" variant="resource" />,
       context: data.context,
     });
   }
@@ -445,7 +426,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     activeLabel: data.surface.activeLabel,
     breadcrumbLabel: data.surface.breadcrumbLabel,
     children: data.surface.title === "Student preview"
-        ? <PreviewUnavailable message="Surface student preview ini belum didukung." reason="unsupported" />
+        ? <AdminStudentPreviewUnavailable description="URL ini belum memiliki adapter surface student yang aman untuk Preview. Tidak ada state learner yang dibuat atau diubah." returnHref={buildAdminStudentPreviewRoute("/")} returnLabel="Kembali ke Beranda preview" variant="unsupported" />
       : <PreviewPlaceholder context={data.context} surface={data.surface} />,
     context: data.context,
   });
@@ -468,7 +449,7 @@ export default async function AdminStudentPreviewPage({
     data = await resolvePreviewPageData(slug, editBanners);
   } catch (error) {
     if (isAdminStudentPreviewUnavailableError(error)) {
-      return <PreviewUnavailable message={error.message} reason="context" standalone />;
+      return <AdminStudentPreviewUnavailable description={error.message} variant="context" />;
     }
 
     throw error;

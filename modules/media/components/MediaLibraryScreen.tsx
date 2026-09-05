@@ -413,6 +413,10 @@ export function MediaLibraryScreen({
     selectedAssetId,
     snapshot,
   });
+  const clearSelection = () => {
+    setSelectedItemIds(new Set());
+    setSelectionMode(false);
+  };
 
   const referenceFilterOptions: Array<{ label: string; value: MediaAssetFilter }> = [
     { label: "Semua", value: "all" },
@@ -456,10 +460,7 @@ export function MediaLibraryScreen({
           <Button
             aria-label="Selesai memilih media"
             className="ml-auto"
-            onClick={() => {
-              setSelectionMode(false);
-              setSelectedItemIds(new Set());
-            }}
+            onClick={clearSelection}
             size="icon-sm"
             type="button"
             variant="ghost"
@@ -529,10 +530,21 @@ export function MediaLibraryScreen({
             Mengupload {uploadStatus.fileName}, {uploadStatus.progress}%.
           </div>
         ) : null}
-        {!snapshot?.isStorageConfigured && !isLoading ? (
-          <span className="sr-only" role="status">Penyimpanan media belum dikonfigurasi.</span>
+        {error && snapshot ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive" role="alert">
+            <div className="min-w-0">
+              <p>{error}</p>
+              <p className="mt-1 text-destructive/80">Data terakhir tetap ditampilkan sampai library berhasil dimuat ulang.</p>
+            </div>
+            <Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button>
+          </div>
         ) : null}
-        {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
+        {snapshot && !snapshot.isStorageConfigured && (visibleAssets.length > 0 || visibleFolders.length > 0) ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700" role="status">
+            <span>R2 belum dikonfigurasi. Upload baru belum tersedia.</span>
+            <Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button>
+          </div>
+        ) : null}
         <div
           className={cn("relative min-h-0 flex-1 overflow-y-auto", isDragging && "rounded-xl bg-primary-50/60 ring-2 ring-primary-500/35")}
           onDragEnter={(event) => {
@@ -556,14 +568,17 @@ export function MediaLibraryScreen({
             allVisibleAssets={allVisibleAssets}
             assetFilter={assetFilter}
             assetPageCount={assetPageCount}
+            clearSelection={clearSelection}
             driveAssetGridStyle={driveAssetGridStyle}
             driveFolderGridStyle={driveFolderGridStyle}
+            error={error}
             fileInputRef={fileInputRef}
             flags={{ isDrive, isLoading, isMinimalGallery, isPicker, isReference }}
             itemRenderers={{ driveAsset: renderDriveAsset, driveFolder: renderDriveFolder, itemMenu: renderItemMenu }}
             mediaLabel={mediaLabel}
             query={query}
             selectedAssetId={selectedAssetId}
+            setAssetFilter={setAssetFilter}
             setAssetPage={setAssetPage}
             snapshot={snapshot}
             viewMode="grid"
@@ -600,9 +615,9 @@ export function MediaLibraryScreen({
         </div>
         <label className="relative block w-full xl:max-w-md"><span className="sr-only">Cari {mediaLabel}</span><Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" /><Input className={isPicker ? `${REFERENCE_CONTROL_CLASS_NAMES.input} pl-11` : "h-11 border-primary-100 bg-white pl-11"} onChange={(event) => actions.setSearchInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAssetPage(1); actions.setQuery(searchInput.trim()); } }} placeholder={`Cari nama ${mediaLabel}...`} value={searchInput} /></label>
       </div> : null}
-      {!snapshot?.isStorageConfigured && !isLoading ? <div className="rounded-3xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700" role="status">R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview media.</div> : null}
+      {snapshot && !snapshot.isStorageConfigured && !isLoading ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700" role="status"><span>R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview media.</span><Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button></div> : null}
       {notice ? <p className="text-sm font-medium text-primary-800" role="status">{notice}</p> : null}
-      {error ? <div className="flex flex-col gap-3 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert"><span>{error}</span><Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button></div> : null}
+      {error && snapshot ? <div className="flex flex-col gap-3 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert"><span>{error}</span><Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button></div> : null}
       {isReference ? <>
         <ReferencePageHeader
           actions={<><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Buat folder baru" onClick={() => actions.setFolderDialogOpen(true)} size="icon" variant="reference" />}><FolderPlus /></TooltipTrigger><TooltipContent>Buat folder baru</TooltipContent></Tooltip></TooltipProvider><Button aria-label={uploadStatus ? `Mengupload ${mediaLabel}` : `Upload ${mediaLabel}`} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} size="sm" variant="brand">{uploadStatus ? <LoaderCircle className="animate-spin" /> : <Upload />}{uploadStatus ? "Mengupload" : `Upload ${mediaLabel}`}</Button></>}
@@ -682,8 +697,10 @@ export function MediaLibraryScreen({
           allVisibleAssets={allVisibleAssets}
           assetFilter={assetFilter}
           assetPageCount={assetPageCount}
+          clearSelection={clearSelection}
           driveAssetGridStyle={driveAssetGridStyle}
           driveFolderGridStyle={driveFolderGridStyle}
+          error={error}
           fileInputRef={fileInputRef}
           flags={{
             isDrive,
@@ -700,6 +717,7 @@ export function MediaLibraryScreen({
           mediaLabel={mediaLabel}
           query={query}
           selectedAssetId={selectedAssetId}
+          setAssetFilter={setAssetFilter}
           setAssetPage={setAssetPage}
           snapshot={snapshot}
           viewMode={viewMode}

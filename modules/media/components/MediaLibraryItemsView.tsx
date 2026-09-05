@@ -9,19 +9,15 @@ import {
   FileImage,
   FileText,
   Folder,
-  Search,
-  Upload,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { ReferenceEmptyState } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMediaBytes, isPdfMimeType } from "@/lib/media/domain";
 import type { MediaAssetDto, MediaLibrarySnapshot } from "@/lib/media/types";
 import { cn } from "@/lib/utils";
 import { getItemDate } from "../helpers";
+import { MediaLibraryRecoveryState } from "./media-library-recovery-state";
 import type {
   MediaAssetFilter,
   MediaLibraryItemRenderers,
@@ -35,14 +31,17 @@ export function MediaLibraryItemsView({
   allVisibleAssets,
   assetFilter,
   assetPageCount,
+  clearSelection,
   driveAssetGridStyle,
   driveFolderGridStyle,
+  error,
   fileInputRef,
   flags,
   itemRenderers,
   mediaLabel,
   query,
   selectedAssetId,
+  setAssetFilter,
   setAssetPage,
   snapshot,
   viewMode,
@@ -54,14 +53,17 @@ export function MediaLibraryItemsView({
   allVisibleAssets: MediaAssetDto[];
   assetFilter: MediaAssetFilter;
   assetPageCount: number;
+  clearSelection: () => void;
   driveAssetGridStyle?: CSSProperties;
   driveFolderGridStyle?: CSSProperties;
+  error: string | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
   flags: MediaLibraryItemViewFlags;
   itemRenderers: MediaLibraryItemRenderers;
   mediaLabel: string;
   query: string;
   selectedAssetId?: string | null;
+  setAssetFilter: Dispatch<SetStateAction<MediaAssetFilter>>;
   setAssetPage: Dispatch<SetStateAction<number>>;
   snapshot: MediaLibrarySnapshot | null;
   viewMode: "grid" | "list";
@@ -70,6 +72,34 @@ export function MediaLibraryItemsView({
 }) {
   const { isDrive, isLoading, isMinimalGallery, isPicker, isReference } = flags;
   const { driveAsset: renderDriveAsset, driveFolder: renderDriveFolder, itemMenu: renderItemMenu } = itemRenderers;
+
+  const clearFilters = () => {
+    actions.setSearchInput("");
+    actions.setQuery("");
+    setAssetFilter("all");
+    setAssetPage(1);
+    clearSelection();
+  };
+  const recoveryKind = error && !snapshot
+    ? "error"
+    : snapshot && !snapshot.isStorageConfigured
+    ? "storage"
+    : query || assetFilter !== "all"
+      ? "filtered"
+      : "empty";
+  const recoveryState = (
+    <MediaLibraryRecoveryState
+      className={isReference ? "mx-5 md:mx-8" : undefined}
+      errorMessage={error}
+      isPicker={isPicker}
+      kind={recoveryKind}
+      mediaLabel={mediaLabel}
+      onClear={clearFilters}
+      onRetry={actions.refreshLibrary}
+      onUpload={snapshot?.isStorageConfigured ? () => fileInputRef.current?.click() : undefined}
+    />
+  );
+
   if (isLoading) {
     return (
       <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid", isMinimalGallery && "grid grid-cols-2 p-0")} style={isDrive && viewMode === "grid" && !isMinimalGallery ? driveAssetGridStyle : undefined}>
@@ -78,15 +108,17 @@ export function MediaLibraryItemsView({
     );
   }
 
+  if (error && !snapshot) {
+    return recoveryState;
+  }
+
   if (isMinimalGallery) {
     return snapshot && visibleAssets.length > 0 ? (
       <div className="grid grid-cols-2 gap-3">
         {visibleAssets.map(renderDriveAsset)}
       </div>
     ) : (
-      <div aria-label={query ? "Media tidak ditemukan" : "Belum ada media"} className="grid min-h-32 place-items-center rounded-xl border border-dashed border-primary-100 bg-primary-50/25" role="status">
-        <FileImage aria-hidden="true" className="size-7 text-primary-500" />
-      </div>
+      recoveryState
     );
   }
 
@@ -168,35 +200,10 @@ export function MediaLibraryItemsView({
               </div>
             ) : null}
           </section>
-        ) : null}
+        ) : recoveryState}
       </div>
     );
   }
 
-  if (isReference) {
-    return (
-      <ReferenceEmptyState
-        className="mx-5 min-h-[22rem] md:mx-8"
-        action={!query && assetFilter === "all" ? <Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload {mediaLabel}</Button> : undefined}
-        description={query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}
-        icon={query || assetFilter !== "all" ? Search : FileImage}
-        title={query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media yang cocok" : "Folder ini masih kosong"}
-      />
-    );
-  }
-
-  return (
-    <Empty className="min-h-[22rem] border-0">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">{query || assetFilter !== "all" ? <Search /> : <FileImage />}</EmptyMedia>
-        <EmptyTitle>{isDrive ? (query ? "No assets found" : assetFilter !== "all" ? "No matching media" : "This folder is empty") : query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media dengan filter ini" : "Folder ini masih kosong"}</EmptyTitle>
-        <EmptyDescription>{isDrive ? (query ? "Try another file name or clear your search." : assetFilter !== "all" ? "Choose another filter to see more media." : "Upload assets or create a folder to start building a library.") : query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}</EmptyDescription>
-      </EmptyHeader>
-      {!query && assetFilter === "all" ? (
-        <EmptyContent>
-          <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant={isPicker ? "reference" : "brand"}><Upload data-icon="inline-start" />{isDrive ? "Upload assets" : `Upload ${mediaLabel}`}</Button>
-        </EmptyContent>
-      ) : null}
-    </Empty>
-  );
+  return recoveryState;
 }

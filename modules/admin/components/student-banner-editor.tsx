@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
+import { useFormStatus } from "react-dom";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import type { FormState } from "@/modules/auth/form-state";
-import { SubmitButton } from "@/modules/auth/components/submit-button";
-import { BookOpen, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
+import { BookOpen, CircleHelp, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
 import {
   resolveStudentBannerText,
   type StudentBannerContent,
@@ -68,6 +79,25 @@ const previewVariables = {
   target: "Kedokteran UI",
 };
 
+type BannerIntent = "publish" | "save-draft";
+
+const confirmationCopy: Record<BannerIntent, {
+  confirmLabel: string;
+  description: string;
+  title: string;
+}> = {
+  "save-draft": {
+    confirmLabel: "Simpan draf",
+    description: "Perubahan empat banner siswa akan disimpan sebagai draf privat. Siswa tetap melihat versi published sampai kamu memilih Publish.",
+    title: "Simpan draf banner?",
+  },
+  publish: {
+    confirmLabel: "Publish banner",
+    description: "Draf banner siswa yang sudah disimpan akan dipublikasikan untuk pengalaman siswa. Ini tidak mengubah progress, account, atau state learner.",
+    title: "Publish draf banner siswa?",
+  },
+};
+
 function toFormFields(banners: StudentBannerSet, version: string | null) {
   return Object.fromEntries(
     [
@@ -97,6 +127,29 @@ function readBannersFromForm(form: HTMLFormElement) {
     ) as StudentBannerSet,
     version: readFormText(formData, "version"),
   };
+}
+
+function BannerSubmitButton({
+  blocked = false,
+  children,
+  pendingLabel,
+  ...props
+}: ComponentProps<typeof Button> & {
+  blocked?: boolean;
+  pendingLabel?: string;
+}) {
+  const { pending } = useFormStatus();
+  const disabled = blocked || pending;
+
+  return (
+    <Button
+      aria-disabled={disabled}
+      disabled={disabled}
+      {...props}
+    >
+      {pending ? (pendingLabel ?? "Working...") : children}
+    </Button>
+  );
 }
 
 function BannerPreviewPanel({
@@ -261,9 +314,17 @@ function StudentBannerEditor({
     banners: StudentBannerSet;
     version: string;
   } | null>(null);
+  const [pendingIntent, setPendingIntent] = useState<BannerIntent | null>(null);
+  const [dirtyVersion, setDirtyVersion] = useState<string | null>(null);
+  const allowNextSubmitRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const draftHasChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
   const currentVersion = state.fields?.version ?? version ?? "";
+  const isInputDirty = dirtyVersion !== null && dirtyVersion === currentVersion;
+  const canPublish = draftHasChanges && !isInputDirty;
+  const publishBlockedCopy = isInputDirty
+    ? "Simpan draf sebelum Publish agar versi yang dikonfirmasi sama dengan input terbaru."
+    : "Publish aktif setelah ada draf banner yang tersimpan.";
   const toastKey = JSON.stringify([
     state.status,
     currentVersion,
@@ -281,8 +342,10 @@ function StudentBannerEditor({
     dismissedToastKeyRef.current = key;
   };
 
+  const hasInlineState = state.status !== "idle" && Boolean(state.message);
+
   useEffect(() => {
-    if (state.status === "idle" || dismissedToastKeyRef.current === toastKey) {
+    if (state.status === "idle" || hasInlineState || dismissedToastKeyRef.current === toastKey) {
       return;
     }
 
@@ -293,7 +356,7 @@ function StudentBannerEditor({
     } else {
       toast.error(resultToastMessage);
     }
-  }, [resultToastMessage, state.status, toastKey]);
+  }, [hasInlineState, resultToastMessage, state.status, toastKey]);
 
   function handlePreview() {
     if (formRef.current) {
@@ -301,14 +364,57 @@ function StudentBannerEditor({
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (allowNextSubmitRef.current) {
+      allowNextSubmitRef.current = false;
+      return;
+    }
+
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const intent = submitter instanceof HTMLButtonElement ? submitter.value : "save-draft";
+    if (intent === "save-draft" || intent === "publish") {
+      event.preventDefault();
+      setPendingIntent(intent);
+    }
+  }
+
+  function confirmPendingIntent() {
+    const intent = pendingIntent;
+    const form = formRef.current;
+    if (!intent || !form) return;
+
+    const submitter = form.querySelector<HTMLButtonElement>(`button[name="intent"][value="${intent}"]`);
+    setPendingIntent(null);
+    allowNextSubmitRef.current = true;
+    form.requestSubmit(submitter ?? undefined);
+  }
+
+  const pendingConfirmation = pendingIntent ? confirmationCopy[pendingIntent] : null;
+
   return (
     <div className="space-y-6">
+      <AlertDialog onOpenChange={(open) => { if (!open) setPendingIntent(null); }} open={Boolean(pendingIntent)}>
+        <AlertDialogContent data-testid="student-banner-confirmation" variant="warning">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="warning"><CircleHelp /></AlertDialogMedia>
+            <AlertDialogTitle>{pendingConfirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{pendingConfirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingIntent} variant="brand">
+              {pendingConfirmation?.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {previewMode ? (
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Banner editor</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banners</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Drafts stay private until published.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Preview tetap read-only untuk progress dan account siswa. Editor ini adalah satu-satunya write scope konten; Restart Tryout adalah aksi operasional assignment/session terpisah dengan konfirmasi sendiri.</p>
           </div>
           {previewHref ? (
             <Button
@@ -331,6 +437,8 @@ function StudentBannerEditor({
         action={formAction}
         className="space-y-6"
         key={state.fields?.version ?? version ?? "new"}
+        onInput={() => setDirtyVersion(currentVersion)}
+        onSubmit={handleSubmit}
         ref={formRef}
       >
         <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
@@ -356,20 +464,45 @@ function StudentBannerEditor({
                 {draftHasChanges ? "Students see the published copy." : "Matches the published copy."}
               </p>
             </div>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">Save a draft or publish it now.</p>
+            <p className="mt-1 text-sm leading-6 text-secondary-600">Save draft hanya mengubah draf privat. Publish mempublikasikan draf yang sudah tersimpan setelah konfirmasi dan readback; Restart Tryout tetap merupakan aksi operasional assignment/session yang terpisah.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={handlePreview} size="lg" type="button" variant="brandOutline">
               Preview
             </Button>
-            <SubmitButton name="intent" pendingLabel="Saving draft…" size="lg" type="submit" value="save-draft" variant="brandOutline">
+            <BannerSubmitButton name="intent" pendingLabel="Saving draft…" size="lg" type="submit" value="save-draft" variant="brandOutline">
               Save draft
-            </SubmitButton>
-            <SubmitButton name="intent" pendingLabel="Publishing…" size="lg" type="submit" value="publish" variant="brand">
-              Publish
-            </SubmitButton>
+            </BannerSubmitButton>
+            <BannerSubmitButton blocked={!canPublish} name="intent" pendingLabel="Publishing…" size="lg" type="submit" value="publish" variant="brand">
+              {canPublish ? "Publish" : "Save draft before Publish"}
+            </BannerSubmitButton>
           </div>
         </div>
+        {!canPublish ? (
+          <p className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800" data-testid="student-banner-publish-gating">
+            {publishBlockedCopy}
+          </p>
+        ) : null}
+        {state.status === "success" && state.message ? (
+          <p
+            aria-live="polite"
+            className="rounded-2xl border border-student-status-success-border bg-student-status-success-bg px-4 py-3 text-sm font-medium text-student-status-success-fg"
+            data-testid="student-banner-success"
+            role="status"
+          >
+            {state.message}
+          </p>
+        ) : null}
+        {state.status === "error" && state.message ? (
+          <p
+            aria-live="assertive"
+            className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg"
+            data-testid="student-banner-error"
+            role="alert"
+          >
+            {state.message}
+          </p>
+        ) : null}
       </form>
     </div>
   );

@@ -111,14 +111,14 @@ async function requireAdminStudentPreviewSubject() {
   if (fixtures.length === 0) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_missing",
-      "The managed student preview fixture is not configured.",
+      "Fixture siswa preview terkelola belum dikonfigurasi. Minta pemilik operasi menyiapkan fixture sebelum membuka Preview.",
     );
   }
 
   if (fixtures.length !== 1) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_ambiguous",
-      "The managed student preview fixture is ambiguous and has been disabled until repaired.",
+      "Fixture siswa preview terkelola berjumlah lebih dari satu, sehingga Preview dinonaktifkan sampai sumbernya diperbaiki.",
     );
   }
 
@@ -126,7 +126,7 @@ async function requireAdminStudentPreviewSubject() {
   if (!subject) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_invalid",
-      "The managed student preview fixture is inactive or missing its student role/profile.",
+      "Fixture siswa preview terkelola tidak aktif atau tidak memiliki role/profile siswa yang diperlukan.",
     );
   }
 

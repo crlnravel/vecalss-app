@@ -33,12 +33,14 @@ const previewRootByLabel: Record<string, string> = {
 
 function AdminStudentPreviewShell({
   activeLabel,
+  bannerEditMode = false,
   breadcrumbLabel,
   children,
   context,
   isRootPage = false,
 }: {
   activeLabel: "Beranda" | "Kuis" | "Materi" | "Tryout";
+  bannerEditMode?: boolean;
   breadcrumbLabel: string;
   children: React.ReactNode;
   context: Extract<StudentSurfaceContext, { mode: "admin-preview" }>;
@@ -105,9 +107,13 @@ function AdminStudentPreviewShell({
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
                     Sesi admin kamu tetap aktif. Jelajah di ruang ini tidak mengubah progres siswa.
                   </p>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-700">
+                    Satu-satunya write scope konten di Preview adalah perubahan banner siswa. Restart Tryout adalah aksi operasional terpisah untuk assignment/session dengan konfirmasi sendiri; progress dan account tetap tidak berubah.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    aria-current={bannerEditMode ? "page" : undefined}
                     nativeButton={false}
                     render={<Link href={bannerEditorHref} />}
                     variant="ghost"
