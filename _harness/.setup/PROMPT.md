@@ -31,10 +31,12 @@ If the project already has existing harness files, read them first, then refine 
 
 1. Understand the project and what kind of work the agent will do.
 2. Identify the main workflows, confirmation boundaries, and structural boundaries.
-3. Identify how memory and GC should work.
-4. Identify whether multi-agent collaboration is expected.
-5. Produce the minimum viable harness, not an overdesigned one.
-6. Prefer routing, policy, workflow, and guardrails over generic project narration.
+3. Decide whether a shared CPU/process resource guard is needed and collect its
+   thresholds when enabled.
+4. Identify how memory and GC should work.
+5. Identify whether multi-agent collaboration is expected.
+6. Produce the minimum viable harness, not an overdesigned one.
+7. Prefer routing, policy, workflow, and guardrails over generic project narration.
 
 ## Conversation rules
 
@@ -51,10 +53,15 @@ If the project already has existing harness files, read them first, then refine 
 
 1. Project and task types
 2. Workflow and confirmation boundaries
-3. Structure, routing, and documentation boundaries
+3. Structure, routing, documentation boundaries, and resource guard
 4. Memory and GC model
 5. Multi-agent needs
 6. File generation and review
+
+For the resource guard stage, ask whether agents share a host. If they do, use
+`.agents/skills/agent-resource-guard/SKILL.md` and ask for its load factor,
+hot-process threshold/count, total CPU threshold, and per-turn/per-session
+launch budgets. Use its defaults when the user explicitly accepts defaults.
 
 Start by asking the user to describe the project in a few lines.
 

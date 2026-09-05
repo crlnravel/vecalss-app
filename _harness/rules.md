@@ -26,45 +26,22 @@ take over another agent's files.
 
 ## CPU and process safety
 
-All agents on this machine, including Traycer GUI agents, share CPU and process
-capacity even when they use separate worktrees. This is a cooperative,
-fail-closed policy: commands outside the guard cannot be stopped automatically,
-so agents must follow these limits rather than bypassing them.
+The reusable policy is extracted to
+`.agents/skills/agent-resource-guard/SKILL.md`. This repository uses its
+configured implementation at `_harness/resource-guard.sh`.
 
-- Before starting a Node, package, test, build, worker, or other potentially
-  CPU-heavy command, run `_harness/resource-guard.sh status`. This read-only
-  check uses `ps` and the operating system load average; it does not start Node.
-- Launch those commands only through
-  `_harness/resource-guard.sh run -- <command>`. The guard uses one lock shared
-  by all worktrees of this repository, lowers scheduling priority, and refuses
-  a launch when the one-minute load is at least `1.25 × logical CPUs`, two
-  matching processes are already at least `25%` CPU, or matching processes
-  together use at least `160%` CPU.
-- Hard default: one guarded CPU-heavy command group at a time across the
-  repository. A long-lived `next`, dev-server, watcher, or worker group counts
-  as the one active group and must be stopped before another guarded command.
-  Never intentionally keep more than two top-level agent-owned process groups
-  alive, even when one is idle.
-- Keep explicit Node/package/script launches to three or fewer per agent turn
-  and six or fewer per task/session. If that is not enough, stop and ask the
-  user; do not self-override the budget. A composite repository command such
-  as `pnpm verify` counts as one launch; do not repeat it or a failed command
-  without first reading its output.
-- Do not use `&`, `nohup`, `disown`, watch/daemon modes, `--parallel`,
-  `concurrently`, or ad hoc process farms. Do not run heavy shell calls in
-  parallel tool batches. Stop only processes owned by the current agent; never
-  use a broad `kill`/`pkill` against another agent's work.
-- Use the pinned `pnpm` package scripts and avoid direct `npm`, `npx`, `yarn`,
-  or `bun` launches. Do not reinstall dependencies during normal iteration;
-  `init.sh` installs only when `node_modules` is absent or package metadata is
-  newer than its install marker.
-- If the guard reports `BLOCKED` (exit `75`), do not busy-wait or retry. Finish
-  read-only work, record the skipped command and snapshot in the handoff, and
-  ask the user if more capacity is genuinely needed. If a process listing is
-  unavailable, the guard also refuses to launch.
-- This is a concurrency and priority guard, not an OS hard CPU quota: one build
-  can still use its own worker pool. The safety guarantee comes from not
-  starting additional agent work while that group is running.
+- Before a Node, package, test, build, worker, or other CPU-heavy command, run
+  `_harness/resource-guard.sh status`; launch it only through
+  `_harness/resource-guard.sh run -- <command>`.
+- The guard checks load and matching processes, serializes launches across
+  worktrees, lowers scheduling priority, and fails closed when blocked.
+- Keep one active CPU-heavy command group, obey the configured per-turn and
+  per-session launch budgets, and stop agent-owned long-lived processes before
+  another guarded command.
+- Do not bypass the guard with direct launches, background/watch/parallel modes,
+  ad hoc process farms, broad process termination, or retry loops.
+- The resource check is separate from command confirmation and permission
+  rules.
 
 ## Model and delegation policy
 
@@ -102,8 +79,8 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 - Running `pnpm lint`, `pnpm verify`, or focused `test:*` scripts
 - Minor UI adjustments following DESIGN.md
 
-The resource guard is still mandatory for every process-starting command in
-this list; the confirmation rule and the CPU/process rule are separate gates.
+The resource guard remains mandatory for every process-starting command in this
+list; the confirmation rule and the CPU/process rule are separate gates.
 
 ## Protected areas
 

@@ -78,6 +78,12 @@ Route to the minimum files needed for each task type. Read this file first to de
 2. Read `_harness/rules.md` § Protected areas (some docs require confirmation)
 3. If updating harness files, read `_harness/rules.md` § Harness evolution
 
+## Shared resource guard
+
+1. Read `.agents/skills/agent-resource-guard/SKILL.md` for the reusable policy
+2. Read `_harness/resource-guard.sh` for this repository's configured runtime
+3. Read `_harness/resource-policy.md` when setup has generated a local policy
+
 ## Task-to-directory quick reference
 
 | Task area | Primary directories |

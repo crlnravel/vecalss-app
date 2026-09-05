@@ -51,6 +51,7 @@ Vecalss is a web learning academy and LMS for helping Indonesian students prepar
 | Session handoff between agents | `_harness/tracking/session-handoff.md` |
 | Session initialization script | `init.sh` |
 | Shared CPU/process guard | `_harness/resource-guard.sh` |
+| Reusable resource-limit policy | `.agents/skills/agent-resource-guard/SKILL.md` |
 
 ## Codebase exploration
 

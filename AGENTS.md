@@ -29,7 +29,7 @@ If `_harness/` core files (readme.md, routing.md, catalog.md, rules.md, workflow
 3. Go through each stage in FLOW.md, asking questions and waiting for responses:
    - Stage 1: Project and task types
    - Stage 2: Workflow and confirmation boundaries
-   - Stage 3: Structure, routing, and boundaries
+   - Stage 3: Structure, routing, boundaries, and resource guard
    - Stage 4: Memory and GC model
    - Stage 5: Multi-agent needs
 4. After collecting all answers, summarize and ask: "Should I generate the harness files with this configuration?"
@@ -43,6 +43,7 @@ If `_harness/` core files (readme.md, routing.md, catalog.md, rules.md, workflow
 - `_harness/rules.md`
 - `_harness/workflow.md`
 - `_harness/memory/project.md`
+- `_harness/resource-guard.sh` and `_harness/resource-policy.md` when shared-host protection is enabled
 
 ## Normal usage
 
@@ -61,9 +62,13 @@ Once harness is set up:
 
 ### CPU and process budget
 
-- All agents, including Traycer agents and their children, share the host's CPU budget. Do not start more than one CPU-heavy command group at a time for this repository, and do not leave more than one long-lived dev/worker process running.
-- Before a Node/package/script launch, run `_harness/resource-guard.sh status`; launch through `_harness/resource-guard.sh run -- <command>`. The guard checks CPU/load, serializes launches across worktrees, and fails closed when the host is busy.
-- Keep process-starting commands to three or fewer per agent turn. Never use background/watch/parallel launch modes or retry a busy guard in a loop. Stop agent-owned servers and workers before handoff.
+The reusable policy is in `.agents/skills/agent-resource-guard/SKILL.md` and
+the configured project copy is `_harness/resource-guard.sh`.
+
+- Before a Node/package/script launch, run `_harness/resource-guard.sh status`; launch through `_harness/resource-guard.sh run -- <command>`.
+- The guard serializes launches across worktrees, checks host/process capacity, lowers scheduling priority, and fails closed when blocked.
+- Keep the configured launch budget and one active CPU-heavy command group; stop agent-owned servers and workers before handoff.
+- Never bypass the guard with direct launches, background/watch/parallel modes, or a retry loop.
 
 ### Design and UI policy
 
@@ -87,7 +92,7 @@ Once harness is set up:
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
-- CPU/process budget and guarded launches → `_harness/resource-guard.sh` and `_harness/rules.md`
+- CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`
 
 ### Loading Principles
 

@@ -41,6 +41,8 @@ Ask:
 - Are there protected areas the agent should avoid?
 - Are there stack-specific commands or conventions?
 - Any hard constraints or preferences?
+- Should a shared CPU/process resource guard be enabled? If yes, what load,
+  process, and per-turn/per-session launch limits should it use?
 
 ## Stage 4 — Understand memory and GC
 
@@ -74,6 +76,10 @@ Using templates in `_harness/.setup/templates/`, generate:
 4. `_harness/routing.md` — task-to-file mapping for common tasks
 5. `_harness/workflow.md` — project-specific workflows
 6. `_harness/memory/project.md` — initial project memory
+
+If the resource guard is enabled, use the reusable
+`.agents/skills/agent-resource-guard/` skill during generation to render the
+project-local guard and policy with the values collected in Stage 3.
 
 Generation priorities:
 

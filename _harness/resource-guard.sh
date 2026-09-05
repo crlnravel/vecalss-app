@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Shared resource guard for agents working in this repository.  It deliberately
-# uses only POSIX-ish shell utilities so the check itself never starts Node.
+# Configured project copy of the reusable agent-resource-guard skill.
+# It deliberately uses only POSIX-ish shell utilities so the check itself
+# never starts Node.
 
 readonly MAX_LOAD_FACTOR=1.25
 readonly HOT_PROCESS_CPU=25
