@@ -73,7 +73,7 @@ function KaptenTryoutParticipantsPageModule({
               href={`${base}/${participant.admissionId}`}
               key={participant.id}
             >
-              <Card className="border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0 transition-colors group-hover:bg-primary-50/45 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
+              <Card className="border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] ring-0 transition-colors group-hover:bg-primary-50/45 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
                 <CardHeader>
                   <CardTitle className="font-semibold">{participant.participant.displayName}</CardTitle>
                   <CardAction className="flex items-center gap-2">
@@ -92,7 +92,7 @@ function KaptenTryoutParticipantsPageModule({
           ))}
         </div>
       ) : (
-        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Users aria-hidden="true" />

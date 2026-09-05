@@ -30,7 +30,7 @@ import type { KaptenContentStatus, KaptenResource } from "@/modules/mentor/resou
 
 const statusClasses: Record<KaptenContentStatus, string> = {
   archived: "border-secondary-200 bg-secondary-50 text-secondary-600",
-  draft: "border-[#ead9a5] bg-[#fff8df] text-[#856300]",
+  draft: "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]",
   published: "border-primary-200 bg-primary-50 text-primary-800",
   scheduled: "border-secondary-200 bg-secondary-50 text-secondary-700",
 };
@@ -150,8 +150,8 @@ function ResourceRow({
           ? "gap-3 rounded-2xl px-4 py-3 md:gap-3"
           : "gap-4 rounded-3xl px-4 py-4",
         emphasis
-          ? "border-[#ead9a5] bg-[#fffdf1] hover:border-[#e3c978] hover:bg-[#fffbed] hover:shadow-[0_18px_38px_-28px_rgba(112,88,8,0.42)] focus-within:border-[#e3c978] focus-within:shadow-[0_18px_38px_-28px_rgba(112,88,8,0.42)]"
-          : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]",
+          ? "border-[var(--warning-200)] bg-[var(--warning-50)] hover:border-[var(--warning-300)] hover:bg-[var(--warning-50)] hover:shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--warning-700)_42%,transparent)] focus-within:border-[var(--warning-300)] focus-within:shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--warning-700)_42%,transparent)]"
+          : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)]",
       )}
     >
       <div className="min-w-0 flex-1">

@@ -47,7 +47,7 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
 
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {liveStates.map((state) => (
-          <Card className="border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0" key={state}>
+          <Card className="border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] ring-0" key={state}>
             <CardContent className="p-3.5 sm:p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-secondary-500">{liveStateLabels[state]}</p>
               <p className="mt-1 text-xl font-semibold tabular-nums text-secondary-900">{counts[state]}</p>

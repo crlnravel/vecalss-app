@@ -138,7 +138,7 @@ function KaptenTryoutSessionCreatePageModule({
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.5)]">
+            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]">
               <HelpFieldLabel htmlFor="session-status" label="Aktif saat dibuat" tooltip="Sesi langsung dapat dipakai peserta setelah dibuat. Matikan untuk membuat draf dan membukanya nanti." />
               <Switch
                 checked={session.status === "active"}
@@ -148,7 +148,7 @@ function KaptenTryoutSessionCreatePageModule({
                 }
               />
             </Field>
-            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.5)]">
+            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]">
               <HelpFieldLabel htmlFor="session-fullscreen" label="Minta layar penuh" tooltip="Peserta diminta masuk mode layar penuh. Keluar setelah masuk dicatat sebagai peringatan integritas tanpa konsekuensi otomatis." />
               <Switch
                 checked={session.fullscreenPrompt}

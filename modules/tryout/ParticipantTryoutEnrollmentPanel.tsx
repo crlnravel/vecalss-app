@@ -379,7 +379,7 @@ function ParticipantTryoutEnrollmentPanel({
     <div className="grid gap-5">
       <section
         aria-labelledby="target-jurusan"
-        className="rounded-xl bg-white p-5 shadow-[0_14px_34px_-28px_rgba(1,76,56,0.26)] sm:p-6"
+        className="rounded-xl bg-white p-5 shadow-[0_14px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_26%,transparent)] sm:p-6"
       >
         <h2
           id="target-jurusan"

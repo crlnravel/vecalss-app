@@ -118,10 +118,10 @@ function ParticipantTryoutWorkspace({
       session={session}
       showSearch={false}
     >
-      <section className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
+      <section className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_62%,var(--voyage-leaf)_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_color-mix(in_oklab,var(--voyage-deep)_72%,transparent)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-80"
+          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-80"
         />
         <div
           aria-hidden="true"
@@ -130,7 +130,7 @@ function ParticipantTryoutWorkspace({
           <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
           <Image
             alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(0,20,14,0.36)] xl:w-[26rem]"
+            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] xl:w-[26rem]"
             height={416}
             sizes="(min-width: 1280px) 416px, 352px"
             src="/brand/mascot-vecalss.png"
@@ -141,7 +141,7 @@ function ParticipantTryoutWorkspace({
           <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
             {banner.title}
           </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-[#e7f5eb] sm:text-base sm:leading-7">
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--primary-50)] sm:text-base sm:leading-7">
             {banner.description}
           </p>
         </div>
@@ -237,7 +237,7 @@ function ParticipantTryoutWorkspace({
                       <Link
                         className={buttonVariants({
                           className:
-                            "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_rgba(1,76,56,0.35)] sm:h-11",
+                            "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)] sm:h-11",
                           size: "default",
                           variant: "brand",
                         })}

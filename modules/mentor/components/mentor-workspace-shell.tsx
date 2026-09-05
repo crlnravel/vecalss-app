@@ -281,7 +281,7 @@ function MentorWorkspaceHeader({
         "sticky top-0 z-20 backdrop-blur-xl",
         sidebarAppearance === "reference"
           ? "bg-voyage-canvas/90 lg:top-6 lg:rounded-3xl lg:border"
-          : "border-b border-primary-100/80 bg-[#f7faf8]/90",
+          : "border-b border-primary-100/80 bg-[var(--voyage-canvas)]/90",
       )}
     >
       <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
@@ -398,7 +398,7 @@ function MentorWorkspaceShell({
             "flex min-h-svh w-full text-secondary-900",
             sidebarAppearance === "reference"
               ? "bg-voyage-canvas lg:gap-2"
-              : "bg-[#f7faf8]",
+              : "bg-[var(--voyage-canvas)]",
           )}
         >
           <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />

@@ -177,7 +177,7 @@ function TryoutSectionList({
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {group.sections.map((section) => (
                 <article
-                  className="flex min-h-[5.75rem] items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-[0_12px_28px_-24px_rgba(1,76,56,0.22)] sm:px-5"
+                  className="flex min-h-[5.75rem] items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_22%,transparent)] sm:px-5"
                   key={section.sequenceNo + "-" + section.title}
                 >
                   <div className="min-w-0">
@@ -393,13 +393,13 @@ function ParticipantTryoutDetailModule({
       session={session}
       showSearch={false}
     >
-      <div className="min-h-full bg-[#f7faf8] font-sans text-[#173c2d]">
+      <div className="min-h-full bg-[var(--voyage-canvas)] font-sans text-[var(--voyage-ink)]">
         <div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
           <section
             aria-labelledby="tryout-information"
-            className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_rgba(1,76,56,0.24)]"
+            className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
           >
-            <div className="relative isolate overflow-hidden bg-[#014c38]">
+            <div className="relative isolate overflow-hidden bg-[var(--voyage-deep)]">
               <Image
                 alt=""
                 className="absolute inset-0 size-full object-cover object-center opacity-45 saturate-[0.72]"
@@ -411,7 +411,7 @@ function ParticipantTryoutDetailModule({
               />
               <div
                 aria-hidden="true"
-                className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.88)_0%,rgba(1,76,56,0.68)_52%,rgba(1,76,56,0.74)_100%)]"
+                className="absolute inset-0 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--voyage-deep)_88%,transparent)_0%,color-mix(in_oklab,var(--voyage-deep)_68%,transparent)_52%,color-mix(in_oklab,var(--voyage-deep)_74%,transparent)_100%)]"
               />
               <div className="relative mx-auto w-full px-5 pb-24 pt-8 sm:px-6 sm:pt-10">
                 <BackButton

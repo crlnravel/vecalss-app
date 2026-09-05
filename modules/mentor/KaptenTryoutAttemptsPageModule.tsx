@@ -42,7 +42,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
       </header>
       <TryoutRefreshNotice message={refreshMessage} onRetry={retryRefresh} />
 
-      <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+      <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
         <Table className="min-w-[680px]">
           <caption className="sr-only">Daftar attempt peserta yang tercatat</caption>
           <TableHeader className="[&_tr]:border-0">

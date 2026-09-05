@@ -176,7 +176,7 @@ function AssessmentQuestionNavigation({
           />
           <dialog
             aria-label="Pilih nomor soal"
-            className="fixed inset-auto top-1/2 right-4 bottom-auto left-auto z-50 m-0 max-h-[calc(100svh-2rem)] w-[min(26rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto rounded-[1.5rem] border border-primary-200 bg-secondary-900 p-4 text-white shadow-[0_24px_70px_-28px_rgba(0,0,0,0.65)] sm:right-8"
+            className="fixed inset-auto top-1/2 right-4 bottom-auto left-auto z-50 m-0 max-h-[calc(100svh-2rem)] w-[min(26rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto rounded-[1.5rem] border border-primary-200 bg-secondary-900 p-4 text-white shadow-[0_24px_70px_-28px_color-mix(in_oklab,var(--secondary-900)_65%,transparent)] sm:right-8"
             onCancel={(event) => {
               event.preventDefault();
               closePicker();
@@ -226,7 +226,7 @@ function AssessmentQuestionMarker({
       className={cn(
         "flex size-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         marker.state === "active" &&
-          "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_rgba(1,76,56,0.75)] ring-2 ring-primary-200 ring-offset-2",
+          "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)] ring-2 ring-primary-200 ring-offset-2",
         marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
         marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
         marker.state === "locked" && "border-secondary-200 bg-secondary-100 text-secondary-400",
@@ -256,7 +256,7 @@ function AssessmentQuestionPickerMarker({
       aria-label={`Soal ${marker.number}${marker.state === "answered" ? " (sudah dijawab)" : marker.state === "flagged" ? " (ditandai)" : marker.state === "locked" ? " (terkunci)" : ""}`}
       className={cn(
         "flex aspect-square min-h-11 min-w-11 items-center justify-center rounded-xl border-2 text-base font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-lg",
-        marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_rgba(1,76,56,0.8)]",
+        marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]",
         marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
         marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
         marker.state === "locked" && "border-secondary-700 bg-secondary-800 text-secondary-400",
@@ -390,13 +390,13 @@ function AssessmentAnnotationOverlay({
         ) : null}
       </svg>
 
-      <div className="absolute top-[8.5rem] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-[1.5rem] border border-primary-200 bg-white px-3 py-2 shadow-[0_20px_48px_-20px_rgba(1,76,56,0.55)] sm:top-[12rem]">
+      <div className="absolute top-[8.5rem] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-[1.5rem] border border-primary-200 bg-white px-3 py-2 shadow-[0_20px_48px_-20px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:top-[12rem]">
         {ANNOTATION_SWATCHES.map((swatch) => (
           <button
             aria-label={`Gunakan warna ${swatch.label}`}
             className={cn(
               "size-11 rounded-full border-2 transition-transform motion-safe:scale-100 motion-reduce:scale-100 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
-              color === swatch.color ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_rgba(16,36,29,0.14)]",
+              color === swatch.color ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_color-mix(in_oklab,var(--voyage-ink)_14%,transparent)]",
             )}
             aria-pressed={color === swatch.color}
             key={swatch.color}
@@ -540,7 +540,7 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "flex flex-col py-6 print:border-0 print:py-3",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
             : "min-h-full border-b border-primary-100 bg-white px-5 sm:px-8 lg:border-r lg:border-b-0 lg:px-8 xl:px-10 print:px-0",
         )}>
           <div className="flex justify-center">
@@ -549,7 +549,7 @@ function AssessmentResultWorkspace({
               className="grid size-28 shrink-0 place-items-center rounded-full p-3 sm:size-36 lg:size-44"
               style={{ background: `conic-gradient(var(--primary-700) ${normalizedScore}%, var(--primary-100) 0)` }}
             >
-              <div className="grid size-full place-items-center rounded-full border-4 border-white bg-secondary-50 text-center shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)]">
+              <div className="grid size-full place-items-center rounded-full border-4 border-white bg-secondary-50 text-center shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]">
                 <div>
                   <p className="font-mono text-2xl font-bold tabular-nums text-primary-800 sm:text-3xl">{Math.round(normalizedScore)}</p>
                   <p className="mt-1 max-w-20 text-xs font-semibold leading-tight text-secondary-500">{scoreLabel}</p>
@@ -576,7 +576,7 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "py-6 print:hidden",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
             : "border-t border-primary-100 bg-white px-5 sm:px-8 lg:border-t-0 lg:border-l lg:px-8 xl:px-10",
         )}>
             {navigation}

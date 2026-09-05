@@ -52,7 +52,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
             value={validSessionId ?? ""}
           />
         </div>
-        {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[#8a5e00]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
+        {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[var(--voyage-warm-sun-ink)]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
       </div> : null}
 
       <div className="grid gap-5">
@@ -67,7 +67,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                 </div>
               </div>
 
-              <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+              <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
                 <Table className="min-w-[520px]">
                   <caption className="sr-only">Hasil peserta untuk {session.name}</caption>
                   <TableHeader className="bg-primary-50/60 [&_tr]:border-0">
@@ -81,7 +81,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                       <TableRow className="border-0 hover:bg-primary-50/45" key={result.attemptId}>
                         <TableCell className="max-w-[16rem] whitespace-normal px-4 py-3.5 align-top sm:px-5">
                           <p className="font-medium text-secondary-900">{result.participant}</p>
-                          {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#6a4a00]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
+                          {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[var(--voyage-warm-sun-ink)]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
                         </TableCell>
                         <TableCell className="px-4 py-3.5 align-top sm:px-5">{result.scoreVisible && result.displayScore !== null ? <span className="font-semibold tabular-nums text-secondary-900">{Number(result.displayScore).toFixed(2)}</span> : <span className="text-sm text-secondary-500">Belum tersedia</span>}</TableCell>
                       </TableRow>
@@ -91,7 +91,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
               </div>
             </section>
           );
-        }) : <div className="grid min-h-40 place-items-center rounded-4xl border border-solid border-primary-100 bg-white px-5 py-10 text-center text-sm text-secondary-500 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">Belum ada sesi delivery untuk menampilkan hasil.</div>}
+        }) : <div className="grid min-h-40 place-items-center rounded-4xl border border-solid border-primary-100 bg-white px-5 py-10 text-center text-sm text-secondary-500 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">Belum ada sesi delivery untuk menampilkan hasil.</div>}
       </div>
     </section>
   );

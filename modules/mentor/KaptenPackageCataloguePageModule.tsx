@@ -60,7 +60,7 @@ function PackageStatusPill({ status }: { status: PackageItem["availability"] }) 
         "inline-flex max-w-full items-center truncate rounded-full border px-2.5 py-1 text-xs font-semibold",
         status === "ready"
           ? "border-primary-200 bg-primary-50 text-primary-800"
-          : "border-[#ead9a5] bg-[#fff8df] text-[#856300]",
+          : "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]",
       )}
     >
       {packageStatusCopy(status)}

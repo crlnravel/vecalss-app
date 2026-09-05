@@ -181,7 +181,7 @@ function StudentSearchSection({
             Mencari peserta…
           </div>
         ) : searchState === "error" ? (
-          <Alert className="border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]" role="alert">
+          <Alert className="border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]" role="alert">
             <CircleAlert aria-hidden="true" />
             <AlertTitle>Pencarian gagal</AlertTitle>
             <AlertDescription>{searchError}</AlertDescription>
@@ -316,7 +316,7 @@ function InvitationDetailCard({
         </Field>
 
         {feedback ? (
-          <Alert className={feedback.tone === "success" ? "border-primary-200 bg-primary-50 text-primary-950" : "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]"} role={feedback.tone === "error" ? "alert" : "status"}>
+          <Alert className={feedback.tone === "success" ? "border-primary-200 bg-primary-50 text-primary-950" : "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]"} role={feedback.tone === "error" ? "alert" : "status"}>
             {feedback.tone === "error" ? <CircleAlert aria-hidden="true" /> : <Check aria-hidden="true" />}
             <AlertTitle>{feedback.tone === "error" ? "Undangan belum selesai" : "Undangan berhasil"}</AlertTitle>
             <AlertDescription>{feedback.message}</AlertDescription>

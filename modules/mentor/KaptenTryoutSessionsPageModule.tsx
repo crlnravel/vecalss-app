@@ -54,8 +54,8 @@ function KaptenTryoutSessionsPageModule({
               return (
                 <Card
                   className={isPrimary
-                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] ring-0"
-                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0"}
+                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)] ring-0"
+                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] ring-0"}
                   key={session.id}
                   size="sm"
                 >
@@ -110,7 +110,7 @@ function KaptenTryoutSessionsPageModule({
           </div>
         </>
       ) : (
-        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <CalendarDays aria-hidden="true" />

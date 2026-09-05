@@ -239,7 +239,7 @@ function KaptenTryoutAttemptDetailPageModule({
                 {attempt.disconnectStartedAt ? (
                   <div className="text-sm leading-6 text-secondary-700">
                     <p>Dimulai {formatTimestamp(attempt.disconnectStartedAt)}</p>
-                    {attempt.reconciledAt ? <p>Direkonsiliasi {formatTimestamp(attempt.reconciledAt)} · total {attempt.totalDisconnectSeconds} detik</p> : <p className="font-medium text-[#6a4a00]">Menunggu reconcile operator.</p>}
+                    {attempt.reconciledAt ? <p>Direkonsiliasi {formatTimestamp(attempt.reconciledAt)} · total {attempt.totalDisconnectSeconds} detik</p> : <p className="font-medium text-[var(--voyage-warm-sun-ink)]">Menunggu reconcile operator.</p>}
                   </div>
                 ) : <p className="text-sm text-secondary-600">Belum ada marker disconnect.</p>}
                 <div className="flex flex-wrap gap-2">

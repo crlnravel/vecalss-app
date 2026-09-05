@@ -208,7 +208,7 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
   if (!question) {
     return (
       <main className="flex min-h-svh items-center justify-center bg-secondary-50 px-5 py-10">
-        <section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-10" role="status">
+        <section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-10" role="status">
           <WarningCircle aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" />
           <h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1>
           <p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat direview dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p>
@@ -286,7 +286,7 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
       title={result.tryoutTitle}
     >
       <div className="space-y-5">
-        <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-8">
+        <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
           <div className="min-w-0">
             <p className="text-lg font-semibold text-secondary-900">Soal #{currentQuestion}</p>
@@ -337,7 +337,7 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
         </div>
         </article>
 
-        <section className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-7">
+        <section className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-7">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-primary-100 pb-4">
             <div>
               <p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-primary-700 uppercase"><TrendUp className="size-4" />Performa subtes</p>
@@ -373,7 +373,7 @@ function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attem
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-7">
+        <section className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-7">
           <div className="flex items-center gap-3">
             <GraduationCap className="size-5 text-primary-700" />
             <div>

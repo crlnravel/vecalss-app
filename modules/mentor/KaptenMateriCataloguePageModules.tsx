@@ -184,7 +184,7 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
     >
       <div className="flex items-start gap-4">
         <MentorBadge
-          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]"
+          className="bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]"
           size="sm"
           tone="category"
         >
