@@ -6,8 +6,9 @@
   Vera UI color usage around the existing Vecalss palette and semantic status
   tokens, preserving distinct information, warning, and danger meanings.
 - [x] Replaced tokenizable hardcoded colors, legacy status utility ramps, and
-  shared shadow/gradient literals in five reviewable commits: `3b67d69`,
-  `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
+  shared shadow/gradient literals in the palette series beginning with
+  `c836589`, followed by `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`, and
+  `91bbceb`.
 - [x] Regenerated theme output through the palette workflow; generated CSS,
   markup, layout, interaction/state behavior, accessibility attributes, and
   route context were preserved.

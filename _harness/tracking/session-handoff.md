@@ -11,7 +11,8 @@
   annotation swatches. The two released builder files received only their
   exact raw shadow replacements; no builder status classes or behavior were
   changed.
-- Commits: `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
+- Commits: initial token alignment in `c836589`, followed by `3b67d69`,
+  `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
 - Verification: guarded targeted ESLint passed with only pre-existing unused
   variable warnings; guarded repository-wide `pnpm lint` passed with 0 errors
   and 474 warnings; `git diff --check` passed; guarded `pnpm build` passed

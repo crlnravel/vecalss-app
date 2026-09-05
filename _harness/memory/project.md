@@ -74,8 +74,9 @@ and then verify the source tree before making an implementation decision.
   output is regenerated through the token command; `DESIGN.md` and generated
   theme output remain protected from direct edits. Token-derived `color-mix()`
   values are acceptable for scoped shadows and gradients.
-- The 2026-09-05 migration is complete in commits `3b67d69`, `7c57433`,
-  `c2fe59b`, `5af4342`, and `91bbceb`. Remaining raw colors are intentional
+- The 2026-09-05 migration is complete in the palette series beginning at
+  `c836589` and continuing through `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`,
+  and `91bbceb`. Remaining raw colors are intentional
   ownership or library boundaries: banner-maker design data/editor, protected
   typed-route state, Recharts selector literals, and the released Question
   Bank builder status utilities.
