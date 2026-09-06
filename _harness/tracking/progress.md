@@ -1,5 +1,23 @@
 # Session Progress Log
 
+## Students admin elevation and sunken-depth pass (2026-09-06)
+
+- [x] Strengthened the resting `ReferenceSurface` contract so cards visibly
+  carry a persistent outer lift; interactive surfaces still add their hover
+  and focus lift on top of that base state.
+- [x] Added an explicit `sunken` `StudentBadge` depth variant and applied it
+  to the enrollment directory and student-detail status badges without
+  changing unrelated compact badge consumers.
+- [x] Centralized student account status labels and tones, preserving active,
+  attention, danger, and neutral semantics across the directory and detail
+  views.
+- [x] Reserved a wider status-column track and mirrored it in the loading
+  skeleton so long Indonesian labels remain separated from row actions.
+- [x] Guarded focused ESLint, strict TypeScript, `git diff --check`, and full
+  `pnpm verify` pass; lint reports 0 errors and 474 existing warnings, and
+  both enrollment routes compile successfully.
+- [x] Browser verification remains permission-gated and was not run.
+
 ## Vecalss palette standardization (2026-09-05)
 
 - [x] Standardized learner, assessment, mentor, admin, dashboard, portal, and

@@ -7,6 +7,7 @@ import {
   Target,
 } from "@/lib/icons";
 import { StudentDetailTargetExamSelect } from "./components/student-detail-target-exam-select";
+import { formatStudentStatus, studentStatusTone } from "./student-status";
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -18,7 +19,6 @@ import type {
   StudentProfile,
   University,
   User,
-  UserStatus,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -70,31 +70,6 @@ function splitStudentName(fullName: string) {
     firstName,
     lastName: lastNameParts.join(" "),
   };
-}
-
-function formatStatus(status: UserStatus) {
-  return {
-    active: "Aktif",
-    disabled: "Dinonaktifkan",
-    locked: "Terkunci",
-    soft_deleted: "Dihapus sementara",
-  }[status] ?? status.replaceAll("_", " ");
-}
-
-function statusTone(status: UserStatus) {
-  if (status === "active") {
-    return "success" as const;
-  }
-
-  if (status === "disabled" || status === "soft_deleted") {
-    return "danger" as const;
-  }
-
-  if (status === "locked") {
-    return "attention" as const;
-  }
-
-  return "neutral" as const;
 }
 
 function formatDate(value: Date | null) {
@@ -257,8 +232,8 @@ function StudentDetailPageModule({
               <div className="min-w-0 space-y-2 text-sm">
                 <span className="font-medium text-secondary-900">Status</span>
                 <div className="flex min-h-[52px] items-center">
-                  <StudentBadge size="md" tone={statusTone(student.status)}>
-                    {formatStatus(student.status)}
+                  <StudentBadge depth="sunken" size="md" tone={studentStatusTone(student.status)}>
+                    {formatStudentStatus(student.status)}
                   </StudentBadge>
                 </div>
               </div>

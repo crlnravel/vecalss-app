@@ -38,6 +38,7 @@ import { SubmitButton } from "@/modules/auth/components/submit-button";
 
 import { CopyValueButton } from "./copy-value-button";
 import { StudentAccountActions } from "./student-account-actions";
+import { formatStudentStatus, type StudentStatusTone } from "../student-status";
 
 type StudentPreviewHandoff = {
   expiresAt: string | null;
@@ -62,22 +63,11 @@ type StudentDirectoryItem = {
   tone: StudentStatusTone;
 };
 
-type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
-
 const studentDirectoryDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   year: "numeric",
 });
-
-function formatStatus(status: string) {
-  return {
-    active: "Aktif",
-    disabled: "Dinonaktifkan",
-    locked: "Terkunci",
-    soft_deleted: "Dihapus sementara",
-  }[status] ?? status.replaceAll("_", " ");
-}
 
 function highlightSearchMatches(text: string, query: string): ReactNode {
   const normalizedQuery = query.trim();
@@ -512,7 +502,7 @@ function StudentFilterPanel({
                         : current.filter((selectedStatus) => selectedStatus !== status));
                     }}
                   />
-                  <span>{formatStatus(status)}</span>
+                  <span>{formatStudentStatus(status)}</span>
                   {draftStatuses.includes(status) ? <input name="status" type="hidden" value={status} /> : null}
                 </label>
               ))}
@@ -631,7 +621,7 @@ function StudentDirectoryTable({
       href: clearStatusHref,
       id: "status",
       label: "Status",
-      value: statusFilters.map(formatStatus).join(" or "),
+      value: statusFilters.map(formatStudentStatus).join(" or "),
     });
   }
 
@@ -659,12 +649,12 @@ function StudentDirectoryTable({
           </span>
         </span>
       ),
-      headerClassName: "w-[28%]",
+      headerClassName: "w-[26%]",
       hideable: false,
       id: "student",
        label: "Siswa",
       sortKey: "student",
-      width: 28,
+      width: 26,
     },
     {
       cell: (student) => (
@@ -672,11 +662,11 @@ function StudentDirectoryTable({
           {highlightSearchMatches(student.email, search)}
         </span>
       ),
-      headerClassName: "w-[28%]",
+      headerClassName: "w-[25%]",
       id: "email",
       label: "Email",
       sortKey: "email",
-      width: 28,
+      width: 25,
     },
     {
       cell: (student) => <time dateTime={student.createdAt}>{formatCreatedDate(student.createdAt)}</time>,
@@ -689,15 +679,15 @@ function StudentDirectoryTable({
     },
     {
       cell: (student) => (
-        <StudentBadge size="sm" tone={student.tone}>
-          {formatStatus(student.status)}
+        <StudentBadge depth="sunken" size="sm" tone={student.tone}>
+          {formatStudentStatus(student.status)}
         </StudentBadge>
       ),
-      headerClassName: "w-[17%]",
+      headerClassName: "w-[22%]",
       id: "status",
       label: "Status",
       sortKey: "status",
-      width: 17,
+      width: 22,
     },
     {
       cell: (student) => {

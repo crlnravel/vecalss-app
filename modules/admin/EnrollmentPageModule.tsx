@@ -18,6 +18,7 @@ import { AddStudentDialog } from "./components/add-student-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
 import { StudentPageSizeSelect } from "./components/student-page-size-select";
 import { StudentDirectoryTable } from "./components/student-directory-table";
+import { studentStatusTone } from "./student-status";
 
 export type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "id" | "lastLoginAt" | "mustChangePassword" | "status"> & {
   enrollmentHandoffs: Pick<EnrollmentHandoff, "expiresAt" | "method" | "status">[];
@@ -30,24 +31,6 @@ export type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "i
   }) | null;
   temporary?: boolean;
 };
-type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
-
-function statusTone(status: UserStatus): StudentStatusTone {
-  if (status === "active") {
-    return "success";
-  }
-
-  if (status === "disabled" || status === "soft_deleted") {
-    return "danger";
-  }
-
-  if (status === "locked") {
-    return "attention";
-  }
-
-  return "neutral";
-}
-
 const noticeMessages: Record<string, string> = {
   "student-deactivated": "Akses siswa dinonaktifkan dan sesi aktif telah dicabut.",
   "student-deleted": "Akun siswa dihapus.",
@@ -235,7 +218,7 @@ function EnrollmentPageModule({
                   ?? profile?.targetMajor?.university.name
                   ?? null,
                 status: student.status,
-                tone: statusTone(student.status),
+                tone: studentStatusTone(student.status),
               };
             })}
           />

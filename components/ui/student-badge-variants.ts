@@ -4,6 +4,11 @@ const studentBadgeVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border font-semibold leading-none whitespace-nowrap transition-colors",
   {
     variants: {
+      depth: {
+        flat: null,
+        sunken:
+          "shadow-[inset_0_1px_1px_color-mix(in_oklab,var(--voyage-surface)_74%,transparent),inset_0_-2px_6px_color-mix(in_oklab,var(--voyage-deep)_16%,transparent)]",
+      },
       tone: {
         category:
           "border-student-status-category-border bg-student-status-category-bg text-student-status-category-fg",
@@ -26,6 +31,7 @@ const studentBadgeVariants = cva(
       },
     },
     defaultVariants: {
+      depth: "flat",
       size: "sm",
       tone: "neutral",
     },

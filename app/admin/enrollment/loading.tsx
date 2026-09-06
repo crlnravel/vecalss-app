@@ -12,7 +12,7 @@ function LoadingBlock({ className }: { className: string }) {
 
 function StudentRowSkeleton() {
   return (
-    <div aria-hidden="true" className="grid min-w-[760px] grid-cols-[minmax(220px,28%)_minmax(220px,28%)_minmax(130px,17%)_minmax(130px,17%)_100px] items-center gap-0 border-b border-primary-100/55 px-4 py-3.5 last:border-b-0 sm:px-5">
+    <div aria-hidden="true" className="grid min-w-[760px] grid-cols-[minmax(220px,26%)_minmax(220px,25%)_minmax(130px,17%)_minmax(150px,22%)_100px] items-center gap-0 border-b border-primary-100/55 px-4 py-3.5 last:border-b-0 sm:px-5">
       <div className="flex items-center gap-3">
         <LoadingBlock className="size-8 shrink-0 rounded-full" />
         <LoadingBlock className="h-4 w-32 max-w-[calc(100%-2.75rem)]" />
@@ -63,7 +63,7 @@ export default function EnrollmentLoading() {
 
                 <div className="overflow-x-auto">
                   <div className="min-w-[760px]">
-                    <div className="grid grid-cols-[minmax(220px,28%)_minmax(220px,28%)_minmax(130px,17%)_minmax(130px,17%)_100px] items-center gap-0 bg-secondary-50/80 px-4 py-2.5 sm:px-5">
+                    <div className="grid grid-cols-[minmax(220px,26%)_minmax(220px,25%)_minmax(130px,17%)_minmax(150px,22%)_100px] items-center gap-0 bg-secondary-50/80 px-4 py-2.5 sm:px-5">
                       <LoadingBlock className="h-3 w-16" />
                       <LoadingBlock className="h-3 w-12" />
                       <LoadingBlock className="h-3 w-12" />

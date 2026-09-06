@@ -6,13 +6,12 @@ import { studentBadgeVariants } from "./student-badge-variants";
 type StudentBadgeProps = React.ComponentProps<"span"> &
   VariantProps<typeof studentBadgeVariants>;
 
-function StudentBadge({ className, size, tone, ...props }: StudentBadgeProps) {
+function StudentBadge({ className, depth, size, tone, ...props }: StudentBadgeProps) {
   return (
     <span
       data-slot="student-badge"
       className={cn(
-        studentBadgeVariants({ size, tone }),
-        "shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
+        studentBadgeVariants({ depth, size, tone }),
         className,
       )}
       {...props}
