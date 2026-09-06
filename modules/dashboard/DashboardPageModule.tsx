@@ -132,15 +132,17 @@ function DashboardPageModule({
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
       breadcrumbLabel="Beranda"
-      mainClassName="gap-8 lg:gap-9"
+      mainClassName="gap-10"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-200 bg-[linear-gradient(125deg,var(--voyage-surface)_0%,var(--voyage-sea-glass-wash)_48%,var(--voyage-sea-glass)_100%)] shadow-[0_28px_90px_-58px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
-            <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
+        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
+            <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
+            <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
+            <div className="absolute right-9 top-10 size-10 rounded-full bg-voyage-warm-sun" />
             <Image
               alt=""
               className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
@@ -150,13 +152,13 @@ function DashboardPageModule({
               width={416}
             />
           </div>
-          <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
+          <CardHeader className="relative gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
             <div className="grid gap-10">
               <div>
-                <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl xl:text-6xl">
+                <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
                   {resolveStudentBannerText(banner.title, bannerVariables)}
-                </CardTitle>
-                <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600 md:text-base">
+                </h1>
+                <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-learning-hero-muted">
                   {resolveStudentBannerText(banner.description, bannerVariables)}
                 </CardDescription>
               </div>
@@ -184,17 +186,17 @@ function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
     daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`;
 
   return (
-    <div className="inline-flex min-h-10 items-center gap-2.5 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
-      <CalendarCheck className="size-[18px] text-primary-700" />
-      <span className="text-base font-bold leading-none text-primary-700">{label}</span>
+    <div className="inline-flex min-h-11 items-center gap-2.5 rounded-full bg-student-status-attention-solid-bg px-4 py-2 text-student-status-attention-solid-fg">
+      <CalendarCheck aria-hidden="true" className="size-[18px]" />
+      <span className="text-base font-bold leading-none tabular-nums">{label}</span>
     </div>
   );
 }
 
 function HeroDataPill() {
   return (
-    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary-200 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
-      <Info aria-hidden="true" className="size-[18px] text-primary-700" />
+    <div className="inline-flex min-h-11 items-center gap-2 px-1 py-2 text-learning-hero-muted">
+      <Info aria-hidden="true" className="size-[18px]" />
       <span className="text-sm font-semibold leading-none">XP belum tersedia</span>
     </div>
   );
@@ -202,7 +204,7 @@ function HeroDataPill() {
 
 function DashboardDataNotice() {
   return (
-    <Card className="border-primary-200 bg-primary-50/70 shadow-none">
+    <Card className="border border-learning-card-border bg-voyage-surface py-0 shadow-none ring-0">
       <CardContent className="flex items-start gap-3 px-5 py-4">
         <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
         <div>
@@ -218,9 +220,11 @@ function DashboardDataNotice() {
 
 function DashboardSectionHeading({ icon: Icon, title }: { icon: DashboardIcon; title: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon className="size-5 text-secondary-900" />
-      <h2 className="text-lg font-semibold tracking-tight text-secondary-900">{title}</h2>
+    <div className="flex items-center gap-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
+        <Icon aria-hidden="true" className="size-5" />
+      </span>
+      <h2 className="text-xl font-extrabold tracking-tight text-voyage-ink">{title}</h2>
     </div>
   );
 }
@@ -231,25 +235,29 @@ function QuickAccessSection() {
       <DashboardSectionHeading icon={Zap} title="Akses Cepat" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
-          <Link className="group block min-w-0" href={item.href} key={item.label}>
+          <Link className="group block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
               REFERENCE_SURFACE_CLASS_NAMES.raised,
               REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
-              "gap-0 py-0 ring-0",
+              "gap-0 border-learning-card-border py-0 ring-0 group-hover:border-voyage-forest motion-reduce:transition-none",
+              item.href === "/courses" && "border-learning-hero-bg bg-learning-hero-bg",
             )}>
               <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent text-primary-700">
-                  <item.icon className="size-5" />
+                <div className={cn(
+                  "flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep",
+                  item.href === "/courses" && "bg-voyage-surface text-voyage-deep",
+                )}>
+                  <item.icon aria-hidden="true" className="size-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="truncate text-[15px] font-semibold text-secondary-900">
+                  <CardTitle className={cn("text-base font-extrabold text-voyage-ink", item.href === "/courses" && "text-learning-hero-fg")}>
                     {item.label}
                   </CardTitle>
-                  <CardDescription className="mt-0.5 truncate text-xs text-secondary-500">
+                  <CardDescription className={cn("mt-1 text-sm leading-5 text-learning-muted-ink", item.href === "/courses" && "text-learning-hero-muted")}>
                     {item.description}
                   </CardDescription>
                 </div>
-                <ChevronRight className="size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-700" />
+                <ChevronRight aria-hidden="true" className={cn("size-5 shrink-0 text-voyage-deep transition-transform motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none", item.href === "/courses" && "text-learning-hero-fg")} />
               </CardContent>
             </Card>
           </Link>
@@ -263,18 +271,18 @@ function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-4" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
-          <CardDescription className="text-sm text-secondary-500">
+          <CardDescription className="text-sm text-learning-muted-ink">
             Belum tersedia karena sumber aktivitas belum tersambung.
           </CardDescription>
-          <span className="shrink-0 text-xs font-semibold text-secondary-500">Belum dimulai</span>
+          <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">Belum dimulai</span>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 px-5 pb-5">
           {dailyMissionItems.map((mission) => (
             <div
               aria-disabled="true"
-              className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-secondary-50/60 px-3.5 py-2.5 text-secondary-500"
+              className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-voyage-canvas px-3.5 py-2.5 text-learning-muted-ink"
               key={mission}
             >
               <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full border border-secondary-300 bg-white text-xs">–</span>
@@ -299,10 +307,10 @@ function AnalyticsSection() {
 
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-h-[310px] gap-0 py-0 ring-0")}>
+    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
       <CardHeader className="gap-1 px-5 pb-0 pt-5">
-        <CardTitle className="text-[15px] font-semibold text-secondary-900">{title}</CardTitle>
-        <CardDescription className="text-xs text-secondary-500">{description}</CardDescription>
+        <CardTitle className="text-base font-bold text-voyage-ink">{title}</CardTitle>
+        <CardDescription className="text-sm text-learning-muted-ink">{description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 px-5 pb-5 pt-3">{children}</CardContent>
     </Card>
@@ -320,8 +328,8 @@ function PracticeActivityCard() {
 function UnavailableAnalyticsCard({ description, title }: { description: string; title: string }) {
   return (
     <AnalyticsCard description={description} title={title}>
-      <Empty className="min-h-[230px] gap-3 border-0 p-4">
-        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-secondary-500" variant="icon">
+      <Empty className="min-h-40 gap-3 border-0 p-4">
+        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-learning-muted-ink" variant="icon">
           <Info />
         </EmptyMedia>
         <EmptyHeader>
@@ -335,9 +343,9 @@ function UnavailableAnalyticsCard({ description, title }: { description: string;
 function TryoutProgressCard() {
   return (
     <AnalyticsCard description="Nilai Tryout terakhir" title="Progress Tryout">
-      <Empty className="min-h-[230px] gap-3 border-0 p-4">
+      <Empty className="min-h-40 gap-3 border-0 p-4">
         <EmptyHeader>
-          <EmptyTitle className="text-sm font-medium text-secondary-500">Belum ada data Tryout yang selesai</EmptyTitle>
+          <EmptyTitle className="text-sm font-medium text-learning-muted-ink">Belum ada data Tryout yang selesai</EmptyTitle>
         </EmptyHeader>
       </Empty>
     </AnalyticsCard>
@@ -348,7 +356,7 @@ function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
           <Tabs defaultValue="PU">
             <CompactTabsList aria-label="Pilih bab">
@@ -363,7 +371,7 @@ function ChapterSkillsSection() {
             </CompactTabsList>
             {chapterTabs.map((chapter) => (
               <TabsContent className="mt-2" key={chapter.value} value={chapter.value}>
-                <Empty className="min-h-[350px] border-0 p-5">
+                <Empty className="min-h-[240px] border-0 p-5">
                   <EmptyMedia className="size-14 rounded-full bg-primary-50 text-primary-500" variant="icon">
                     <BookOpen />
                   </EmptyMedia>
@@ -392,7 +400,7 @@ function RecentActivitySection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardContent className="p-4 md:p-5">
           <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
             <EmptyMedia className="mb-1" variant="default">

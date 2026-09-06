@@ -15,6 +15,13 @@
   --voyage-soft-border: oklch(0.908 0.021 156.8);
   --voyage-warm-sun: oklch(0.892 0.138 89.9);
   --voyage-warm-sun-ink: oklch(0.419 0.071 91.4);
+  --learning-hero-bg: oklch(0.370 0.075 167.9);
+  --learning-hero-fg: oklch(1.000 0.000 0.0);
+  --learning-hero-muted: oklch(0.863 0.054 155.2);
+  --learning-muted-ink: oklch(0.426 0.039 171.5);
+  --learning-card-border: oklch(0.868 0.020 167.9);
+  --learning-progress-track: oklch(0.863 0.054 155.2);
+  --learning-progress-fill: oklch(0.370 0.075 167.9);
   --primary-50: oklch(0.968 0.011 167.8);
   --primary-100: oklch(0.923 0.024 169.9);
   --primary-200: oklch(0.844 0.050 171.8);
@@ -108,6 +115,13 @@
   --color-voyage-soft-border: var(--voyage-soft-border);
   --color-voyage-warm-sun: var(--voyage-warm-sun);
   --color-voyage-warm-sun-ink: var(--voyage-warm-sun-ink);
+  --color-learning-hero-bg: var(--learning-hero-bg);
+  --color-learning-hero-fg: var(--learning-hero-fg);
+  --color-learning-hero-muted: var(--learning-hero-muted);
+  --color-learning-muted-ink: var(--learning-muted-ink);
+  --color-learning-card-border: var(--learning-card-border);
+  --color-learning-progress-track: var(--learning-progress-track);
+  --color-learning-progress-fill: var(--learning-progress-fill);
   --color-primary-50: var(--primary-50);
   --color-primary-100: var(--primary-100);
   --color-primary-200: var(--primary-200);

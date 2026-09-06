@@ -14,6 +14,17 @@ export const palette = {
     "warm-sun": "#ffd766",
     "warm-sun-ink": "#5b4b18",
   },
+  // High-contrast learning surfaces. Keep these on the approved voyage palette;
+  // opt in per surface without recoloring operational or assessment UI.
+  learning: {
+    "hero-bg": "#014c38",
+    "hero-fg": "#ffffff",
+    "hero-muted": "#b7ddc3",
+    "muted-ink": "#38564c",
+    "card-border": "#c8d8d1",
+    "progress-track": "#b7ddc3",
+    "progress-fill": "#014c38",
+  },
   primary: {
     50: "#eef7f3",
     100: "#d7ebe3",
