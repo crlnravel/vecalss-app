@@ -80,7 +80,7 @@ function StudentWorkspaceShell({
         />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header className="sticky top-0 z-20 mx-auto w-full max-w-[1420px] border-primary-100/80 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
+          <header className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] border-primary-100/80 bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0 lg:hidden" />
 
