@@ -81,7 +81,7 @@ function StudentWorkspaceShell({
 
         <SidebarInset className="!bg-transparent min-h-svh min-w-0 lg:rounded-3xl">
           <header className="relative sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] overflow-hidden border-primary-100/80 bg-transparent shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-voyage-canvas/70 backdrop-blur-2xl backdrop-saturate-150" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[rgba(247,250,248,0.7)] backdrop-blur-3xl backdrop-saturate-150" />
             <div className="relative z-10 flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0 lg:hidden" />
 
