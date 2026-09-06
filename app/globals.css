@@ -347,6 +347,10 @@
     animation: route-orbit 8s linear infinite;
   }
 
+  .route-path-flow {
+    animation: route-dash-flow 3.6s linear infinite;
+  }
+
   .ship-bob {
     animation: ship-bob 3.6s ease-in-out infinite;
     transform-origin: 50% 76%;
@@ -441,6 +445,12 @@
   }
   to {
     transform: rotate(360deg) translateY(-8px) rotate(-360deg);
+  }
+}
+
+@keyframes route-dash-flow {
+  to {
+    stroke-dashoffset: -42;
   }
 }
 
@@ -552,6 +562,11 @@
     scroll-behavior: auto !important;
   }
 
+  .route-current {
+    display: none;
+  }
+
+  .route-path-flow,
   .ship-bob,
   .route-shimmer {
     animation: none;
