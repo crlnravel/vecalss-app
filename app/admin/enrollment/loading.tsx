@@ -3,6 +3,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { AdminPortalNav } from "@/modules/portal/components/admin-portal-nav";
 
 function LoadingBlock({ className }: { className: string }) {
@@ -49,7 +50,7 @@ export default function EnrollmentLoading() {
                 <LoadingBlock className="h-11 w-32" />
               </section>
 
-              <section aria-hidden="true" className="overflow-hidden rounded-2xl bg-white">
+              <section aria-hidden="true" className={`${REFERENCE_SURFACE_CLASS_NAMES.raised} overflow-hidden`}>
                 <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
                   <div className="h-10 min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90 py-2.5">
                     <LoadingBlock className="h-4 w-52 max-w-full" />

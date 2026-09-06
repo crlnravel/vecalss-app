@@ -6,7 +6,10 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 
 import { ReferenceEmptyState } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,6 +27,7 @@ import { DataTable, type DataTableColumn, type DataTableFilter } from "@/compone
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { StudentBadge } from "@/components/ui/student-badge";
 import type { UserStatus } from "@/generated/prisma/client";
 import { ChevronRight, UserRound, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
@@ -112,38 +116,6 @@ function highlightSearchMatches(text: string, query: string): ReactNode {
   }
 
   return parts;
-}
-
-function statusTextClassName(tone: StudentStatusTone) {
-  if (tone === "danger") {
-    return "text-student-status-danger-fg";
-  }
-
-  if (tone === "attention") {
-    return "text-student-status-attention-fg";
-  }
-
-  if (tone === "success") {
-    return "text-student-status-success-fg";
-  }
-
-  return "text-secondary-600";
-}
-
-function statusDotClassName(tone: StudentStatusTone) {
-  if (tone === "danger") {
-    return "bg-student-status-danger-fg";
-  }
-
-  if (tone === "attention") {
-    return "bg-student-status-attention-fg";
-  }
-
-  if (tone === "success") {
-    return "bg-student-status-success-fg";
-  }
-
-  return "bg-secondary-300";
 }
 
 function formatCreatedDate(value: string) {
@@ -515,7 +487,10 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(18rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
+          className={cn(
+            REFERENCE_SURFACE_CLASS_NAMES.raised,
+            "w-[min(18rem,calc(100vw-2rem))] gap-3 p-3",
+          )}
           side="left"
           sideOffset={6}
         >
@@ -581,7 +556,10 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
+          className={cn(
+            REFERENCE_SURFACE_CLASS_NAMES.raised,
+            "w-[min(20rem,calc(100vw-2rem))] gap-3 p-3",
+          )}
           side="left"
           sideOffset={6}
         >
@@ -711,10 +689,9 @@ function StudentDirectoryTable({
     },
     {
       cell: (student) => (
-        <span className={cn("inline-flex items-center gap-2 font-semibold capitalize", statusTextClassName(student.tone))}>
-          {student.tone !== "success" ? <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(student.tone))} /> : null}
+        <StudentBadge size="sm" tone={student.tone}>
           {formatStatus(student.status)}
-        </span>
+        </StudentBadge>
       ),
       headerClassName: "w-[17%]",
       id: "status",

@@ -10,7 +10,11 @@ function StudentBadge({ className, size, tone, ...props }: StudentBadgeProps) {
   return (
     <span
       data-slot="student-badge"
-      className={cn(studentBadgeVariants({ size, tone }), className)}
+      className={cn(
+        studentBadgeVariants({ size, tone }),
+        "shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
+        className,
+      )}
       {...props}
     />
   );

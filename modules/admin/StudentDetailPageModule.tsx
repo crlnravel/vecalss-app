@@ -11,6 +11,7 @@ import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/re
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { StudentBadge } from "@/components/ui/student-badge";
 import type {
   ExamEvent,
   Major,
@@ -80,20 +81,20 @@ function formatStatus(status: UserStatus) {
   }[status] ?? status.replaceAll("_", " ");
 }
 
-function statusTextClassName(status: UserStatus) {
+function statusTone(status: UserStatus) {
   if (status === "active") {
-    return "text-student-status-success-fg";
+    return "success" as const;
   }
 
   if (status === "disabled" || status === "soft_deleted") {
-    return "text-student-status-danger-fg";
+    return "danger" as const;
   }
 
   if (status === "locked") {
-    return "text-student-status-attention-fg";
+    return "attention" as const;
   }
 
-  return "text-secondary-700";
+  return "neutral" as const;
 }
 
 function formatDate(value: Date | null) {
@@ -256,9 +257,9 @@ function StudentDetailPageModule({
               <div className="min-w-0 space-y-2 text-sm">
                 <span className="font-medium text-secondary-900">Status</span>
                 <div className="flex min-h-[52px] items-center">
-                  <span className={`text-base font-bold ${statusTextClassName(student.status)}`}>
+                  <StudentBadge size="md" tone={statusTone(student.status)}>
                     {formatStatus(student.status)}
-                  </span>
+                  </StudentBadge>
                 </div>
               </div>
             </div>
