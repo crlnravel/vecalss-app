@@ -31,7 +31,7 @@ const studentBadgeVariants = cva(
       },
     },
     defaultVariants: {
-      depth: "flat",
+      depth: "sunken",
       size: "sm",
       tone: "neutral",
     },
