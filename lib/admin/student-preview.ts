@@ -6,6 +6,7 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { createAdminStudentPreviewSurfaceContext } from "@/lib/student/surface-context";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
@@ -27,6 +28,15 @@ class AdminStudentPreviewUnavailableError extends Error {
     super(message);
     this.name = "AdminStudentPreviewUnavailableError";
     this.code = code;
+  }
+}
+
+function assertAdminStudentPreviewEnabled() {
+  if (!isAdminStudentPreviewEnabled()) {
+    throw new AdminStudentPreviewUnavailableError(
+      "feature_disabled",
+      "Student preview is currently unavailable.",
+    );
   }
 }
 
@@ -184,6 +194,7 @@ export {
   ADMIN_STUDENT_PREVIEW_PURPOSE,
   AdminStudentPreviewUnavailableError,
   allowManagedPreviewFixtureRepair,
+  assertAdminStudentPreviewEnabled,
   assertUserIsNotManagedPreviewFixture,
   createAdminStudentPreviewContext,
   isAdminStudentPreviewUnavailableError,
