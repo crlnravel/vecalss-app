@@ -19,12 +19,20 @@ const baseEnvironment: NodeJS.ProcessEnv = {
 };
 
 function successResponse(): Response {
-  return new Response(JSON.stringify({
-    model: "openrouter/free",
-    provider: "synthetic-provider",
-    choices: [{ message: { content: "ready" }, finish_reason: "stop" }],
-    usage: { prompt_tokens: 9, completion_tokens: 1, total_tokens: 10 },
-  }), { status: 200, headers: { "content-type": "application/json" } });
+  const encoder = new TextEncoder();
+  const chunks = [
+    ": OPENROUTER PROCESSING\r\n\r\n",
+    `data: ${JSON.stringify({ model: "openrouter/free", provider: "synthetic-provider", choices: [{ delta: { content: "rea", role: "assistant" }, finish_reason: null }] })}\r\n\r\n`,
+    `data: ${JSON.stringify({ model: "openrouter/free", provider: "synthetic-provider", choices: [{ delta: { content: "dy" }, finish_reason: null }] })}\n\n`,
+    `data: ${JSON.stringify({ model: "openrouter/free", provider: "synthetic-provider", choices: [{ delta: { content: "" }, finish_reason: "stop" }], usage: { prompt_tokens: 9, completion_tokens: 1, total_tokens: 10 } })}\n\n`,
+    "data: [DONE]\n\n",
+  ];
+  return new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  }), { status: 200, headers: { "content-type": "text/event-stream; charset=utf-8" } });
 }
 
 await runChecks("vera-openrouter-free-poc", [
@@ -68,8 +76,10 @@ await runChecks("vera-openrouter-free-poc", [
         },
       });
       assert(adapter.enabled && !adapter.disabledReason, "explicit POC gates did not enable the adapter");
-      const result = await adapter.complete({ prompt: syntheticPrompt });
+      const deltas: string[] = [];
+      const result = await adapter.complete({ prompt: syntheticPrompt }, (delta) => deltas.push(delta.text));
       assert(calls === 1, "the synthetic POC transport was not called exactly once");
+      assert(deltas.join("") === "ready" && deltas.length === 2, "POC text was not emitted incrementally");
       assert(result.kind === "openrouter_free_poc", "POC result kind is not typed");
       assert(result.selectedModel === "openrouter/free" && result.providerIdentity === "synthetic-provider", "selected provider identity was not resolved");
       assert(result.finishReason === "stop" && result.usage.totalTokens === 10, "finish/usage evidence was not resolved");
@@ -90,10 +100,12 @@ await runChecks("vera-openrouter-free-poc", [
       });
       await adapter.run({ prompt: syntheticPrompt, maxOutputTokens: 32 });
       assert(requestUrl.endsWith("/api/v1/chat/completions"), "POC did not use the OpenAI-compatible chat endpoint");
-      assert(requestInit?.headers && new Headers(requestInit.headers).get("authorization") === "Bearer local-test-key", "POC bearer authorization is missing");
+      const headers = new Headers(requestInit?.headers);
+      assert(headers.get("authorization") === "Bearer local-test-key", "POC bearer authorization is missing");
+      assert(headers.get("accept") === "text/event-stream", "POC did not request an SSE response");
       const body = JSON.parse(String(requestInit?.body)) as Record<string, unknown>;
       assert(body.model === "openrouter/free", "POC model is not openrouter/free");
-      assert(body.max_tokens === 32 && body.stream === false, "POC output bounds are not pinned");
+      assert(body.max_tokens === 32 && body.stream === true, "POC output bounds and streaming mode are not pinned");
       const provider = body.provider as Record<string, unknown>;
       assert(provider.allow_fallbacks === false && provider.data_collection === "allow", "POC provider controls are not pinned");
       assert(!Object.prototype.hasOwnProperty.call(provider, "zdr"), "POC request included provider.zdr");
@@ -114,7 +126,10 @@ await runChecks("vera-openrouter-free-poc", [
 
       const malformed = new VeraOpenRouterFreePocAdapter({
         env: baseEnvironment,
-        fetchImpl: async () => new Response("{}", { status: 200 }),
+        fetchImpl: async () => new Response("data: {}\n\ndata: [DONE]\n\n", {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
       });
       await expectReject(async () => {
         try {
@@ -128,7 +143,10 @@ await runChecks("vera-openrouter-free-poc", [
       const tooLarge = new VeraOpenRouterFreePocAdapter({
         env: baseEnvironment,
         maxResponseBytes: 32,
-        fetchImpl: async () => new Response("x".repeat(64), { status: 200 }),
+        fetchImpl: async () => new Response("x".repeat(64), {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
       });
       await expectReject(async () => {
         try {
@@ -167,6 +185,23 @@ await runChecks("vera-openrouter-free-poc", [
           throw error;
         }
       }, "HTTP failure was accepted");
+
+      const midStreamFailure = new VeraOpenRouterFreePocAdapter({
+        env: baseEnvironment,
+        fetchImpl: async () => new Response([
+          `data: ${JSON.stringify({ model: "openrouter/free", provider: "synthetic-provider", choices: [{ delta: { content: "partial" }, finish_reason: null }] })}\n\n`,
+          `data: ${JSON.stringify({ error: { code: "server_error", message: "provider disconnected" }, choices: [{ delta: { content: "" }, finish_reason: "error" }] })}\n\n`,
+        ].join(""), { status: 200, headers: { "content-type": "text/event-stream" } }),
+      });
+      await expectReject(async () => {
+        try {
+          await midStreamFailure.run({ prompt: syntheticPrompt });
+        } catch (error) {
+          assert(error instanceof VeraOpenRouterFreePocError && error.code === "http_error", "mid-stream provider error was not typed");
+          assert(error.ambiguousPostSend && !error.retryable, "mid-stream provider error lost its post-send ambiguity");
+          throw error;
+        }
+      }, "mid-stream provider failure was accepted");
       assert(syntheticPrompt.length < VERA_OPENROUTER_FREE_POC_MAX_INPUT_CHARS && VERA_OPENROUTER_FREE_POC_MAX_OUTPUT_CHARS > 0, "synthetic bounds are invalid");
     },
   },

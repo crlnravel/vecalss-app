@@ -25,7 +25,7 @@ import {
   type VeraLeaseStore,
   VeraRedisUnavailableError,
 } from "./redis-lease";
-import { VeraOutputValidationError, validateVeraResult, type NormalizedVeraResult } from "./output-validator";
+import { VeraOutputValidationError, inertVeraDelta, validateVeraResult, type NormalizedVeraResult } from "./output-validator";
 import { ProviderExecutionError, ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
 import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
 import { prepareStudioAuthority, type VeraStudioIdentityAuthority } from "./studio-authority";
@@ -450,7 +450,7 @@ export class VeraPrismaChatOrchestrator {
         admission.feature.toolId
           ? undefined
           : (delta) => {
-            write("message.delta", { requestId: admission.requestId, text: delta.text, provisional: true });
+            write("message.delta", { requestId: admission.requestId, text: inertVeraDelta(delta.text), provisional: true });
           },
       );
     } catch (error) {

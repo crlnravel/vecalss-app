@@ -97,8 +97,8 @@ function mapPocError(error: unknown): ProviderExecutionError {
   if (error instanceof VeraOpenRouterFreePocError) {
     return new ProviderExecutionError({
       code: `openrouter_free_poc_${error.code}`,
-      retryableBeforeAcceptance: error.retryable,
-      ambiguousPostSend: false,
+      retryableBeforeAcceptance: error.retryable && !error.ambiguousPostSend,
+      ambiguousPostSend: error.ambiguousPostSend,
       message: "The dev OpenRouter POC request failed.",
     });
   }
@@ -173,11 +173,12 @@ export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter
     const task = prepared.preparedTask;
     const prompt = promptFromTask(task);
     const maxOutputTokens = maxOutputTokensFor(task);
-    void emit;
-
     let result: Awaited<ReturnType<VeraOpenRouterFreePocAdapter["run"]>>;
     try {
-      result = await this.poc.run({ prompt, maxOutputTokens });
+      result = await this.poc.run(
+        { prompt, maxOutputTokens },
+        (delta) => emit?.({ text: delta.text, provisional: true }),
+      );
     } catch (error) {
       throw mapPocError(error);
     }
