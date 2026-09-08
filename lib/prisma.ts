@@ -4,7 +4,15 @@ import { PrismaClient } from "../generated/prisma/client";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
-const adapter = new PrismaPg({ connectionString });
+const databaseSchema = (() => {
+  try {
+    return new URL(connectionString).searchParams.get("schema") ?? undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
+const adapter = new PrismaPg({ connectionString }, { schema: databaseSchema });
 declare global {
   var vecalssPrisma: PrismaClient | undefined;
 }

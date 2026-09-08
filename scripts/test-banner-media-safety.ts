@@ -31,6 +31,38 @@ import {
 const repoRoot = process.cwd();
 const readSource = (path: string) => readFileSync(resolve(repoRoot, path), "utf8");
 
+function sourceForFunction(source: string, name: string, siblingNames: readonly string[]) {
+  const declarationCandidates = [`const ${name} =`, `async function ${name}(`];
+  const start = declarationCandidates
+    .map((declaration) => source.indexOf(declaration))
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0] ?? -1;
+  assert.ok(start >= 0, `${name} must remain an explicit production mutator`);
+  const end = Math.min(
+    ...siblingNames
+      .filter((sibling) => sibling !== name)
+      .flatMap((sibling) => [`const ${sibling} =`, `async function ${sibling}(`])
+      .map((declaration) => source.indexOf(declaration, start + 1))
+      .filter((index) => index >= 0),
+    source.length,
+  );
+  return source.slice(start, end);
+}
+
+function assertMutationLockBoundary(
+  source: string,
+  name: string,
+  siblingNames: readonly string[],
+  firstReadPattern: RegExp,
+) {
+  const functionSource = sourceForFunction(source, name, siblingNames);
+  const lockIndex = functionSource.indexOf("acquireBannerMediaMutationLock");
+  const firstRead = functionSource.search(firstReadPattern);
+  assert.ok(lockIndex >= 0, `${name} must acquire the shared mutation lock`);
+  assert.ok(firstRead >= 0, `${name} must retain its expected guarded read`);
+  assert.ok(lockIndex < firstRead, `${name} must lock before its first guarded read`);
+}
+
 const run = async () => {
   assert.equal(BANNER_STORAGE_VERSION, 2);
   assert.deepEqual(
@@ -80,13 +112,13 @@ const run = async () => {
         {
           configKey: BANNER_LEGACY_CONFIG_KEY,
           configValue: imageDesign,
-          draftValue: null,
+          draftValue: imageDesign,
         },
-        {
-          configKey: "student.banner-maker.v2.beranda",
-          configValue: createBannerDesignEnvelope(null, { revision }),
-          draftValue: createBannerDesignEnvelope(imageDesign, { revision: "2c3d4e5f-6071-489a-8bcd-ef0123456789" }),
-        },
+        ...BANNER_V2_CONFIG_KEYS.map((configKey, index) => ({
+          configKey,
+          configValue: createBannerDesignEnvelope(imageDesign, { revision }),
+          draftValue: createBannerDesignEnvelope(imageDesign, { revision: `2c3d4e5f-6071-489a-8bcd-ef012345678${index}` }),
+        })),
       ],
     },
   } as unknown as BannerSafetyTransaction;
@@ -96,19 +128,23 @@ const run = async () => {
     () => assertBannerAssetsMayBeTrashed(fakeTransaction, [assetId]),
     (error: unknown) => error instanceof BannerReferenceInUseError,
   );
-  const malformedTransaction = {
-    systemConfig: {
-      findMany: async () => [{
-        configKey: "student.banner-maker.v2.materi",
-        configValue: { ...envelope, storageVersion: 1 },
-        draftValue: null,
-      }],
-    },
-  } as unknown as BannerSafetyTransaction;
-  await assert.rejects(
-    () => scanBannerAssetReferences(malformedTransaction),
-    (error: unknown) => error instanceof BannerReferenceSafetyUnknownError,
-  );
+  const malformedFixtures = [
+    { configKey: BANNER_LEGACY_CONFIG_KEY, configValue: { invalid: true }, draftValue: null },
+    { configKey: BANNER_LEGACY_CONFIG_KEY, configValue: createDefaultBannerDesign(), draftValue: { invalid: true } },
+    ...BANNER_V2_CONFIG_KEYS.flatMap((configKey) => [
+      { configKey, configValue: { ...envelope, storageVersion: 1 }, draftValue: null },
+      { configKey, configValue: createBannerDesignEnvelope(null, { revision }), draftValue: { ...envelope, storageVersion: 1 } },
+    ]),
+  ];
+  for (const fixture of malformedFixtures) {
+    const malformedTransaction = {
+      systemConfig: { findMany: async () => [fixture] },
+    } as unknown as BannerSafetyTransaction;
+    await assert.rejects(
+      () => scanBannerAssetReferences(malformedTransaction),
+      (error: unknown) => error instanceof BannerReferenceSafetyUnknownError,
+    );
+  }
 
   const mediaSource = readSource("lib/media/repository.ts");
   const bannerRepositorySource = readSource("lib/admin/banner-maker-repository.ts");
@@ -117,11 +153,40 @@ const run = async () => {
   assert.match(safetySource, /pg_advisory_xact_lock/u);
   assert.match(safetySource, /BANNER_V2_CONFIG_KEYS/u);
   assert.match(safetySource, /BANNER_LEGACY_CONFIG_KEY/u);
-  assert.match(bannerRepositorySource, /saveBannerMakerDraft[\s\S]*acquireBannerMediaMutationLock/u);
-  assert.match(bannerRepositorySource, /publishBannerMakerDesign[\s\S]*acquireBannerMediaMutationLock/u);
-  assert.match(studentRepositorySource, /saveStudentBannerDraft[\s\S]*acquireBannerMediaMutationLock/u);
-  assert.match(studentRepositorySource, /publishStudentBannerContents[\s\S]*acquireBannerMediaMutationLock/u);
-  assert.ok((mediaSource.match(/acquireBannerMediaMutationLock/g) ?? []).length >= 9, "all media mutations use the shared lock");
+  const mediaMutators = [
+    ["createMediaFolder", /readActiveFolderAncestry\(scope, safeParentId, tx\)/u],
+    ["renameMediaFolder", /readActiveFolderAncestry\(scope, folderId, tx\)/u],
+    ["moveMediaFolder", /assertFolderMove\(\{ db: tx/u],
+    ["trashMediaFolder", /readActiveFolderAncestry\(scope, folderId, tx\)/u],
+    ["renameMediaAsset", /assertAsset\(scope, assetId, \[MediaAssetState\.ready\], tx\)/u],
+    ["moveMediaAsset", /assertAsset\(scope, assetId, \[MediaAssetState\.ready\], tx\)/u],
+    ["trashMediaAsset", /assertAsset\(scope, assetId, \[MediaAssetState\.pending, MediaAssetState\.ready\], tx\)/u],
+    ["requestMediaUpload", /readActiveFolderAncestry\(scope, safeFolderId, tx\)/u],
+    ["finalizeMediaUpload", /tx\.asset\.findUnique/u],
+  ] as const;
+  const mediaMutatorNames = mediaMutators.map(([name]) => name);
+  for (const [name, firstReadPattern] of mediaMutators) {
+    assertMutationLockBoundary(mediaSource, name, mediaMutatorNames, firstReadPattern);
+  }
+
+  const bannerMutators = ["saveBannerMakerDraft", "publishBannerMakerDesign"] as const;
+  for (const name of bannerMutators) {
+    assertMutationLockBoundary(
+      bannerRepositorySource,
+      name,
+      bannerMutators,
+      /tx\.systemConfig\.findUnique/u,
+    );
+  }
+  const studentMutators = ["saveStudentBannerDraft", "publishStudentBannerContents"] as const;
+  for (const name of studentMutators) {
+    assertMutationLockBoundary(
+      studentRepositorySource,
+      name,
+      studentMutators,
+      /tx\.systemConfig\.findUnique/u,
+    );
+  }
   assert.match(mediaSource, /state: \{ in: \[MediaAssetState\.pending, MediaAssetState\.ready\] \}/u);
   assert.match(mediaSource, /trashedAt: null/u);
   assert.match(mediaSource, /headMediaObject\(verifiedObjectKey\)/u);

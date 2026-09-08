@@ -18,6 +18,10 @@ const BANNER_MEDIA_MUTATION_LOCK_KEY = "vecalss:banner-media:mutation:v1" as con
 
 type BannerSafetyTransaction = Prisma.TransactionClient;
 
+type BannerMediaMutationTestHook = () => void | Promise<void>;
+
+let bannerMediaMutationTestHook: BannerMediaMutationTestHook | null = null;
+
 class BannerReferenceSafetyUnknownError extends Error {
   readonly status = 409;
 
@@ -40,6 +44,25 @@ async function acquireBannerMediaMutationLock(tx: BannerSafetyTransaction) {
   // The hash is deliberately fixed: every banner writer and every Admin media
   // availability/topology writer must serialize on this one transaction lock.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${BANNER_MEDIA_MUTATION_LOCK_KEY}, 0))`;
+  await bannerMediaMutationTestHook?.();
+}
+
+/**
+ * Test-only barrier seam. Production callers never install a hook, so the
+ * lock behavior remains unchanged while isolated race tests can pause after
+ * the real transaction lock is held.
+ */
+async function withBannerMediaMutationTestHook<T>(
+  hook: BannerMediaMutationTestHook,
+  callback: () => Promise<T>,
+) {
+  const previousHook = bannerMediaMutationTestHook;
+  bannerMediaMutationTestHook = hook;
+  try {
+    return await callback();
+  } finally {
+    bannerMediaMutationTestHook = previousHook;
+  }
 }
 
 async function withBannerMediaMutationLock<T>(callback: (tx: BannerSafetyTransaction) => Promise<T>) {
@@ -139,6 +162,7 @@ export {
   acquireBannerMediaMutationLock,
   assertBannerAssetsMayBeTrashed,
   scanBannerAssetReferences,
+  withBannerMediaMutationTestHook,
   withBannerMediaMutationLock,
 };
-export type { BannerReferenceScan, BannerSafetyTransaction };
+export type { BannerMediaMutationTestHook, BannerReferenceScan, BannerSafetyTransaction };
