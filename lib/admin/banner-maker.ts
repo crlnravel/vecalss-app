@@ -1,4 +1,6 @@
-const BANNER_MAKER_CONFIG_KEY = "student.banner-maker.v1";
+import { BANNER_LEGACY_CONFIG_KEY } from "@/lib/banner/destinations";
+
+const BANNER_MAKER_CONFIG_KEY = BANNER_LEGACY_CONFIG_KEY;
 const BANNER_DESIGN_VERSION = 1 as const;
 const BANNER_DESIGN_WIDTH = 1600;
 const BANNER_DESIGN_HEIGHT = 600;
