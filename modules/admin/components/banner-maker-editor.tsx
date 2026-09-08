@@ -19,8 +19,6 @@ import {
 } from "@/components/dashboard/reference-dashboard-controls";
 import {
   ReferenceEmptyState,
-  ReferenceSectionHeading,
-  ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
@@ -1060,9 +1058,6 @@ function BannerCanvas({
           />
         );
       })}
-      <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-black/25 px-2.5 py-1 text-ui-xs font-semibold tracking-[0.08em] text-white/80 uppercase">
-        {design.frame.width} × {design.frame.height}
-      </span>
     </div>
   );
 }
@@ -1123,7 +1118,7 @@ function LayerList({
           trigger={
             <div
               className={cn(
-                "flex w-full cursor-grab items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors active:cursor-grabbing",
+                "flex w-full cursor-grab items-center gap-2 rounded-xl border px-2 py-2 text-left transition-colors active:cursor-grabbing",
                 selectedLayerId === layer.id
                   ? "border-primary-300 bg-primary-50 text-primary-900"
                   : "border-primary-100 bg-white text-secondary-700 hover:border-primary-200 hover:bg-primary-50/45",
@@ -1141,7 +1136,7 @@ function LayerList({
             >
               <button
                 aria-pressed={selectedLayerId === layer.id}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+                className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
                 draggable
                 onClick={() => onSelect(layer.id)}
                 onDragStart={(event) => startLayerDrag(event, layer.id)}
@@ -1151,7 +1146,7 @@ function LayerList({
                   <LayerIcon layer={layer} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{layerLabel(layer)}</span>
+                  <span className="block truncate text-xs font-semibold">{layerLabel(layer)}</span>
                 </span>
               </button>
               <TooltipProvider>
@@ -1192,8 +1187,8 @@ function EditorPropertiesPanel({
   onPickBackgroundImage: () => void;
 }) {
   return (
-    <ReferenceSurface as="section" className="p-4" variant="inset">
-      <ReferenceSectionHeading title={layer ? "Edit elemen" : "Latar"} />
+    <section className="min-w-0">
+      <h3 className="text-sm font-semibold text-secondary-900">{layer ? "Edit elemen" : "Latar"}</h3>
       <div className="mt-4">
         {layer ? (
           <LayerInspector
@@ -1214,7 +1209,7 @@ function EditorPropertiesPanel({
           </div>
         )}
       </div>
-    </ReferenceSurface>
+    </section>
   );
 }
 
@@ -1283,7 +1278,7 @@ function AssetPickerPanel({
 
 function MediaSidebar({ onSelectAsset }: { onSelectAsset: (asset: MediaAssetDto) => void }) {
   return (
-    <section className="flex min-h-0 flex-[1.15] flex-col overflow-hidden px-3 pt-3">
+    <section aria-label="Media admin" className="flex min-h-48 flex-1 flex-col overflow-hidden border-b border-primary-100 px-3 py-4">
       <div className="min-h-0 flex-1 overflow-hidden">
         <MediaLibrary
           appearance="banner"
@@ -1548,7 +1543,30 @@ function useBannerMakerEditorController({ action, assetUrls: initialAssetUrls, d
 function BannerMakerEditorHeader({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
   const { actions } = controller;
 
-  return <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-white/15 bg-[linear-gradient(105deg,#014C38_0%,#176B4D_58%,#2F8A5D_100%)] px-3 py-2 text-white sm:px-4"><Link aria-label="Kembali ke dashboard admin" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /><span className="hidden sm:inline">Kembali</span></Link><span aria-hidden="true" className="hidden h-8 w-px bg-white/20 sm:block" /><div className="hidden min-w-0 items-center gap-2 sm:flex"><BrandMark compact /><div className="min-w-0"><p className="text-ui-xs font-semibold tracking-[0.14em] text-white/65 uppercase">Vecalss Studio</p><p className="truncate text-sm font-semibold text-white">Banner maker</p></div></div><label className="min-w-0 flex-1 sm:ml-2 sm:max-w-[19rem]"><span className="sr-only">Nama banner</span><Input aria-label="Nama banner" className="h-10 border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/55 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} /></label><TooltipProvider><div className="flex shrink-0 items-center gap-1"><IconAction ariaLabel="Tambahkan teks" className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" disabled={!controller.canAddLayer} onClick={actions.addTextLayer}><PenTool /></IconAction><IconAction ariaLabel="Impor gambar" className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" disabled={!controller.canAddLayer} onClick={actions.openImagePicker}><ImagePlus /></IconAction><IconAction ariaLabel={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" onClick={actions.toggleGuides} pressed={controller.showGuides}><Eye /></IconAction></div></TooltipProvider><div className="ml-auto flex items-center gap-1.5 sm:gap-2"><div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 lg:flex"><span className={cn("size-2 rounded-full", controller.isDirty ? "bg-voyage-warm-sun" : "bg-emerald-200")} /><span>{controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</span></div><SubmitButton aria-label="Simpan draf" className="border-white/20 bg-transparent text-white hover:bg-white/10" name="intent" pendingLabel="Menyimpan..." size="sm" type="submit" value="save-draft" variant="inverseOutline"><Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span></SubmitButton><SubmitButton aria-label="Rilis banner" className="border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" name="intent" pendingLabel="Merilis..." size="sm" type="submit" value="publish" variant="brand"><SendHorizontal data-icon="inline-start" /><span>Rilis</span></SubmitButton><StudentAccountMenu audience="admin" session={session} /></div></header>;
+  return (
+    <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
+      <Link aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin">
+        <ArrowLeft aria-hidden="true" className="size-5" />
+      </Link>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="hidden sm:block"><BrandMark compact /></span>
+        <h1 className="whitespace-nowrap text-base font-semibold">Banner maker</h1>
+      </div>
+      <label className="order-last w-full min-w-0 sm:order-none sm:ml-3 sm:w-auto sm:max-w-72 sm:flex-1">
+        <span className="sr-only">Nama banner</span>
+        <Input aria-label="Nama banner" className="h-11 rounded-xl border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/70 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
+      </label>
+      <div className="ml-auto flex items-center gap-2">
+        <SubmitButton aria-label="Simpan draf" className="min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10" name="intent" pendingLabel="Menyimpan…" size="sm" type="submit" value="save-draft" variant="inverseOutline">
+          <Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span>
+        </SubmitButton>
+        <SubmitButton aria-label="Rilis banner" className="min-h-11 rounded-xl border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" name="intent" pendingLabel="Merilis…" size="sm" type="submit" value="publish" variant="brand">
+          <SendHorizontal data-icon="inline-start" /><span>Rilis</span>
+        </SubmitButton>
+        <StudentAccountMenu audience="admin" session={session} />
+      </div>
+    </header>
+  );
 }
 
 function BannerMakerEditorStatus({ controller }: { controller: BannerMakerEditorController }) {
@@ -1560,7 +1578,21 @@ function BannerMakerEditorLayerList({ controller }: { controller: BannerMakerEdi
 }
 
 function BannerMakerEditorLeftSidebar({ controller }: { controller: BannerMakerEditorController }) {
-  return <aside aria-label="Media dan layer banner" className={cn("hidden shrink-0 flex-col border-r border-primary-100 bg-white transition-[width] duration-200 md:flex", controller.isLeftSidebarOpen ? "w-[20rem] xl:w-[22rem]" : "w-14")}><div className={cn("flex shrink-0 p-2", controller.isLeftSidebarOpen ? "justify-end" : "justify-center")}><TooltipProvider><IconAction ariaLabel={controller.isLeftSidebarOpen ? "Ciutkan panel kiri" : "Buka panel kiri"} className="text-secondary-600 hover:bg-primary-50 hover:text-secondary-900" onClick={controller.actions.toggleLeftSidebar} pressed={controller.isLeftSidebarOpen}>{controller.isLeftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}</IconAction></TooltipProvider></div>{controller.isLeftSidebarOpen ? <><MediaSidebar onSelectAsset={controller.actions.handleSidebarAssetSelected} /><section aria-label="Layer banner" className="min-h-0 flex-[0.95] overflow-y-auto p-4"><h2 className="text-sm font-semibold text-secondary-900">Layer</h2><div className="mt-3"><BannerMakerEditorLayerList controller={controller} /></div></section></> : null}</aside>;
+  return (
+    <aside aria-label="Media dan layer banner" className={cn("hidden shrink-0 flex-col border-r border-primary-100 bg-white transition-[width] duration-200 motion-reduce:transition-none md:flex", controller.isLeftSidebarOpen ? "w-64 xl:w-72" : "w-14")}>
+      <div className={cn("flex min-h-16 shrink-0 items-center border-b border-primary-100 px-3", controller.isLeftSidebarOpen ? "justify-between" : "justify-center")}>
+        {controller.isLeftSidebarOpen ? <h2 className="text-sm font-semibold">Media</h2> : null}
+        <TooltipProvider><IconAction ariaLabel={controller.isLeftSidebarOpen ? "Ciutkan panel kiri" : "Buka panel kiri"} className="size-10 text-secondary-600 hover:bg-primary-50 hover:text-secondary-900" onClick={controller.actions.toggleLeftSidebar} pressed={controller.isLeftSidebarOpen}>{controller.isLeftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}</IconAction></TooltipProvider>
+      </div>
+      {controller.isLeftSidebarOpen ? <>
+        <MediaSidebar onSelectAsset={controller.actions.handleSidebarAssetSelected} />
+        <section aria-label="Layer banner" className="min-h-40 flex-1 overflow-y-auto p-3">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1"><h2 className="text-sm font-semibold text-secondary-900">Layer</h2><span className="text-xs tabular-nums text-secondary-500">{controller.design.layers.length}</span></div>
+          <BannerMakerEditorLayerList controller={controller} />
+        </section>
+      </> : null}
+    </aside>
+  );
 }
 
 function BannerMakerEditorProperties({ controller, idPrefix }: { controller: BannerMakerEditorController; idPrefix: string }) {
@@ -1568,11 +1600,37 @@ function BannerMakerEditorProperties({ controller, idPrefix }: { controller: Ban
 }
 
 function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEditorController }) {
-  return <main className="min-w-0 flex-1 overflow-y-auto bg-voyage-canvas"><div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col gap-4 p-4 sm:p-6 xl:p-8"><ReferenceSurface as="section" className="p-3 sm:p-5" variant="inset"><div className="rounded-[1.75rem] bg-[#e5eee9] p-3 sm:p-7 lg:p-10"><BannerCanvas assetUrls={controller.assetUrls} design={controller.design} onChange={controller.actions.changeDesign} onDeleteLayer={controller.actions.deleteLayer} onMoveLayer={controller.actions.moveLayer} onMoveToBack={(id) => controller.actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => controller.actions.moveLayerToEdge(id, "front")} onSelect={controller.actions.selectLayer} showGuides={controller.showGuides} selectedLayerId={controller.selectedLayerId} /></div></ReferenceSurface><section aria-label="Layer banner" className="md:hidden"><div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-sm font-semibold text-secondary-900">Layer</h2></div><BannerMakerEditorLayerList controller={controller} /></section><div className="lg:hidden"><BannerMakerEditorProperties controller={controller} idPrefix="mobile" /></div></div></main>;
+  const { actions } = controller;
+
+  return (
+    <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-voyage-canvas">
+      <div className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-primary-100 bg-white px-3 py-2 sm:px-5">
+        <TooltipProvider>
+          <div aria-label="Alat banner" className="flex items-center gap-1">
+            <IconAction ariaLabel="Tambahkan teks" className="size-11" disabled={!controller.canAddLayer} onClick={actions.addTextLayer}><PenTool /></IconAction>
+            <IconAction ariaLabel="Impor gambar" className="size-11" disabled={!controller.canAddLayer} onClick={actions.openImagePicker}><ImagePlus /></IconAction>
+            <span aria-hidden="true" className="mx-2 h-5 w-px bg-primary-100" />
+            <IconAction ariaLabel={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} className={cn("size-11", controller.showGuides && "bg-primary-50 text-primary-800")} onClick={actions.toggleGuides} pressed={controller.showGuides}><Eye /></IconAction>
+          </div>
+        </TooltipProvider>
+        <p className="text-xs font-medium text-secondary-600" role="status">{controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</p>
+      </div>
+      <div className="flex flex-1 flex-col">
+        <section aria-label="Area kerja banner" className="flex min-h-72 flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:py-12 xl:px-8">
+          <div className="mx-auto w-full max-w-[1500px]">
+            <div className="mb-4 flex items-center justify-between gap-3 text-xs text-secondary-500"><span className="truncate font-medium">{controller.design.name}</span><span className="shrink-0 tabular-nums">{controller.design.frame.width} × {controller.design.frame.height} px</span></div>
+            <BannerCanvas assetUrls={controller.assetUrls} design={controller.design} onChange={actions.changeDesign} onDeleteLayer={actions.deleteLayer} onMoveLayer={actions.moveLayer} onMoveToBack={(id) => actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => actions.moveLayerToEdge(id, "front")} onSelect={actions.selectLayer} showGuides={controller.showGuides} selectedLayerId={controller.selectedLayerId} />
+          </div>
+        </section>
+        <section aria-label="Layer banner" className="border-t border-primary-100 bg-white p-4 md:hidden"><h2 className="mb-3 text-sm font-semibold text-secondary-900">Layer</h2><BannerMakerEditorLayerList controller={controller} /></section>
+        <div className="border-t border-primary-100 bg-white p-4 lg:hidden"><BannerMakerEditorProperties controller={controller} idPrefix="mobile" /></div>
+      </div>
+    </main>
+  );
 }
 
 function BannerMakerEditorPropertiesSidebar({ controller }: { controller: BannerMakerEditorController }) {
-  return <aside aria-label="Edit elemen" className="hidden w-[19rem] shrink-0 overflow-y-auto border-l border-primary-100 bg-white/80 lg:block xl:w-[21rem]"><div className="sticky top-0 z-10 border-b border-primary-100 bg-white/95 px-4 py-4 backdrop-blur-sm"><h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900">Edit banner</h2></div><div className="space-y-4 p-4"><BannerMakerEditorProperties controller={controller} idPrefix="desktop" /></div></aside>;
+  return <aside aria-label="Edit elemen" className="hidden w-72 shrink-0 overflow-y-auto border-l border-primary-100 bg-white lg:block"><div className="sticky top-0 z-10 flex min-h-16 items-center border-b border-primary-100 bg-white px-4"><h2 className="text-sm font-semibold text-secondary-900">Edit banner</h2></div><div className="p-4"><BannerMakerEditorProperties controller={controller} idPrefix="desktop" /></div></aside>;
 }
 
 function BannerMakerEditorWorkspace({ controller }: { controller: BannerMakerEditorController }) {
