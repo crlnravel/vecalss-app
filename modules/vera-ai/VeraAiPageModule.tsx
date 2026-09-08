@@ -2065,7 +2065,7 @@ function VeraTopBar({
       <div className="ml-auto flex items-center gap-2">
         <Button
           aria-label="Buka sesi belajar"
-          className="rounded-full border border-primary-100 bg-white shadow-sm md:hidden"
+          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm md:hidden"
           onClick={onOpenSessionSidebar}
           size="icon"
           title="Sesi belajar"
@@ -2076,7 +2076,7 @@ function VeraTopBar({
         </Button>
         <Button
           aria-label="Ke dashboard"
-          className="rounded-full border border-primary-100 bg-white shadow-sm"
+          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm"
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon"
@@ -2084,7 +2084,7 @@ function VeraTopBar({
         >
           <House />
         </Button>
-        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
+        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 text-primary-900 shadow-sm">
           <VeraUsagePopover usage={usage} />
           <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
           <StudentAccountMenu extraItem="notifications" session={session} />
