@@ -111,11 +111,8 @@ excludes(sources["modules/quiz/QuizOngoingPageModule.tsx"], "Sayang banget", "Qu
 excludes(sources["modules/quiz/QuizResultPageModule.tsx"], "Kembali ke quiz", "Quiz result copy does not use the English product term.");
 
 const vera = sources["modules/vera-ai/VeraAiPageModule.tsx"];
-includes(vera, "VERA_PROVENANCE_LABELS", "Vera provenance states have a shared label map.");
-for (const label of ["Data live", "Data snapshot", "Data tersimpan sementara", "Data demo", "Data tidak tersedia"]) {
-  check(vera.includes(label), `Vera provenance includes ${label.toLowerCase()} copy.`);
-}
-includes(vera, "Sumber data: {formatVeraProvenanceState(state)}", "Vera provenance banner renders the localized state.");
+excludes(vera, "Status sumber data Vera", "Vera does not render the source-data status banner.");
+excludes(vera, "konteks dan hasil mengikuti status server", "Vera does not render the source-data freshness disclaimer.");
 includes(vera, "formatVeraState(message.contentState)", "Vera message content states are humanized.");
 includes(vera, "formatVeraState(message.requestState)", "Vera request states are humanized.");
 includes(vera, "formatVeraArtifactType(summary.artifactType)", "Vera artifact types are humanized.");

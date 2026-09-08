@@ -391,7 +391,6 @@ function mapBackendConversation(conversation: VeraBackendConversation): StudySes
     sourceIds: [],
     generatedTools: [],
     messages: [],
-    provenance: { asOf: conversation.updatedAt, state: "live" },
     version: conversation.version,
     contextVersion: conversation.contextVersion,
   };
@@ -447,10 +446,6 @@ type StudySession = {
   sourceIds: string[];
   generatedTools: VeraToolId[];
   messages: VeraMessage[];
-  provenance?: {
-    asOf?: string | null;
-    state: "live" | "snapshot" | "cached" | "demo" | "unavailable";
-  };
   version?: number;
   contextVersion?: number;
 };
@@ -583,14 +578,6 @@ const VERA_ARTIFACT_TYPE_LABELS: Record<string, string> = {
   summary: "Ringkasan belajar",
 };
 
-const VERA_PROVENANCE_LABELS: Record<string, string> = {
-  cached: "Data tersimpan sementara",
-  demo: "Data demo",
-  live: "Data live",
-  snapshot: "Data snapshot",
-  unavailable: "Data tidak tersedia",
-};
-
 const VERA_STATE_LABELS: Record<string, string> = {
   active: "Aktif",
   available: "Tersedia",
@@ -634,10 +621,6 @@ function humanizeVeraToken(value: string) {
 
 function formatVeraArtifactType(value: string) {
   return VERA_ARTIFACT_TYPE_LABELS[value] ?? humanizeVeraToken(value);
-}
-
-function formatVeraProvenanceState(value: string) {
-  return VERA_PROVENANCE_LABELS[value] ?? humanizeVeraToken(value);
 }
 
 function formatVeraState(value: string | null | undefined) {
@@ -701,7 +684,6 @@ type VeraAiWorkspaceProps = {
   sessions: StudySession[];
   usage: VeraBackendUsage | null;
   backendMode: boolean;
-  dataAsOf: string | null;
   dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
   returnToHref: string;
@@ -750,7 +732,6 @@ function VeraAiWorkspace({
   sessionSidebarCollapsed,
   sessions,
   usage,
-  dataAsOf,
   dataState,
   workspaceTab,
   returnToHref,
@@ -794,7 +775,6 @@ function VeraAiWorkspace({
                 onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
                 value={workspaceTab}
               >
-                <VeraProvenanceBanner dataAsOf={dataAsOf} session={activeSession} />
                 <VeraStatusBanner
                   busy={busy}
                   error={error}
@@ -955,7 +935,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
     useState(true);
   const [backendMode, setBackendMode] = useState(false);
-  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [dataState, setDataState] = useState<VeraDataState>("loading");
   const [backendError, setBackendError] = useState<string | null>(null);
   const [backendContext, setBackendContext] =
@@ -1094,13 +1073,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         setBackendContext(null);
         setBackendArtifacts([]);
       }
-      setDataAsOf(new Date().toISOString());
       setBackendMode(true);
       setDataState("live");
     } catch (caught) {
       setBackendMode(false);
       setDataState("unavailable");
-      setDataAsOf(null);
       setSessions([]);
       setContextSources([]);
       setActiveSessionId("");
@@ -1878,7 +1855,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     sessionSidebarCollapsed,
     sessions,
     usage,
-    dataAsOf,
     dataState,
     workspaceTab,
     returnToHref: buildStudentReturnHref(returnToHref),
@@ -1957,31 +1933,6 @@ const DATA_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   timeStyle: "short",
   timeZone: "Asia/Jakarta",
 });
-
-function VeraProvenanceBanner({
-  dataAsOf,
-  session,
-}: {
-  dataAsOf: string | null;
-  session: StudySession;
-}) {
-  const state = session.provenance?.state ?? "live";
-  const asOf = dataAsOf ? new Date(dataAsOf) : null;
-  const timestamp = asOf && !Number.isNaN(asOf.getTime())
-    ? DATA_TIMESTAMP_FORMATTER.format(asOf)
-    : "belum tersedia";
-
-  return (
-    <div
-      aria-label="Status sumber data Vera"
-      className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs text-secondary-600"
-      role="status"
-    >
-      <span className="font-semibold text-primary-900">Sumber data: {formatVeraProvenanceState(state)}</span>
-      <span>Dimuat {timestamp} · konteks dan hasil mengikuti status server</span>
-    </div>
-  );
-}
 
 function VeraDataStatePanel({
   dataState,
