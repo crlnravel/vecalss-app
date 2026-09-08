@@ -40,7 +40,8 @@ function BannerPresentation({
 }: BannerPresentationProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [frameWidth, setFrameWidth] = useState(0);
-  const [failedImage, setFailedImage] = useState(false);
+  const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
+  const failureKey = revision ?? JSON.stringify(design);
   const geometry = calculateBannerGeometry(design.frame, frameWidth || design.frame.width);
   const fallbackCopy = fallback ?? getBannerPresentationFallback(destination, variables);
   const resolvedFallback = {
@@ -48,14 +49,10 @@ function BannerPresentation({
     title: resolveBannerPresentationText(fallbackCopy.title, variables),
   };
   const imageReady = hasAllBannerImages(design, assets);
-  const showFallback = failedImage || !imageReady;
+  const showFallback = failedImageKey === failureKey || !imageReady;
   const accessibleText = showFallback
     ? `${resolvedFallback.title} ${resolvedFallback.description}`.trim()
     : getBannerAccessibleText(design, variables) || resolvedFallback.title;
-
-  useEffect(() => {
-    setFailedImage(false);
-  }, [design, revision, assets]);
 
   useEffect(() => {
     const node = frameRef.current;
@@ -109,7 +106,7 @@ function BannerPresentation({
           alt=""
           aria-hidden="true"
           className="absolute inset-0 size-full object-cover"
-          onError={() => setFailedImage(true)}
+          onError={() => setFailedImageKey(failureKey)}
           src={assets[design.background.assetId]?.src}
         />
       ) : null}
@@ -133,7 +130,7 @@ function BannerPresentation({
               aria-hidden="true"
               className="absolute object-contain"
               key={layer.id}
-              onError={() => setFailedImage(true)}
+              onError={() => setFailedImageKey(failureKey)}
               src={assets[layer.assetId]?.src}
               style={layerStyle}
             />
