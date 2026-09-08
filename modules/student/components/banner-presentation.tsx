@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 import type {
@@ -10,8 +10,12 @@ import type {
 
 import {
   calculateBannerGeometry,
+  getBannerImagePaint,
   getBannerAccessibleText,
+  getBannerLayerLayout,
+  getBannerPresentationGenerationFingerprint,
   getBannerPresentationFallback,
+  getBannerTextPaint,
   hasAllBannerImages,
   resolveBannerPresentationText,
   type BannerPresentationAssetMap,
@@ -41,7 +45,16 @@ function BannerPresentation({
   const frameRef = useRef<HTMLDivElement>(null);
   const [frameWidth, setFrameWidth] = useState(0);
   const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
-  const failureKey = revision ?? JSON.stringify(design);
+  const generation = getBannerPresentationGenerationFingerprint({
+    assets,
+    design,
+    destination,
+    revision,
+  });
+  const generationRef = useRef(generation);
+  useLayoutEffect(() => {
+    generationRef.current = generation;
+  }, [generation]);
   const geometry = calculateBannerGeometry(design.frame, frameWidth || design.frame.width);
   const fallbackCopy = fallback ?? getBannerPresentationFallback(destination, variables);
   const resolvedFallback = {
@@ -49,7 +62,7 @@ function BannerPresentation({
     title: resolveBannerPresentationText(fallbackCopy.title, variables),
   };
   const imageReady = hasAllBannerImages(design, assets);
-  const showFallback = failedImageKey === failureKey || !imageReady;
+  const showFallback = failedImageKey === generation || !imageReady;
   const accessibleText = showFallback
     ? `${resolvedFallback.title} ${resolvedFallback.description}`.trim()
     : getBannerAccessibleText(design, variables) || resolvedFallback.title;
@@ -69,6 +82,17 @@ function BannerPresentation({
     aspectRatio: `${design.frame.width} / ${design.frame.height}`,
     borderRadius: `${geometry.radius}px`,
   };
+
+  const handleImageError = useCallback((imageGeneration: string) => () => {
+    if (generationRef.current !== imageGeneration) return;
+    setFailedImageKey(imageGeneration);
+  }, []);
+  const bindImageError = useCallback((imageGeneration: string) => (node: HTMLImageElement | null) => {
+    if (!node) return;
+    const listener = handleImageError(imageGeneration);
+    node.addEventListener("error", listener);
+    return () => node.removeEventListener("error", listener);
+  }, [handleImageError]);
 
   if (showFallback) {
     return (
@@ -106,53 +130,44 @@ function BannerPresentation({
           alt=""
           aria-hidden="true"
           className="absolute inset-0 size-full object-cover"
-          onError={() => setFailedImageKey(failureKey)}
-          src={assets[design.background.assetId]?.src}
+          key={`${generation}:background:${assets[design.background.assetId]?.src ?? ""}`}
+          onError={handleImageError(generation)}
+          ref={bindImageError(generation)}
+          src={assets[design.background.assetId]?.src ?? ""}
+          style={getBannerImagePaint("background")}
         />
       ) : null}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(1,76,56,0.42),rgba(23,107,77,0.08))]" />
 
       {design.layers.map((layer) => {
-        const layerStyle: CSSProperties = {
-          height: `${layer.height}%`,
-          left: `${layer.x}%`,
-          opacity: layer.opacity,
-          top: `${layer.y}%`,
-          transform: `rotate(${layer.rotation}deg)`,
-          transformOrigin: "center",
-          width: `${layer.width}%`,
-        };
+        const layerStyle: CSSProperties = getBannerLayerLayout(layer);
 
         if (layer.type === "image") {
+          const source = assets[layer.assetId]?.src ?? "";
           return (
             <img
               alt=""
               aria-hidden="true"
               className="absolute object-contain"
-              key={layer.id}
-              onError={() => setFailedImageKey(failureKey)}
-              src={assets[layer.assetId]?.src}
+              key={`${generation}:layer:${layer.id}:${source}`}
+              onError={handleImageError(generation)}
+              ref={bindImageError(generation)}
+              src={source}
               style={layerStyle}
             />
           );
         }
 
+        const textPaint = getBannerTextPaint(layer, geometry);
         return (
           <span
             className="absolute overflow-hidden break-words"
             key={layer.id}
             style={{
               ...layerStyle,
-              boxSizing: "border-box",
-              color: layer.color,
-              fontFamily: "var(--font-heading), Plus Jakarta Sans, sans-serif",
-              fontSize: `${layer.fontSize * geometry.scale}px`,
-              fontWeight: layer.weight === "bold" ? 700 : layer.weight === "medium" ? 500 : 400,
-              lineHeight: 1.05,
-              padding: `${geometry.textInset}px`,
-              textAlign: layer.align,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
+              ...textPaint,
+              fontSize: `${textPaint.fontSize}px`,
+              padding: `${textPaint.padding}px`,
             }}
           >
             {resolveBannerPresentationText(layer.text, variables)}

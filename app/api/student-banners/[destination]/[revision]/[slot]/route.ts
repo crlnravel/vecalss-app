@@ -25,14 +25,14 @@ function errorResponse(error: unknown) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ destination: string; revision: string; slot: string }> },
 ) {
   try {
     const { destination, revision, slot } = await context.params;
     const session = await resolveBannerDeliverySession();
     assertBannerDeliverySession(session, "published");
-    const image = await deliverBannerImage({ destination, revision, slot, source: "published" });
+    const image = await deliverBannerImage({ destination, revision, signal: request.signal, slot, source: "published" });
     const headers = new Headers(BANNER_DELIVERY_HEADERS);
     headers.set("Content-Type", image.contentType);
     if (image.contentLength !== null) headers.set("Content-Length", String(image.contentLength));

@@ -161,6 +161,18 @@ function createAdminStudentPreviewContext({
 }
 
 /**
+ * Route-safe managed-preview capability boundary. Unlike the page helper in
+ * `lib/auth/access`, this accepts an already resolved read-only session and
+ * never redirects. The fixed fixture is still resolved from Prisma, so a
+ * feature flag plus an arbitrary Admin role can never authorize this route.
+ */
+async function requireAdminStudentPreviewRouteContext(session: SessionContext) {
+  assertAdminStudentPreviewEnabled();
+  const subject = await requireAdminStudentPreviewSubject();
+  return createAdminStudentPreviewContext({ session, subject });
+}
+
+/**
  * Generic account lifecycle services call this before touching a user row.
  * The database trigger is the final backstop, but this error keeps ordinary
  * enrollment flows deterministic and avoids partially preparing side effects.
@@ -200,6 +212,7 @@ export {
   isAdminStudentPreviewUnavailableError,
   isManagedPreviewPurpose,
   requireAdminStudentPreviewSubject,
+  requireAdminStudentPreviewRouteContext,
   resolveAdminStudentPreviewSubject,
 };
 

@@ -30,6 +30,7 @@ type BannerPresentationFrame = {
   height: number;
   padding: number;
   radius: number;
+  snapToPadding?: boolean;
   width: number;
 };
 
@@ -93,6 +94,35 @@ type BannerPresentationGeometry = {
   width: number;
 };
 
+type BannerPresentationLayerLayout = {
+  height: string;
+  left: string;
+  opacity: number;
+  top: string;
+  transform: string;
+  transformOrigin: "center";
+  width: string;
+};
+
+type BannerPresentationTextPaint = {
+  boxSizing: "border-box";
+  color: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: 400 | 500 | 700;
+  lineHeight: number;
+  overflow: "hidden";
+  padding: number;
+  textAlign: "left" | "center" | "right";
+  whiteSpace: "pre-wrap";
+  wordBreak: "break-word";
+};
+
+type BannerPresentationImagePaint = {
+  objectFit: "contain" | "cover";
+  objectPosition: "center";
+};
+
 type BannerImageSlot = {
   alt: string;
   assetId: string;
@@ -100,6 +130,9 @@ type BannerImageSlot = {
 };
 
 const BANNER_TEXT_INSET_DESIGN_PIXELS = 8;
+const BANNER_LAYER_SLOT_PREFIX = "layer:";
+const BANNER_TEXT_FONT_FAMILY = "var(--font-heading), Plus Jakarta Sans, sans-serif";
+const BANNER_TEXT_LINE_HEIGHT = 1.05;
 
 function calculateBannerGeometry(
   frame: BannerPresentationFrame,
@@ -120,6 +153,73 @@ function calculateBannerGeometry(
   };
 }
 
+/**
+ * The serializable layout contract is shared by the student renderer and the
+ * future Admin overlay. Percent placement stays in design space while the
+ * geometry scale is applied to frame and text-paint measurements.
+ */
+function getBannerLayerLayout(
+  layer: BannerPresentationLayer,
+): BannerPresentationLayerLayout {
+  return {
+    height: `${layer.height}%`,
+    left: `${layer.x}%`,
+    opacity: layer.opacity,
+    top: `${layer.y}%`,
+    transform: `rotate(${layer.rotation}deg)`,
+    transformOrigin: "center",
+    width: `${layer.width}%`,
+  };
+}
+
+function getBannerTextPaint(
+  layer: BannerPresentationTextLayer,
+  geometry: BannerPresentationGeometry,
+): BannerPresentationTextPaint {
+  return {
+    boxSizing: "border-box",
+    color: layer.color,
+    fontFamily: BANNER_TEXT_FONT_FAMILY,
+    fontSize: layer.fontSize * geometry.scale,
+    fontWeight: layer.weight === "bold" ? 700 : layer.weight === "medium" ? 500 : 400,
+    lineHeight: BANNER_TEXT_LINE_HEIGHT,
+    overflow: "hidden",
+    padding: geometry.textInset,
+    textAlign: layer.align,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  };
+}
+
+function getBannerImagePaint(kind: "background" | "layer"): BannerPresentationImagePaint {
+  return {
+    objectFit: kind === "background" ? "cover" : "contain",
+    objectPosition: "center",
+  };
+}
+
+function getBannerPresentationGenerationFingerprint({
+  assets,
+  design,
+  destination,
+  revision,
+}: {
+  assets: BannerPresentationAssetMap;
+  design: BannerPresentationDesign;
+  destination: StudentBannerKey;
+  revision?: string | null;
+}) {
+  const assetEntries = Object.entries(assets)
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([assetId, asset]) => [assetId, asset.alt ?? null, asset.src]);
+  return JSON.stringify({
+    assets: assetEntries,
+    design,
+    destination,
+    revision: revision ?? null,
+  });
+}
+
 function getBannerImageSlots(design: BannerPresentationDesign): BannerImageSlot[] {
   const slots: BannerImageSlot[] = [];
   if (design.background.type === "image") {
@@ -128,7 +228,7 @@ function getBannerImageSlots(design: BannerPresentationDesign): BannerImageSlot[
 
   for (const layer of design.layers) {
     if (layer.type === "image") {
-      slots.push({ alt: layer.alt, assetId: layer.assetId, slot: layer.id });
+      slots.push({ alt: layer.alt, assetId: layer.assetId, slot: `${BANNER_LAYER_SLOT_PREFIX}${layer.id}` });
     }
   }
 
@@ -189,10 +289,15 @@ function shouldUseBannerFallback({
 
 export {
   BANNER_TEXT_INSET_DESIGN_PIXELS,
+  BANNER_LAYER_SLOT_PREFIX,
   calculateBannerGeometry,
+  getBannerImagePaint,
   getBannerAccessibleText,
   getBannerImageSlots,
+  getBannerLayerLayout,
+  getBannerPresentationGenerationFingerprint,
   getBannerPresentationFallback,
+  getBannerTextPaint,
   hasAllBannerImages,
   resolveBannerPresentationText,
   shouldUseBannerFallback,
@@ -206,7 +311,10 @@ export type {
   BannerPresentationFallback,
   BannerPresentationFrame,
   BannerPresentationGeometry,
+  BannerPresentationImagePaint,
   BannerPresentationImageLayer,
+  BannerPresentationLayerLayout,
   BannerPresentationLayer,
+  BannerPresentationTextPaint,
   BannerPresentationTextLayer,
 };

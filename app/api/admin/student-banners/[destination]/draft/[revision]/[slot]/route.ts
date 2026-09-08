@@ -1,6 +1,6 @@
 import {
   AdminStudentPreviewUnavailableError,
-  assertAdminStudentPreviewEnabled,
+  requireAdminStudentPreviewRouteContext,
 } from "@/lib/admin/student-preview";
 import {
   BANNER_DELIVERY_HEADERS,
@@ -35,15 +35,16 @@ function errorResponse(error: unknown) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ destination: string; revision: string; slot: string }> },
 ) {
   try {
     const { destination, revision, slot } = await context.params;
     const session = await resolveBannerDeliverySession();
     assertBannerDeliverySession(session, "draft");
-    assertAdminStudentPreviewEnabled();
-    const image = await deliverBannerImage({ destination, revision, slot, source: "draft" });
+    if (!session) throw new BannerDeliveryError("Sesi tidak tersedia.", 401);
+    await requireAdminStudentPreviewRouteContext(session);
+    const image = await deliverBannerImage({ destination, revision, signal: request.signal, slot, source: "draft" });
     const headers = new Headers(BANNER_DELIVERY_HEADERS);
     headers.set("Content-Type", image.contentType);
     if (image.contentLength !== null) headers.set("Content-Length", String(image.contentLength));

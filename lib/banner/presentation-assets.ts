@@ -1,12 +1,17 @@
 import type { StudentBannerKey } from "@/lib/student/banner-content";
 
 import {
+  BANNER_LAYER_SLOT_PREFIX,
   getBannerImageSlots,
   type BannerPresentationAssetMap,
   type BannerPresentationDesign,
 } from "./renderer";
 
 type BannerPresentationAssetSource = "draft" | "published";
+
+function bannerLayerSlot(layerId: string) {
+  return `${BANNER_LAYER_SLOT_PREFIX}${layerId}`;
+}
 
 function bannerImageEndpoint({
   destination,
@@ -54,5 +59,5 @@ function buildBannerPresentationAssetMap({
   return assets;
 }
 
-export { bannerImageEndpoint, buildBannerPresentationAssetMap };
+export { BANNER_LAYER_SLOT_PREFIX, bannerImageEndpoint, bannerLayerSlot, buildBannerPresentationAssetMap };
 export type { BannerPresentationAssetSource };
