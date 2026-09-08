@@ -862,8 +862,22 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
     }
   }
   const tryoutId = tryoutResult.rows[0].id;
-  const attempts = await client.query("SELECT COUNT(*)::int AS count FROM tryout_attempts WHERE tryout_id = $1", [tryoutId]);
-  if (attempts.rows[0].count === 0) {
+  const rebuildState = await client.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM tryout_attempts WHERE tryout_id = $1) AS attempt_count,
+       (SELECT COUNT(*)::int FROM assessment_releases WHERE tryout_id = $1) AS assessment_release_count,
+       (SELECT COUNT(*)::int
+          FROM tryout_delivery_sessions
+         WHERE tryout_id = $1
+           AND assessment_release_id IS NOT NULL) AS release_bound_session_count`,
+    [tryoutId],
+  );
+  assertSeedTryoutRebuildAllowed({
+    assessmentReleaseCount: rebuildState.rows[0].assessment_release_count,
+    attemptCount: rebuildState.rows[0].attempt_count,
+    releaseBoundSessionCount: rebuildState.rows[0].release_bound_session_count,
+  });
+  if (Number(rebuildState.rows[0].attempt_count) === 0) {
     await client.query("DELETE FROM tryout_items WHERE tryout_id = $1", [tryoutId]);
     await client.query("DELETE FROM tryout_sections WHERE tryout_id = $1", [tryoutId]);
     for (const [subjectIndex, subject] of SUBJECTS.entries()) {
@@ -1181,16 +1195,22 @@ async function upsertAssignment(client, { admissionId, assignedDaysAgo = 0, deli
 
 async function sectionSnapshots(client, tryoutId) {
   const sections = await client.query(
-    `SELECT cat_item_count, cat_model_version, id, subtest_id, sequence_no, duration_seconds, instructions, scoring_config, test_type, title
-       FROM tryout_sections
-      WHERE tryout_id = $1
-      ORDER BY sequence_no`,
+    `SELECT section.cat_item_count, section.cat_model_version, section.id,
+            section.package_version_id, section.subtest_id, section.sequence_no,
+            section.duration_seconds, section.instructions, section.scoring_config,
+            section.shuffle_items, section.test_type, section.title,
+            subtest.code AS subtest_code, subtest.name AS subtest_name
+       FROM tryout_sections AS section
+       JOIN subtests AS subtest ON subtest.id = section.subtest_id
+      WHERE section.tryout_id = $1
+      ORDER BY section.sequence_no`,
     [tryoutId],
   );
   const snapshots = [];
   for (const section of sections.rows) {
     const items = await client.query(
     `SELECT id, prompt, explanation, explanation_asset_id, prompt_asset_id, points::text, sort_order, difficulty,
+            package_version_id,
             package_code,
             source_content_digest, source_question_id, source_question_revision_id,
             source_revision_provenance, subtest_id
@@ -1215,6 +1235,7 @@ async function sectionSnapshots(client, tryoutId) {
         explanationAssetId: item.explanation_asset_id,
         id: item.id,
         options: options.rows.map((option) => ({ assetId: option.asset_id, choiceKey: option.choice_key, content: option.content, id: option.id, isCorrect: option.is_correct, sortOrder: option.sort_order, sourceQuestionOptionId: option.source_question_option_id, sourceQuestionRevisionOptionId: option.source_question_revision_option_id })),
+        packageVersionId: item.package_version_id,
         packageCode: item.package_code,
         points: item.points,
         prompt: item.prompt,
@@ -1235,11 +1256,14 @@ async function sectionSnapshots(client, tryoutId) {
         durationSeconds: section.duration_seconds,
         instructions: section.instructions,
         items: snapshotItems,
+        packageVersionId: section.package_version_id,
         scoringConfig: section.scoring_config,
         sectionId: section.id,
         sequenceNo: section.sequence_no,
         shuffleItems: section.shuffle_items,
         subtestId: section.subtest_id,
+        subtestCode: section.subtest_code,
+        subtestName: section.subtest_name,
         testType: section.test_type,
         title: section.title,
       },
@@ -1301,17 +1325,117 @@ function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function assertSeedReleaseMetadataCompatible(value, assessmentRelease, label) {
+const SEED_SECTION_SNAPSHOT_REQUIRED_FIELDS = [
+  "catItemCount",
+  "catModelVersion",
+  "durationSeconds",
+  "instructions",
+  "items",
+  "scoringConfig",
+  "sectionId",
+  "sequenceNo",
+  "shuffleItems",
+  "subtestId",
+  "testType",
+  "title",
+];
+
+const SEED_HISTORICAL_RUN_FALLBACK_FIELDS = new Set(["shuffleItems"]);
+
+function assertSeedHistoricalAttemptsClosed({ packageSectionCount, packageItemCount, attemptCount, closedAttemptCount, package_section_count, package_item_count, attempt_count, historical_attempt_count }, label = "canonical Tryout") {
+  const sectionCount = packageSectionCount ?? package_section_count;
+  const itemCount = packageItemCount ?? package_item_count;
+  const totalAttempts = attemptCount ?? attempt_count;
+  const closedAttempts = closedAttemptCount ?? historical_attempt_count;
+  const hasLegacyBindings = Number(sectionCount) > 0 || Number(itemCount) > 0;
+  if (!hasLegacyBindings) return false;
+  if (Number(totalAttempts) <= 0 || Number(closedAttempts) !== Number(totalAttempts)) {
+    throw new Error(`${label} has legacy package bindings but not every historical attempt belongs to a closed delivery session.`);
+  }
+  return true;
+}
+
+function assertSeedDirectSnapshotMarker(item, label) {
+  if (item?.packageVersionId === null && item.packageCode !== "direct") {
+    throw new Error(`${label} is an unbound Tryout snapshot without the direct package marker.`);
+  }
+}
+
+function assertSeedTryoutRebuildAllowed({ attemptCount, assessmentReleaseCount, releaseBoundSessionCount }, label = "canonical Tryout") {
+  if (Number(attemptCount) === 0 && (Number(assessmentReleaseCount) > 0 || Number(releaseBoundSessionCount) > 0)) {
+    throw new Error(`${label} has an immutable AssessmentRelease or release-bound delivery session but no attempts; refusing to rebuild its physical snapshots.`);
+  }
+}
+
+function seedReleaseSnapshotMetadata(assessmentRelease) {
+  return {
+    digest: assessmentRelease.contentDigest,
+    id: assessmentRelease.id,
+    number: assessmentRelease.releaseNumber,
+  };
+}
+
+function seedReleaseSnapshotMetadataShape(value) {
   const snapshot = isRecord(value) ? value : null;
   const metadata = snapshot && isRecord(snapshot.assessmentRelease)
     ? snapshot.assessmentRelease
     : null;
-  if (!metadata) return;
-  if (metadata.id !== assessmentRelease.id
-    || metadata.number !== assessmentRelease.releaseNumber
-    || metadata.digest !== assessmentRelease.contentDigest) {
+  if (!metadata) return null;
+  if (Object.prototype.hasOwnProperty.call(metadata, "id")
+    && Object.prototype.hasOwnProperty.call(metadata, "number")
+    && Object.prototype.hasOwnProperty.call(metadata, "digest")) {
+    return {
+      digest: metadata.digest,
+      id: metadata.id,
+      kind: "runtime",
+      number: metadata.number,
+    };
+  }
+  if (Object.prototype.hasOwnProperty.call(metadata, "id")
+    && Object.prototype.hasOwnProperty.call(metadata, "releaseNumber")
+    && Object.prototype.hasOwnProperty.call(metadata, "contentDigest")) {
+    return {
+      digest: metadata.contentDigest,
+      id: metadata.id,
+      kind: "historical-legacy",
+      number: metadata.releaseNumber,
+    };
+  }
+  return null;
+}
+
+function assertSeedReleasePayloadIdentity(tryout, releasePayload, label, { requireRevision = true } = {}) {
+  const releaseTryout = isRecord(releasePayload?.tryout) ? releasePayload.tryout : null;
+  if (!releaseTryout
+    || releaseTryout.id !== tryout.id
+    || !Number.isInteger(Number(releaseTryout.revision))) {
+    throw new Error(`The assessment seed found a ${label} AssessmentRelease with an invalid Tryout identity.`);
+  }
+  if (requireRevision && Number(releaseTryout.revision) !== Number(tryout.revision)) {
+    throw new Error(`The assessment seed found a ${label} AssessmentRelease from a different Tryout revision.`);
+  }
+}
+
+function assertSeedRequiredReleaseMetadata(value, assessmentRelease, label) {
+  const metadataShape = seedReleaseSnapshotMetadataShape(value);
+  if (!metadataShape) throw new Error(`The assessment seed found a pinned ${label} snapshot without valid AssessmentRelease metadata.`);
+  assertSeedReleaseMetadataCompatible(value, assessmentRelease, label);
+  return metadataShape.kind;
+}
+
+function assertSeedReleaseMetadataCompatible(value, assessmentRelease, label) {
+  const metadataShape = seedReleaseSnapshotMetadataShape(value);
+  if (!metadataShape) {
+    const snapshot = isRecord(value) ? value : null;
+    if (!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, "assessmentRelease")) return null;
+    throw new Error(`The assessment seed found an invalid ${label} AssessmentRelease snapshot.`);
+  }
+  if (metadataShape.id !== assessmentRelease.id
+    || Number(metadataShape.number) !== Number(assessmentRelease.releaseNumber)
+    || metadataShape.digest !== assessmentRelease.contentDigest) {
     throw new Error(`The assessment seed found a ${label} snapshot from a different AssessmentRelease.`);
   }
+  return metadataShape.kind;
 }
 
 function assertSeedReleaseBindingCompatible(value, assessmentRelease, label) {
@@ -1426,21 +1550,7 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
 function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label) {
   const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
   const sectionSnapshot = isRecord(snapshot.content) ? snapshot.content : snapshot;
-  const requiredFields = [
-    "catItemCount",
-    "catModelVersion",
-    "durationSeconds",
-    "instructions",
-    "items",
-    "scoringConfig",
-    "sectionId",
-    "sequenceNo",
-    "shuffleItems",
-    "subtestId",
-    "testType",
-    "title",
-  ];
-  if (requiredFields.some((field) => !Object.prototype.hasOwnProperty.call(sectionSnapshot, field))) {
+  if (SEED_SECTION_SNAPSHOT_REQUIRED_FIELDS.some((field) => !Object.prototype.hasOwnProperty.call(sectionSnapshot, field))) {
     throw new Error(`The assessment seed found an incomplete frozen section snapshot for ${label}.`);
   }
   const releaseSection = (Array.isArray(releasePayload?.sections) ? releasePayload.sections : [])
@@ -1458,6 +1568,16 @@ function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label
     || releaseSection.randomization?.shuffleItems !== Boolean(sectionSnapshot.shuffleItems)
     || canonicalAssessmentReleaseJson(releaseSection.scoring?.config ?? null) !== canonicalAssessmentReleaseJson(sectionSnapshot.scoringConfig ?? null)) {
     throw new Error(`The assessment seed could not prove the immutable section bridge for ${label}.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(sectionSnapshot, "packageVersionId")
+    && (releaseSection.assembly?.packageVersionId ?? null) !== (sectionSnapshot.packageVersionId ?? null)) {
+    throw new Error(`The assessment seed found physical package binding drift for ${label}.`);
+  }
+  for (const [snapshotField, releaseField] of [["subtestCode", "subtestCode"], ["subtestName", "subtestName"]]) {
+    if (Object.prototype.hasOwnProperty.call(sectionSnapshot, snapshotField)
+      && releaseSection[releaseField] !== sectionSnapshot[snapshotField]) {
+      throw new Error(`The assessment seed found frozen subject label drift for ${label}.`);
+    }
   }
   const snapshotItems = Array.isArray(sectionSnapshot.items) ? sectionSnapshot.items : null;
   const releaseItems = Array.isArray(releaseSection.items) ? releaseSection.items : null;
@@ -1485,6 +1605,50 @@ function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label
   }
 }
 
+function assertSeedPhysicalSnapshotMatchesRelease(snapshot, releasePayload, label) {
+  const physical = isRecord(snapshot) ? snapshot : {};
+  const content = isRecord(physical.content) ? physical.content : physical;
+  assertSeedSnapshotMatchesRelease(content, releasePayload, label);
+  const releaseSection = (releasePayload?.sections ?? []).find((candidate) => candidate.physicalId === content.sectionId);
+  if (!releaseSection) throw new Error(`The assessment seed could not find the physical Section bridge for ${label}.`);
+  const expectedLogicalId = `subtest:${physical.subtest_id ?? content.subtestId}:sequence:${physical.sequence_no ?? content.sequenceNo}`;
+  if (releaseSection.id !== expectedLogicalId
+    || releaseSection.subtestId !== (physical.subtest_id ?? content.subtestId)
+    || releaseSection.title !== physical.title
+    || releaseSection.subtestCode !== physical.subtest_code
+    || releaseSection.subtestName !== physical.subtest_name
+    || releaseSection.assembly?.mode !== ((physical.package_version_id ?? null) ? "fixed_set" : "direct")
+    || (releaseSection.assembly?.packageVersionId ?? null) !== (physical.package_version_id ?? null)) {
+    throw new Error(`The assessment seed could not prove the complete physical Section identity for ${label}.`);
+  }
+  for (const item of content.items ?? []) {
+    if ((item.packageVersionId ?? null) !== (physical.package_version_id ?? null)) {
+      throw new Error(`The assessment seed found item/Section package binding drift for ${label}.`);
+    }
+    assertSeedDirectSnapshotMarker(item, `${label} item ${item.id}`);
+  }
+}
+
+function assertSeedHistoricalRunSnapshotMatchesRelease(contentSnapshot, physicalSection, releasePayload, label) {
+  const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
+  const sectionSnapshot = isRecord(snapshot.content) ? snapshot.content : snapshot;
+  const physicalContent = isRecord(physicalSection?.content) ? physicalSection.content : physicalSection;
+  const missingFields = SEED_SECTION_SNAPSHOT_REQUIRED_FIELDS.filter(
+    (field) => !Object.prototype.hasOwnProperty.call(sectionSnapshot, field),
+  );
+  const unsupportedMissingFields = missingFields.filter((field) => !SEED_HISTORICAL_RUN_FALLBACK_FIELDS.has(field));
+  if (unsupportedMissingFields.length || missingFields.some((field) => !Object.prototype.hasOwnProperty.call(physicalContent ?? {}, field))) {
+    throw new Error(`The assessment seed found an incomplete frozen historical run snapshot for ${label}.`);
+  }
+  const normalizedSectionSnapshot = { ...sectionSnapshot };
+  for (const field of missingFields) normalizedSectionSnapshot[field] = physicalContent[field];
+  const normalizedSnapshot = isRecord(snapshot.content)
+    ? { ...snapshot, content: normalizedSectionSnapshot }
+    : normalizedSectionSnapshot;
+  assertSeedSnapshotMatchesRelease(normalizedSnapshot, releasePayload, label);
+  return missingFields;
+}
+
 function assertSeedRunSnapshotIdentity(run, section, label) {
   const snapshot = isRecord(run.content_snapshot) ? run.content_snapshot : {};
   const sectionSnapshot = isRecord(snapshot.content) ? snapshot.content : snapshot;
@@ -1496,7 +1660,11 @@ function assertSeedRunSnapshotIdentity(run, section, label) {
 }
 
 function assertSeedFrozenRunComplete(run, section, releasePayload, label) {
-  assertSeedSnapshotMatchesRelease(run.content_snapshot, releasePayload, label);
+  if (section.package_version_id === null) {
+    assertSeedSnapshotMatchesRelease(run.content_snapshot, releasePayload, label);
+  } else {
+    assertSeedHistoricalRunSnapshotMatchesRelease(run.content_snapshot, section, releasePayload, label);
+  }
   if (!run.scoring_state
     || !run.scoring_version
     || !run.scoring_provenance
@@ -1588,7 +1756,7 @@ function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessme
   const nextSnapshot = content
     ? { ...snapshot, content: nextSectionSnapshot }
     : nextSectionSnapshot;
-  return { ...nextSnapshot, assessmentRelease };
+  return { ...nextSnapshot, assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease) };
 }
 
 function seedCatSnapshot(section, releasePayload, selectedItemIds) {
@@ -1620,9 +1788,10 @@ function completeSeedContentSnapshot(contentSnapshot, section, assessmentRelease
   const nested = isRecord(snapshot.content) ? snapshot.content : null;
   const current = nested ?? snapshot;
   const content = { ...section.content, ...current };
+  const releaseSnapshotMetadata = seedReleaseSnapshotMetadata(assessmentRelease);
   return nested
-    ? { ...snapshot, assessmentRelease, content }
-    : { ...content, assessmentRelease };
+    ? { ...snapshot, assessmentRelease: releaseSnapshotMetadata, content }
+    : { ...content, assessmentRelease: releaseSnapshotMetadata };
 }
 
 async function seedCompletedAttempt(client, { admissionId, deliverySessionId, scorePattern, studentId, tryoutId }) {
@@ -1702,7 +1871,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
                 '{assessmentRelease}', $5::jsonb, TRUE
               )
         WHERE id = $1`,
-      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(assessmentRelease)],
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(seedReleaseSnapshotMetadata(assessmentRelease))],
     );
     await client.query(
       `UPDATE tryout_attempt_test_runs
@@ -1714,7 +1883,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
                 '{assessmentRelease}', $5::jsonb, TRUE
               )
         WHERE attempt_id = $1`,
-      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(assessmentRelease)],
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(seedReleaseSnapshotMetadata(assessmentRelease))],
     );
     for (const run of existingRuns.rows) {
       const section = existingSectionById.get(run.tryout_section_id);
@@ -1779,7 +1948,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
        NOW() - INTERVAL '6 days',
        $9, $10::jsonb, $11::jsonb
      ) RETURNING id`,
-    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, aggregateCounts.correctCount, aggregateCounts.wrongCount, aggregateCounts.rawScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ assessmentRelease, tryoutId, tryoutRevision: releasePayload?.tryout?.revision ?? null }), assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest],
+    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, aggregateCounts.correctCount, aggregateCounts.wrongCount, aggregateCounts.rawScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease), tryoutId, tryoutRevision: releasePayload?.tryout?.revision ?? null }), assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest],
   );
   const attemptId = attemptResult.rows[0].id;
   for (const [sectionIndex, section] of sections.entries()) {
@@ -1822,7 +1991,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         attemptId,
         section.id,
         section.sequence_no,
-        JSON.stringify({ ...section.content, assessmentRelease }),
+        JSON.stringify({ ...section.content, assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease) }),
         JSON.stringify(calculationInput),
         JSON.stringify(calculationResult),
         scoringVersion,
@@ -1984,4 +2153,19 @@ if (isDirectRun) {
   });
 }
 
-export { QUESTIONS, SUBJECTS, seedAssessmentDemo };
+export {
+  QUESTIONS,
+  SUBJECTS,
+  assertSeedDirectSnapshotMarker,
+  assertSeedHistoricalAttemptsClosed,
+  assertSeedPhysicalSnapshotMatchesRelease,
+  assertSeedReleasePayloadIdentity,
+  assertSeedReleaseMetadataCompatible,
+  assertSeedRequiredReleaseMetadata,
+  assertSeedSnapshotMatchesRelease,
+  assertSeedTryoutRebuildAllowed,
+  assertSeedHistoricalRunSnapshotMatchesRelease,
+  sectionSnapshots,
+  seedReleaseSnapshotMetadata,
+  seedAssessmentDemo,
+};

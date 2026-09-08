@@ -129,6 +129,7 @@
     "test:random-assembly-release": "tsx scripts/test-random-assembly-release.ts",
     "test:cat-pool-release": "tsx scripts/test-cat-pool-release.ts",
     "test:tryout-direct-question-picks": "tsx scripts/test-tryout-direct-question-picks.ts",
+    "test:tryout-seed-release-guards": "node scripts/test-tryout-seed-release-guards.mjs",
     "test:tryout-catalogue-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-tryout-catalogue-db.ts",
     "test:tryout-scoring": "tsx scripts/test-tryout-scoring.ts",
     "test:assessment-scoring-release-invariants": "node scripts/test-assessment-scoring-release-invariants.mjs",

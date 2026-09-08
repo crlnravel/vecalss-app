@@ -23,8 +23,8 @@ async function main() {
         id: true,
         status: true,
         createdByUserId: true,
-        sections: { select: { packageVersionId: true, items: { select: { packageVersionId: true } } } },
-        attempts: { select: { id: true }, take: 1 },
+        sections: { select: { packageVersionId: true, items: { select: { packageCode: true, packageVersionId: true } } } },
+        attempts: { select: { id: true, deliverySession: { select: { status: true } } } },
       },
     }),
     prisma.user.findFirst({
@@ -51,6 +51,11 @@ async function main() {
   const hasLegacyBindings = canonical.sections.some(
     (section) => section.packageVersionId !== null || section.items.some((item) => item.packageVersionId !== null),
   );
+  const directItems = canonical.sections.flatMap((section) => section.items.filter((item) => item.packageVersionId === null));
+  assert(
+    directItems.every((item) => item.packageCode === "direct"),
+    "Every unbound Tryout item must carry the direct package marker.",
+  );
   const [ownerCatalogue, ownerEdit, unauthorizedEdit, voyagerCatalogue] = await Promise.all([
     listTryouts(owner.id),
     getTryoutForEdit(canonical.id, owner.id),
@@ -62,9 +67,15 @@ async function main() {
   assert(voyagerCatalogue.some((tryout) => tryout.id === canonical.id), "A published canonical Tryout must remain visible in the Voyager catalogue.");
   if (hasLegacyBindings) {
     assert(canonical.attempts.length > 0, "Legacy package bindings are only valid for a historical Tryout with attempts.");
+    assert(
+      canonical.attempts.every((attempt) => attempt.deliverySession.status === "closed"),
+      "Legacy package bindings are only valid when every historical attempt belongs to a closed delivery session.",
+    );
     assert.equal(ownerEdit, null, "Historical package-bound Tryouts must fail closed at the Kapten edit boundary.");
     assert(!ownerCatalogue.some((tryout) => tryout.id === canonical.id), "Historical package-bound Tryouts must stay out of the Kapten catalogue.");
   } else {
+    assert(canonical.sections.every((section) => section.packageVersionId === null), "A fresh direct Tryout must not retain package-bound sections.");
+    assert.equal(directItems.length, 21, "A fresh direct Tryout must contain 21 unbound items.");
     assert.equal(ownerEdit?.id, canonical.id, "A fresh direct Tryout must hydrate for its owner.");
     assert(ownerCatalogue.some((tryout) => tryout.id === canonical.id), "A fresh direct Tryout must be discoverable by its owner.");
   }

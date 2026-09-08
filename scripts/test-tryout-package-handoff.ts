@@ -17,7 +17,7 @@ assert.doesNotMatch(editRoute, /packageId|packageVersionId|resolveReusableQuesti
 assert.match(repository, /Paket Soal sudah diarsipkan/u, "the server save boundary must reject forged legacy package bindings");
 assert.match(repository, /packageVersionId: null/u, "new Tryout sections and items must persist direct-only provenance");
 assert.match(repository, /function hasArchivedPackageBinding/u, "legacy package-bound Tryouts must be identified before direct-only hydration");
-assert.match(repository, /records\.(?:filter|flatMap)\([\s\S]*?hasArchivedPackageBinding\(record\)/u, "legacy package-bound Tryouts must not remain in the active authoring catalogue");
+assert.match(repository, /records\.flatMap\(\(record\) => hasArchivedPackageBinding\(record\) \? \[\] : \[toTryoutDto\(record\)\]\)/u, "legacy package-bound Tryouts must be explicitly omitted from the active authoring catalogue");
 assert.match(repository, /record && !hasArchivedPackageBinding\(record\) \? toTryoutDto\(record\) : null/u, "legacy package-bound Tryout edit routes must fail closed instead of hydrating empty Sections");
 assert.match(repository, /if \(hasArchivedPackageBinding\(current\)\) throw new TryoutValidationError\("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah/u, "direct-only save and metadata paths must reject legacy package-bound Tryouts");
 assert.match(actions, /Paket Soal sedang diarsipkan/u, "legacy package mutation actions must fail closed");
