@@ -1,5 +1,24 @@
 # Session Progress Log
 
+## Vera AI end-to-end SSE streaming (2026-09-08)
+
+- [x] Changed the development OpenRouter chat transport from buffered JSON to
+  upstream `text/event-stream`, forwarding each provider text delta through
+  Vera's existing `message.delta` SSE contract to the learner chat UI.
+- [x] Preserved final model/provider identity, finish reason, and usage evidence
+  from the terminal accounting frame before durable result settlement.
+- [x] Kept response-size/output bounds, `[DONE]` validation, heartbeat handling,
+  timeout behavior, and mid-stream failures fail-closed; partial-output faults
+  are classified as ambiguous and are not retried as safe pre-send failures.
+- [x] Applied Vera's inert plaintext transformation to Prisma-backed provisional
+  deltas before they reach the browser.
+- [x] Guarded `test:vera-openrouter-poc`,
+  `test:vera-openrouter-free-provider`, `test:vera-sprint2`, focused ESLint,
+  `git diff --check`, and full `pnpm verify` pass. Browser verification was not
+  run because route/persona/checklist permission was not requested.
+- [x] Source committed as `5d8270a`; unrelated shared-worktree UI changes were
+  preserved and excluded.
+
 ## Students admin elevation and sunken-depth pass (2026-09-06)
 
 - [x] Strengthened the resting `ReferenceSurface` contract so cards visibly

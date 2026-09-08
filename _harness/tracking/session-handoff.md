@@ -1,5 +1,31 @@
 # Session Handoff
 
+## Current handoff — Vera AI end-to-end SSE streaming (2026-09-08)
+
+- Objective: make Vera learner chat render the real provider response
+  progressively instead of receiving one completed answer as a single delta.
+- Completed: commit `5d8270a` sends `stream: true` to the gated development
+  OpenRouter transport, parses upstream SSE frames incrementally, forwards text
+  deltas through the existing Prisma orchestrator and route SSE response, and
+  retains final identity/finish/usage evidence for durable settlement.
+- Failure behavior: response and output limits remain enforced; missing terminal
+  markers and malformed frames fail closed; provider errors, network failures,
+  and timeouts after partial output are classified as ambiguous so they cannot
+  be retried as safe pre-acceptance failures. Provisional Prisma deltas use the
+  existing inert-plaintext sanitizer.
+- Verification: guarded `test:vera-openrouter-poc`,
+  `test:vera-openrouter-free-provider`, `test:vera-sprint2`, focused ESLint,
+  `git diff --check`, and full `pnpm verify` pass. The real OpenRouter smoke was
+  not run because it requires an explicitly enabled local key/gate. Browser QA
+  was not run because the required route, Voyager session, and checklist
+  permission was not granted.
+- Scope: five source/test files are in `5d8270a`. Unrelated dirty UI files in
+  admin, quiz, student, tryout, and the Vera page module remain unmodified and
+  uncommitted by this task.
+- Recommended next step: optionally authorize an authenticated `/vera-ai`
+  browser check as Voyager to observe incremental rendering and cancellation
+  with the locally gated OpenRouter provider.
+
 ## Current handoff — Vecalss palette standardization (2026-09-05)
 
 - Objective: migrate UI color usage to the existing Vecalss token palette while
