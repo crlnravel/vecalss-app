@@ -1,4 +1,5 @@
 import { BANNER_LEGACY_CONFIG_KEY } from "@/lib/banner/destinations";
+import type { BannerDestination } from "@/lib/banner/destinations";
 
 const BANNER_MAKER_CONFIG_KEY = BANNER_LEGACY_CONFIG_KEY;
 const BANNER_DESIGN_VERSION = 1 as const;
@@ -91,6 +92,101 @@ type BannerMakerSnapshot = {
   version: string | null;
 };
 
+type BannerSourceKind = "legacy-artwork" | "legacy-text";
+type BannerSourceColumn = "configValue" | "draftValue";
+
+/**
+ * A source descriptor is intentionally reconstructable rather than a copy of
+ * the legacy JSON. The server re-reads the identified row and recomputes the
+ * digest while holding the banner/media mutation lock before the first v2
+ * write. The digest covers both JSON columns and all SystemConfig metadata.
+ */
+type BannerSourceDescriptor = {
+  configKey: string;
+  digest: string;
+  kind: BannerSourceKind;
+  rowId: string | null;
+  sourceColumn: BannerSourceColumn;
+};
+
+type BannerPublicationState = "invalid" | "never-published" | "published";
+
+type BannerStarterIssue = {
+  actualLength: number;
+  code: "too-long";
+  field: "description" | "title";
+  limit: number;
+  message: string;
+};
+
+type BannerBootstrap =
+  | {
+      design: BannerDesign;
+      kind: "valid-design";
+      requiresSave: boolean;
+      source: BannerSourceDescriptor | null;
+    }
+  | {
+      diagnostic: string;
+      destination: BannerDestination;
+      kind: "unavailable-recovery";
+      recoveryOptions: Array<{
+        design?: BannerDesign;
+        kind: "legacy-published" | "legacy-text";
+        source: BannerSourceDescriptor;
+      }>;
+      source: BannerSourceDescriptor | null;
+    }
+  | {
+      description: string;
+      destination: BannerDestination;
+      issues: BannerStarterIssue[];
+      kind: "starter-needs-edit";
+      source: BannerSourceDescriptor;
+      title: string;
+    };
+
+type BannerMakerDestinationSnapshot = {
+  assetUrls: Record<string, BannerAssetView>;
+  bootstrap: BannerBootstrap;
+  configId: string | null;
+  currentRevision: string | null;
+  design: BannerDesign | null;
+  destination: BannerDestination;
+  draft: BannerDesign | null;
+  draftRevision: string | null;
+  hasPublishedDesign: boolean;
+  hasSavedDraft: boolean;
+  hasUnpublishedChanges: boolean;
+  publicationState: BannerPublicationState;
+  published: BannerDesign | null;
+  publishedAt: string | null;
+  diagnostic?: string;
+};
+
+type BannerMakerDestinationMutationResult = {
+  configId: string;
+  currentRevision: string;
+  design: BannerDesign;
+  destination: BannerDestination;
+  hasPublishedDesign: boolean;
+  hasSavedDraft: boolean;
+  hasUnpublishedChanges: boolean;
+  publicationState: Exclude<BannerPublicationState, "invalid">;
+  publishedAt: string | null;
+};
+
+type BannerMakerDestinationFormState = {
+  currentRevision?: string | null;
+  destination: BannerDestination | null;
+  design?: BannerDesign;
+  hasUnpublishedChanges?: boolean;
+  message?: string;
+  published?: boolean;
+  requestId: string | null;
+  status: "error" | "idle" | "success";
+};
+
 type BannerMakerFormState = {
   design?: BannerDesign;
   hasUnpublishedChanges?: boolean;
@@ -118,6 +214,20 @@ class BannerMakerDraftMismatchError extends Error {
   constructor() {
     super("Desain yang dirilis tidak sama dengan draf tersimpan.");
     this.name = "BannerMakerDraftMismatchError";
+  }
+}
+
+class BannerMakerSourceConflictError extends Error {
+  constructor() {
+    super("Sumber banner berubah sejak pemulihan ini dibuka.");
+    this.name = "BannerMakerSourceConflictError";
+  }
+}
+
+class BannerMakerRecoveryUnavailableError extends Error {
+  constructor(message = "Sumber banner lama tidak dapat dipulihkan dengan aman.") {
+    super(message);
+    this.name = "BannerMakerRecoveryUnavailableError";
   }
 }
 
@@ -419,6 +529,37 @@ function createDefaultBannerDesign() {
   return cloneDefaultDesign();
 }
 
+/**
+ * One bounded, documented text-starter frame is shared by every destination.
+ * It deliberately reuses the existing default geometry while replacing only
+ * the two authored text layers; legacy text is never truncated here.
+ */
+function createTextBannerStarterDesign({
+  description,
+  destination,
+  title,
+}: {
+  description: string;
+  destination: BannerDestination;
+  title: string;
+}): BannerDesign {
+  const defaultDesign = cloneDefaultDesign();
+  const [headline, supportingCopy] = defaultDesign.layers;
+
+  if (!headline || headline.type !== "text" || !supportingCopy || supportingCopy.type !== "text") {
+    throw new BannerMakerValidationError("Template starter banner tidak valid.");
+  }
+
+  return {
+    ...defaultDesign,
+    layers: [
+      { ...headline, id: `${destination}-title`, text: title },
+      { ...supportingCopy, id: `${destination}-description`, text: description },
+    ],
+    name: `Banner ${destination}`,
+  };
+}
+
 export {
   BANNER_DESIGN_HEIGHT,
   BANNER_DESIGN_VERSION,
@@ -435,21 +576,33 @@ export {
   BANNER_MIN_WIDTH,
   BannerMakerConflictError,
   BannerMakerDraftMismatchError,
+  BannerMakerRecoveryUnavailableError,
+  BannerMakerSourceConflictError,
   BannerMakerValidationError,
   bannerDesignsEqual,
   collectBannerAssetIds,
   createDefaultBannerDesign,
+  createTextBannerStarterDesign,
   normalizeBannerDesign,
   parseBannerDesign,
 };
 export type {
   BannerAssetView,
   BannerBackground,
+  BannerBootstrap,
   BannerDesign,
   BannerFrame,
   BannerImageLayer,
   BannerLayer,
+  BannerMakerDestinationMutationResult,
+  BannerMakerDestinationFormState,
+  BannerMakerDestinationSnapshot,
   BannerMakerFormState,
   BannerMakerSnapshot,
+  BannerPublicationState,
+  BannerSourceColumn,
+  BannerSourceDescriptor,
+  BannerSourceKind,
+  BannerStarterIssue,
   BannerTextLayer,
 };

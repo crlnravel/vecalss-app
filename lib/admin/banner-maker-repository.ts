@@ -16,14 +16,41 @@ import {
   bannerDesignsEqual,
   collectBannerAssetIds,
   createDefaultBannerDesign,
+  createTextBannerStarterDesign,
   normalizeBannerDesign,
   BannerMakerConflictError,
   BannerMakerDraftMismatchError,
+  BannerMakerRecoveryUnavailableError,
+  BannerMakerSourceConflictError,
   BannerMakerValidationError,
+  parseBannerDesign,
+  type BannerBootstrap,
   type BannerAssetView,
   type BannerDesign,
+  type BannerMakerDestinationMutationResult,
+  type BannerMakerDestinationSnapshot,
   type BannerMakerSnapshot,
+  type BannerSourceDescriptor,
+  type BannerStarterIssue,
 } from "./banner-maker";
+
+import {
+  BANNER_LEGACY_CONFIG_KEY,
+  getBannerDestination,
+  parseBannerDestination,
+  type BannerDestination,
+} from "@/lib/banner/destinations";
+import {
+  createBannerDesignEnvelope,
+  parseBannerDesignEnvelope,
+  type BannerDesignEnvelope,
+} from "@/lib/banner/envelope";
+import {
+  bannerSourceDescriptorsEqual,
+  createBannerSourceDescriptor,
+  type BannerSourceRow,
+} from "@/lib/banner/source";
+import { STUDENT_BANNER_DEFAULTS } from "@/lib/student/banner-content";
 
 type BannerMakerConfig = {
   configValue: Prisma.JsonValue;
@@ -416,9 +443,707 @@ async function getPublishedBannerMakerDesign() {
   return normalizeBannerDesign(config?.configValue);
 }
 
+const LEGACY_TEXT_CONFIG_KEY = "student.banners" as const;
+const BANNER_SOURCE_DESCRIPTOR_COLUMNS = new Set(["configValue", "draftValue"]);
+
+type DestinationConfig = BannerSourceRow;
+
+type ParsedDestinationConfig = {
+  configEnvelope: BannerDesignEnvelope;
+  draftEnvelope: BannerDesignEnvelope | null;
+  error: string | null;
+};
+
+type BannerRecoveryOption = {
+  design?: BannerDesign;
+  kind: "legacy-published" | "legacy-text";
+  source: BannerSourceDescriptor;
+};
+
+function readUuid(value: string | null, field: string) {
+  if (value === null) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
+    throw new BannerMakerValidationError(`${field} harus berupa UUID.`);
+  }
+  return value;
+}
+
+function readDestinationConfigRevision(config: DestinationConfig) {
+  const parsed = parseDestinationConfig(config);
+  if (parsed.error) throw new BannerMakerRecoveryUnavailableError(parsed.error);
+  return parsed.draftEnvelope?.revision ?? parsed.configEnvelope.revision;
+}
+
+function parseDestinationConfig(config: DestinationConfig): ParsedDestinationConfig {
+  let configEnvelope: BannerDesignEnvelope;
+  try {
+    configEnvelope = parseBannerDesignEnvelope(config.configValue, { allowNullDesign: true });
+  } catch {
+    return {
+      configEnvelope: createBannerDesignEnvelope(null),
+      draftEnvelope: null,
+      error: "Konfigurasi publik v2 banner tidak valid dan membutuhkan pemulihan.",
+    };
+  }
+
+  let draftEnvelope: BannerDesignEnvelope | null = null;
+  if (config.draftValue !== null) {
+    try {
+      draftEnvelope = parseBannerDesignEnvelope(config.draftValue);
+    } catch {
+      return {
+        configEnvelope,
+        draftEnvelope: null,
+        error: "Draf v2 banner tidak valid dan membutuhkan pemulihan.",
+      };
+    }
+
+    if (!config.draftUpdatedAt) {
+      return {
+        configEnvelope,
+        draftEnvelope,
+        error: "Metadata waktu draf v2 banner tidak valid dan membutuhkan pemulihan.",
+      };
+    }
+  } else if (config.draftUpdatedAt) {
+    return {
+      configEnvelope,
+      draftEnvelope,
+      error: "Metadata draf v2 banner tidak lengkap dan membutuhkan pemulihan.",
+    };
+  }
+
+  if (config.publishedAt === null && configEnvelope.design !== null) {
+    return {
+      configEnvelope,
+      draftEnvelope,
+      error: "Desain v2 banner memiliki penanda terbit yang hilang.",
+    };
+  }
+
+  if (config.publishedAt !== null && configEnvelope.design === null) {
+    return {
+      configEnvelope,
+      draftEnvelope,
+      error: "Penanda terbit v2 banner tidak memiliki desain publik.",
+    };
+  }
+
+  return { configEnvelope, draftEnvelope, error: null };
+}
+
+async function readDestinationConfig(configKey: string, tx?: Prisma.TransactionClient): Promise<DestinationConfig | null> {
+  const client = tx ?? prisma;
+  return client.systemConfig.findUnique({
+    select: {
+      configKey: true,
+      configValue: true,
+      draftUpdatedAt: true,
+      draftUpdatedByUserId: true,
+      draftValue: true,
+      id: true,
+      publishedAt: true,
+      publishedByUserId: true,
+      updatedAt: true,
+      updatedByUserId: true,
+    },
+    where: { configKey },
+  });
+}
+
+async function readLegacySource(configKey: string, tx?: Prisma.TransactionClient): Promise<DestinationConfig | null> {
+  const client = tx ?? prisma;
+  return client.systemConfig.findUnique({
+    select: {
+      configKey: true,
+      configValue: true,
+      draftUpdatedAt: true,
+      draftUpdatedByUserId: true,
+      draftValue: true,
+      id: true,
+      publishedAt: true,
+      publishedByUserId: true,
+      updatedAt: true,
+      updatedByUserId: true,
+    },
+    where: { configKey },
+  });
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readLegacyText(value: Prisma.JsonValue | null, destination: BannerDestination) {
+  const stored = isRecordValue(value) ? value : {};
+  const banner = isRecordValue(stored[destination]) ? stored[destination] : {};
+  const defaults = STUDENT_BANNER_DEFAULTS[destination];
+
+  return {
+    description: typeof banner.description === "string" && banner.description.trim().length > 0
+      ? banner.description
+      : defaults.description,
+    title: typeof banner.title === "string" && banner.title.trim().length > 0
+      ? banner.title
+      : defaults.title,
+  };
+}
+
+function legacyTextSourceDescriptor(row: DestinationConfig | null): BannerSourceDescriptor {
+  return createBannerSourceDescriptor(row, "legacy-text", "configValue");
+}
+
+function legacyArtworkSourceDescriptor(
+  row: DestinationConfig,
+  sourceColumn: "configValue" | "draftValue",
+) {
+  return createBannerSourceDescriptor(row, "legacy-artwork", sourceColumn);
+}
+
+function textStarterIssues(title: string, description: string): BannerStarterIssue[] {
+  const issues: BannerStarterIssue[] = [];
+  for (const [field, value] of [["title", title], ["description", description]] as const) {
+    if (value.length <= 180) continue;
+    issues.push({
+      actualLength: value.length,
+      code: "too-long",
+      field,
+      limit: 180,
+      message: `${field === "title" ? "Judul" : "Deskripsi"} melebihi batas 180 karakter; edit sebelum menyimpan.`,
+    });
+  }
+  return issues;
+}
+
+function createLegacyTextBootstrap(
+  destination: BannerDestination,
+  sourceRow: DestinationConfig | null,
+): BannerBootstrap {
+  const source = legacyTextSourceDescriptor(sourceRow);
+  const { description, title } = readLegacyText(sourceRow?.configValue ?? null, destination);
+  const issues = textStarterIssues(title, description);
+  if (issues.length > 0) {
+    return {
+      description,
+      destination,
+      issues,
+      kind: "starter-needs-edit",
+      source,
+      title,
+    };
+  }
+
+  return {
+    design: createTextBannerStarterDesign({ description, destination, title }),
+    kind: "valid-design",
+    requiresSave: true,
+    source,
+  };
+}
+
+function createUnavailableBootstrap(
+  destination: BannerDestination,
+  diagnostic: string,
+  source: BannerSourceDescriptor | null,
+  recoveryOptions: BannerRecoveryOption[],
+): BannerBootstrap {
+  return {
+    diagnostic,
+    destination,
+    kind: "unavailable-recovery",
+    recoveryOptions,
+    source,
+  };
+}
+
+function readLegacyArtworkCandidate(
+  destination: BannerDestination,
+  row: DestinationConfig | null,
+) {
+  if (destination !== "beranda" || !row || row.publishedAt === null) return null;
+  try {
+    return {
+      design: parseBannerDesign(row.configValue),
+      source: legacyArtworkSourceDescriptor(row, "configValue"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getBannerMakerDestinationSnapshot(
+  destinationValue: BannerDestination,
+): Promise<BannerMakerDestinationSnapshot> {
+  unstable_noStore();
+  const destination = parseBannerDestination(destinationValue);
+  const definition = getBannerDestination(destination);
+  if (!definition) throw new BannerMakerValidationError("Tujuan banner tidak dikenali.");
+
+  const [config, legacyArtwork, legacyText] = await Promise.all([
+    readDestinationConfig(definition.configKey),
+    destination === "beranda" ? readLegacySource(BANNER_LEGACY_CONFIG_KEY) : Promise.resolve(null),
+    readLegacySource(LEGACY_TEXT_CONFIG_KEY),
+  ]);
+
+  let bootstrap: BannerBootstrap;
+  let configEnvelope: BannerDesignEnvelope | null = null;
+  let draftEnvelope: BannerDesignEnvelope | null = null;
+  let diagnostic: string | undefined;
+  let publicationState: "invalid" | "never-published" | "published" = "never-published";
+
+  if (config) {
+    const parsed = parseDestinationConfig(config);
+    configEnvelope = parsed.configEnvelope;
+    draftEnvelope = parsed.draftEnvelope;
+    if (parsed.error) {
+      diagnostic = parsed.error;
+      const legacyTextBootstrap = createLegacyTextBootstrap(destination, legacyText);
+      bootstrap = createUnavailableBootstrap(
+        destination,
+        parsed.error,
+        null,
+        legacyTextBootstrap.source
+          ? [{ kind: "legacy-text", source: legacyTextBootstrap.source }]
+          : [],
+      );
+      publicationState = "invalid";
+    } else {
+      publicationState = config.publishedAt !== null ? "published" : "never-published";
+      const selectedDesign = draftEnvelope?.design ?? parsed.configEnvelope.design;
+      if (selectedDesign) {
+        bootstrap = {
+          design: selectedDesign,
+          kind: "valid-design",
+          requiresSave: false,
+          source: null,
+        };
+      } else {
+        bootstrap = createLegacyTextBootstrap(destination, legacyText);
+      }
+    }
+  } else {
+    const draftValue = legacyArtwork?.draftValue;
+    const textBootstrap = createLegacyTextBootstrap(destination, legacyText);
+    const textOption = textBootstrap.source
+      ? { kind: "legacy-text" as const, source: textBootstrap.source }
+      : null;
+
+    if (draftValue !== null && legacyArtwork) {
+      try {
+        const design = parseBannerDesign(draftValue);
+        bootstrap = {
+          design,
+          kind: "valid-design",
+          requiresSave: true,
+          source: legacyArtworkSourceDescriptor(legacyArtwork, "draftValue"),
+        };
+      } catch {
+        const published = readLegacyArtworkCandidate(destination, legacyArtwork);
+        bootstrap = createUnavailableBootstrap(
+          destination,
+          "Draf artwork Beranda lama tidak valid. Pilih artwork terbit lama yang valid atau starter teks sebelum menyimpan.",
+          legacyArtworkSourceDescriptor(legacyArtwork, "draftValue"),
+          [
+            ...(published ? [{ design: published.design, kind: "legacy-published" as const, source: published.source }] : []),
+            ...(textOption ? [textOption] : []),
+          ],
+        );
+      }
+    } else {
+      const published = readLegacyArtworkCandidate(destination, legacyArtwork);
+      if (published) {
+        bootstrap = {
+          design: published.design,
+          kind: "valid-design",
+          requiresSave: true,
+          source: published.source,
+        };
+      } else if (legacyArtwork?.publishedAt !== null && legacyArtwork) {
+        bootstrap = createUnavailableBootstrap(
+          destination,
+          "Artwork Beranda lama yang terbit tidak valid. Pilih starter teks sebelum menyimpan.",
+          legacyArtworkSourceDescriptor(legacyArtwork, "configValue"),
+          textOption ? [textOption] : [],
+        );
+      } else {
+        bootstrap = textBootstrap;
+      }
+    }
+  }
+
+  const published = !diagnostic && configEnvelope?.design && config?.publishedAt !== null ? configEnvelope.design : null;
+  const draft = !diagnostic ? draftEnvelope?.design ?? null : null;
+  const hasPublishedDesign = Boolean(published);
+  const hasSavedDraft = !diagnostic && Boolean(draftEnvelope);
+  const hasUnpublishedChanges = publicationState === "never-published"
+    ? hasSavedDraft
+    : publicationState === "published" && Boolean(draft && published && !bannerDesignsEqual(draft, published));
+  const effectiveDesign = bootstrap.kind === "valid-design" ? bootstrap.design : null;
+  const assetIds = [...new Set([
+    ...(published ? collectBannerAssetIds(published) : []),
+    ...(draft ? collectBannerAssetIds(draft) : []),
+    ...(effectiveDesign ? collectBannerAssetIds(effectiveDesign) : []),
+  ])];
+
+  return {
+    assetUrls: await readBannerAssetViews(assetIds),
+    bootstrap,
+    configId: config?.id ?? null,
+    currentRevision: diagnostic ? null : draftEnvelope?.revision ?? configEnvelope?.revision ?? null,
+    design: effectiveDesign,
+    destination,
+    draft,
+    draftRevision: draftEnvelope?.revision ?? null,
+    hasPublishedDesign,
+    hasSavedDraft,
+    hasUnpublishedChanges,
+    publicationState,
+    published,
+    publishedAt: config?.publishedAt?.toISOString() ?? null,
+    ...(diagnostic ? { diagnostic } : {}),
+  };
+}
+
+function assertSourceDescriptor(value: BannerSourceDescriptor | null | undefined) {
+  if (!value || typeof value !== "object") {
+    throw new BannerMakerValidationError("Sumber pemulihan banner tidak tersedia.");
+  }
+  if (!BANNER_SOURCE_DESCRIPTOR_COLUMNS.has(value.sourceColumn)) {
+    throw new BannerMakerValidationError("Kolom sumber pemulihan banner tidak didukung.");
+  }
+  if (value.kind !== "legacy-artwork" && value.kind !== "legacy-text") {
+    throw new BannerMakerValidationError("Jenis sumber pemulihan banner tidak didukung.");
+  }
+  if (!/^([0-9a-f]{64})$/iu.test(value.digest)) {
+    throw new BannerMakerValidationError("Digest sumber pemulihan banner tidak valid.");
+  }
+  if (value.rowId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value.rowId)) {
+    throw new BannerMakerValidationError("Identitas sumber pemulihan banner tidak valid.");
+  }
+  return value;
+}
+
+async function assertLegacySourceUnchanged(
+  tx: Prisma.TransactionClient,
+  destination: BannerDestination,
+  source: BannerSourceDescriptor,
+) {
+  const descriptor = assertSourceDescriptor(source);
+  if (descriptor.kind === "legacy-artwork") {
+    if (destination !== "beranda" || descriptor.configKey !== BANNER_LEGACY_CONFIG_KEY) {
+      throw new BannerMakerValidationError("Artwork lama hanya dapat dipulihkan untuk Beranda.");
+    }
+    if (descriptor.sourceColumn !== "configValue" && descriptor.sourceColumn !== "draftValue") {
+      throw new BannerMakerValidationError("Kolom artwork lama tidak didukung.");
+    }
+  } else if (descriptor.configKey !== LEGACY_TEXT_CONFIG_KEY || descriptor.sourceColumn !== "configValue") {
+    throw new BannerMakerValidationError("Sumber teks lama tidak didukung.");
+  }
+
+  const current = await readLegacySource(descriptor.configKey, tx);
+  if (!bannerSourceDescriptorsEqual(current, descriptor)) throw new BannerMakerSourceConflictError();
+
+  if (descriptor.kind === "legacy-artwork") {
+    if (!current || (descriptor.sourceColumn === "draftValue" && current.draftValue === null)) {
+      throw new BannerMakerRecoveryUnavailableError("Artwork lama yang dipilih sudah tidak tersedia.");
+    }
+    try {
+      parseBannerDesign(current[descriptor.sourceColumn]);
+    } catch {
+      throw new BannerMakerRecoveryUnavailableError("Artwork lama yang dipilih tidak valid.");
+    }
+    if (descriptor.sourceColumn === "configValue" && current.publishedAt === null) {
+      throw new BannerMakerRecoveryUnavailableError("Artwork lama belum memiliki penanda terbit yang sah.");
+    }
+  }
+}
+
+function parseSubmittedDestinationDesign(design: BannerDesign) {
+  try {
+    return parseBannerDesign(design);
+  } catch (error) {
+    if (error instanceof BannerMakerValidationError) throw error;
+    throw new BannerMakerValidationError("Desain tujuan banner tidak valid.");
+  }
+}
+
+function destinationMutationResult({
+  config,
+  configEnvelope,
+  design,
+  destination,
+  draftEnvelope,
+  publishedAt,
+}: {
+  config: DestinationConfig;
+  configEnvelope: BannerDesignEnvelope;
+  design: BannerDesign;
+  destination: BannerDestination;
+  draftEnvelope: BannerDesignEnvelope | null;
+  publishedAt: Date | null;
+}): BannerMakerDestinationMutationResult {
+  const published = publishedAt !== null && configEnvelope.design ? configEnvelope.design : null;
+  const hasSavedDraft = Boolean(draftEnvelope?.design);
+  return {
+    configId: config.id,
+    currentRevision: draftEnvelope?.revision ?? configEnvelope.revision,
+    design,
+    destination,
+    hasPublishedDesign: Boolean(published),
+    hasSavedDraft,
+    hasUnpublishedChanges: publishedAt === null
+      ? hasSavedDraft
+      : Boolean(draftEnvelope?.design && published && !bannerDesignsEqual(draftEnvelope.design, published)),
+    publicationState: publishedAt === null ? "never-published" : "published",
+    publishedAt: publishedAt?.toISOString() ?? null,
+  };
+}
+
+async function saveBannerMakerDestinationDraft({
+  actorUserId,
+  design,
+  destination: destinationValue,
+  expectedRevision,
+  source,
+}: {
+  actorUserId: string;
+  design: BannerDesign;
+  destination: BannerDestination;
+  expectedRevision: string | null;
+  source?: BannerSourceDescriptor | null;
+}) {
+  const destination = parseBannerDestination(destinationValue);
+  const submittedDesign = parseSubmittedDestinationDesign(design);
+  const revision = readUuid(expectedRevision, "Revisi tujuan banner");
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+
+    const definition = getBannerDestination(destination);
+    if (!definition) throw new BannerMakerValidationError("Tujuan banner tidak dikenali.");
+    const current = await readDestinationConfig(definition.configKey, tx);
+    let parsedCurrent: ParsedDestinationConfig | null = null;
+    if (current) {
+      parsedCurrent = parseDestinationConfig(current);
+      if (parsedCurrent.error) throw new BannerMakerRecoveryUnavailableError(parsedCurrent.error);
+      if (readDestinationConfigRevision(current) !== revision) throw new BannerMakerConflictError();
+    } else if (revision !== null) {
+      throw new BannerMakerConflictError();
+    } else {
+      if (!source) throw new BannerMakerValidationError("Pilih sumber starter banner sebelum menyimpan.");
+      await assertLegacySourceUnchanged(tx, destination, source);
+    }
+
+    await assertBannerAssets(tx, submittedDesign);
+    const now = new Date();
+    const configEnvelope = parsedCurrent?.configEnvelope ?? createBannerDesignEnvelope(null);
+    const draftEnvelope = createBannerDesignEnvelope(submittedDesign);
+    let config: DestinationConfig;
+
+    try {
+      if (current) {
+        config = await tx.systemConfig.update({
+          data: {
+            draftUpdatedAt: now,
+            draftUpdatedByUserId: actorUserId,
+            draftValue: draftEnvelope as unknown as Prisma.InputJsonValue,
+            updatedAt: now,
+            updatedByUserId: actorUserId,
+          },
+          select: {
+            configKey: true,
+            configValue: true,
+            draftUpdatedAt: true,
+            draftUpdatedByUserId: true,
+            draftValue: true,
+            id: true,
+            publishedAt: true,
+            publishedByUserId: true,
+            updatedAt: true,
+            updatedByUserId: true,
+          },
+          where: { id: current.id },
+        });
+      } else {
+        config = await tx.systemConfig.create({
+          data: {
+            configKey: definition.configKey,
+            configValue: configEnvelope as unknown as Prisma.InputJsonValue,
+            draftUpdatedAt: now,
+            draftUpdatedByUserId: actorUserId,
+            draftValue: draftEnvelope as unknown as Prisma.InputJsonValue,
+            updatedAt: now,
+            updatedByUserId: actorUserId,
+          },
+          select: {
+            configKey: true,
+            configValue: true,
+            draftUpdatedAt: true,
+            draftUpdatedByUserId: true,
+            draftValue: true,
+            id: true,
+            publishedAt: true,
+            publishedByUserId: true,
+            updatedAt: true,
+            updatedByUserId: true,
+          },
+        });
+      }
+    } catch (error) {
+      if (isUniqueConstraintError(error)) throw new BannerMakerConflictError();
+      throw error;
+    }
+
+    await tx.auditLog.create({
+      data: {
+        action: "student_banner_maker_v2_draft_saved",
+        actorUserId,
+        metadata: {
+          action: "save-draft",
+          destination,
+          newRevision: draftEnvelope.revision,
+          oldRevision: revision,
+          sourceColumn: source?.sourceColumn ?? null,
+        },
+        targetId: config.id,
+        targetType: "system_config",
+      },
+    });
+
+    return destinationMutationResult({
+      config,
+      configEnvelope,
+      design: submittedDesign,
+      destination,
+      draftEnvelope,
+      publishedAt: config.publishedAt,
+    });
+  });
+}
+
+async function publishBannerMakerDestinationDesign({
+  actorUserId,
+  design,
+  destination: destinationValue,
+  expectedRevision,
+}: {
+  actorUserId: string;
+  design: BannerDesign;
+  destination: BannerDestination;
+  expectedRevision: string | null;
+}) {
+  const destination = parseBannerDestination(destinationValue);
+  const submittedDesign = parseSubmittedDestinationDesign(design);
+  const revision = readUuid(expectedRevision, "Revisi tujuan banner");
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    const definition = getBannerDestination(destination);
+    if (!definition) throw new BannerMakerValidationError("Tujuan banner tidak dikenali.");
+    const current = await readDestinationConfig(definition.configKey, tx);
+    if (!current) throw new BannerMakerValidationError("Simpan draf tujuan banner sebelum menerbitkan.");
+
+    const parsed = parseDestinationConfig(current);
+    if (parsed.error) throw new BannerMakerRecoveryUnavailableError(parsed.error);
+    if (readDestinationConfigRevision(current) !== revision) throw new BannerMakerConflictError();
+    if (!parsed.draftEnvelope?.design || !current.draftUpdatedAt) {
+      throw new BannerMakerValidationError("Simpan draf tujuan banner sebelum menerbitkan.");
+    }
+    if (!bannerDesignsEqual(parsed.draftEnvelope.design, submittedDesign)) {
+      throw new BannerMakerDraftMismatchError();
+    }
+
+    await assertBannerAssets(tx, parsed.draftEnvelope.design);
+    const now = new Date();
+    const publishedEnvelope = createBannerDesignEnvelope(parsed.draftEnvelope.design);
+    const config = await tx.systemConfig.update({
+      data: {
+        configValue: publishedEnvelope as unknown as Prisma.InputJsonValue,
+        draftUpdatedAt: null,
+        draftUpdatedByUserId: null,
+        draftValue: Prisma.DbNull,
+        publishedAt: now,
+        publishedByUserId: actorUserId,
+        updatedAt: now,
+        updatedByUserId: actorUserId,
+      },
+      select: {
+        configKey: true,
+        configValue: true,
+        draftUpdatedAt: true,
+        draftUpdatedByUserId: true,
+        draftValue: true,
+        id: true,
+        publishedAt: true,
+        publishedByUserId: true,
+        updatedAt: true,
+        updatedByUserId: true,
+      },
+      where: { id: current.id },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        action: "student_banner_maker_v2_published",
+        actorUserId,
+        metadata: {
+          action: "publish",
+          destination,
+          newRevision: publishedEnvelope.revision,
+          oldRevision: revision,
+        },
+        targetId: config.id,
+        targetType: "system_config",
+      },
+    });
+
+    return destinationMutationResult({
+      config,
+      configEnvelope: publishedEnvelope,
+      design: parsed.draftEnvelope.design,
+      destination,
+      draftEnvelope: null,
+      publishedAt: config.publishedAt,
+    });
+  });
+}
+
+async function getPublishedBannerMakerDestinationDesign(destinationValue: BannerDestination) {
+  unstable_noStore();
+  const destination = parseBannerDestination(destinationValue);
+  const definition = getBannerDestination(destination);
+  if (!definition) throw new BannerMakerValidationError("Tujuan banner tidak dikenali.");
+  const config = await readDestinationConfig(definition.configKey);
+  if (!config) {
+    return { destination, diagnostic: null, design: null, revision: null };
+  }
+
+  try {
+    const parsed = parseDestinationConfig(config);
+    if (parsed.error || config.publishedAt === null || parsed.configEnvelope.design === null) {
+      return { destination, diagnostic: parsed.error ?? "Banner belum memiliki publikasi yang sah.", design: null, revision: null };
+    }
+    return {
+      destination,
+      diagnostic: null,
+      design: parsed.configEnvelope.design,
+      revision: parsed.configEnvelope.revision,
+    };
+  } catch {
+    return {
+      destination,
+      diagnostic: "Konfigurasi publik v2 banner tidak valid dan memakai fallback lama.",
+      design: null,
+      revision: null,
+    };
+  }
+}
+
 export {
+  getBannerMakerDestinationSnapshot,
   getBannerMakerSnapshot,
+  getPublishedBannerMakerDestinationDesign,
   getPublishedBannerMakerDesign,
+  publishBannerMakerDestinationDesign,
   publishBannerMakerDesign,
+  saveBannerMakerDestinationDraft,
   saveBannerMakerDraft,
 };
