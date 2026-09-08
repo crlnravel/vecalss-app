@@ -1367,12 +1367,28 @@ function assertSeedTryoutRebuildAllowed({ attemptCount, assessmentReleaseCount, 
   }
 }
 
+function assertSeedFreshSessionReleaseBindings(sessions, label = "fresh canonical Tryout") {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    throw new Error(`${label} must contain delivery sessions before release-pin verification.`);
+  }
+  const unboundSessions = sessions.filter((session) => session?.assessment_release_id === null || session?.assessment_release_id === undefined);
+  if (unboundSessions.length) {
+    throw new Error(`${label} has ${unboundSessions.length} delivery session(s) without an AssessmentRelease binding.`);
+  }
+}
+
 function seedReleaseSnapshotMetadata(assessmentRelease) {
   return {
     digest: assessmentRelease.contentDigest,
     id: assessmentRelease.id,
     number: assessmentRelease.releaseNumber,
   };
+}
+
+function seedExistingReleaseSnapshotMetadata(snapshot, assessmentRelease) {
+  const metadata = isRecord(snapshot?.assessmentRelease) ? snapshot.assessmentRelease : null;
+  if (metadata && seedReleaseSnapshotMetadataShape(snapshot)) return { ...metadata };
+  return seedReleaseSnapshotMetadata(assessmentRelease);
 }
 
 function seedReleaseSnapshotMetadataShape(value) {
@@ -1756,7 +1772,7 @@ function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessme
   const nextSnapshot = content
     ? { ...snapshot, content: nextSectionSnapshot }
     : nextSectionSnapshot;
-  return { ...nextSnapshot, assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease) };
+  return { ...nextSnapshot, assessmentRelease: seedExistingReleaseSnapshotMetadata(snapshot, assessmentRelease) };
 }
 
 function seedCatSnapshot(section, releasePayload, selectedItemIds) {
@@ -1788,7 +1804,7 @@ function completeSeedContentSnapshot(contentSnapshot, section, assessmentRelease
   const nested = isRecord(snapshot.content) ? snapshot.content : null;
   const current = nested ?? snapshot;
   const content = { ...section.content, ...current };
-  const releaseSnapshotMetadata = seedReleaseSnapshotMetadata(assessmentRelease);
+  const releaseSnapshotMetadata = seedExistingReleaseSnapshotMetadata(snapshot, assessmentRelease);
   return nested
     ? { ...snapshot, assessmentRelease: releaseSnapshotMetadata, content }
     : { ...content, assessmentRelease: releaseSnapshotMetadata };
@@ -1871,19 +1887,15 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
                 '{assessmentRelease}', $5::jsonb, TRUE
               )
         WHERE id = $1`,
-      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(seedReleaseSnapshotMetadata(assessmentRelease))],
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(seedExistingReleaseSnapshotMetadata(existing.rows[0].content_snapshot, assessmentRelease))],
     );
     await client.query(
       `UPDATE tryout_attempt_test_runs
           SET assessment_release_id = $2,
               assessment_release_number = $3,
-              assessment_release_digest = $4,
-              content_snapshot = jsonb_set(
-                CASE WHEN jsonb_typeof(content_snapshot) = 'object' THEN content_snapshot ELSE '{}'::jsonb END,
-                '{assessmentRelease}', $5::jsonb, TRUE
-              )
+              assessment_release_digest = $4
         WHERE attempt_id = $1`,
-      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(seedReleaseSnapshotMetadata(assessmentRelease))],
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest],
     );
     for (const run of existingRuns.rows) {
       const section = existingSectionById.get(run.tryout_section_id);
@@ -2157,6 +2169,7 @@ export {
   QUESTIONS,
   SUBJECTS,
   assertSeedDirectSnapshotMarker,
+  assertSeedFreshSessionReleaseBindings,
   assertSeedHistoricalAttemptsClosed,
   assertSeedPhysicalSnapshotMatchesRelease,
   assertSeedReleasePayloadIdentity,
@@ -2166,6 +2179,7 @@ export {
   assertSeedTryoutRebuildAllowed,
   assertSeedHistoricalRunSnapshotMatchesRelease,
   sectionSnapshots,
+  seedExistingReleaseSnapshotMetadata,
   seedReleaseSnapshotMetadata,
   seedAssessmentDemo,
 };

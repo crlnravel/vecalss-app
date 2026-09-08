@@ -5,6 +5,7 @@ import pg from "pg";
 
 import { digestAssessmentReleasePayload } from "../lib/tryout/assessment-release-canonical.mjs";
 import {
+  assertSeedFreshSessionReleaseBindings,
   assertSeedHistoricalAttemptsClosed,
   assertSeedHistoricalRunSnapshotMatchesRelease,
   assertSeedPhysicalSnapshotMatchesRelease,
@@ -268,10 +269,17 @@ async function main() {
     assert(active && active.status === "active", "The current delivery session must be active.");
     assert(active.available_from <= new Date() && active.available_until > new Date(), "The current delivery session must be open now.");
     assert(historical && historical.status === "closed" && historical.released_at, "The historical session must contain released results.");
+    if (!hasLegacyBindings) {
+      assertSeedFreshSessionReleaseBindings(sessions.rows);
+    }
 
     const historicalLegacySnapshotLabels = [];
+    const historicalUnpinnedSessionLabels = [];
     for (const session of sessions.rows) {
-      if (!session.assessment_release_id) continue;
+      if (!session.assessment_release_id) {
+        historicalUnpinnedSessionLabels.push(`${session.name} (${session.id})`);
+        continue;
+      }
       const sessionRelease = releaseById.get(session.assessment_release_id);
       assert(sessionRelease, `Session ${session.id} must reference an AssessmentRelease belonging to this Tryout.`);
       const attempts = await client.query(
@@ -327,6 +335,12 @@ async function main() {
           }
         }
       }
+    }
+    if (historicalUnpinnedSessionLabels.length) {
+      if (!hasLegacyBindings) {
+        throw new Error("A freshly generated direct Tryout must bind every delivery session to an AssessmentRelease.");
+      }
+      console.warn(`Pinned session classification: historical-legacy nullable AssessmentRelease binding (${historicalUnpinnedSessionLabels.join(", ")}); attempts in unpinned sessions are not eligible for release snapshot verification.`);
     }
     if (historicalLegacySnapshotLabels.length) {
       if (!hasLegacyBindings) {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildAssessmentReleasePayload } from "../lib/tryout/assessment-release-canonical.mjs";
 import {
   assertSeedDirectSnapshotMarker,
+  assertSeedFreshSessionReleaseBindings,
   assertSeedHistoricalAttemptsClosed,
   assertSeedHistoricalRunSnapshotMatchesRelease,
   assertSeedPhysicalSnapshotMatchesRelease,
@@ -10,6 +11,7 @@ import {
   assertSeedRequiredReleaseMetadata,
   assertSeedSnapshotMatchesRelease,
   assertSeedTryoutRebuildAllowed,
+  seedExistingReleaseSnapshotMetadata,
   seedReleaseSnapshotMetadata,
 } from "../prisma/seed-assessment.mjs";
 
@@ -66,6 +68,25 @@ assert.deepEqual(
   seedReleaseSnapshotMetadata({ contentDigest: "digest-1", id: "release-1", releaseNumber: 1 }),
   { digest: "digest-1", id: "release-1", number: 1 },
   "seeded attempt/run snapshots must use the runtime AssessmentRelease metadata shape",
+);
+const legacyReleaseMetadata = { contentDigest: "digest-1", id: "release-1", releaseNumber: 1, historical: true };
+assert.deepEqual(
+  seedExistingReleaseSnapshotMetadata({ assessmentRelease: legacyReleaseMetadata }, { contentDigest: "digest-1", id: "release-1", releaseNumber: 1 }),
+  legacyReleaseMetadata,
+  "seeded legacy attempt/run snapshots must preserve their historical AssessmentRelease metadata shape",
+);
+
+assert.doesNotThrow(() => assertSeedFreshSessionReleaseBindings([
+  { assessment_release_id: "release-1" },
+  { assessment_release_id: "release-1" },
+]));
+assert.throws(
+  () => assertSeedFreshSessionReleaseBindings([
+    { assessment_release_id: "release-1" },
+    { assessment_release_id: null },
+  ]),
+  /without an AssessmentRelease binding/u,
+  "fresh direct verification must reject an unpinned delivery session",
 );
 
 function physicalSnapshot() {
