@@ -868,6 +868,9 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
     await client.query("DELETE FROM tryout_sections WHERE tryout_id = $1", [tryoutId]);
     for (const [subjectIndex, subject] of SUBJECTS.entries()) {
       const isCat = ["PU", "PK", "PM"].includes(subject.code);
+      // Keep the reusable package fixtures available for the package catalogue,
+      // but seed the canonical Tryout as direct snapshots. The current Kapten
+      // authoring boundary intentionally refuses legacy package bindings.
       const sectionResult = await client.query(
         `INSERT INTO tryout_sections (
            tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count,
@@ -881,7 +884,7 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
           subject.label,
           subjectIndex + 1,
           isCat ? 900 : 720,
-          versionIds.get(subject.code),
+          null,
           `Baca setiap pertanyaan dengan cermat. Pilih satu jawaban yang paling tepat untuk bagian ${subject.label}.`,
           isCat ? "cat" : "cbt",
           JSON.stringify({ method: isCat ? "two_pl" : "sum_item_points", wrongAnswerPoints: 0 }),
@@ -909,7 +912,7 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
              prompt_asset_id, explanation_asset_id, idempotency_key, package_version_id
            ) VALUES ($1, $2, $3, $4, $5, $6::question_revision_provenance, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING id`,
-          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, `PKG-${subject.code}-EVALUASI`, versionItem.prompt_asset_id, versionItem.explanation_asset_id, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, versionIds.get(subject.code)],
+          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, "direct", versionItem.prompt_asset_id, versionItem.explanation_asset_id, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, null],
         );
         const versionOptions = await client.query(
           `SELECT choice_key, content, is_correct, sort_order, source_question_option_id,
