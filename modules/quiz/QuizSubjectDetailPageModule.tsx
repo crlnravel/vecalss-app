@@ -43,15 +43,16 @@ function QuizSubjectDetailPageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-[0_28px_72px_-44px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]">
+        <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-32 -right-16 size-80 rounded-full border-[18px] border-white/10"
+            className="pointer-events-none absolute -top-32 -right-16 size-80 rounded-full border-[18px] border-voyage-sea-glass/20"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute right-[22%] bottom-[-8rem] size-64 rounded-full bg-primary-400/20 blur-3xl"
+            className="pointer-events-none absolute right-[22%] bottom-[-8rem] size-64 rounded-full bg-voyage-forest/55 blur-3xl"
           />
+          <span aria-hidden="true" className="absolute right-8 top-8 size-8 rounded-full bg-voyage-warm-sun" />
 
           <div className="relative z-10 grid gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="max-w-[42rem]">
@@ -70,10 +71,10 @@ function QuizSubjectDetailPageModule({
                   {subject.code}
                 </StudentBadge>
               </div>
-              <h1 className="mt-6 text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
+              <h1 className="mt-6 max-w-[20ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
                 {subject.description}
               </h1>
-              <p className="mt-5 max-w-[45ch] text-sm leading-7 text-primary-100 md:text-base">
+              <p className="mt-5 max-w-[45ch] text-sm leading-7 text-learning-hero-muted md:text-base">
                 Pilih paket latihan yang ingin kamu kerjakan dan lanjutkan
                 ritme belajarmu.
               </p>

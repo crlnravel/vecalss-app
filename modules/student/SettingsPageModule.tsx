@@ -3,11 +3,10 @@
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle } from "@/lib/icons";
+import { AlertCircle, Target, UserRound, type AppIcon } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
-  ReferencePageHeader,
   ReferenceSelectField,
   ReferenceSurface,
 } from "@/components/dashboard";
@@ -32,6 +31,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
+import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { cn } from "@/lib/utils";
@@ -61,11 +61,13 @@ function getInitials(fullName: string) {
 function ProfileSection({
   children,
   description,
+  icon: Icon,
   id,
   title,
 }: {
   children: React.ReactNode;
   description?: string;
+  icon: AppIcon;
   id: string;
   title: string;
 }) {
@@ -74,9 +76,14 @@ function ProfileSection({
       className="grid gap-5 py-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8"
       id={id}
     >
-      <div>
-        <h2 className="text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900">{title}</h2>
-        {description ? <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p> : null}
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
+          <Icon aria-hidden="true" className="size-5" />
+        </span>
+        <div>
+          <h2 className="text-xl leading-tight font-extrabold tracking-[-0.025em] text-voyage-ink">{title}</h2>
+          {description ? <p className="mt-2 text-sm leading-6 text-learning-muted-ink">{description}</p> : null}
+        </div>
       </div>
       <div>{children}</div>
     </section>
@@ -164,8 +171,11 @@ function SettingsPageModule({
     >
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
-        <ReferencePageHeader
-          actions={<div className="flex flex-wrap items-center gap-2">{returnToHref ? <Button nativeButton={false} render={<Link href={returnToHref} />} size="lg" variant="ghost">Kembali</Button> : null}<SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">Simpan</SubmitButton></div>}
+        <StudentPageHero
+          actions={<div className="flex flex-wrap items-center gap-2">{returnToHref ? <Button className="border-white/20 bg-transparent text-white hover:border-white/40 hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href={returnToHref} />} size="lg" variant="outline">Kembali</Button> : null}<SubmitButton className="bg-student-status-attention-solid-bg text-student-status-attention-solid-fg hover:bg-voyage-warm-sun/90" pendingLabel="Menyimpan…" size="lg" type="submit" variant="brand">Simpan perubahan</SubmitButton></div>}
+          description="Atur data diri, tujuan kampus, dan target ujian agar perjalanan belajarmu tetap terarah."
+          icon={UserRound}
+          meta={<span className="inline-flex min-h-10 items-center rounded-full bg-voyage-sea-glass px-4 text-sm font-bold text-voyage-deep">Voyager</span>}
           title="Profil"
         />
 
@@ -174,10 +184,12 @@ function SettingsPageModule({
         ) : null}
 
         <ProfileSection
+          description="Pastikan nama dan foto profil tetap mudah dikenali."
+          icon={UserRound}
           id="profil"
           title="Data diri"
         >
-          <ReferenceSurface className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
+          <ReferenceSurface className="grid gap-6 border-learning-card-border p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
             <div className="grid gap-5">
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="profile-full-name">Nama lengkap</FieldLabel>
@@ -214,10 +226,12 @@ function SettingsPageModule({
         </ProfileSection>
 
         <ProfileSection
+          description="Pilih tujuan yang menjadi acuan ritme dan prioritas belajarmu."
+          icon={Target}
           id="target-belajar"
           title="Target belajar"
         >
-          <ReferenceSurface className="p-5 md:p-6">
+          <ReferenceSurface className="border-learning-card-border p-5 md:p-6">
             <div className="grid gap-5 md:grid-cols-2">
               <ReferenceSelectField
                 className="font-normal"
@@ -290,7 +304,7 @@ function SettingsPageModule({
               >
                 Batal
               </Button>
-              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
+              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
                 Simpan
               </SubmitButton>
             </div>

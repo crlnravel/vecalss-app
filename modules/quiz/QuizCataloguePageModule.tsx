@@ -61,22 +61,28 @@ function QuizCataloguePageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-10">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 px-6 py-8 text-white shadow-[0_28px_72px_-44px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
+        <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-white/10"
+            className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-voyage-sea-glass/20"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-primary-400/20 blur-3xl"
+            className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-voyage-forest/55 blur-3xl"
           />
           <div className="relative z-10 max-w-[42rem]">
-            <h1 className="text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
+            <h1 className="font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
               {banner.title}
             </h1>
-            <p className="mt-5 max-w-[48ch] text-sm leading-7 text-primary-100 md:text-base">
+            <p className="mt-4 max-w-[48ch] text-sm leading-7 text-learning-hero-muted md:text-base">
               {banner.description}
             </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                <ListChecks aria-hidden="true" className="size-4" />
+                {subjects.length} subtes tersedia
+              </span>
+            </div>
           </div>
 
           <div
@@ -136,10 +142,10 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
       variant="kuis"
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] md:size-20 md:rounded-[1.6rem]">
+        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:size-20 md:rounded-[1.6rem]">
           <Icon className="size-7 md:size-9" strokeWidth={2.2} />
         </span>
-        <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">
+        <span className="rounded-full bg-voyage-sea-glass px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-voyage-deep shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]">
           {subject.code}
         </span>
       </div>

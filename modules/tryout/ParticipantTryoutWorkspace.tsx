@@ -118,10 +118,10 @@ function ParticipantTryoutWorkspace({
       session={session}
       showSearch={false}
     >
-      <section className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_62%,var(--voyage-leaf)_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_color-mix(in_oklab,var(--voyage-deep)_72%,transparent)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
+      <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-5 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-80"
+          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-voyage-sea-glass/20 sm:size-80"
         />
         <div
           aria-hidden="true"
@@ -138,12 +138,18 @@ function ParticipantTryoutWorkspace({
           />
         </div>
         <div className="relative max-w-3xl lg:max-w-[60%]">
-          <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
+          <h1 className="max-w-[15ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance sm:text-5xl">
             {banner.title}
           </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--primary-50)] sm:text-base sm:leading-7">
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-learning-hero-muted sm:text-base sm:leading-7">
             {banner.description}
           </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+              <CalendarDays aria-hidden="true" className="size-4" />
+              {initialTryouts.length} tryout tersedia
+            </span>
+          </div>
         </div>
       </section>
 

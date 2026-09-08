@@ -1997,10 +1997,10 @@ function VeraDataStatePanel({
   return (
     <section
       aria-live={loading ? "polite" : "assertive"}
-      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-primary-100 bg-white px-6 py-12 text-center shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
       role={loading ? "status" : "alert"}
     >
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
         {loading ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <Gauge className="size-5" />}
       </span>
       <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-secondary-950">
@@ -2035,11 +2035,11 @@ function VeraTopBar({
   usage: VeraBackendUsage | null;
 }) {
   return (
-    <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
+    <header className="mx-2 mt-2 flex min-h-18 items-center gap-3 rounded-[1.65rem] bg-learning-hero-bg px-3 py-3 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:mx-3 md:mt-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-opacity motion-reduce:transition-none hover:opacity-85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-colors motion-reduce:transition-none hover:bg-white/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/40"
           href={returnToHref}
         >
           <Image
@@ -2051,10 +2051,13 @@ function VeraTopBar({
             width={52}
           />
           <span
-            className="hidden text-[1.45rem] leading-none tracking-[0.04em] text-primary-800 sm:inline"
+            className="hidden text-2xl leading-none tracking-[0.04em] text-white sm:inline"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
+          </span>
+          <span className="inline-flex min-h-8 items-center rounded-full bg-student-status-attention-solid-bg px-3 text-xs font-extrabold tracking-[0.08em] text-student-status-attention-solid-fg uppercase">
+            Vera AI
           </span>
         </Link>
       </div>
@@ -2904,7 +2907,7 @@ function MessageCard({
           {stateNotice ? (
             <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
           ) : null}
-          <p className="mt-1.5 text-right text-[11px] text-white/60">
+          <p className="mt-1.5 text-right text-xs text-white/60">
             {message.createdAt}
           </p>
         </BubbleContent>
@@ -2934,7 +2937,7 @@ function MessageCard({
         {stateNotice ? (
           <p className="mt-1 text-xs text-secondary-500">{stateNotice}</p>
         ) : null}
-        <BubbleContent className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-secondary-700">
+        <BubbleContent className="mt-2 max-w-[68ch] text-base leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
         {message.citations && message.citations.length > 0 ? (
@@ -2973,7 +2976,7 @@ function ProvisionalMessageCard({ body }: { body: string }) {
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
           <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
         </div>
-        <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-[0.95rem] leading-7 text-secondary-700">
+        <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700">
           {body || "Vera sedang menyusun jawaban…"}
         </BubbleContent>
       </Bubble>
@@ -3165,7 +3168,7 @@ function StudioPanel({
         <section className="mt-6 border-t border-primary-100 pt-5">
           <div className="flex items-center justify-between gap-2 px-1">
             <SectionLabel label="Hasil terbaru" />
-            <span className="text-[11px] text-secondary-400">
+            <span className="text-xs text-secondary-400">
               {generatedArtifacts.length} tersimpan
             </span>
           </div>
@@ -3202,7 +3205,7 @@ function StudioPanel({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="px-1 text-[11px] font-semibold tracking-[0.13em] text-secondary-500 uppercase">
+    <p className="px-1 text-xs font-semibold tracking-[0.13em] text-secondary-500 uppercase">
       {label}
     </p>
   );
@@ -3269,7 +3272,7 @@ function StudioArtifactCard({
               ? `${formatVeraArtifactType(summary.artifactType)} · ${formatVeraState(summary.lifecycleState)} · hasil ${formatVeraState(summary.resultState)} · konteks ${formatVeraState(summary.contextState)} · ${relativeTime(summary.createdAt)}`
               : tool.outputBody}
           </span>
-          <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary-700">
+          <span className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary-700">
             Buka dokumen
             <ArrowUpRight className="size-3" />
           </span>
@@ -3357,7 +3360,7 @@ function StudioArtifactMarkdown({
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="mt-8 text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+      <h2 className="mt-8 text-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">
         {children}
       </h2>
     ),
@@ -3684,12 +3687,12 @@ function AddContextDialog({
               konteks dipakai di sesi
             </p>
             {pendingInactiveCount > 0 ? (
-              <p className="text-[11px] text-secondary-400">
+              <p className="text-xs text-secondary-400">
                 {pendingInactiveCount} konteks baru akan ditambahkan ke
                 perpustakaan. Kamu bisa memakainya nanti dari tab Konteks.
               </p>
             ) : limitReached ? (
-              <p className="text-[11px] text-secondary-400">
+              <p className="text-xs text-secondary-400">
                 Batas 6 yang dipakai tercapai. Konteks tambahan tetap bisa
                 ditambahkan.
               </p>
@@ -4201,7 +4204,7 @@ function BackendContextOption({
             {source.subtitle ?? contextTypeLabels[source.type]}
           </span>
           {source.releasedAt ? (
-            <span className="block truncate text-[11px] text-secondary-400">
+            <span className="block truncate text-xs text-secondary-400">
               Dirilis {DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}
             </span>
           ) : null}
@@ -4370,7 +4373,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
         className,
       )}
     >
@@ -4389,7 +4392,7 @@ function PanelHeader({
   title: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-17 items-center justify-between gap-3 border-b border-primary-100 px-4 py-3">
+    <div className="flex min-h-17 items-center justify-between gap-3 border-b border-learning-card-border bg-voyage-sea-glass-wash/55 px-4 py-3">
       <div className="flex min-w-0 items-center gap-2">
         {backAction ? (
           <Button

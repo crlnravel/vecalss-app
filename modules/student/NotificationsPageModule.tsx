@@ -2,33 +2,38 @@ import Link from "next/link";
 import { Bell, ChevronRight } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
-import {
-  ReferenceEmptyState,
-  ReferencePageHeader,
-} from "@/components/dashboard";
+import { ReferenceEmptyState } from "@/components/dashboard";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { markAllNotificationsReadAction } from "@/modules/student/actions";
+import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 function NotificationEntry({ item }: { item: StudentNotificationItem }) {
   const content = (
     <>
+      <span
+        className={cn(
+          "grid size-11 shrink-0 place-items-center rounded-2xl text-voyage-deep",
+          item.unread
+            ? "bg-student-status-attention-solid-bg text-student-status-attention-solid-fg"
+            : "bg-voyage-sea-glass",
+        )}
+      >
+        <Bell aria-hidden="true" className="size-5" />
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-semibold text-secondary-900">
             {item.title}
           </p>
           {item.unread ? (
-            <>
-              <StudentBadge size="xs" tone="attention">
-                Belum dibaca
-              </StudentBadge>
-              <span aria-hidden="true" className="size-2 rounded-full bg-student-status-attention-border" />
-            </>
+            <StudentBadge size="xs" tone="attention">
+              Belum dibaca
+            </StudentBadge>
           ) : null}
         </div>
         <p className="mt-1 text-sm leading-6 text-secondary-600">
@@ -37,7 +42,9 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
         <p className="mt-2 text-xs text-secondary-500">{item.time}</p>
       </div>
 
-      <ChevronRight aria-hidden="true" className="mt-1 hidden size-4 text-secondary-400 md:block" />
+      <span className="mt-0.5 hidden size-9 shrink-0 place-items-center rounded-full bg-voyage-sea-glass text-voyage-deep transition-colors group-hover:bg-voyage-deep group-hover:text-white md:grid motion-reduce:transition-none">
+        <ChevronRight aria-hidden="true" className="size-4" />
+      </span>
     </>
   );
 
@@ -76,22 +83,43 @@ function NotificationsPageModule({
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
     >
-      <section className="flex flex-col gap-5">
-        <ReferencePageHeader
+      <section className="flex flex-col gap-8">
+        <StudentPageHero
           actions={
             <form action={markAllNotificationsReadAction}>
-              <Button disabled={!hasUnread} size="default" type="submit" variant="ghost">
+              <Button
+                className="border-white/20 bg-white text-voyage-deep hover:border-white hover:bg-voyage-sea-glass hover:text-voyage-deep disabled:bg-white/55 disabled:text-voyage-deep/65"
+                disabled={!hasUnread}
+                size="default"
+                type="submit"
+                variant="outline"
+              >
                 Tandai sudah dibaca
               </Button>
             </form>
+          }
+          description="Pantau pembaruan kelas, pengingat belajar, dan undangan Tryout dari satu tempat."
+          icon={Bell}
+          meta={
+            <span className="inline-flex min-h-10 items-center rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+              {hasUnread ? `${unreadCount} belum dibaca` : "Semua sudah dibaca"}
+            </span>
           }
           title="Notifikasi"
         />
 
         {items.length > 0 ? (
-          <div className="grid gap-4">
-            {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
-          </div>
+          <section aria-labelledby="notification-list-title" className="grid gap-4">
+            <div className="flex items-center gap-4 px-1">
+              <h2 className="text-xl font-extrabold tracking-[-0.025em] text-voyage-ink" id="notification-list-title">
+                Pembaruan terbaru
+              </h2>
+              <span aria-hidden="true" className="h-px flex-1 bg-learning-card-border" />
+            </div>
+            <div className="grid gap-4">
+              {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
+            </div>
+          </section>
         ) : (
           <ReferenceEmptyState
             className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "overflow-hidden")}
