@@ -367,7 +367,7 @@ async function main() {
         where: { id: folderId },
       });
       const configState = async (configKey: string) => db.systemConfig.findUnique({
-        select: { configValue: true, draftValue: true, draftUpdatedAt: true },
+        select: { configValue: true, draftValue: true, draftUpdatedAt: true, publishedAt: true },
         where: { configKey },
       });
 
@@ -398,6 +398,16 @@ async function main() {
       };
 
       const replaceAssetId = (value: unknown, assetId: string) => JSON.parse(JSON.stringify(value).replaceAll(PLACEHOLDER_ASSET_ID, assetId));
+
+      const v2Destination = "materi" as const;
+      const v2ConfigKey = BANNER_V2_CONFIG_KEYS.find((configKey) => configKey.endsWith(".materi"));
+      assert.ok(v2ConfigKey);
+      const v2Source = async () => {
+        const snapshot = await banner.getBannerMakerDestinationSnapshot(v2Destination);
+        assert.equal(snapshot.bootstrap.kind, "valid-design");
+        assert.ok(snapshot.bootstrap.source);
+        return snapshot.bootstrap.source;
+      };
 
       // Exhaustive scanner fixtures: every retained v1/v2 published and draft column
       // must deny a real production trash operation when it references the asset.
@@ -663,6 +673,137 @@ async function main() {
       assert.ok((await folderState(publishFolderTrashFirstFolder.id))?.trashedAt);
       assert.equal((await assetState(publishFolderTrashFirstAsset.assetId))?.state, "trashed");
       assert.equal(await configState(BANNER_LEGACY_CONFIG_KEY), null);
+
+      // V2 save/publish uses the same production repository and lock matrix.
+      // A saved v2 draft intentionally blocks trash, so a trash-first publish
+      // must report that denial and then publish the still-valid draft.
+      for (const operation of ["save", "publish"] as const) {
+        for (const trashTarget of ["asset", "folder"] as const) {
+          for (const order of ["writer-first", "trash-first"] as const) {
+            for (const referenced of [true, false] as const) {
+              await reset();
+              const v2Folder = await createFolder(`v2-${operation}-${trashTarget}-${order}-${referenced ? "referenced" : "unreferenced"}`);
+              const v2Asset = await createReadyAsset(v2Folder.id);
+              const v2Design = referenced ? createImageDesign(v2Asset.assetId) : createDefaultBannerDesign();
+              const source = await v2Source();
+              let savedDraft: Awaited<ReturnType<typeof banner.saveBannerMakerDestinationDraft>> | null = null;
+
+              if (operation === "publish") {
+                savedDraft = await banner.saveBannerMakerDestinationDraft({
+                  actorUserId,
+                  design: v2Design,
+                  destination: v2Destination,
+                  expectedRevision: null,
+                  source,
+                });
+              }
+
+              const writer = operation === "save"
+                ? () => banner.saveBannerMakerDestinationDraft({
+                    actorUserId,
+                    design: v2Design,
+                    destination: v2Destination,
+                    expectedRevision: null,
+                    source,
+                  })
+                : () => banner.publishBannerMakerDestinationDesign({
+                    actorUserId,
+                    design: v2Design,
+                    destination: v2Destination,
+                    expectedRevision: savedDraft?.currentRevision ?? null,
+                  });
+              const trash = trashTarget === "asset"
+                ? () => media.trashMediaAsset("admin", v2Asset.assetId)
+                : () => media.trashMediaFolder("admin", v2Folder.id);
+              const race = order === "writer-first"
+                ? await runLockOrderedRace(safety, writer, trash)
+                : await runLockOrderedRace(safety, trash, writer);
+              const writerOutcome = order === "writer-first" ? race.first : race.second;
+              const trashOutcome = order === "writer-first" ? race.second : race.first;
+              const finalAsset = await assetState(v2Asset.assetId);
+              const finalFolder = await folderState(v2Folder.id);
+              const finalConfig = await configState(v2ConfigKey);
+
+              if (!referenced) {
+                assert.equal(writerOutcome.ok, true, `${operation} must allow an unreferenced design`);
+                assert.equal(trashOutcome.ok, true, `${trashTarget} trash must allow an unreferenced design`);
+                assert.equal(finalAsset?.state, "trashed");
+                if (trashTarget === "folder") assert.ok(finalFolder?.trashedAt);
+                else assert.equal(finalFolder?.trashedAt, null);
+                assert.ok(finalConfig);
+                if (operation === "save") {
+                  assert.ok(finalConfig.draftValue);
+                  assert.equal(finalConfig.publishedAt, null);
+                } else {
+                  assert.equal(finalConfig.draftValue, null);
+                  assert.ok(finalConfig.publishedAt);
+                }
+                continue;
+              }
+
+              if (operation === "save" && order === "writer-first") {
+                assert.equal(writerOutcome.ok, true);
+                assertServiceError(trashOutcome, media.MediaServiceError, /masih digunakan|verifikasi/iu);
+                assert.equal(finalAsset?.state, "ready");
+                assert.equal(finalFolder?.trashedAt, null);
+                assert.ok(finalConfig?.draftValue);
+                assert.equal(finalConfig?.publishedAt, null);
+              } else if (operation === "save") {
+                assert.equal(trashOutcome.ok, true);
+                assertBannerValidationError(writerOutcome, /masih tersedia/iu);
+                assert.equal(finalAsset?.state, "trashed");
+                if (trashTarget === "folder") assert.ok(finalFolder?.trashedAt);
+                else assert.equal(finalFolder?.trashedAt, null);
+                assert.equal(finalConfig, null);
+              } else if (order === "writer-first") {
+                assert.equal(writerOutcome.ok, true);
+                assertServiceError(trashOutcome, media.MediaServiceError, /masih digunakan|verifikasi/iu);
+                assert.equal(finalAsset?.state, "ready");
+                assert.equal(finalFolder?.trashedAt, null);
+                assert.ok(finalConfig?.publishedAt);
+                assert.equal(finalConfig?.draftValue, null);
+              } else {
+                assertServiceError(trashOutcome, media.MediaServiceError, /masih digunakan|verifikasi/iu);
+                assert.equal(writerOutcome.ok, true, "trash-first publish must use the saved draft after trash is denied");
+                assert.equal(finalAsset?.state, "ready");
+                assert.equal(finalFolder?.trashedAt, null);
+                assert.ok(finalConfig?.publishedAt);
+                assert.equal(finalConfig?.draftValue, null);
+              }
+            }
+          }
+        }
+      }
+
+      // Missing and already-trashed asset references fail closed and leave no
+      // destination row behind.
+      await reset();
+      const missingAssetSource = await v2Source();
+      const missingAssetOutcome = await settle(banner.saveBannerMakerDestinationDraft({
+        actorUserId,
+        design: createImageDesign(randomUUID()),
+        destination: v2Destination,
+        expectedRevision: null,
+        source: missingAssetSource,
+      }));
+      assertBannerValidationError(missingAssetOutcome, /masih tersedia/iu);
+      assert.equal(await configState(v2ConfigKey), null);
+
+      await reset();
+      const trashedNegativeFolder = await createFolder("v2-trashed-negative");
+      const trashedNegativeAsset = await createReadyAsset(trashedNegativeFolder.id);
+      await media.trashMediaAsset("admin", trashedNegativeAsset.assetId);
+      const trashedAssetSource = await v2Source();
+      const trashedAssetOutcome = await settle(banner.saveBannerMakerDestinationDraft({
+        actorUserId,
+        design: createImageDesign(trashedNegativeAsset.assetId),
+        destination: v2Destination,
+        expectedRevision: null,
+        source: trashedAssetSource,
+      }));
+      assertBannerValidationError(trashedAssetOutcome, /masih tersedia/iu);
+      assert.equal((await assetState(trashedNegativeAsset.assetId))?.state, "trashed");
+      assert.equal(await configState(v2ConfigKey), null);
 
       // Folder creation and folder move both serialize before subtree trash.
       await reset();

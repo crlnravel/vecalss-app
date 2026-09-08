@@ -130,11 +130,7 @@ type BannerBootstrap =
       diagnostic: string;
       destination: BannerDestination;
       kind: "unavailable-recovery";
-      recoveryOptions: Array<{
-        design?: BannerDesign;
-        kind: "legacy-published" | "legacy-text";
-        source: BannerSourceDescriptor;
-      }>;
+      recoveryOptions: BannerRecoveryOption[];
       source: BannerSourceDescriptor | null;
     }
   | {
@@ -144,6 +140,18 @@ type BannerBootstrap =
       kind: "starter-needs-edit";
       source: BannerSourceDescriptor;
       title: string;
+    };
+
+type BannerRecoveryOption =
+  | {
+      design: BannerDesign;
+      kind: "legacy-published";
+      source: BannerSourceDescriptor;
+    }
+  | {
+      bootstrap: Extract<BannerBootstrap, { kind: "starter-needs-edit" | "valid-design" }>;
+      kind: "legacy-text";
+      source: BannerSourceDescriptor;
     };
 
 type BannerMakerDestinationSnapshot = {
@@ -603,6 +611,7 @@ export type {
   BannerSourceColumn,
   BannerSourceDescriptor,
   BannerSourceKind,
+  BannerRecoveryOption,
   BannerStarterIssue,
   BannerTextLayer,
 };

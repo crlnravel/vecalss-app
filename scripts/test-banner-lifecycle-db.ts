@@ -9,6 +9,8 @@ import {
   BannerMakerConflictError,
   BannerMakerSourceConflictError,
   BannerMakerValidationError,
+  BannerMakerDraftMismatchError,
+  BannerMakerRecoveryUnavailableError,
   createDefaultBannerDesign,
   createTextBannerStarterDesign,
   type BannerDesign,
@@ -23,6 +25,7 @@ import {
   BANNER_LEGACY_CONFIG_KEY,
   getBannerDestination,
 } from "../lib/banner/destinations";
+import { normalizeStudentBanners } from "../lib/student/banner-content";
 
 const { Client } = pg;
 const TEST_DATABASE_ENV = "BANNER_MEDIA_SAFETY_TEST_DATABASE_URL";
@@ -47,6 +50,16 @@ type Fixture = {
   draftUpdatedAt?: string | null;
   publishedAt?: string | null;
 };
+
+async function updateConfigMetadata(client: pg.Client, schema: string, configKey: string, userId = ACTOR_USER_ID) {
+  await client.query(
+    `UPDATE ${quoteIdentifier(schema)}."system_configs"
+        SET updated_by_user_id = $2::uuid,
+            updated_at = $3::timestamptz
+      WHERE config_key = $1`,
+    [configKey, userId, "2026-09-08T02:00:00.000Z"],
+  );
+}
 
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
@@ -161,7 +174,11 @@ async function insertConfig(client: pg.Client, schema: string, fixture: Fixture)
       JSON.stringify(fixture.configValue),
       fixture.draftValue === undefined ? null : JSON.stringify(fixture.draftValue),
       ACTOR_USER_ID,
-      fixture.draftUpdatedAt ?? (fixture.draftValue === undefined ? null : "2026-09-08T00:00:00.000Z"),
+      fixture.draftUpdatedAt !== undefined
+        ? fixture.draftUpdatedAt
+        : fixture.draftValue === undefined
+          ? null
+          : "2026-09-08T00:00:00.000Z",
       fixture.publishedAt ?? null,
     ],
   );
@@ -252,6 +269,13 @@ async function run(
   assert.ok(definition);
 
   await clearFixture(client, schema);
+  const legacyStudentOutput = {
+    beranda: { title: "Legacy student title", description: "Legacy student description" },
+  };
+  await insertConfig(client, schema, {
+    configKey: "student.banners",
+    configValue: legacyStudentOutput,
+  });
   const absent = await banner.getBannerMakerDestinationSnapshot(destination);
   assert.equal(absent.configId, null);
   assert.equal(absent.hasPublishedDesign, false);
@@ -354,6 +378,52 @@ async function run(
   const publishedRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
   assert.deepEqual(publishedRead.design, secondDesign);
   assert.equal(publishedRead.revision, published.currentRevision);
+  const unchangedStudentOutput = await readConfig(client, schema, "student.banners");
+  assert.ok(unchangedStudentOutput);
+  assert.deepEqual(unchangedStudentOutput.configValue, legacyStudentOutput);
+  assert.deepEqual(normalizeStudentBanners(unchangedStudentOutput.configValue), normalizeStudentBanners(legacyStudentOutput));
+
+  await clearFixture(client, schema);
+  await insertConfig(client, schema, {
+    configKey: "student.banners",
+    configValue: {
+      materi: { title: "Materi legacy", description: "Materi fallback" },
+      kuis: { title: "Kuis legacy", description: "Kuis fallback" },
+    },
+  });
+  const materiBefore = await banner.getBannerMakerDestinationSnapshot("materi");
+  const kuisBefore = await banner.getBannerMakerDestinationSnapshot("kuis");
+  const materiSave = await banner.saveBannerMakerDestinationDraft({
+    actorUserId: ACTOR_USER_ID,
+    design: makeDesign("materi destination"),
+    destination: "materi",
+    expectedRevision: null,
+    source: await sourceForSnapshot(materiBefore),
+  });
+  const kuisSave = await banner.saveBannerMakerDestinationDraft({
+    actorUserId: ACTOR_USER_ID,
+    design: makeDesign("kuis destination"),
+    destination: "kuis",
+    expectedRevision: null,
+    source: await sourceForSnapshot(kuisBefore),
+  });
+  assert.notEqual(materiSave.currentRevision, kuisSave.currentRevision);
+  const kuisUnchangedBeforePublish = await banner.getBannerMakerDestinationSnapshot("kuis");
+  assert.equal(kuisUnchangedBeforePublish.currentRevision, kuisSave.currentRevision);
+  await banner.publishBannerMakerDestinationDesign({
+    actorUserId: ACTOR_USER_ID,
+    design: materiSave.design,
+    destination: "materi",
+    expectedRevision: materiSave.currentRevision,
+  });
+  const kuisAfterMateriPublish = await banner.getBannerMakerDestinationSnapshot("kuis");
+  assert.equal(kuisAfterMateriPublish.currentRevision, kuisSave.currentRevision);
+  assert.equal(kuisAfterMateriPublish.hasPublishedDesign, false);
+  const crossDestinationStudentOutput = await readConfig(client, schema, "student.banners");
+  assert.deepEqual(crossDestinationStudentOutput?.configValue, {
+    materi: { title: "Materi legacy", description: "Materi fallback" },
+    kuis: { title: "Kuis legacy", description: "Kuis fallback" },
+  });
 
   await clearFixture(client, schema);
   await insertConfig(client, schema, {
@@ -372,6 +442,55 @@ async function run(
     }),
     BannerMakerValidationError,
   );
+
+  await clearFixture(client, schema);
+  const defaultOnlyText = {
+    beranda: { title: "Default-only source", description: "Source remains fenced." },
+  };
+  await insertConfig(client, schema, {
+    configKey: "student.banners",
+    configValue: defaultOnlyText,
+  });
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(null),
+  });
+  const existingDefaultOnly = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(existingDefaultOnly.bootstrap.kind, "valid-design");
+  assert.equal(existingDefaultOnly.currentRevision !== null, true);
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: firstDesign,
+      destination,
+      expectedRevision: existingDefaultOnly.currentRevision,
+    }),
+    BannerMakerValidationError,
+  );
+  const existingDefaultOnlySource = await sourceForSnapshot(existingDefaultOnly);
+  await updateConfigMetadata(client, schema, "student.banners");
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: firstDesign,
+      destination,
+      expectedRevision: existingDefaultOnly.currentRevision,
+      source: existingDefaultOnlySource,
+    }),
+    BannerMakerSourceConflictError,
+  );
+  const unchangedDefaultOnly = await readConfig(client, schema, definition.configKey);
+  assert.ok(unchangedDefaultOnly);
+  assert.equal(parseBannerDesignEnvelope(unchangedDefaultOnly.configValue, { allowNullDesign: true }).design, null);
+  const refreshedDefaultOnly = await banner.getBannerMakerDestinationSnapshot(destination);
+  const defaultOnlySave = await banner.saveBannerMakerDestinationDraft({
+    actorUserId: ACTOR_USER_ID,
+    design: firstDesign,
+    destination,
+    expectedRevision: refreshedDefaultOnly.currentRevision,
+    source: await sourceForSnapshot(refreshedDefaultOnly),
+  });
+  assert.equal(defaultOnlySave.hasSavedDraft, true);
 
   await clearFixture(client, schema);
   const publishedOnlyDesign = makeDesign("published only");
@@ -417,6 +536,69 @@ async function run(
   assert.equal(draftOnlyPublish.hasSavedDraft, false);
 
   await clearFixture(client, schema);
+  const equalDefaultDraft = createDefaultBannerDesign();
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(null),
+    draftValue: createBannerDesignEnvelope(equalDefaultDraft),
+    draftUpdatedAt: "2026-09-08T01:00:00.000Z",
+  });
+  const equalDefaultSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(equalDefaultSnapshot.hasUnpublishedChanges, true);
+  assert.equal(equalDefaultSnapshot.hasSavedDraft, true);
+  assert.deepEqual(equalDefaultSnapshot.design, equalDefaultDraft);
+  const equalDefaultRawBefore = await readConfig(client, schema, definition.configKey);
+  assert.ok(equalDefaultRawBefore);
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: makeDesign("stale existing save"),
+      destination,
+      expectedRevision: randomUUID(),
+    }),
+    BannerMakerConflictError,
+  );
+  await assert.rejects(
+    banner.publishBannerMakerDestinationDesign({
+      actorUserId: ACTOR_USER_ID,
+      design: equalDefaultDraft,
+      destination,
+      expectedRevision: randomUUID(),
+    }),
+    BannerMakerConflictError,
+  );
+  await assert.rejects(
+    banner.publishBannerMakerDestinationDesign({
+      actorUserId: ACTOR_USER_ID,
+      design: makeDesign("mismatched submitted design"),
+      destination,
+      expectedRevision: equalDefaultSnapshot.currentRevision,
+    }),
+    BannerMakerDraftMismatchError,
+  );
+  assert.deepEqual((await readConfig(client, schema, definition.configKey))?.draftValue, equalDefaultRawBefore.draftValue);
+
+  await clearFixture(client, schema);
+  const missingTimestampDraft = makeDesign("missing timestamp draft");
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(null),
+    draftValue: createBannerDesignEnvelope(missingTimestampDraft),
+    draftUpdatedAt: null,
+  });
+  const missingTimestampSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(missingTimestampSnapshot.publicationState, "invalid");
+  await assert.rejects(
+    banner.publishBannerMakerDestinationDesign({
+      actorUserId: ACTOR_USER_ID,
+      design: missingTimestampDraft,
+      destination,
+      expectedRevision: missingTimestampSnapshot.currentRevision,
+    }),
+    BannerMakerRecoveryUnavailableError,
+  );
+
+  await clearFixture(client, schema);
   const publishedPlusDraft = makeDesign("published base");
   const unpublishedDraft = makeDesign("unpublished draft");
   await insertConfig(client, schema, {
@@ -433,6 +615,92 @@ async function run(
   assert.equal(publishedPlusDraftSnapshot.hasUnpublishedChanges, true);
 
   await clearFixture(client, schema);
+  const publishedWithMalformedDraft = makeDesign("published survives bad draft");
+  const publishedWithMalformedDraftRaw = { unsupported: true };
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(publishedWithMalformedDraft),
+    draftValue: publishedWithMalformedDraftRaw,
+    draftUpdatedAt: "2026-09-08T01:00:00.000Z",
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  const malformedDraftSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(malformedDraftSnapshot.publicationState, "invalid");
+  assert.equal(malformedDraftSnapshot.bootstrap.kind, "unavailable-recovery");
+  assert.equal(malformedDraftSnapshot.design, null);
+  const malformedDraftPublishedRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
+  assert.deepEqual(malformedDraftPublishedRead.design, publishedWithMalformedDraft);
+  assert.equal(malformedDraftPublishedRead.diagnostic, null);
+  assert.deepEqual((await readConfig(client, schema, definition.configKey))?.draftValue, publishedWithMalformedDraftRaw);
+
+  await clearFixture(client, schema);
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(publishedWithMalformedDraft),
+    draftValue: createBannerDesignEnvelope(makeDesign("draft timestamp missing")),
+    draftUpdatedAt: null,
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  const missingDraftTimestampSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(missingDraftTimestampSnapshot.publicationState, "invalid");
+  const missingDraftTimestampRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
+  assert.deepEqual(missingDraftTimestampRead.design, publishedWithMalformedDraft);
+  assert.equal(missingDraftTimestampRead.diagnostic, null);
+
+  await clearFixture(client, schema);
+  const invalidV2TextValue = {
+    beranda: { title: "z".repeat(181), description: "Perbaiki lalu simpan." },
+  };
+  const invalidV2Published = makeDesign("published before v2 recovery");
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(invalidV2Published),
+    draftValue: { unsupported: true },
+    draftUpdatedAt: "2026-09-08T01:00:00.000Z",
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  await insertConfig(client, schema, {
+    configKey: "student.banners",
+    configValue: invalidV2TextValue,
+  });
+  const invalidV2TextSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(invalidV2TextSnapshot.bootstrap.kind, "unavailable-recovery");
+  const invalidV2TextOption = invalidV2TextSnapshot.bootstrap.kind === "unavailable-recovery"
+    ? invalidV2TextSnapshot.bootstrap.recoveryOptions.find((option) => option.kind === "legacy-text")
+    : null;
+  assert.ok(invalidV2TextOption?.kind === "legacy-text");
+  assert.equal(invalidV2TextOption.bootstrap.kind, "starter-needs-edit");
+  if (invalidV2TextOption.bootstrap.kind === "starter-needs-edit") {
+    assert.equal(invalidV2TextOption.bootstrap.title.length, 181);
+    const correctedInvalidV2Text = createTextBannerStarterDesign({
+      description: invalidV2TextOption.bootstrap.description,
+      destination,
+      title: "Recovered invalid v2",
+    });
+    const recoveredInvalidV2 = await banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: correctedInvalidV2Text,
+      destination,
+      expectedRevision: null,
+      source: invalidV2TextOption.source,
+    });
+    assert.equal(recoveredInvalidV2.hasPublishedDesign, true);
+    assert.equal(recoveredInvalidV2.hasSavedDraft, true);
+  }
+  const recoveredInvalidV2Config = await readConfig(client, schema, definition.configKey);
+  assert.ok(recoveredInvalidV2Config);
+  assert.deepEqual(parseBannerDesignEnvelope(recoveredInvalidV2Config.configValue).design, invalidV2Published);
+  assert.deepEqual(parseBannerDesignEnvelope(recoveredInvalidV2Config.draftValue).design, createTextBannerStarterDesign({
+    description: invalidV2TextValue.beranda.description,
+    destination,
+    title: "Recovered invalid v2",
+  }));
+  assert.deepEqual((await readConfig(client, schema, "student.banners"))?.configValue, invalidV2TextValue);
+  const recoveredInvalidV2PublishedRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
+  assert.deepEqual(recoveredInvalidV2PublishedRead.design, invalidV2Published);
+  assert.equal(recoveredInvalidV2PublishedRead.diagnostic, null);
+
+  await clearFixture(client, schema);
   const invalidRawConfig = { storageVersion: 2, revision: "broken", design: null };
   await insertConfig(client, schema, {
     configKey: definition.configKey,
@@ -447,6 +715,42 @@ async function run(
   assert.equal(invalidPublishedRead.design, null);
   assert.ok(invalidPublishedRead.diagnostic);
   assert.deepEqual((await readConfig(client, schema, definition.configKey))?.configValue, invalidRawConfig);
+
+  await clearFixture(client, schema);
+  const strictUuidPublished = makeDesign("strict uuid published");
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: createBannerDesignEnvelope(strictUuidPublished),
+    draftValue: {
+      design: makeDesign("strict uuid draft"),
+      revision: "00000000-0000-0000-0000-000000000000",
+      storageVersion: 2,
+    },
+    draftUpdatedAt: "2026-09-08T01:00:00.000Z",
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  const strictUuidDraftSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(strictUuidDraftSnapshot.publicationState, "invalid");
+  const strictUuidDraftRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
+  assert.deepEqual(strictUuidDraftRead.design, strictUuidPublished);
+  assert.equal(strictUuidDraftRead.diagnostic, null);
+
+  await clearFixture(client, schema);
+  const strictUuidPublishedRaw = {
+    design: strictUuidPublished,
+    revision: "00000000-0000-0000-0000-000000000000",
+    storageVersion: 2,
+  };
+  await insertConfig(client, schema, {
+    configKey: definition.configKey,
+    configValue: strictUuidPublishedRaw,
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  const strictUuidPublishedSnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(strictUuidPublishedSnapshot.publicationState, "invalid");
+  const strictUuidPublishedRead = await banner.getPublishedBannerMakerDestinationDesign(destination);
+  assert.equal(strictUuidPublishedRead.design, null);
+  assert.ok(strictUuidPublishedRead.diagnostic);
 
   await clearFixture(client, schema);
   const legacyDefault = createDefaultBannerDesign();
@@ -509,23 +813,60 @@ async function run(
   assert.equal((await readConfig(client, schema, BANNER_LEGACY_CONFIG_KEY))?.id, legacyPublishedRowId);
   assert.deepEqual((await readConfig(client, schema, BANNER_LEGACY_CONFIG_KEY))?.draftValue, malformedDraft);
 
-  const recoveryOption = malformedLegacySnapshot.bootstrap.kind === "unavailable-recovery"
-    ? malformedLegacySnapshot.bootstrap.recoveryOptions.find(({ kind }) => kind === "legacy-published")
+  let recoveryOption = malformedLegacySnapshot.bootstrap.kind === "unavailable-recovery"
+    ? malformedLegacySnapshot.bootstrap.recoveryOptions.find((option) => option.kind === "legacy-published")
     : null;
-  assert.ok(recoveryOption);
+  assert.ok(recoveryOption?.kind === "legacy-published");
   await assert.rejects(
     banner.saveBannerMakerDestinationDraft({
       actorUserId: ACTOR_USER_ID,
-      design: recoveryOption.design ?? legacyPublished,
+      design: recoveryOption.design,
       destination,
       expectedRevision: null,
       source: { ...recoveryOption.source, digest: "0".repeat(64) },
     }),
     BannerMakerSourceConflictError,
   );
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: recoveryOption.design,
+      destination,
+      expectedRevision: null,
+      source: { ...recoveryOption.source, rowId: randomUUID() },
+    }),
+    BannerMakerSourceConflictError,
+  );
+  await updateConfigMetadata(client, schema, BANNER_LEGACY_CONFIG_KEY, "66666666-6666-4666-8666-666666666666");
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: recoveryOption.design,
+      destination,
+      expectedRevision: null,
+      source: recoveryOption.source,
+    }),
+    BannerMakerSourceConflictError,
+  );
+  const refreshedMalformedLegacy = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(refreshedMalformedLegacy.bootstrap.kind, "unavailable-recovery");
+  recoveryOption = refreshedMalformedLegacy.bootstrap.kind === "unavailable-recovery"
+    ? refreshedMalformedLegacy.bootstrap.recoveryOptions.find((option) => option.kind === "legacy-published")
+    : null;
+  assert.ok(recoveryOption?.kind === "legacy-published");
+  await assert.rejects(
+    banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: recoveryOption.design,
+      destination,
+      expectedRevision: null,
+      source: { ...recoveryOption.source, sourceColumn: "draftValue" },
+    }),
+    BannerMakerRecoveryUnavailableError,
+  );
   const recovered = await banner.saveBannerMakerDestinationDraft({
     actorUserId: ACTOR_USER_ID,
-    design: recoveryOption.design ?? legacyPublished,
+    design: recoveryOption.design,
     destination,
     expectedRevision: null,
     source: recoveryOption.source,
@@ -570,6 +911,48 @@ async function run(
     });
   }
   assert.deepEqual((await readConfig(client, schema, "student.banners"))?.configValue, legacyTextValue);
+
+  await clearFixture(client, schema);
+  const recoveryTextValue = {
+    beranda: { title: "y".repeat(181), description: "Pilih {target} setelah mengedit." },
+  };
+  await insertConfig(client, schema, {
+    configKey: BANNER_LEGACY_CONFIG_KEY,
+    configValue: legacyPublished,
+    draftValue: malformedDraft,
+    draftUpdatedAt: "2026-09-08T01:00:00.000Z",
+    publishedAt: "2026-09-08T00:00:00.000Z",
+  });
+  await insertConfig(client, schema, {
+    configKey: "student.banners",
+    configValue: recoveryTextValue,
+  });
+  const textRecoverySnapshot = await banner.getBannerMakerDestinationSnapshot(destination);
+  assert.equal(textRecoverySnapshot.bootstrap.kind, "unavailable-recovery");
+  const textRecoveryOption = textRecoverySnapshot.bootstrap.kind === "unavailable-recovery"
+    ? textRecoverySnapshot.bootstrap.recoveryOptions.find((option) => option.kind === "legacy-text")
+    : null;
+  assert.ok(textRecoveryOption?.kind === "legacy-text");
+  assert.equal(textRecoveryOption.bootstrap.kind, "starter-needs-edit");
+  if (textRecoveryOption.bootstrap.kind === "starter-needs-edit") {
+    assert.equal(textRecoveryOption.bootstrap.title, recoveryTextValue.beranda.title);
+    assert.equal(textRecoveryOption.bootstrap.title.length, 181);
+    const correctedRecoveryDesign = createTextBannerStarterDesign({
+      description: textRecoveryOption.bootstrap.description,
+      destination,
+      title: "Recovered from text",
+    });
+    const recoveredFromText = await banner.saveBannerMakerDestinationDraft({
+      actorUserId: ACTOR_USER_ID,
+      design: correctedRecoveryDesign,
+      destination,
+      expectedRevision: null,
+      source: textRecoveryOption.source,
+    });
+    assert.equal(recoveredFromText.hasSavedDraft, true);
+  }
+  assert.deepEqual((await readConfig(client, schema, BANNER_LEGACY_CONFIG_KEY))?.draftValue, malformedDraft);
+  assert.deepEqual((await readConfig(client, schema, "student.banners"))?.configValue, recoveryTextValue);
 
   await clearFixture(client, schema);
   const textSourceSnapshot = await banner.getBannerMakerDestinationSnapshot("materi");

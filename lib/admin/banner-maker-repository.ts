@@ -29,6 +29,7 @@ import {
   type BannerDesign,
   type BannerMakerDestinationMutationResult,
   type BannerMakerDestinationSnapshot,
+  type BannerRecoveryOption,
   type BannerMakerSnapshot,
   type BannerSourceDescriptor,
   type BannerStarterIssue,
@@ -42,6 +43,7 @@ import {
 } from "@/lib/banner/destinations";
 import {
   createBannerDesignEnvelope,
+  isUuid,
   parseBannerDesignEnvelope,
   type BannerDesignEnvelope,
 } from "@/lib/banner/envelope";
@@ -452,17 +454,12 @@ type ParsedDestinationConfig = {
   configEnvelope: BannerDesignEnvelope;
   draftEnvelope: BannerDesignEnvelope | null;
   error: string | null;
-};
-
-type BannerRecoveryOption = {
-  design?: BannerDesign;
-  kind: "legacy-published" | "legacy-text";
-  source: BannerSourceDescriptor;
+  publishedError: string | null;
 };
 
 function readUuid(value: string | null, field: string) {
   if (value === null) return null;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
+  if (!isUuid(value)) {
     throw new BannerMakerValidationError(`${field} harus berupa UUID.`);
   }
   return value;
@@ -483,53 +480,38 @@ function parseDestinationConfig(config: DestinationConfig): ParsedDestinationCon
       configEnvelope: createBannerDesignEnvelope(null),
       draftEnvelope: null,
       error: "Konfigurasi publik v2 banner tidak valid dan membutuhkan pemulihan.",
+      publishedError: "Konfigurasi publik v2 banner tidak valid dan membutuhkan pemulihan.",
     };
   }
 
   let draftEnvelope: BannerDesignEnvelope | null = null;
+  let error: string | null = null;
   if (config.draftValue !== null) {
     try {
       draftEnvelope = parseBannerDesignEnvelope(config.draftValue);
     } catch {
-      return {
-        configEnvelope,
-        draftEnvelope: null,
-        error: "Draf v2 banner tidak valid dan membutuhkan pemulihan.",
-      };
+      error = "Draf v2 banner tidak valid dan membutuhkan pemulihan.";
     }
 
-    if (!config.draftUpdatedAt) {
-      return {
-        configEnvelope,
-        draftEnvelope,
-        error: "Metadata waktu draf v2 banner tidak valid dan membutuhkan pemulihan.",
-      };
+    if (draftEnvelope && !config.draftUpdatedAt) {
+      error = "Metadata waktu draf v2 banner tidak valid dan membutuhkan pemulihan.";
     }
   } else if (config.draftUpdatedAt) {
-    return {
-      configEnvelope,
-      draftEnvelope,
-      error: "Metadata draf v2 banner tidak lengkap dan membutuhkan pemulihan.",
-    };
+    error = "Metadata draf v2 banner tidak lengkap dan membutuhkan pemulihan.";
   }
 
+  let publishedError: string | null = null;
   if (config.publishedAt === null && configEnvelope.design !== null) {
-    return {
-      configEnvelope,
-      draftEnvelope,
-      error: "Desain v2 banner memiliki penanda terbit yang hilang.",
-    };
+    error ??= "Desain v2 banner memiliki penanda terbit yang hilang.";
+    publishedError = "Desain v2 banner memiliki penanda terbit yang hilang.";
   }
 
   if (config.publishedAt !== null && configEnvelope.design === null) {
-    return {
-      configEnvelope,
-      draftEnvelope,
-      error: "Penanda terbit v2 banner tidak memiliki desain publik.",
-    };
+    error ??= "Penanda terbit v2 banner tidak memiliki desain publik.";
+    publishedError = "Penanda terbit v2 banner tidak memiliki desain publik.";
   }
 
-  return { configEnvelope, draftEnvelope, error: null };
+  return { configEnvelope, draftEnvelope, error, publishedError };
 }
 
 async function readDestinationConfig(configKey: string, tx?: Prisma.TransactionClient): Promise<DestinationConfig | null> {
@@ -641,6 +623,15 @@ function createLegacyTextBootstrap(
   };
 }
 
+function createLegacyTextRecoveryOption(bootstrap: BannerBootstrap): BannerRecoveryOption | null {
+  if (bootstrap.kind === "unavailable-recovery" || !bootstrap.source) return null;
+  return {
+    bootstrap,
+    kind: "legacy-text",
+    source: bootstrap.source,
+  };
+}
+
 function createUnavailableBootstrap(
   destination: BannerDestination,
   diagnostic: string,
@@ -698,13 +689,12 @@ async function getBannerMakerDestinationSnapshot(
     if (parsed.error) {
       diagnostic = parsed.error;
       const legacyTextBootstrap = createLegacyTextBootstrap(destination, legacyText);
+      const textOption = createLegacyTextRecoveryOption(legacyTextBootstrap);
       bootstrap = createUnavailableBootstrap(
         destination,
         parsed.error,
         null,
-        legacyTextBootstrap.source
-          ? [{ kind: "legacy-text", source: legacyTextBootstrap.source }]
-          : [],
+        textOption ? [textOption] : [],
       );
       publicationState = "invalid";
     } else {
@@ -724,9 +714,7 @@ async function getBannerMakerDestinationSnapshot(
   } else {
     const draftValue = legacyArtwork?.draftValue;
     const textBootstrap = createLegacyTextBootstrap(destination, legacyText);
-    const textOption = textBootstrap.source
-      ? { kind: "legacy-text" as const, source: textBootstrap.source }
-      : null;
+    const textOption = createLegacyTextRecoveryOption(textBootstrap);
 
     if (draftValue !== null && legacyArtwork) {
       try {
@@ -817,7 +805,7 @@ function assertSourceDescriptor(value: BannerSourceDescriptor | null | undefined
   if (!/^([0-9a-f]{64})$/iu.test(value.digest)) {
     throw new BannerMakerValidationError("Digest sumber pemulihan banner tidak valid.");
   }
-  if (value.rowId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value.rowId)) {
+  if (value.rowId !== null && !isUuid(value.rowId)) {
     throw new BannerMakerValidationError("Identitas sumber pemulihan banner tidak valid.");
   }
   return value;
@@ -922,10 +910,28 @@ async function saveBannerMakerDestinationDraft({
     if (!definition) throw new BannerMakerValidationError("Tujuan banner tidak dikenali.");
     const current = await readDestinationConfig(definition.configKey, tx);
     let parsedCurrent: ParsedDestinationConfig | null = null;
+    let recoveryConfigEnvelope: BannerDesignEnvelope | null = null;
+    let isRecoverySave = false;
     if (current) {
       parsedCurrent = parseDestinationConfig(current);
-      if (parsedCurrent.error) throw new BannerMakerRecoveryUnavailableError(parsedCurrent.error);
-      if (readDestinationConfigRevision(current) !== revision) throw new BannerMakerConflictError();
+      if (parsedCurrent.error) {
+        if (!source || revision !== null) throw new BannerMakerRecoveryUnavailableError(parsedCurrent.error);
+        await assertLegacySourceUnchanged(tx, destination, source);
+        isRecoverySave = true;
+        recoveryConfigEnvelope = parsedCurrent.publishedError === null
+          ? parsedCurrent.configEnvelope
+          : createBannerDesignEnvelope(null);
+      } else {
+        if (readDestinationConfigRevision(current) !== revision) throw new BannerMakerConflictError();
+
+        const isFirstV2Save = parsedCurrent.configEnvelope.design === null
+          && parsedCurrent.draftEnvelope === null
+          && current.publishedAt === null;
+        if (isFirstV2Save) {
+          if (!source) throw new BannerMakerValidationError("Pilih sumber starter banner sebelum menyimpan.");
+          await assertLegacySourceUnchanged(tx, destination, source);
+        }
+      }
     } else if (revision !== null) {
       throw new BannerMakerConflictError();
     } else {
@@ -935,7 +941,7 @@ async function saveBannerMakerDestinationDraft({
 
     await assertBannerAssets(tx, submittedDesign);
     const now = new Date();
-    const configEnvelope = parsedCurrent?.configEnvelope ?? createBannerDesignEnvelope(null);
+    const configEnvelope = recoveryConfigEnvelope ?? parsedCurrent?.configEnvelope ?? createBannerDesignEnvelope(null);
     const draftEnvelope = createBannerDesignEnvelope(submittedDesign);
     let config: DestinationConfig;
 
@@ -943,6 +949,17 @@ async function saveBannerMakerDestinationDraft({
       if (current) {
         config = await tx.systemConfig.update({
           data: {
+            ...(isRecoverySave
+              ? {
+                  configValue: configEnvelope as unknown as Prisma.InputJsonValue,
+                  publishedAt: parsedCurrent?.publishedError === null && current.publishedAt !== null
+                    ? current.publishedAt
+                    : null,
+                  publishedByUserId: parsedCurrent?.publishedError === null && current.publishedAt !== null
+                    ? current.publishedByUserId
+                    : null,
+                }
+              : {}),
             draftUpdatedAt: now,
             draftUpdatedByUserId: actorUserId,
             draftValue: draftEnvelope as unknown as Prisma.InputJsonValue,
@@ -998,7 +1015,7 @@ async function saveBannerMakerDestinationDraft({
         action: "student_banner_maker_v2_draft_saved",
         actorUserId,
         metadata: {
-          action: "save-draft",
+          action: isRecoverySave ? "recover-draft" : "save-draft",
           destination,
           newRevision: draftEnvelope.revision,
           oldRevision: revision,
@@ -1118,8 +1135,13 @@ async function getPublishedBannerMakerDestinationDesign(destinationValue: Banner
 
   try {
     const parsed = parseDestinationConfig(config);
-    if (parsed.error || config.publishedAt === null || parsed.configEnvelope.design === null) {
-      return { destination, diagnostic: parsed.error ?? "Banner belum memiliki publikasi yang sah.", design: null, revision: null };
+    if (parsed.publishedError || config.publishedAt === null || parsed.configEnvelope.design === null) {
+      return {
+        destination,
+        diagnostic: parsed.publishedError ?? "Banner belum memiliki publikasi yang sah.",
+        design: null,
+        revision: null,
+      };
     }
     return {
       destination,
