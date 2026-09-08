@@ -235,11 +235,10 @@ function QuickAccessSection() {
       <DashboardSectionHeading icon={Zap} title="Akses Cepat" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
-          <Link className="group block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
+          <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
               REFERENCE_SURFACE_CLASS_NAMES.raised,
-              REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
-              "gap-0 border-learning-card-border py-0 ring-0 group-hover:border-voyage-forest motion-reduce:transition-none",
+              "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
               item.href === "/courses" && "border-learning-hero-bg bg-learning-hero-bg",
             )}>
               <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
@@ -257,7 +256,7 @@ function QuickAccessSection() {
                     {item.description}
                   </CardDescription>
                 </div>
-                <ChevronRight aria-hidden="true" className={cn("size-5 shrink-0 text-voyage-deep transition-transform motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none", item.href === "/courses" && "text-learning-hero-fg")} />
+                <ChevronRight aria-hidden="true" className={cn("size-5 shrink-0 text-voyage-deep", item.href === "/courses" && "text-learning-hero-fg")} />
               </CardContent>
             </Card>
           </Link>
