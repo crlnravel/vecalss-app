@@ -17,6 +17,7 @@ export default function TryoutError({
 
   return (
     <TypedRouteState
+      className="student-page-canvas"
       description="Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout; percobaan yang sudah tersimpan tetap aman."
       kind="error"
       onRetry={reset}

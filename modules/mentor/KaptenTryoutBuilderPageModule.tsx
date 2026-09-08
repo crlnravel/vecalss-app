@@ -52,7 +52,6 @@ import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { buildQuestionBankHref } from "@/lib/navigation/canonical-context";
@@ -670,6 +669,187 @@ function TryoutBasicsTab({
   );
 }
 
+type TryoutSectionsTabProps = {
+  activeBrowseBank?: SourceBank;
+  activeDirectQuestions: DirectQuestionDraft[];
+  activeSection: TestDraft;
+  activeSourceQuestions: SourceQuestion[];
+  browseBankId: string | null;
+  draft: TryoutDraft;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  onBankPageNext: () => void;
+  onBankSearchChange: (search: string) => void;
+  onQuestionPageChange: (page: number) => void;
+  onQuestionSearchChange: (search: string) => void;
+  onSelectBank: (bankId: string) => void;
+  onToggleQuestion: (question: SourceQuestion) => void;
+  onUpdateSection: (change: Partial<TestDraft>) => void;
+  selectedSourceQuestionIdsSet: Set<string>;
+  sourceBankLoading: boolean;
+  sourceBankSearch: string;
+  sourceBankTotal: number;
+  sourceBanks: SourceBank[];
+  sourceQuestionLoading: boolean;
+  sourceQuestionPage: number;
+  sourceQuestionSearch: string;
+  sourceQuestionTotal: number;
+  saving: boolean;
+};
+
+function TryoutSourceQuestionCard({
+  activeDirectQuestions,
+  onPreviewQuestion,
+  onToggleQuestion,
+  question,
+  selectedSourceQuestionIdsSet,
+  saving,
+  locked,
+}: {
+  activeDirectQuestions: DirectQuestionDraft[];
+  locked: boolean;
+  onPreviewQuestion: (question: SourceQuestion) => void;
+  onToggleQuestion: (question: SourceQuestion) => void;
+  question: SourceQuestion;
+  selectedSourceQuestionIdsSet: Set<string>;
+  saving: boolean;
+}) {
+  const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
+  const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
+  const checkboxId = `source-question-${question.id}`;
+
+  return (
+    <article className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`}>
+      <div className="flex min-w-0 items-start gap-3">
+        <Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <label className="min-w-0 flex-1 cursor-pointer overflow-hidden" htmlFor={checkboxId}>
+              <div className="flex flex-wrap gap-2">
+                <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
+                <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
+              </div>
+              <p className="mt-2 block w-full min-w-0 max-w-[60ch] truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
+            </label>
+            <Tooltip>
+              <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => onPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
+              <TooltipContent>Pratinjau soal</TooltipContent>
+            </Tooltip>
+          </div>
+          {selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function TryoutSourceBankPicker({
+  activeBrowseBank,
+  activeSection,
+  browseBankId,
+  draft,
+  guardExternalNavigation,
+  onBankPageNext,
+  onBankSearchChange,
+  onSelectBank,
+  sourceBankLoading,
+  sourceBankSearch,
+  sourceBankTotal,
+  sourceBanks,
+  saving,
+}: Pick<TryoutSectionsTabProps, "activeBrowseBank" | "activeSection" | "browseBankId" | "draft" | "guardExternalNavigation" | "onBankPageNext" | "onBankSearchChange" | "onSelectBank" | "sourceBankLoading" | "sourceBankSearch" | "sourceBankTotal" | "sourceBanks" | "saving">) {
+  return (
+    <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
+      <Field>
+        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
+        <Popover>
+          <PopoverTrigger disabled={saving || draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
+            <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
+            <ChevronDown />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+              <FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving} onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+            </div>
+            {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
+            <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
+              <SourceBankList activeSectionSubtest={activeSection.subtest} browseBankId={browseBankId} disabled={saving} guardExternalNavigation={guardExternalNavigation} onSelectBank={onSelectBank} sourceBanks={sourceBanks} />
+            </div>
+            {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={saving || sourceBankLoading} onClick={onBankPageNext} size="sm" variant="reference">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
+          </PopoverContent>
+        </Popover>
+      </Field>
+    </ReferenceSurface>
+  );
+}
+
+function TryoutSourceQuestionList({
+  activeBrowseBank,
+  activeDirectQuestions,
+  activeSection,
+  activeSourceQuestions,
+  browseBankId,
+  draft,
+  onPreviewQuestion,
+  onQuestionPageChange,
+  onQuestionSearchChange,
+  onToggleQuestion,
+  selectedSourceQuestionIdsSet,
+  sourceQuestionLoading,
+  sourceQuestionPage,
+  sourceQuestionSearch,
+  sourceQuestionTotal,
+  saving,
+}: Pick<TryoutSectionsTabProps, "activeBrowseBank" | "activeDirectQuestions" | "activeSection" | "activeSourceQuestions" | "browseBankId" | "draft" | "onQuestionPageChange" | "onQuestionSearchChange" | "onToggleQuestion" | "selectedSourceQuestionIdsSet" | "sourceQuestionLoading" | "sourceQuestionPage" | "sourceQuestionSearch" | "sourceQuestionTotal" | "saving"> & { onPreviewQuestion: (question: SourceQuestion) => void }) {
+  const sourceQuestionPageCount = Math.max(1, Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE));
+
+  return (
+    <ReferenceSurface className="min-w-0 p-5">
+      <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving || !browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+      {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
+      {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => <TryoutSourceQuestionCard activeDirectQuestions={activeDirectQuestions} locked={draft.locked} onPreviewQuestion={onPreviewQuestion} onToggleQuestion={onToggleQuestion} question={question} selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet} key={question.id} saving={saving} />)}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
+      {browseBankId && sourceQuestionTotal > 0 ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex justify-center border-t border-primary-100 pt-4 sm:justify-end"><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
+    </ReferenceSurface>
+  );
+}
+
+function TryoutQuestionSourceTab(props: TryoutSectionsTabProps & { onPreviewQuestion: (question: SourceQuestion) => void }) {
+  return (
+    <TabsContent className="mt-0 min-w-0 w-full lg:col-start-2" value="sections">
+      <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
+        <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
+          <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-5">
+          <div className="grid gap-5">
+            <TryoutSourceBankPicker {...props} />
+            <TryoutSourceQuestionList {...props} />
+          </div>
+        </div>
+      </ReferenceSurface>
+    </TabsContent>
+  );
+}
+
+function TryoutSourceQuestionPreview({ question, onClose }: { question: SourceQuestion | null; onClose: () => void }) {
+  return (
+    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(question)}>
+      <DialogContent className="max-h-[calc(100svh-2rem)] sm:max-w-2xl" variant="default">
+        <DialogHeader><DialogTitle>Pratinjau soal</DialogTitle></DialogHeader>
+        {question ? <div className="grid gap-5">
+          <p className="break-words text-base leading-7 text-secondary-900">{question.prompt || "Pertanyaan belum tersedia."}</p>
+          <ol aria-label="Pilihan jawaban" className="m-0 grid list-none gap-3 p-0">
+            {question.choices.map((choice, index) => <li className="flex min-w-0 items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/45 px-3 py-3" key={choice.id}>
+              <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-primary-800">{String.fromCharCode(65 + index)}</span>
+              <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">{choice.text}</span>
+            </li>)}
+          </ol>
+        </div> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TryoutSectionsTab({
   activeBrowseBank,
   activeDirectQuestions,
@@ -695,34 +875,8 @@ function TryoutSectionsTab({
   sourceQuestionSearch,
   sourceQuestionTotal,
   saving,
-}: {
-  activeBrowseBank?: SourceBank;
-  activeDirectQuestions: DirectQuestionDraft[];
-  activeSection: TestDraft;
-  activeSourceQuestions: SourceQuestion[];
-  browseBankId: string | null;
-  draft: TryoutDraft;
-  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
-  onBankPageNext: () => void;
-  onBankSearchChange: (search: string) => void;
-  onQuestionPageChange: (page: number) => void;
-  onQuestionSearchChange: (search: string) => void;
-  onSelectBank: (bankId: string) => void;
-  onToggleQuestion: (question: SourceQuestion) => void;
-  onUpdateSection: (change: Partial<TestDraft>) => void;
-  selectedSourceQuestionIdsSet: Set<string>;
-  sourceBankLoading: boolean;
-  sourceBankSearch: string;
-  sourceBankTotal: number;
-  sourceBanks: SourceBank[];
-  sourceQuestionLoading: boolean;
-  sourceQuestionPage: number;
-  sourceQuestionSearch: string;
-  sourceQuestionTotal: number;
-  saving: boolean;
-}) {
+}: TryoutSectionsTabProps) {
   const [previewQuestion, setPreviewQuestion] = useState<SourceQuestion | null>(null);
-  const sourceQuestionPageCount = Math.max(1, Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE));
 
   return (
     <TooltipProvider>
@@ -747,98 +901,8 @@ function TryoutSectionsTab({
           </ReferenceSurface>
         </div>
       </TabsContent>
-
-      <TabsContent className="mt-0 min-w-0 w-full lg:col-start-2" value="sections">
-        <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
-          <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
-            <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5">
-            <div className="grid gap-5">
-              <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
-                <Field>
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
-                  <Popover>
-                    <PopoverTrigger disabled={saving || draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
-                      <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
-                      <ChevronDown />
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                        <FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving} onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
-                      </div>
-                      {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
-                      <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
-                        <SourceBankList
-                          activeSectionSubtest={activeSection.subtest}
-                          browseBankId={browseBankId}
-                          disabled={saving}
-                          guardExternalNavigation={guardExternalNavigation}
-                          onSelectBank={onSelectBank}
-                          sourceBanks={sourceBanks}
-                        />
-                      </div>
-                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={saving || sourceBankLoading} onClick={onBankPageNext} size="sm" variant="reference">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
-                    </PopoverContent>
-                  </Popover>
-                </Field>
-              </ReferenceSurface>
-              <ReferenceSurface className="min-w-0 p-5">
-                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving || !browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
-                {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
-                {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
-                  const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
-                  const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
-                  const checkboxId = `source-question-${question.id}`;
-                  return (
-                    <article className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
-                      <div className="flex min-w-0 items-start gap-3">
-                        <Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-start justify-between gap-3">
-                            <label className="min-w-0 flex-1 cursor-pointer overflow-hidden" htmlFor={checkboxId}>
-                              <div className="flex flex-wrap gap-2">
-                                <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
-                                <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
-                              </div>
-                              <p className="mt-2 block w-full min-w-0 max-w-[60ch] truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
-                            </label>
-                            <Tooltip>
-                              <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => setPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
-                              <TooltipContent>Pratinjau soal</TooltipContent>
-                            </Tooltip>
-                          </div>
-                          {selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > 0 ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex justify-center border-t border-primary-100 pt-4 sm:justify-end"><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
-              </ReferenceSurface>
-            </div>
-          </div>
-        </ReferenceSurface>
-      </TabsContent>
-
-      <Dialog onOpenChange={(open) => { if (!open) setPreviewQuestion(null); }} open={Boolean(previewQuestion)}>
-        <DialogContent className="max-h-[calc(100svh-2rem)] sm:max-w-2xl" variant="default">
-          <DialogHeader>
-            <DialogTitle>Pratinjau soal</DialogTitle>
-          </DialogHeader>
-          {previewQuestion ? <div className="grid gap-5">
-            <p className="break-words text-base leading-7 text-secondary-900">{previewQuestion.prompt || "Pertanyaan belum tersedia."}</p>
-            <ol aria-label="Pilihan jawaban" className="m-0 grid list-none gap-3 p-0">
-              {previewQuestion.choices.map((choice, index) => <li className="flex min-w-0 items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/45 px-3 py-3" key={choice.id}>
-                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-primary-800">{String.fromCharCode(65 + index)}</span>
-                <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">{choice.text}</span>
-              </li>)}
-            </ol>
-          </div> : null}
-        </DialogContent>
-      </Dialog>
+      <TryoutQuestionSourceTab activeBrowseBank={activeBrowseBank} activeDirectQuestions={activeDirectQuestions} activeSection={activeSection} activeSourceQuestions={activeSourceQuestions} browseBankId={browseBankId} draft={draft} guardExternalNavigation={guardExternalNavigation} onBankPageNext={onBankPageNext} onBankSearchChange={onBankSearchChange} onPreviewQuestion={setPreviewQuestion} onQuestionPageChange={onQuestionPageChange} onQuestionSearchChange={onQuestionSearchChange} onSelectBank={onSelectBank} onToggleQuestion={onToggleQuestion} onUpdateSection={onUpdateSection} selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet} sourceBankLoading={sourceBankLoading} sourceBankSearch={sourceBankSearch} sourceBankTotal={sourceBankTotal} sourceBanks={sourceBanks} sourceQuestionLoading={sourceQuestionLoading} sourceQuestionPage={sourceQuestionPage} sourceQuestionSearch={sourceQuestionSearch} sourceQuestionTotal={sourceQuestionTotal} saving={saving} />
+      <TryoutSourceQuestionPreview onClose={() => setPreviewQuestion(null)} question={previewQuestion} />
       </>
     </TooltipProvider>
   );
@@ -846,12 +910,10 @@ function TryoutSectionsTab({
 
 function TryoutReviewTab({
   draft,
-  onPublishClick,
   saving,
   setPublishOpen,
 }: {
   draft: TryoutDraft;
-  onPublishClick: () => void;
   saving: boolean;
   setPublishOpen: (open: boolean) => void;
 }) {
@@ -969,7 +1031,6 @@ function useTryoutBuilderState({
   id,
   initialDeliveryArea,
   initialDraft,
-  initialParent,
   initialSessionId,
   initialSourceBankTotal,
   initialSourceBanks,
@@ -979,7 +1040,6 @@ function useTryoutBuilderState({
   id?: string;
   initialDeliveryArea?: string;
   initialDraft?: TryoutDraft | null;
-  initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
   initialSourceBankTotal?: number;
   initialSourceBanks: SourceBank[];
@@ -1736,6 +1796,64 @@ function TryoutFooterActions({
   );
 }
 
+function TryoutBuilderHeaderActions({
+  dispatch,
+  hasActiveAttempt,
+  mode,
+  saving,
+}: Pick<React.ComponentProps<typeof TryoutBuilderHeader>, "dispatch" | "hasActiveAttempt" | "mode" | "saving">) {
+  if (mode !== "published") return undefined;
+
+  return (
+    <>
+      <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
+        <FilePenLine />Jadikan draf
+      </Button>
+      <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
+        <Copy />Duplikat draf baru
+      </Button>
+    </>
+  );
+}
+
+function TryoutBuilderNotices({
+  draft,
+  error,
+  guardExternalNavigation,
+  initialParent,
+  mode,
+  routeNormalizationNotice,
+}: Pick<React.ComponentProps<typeof TryoutBuilderHeader>, "draft" | "error" | "guardExternalNavigation" | "initialParent" | "mode" | "routeNormalizationNotice">) {
+  return (
+    <>
+      {error ? (
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
+          <CircleAlert className="mt-1 size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+      {routeNormalizationNotice ? (
+        <ReferenceSurface className="mt-4 flex items-start gap-2 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
+          {routeNormalizationNotice}
+        </ReferenceSurface>
+      ) : null}
+      {draft.locked ? (
+        <ReferenceSurface className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <Lock className="mt-1 size-4 shrink-0" />
+          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
+        </ReferenceSurface>
+      ) : null}
+      {initialParent && mode === "draft" ? (
+        <ReferenceSurface className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
+          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
+        </ReferenceSurface>
+      ) : null}
+    </>
+  );
+}
+
 function TryoutBuilderHeader({
   dispatch,
   draft,
@@ -1774,43 +1892,10 @@ function TryoutBuilderHeader({
             </span>
           )}
           title={mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}
-          actions={mode === "published" ? (
-            <>
-              <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
-                <FilePenLine />Jadikan draf
-              </Button>
-              <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
-                <Copy />Duplikat draf baru
-              </Button>
-            </>
-          ) : undefined}
+          actions={<TryoutBuilderHeaderActions dispatch={dispatch} hasActiveAttempt={hasActiveAttempt} mode={mode} saving={saving} />}
         />
       </div>
-
-      {error ? (
-        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
-          <CircleAlert className="mt-1 size-4 shrink-0" />
-          {error}
-        </p>
-      ) : null}
-      {routeNormalizationNotice ? (
-        <ReferenceSurface className="mt-4 flex items-start gap-2 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
-          {routeNormalizationNotice}
-        </ReferenceSurface>
-      ) : null}
-      {draft.locked ? (
-        <ReferenceSurface className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <Lock className="mt-1 size-4 shrink-0" />
-          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
-        </ReferenceSurface>
-      ) : null}
-      {initialParent && mode === "draft" ? (
-        <ReferenceSurface className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
-          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
-        </ReferenceSurface>
-      ) : null}
+      <TryoutBuilderNotices draft={draft} error={error} guardExternalNavigation={guardExternalNavigation} initialParent={initialParent} mode={mode} routeNormalizationNotice={routeNormalizationNotice} />
     </>
   );
 }
@@ -1971,7 +2056,6 @@ function TryoutWorkspaceTabs({
 
           <TryoutReviewTab
             draft={draft}
-            onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
             saving={saving}
             setPublishOpen={(open) => dispatch({ open, type: "setPublishOpen" })}
           />
@@ -1991,7 +2075,6 @@ function KaptenTryoutBuilderPageModule({
   operationsInitial,
   initialSourceBankTotal,
   initialSourceBanks,
-  session,
 }: {
   id?: string;
   initialDeliveryArea?: string;
@@ -2002,7 +2085,6 @@ function KaptenTryoutBuilderPageModule({
   initialSourceBanks: SourceBank[];
   initialWorkspace?: string;
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
-  session: SessionContext;
 }) {
   const {
     activeBrowseBank,
@@ -2037,7 +2119,6 @@ function KaptenTryoutBuilderPageModule({
     publishOpen,
     routeNormalizationNotice,
     save,
-    savedDraftRef,
     saveMetadata,
     saving,
     sectionReadiness,
@@ -2063,7 +2144,6 @@ function KaptenTryoutBuilderPageModule({
     id,
     initialDeliveryArea,
     initialDraft,
-    initialParent,
     initialSessionId,
     initialSourceBanks,
     initialSourceBankTotal,

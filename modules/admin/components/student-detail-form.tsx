@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "@/lib/icons";
@@ -61,13 +61,18 @@ function StudentDetailForm({
     }
   }, []);
 
-  function updateDirtyState(override?: FieldChangeOverride) {
+  const updateDirtyState = useCallback((override?: FieldChangeOverride) => {
     if (!formRef.current || initialValuesRef.current === null) {
       return;
     }
 
     setHasUnsavedChanges(serializeForm(formRef.current, override) !== initialValuesRef.current);
-  }
+  }, []);
+
+  const fieldChangeHandler = useMemo(
+    () => (override: FieldChangeOverride) => updateDirtyState(override),
+    [updateDirtyState],
+  );
 
   function handleFormChange() {
     updateDirtyState();
@@ -90,7 +95,7 @@ function StudentDetailForm({
   }
 
   return (
-    <StudentDetailFormFieldChangeContext.Provider value={(override) => updateDirtyState(override)}>
+    <StudentDetailFormFieldChangeContext.Provider value={fieldChangeHandler}>
       <form
         action={updateStudentEnrollmentAction}
         className="min-w-0 space-y-6"

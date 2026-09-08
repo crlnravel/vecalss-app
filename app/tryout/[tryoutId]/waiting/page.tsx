@@ -5,6 +5,7 @@ import { requireStudentSession } from "@/lib/auth/access";
 import {
   buildStudentTryoutHref,
   canonicalContextMessage,
+  getSafeRedirectUrl,
   parseStudentTryoutContext,
   type CanonicalContextIssue,
   type NavigationQueryValue,
@@ -45,7 +46,7 @@ export default async function TryoutWaitingRoomPage({ params, searchParams }: { 
     ? tryout.assignments.find((candidate) => candidate.id === parsedQuery.session)
     : tryout.assignments[0];
   if (!assignment || !canEnterParticipantWaitingRoom(tryout, parsedQuery.session)) {
-    redirect(buildStudentTryoutHref(tryout.id, { returnTo: parsedQuery.returnTo, session: parsedQuery.session }));
+    redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryout.id, { returnTo: parsedQuery.returnTo, session: parsedQuery.session }), ["/tryout"]));
   }
   return <ParticipantWaitingRoomModule assignment={assignment} notificationFeed={notificationFeed} returnToHref={parsedQuery.returnTo} session={session} tryout={tryout} />;
 }

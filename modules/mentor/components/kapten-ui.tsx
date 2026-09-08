@@ -133,13 +133,7 @@ function ResourceRow({
   resource: KaptenResource;
 }) {
   const meta = contentTypeMeta[resource.resourceType];
-  const subtitle = resource.resourceType === "tryout"
-    ? "Tryout"
-    : resource.resourceType === "materi"
-      ? `${resource.subjectCode ?? ""}${resource.subjectCode ? " · " : ""}Materi`
-      : resource.resourceType === "quiz"
-        ? `${resource.subjectCode ?? ""}${resource.subjectCode ? " · " : ""}Kuis`
-        : `${resource.subjectCode ?? ""}${resource.subjectCode ? " · " : ""}${meta.label}`;
+  const subtitle = resourceSubtitle(resource, meta.label);
 
   return (
     <Link
@@ -187,6 +181,12 @@ function ResourceRow({
       </div>
     </Link>
   );
+}
+
+function resourceSubtitle(resource: KaptenResource, defaultLabel: string) {
+  if (resource.resourceType === "tryout") return "Tryout";
+  const subject = resource.subjectCode ? `${resource.subjectCode} · ` : "";
+  return `${subject}${resource.resourceType === "materi" ? "Materi" : resource.resourceType === "quiz" ? "Kuis" : defaultLabel}`;
 }
 
 function QuickCreateMenu({ label }: { label?: string } = {}) {

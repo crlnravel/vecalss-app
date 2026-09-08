@@ -143,7 +143,7 @@ function CourseLessonPlayerModule({
     <CourseWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={`${course.title} · ${lesson.title}`}
-      mainClassName="max-w-[112rem] gap-0 bg-white px-4 py-7 md:px-8 lg:px-10 lg:py-9"
+      mainClassName="max-w-[112rem] gap-0 px-4 py-7 md:px-8 lg:px-10 lg:py-9"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari bacaan di materi ini..."
       session={session}

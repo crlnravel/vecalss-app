@@ -9,14 +9,16 @@ type AiFreshnessBannerProps = {
   freshness: FreshnessState;
 };
 
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 function formatAsOf(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "waktu tidak tersedia";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return DATE_TIME_FORMATTER.format(date);
 }
 
 function stateLabel(state: FreshnessState["requests"]["state"] | FreshnessState["cost"]["state"]) {

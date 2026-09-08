@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type Dispatch,
   type RefObject,
+  type SetStateAction,
 } from "react";
 import { showToast } from "@/components/ui/toast";
 import {
@@ -134,116 +136,45 @@ function useMediaLibraryUploads({
   return { handleDrop, handleFiles, uploadStatus };
 }
 
-function MediaLibrary({
-  appearance = "default",
-  allowedMimeTypes,
-  className,
-  onSelect,
+function createMediaLibraryMutationHandlers({
+  editingItem,
+  editingName,
+  folderId,
+  moveRequest,
+  moveTargetId,
+  mutationPending,
+  newFolderName,
+  refreshLibrary,
   scope,
-  selectedAssetId,
-  variant = "manage",
+  setEditingItem,
+  setError,
+  setFolderDialogOpen,
+  setMoveRequest,
+  setMutationPending,
+  setPreviewAsset,
+  setNewFolderName,
+  setTrashRequest,
+  trashRequest,
 }: {
-  appearance?: "banner" | "default" | "drive" | "reference";
-  allowedMimeTypes?: readonly SupportedMediaMimeType[];
-  className?: string;
-  onSelect?: (asset: MediaAssetDto) => void;
+  editingItem: EditableItem | null;
+  editingName: string;
+  folderId: string | null;
+  moveRequest: MoveRequest | null;
+  moveTargetId: string;
+  mutationPending: MediaMutation | null;
+  newFolderName: string;
+  refreshLibrary: (message?: string) => void;
   scope: MediaScope;
-  selectedAssetId?: string | null;
-  variant?: "manage" | "picker";
+  setEditingItem: (value: EditableItem | null) => void;
+  setError: (value: string | null) => void;
+  setFolderDialogOpen: (value: boolean) => void;
+  setMoveRequest: (value: MoveRequest | null) => void;
+  setMutationPending: (value: MediaMutation | null) => void;
+  setNewFolderName: (value: string) => void;
+  setPreviewAsset: Dispatch<SetStateAction<MediaAssetDto | null>>;
+  setTrashRequest: (value: TrashRequest | null) => void;
+  trashRequest: TrashRequest | null;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [snapshot, setSnapshot] = useState<MediaLibrarySnapshot | null>(null);
-  const [folderId, setFolderId] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState("");
-  const [refreshVersion, setRefreshVersion] = useState(0);
-  const [loadingRequestId, setLoadingRequestId] = useState<number | null>(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
-  const [moveTargetId, setMoveTargetId] = useState<string>("");
-  const [trashRequest, setTrashRequest] = useState<TrashRequest | null>(null);
-  const [mutationPending, setMutationPending] = useState<MediaMutation | null>(null);
-  const [previewAsset, setPreviewAsset] = useState<MediaAssetDto | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const latestLoadRequestId = useRef(0);
-  const isLoading = loadingRequestId !== null;
-  const isPicker = variant === "picker";
-  const isReference = appearance === "reference" && scope === "kapten" && !isPicker;
-  const isMinimalGallery = appearance === "banner";
-  const isDrive = appearance === "banner" || appearance === "drive" || (isReference && !isPicker);
-  const defaultMimeTypes = scope === "admin"
-    ? imageMediaMimeTypes
-    : isPicker
-      ? imageMediaMimeTypes
-      : allMediaMimeTypes;
-  const acceptedMimeTypes = allowedMimeTypes ?? defaultMimeTypes;
-  const acceptedMimeTypeSet = new Set(acceptedMimeTypes);
-  const mimeTypesQuery = allowedMimeTypes ?? (isPicker || scope === "admin" ? imageMediaMimeTypes : null);
-  const shouldFilterMimeTypes = mimeTypesQuery !== null;
-  const mimeTypesQueryString = mimeTypesQuery?.join(",") ?? "";
-  const mediaLabel = acceptedMimeTypes.length === 1 && isPdfMimeType(acceptedMimeTypes[0])
-    ? "PDF"
-    : acceptedMimeTypes.length > 0 && acceptedMimeTypes.every((mimeType) => isImageMimeType(mimeType))
-      ? "gambar"
-      : "media";
-
-  const loadLibrary = useCallback(async (signal?: AbortSignal) => {
-    const requestId = latestLoadRequestId.current + 1;
-    latestLoadRequestId.current = requestId;
-    setLoadingRequestId(requestId);
-    setError(null);
-    const search = new URLSearchParams();
-    if (folderId) search.set("folderId", folderId);
-    if (query.trim()) search.set("query", query.trim());
-    if (shouldFilterMimeTypes) search.set("mimeTypes", mimeTypesQueryString);
-
-    try {
-      const response = await fetch(`/api/media/${scope}?${search.toString()}`, {
-        cache: "no-store",
-        signal,
-      });
-      setSnapshot(await readJson<MediaLibrarySnapshot>(response));
-    } catch (loadError) {
-      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
-      setError(loadError instanceof Error ? loadError.message : "Library media belum dapat dibuka.");
-    } finally {
-      // A stale request must not turn off a newer request's spinner.
-      setLoadingRequestId((current) => current === requestId ? null : current);
-    }
-  }, [folderId, mimeTypesQueryString, query, scope, shouldFilterMimeTypes]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadLibrary(controller.signal), query ? 250 : 0);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [loadLibrary, query, refreshVersion]);
-
-  const refreshLibrary = (message?: string) => {
-    if (message) setNotice(message);
-    setRefreshVersion((value) => value + 1);
-  };
-
-  const { handleDrop, handleFiles, uploadStatus } = useMediaLibraryUploads({
-    acceptedMimeTypeSet,
-    fileInputRef,
-    folderId,
-    mediaLabel,
-    refreshLibrary,
-    scope,
-    setError,
-    setIsDragging,
-    setNotice,
-  });
-
   const runMutation = async (mutation: MediaMutation, body: Record<string, unknown>, successMessage: string) => {
     if (mutationPending) return false;
     setMutationPending(mutation);
@@ -328,6 +259,197 @@ function MediaLibrary({
       setError(previewError instanceof Error ? previewError.message : "Preview gambar belum tersedia.");
     }
   };
+
+  return { handleCreateFolder, handleMove, handlePreview, handleRename, handleTrash };
+}
+
+function getMediaLibraryConfig({
+  allowedMimeTypes,
+  appearance,
+  scope,
+  variant,
+}: {
+  allowedMimeTypes?: readonly SupportedMediaMimeType[];
+  appearance: "banner" | "default" | "drive" | "reference";
+  scope: MediaScope;
+  variant: "manage" | "picker";
+}) {
+  const isPicker = variant === "picker";
+  const isReference = appearance === "reference" && scope === "kapten" && !isPicker;
+  const isMinimalGallery = appearance === "banner";
+  const isDrive = appearance === "banner" || appearance === "drive" || (isReference && !isPicker);
+  const defaultMimeTypes = scope === "admin"
+    ? imageMediaMimeTypes
+    : isPicker
+      ? imageMediaMimeTypes
+      : allMediaMimeTypes;
+  const acceptedMimeTypes = allowedMimeTypes ?? defaultMimeTypes;
+  const mimeTypesQuery = allowedMimeTypes ?? (isPicker || scope === "admin" ? imageMediaMimeTypes : null);
+
+  return {
+    acceptedMimeTypeSet: new Set(acceptedMimeTypes),
+    acceptedMimeTypes,
+    isDrive,
+    isMinimalGallery,
+    isPicker,
+    isReference,
+    mediaLabel: acceptedMimeTypes.length === 1 && isPdfMimeType(acceptedMimeTypes[0])
+      ? "PDF"
+      : acceptedMimeTypes.length > 0 && acceptedMimeTypes.every((mimeType) => isImageMimeType(mimeType))
+        ? "gambar"
+        : "media",
+    mimeTypesQueryString: mimeTypesQuery?.join(",") ?? "",
+    shouldFilterMimeTypes: mimeTypesQuery !== null,
+  };
+}
+
+function useMediaLibraryData({
+  folderId,
+  mimeTypesQueryString,
+  query,
+  scope,
+  setNotice,
+  shouldFilterMimeTypes,
+}: {
+  folderId: string | null;
+  mimeTypesQueryString: string;
+  query: string;
+  scope: MediaScope;
+  setNotice: (value: string | null) => void;
+  shouldFilterMimeTypes: boolean;
+}) {
+  const [snapshot, setSnapshot] = useState<MediaLibrarySnapshot | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [loadingRequestId, setLoadingRequestId] = useState<number | null>(0);
+  const [error, setError] = useState<string | null>(null);
+  const latestLoadRequestId = useRef(0);
+
+  const loadLibrary = useCallback(async (signal?: AbortSignal) => {
+    const requestId = latestLoadRequestId.current + 1;
+    latestLoadRequestId.current = requestId;
+    setLoadingRequestId(requestId);
+    setError(null);
+    const search = new URLSearchParams();
+    if (folderId) search.set("folderId", folderId);
+    if (query.trim()) search.set("query", query.trim());
+    if (shouldFilterMimeTypes) search.set("mimeTypes", mimeTypesQueryString);
+
+    try {
+      const response = await fetch(`/api/media/${scope}?${search.toString()}`, {
+        cache: "no-store",
+        signal,
+      });
+      setSnapshot(await readJson<MediaLibrarySnapshot>(response));
+    } catch (loadError) {
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      setError(loadError instanceof Error ? loadError.message : "Library media belum dapat dibuka.");
+    } finally {
+      setLoadingRequestId((current) => current === requestId ? null : current);
+    }
+  }, [folderId, mimeTypesQueryString, query, scope, shouldFilterMimeTypes]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadLibrary(controller.signal), query ? 250 : 0);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [loadLibrary, query, refreshVersion]);
+
+  const refreshLibrary = useCallback((message?: string) => {
+    if (message) setNotice(message);
+    setRefreshVersion((value) => value + 1);
+  }, [setNotice]);
+
+  return { error, refreshLibrary, setError, snapshot, isLoading: loadingRequestId !== null };
+}
+
+function MediaLibrary({
+  appearance = "default",
+  allowedMimeTypes,
+  className,
+  onSelect,
+  scope,
+  selectedAssetId,
+  variant = "manage",
+}: {
+  appearance?: "banner" | "default" | "drive" | "reference";
+  allowedMimeTypes?: readonly SupportedMediaMimeType[];
+  className?: string;
+  onSelect?: (asset: MediaAssetDto) => void;
+  scope: MediaScope;
+  selectedAssetId?: string | null;
+  variant?: "manage" | "picker";
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState<string>("");
+  const [trashRequest, setTrashRequest] = useState<TrashRequest | null>(null);
+  const [mutationPending, setMutationPending] = useState<MediaMutation | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<MediaAssetDto | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const {
+    acceptedMimeTypeSet,
+    acceptedMimeTypes,
+    isDrive,
+    isMinimalGallery,
+    isPicker,
+    isReference,
+    mediaLabel,
+    mimeTypesQueryString,
+    shouldFilterMimeTypes,
+  } = getMediaLibraryConfig({ allowedMimeTypes, appearance, scope, variant });
+  const { error, isLoading, refreshLibrary, setError, snapshot } = useMediaLibraryData({
+    folderId,
+    mimeTypesQueryString,
+    query,
+    scope,
+    setNotice,
+    shouldFilterMimeTypes,
+  });
+
+  const { handleDrop, handleFiles, uploadStatus } = useMediaLibraryUploads({
+    acceptedMimeTypeSet,
+    fileInputRef,
+    folderId,
+    mediaLabel,
+    refreshLibrary,
+    scope,
+    setError,
+    setIsDragging,
+    setNotice,
+  });
+
+  const { handleCreateFolder, handleMove, handlePreview, handleRename, handleTrash } = createMediaLibraryMutationHandlers({
+    editingItem,
+    editingName,
+    folderId,
+    moveRequest,
+    moveTargetId,
+    mutationPending,
+    newFolderName,
+    refreshLibrary,
+    scope,
+    setEditingItem,
+    setError,
+    setFolderDialogOpen,
+    setMoveRequest,
+    setMutationPending,
+    setNewFolderName,
+    setPreviewAsset,
+    setTrashRequest,
+    trashRequest,
+  });
 
   const openRename = (item: EditableItem) => {
     setEditingItem(item);

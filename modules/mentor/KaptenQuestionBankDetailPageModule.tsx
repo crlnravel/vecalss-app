@@ -96,6 +96,89 @@ function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
   return <MentorBadge size="sm" tone={tone}>{label}</MentorBadge>;
 }
 
+function QuestionBankArchiveAction({
+  bank,
+  isSavingLifecycle,
+  requestArchive,
+}: {
+  bank: KaptenQuestionBank;
+  isSavingLifecycle: boolean;
+  requestArchive: () => void;
+}) {
+  if (bank.status === "archived" || bank.status === "scheduled") return null;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-busy={isSavingLifecycle}
+              aria-label="Arsipkan bank soal"
+              disabled={isSavingLifecycle}
+              onClick={requestArchive}
+              size="icon-sm"
+              type="button"
+              variant="dangerOutline"
+            />
+          }
+        >
+          <Archive />
+        </TooltipTrigger>
+        <TooltipContent>Arsipkan bank soal</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function QuestionBankStatusAction({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  publishDisabledReason,
+  requestLifecycleChange,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
+  isSavingLifecycle: boolean;
+  publishDisabledReason?: string;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
+}) {
+  if (bank.status === "archived") {
+    return <Button aria-busy={isSavingLifecycle} disabled={isSavingLifecycle} onClick={() => void handleLifecycle("restore")} size="sm" type="button" variant="brandOutline"><Upload />{isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}</Button>;
+  }
+  if (bank.status === "published") {
+    return <Button aria-busy={isSavingLifecycle} data-question-bank-lifecycle-action="unpublish" disabled={isSavingLifecycle} onClick={() => requestLifecycleChange("unpublish")} size="sm" type="button" variant="brandOutline"><FilePenLine />{isSavingLifecycle ? "Membuat draf…" : "Buat draf"}</Button>;
+  }
+  if (bank.status !== "draft") return null;
+
+  return <Button aria-busy={isSavingLifecycle} aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} data-question-bank-lifecycle-action="publish" disabled={isSavingLifecycle || Boolean(publishDisabledReason)} onClick={() => requestLifecycleChange("publish")} size="sm" type="button" variant="brand"><Upload />{isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}</Button>;
+}
+
+function QuestionBankLifecycleActions({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  publishDisabledReason,
+  requestArchive,
+  requestLifecycleChange,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
+  isSavingLifecycle: boolean;
+  publishDisabledReason?: string;
+  requestArchive: () => void;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <QuestionBankArchiveAction bank={bank} isSavingLifecycle={isSavingLifecycle} requestArchive={requestArchive} />
+      <QuestionBankStatusAction bank={bank} handleLifecycle={handleLifecycle} isSavingLifecycle={isSavingLifecycle} publishDisabledReason={publishDisabledReason} requestLifecycleChange={requestLifecycleChange} />
+      {publishDisabledReason ? <p className="sr-only" id="publish-disabled-reason">{publishDisabledReason}</p> : null}
+    </div>
+  );
+}
+
 function QuestionBankDetailHeaderBar({
   bank,
   handleLifecycle,
@@ -126,76 +209,14 @@ function QuestionBankDetailHeaderBar({
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {bank.status !== "archived" && bank.status !== "scheduled" ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-busy={isSavingLifecycle}
-                    aria-label="Arsipkan bank soal"
-                    disabled={isSavingLifecycle}
-                    onClick={requestArchive}
-                    size="icon-sm"
-                    type="button"
-                    variant="dangerOutline"
-                  />
-                }
-              >
-                <Archive />
-              </TooltipTrigger>
-              <TooltipContent>Arsipkan bank soal</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
-
-        {bank.status === "archived" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            disabled={isSavingLifecycle}
-            onClick={() => void handleLifecycle("restore")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}
-          </Button>
-        ) : bank.status === "published" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            data-question-bank-lifecycle-action="unpublish"
-            disabled={isSavingLifecycle}
-            onClick={() => requestLifecycleChange("unpublish")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <FilePenLine />
-            {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
-          </Button>
-        ) : bank.status === "draft" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-            data-question-bank-lifecycle-action="publish"
-            disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
-            onClick={() => requestLifecycleChange("publish")}
-            size="sm"
-            type="button"
-            variant="brand"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
-          </Button>
-        ) : null}
-        {publishDisabledReason ? (
-          <p className="sr-only" id="publish-disabled-reason">
-            {publishDisabledReason}
-          </p>
-        ) : null}
-      </div>
+      <QuestionBankLifecycleActions
+        bank={bank}
+        handleLifecycle={handleLifecycle}
+        isSavingLifecycle={isSavingLifecycle}
+        publishDisabledReason={publishDisabledReason}
+        requestArchive={requestArchive}
+        requestLifecycleChange={requestLifecycleChange}
+      />
     </div>
   );
 }

@@ -106,7 +106,7 @@ function CourseLearningPathPageModule({
       searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >
-      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[var(--voyage-canvas)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--voyage-ink)]">
+      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--voyage-ink)]">
 
         <div className="pointer-events-none sticky top-3 z-30 mx-auto h-0 w-full max-w-[48rem] px-4 pt-3 sm:px-6">
           <div className="pointer-events-auto">
@@ -333,6 +333,87 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
   );
 }
 
+function LearningPathStageCard({
+  index,
+  isCompleted,
+  isEven,
+  isLocked,
+  lesson,
+  onSkip,
+  pending,
+}: {
+  index: number;
+  isCompleted: boolean;
+  isEven: boolean;
+  isLocked: boolean;
+  lesson: CourseLesson;
+  onSkip: () => void;
+  pending: boolean;
+}) {
+  const cardClassName = isLocked
+    ? "border-[var(--secondary-200)] bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-ink)_45%,transparent)]"
+    : isCompleted
+      ? "border-[var(--voyage-sea-glass)] bg-white text-[var(--voyage-ink)] shadow-[0_9px_0_var(--voyage-sea-glass),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]"
+      : "border-[var(--voyage-forest)] bg-[var(--voyage-forest)] text-white shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]";
+
+  return (
+    <article
+      className={cn(
+        "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
+        isEven ? "justify-self-start sm:ml-[8%] lg:ml-[12%]" : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
+        cardClassName,
+      )}
+    >
+      <LearningPathStageNumber index={index} isCompleted={isCompleted} isLocked={isLocked} />
+      <div className="min-w-0 flex-1">
+        <h2 className={cn("line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl", isLocked && "text-[var(--voyage-muted-ink)]")}>{lesson.title}</h2>
+        <div className={cn("mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm", isLocked ? "text-[var(--voyage-muted-ink)]" : "text-current/85")}>
+          <span className="inline-flex items-center gap-1.5"><FileText className="size-3.5" /> Bacaan PDF</span>
+        </div>
+        <LearningPathStageDetails isLocked={isLocked} lesson={lesson} onSkip={onSkip} pending={pending} />
+      </div>
+    </article>
+  );
+}
+
+function LearningPathStageNumber({ index, isCompleted, isLocked }: { index: number; isCompleted: boolean; isLocked: boolean }) {
+  return (
+    <span className={cn(
+      "flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.35rem] border text-center sm:size-20 sm:rounded-[1.6rem]",
+      isLocked ? "border-[var(--secondary-300)] bg-[var(--secondary-200)]" : isCompleted ? "border-[var(--primary-100)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]" : "border-white/35 bg-white/10",
+    )}>
+      <span className="text-ui-xs font-bold tracking-[0.14em] uppercase">Bagian</span>
+      <span className="text-2xl leading-none font-extrabold sm:text-3xl">{index + 1}</span>
+    </span>
+  );
+}
+
+function LearningPathStageDetails({ isLocked, lesson, onSkip, pending }: { isLocked: boolean; lesson: CourseLesson; onSkip: () => void; pending: boolean }) {
+  return (
+    <>
+      {lesson.optionalVideo && !isLocked ? <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm"><a className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30" href={lesson.optionalVideo.mediaUrl} rel="noreferrer" target="_blank"><Video className="size-3.5" /> Video opsional <ExternalLink className="size-3" /></a></div> : null}
+      {isLocked ? <Button className="mt-3 sm:text-sm" disabled={pending} onClick={onSkip} size="learningAttention" type="button" variant="learningAttention">{pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}</Button> : null}
+    </>
+  );
+}
+
+function LearningPathStageMarker({ href, index, lessonTitle, markerState, side }: { href: string; index: number; lessonTitle: string; markerState: "available" | "completed" | "current" | "current-completed" | "locked"; side: "left" | "right" }) {
+  const isCompleted = markerState === "completed" || markerState === "current-completed";
+  const isCurrentPosition = markerState === "current" || markerState === "current-completed";
+  const isLocked = markerState === "locked";
+
+  return (
+    <div className={cn("relative z-20 flex w-fit flex-col items-center self-center justify-self-center", side === "left" ? "translate-x-12 sm:translate-x-28 lg:translate-x-36" : "-translate-x-12 sm:-translate-x-28 lg:-translate-x-36")}>
+      {isCurrentPosition ? <span aria-label="Posisi belajar saat ini" className="pointer-events-none absolute -top-20 -left-14 z-30 block size-24 sm:-top-24 sm:-left-20 sm:size-28" role="img"><span className="absolute right-1 bottom-1 left-1 h-5 rounded-[50%] bg-[var(--voyage-sea-glass)]/65 blur-[1px]" /><Image alt="" className="absolute top-1/2 left-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_10px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:h-36" height={338} priority={index < 2} src="/brand/voyage-assets/kapal-bajak-laut-vecalss.png" width={600} /></span> : null}
+      {isLocked ? (
+        <span aria-label={`${lessonTitle} terkunci`} className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_42px_-24px_color-mix(in_oklab,var(--voyage-ink)_44%,transparent)] sm:size-28 sm:rounded-[2.35rem]"><Play className="size-10 sm:size-12" strokeWidth={2.2} /><span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--secondary-200)]"><LockKeyhole className="size-4" /></span></span>
+      ) : (
+        <Link aria-label={`${isCompleted ? "Baca ulang" : "Baca"} ${lessonTitle}`} className={cn("group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[var(--voyage-leaf)]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]", "bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)]", isCompleted ? "shadow-[0_9px_0_var(--primary-300),0_28px_46px_-24px_color-mix(in_oklab,var(--voyage-forest)_65%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]" : "shadow-[0_10px_0_var(--primary-300),0_30px_50px_-22px_color-mix(in_oklab,var(--voyage-forest)_72%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]")} href={href}><Play className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />{isCompleted ? <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]"><Check className="size-4" strokeWidth={3} /></span> : null}</Link>
+      )}
+    </div>
+  );
+}
+
 function LearningPathStage({
   course,
   index,
@@ -352,141 +433,13 @@ function LearningPathStage({
 }) {
   const isCompleted = status === "completed";
   const isLocked = status === "locked";
-  const isEven = index % 2 === 0;
-  const href = `/courses/${course.slug}/${lesson.id}`;
+  const markerState = isLocked ? "locked" : isCurrentPosition && isCompleted ? "current-completed" : isCurrentPosition ? "current" : isCompleted ? "completed" : "available";
+  const side = index % 2 === 0 ? "left" : "right";
 
   return (
     <li className="relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
-      <article
-        className={cn(
-          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
-          isEven
-            ? "justify-self-start sm:ml-[8%] lg:ml-[12%]"
-            : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
-          isLocked
-            ? "border-[var(--secondary-200)] bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-ink)_45%,transparent)]"
-            : isCompleted
-              ? "border-[var(--voyage-sea-glass)] bg-white text-[var(--voyage-ink)] shadow-[0_9px_0_var(--voyage-sea-glass),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]"
-              : "border-[var(--voyage-forest)] bg-[var(--voyage-forest)] text-white shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
-        )}
-      >
-        <span
-          className={cn(
-            "flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.35rem] border text-center sm:size-20 sm:rounded-[1.6rem]",
-            isLocked
-              ? "border-[var(--secondary-300)] bg-[var(--secondary-200)]"
-              : isCompleted
-                ? "border-[var(--primary-100)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]"
-                : "border-white/35 bg-white/10",
-          )}
-        >
-          <span className="text-[0.6rem] font-bold tracking-[0.14em] uppercase sm:text-xs">
-            Bagian
-          </span>
-          <span className="text-2xl leading-none font-extrabold sm:text-3xl">
-            {index + 1}
-          </span>
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <h2 className={cn(
-            "line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl",
-            isLocked && "text-[var(--voyage-muted-ink)]",
-          )}>
-            {lesson.title}
-          </h2>
-          <div className={cn(
-            "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm",
-            isLocked ? "text-[var(--voyage-muted-ink)]" : "text-current/85",
-          )}>
-            <span className="inline-flex items-center gap-1.5">
-              <FileText className="size-3.5" /> Bacaan PDF
-            </span>
-          </div>
-          {lesson.optionalVideo && !isLocked ? (
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm">
-              <a
-                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30"
-                href={lesson.optionalVideo.mediaUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <Video className="size-3.5" /> Video opsional
-                <ExternalLink className="size-3" />
-              </a>
-            </div>
-          ) : null}
-          {isLocked ? (
-            <Button
-              className="mt-3 sm:text-sm"
-              disabled={pending}
-              onClick={onSkip}
-              size="learningAttention"
-              type="button"
-              variant="learningAttention"
-            >
-              {pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}
-            </Button>
-          ) : null}
-        </div>
-      </article>
-
-      <div
-        className={cn(
-          "relative z-20 flex w-fit flex-col items-center self-center justify-self-center",
-          isEven
-            ? "translate-x-12 sm:translate-x-28 lg:translate-x-36"
-            : "-translate-x-12 sm:-translate-x-28 lg:-translate-x-36",
-        )}
-      >
-        {isCurrentPosition ? (
-          <span
-            aria-label="Posisi belajar saat ini"
-            className="pointer-events-none absolute -top-20 -left-14 z-30 block size-24 sm:-top-24 sm:-left-20 sm:size-28"
-            role="img"
-          >
-            <span className="absolute right-1 bottom-1 left-1 h-5 rounded-[50%] bg-[var(--voyage-sea-glass)]/65 blur-[1px]" />
-            <Image
-              alt=""
-              className="absolute top-1/2 left-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_10px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:h-36"
-              height={338}
-              priority={index < 2}
-              src="/brand/voyage-assets/kapal-bajak-laut-vecalss.png"
-              width={600}
-            />
-          </span>
-        ) : null}
-
-        {isLocked ? (
-          <span
-            aria-label={`${lesson.title} terkunci`}
-            className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[var(--secondary-100)] text-[var(--voyage-muted-ink)] shadow-[0_9px_0_var(--secondary-300),0_24px_42px_-24px_color-mix(in_oklab,var(--voyage-ink)_44%,transparent)] sm:size-28 sm:rounded-[2.35rem]"
-          >
-            <Play className="size-10 sm:size-12" strokeWidth={2.2} />
-            <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--secondary-200)]">
-              <LockKeyhole className="size-4" />
-            </span>
-          </span>
-        ) : (
-          <Link
-            aria-label={`${isCompleted ? "Baca ulang" : "Baca"} ${lesson.title}`}
-            className={cn(
-              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[var(--voyage-leaf)]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
-              isCompleted
-                ? "bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[0_9px_0_var(--primary-300),0_28px_46px_-24px_color-mix(in_oklab,var(--voyage-forest)_65%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]"
-                : "bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] text-[var(--voyage-forest)] shadow-[0_10px_0_var(--primary-300),0_30px_50px_-22px_color-mix(in_oklab,var(--voyage-forest)_72%,transparent)] motion-safe:active:shadow-[0_3px_0_var(--primary-300)]",
-            )}
-            href={href}
-          >
-            <Play className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />
-            {isCompleted ? (
-              <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[var(--voyage-canvas)] bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]">
-                <Check className="size-4" strokeWidth={3} />
-              </span>
-            ) : null}
-          </Link>
-        )}
-      </div>
+      <LearningPathStageCard index={index} isCompleted={isCompleted} isEven={index % 2 === 0} isLocked={isLocked} lesson={lesson} onSkip={onSkip} pending={pending} />
+      <LearningPathStageMarker href={`/courses/${course.slug}/${lesson.id}`} index={index} lessonTitle={lesson.title} markerState={markerState} side={side} />
     </li>
   );
 }

@@ -81,8 +81,9 @@ function KaptenTryoutParticipantsPageModule({
                     <ChevronRight aria-hidden="true" className="text-secondary-400" />
                   </CardAction>
                 </CardHeader>
-                <CardContent className="grid gap-3 text-sm text-secondary-600 sm:grid-cols-2 lg:grid-cols-4">
+                <CardContent className="grid gap-3 text-sm text-secondary-600 sm:grid-cols-2 lg:grid-cols-5">
                   <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Akses</strong><span className="mt-1 block font-medium text-secondary-800">{admissionStatusLabels[participant.admission.status] ?? participant.admission.status}</span></span>
+                  <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Sesi</strong><span className="mt-1 block font-medium text-secondary-800">{participant.session?.name ?? "Belum ditentukan"}</span></span>
                   <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Attempt</strong><span className="mt-1 block font-medium text-secondary-800">{participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</span></span>
                   <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Perhatian</strong><span className="mt-1 block font-medium text-secondary-800" title={participant.attention?.reason ?? undefined}>{participant.attention?.label ?? "—"}</span></span>
                   <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Hasil</strong><span className="mt-1 block font-medium text-secondary-800">{participant.score.score === null ? participant.score.scoringState === "not_started" ? "Belum dihitung" : "Menunggu rilis" : Number(participant.score.score).toFixed(2)}</span></span>

@@ -13,7 +13,6 @@ import {
   toAdminPreviewQuizSummary,
   type AdminPreviewQuizDetail,
   type AdminPreviewQuizSubjectWithQuizzes,
-  type AdminPreviewQuizSummary,
 } from "@/lib/admin/student-preview-quiz-contract";
 
 const previewQuizAssetSelect = {

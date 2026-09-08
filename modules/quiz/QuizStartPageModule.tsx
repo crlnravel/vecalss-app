@@ -56,7 +56,7 @@ function QuizStartPageModule({
   }
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-4xl items-center px-5 py-12">
+    <main className="student-page-canvas mx-auto flex min-h-[70vh] w-full max-w-4xl items-center px-5 py-12">
       <section className="w-full rounded-[2rem] border border-primary-100 bg-white p-7 shadow-[0_24px_56px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">{subjectTitle}</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{quiz.title}</h1>

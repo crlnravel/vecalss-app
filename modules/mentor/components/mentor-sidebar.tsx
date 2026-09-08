@@ -126,6 +126,23 @@ function NavigationGroup({
 
 type MentorSidebarAppearance = "default" | "reference";
 
+function MentorSidebarFooter({ state }: { state: "collapsed" | "expanded" }) {
+  return (
+    <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
+      <SidebarTrigger
+        aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
+        className={cn(
+          "min-h-11 w-full rounded-2xl border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+          state === "collapsed" ? "justify-center" : "justify-end px-4",
+          "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!",
+        )}
+      >
+        {state === "collapsed" ? <ChevronRight aria-hidden="true" className="size-4" /> : <ChevronLeft aria-hidden="true" className="size-4" />}
+      </SidebarTrigger>
+    </SidebarFooter>
+  );
+}
+
 function MentorSidebar({
   activeLabel,
   appearance = "default",
@@ -187,24 +204,7 @@ function MentorSidebar({
         />
       </SidebarContent>
 
-      {isReference ? (
-        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
-          <SidebarTrigger
-            aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
-            className={cn(
-              "min-h-11 w-full rounded-2xl border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
-              state === "collapsed" ? "justify-center" : "justify-end px-4",
-              "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!",
-            )}
-          >
-            {state === "collapsed" ? (
-              <ChevronRight aria-hidden="true" className="size-4" />
-            ) : (
-              <ChevronLeft aria-hidden="true" className="size-4" />
-            )}
-          </SidebarTrigger>
-        </SidebarFooter>
-      ) : null}
+      {isReference ? <MentorSidebarFooter state={state} /> : null}
     </Sidebar>
   );
 }

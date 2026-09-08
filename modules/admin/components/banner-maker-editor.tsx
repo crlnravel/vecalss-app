@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   useActionState,
@@ -108,6 +109,13 @@ type LayerDragState = {
   startY: number;
 };
 
+type LayerMoveAvailability = {
+  back: boolean;
+  down: boolean;
+  front: boolean;
+  up: boolean;
+};
+
 const weightOptions: readonly ReferenceSelectOption[] = [
   { label: "Regular", value: "regular" },
   { label: "Medium", value: "medium" },
@@ -118,6 +126,12 @@ const alignOptions: readonly ReferenceSelectOption[] = [
   { label: "Kiri", value: "left" },
   { label: "Tengah", value: "center" },
   { label: "Kanan", value: "right" },
+];
+
+const backgroundModes: ReadonlyArray<{ label: string; type: BannerBackground["type"] }> = [
+  { label: "Warna", type: "color" },
+  { label: "Gradasi", type: "gradient" },
+  { label: "Gambar", type: "image" },
 ];
 
 function clampClient(value: number, min: number, max: number) {
@@ -255,10 +269,7 @@ function IconAction({
 }
 
 function LayerContextMenu({
-  canMoveBack,
-  canMoveDown,
-  canMoveFront,
-  canMoveUp,
+  moveAvailability,
   onDelete,
   onMoveBack,
   onMoveDown,
@@ -266,10 +277,7 @@ function LayerContextMenu({
   onMoveUp,
   trigger,
 }: {
-  canMoveBack: boolean;
-  canMoveDown: boolean;
-  canMoveFront: boolean;
-  canMoveUp: boolean;
+  moveAvailability: LayerMoveAvailability;
   onDelete: () => void;
   onMoveBack: () => void;
   onMoveDown: () => void;
@@ -281,17 +289,17 @@ function LayerContextMenu({
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <ContextMenuContent className="w-52">
-        <ContextMenuItem disabled={!canMoveFront} onClick={onMoveFront}>
+        <ContextMenuItem disabled={!moveAvailability.front} onClick={onMoveFront}>
           <ArrowUp />Bawa ke depan
         </ContextMenuItem>
-        <ContextMenuItem disabled={!canMoveBack} onClick={onMoveBack}>
+        <ContextMenuItem disabled={!moveAvailability.back} onClick={onMoveBack}>
           <ArrowDown />Kirim ke belakang
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={!canMoveUp} onClick={onMoveUp}>
+        <ContextMenuItem disabled={!moveAvailability.up} onClick={onMoveUp}>
           <ArrowUp />Naikkan satu tingkat
         </ContextMenuItem>
-        <ContextMenuItem disabled={!canMoveDown} onClick={onMoveDown}>
+        <ContextMenuItem disabled={!moveAvailability.down} onClick={onMoveDown}>
           <ArrowDown />Turunkan satu tingkat
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -340,12 +348,6 @@ function BackgroundControls({
   onChange: (background: BannerBackground) => void;
   onPickImage: () => void;
 }) {
-  const backgroundModes: Array<{ label: string; type: BannerBackground["type"] }> = [
-    { label: "Warna", type: "color" },
-    { label: "Gradasi", type: "gradient" },
-    { label: "Gambar", type: "image" },
-  ];
-
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-primary-50 p-1" role="group" aria-label="Jenis latar">
@@ -413,11 +415,16 @@ function BackgroundControls({
         <div className="space-y-2.5">
           {background.assetId && assetUrls[background.assetId] ? (
             <div className="overflow-hidden rounded-2xl border border-primary-100 bg-primary-50">
-              <img
-                alt={assetUrls[background.assetId].name}
-                className="aspect-[2.2] w-full object-cover"
-                src={assetUrls[background.assetId].url}
-              />
+              <div className="relative aspect-[2.2]">
+                <Image
+                  alt={assetUrls[background.assetId].name}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 640px) 100vw, 27rem"
+                  src={assetUrls[background.assetId].url}
+                  unoptimized
+                />
+              </div>
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="min-w-0 truncate text-xs font-semibold text-secondary-700">{assetUrls[background.assetId].name}</span>
                 <button
@@ -603,6 +610,7 @@ function LayerInspector({
           <Field>
             <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`${idPrefix}-layer-text`}>Teks</FieldLabel>
             <textarea
+              aria-label="Teks layer"
               className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-24 resize-y`}
               id={`${idPrefix}-layer-text`}
               maxLength={BANNER_MAX_TEXT_LENGTH}
@@ -787,7 +795,7 @@ function BannerCanvas({
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(0);
-  const [dragState, setDragState] = useState<LayerDragState | null>(null);
+  const dragStateRef = useRef<LayerDragState | null>(null);
   const [editingTextLayerId, setEditingTextLayerId] = useState<string | null>(null);
   const editingTextRef = useRef<HTMLDivElement>(null);
   const scale = canvasWidth > 0 ? canvasWidth / design.frame.width : 1;
@@ -829,17 +837,18 @@ function BannerCanvas({
     if (!canvas) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelect(layer.id);
-    setDragState({
+    dragStateRef.current = {
       id: layer.id,
       originX: layer.x,
       originY: layer.y,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-    });
+    };
   };
 
   const onCanvasPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -852,7 +861,9 @@ function BannerCanvas({
     }));
   };
 
-  const stopDragging = () => setDragState(null);
+  const stopDragging = () => {
+    dragStateRef.current = null;
+  };
 
   const onLayerKeyDown = (event: KeyboardEvent<HTMLButtonElement>, layer: BannerLayer) => {
     if (layer.type === "text" && (event.key === "Enter" || event.key === "F2")) {
@@ -975,6 +986,7 @@ function BannerCanvas({
               }}
               onPointerDown={(event) => event.stopPropagation()}
               ref={editingTextRef}
+              role="textbox"
               style={{ ...layerStyle, ...textStyle }}
               suppressContentEditableWarning
               tabIndex={0}
@@ -988,11 +1000,13 @@ function BannerCanvas({
 
         return (
           <LayerContextMenu
-            canMoveBack={layerIndex > 0}
-            canMoveDown={layerIndex > 0}
-            canMoveFront={layerIndex < design.layers.length - 1}
-            canMoveUp={layerIndex < design.layers.length - 1}
             key={layer.id}
+            moveAvailability={{
+              back: layerIndex > 0,
+              down: layerIndex > 0,
+              front: layerIndex < design.layers.length - 1,
+              up: layerIndex < design.layers.length - 1,
+            }}
             onDelete={() => onDeleteLayer(layer.id)}
             onMoveBack={() => onMoveToBack(layer.id)}
             onMoveDown={() => onMoveLayer(layer.id, "down")}
@@ -1022,7 +1036,14 @@ function BannerCanvas({
               >
                 {layer.type === "image" ? (
                   imageUrl ? (
-                    <img alt={layer.alt || "Gambar banner"} className="size-full object-contain" src={imageUrl} />
+                    <Image
+                      alt={layer.alt || "Gambar banner"}
+                      className="object-contain"
+                      fill
+                      sizes="100vw"
+                      src={imageUrl}
+                      unoptimized
+                    />
                   ) : (
                     <span className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/60 bg-black/15 text-white/80">
                       <ImageOff aria-hidden="true" className="size-5" />
@@ -1087,11 +1108,13 @@ function LayerList({
         />
       ) : visibleLayers.map((layer, index) => (
         <LayerContextMenu
-          canMoveBack={index < visibleLayers.length - 1}
-          canMoveDown={index < visibleLayers.length - 1}
-          canMoveFront={index > 0}
-          canMoveUp={index > 0}
           key={layer.id}
+          moveAvailability={{
+            back: index < visibleLayers.length - 1,
+            down: index < visibleLayers.length - 1,
+            front: index > 0,
+            up: index > 0,
+          }}
           onDelete={() => onDeleteLayer(layer.id)}
           onMoveBack={() => onMoveToBack(layer.id)}
           onMoveDown={() => onMoveDown(layer.id)}
@@ -1206,59 +1229,36 @@ function AssetPickerPanel({
   onSelect: (asset: MediaAssetDto) => void;
   selectedAssetId: string | null;
 }) {
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    const getFocusableElements = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+    if (!dialog.open) dialog.showModal();
+    const firstElement = dialog.querySelector<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ));
-    const firstElement = getFocusableElements()[0];
+    );
     firstElement?.focus();
-    const keepFocusInside = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const focusableElements = getFocusableElements();
-      if (focusableElements.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusableElements[0];
-      const last = focusableElements[focusableElements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
+    return () => {
+      if (dialog.open) dialog.close();
     };
-
-    dialog.addEventListener("keydown", keepFocusInside);
-    return () => dialog.removeEventListener("keydown", keepFocusInside);
   }, []);
 
   return (
-    <>
-      <button
-        aria-label="Tutup panel impor gambar"
-        className="absolute inset-x-0 top-16 bottom-0 z-20 bg-secondary-950/20 sm:hidden"
-        onClick={onClose}
-        type="button"
-      />
-      <aside
-        aria-label={mode === "background" ? "Pilih gambar latar" : "Impor gambar ke banner"}
-        aria-modal="true"
-        className="absolute inset-x-auto top-16 bottom-0 left-0 z-30 flex w-[min(27rem,calc(100vw-0.75rem))] flex-col border-r border-primary-100 bg-white shadow-[0_24px_70px_-34px_rgba(1,76,56,0.45)] sm:w-[27rem]"
-        role="dialog"
+    <dialog
+        aria-labelledby="asset-picker-title"
+        className="absolute inset-x-auto top-16 bottom-0 left-0 m-0 flex w-[min(27rem,calc(100vw-0.75rem))] max-h-none max-w-none flex-col border-r border-primary-100 bg-white p-0 shadow-[0_24px_70px_-34px_rgba(1,76,56,0.45)] backdrop:bg-secondary-950/20 sm:w-[27rem] sm:backdrop:bg-transparent"
+        onCancel={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
         ref={dialogRef}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-700">Media admin</p>
-            <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-secondary-900">
+            <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-secondary-900" id="asset-picker-title">
               {mode === "background" ? "Pilih gambar latar" : "Impor gambar"}
             </h2>
           </div>
@@ -1277,8 +1277,7 @@ function AssetPickerPanel({
             variant="picker"
           />
         </div>
-      </aside>
-    </>
+      </dialog>
   );
 }
 
@@ -1299,66 +1298,83 @@ function MediaSidebar({ onSelectAsset }: { onSelectAsset: (asset: MediaAssetDto)
   );
 }
 
-function BannerMakerEditor({
-  action,
-  assetUrls: initialAssetUrls,
-  design: initialDesign,
-  hasUnpublishedChanges,
-  session,
-  version: initialVersion,
-}: BannerMakerEditorProps) {
-  const [design, setDesign] = useState(initialDesign);
-  const [assetUrls, setAssetUrls] = useState(initialAssetUrls);
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
-  const [showGuides, setShowGuides] = useState(true);
-  const pickerRestoreRef = useRef<HTMLElement | null>(null);
+type BannerDesignSetter = import("react").Dispatch<import("react").SetStateAction<BannerDesign>>;
+type BannerAssetUrlsSetter = import("react").Dispatch<import("react").SetStateAction<Record<string, BannerAssetView>>>;
+type BannerPickerModeSetter = import("react").Dispatch<import("react").SetStateAction<PickerMode | null>>;
+type BannerLayerIdSetter = import("react").Dispatch<import("react").SetStateAction<string | null>>;
+
+type BannerMakerEditorActions = {
+  addImageLayer: (asset: BannerAssetView) => void;
+  addTextLayer: () => void;
+  changeBackground: (background: BannerBackground) => void;
+  changeDesign: BannerDesignSetter;
+  changeFrame: (frame: BannerFrame) => void;
+  closePicker: () => void;
+  deleteLayer: (id: string) => void;
+  deleteSelectedLayer: () => void;
+  dropLayer: (event: DragEvent<HTMLDivElement>, targetId: string) => void;
+  handleAssetSelected: (asset: MediaAssetDto) => void;
+  handleSidebarAssetSelected: (asset: MediaAssetDto) => void;
+  moveLayer: (id: string, direction: "down" | "up") => void;
+  moveLayerToEdge: (id: string, edge: "back" | "front") => void;
+  openBackgroundPicker: () => void;
+  openImagePicker: () => void;
+  selectLayer: (id: string | null) => void;
+  toggleGuides: () => void;
+  toggleLeftSidebar: () => void;
+  updateLayer: (layer: BannerLayer) => void;
+};
+
+type BannerMakerEditorController = {
+  actions: BannerMakerEditorActions;
+  assetUrls: Record<string, BannerAssetView>;
+  canAddLayer: boolean;
+  design: BannerDesign;
+  formAction: (formData: FormData) => void;
+  formState: BannerMakerFormState;
+  isDirty: boolean;
+  isLeftSidebarOpen: boolean;
+  pickerMode: PickerMode | null;
+  prepareSubmit: () => void;
+  savedHasUnpublishedChanges: boolean;
+  selectedLayer: BannerLayer | null;
+  selectedLayerId: string | null;
+  selectedPickerAssetId: string | null;
+  showGuides: boolean;
+  version: string | null;
+};
+
+function useBannerMakerEditorForm({ action, design, initialVersion, setDesign }: { action: BannerMakerAction; design: BannerDesign; initialVersion: string | null; setDesign: BannerDesignSetter }) {
   const submittedDesignRef = useRef<BannerDesign | null>(null);
-  const [state, formAction] = useActionState(action, {
+  const currentDesignRef = useRef(design);
+
+  useEffect(() => {
+    currentDesignRef.current = design;
+  }, [design]);
+
+  const [formState, formAction] = useActionState(async (previousState: BannerMakerFormState, formData: FormData) => {
+    const nextState = await action(previousState, formData);
+    const submittedDesign = submittedDesignRef.current;
+    if (nextState.status === "success" && nextState.design && submittedDesign && bannerDesignsEqual(currentDesignRef.current, submittedDesign)) {
+      setDesign(nextState.design);
+      submittedDesignRef.current = null;
+    }
+    return nextState;
+  }, {
     status: "idle",
     version: initialVersion,
   });
-  const selectedLayer = design.layers.find((layer) => layer.id === selectedLayerId) ?? null;
-  const canAddLayer = design.layers.length < BANNER_MAX_LAYERS;
-  const persistedDesign = state.design ?? initialDesign;
-  const version = state.version ?? initialVersion;
-  const savedHasUnpublishedChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
-  const isDirty = !bannerDesignsEqual(design, persistedDesign);
 
-  useEffect(() => {
-    if (!state.message) return;
-    showToast(state.message, { variant: state.status === "error" ? "error" : "success" });
-  }, [state.message, state.status]);
+  return {
+    formAction,
+    formState,
+    prepareSubmit: () => {
+      submittedDesignRef.current = design;
+    },
+  };
+}
 
-  useEffect(() => {
-    if (!pickerMode) return;
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setPickerMode(null);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [pickerMode]);
-
-  useEffect(() => {
-    if (!pickerMode) return;
-    pickerRestoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => {
-      const element = pickerRestoreRef.current;
-      pickerRestoreRef.current = null;
-      if (element?.isConnected) element.focus();
-    };
-  }, [pickerMode]);
-
-  useEffect(() => {
-    if (state.status !== "success" || !state.design) return;
-    const submittedDesign = submittedDesignRef.current;
-    if (!submittedDesign) return;
-    submittedDesignRef.current = null;
-    if (!bannerDesignsEqual(design, submittedDesign)) return;
-    setDesign(state.design);
-  }, [design, state.design, state.status]);
-
+function createBannerMakerEditorActions({ canAddLayer, design, pickerMode, selectedLayerId, setAssetUrls, setDesign, setPickerMode, setSelectedLayerId }: { canAddLayer: boolean; design: BannerDesign; pickerMode: PickerMode | null; selectedLayerId: string | null; setAssetUrls: BannerAssetUrlsSetter; setDesign: BannerDesignSetter; setPickerMode: BannerPickerModeSetter; setSelectedLayerId: BannerLayerIdSetter }): Omit<BannerMakerEditorActions, "changeBackground" | "changeFrame" | "changeDesign" | "closePicker" | "openBackgroundPicker" | "openImagePicker" | "selectLayer" | "toggleGuides" | "toggleLeftSidebar"> {
   const updateLayer = (nextLayer: BannerLayer) => {
     setDesign((current) => ({
       ...current,
@@ -1416,8 +1432,6 @@ function BannerMakerEditor({
       if (!source) return current;
       const targetIndex = visibleLayers.findIndex((layer) => layer.id === targetId);
       if (targetIndex < 0) return current;
-      // Reorder in the same front-to-back order shown in the layer list, then
-      // restore draw order for the canvas and persisted design.
       visibleLayers.splice(targetIndex, 0, source);
       return { ...current, layers: visibleLayers.reverse() };
     });
@@ -1466,280 +1480,119 @@ function BannerMakerEditor({
 
   const handleAssetSelected = (asset: MediaAssetDto) => {
     const url = assetPreviewUrl(asset);
-    const assetView: BannerAssetView = {
-      assetId: asset.id,
-      height: asset.height,
-      name: asset.name,
-      url,
-      width: asset.width,
-    };
+    const assetView: BannerAssetView = { assetId: asset.id, height: asset.height, name: asset.name, url, width: asset.width };
     setAssetUrls((current) => ({ ...current, [asset.id]: assetView }));
-
-    if (pickerMode === "background") {
-      setDesign((current) => ({ ...current, background: { assetId: asset.id, type: "image" } }));
-    } else if (pickerMode === "image") {
-      addImageLayer(assetView);
-    }
+    if (pickerMode === "background") setDesign((current) => ({ ...current, background: { assetId: asset.id, type: "image" } }));
+    else if (pickerMode === "image") addImageLayer(assetView);
     setPickerMode(null);
   };
 
   const handleSidebarAssetSelected = (asset: MediaAssetDto) => {
     const url = assetPreviewUrl(asset);
-    const assetView: BannerAssetView = {
-      assetId: asset.id,
-      height: asset.height,
-      name: asset.name,
-      url,
-      width: asset.width,
-    };
+    const assetView: BannerAssetView = { assetId: asset.id, height: asset.height, name: asset.name, url, width: asset.width };
     setAssetUrls((current) => ({ ...current, [asset.id]: assetView }));
     addImageLayer(assetView);
   };
 
+  return { addImageLayer, addTextLayer, deleteLayer, deleteSelectedLayer, dropLayer, handleAssetSelected, handleSidebarAssetSelected, moveLayer, moveLayerToEdge, updateLayer };
+}
+
+function useBannerMakerEditorController({ action, assetUrls: initialAssetUrls, design: initialDesign, hasUnpublishedChanges, version: initialVersion }: Omit<BannerMakerEditorProps, "session">): BannerMakerEditorController {
+  const [design, setDesign] = useState(initialDesign);
+  const [assetUrls, setAssetUrls] = useState(initialAssetUrls);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [showGuides, setShowGuides] = useState(true);
+  const form = useBannerMakerEditorForm({ action, design, initialVersion, setDesign });
+  const selectedLayer = design.layers.find((layer) => layer.id === selectedLayerId) ?? null;
+  const canAddLayer = design.layers.length < BANNER_MAX_LAYERS;
+  const persistedDesign = form.formState.design ?? initialDesign;
+  const version = form.formState.version ?? initialVersion;
+  const savedHasUnpublishedChanges = form.formState.hasUnpublishedChanges ?? hasUnpublishedChanges;
+  const isDirty = !bannerDesignsEqual(design, persistedDesign);
+
+  useEffect(() => {
+    if (!form.formState.message) return;
+    showToast(form.formState.message, { variant: form.formState.status === "error" ? "error" : "success" });
+  }, [form.formState.message, form.formState.status]);
+
+  useEffect(() => {
+    if (!pickerMode) return;
+    const element = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      if (element?.isConnected) element.focus();
+    };
+  }, [pickerMode]);
+
+  const layerActions = createBannerMakerEditorActions({ canAddLayer, design, pickerMode, selectedLayerId, setAssetUrls, setDesign, setPickerMode, setSelectedLayerId });
+  const actions: BannerMakerEditorActions = {
+    ...layerActions,
+    changeBackground: (background) => setDesign((current) => ({ ...current, background })),
+    changeDesign: setDesign,
+    changeFrame: (frame) => setDesign((current) => ({ ...current, frame })),
+    closePicker: () => setPickerMode(null),
+    openBackgroundPicker: () => setPickerMode("background"),
+    openImagePicker: () => setPickerMode("image"),
+    selectLayer: setSelectedLayerId,
+    toggleGuides: () => setShowGuides((current) => !current),
+    toggleLeftSidebar: () => setIsLeftSidebarOpen((current) => !current),
+  };
   const selectedPickerAssetId = pickerMode === "background"
     ? design.background.type === "image" ? design.background.assetId : null
     : selectedLayer?.type === "image" ? selectedLayer.assetId : null;
 
-  return (
-    <div className="relative h-svh min-h-[38rem] overflow-hidden bg-voyage-canvas text-secondary-900">
-      <form
-        action={formAction}
-        className="flex h-full min-h-0 flex-col"
-        onSubmit={() => {
-          submittedDesignRef.current = design;
-        }}
-      >
-        <input name="design" type="hidden" value={JSON.stringify(design)} readOnly />
-        <input name="version" type="hidden" value={version ?? ""} readOnly />
-
-        <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-white/15 bg-[linear-gradient(105deg,#014C38_0%,#176B4D_58%,#2F8A5D_100%)] px-3 py-2 text-white sm:px-4">
-          <Link
-            aria-label="Kembali ke dashboard admin"
-            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35"
-            href="/admin"
-          >
-            <ArrowLeft aria-hidden="true" className="size-5" />
-            <span className="hidden sm:inline">Kembali</span>
-          </Link>
-          <span aria-hidden="true" className="hidden h-8 w-px bg-white/20 sm:block" />
-          <div className="hidden min-w-0 items-center gap-2 sm:flex">
-            <BrandMark compact />
-            <div className="min-w-0">
-              <p className="text-ui-xs font-semibold tracking-[0.14em] text-white/65 uppercase">Vecalss Studio</p>
-              <p className="truncate text-sm font-semibold text-white">Banner maker</p>
-            </div>
-          </div>
-          <label className="min-w-0 flex-1 sm:ml-2 sm:max-w-[19rem]">
-            <span className="sr-only">Nama banner</span>
-            <Input
-              aria-label="Nama banner"
-              className="h-10 border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/55 focus-visible:border-white/65 focus-visible:ring-white/20"
-              maxLength={120}
-              onChange={(event) => setDesign((current) => ({ ...current, name: event.target.value }))}
-              value={design.name}
-            />
-          </label>
-          <TooltipProvider>
-            <div className="flex shrink-0 items-center gap-1">
-              <IconAction
-                ariaLabel="Tambahkan teks"
-                className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45"
-                disabled={!canAddLayer}
-                onClick={addTextLayer}
-              >
-                <PenTool />
-              </IconAction>
-              <IconAction
-                ariaLabel="Impor gambar"
-                className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45"
-                disabled={!canAddLayer}
-                onClick={() => setPickerMode("image")}
-              >
-                <ImagePlus />
-              </IconAction>
-              <IconAction
-                ariaLabel={showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"}
-                className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45"
-                onClick={() => setShowGuides((current) => !current)}
-                pressed={showGuides}
-              >
-                <Eye />
-              </IconAction>
-            </div>
-          </TooltipProvider>
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 lg:flex">
-              <span className={cn("size-2 rounded-full", isDirty ? "bg-voyage-warm-sun" : "bg-emerald-200")} />
-              <span>{isDirty ? "Perubahan belum disimpan" : savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</span>
-            </div>
-            <SubmitButton
-              aria-label="Simpan draf"
-              className="border-white/20 bg-transparent text-white hover:bg-white/10"
-              name="intent"
-              pendingLabel="Menyimpan..."
-              size="sm"
-              type="submit"
-              value="save-draft"
-              variant="inverseOutline"
-            >
-              <Save data-icon="inline-start" />
-              <span className="hidden sm:inline">Simpan</span>
-            </SubmitButton>
-            <SubmitButton
-              aria-label="Rilis banner"
-              className="border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45"
-              name="intent"
-              pendingLabel="Merilis..."
-              size="sm"
-              type="submit"
-              value="publish"
-              variant="brand"
-            >
-              <SendHorizontal data-icon="inline-start" />
-              <span>Rilis</span>
-            </SubmitButton>
-            <StudentAccountMenu audience="admin" session={session} />
-          </div>
-        </header>
-
-        {state.status === "error" && state.message ? (
-          <div
-            className="mx-3 mt-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg sm:mx-5"
-            role="alert"
-          >
-            {state.message}
-          </div>
-        ) : null}
-
-        <div className="relative flex min-h-0 flex-1">
-          <aside
-            aria-label="Media dan layer banner"
-            className={cn(
-              "hidden shrink-0 flex-col border-r border-primary-100 bg-white transition-[width] duration-200 md:flex",
-              isLeftSidebarOpen ? "w-[20rem] xl:w-[22rem]" : "w-14",
-            )}
-          >
-            <div className={cn("flex shrink-0 p-2", isLeftSidebarOpen ? "justify-end" : "justify-center")}>
-              <TooltipProvider>
-                <IconAction
-                  ariaLabel={isLeftSidebarOpen ? "Ciutkan panel kiri" : "Buka panel kiri"}
-                  className="text-secondary-600 hover:bg-primary-50 hover:text-secondary-900"
-                  onClick={() => setIsLeftSidebarOpen((current) => !current)}
-                  pressed={isLeftSidebarOpen}
-                >
-                  {isLeftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
-                </IconAction>
-              </TooltipProvider>
-            </div>
-            {isLeftSidebarOpen ? (
-              <>
-                <MediaSidebar onSelectAsset={handleSidebarAssetSelected} />
-                <section aria-label="Layer banner" className="min-h-0 flex-[0.95] overflow-y-auto p-4">
-                  <h2 className="text-sm font-semibold text-secondary-900">Layer</h2>
-                  <div className="mt-3">
-                    <LayerList
-                      design={design}
-                      onDeleteLayer={deleteLayer}
-                      onDropLayer={dropLayer}
-                      onMoveDown={(id) => moveLayer(id, "down")}
-                      onMoveToBack={(id) => moveLayerToEdge(id, "back")}
-                      onMoveToFront={(id) => moveLayerToEdge(id, "front")}
-                      onMoveUp={(id) => moveLayer(id, "up")}
-                      onSelect={setSelectedLayerId}
-                      selectedLayerId={selectedLayerId}
-                    />
-                  </div>
-                </section>
-              </>
-            ) : null}
-          </aside>
-
-          <main className="min-w-0 flex-1 overflow-y-auto bg-voyage-canvas">
-            <div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col gap-4 p-4 sm:p-6 xl:p-8">
-              <ReferenceSurface as="section" className="p-3 sm:p-5" variant="inset">
-                <div className="rounded-[1.75rem] bg-[#e5eee9] p-3 sm:p-7 lg:p-10">
-                  <BannerCanvas
-                    assetUrls={assetUrls}
-                    design={design}
-                    onChange={setDesign}
-                    onDeleteLayer={deleteLayer}
-                    onMoveLayer={moveLayer}
-                    onMoveToBack={(id) => moveLayerToEdge(id, "back")}
-                    onMoveToFront={(id) => moveLayerToEdge(id, "front")}
-                    onSelect={setSelectedLayerId}
-                    showGuides={showGuides}
-                    selectedLayerId={selectedLayerId}
-                  />
-                </div>
-              </ReferenceSurface>
-
-              <section aria-label="Layer banner" className="md:hidden">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-secondary-900">Layer</h2>
-                </div>
-                <LayerList
-                  design={design}
-                  onDeleteLayer={deleteLayer}
-                  onDropLayer={dropLayer}
-                  onMoveDown={(id) => moveLayer(id, "down")}
-                  onMoveToBack={(id) => moveLayerToEdge(id, "back")}
-                  onMoveToFront={(id) => moveLayerToEdge(id, "front")}
-                  onMoveUp={(id) => moveLayer(id, "up")}
-                  onSelect={setSelectedLayerId}
-                  selectedLayerId={selectedLayerId}
-                />
-              </section>
-
-              <div className="lg:hidden">
-                <EditorPropertiesPanel
-                  assetUrls={assetUrls}
-                  background={design.background}
-                  frame={design.frame}
-                  idPrefix="mobile"
-                  layer={selectedLayer}
-                  onBackgroundChange={(background) => setDesign((current) => ({ ...current, background }))}
-                  onChangeFrame={(frame) => setDesign((current) => ({ ...current, frame }))}
-                  onChangeLayer={updateLayer}
-                  onDeleteLayer={deleteSelectedLayer}
-                  onPickBackgroundImage={() => setPickerMode("background")}
-                />
-              </div>
-            </div>
-          </main>
-
-          <aside aria-label="Edit elemen" className="hidden w-[19rem] shrink-0 overflow-y-auto border-l border-primary-100 bg-white/80 lg:block xl:w-[21rem]">
-            <div className="sticky top-0 z-10 border-b border-primary-100 bg-white/95 px-4 py-4 backdrop-blur-sm">
-              <h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900">Edit banner</h2>
-            </div>
-            <div className="space-y-4 p-4">
-              <EditorPropertiesPanel
-                assetUrls={assetUrls}
-                background={design.background}
-                frame={design.frame}
-                idPrefix="desktop"
-                layer={selectedLayer}
-                onBackgroundChange={(background) => setDesign((current) => ({ ...current, background }))}
-                onChangeFrame={(frame) => setDesign((current) => ({ ...current, frame }))}
-                onChangeLayer={updateLayer}
-                onDeleteLayer={deleteSelectedLayer}
-                onPickBackgroundImage={() => setPickerMode("background")}
-              />
-            </div>
-          </aside>
-        </div>
-      </form>
-
-      {pickerMode ? (
-        <AssetPickerPanel
-          mode={pickerMode}
-          onClose={() => setPickerMode(null)}
-          onSelect={handleAssetSelected}
-          selectedAssetId={selectedPickerAssetId}
-        />
-      ) : null}
-    </div>
-  );
+  return { actions, assetUrls, canAddLayer, design, formAction: form.formAction, formState: form.formState, isDirty, isLeftSidebarOpen, pickerMode, prepareSubmit: form.prepareSubmit, savedHasUnpublishedChanges, selectedLayer, selectedLayerId, selectedPickerAssetId, showGuides, version };
 }
+
+function BannerMakerEditorHeader({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
+  const { actions } = controller;
+
+  return <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-white/15 bg-[linear-gradient(105deg,#014C38_0%,#176B4D_58%,#2F8A5D_100%)] px-3 py-2 text-white sm:px-4"><Link aria-label="Kembali ke dashboard admin" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /><span className="hidden sm:inline">Kembali</span></Link><span aria-hidden="true" className="hidden h-8 w-px bg-white/20 sm:block" /><div className="hidden min-w-0 items-center gap-2 sm:flex"><BrandMark compact /><div className="min-w-0"><p className="text-ui-xs font-semibold tracking-[0.14em] text-white/65 uppercase">Vecalss Studio</p><p className="truncate text-sm font-semibold text-white">Banner maker</p></div></div><label className="min-w-0 flex-1 sm:ml-2 sm:max-w-[19rem]"><span className="sr-only">Nama banner</span><Input aria-label="Nama banner" className="h-10 border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/55 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} /></label><TooltipProvider><div className="flex shrink-0 items-center gap-1"><IconAction ariaLabel="Tambahkan teks" className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" disabled={!controller.canAddLayer} onClick={actions.addTextLayer}><PenTool /></IconAction><IconAction ariaLabel="Impor gambar" className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" disabled={!controller.canAddLayer} onClick={actions.openImagePicker}><ImagePlus /></IconAction><IconAction ariaLabel={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} className="text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/45" onClick={actions.toggleGuides} pressed={controller.showGuides}><Eye /></IconAction></div></TooltipProvider><div className="ml-auto flex items-center gap-1.5 sm:gap-2"><div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 lg:flex"><span className={cn("size-2 rounded-full", controller.isDirty ? "bg-voyage-warm-sun" : "bg-emerald-200")} /><span>{controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</span></div><SubmitButton aria-label="Simpan draf" className="border-white/20 bg-transparent text-white hover:bg-white/10" name="intent" pendingLabel="Menyimpan..." size="sm" type="submit" value="save-draft" variant="inverseOutline"><Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span></SubmitButton><SubmitButton aria-label="Rilis banner" className="border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" name="intent" pendingLabel="Merilis..." size="sm" type="submit" value="publish" variant="brand"><SendHorizontal data-icon="inline-start" /><span>Rilis</span></SubmitButton><StudentAccountMenu audience="admin" session={session} /></div></header>;
+}
+
+function BannerMakerEditorStatus({ controller }: { controller: BannerMakerEditorController }) {
+  return controller.formState.status === "error" && controller.formState.message ? <div className="mx-3 mt-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg sm:mx-5" role="alert">{controller.formState.message}</div> : null;
+}
+
+function BannerMakerEditorLayerList({ controller }: { controller: BannerMakerEditorController }) {
+  return <LayerList design={controller.design} onDeleteLayer={controller.actions.deleteLayer} onDropLayer={controller.actions.dropLayer} onMoveDown={(id) => controller.actions.moveLayer(id, "down")} onMoveToBack={(id) => controller.actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => controller.actions.moveLayerToEdge(id, "front")} onMoveUp={(id) => controller.actions.moveLayer(id, "up")} onSelect={controller.actions.selectLayer} selectedLayerId={controller.selectedLayerId} />;
+}
+
+function BannerMakerEditorLeftSidebar({ controller }: { controller: BannerMakerEditorController }) {
+  return <aside aria-label="Media dan layer banner" className={cn("hidden shrink-0 flex-col border-r border-primary-100 bg-white transition-[width] duration-200 md:flex", controller.isLeftSidebarOpen ? "w-[20rem] xl:w-[22rem]" : "w-14")}><div className={cn("flex shrink-0 p-2", controller.isLeftSidebarOpen ? "justify-end" : "justify-center")}><TooltipProvider><IconAction ariaLabel={controller.isLeftSidebarOpen ? "Ciutkan panel kiri" : "Buka panel kiri"} className="text-secondary-600 hover:bg-primary-50 hover:text-secondary-900" onClick={controller.actions.toggleLeftSidebar} pressed={controller.isLeftSidebarOpen}>{controller.isLeftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}</IconAction></TooltipProvider></div>{controller.isLeftSidebarOpen ? <><MediaSidebar onSelectAsset={controller.actions.handleSidebarAssetSelected} /><section aria-label="Layer banner" className="min-h-0 flex-[0.95] overflow-y-auto p-4"><h2 className="text-sm font-semibold text-secondary-900">Layer</h2><div className="mt-3"><BannerMakerEditorLayerList controller={controller} /></div></section></> : null}</aside>;
+}
+
+function BannerMakerEditorProperties({ controller, idPrefix }: { controller: BannerMakerEditorController; idPrefix: string }) {
+  return <EditorPropertiesPanel assetUrls={controller.assetUrls} background={controller.design.background} frame={controller.design.frame} idPrefix={idPrefix} layer={controller.selectedLayer} onBackgroundChange={controller.actions.changeBackground} onChangeFrame={controller.actions.changeFrame} onChangeLayer={controller.actions.updateLayer} onDeleteLayer={controller.actions.deleteSelectedLayer} onPickBackgroundImage={controller.actions.openBackgroundPicker} />;
+}
+
+function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEditorController }) {
+  return <main className="min-w-0 flex-1 overflow-y-auto bg-voyage-canvas"><div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col gap-4 p-4 sm:p-6 xl:p-8"><ReferenceSurface as="section" className="p-3 sm:p-5" variant="inset"><div className="rounded-[1.75rem] bg-[#e5eee9] p-3 sm:p-7 lg:p-10"><BannerCanvas assetUrls={controller.assetUrls} design={controller.design} onChange={controller.actions.changeDesign} onDeleteLayer={controller.actions.deleteLayer} onMoveLayer={controller.actions.moveLayer} onMoveToBack={(id) => controller.actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => controller.actions.moveLayerToEdge(id, "front")} onSelect={controller.actions.selectLayer} showGuides={controller.showGuides} selectedLayerId={controller.selectedLayerId} /></div></ReferenceSurface><section aria-label="Layer banner" className="md:hidden"><div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-sm font-semibold text-secondary-900">Layer</h2></div><BannerMakerEditorLayerList controller={controller} /></section><div className="lg:hidden"><BannerMakerEditorProperties controller={controller} idPrefix="mobile" /></div></div></main>;
+}
+
+function BannerMakerEditorPropertiesSidebar({ controller }: { controller: BannerMakerEditorController }) {
+  return <aside aria-label="Edit elemen" className="hidden w-[19rem] shrink-0 overflow-y-auto border-l border-primary-100 bg-white/80 lg:block xl:w-[21rem]"><div className="sticky top-0 z-10 border-b border-primary-100 bg-white/95 px-4 py-4 backdrop-blur-sm"><h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900">Edit banner</h2></div><div className="space-y-4 p-4"><BannerMakerEditorProperties controller={controller} idPrefix="desktop" /></div></aside>;
+}
+
+function BannerMakerEditorWorkspace({ controller }: { controller: BannerMakerEditorController }) {
+  return <div className="relative flex min-h-0 flex-1"><BannerMakerEditorLeftSidebar controller={controller} /><BannerMakerEditorCanvasArea controller={controller} /><BannerMakerEditorPropertiesSidebar controller={controller} /></div>;
+}
+
+function BannerMakerEditorForm({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
+  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorStatus controller={controller} /><BannerMakerEditorWorkspace controller={controller} /></form>;
+}
+
+function BannerMakerEditorShell({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
+  return <div className="relative h-svh min-h-[38rem] overflow-hidden bg-voyage-canvas text-secondary-900"><BannerMakerEditorForm controller={controller} session={session} />{controller.pickerMode ? <AssetPickerPanel mode={controller.pickerMode} onClose={controller.actions.closePicker} onSelect={controller.actions.handleAssetSelected} selectedAssetId={controller.selectedPickerAssetId} /> : null}</div>;
+}
+
+function BannerMakerEditor({ action, assetUrls: initialAssetUrls, design: initialDesign, hasUnpublishedChanges, session, version: initialVersion }: BannerMakerEditorProps) {
+  const controller = useBannerMakerEditorController({ action, assetUrls: initialAssetUrls, design: initialDesign, hasUnpublishedChanges, version: initialVersion });
+
+  return <BannerMakerEditorShell controller={controller} session={session} />;
+}
+
 
 export { BannerMakerEditor };
 export type { BannerMakerAction, BannerMakerEditorProps };

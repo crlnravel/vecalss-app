@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table";
+import { resolveDataTableClassName } from "./data-table-utils";
 
 type DataTableColumn<T> = {
   cell: (row: T) => ReactNode;
@@ -196,35 +197,6 @@ type DataTableGridProps<T> = {
   visibleColumns: readonly DataTableColumn<T>[];
 };
 
-function removeMinimumWidthClasses(className?: string) {
-  return className
-    ?.split(/\s+/)
-    .filter((token) => !/(^|:)!?min-w-/.test(token))
-    .join(" ");
-}
-
-function resolveDataTableClassName({
-  hasRows,
-  isLoading,
-  tableClassName,
-}: {
-  hasRows: boolean;
-  isLoading: boolean;
-  tableClassName?: string;
-}) {
-  const usesDenseMinimumWidth = hasRows || isLoading;
-  const resolvedTableClassName = usesDenseMinimumWidth
-    ? tableClassName
-    : removeMinimumWidthClasses(tableClassName);
-
-  return cn(
-    usesDenseMinimumWidth ? "min-w-[760px]" : "min-w-full",
-    "table-fixed border-separate border-spacing-y-0",
-    resolvedTableClassName,
-    !usesDenseMinimumWidth && "!min-w-full",
-  );
-}
-
 function DataTableSortHeader<T>({
   column,
   sort,
@@ -260,6 +232,141 @@ function DataTableSortHeader<T>({
   );
 }
 
+function DataTableHeader<T>({
+  areAllVisibleSelected,
+  hasPartialSelection,
+  selection,
+  showRowNumbers,
+  sort,
+  toggleAllVisible,
+  visibleColumnWidthTotal,
+  visibleColumns,
+}: Pick<DataTableGridProps<T>, "areAllVisibleSelected" | "hasPartialSelection" | "selection" | "showRowNumbers" | "sort" | "toggleAllVisible" | "visibleColumnWidthTotal" | "visibleColumns">) {
+  return (
+    <TableHeader>
+      <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
+        {showRowNumbers ? <TableHead className="w-14 rounded-l-xl px-3 py-2.5 text-center sm:px-4">No.</TableHead> : selection ? (
+          <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
+            <Checkbox
+              aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
+              aria-label={hasPartialSelection || areAllVisibleSelected ? "Hapus pilihan semua baris di halaman ini" : "Pilih semua baris di halaman ini"}
+              checked={areAllVisibleSelected}
+              indeterminate={hasPartialSelection}
+              onCheckedChange={(checked) => toggleAllVisible(hasPartialSelection ? false : checked === true)}
+            />
+          </TableHead>
+        ) : null}
+        {visibleColumns.map((column, index) => (
+          <TableHead
+            aria-sort={column.sortKey && sort ? sort.key === column.sortKey ? sort.direction === "asc" ? "ascending" : "descending" : "none" : undefined}
+            className={cn(
+              "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-700 sm:px-5",
+              index === 0 && !selection && !showRowNumbers && "rounded-l-xl",
+              index === visibleColumns.length - 1 && "rounded-r-xl",
+              column.headerClassName,
+            )}
+            key={column.id}
+            style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
+          >
+            {column.sortKey && sort ? <DataTableSortHeader column={column} sort={sort} /> : column.label}
+          </TableHead>
+        ))}
+      </TableRow>
+    </TableHeader>
+  );
+}
+
+function DataTableRow<T>({
+  getRowId,
+  onRowClick,
+  row,
+  rowClassName,
+  rowContextMenu,
+  rowIndex,
+  rowIsClickable,
+  rowNumberOffset,
+  rowProps,
+  selectedIds,
+  selection,
+  showRowNumbers,
+  toggleSelected,
+  visibleColumns,
+}: Pick<DataTableGridProps<T>, "getRowId" | "onRowClick" | "rowClassName" | "rowContextMenu" | "rowIsClickable" | "rowNumberOffset" | "rowProps" | "selectedIds" | "selection" | "showRowNumbers" | "toggleSelected" | "visibleColumns"> & { row: T; rowIndex: number }) {
+  const id = getRowId(row);
+  const selected = selectedIds.has(id);
+  const additionalRowProps = rowProps?.(row);
+  const contextMenu = rowContextMenu?.(row);
+  const rowIsInteractive = rowIsClickable || Boolean(contextMenu);
+  const rowInteractionProps = rowIsClickable && onRowClick ? {
+    onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+      additionalRowProps?.onClick?.(event);
+      if (event.defaultPrevented || (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))) return;
+      onRowClick(row);
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+      additionalRowProps?.onKeyDown?.(event);
+      if (event.defaultPrevented || (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onRowClick(row);
+      }
+    },
+    tabIndex: 0,
+  } : contextMenu ? { tabIndex: 0 } : undefined;
+  const tableRow = (
+    <TableRow
+      {...additionalRowProps}
+      {...rowInteractionProps}
+      aria-haspopup={contextMenu ? "menu" : undefined}
+      aria-selected={selection ? selected : undefined}
+      className={cn(
+        "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
+        selected && "bg-primary-50/60 hover:bg-primary-50/80",
+        rowIsInteractive && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
+        rowClassName?.(row, selected),
+        additionalRowProps?.className,
+      )}
+    >
+      {showRowNumbers ? <TableCell className="w-14 px-3 py-3.5 text-center text-sm font-semibold tabular-nums text-secondary-500 sm:px-4" key="row-number">{rowNumberOffset + rowIndex + 1}</TableCell> : selection ? (
+        <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection"><Checkbox aria-label={`Pilih baris ${id}`} checked={selected} onCheckedChange={(checked) => toggleSelected(id, checked === true)} /></TableCell>
+      ) : null}
+      {visibleColumns.map((column) => <TableCell className={cn("px-4 py-3.5 sm:px-5", column.cellClassName)} key={column.id}>{column.cell(row)}</TableCell>)}
+    </TableRow>
+  );
+
+  return contextMenu ? <ContextMenu><ContextMenuTrigger render={tableRow} />{contextMenu}</ContextMenu> : tableRow;
+}
+
+function DataTableBody<T>({
+  emptyState,
+  getRowId,
+  isLoading,
+  loadingLabel,
+  onRowClick,
+  rowClassName,
+  rowContextMenu,
+  rowIsClickable,
+  rowNumberOffset,
+  rowProps,
+  rows,
+  selectedIds,
+  selection,
+  showRowNumbers,
+  toggleSelected,
+  visibleColumns,
+}: Pick<DataTableGridProps<T>, "emptyState" | "getRowId" | "isLoading" | "loadingLabel" | "onRowClick" | "rowClassName" | "rowContextMenu" | "rowIsClickable" | "rowNumberOffset" | "rowProps" | "rows" | "selectedIds" | "selection" | "showRowNumbers" | "toggleSelected" | "visibleColumns">) {
+  const colSpan = visibleColumns.length + (selection || showRowNumbers ? 1 : 0);
+  return (
+    <TableBody>
+      {isLoading ? (
+        <TableRow><TableCell className="px-5 py-10 text-center" colSpan={colSpan}><div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-700" role="status"><LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} /><span>{loadingLabel ?? "Memuat…"}</span></div></TableCell></TableRow>
+      ) : rows.length ? rows.map((row, rowIndex) => <DataTableRow getRowId={getRowId} key={getRowId(row)} onRowClick={onRowClick} row={row} rowClassName={rowClassName} rowContextMenu={rowContextMenu} rowIndex={rowIndex} rowIsClickable={rowIsClickable} rowNumberOffset={rowNumberOffset} rowProps={rowProps} selectedIds={selectedIds} selection={selection} showRowNumbers={showRowNumbers} toggleSelected={toggleSelected} visibleColumns={visibleColumns} />) : (
+        <TableRow className="hover:bg-transparent"><TableCell className="px-0 py-10 text-center" colSpan={colSpan}>{emptyState ?? <div className="mx-auto w-full max-w-[calc(100vw-2rem)] text-sm text-secondary-700">Tidak ada hasil.</div>}</TableCell></TableRow>
+      )}
+    </TableBody>
+  );
+}
+
 function DataTableGrid<T>({
   areAllVisibleSelected,
   caption,
@@ -286,162 +393,10 @@ function DataTableGrid<T>({
   visibleColumns,
 }: DataTableGridProps<T>) {
   return (
-    <Table
-      aria-busy={isLoading}
-      className={resolveDataTableClassName({
-        hasRows: rows.length > 0,
-        isLoading,
-        tableClassName,
-      })}
-    >
+    <Table aria-busy={isLoading} className={resolveDataTableClassName({ hasRows: rows.length > 0, isLoading, tableClassName })}>
       <caption className="sr-only">{caption}</caption>
-      <TableHeader>
-        <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-          {showRowNumbers ? (
-            <TableHead className="w-14 rounded-l-xl px-3 py-2.5 text-center sm:px-4">
-              No.
-            </TableHead>
-          ) : selection ? (
-            <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
-              <Checkbox
-                aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
-                 aria-label={hasPartialSelection || areAllVisibleSelected ? "Hapus pilihan semua baris di halaman ini" : "Pilih semua baris di halaman ini"}
-                checked={areAllVisibleSelected}
-                indeterminate={hasPartialSelection}
-                onCheckedChange={(checked) => {
-                  if (hasPartialSelection) {
-                    toggleAllVisible(false);
-                    return;
-                  }
-
-                  toggleAllVisible(checked === true);
-                }}
-              />
-            </TableHead>
-          ) : null}
-          {visibleColumns.map((column, index) => (
-            <TableHead
-              aria-sort={column.sortKey && sort
-                ? sort.key === column.sortKey
-                  ? sort.direction === "asc" ? "ascending" : "descending"
-                  : "none"
-                : undefined}
-              className={cn(
-                "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-700 sm:px-5",
-                index === 0 && !selection && !showRowNumbers && "rounded-l-xl",
-                index === visibleColumns.length - 1 && "rounded-r-xl",
-                column.headerClassName,
-              )}
-              key={column.id}
-              style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
-            >
-              {column.sortKey && sort ? <DataTableSortHeader column={column} sort={sort} /> : column.label}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {isLoading ? (
-          <TableRow>
-            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection || showRowNumbers ? 1 : 0)}>
-              <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-700" role="status">
-                <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
-                 <span>{loadingLabel ?? "Memuat…"}</span>
-              </div>
-            </TableCell>
-          </TableRow>
-        ) : rows.length ? rows.map((row, rowIndex) => {
-          const id = getRowId(row);
-          const selected = selectedIds.has(id);
-          const additionalRowProps = rowProps?.(row);
-          const contextMenu = rowContextMenu?.(row);
-          const rowIsInteractive = rowIsClickable || Boolean(contextMenu);
-          const rowInteractionProps = rowIsClickable && onRowClick
-            ? {
-                onClick: (event: MouseEvent<HTMLTableRowElement>) => {
-                  additionalRowProps?.onClick?.(event);
-                  if (
-                    event.defaultPrevented ||
-                    (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
-                  ) {
-                    return;
-                  }
-
-                  onRowClick(row);
-                },
-                onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
-                  additionalRowProps?.onKeyDown?.(event);
-                  if (
-                    event.defaultPrevented ||
-                    (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
-                  ) {
-                    return;
-                  }
-
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onRowClick(row);
-                  }
-                },
-                tabIndex: 0,
-              }
-            : contextMenu
-              ? { tabIndex: 0 }
-            : undefined;
-          const tableRow = (
-            <TableRow
-              {...additionalRowProps}
-              {...rowInteractionProps}
-              aria-haspopup={contextMenu ? "menu" : undefined}
-              aria-selected={selection ? selected : undefined}
-              className={cn(
-                "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
-                selected && "bg-primary-50/60 hover:bg-primary-50/80",
-                rowIsInteractive && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
-                rowClassName?.(row, selected),
-                additionalRowProps?.className,
-              )}
-              key={id}
-            >
-              {showRowNumbers ? (
-                <TableCell className="w-14 px-3 py-3.5 text-center text-sm font-semibold tabular-nums text-secondary-500 sm:px-4" key="row-number">
-                  {rowNumberOffset + rowIndex + 1}
-                </TableCell>
-              ) : selection ? (
-                <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
-                  <Checkbox
-                     aria-label={`Pilih baris ${id}`}
-                    checked={selected}
-                    onCheckedChange={(checked) => toggleSelected(id, checked === true)}
-                  />
-                </TableCell>
-              ) : null}
-              {visibleColumns.map((column) => (
-                <TableCell className={cn("px-4 py-3.5 sm:px-5", column.cellClassName)} key={column.id}>
-                  {column.cell(row)}
-                </TableCell>
-              ))}
-            </TableRow>
-          );
-
-          return contextMenu ? (
-            <ContextMenu key={id}>
-              <ContextMenuTrigger render={tableRow} />
-              {contextMenu}
-            </ContextMenu>
-          ) : tableRow;
-        }) : (
-          <TableRow className="hover:bg-transparent">
-            <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection || showRowNumbers ? 1 : 0)}>
-              {emptyState ?? (
-                <div className="mx-auto w-full max-w-[calc(100vw-2rem)] text-sm text-secondary-700">
-                  Tidak ada hasil.
-                </div>
-              )}
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
+      <DataTableHeader areAllVisibleSelected={areAllVisibleSelected} hasPartialSelection={hasPartialSelection} selection={selection} showRowNumbers={showRowNumbers} sort={sort} toggleAllVisible={toggleAllVisible} visibleColumnWidthTotal={visibleColumnWidthTotal} visibleColumns={visibleColumns} />
+      <DataTableBody emptyState={emptyState} getRowId={getRowId} isLoading={isLoading} loadingLabel={loadingLabel} onRowClick={onRowClick} rowClassName={rowClassName} rowContextMenu={rowContextMenu} rowIsClickable={rowIsClickable} rowNumberOffset={rowNumberOffset} rowProps={rowProps} rows={rows} selectedIds={selectedIds} selection={selection} showRowNumbers={showRowNumbers} toggleSelected={toggleSelected} visibleColumns={visibleColumns} />
     </Table>
   );
 }
@@ -951,5 +906,4 @@ function DataTable<T>({
 }
 
 export { DataTable };
-export { resolveDataTableClassName };
 export type { DataTableColumn, DataTableFilter, DataTableProps, DataTableSearch, DataTableSelection, DataTableSort, DataTableSortDirection };

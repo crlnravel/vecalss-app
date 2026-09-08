@@ -25,6 +25,103 @@ import {
 
 type PendingAction = "ban" | "delete" | "unban";
 
+const pendingActionCopy = {
+  ban: {
+    actionLabel: "Nonaktifkan pengguna",
+    confirmation: "deactivate",
+    description: "Akses siswa akan dinonaktifkan dan sesi aktifnya dicabut.",
+    dialogVariant: "warning",
+    formAction: deactivateStudentEnrollmentAction,
+    submitVariant: "destructive",
+    title: "Nonaktifkan pengguna?",
+  },
+  delete: {
+    actionLabel: "Hapus pengguna",
+    confirmation: "delete",
+    description: "Siswa akan dihapus dari direktori dan akses akunnya dicabut.",
+    dialogVariant: "danger",
+    formAction: deleteStudentEnrollmentAction,
+    submitVariant: "destructive",
+    title: "Hapus pengguna?",
+  },
+  unban: {
+    actionLabel: "Pulihkan pengguna",
+    confirmation: "reactivate",
+    description: "Akses siswa akan dipulihkan. Sesi yang sudah ada tetap dicabut.",
+    dialogVariant: "info",
+    formAction: reactivateStudentEnrollmentAction,
+    submitVariant: "brand",
+    title: "Pulihkan pengguna?",
+  },
+} as const;
+
+function StudentAccountActionButtons({
+  compact,
+  onSelect,
+  showPasswordAction,
+  status,
+  returnPath,
+  studentId,
+}: {
+  compact: boolean;
+  onSelect: (action: PendingAction) => void;
+  returnPath: string;
+  showPasswordAction: boolean;
+  status: UserStatus;
+  studentId: string;
+}) {
+  return (
+    <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
+      {showPasswordAction ? <StudentPasswordDialog returnPath={returnPath} studentId={studentId} /> : null}
+      {status === "active" ? (
+        <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("ban")} size="default" type="button" variant="dangerOutline">Nonaktifkan pengguna</Button>
+      ) : status === "disabled" ? (
+        <Button className={cn(compact ? "w-full" : "justify-start", "text-primary-700 hover:text-primary-800")} onClick={() => onSelect("unban")} size="default" type="button" variant="ghost">Pulihkan pengguna</Button>
+      ) : null}
+      <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("delete")} size="default" type="button" variant="dangerOutline">Hapus pengguna</Button>
+    </div>
+  );
+}
+
+function StudentAccountConfirmation({
+  directoryQuery,
+  onClose,
+  pendingAction,
+  returnPath,
+  studentId,
+}: {
+  directoryQuery: string;
+  onClose: () => void;
+  pendingAction: PendingAction | null;
+  returnPath: string;
+  studentId: string;
+}) {
+  if (!pendingAction) return null;
+
+  const copy = pendingActionCopy[pendingAction];
+
+  return (
+    <AlertDialog onOpenChange={(open) => { if (!open) onClose(); }} open>
+      <AlertDialogContent variant={copy.dialogVariant}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-secondary-600">{copy.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <form action={copy.formAction}>
+          <input name="confirmation" type="hidden" value={copy.confirmation} />
+          <input name="directoryQuery" type="hidden" value={directoryQuery} />
+          <input name="returnPath" type="hidden" value={returnPath} />
+          <input name="userId" type="hidden" value={studentId} />
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Batal</AlertDialogCancel>
+            <SubmitButton pendingLabel={`${copy.actionLabel}…`} type="submit" variant={copy.submitVariant}>{copy.actionLabel}</SubmitButton>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function StudentAccountActions({
   compact = false,
   directoryQuery = "",
@@ -41,92 +138,10 @@ function StudentAccountActions({
   studentId: string;
 }) {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const isBan = pendingAction === "ban";
-  const isDelete = pendingAction === "delete";
-  const isUnban = pendingAction === "unban";
-  const formAction = isBan
-    ? deactivateStudentEnrollmentAction
-    : isUnban
-      ? reactivateStudentEnrollmentAction
-      : deleteStudentEnrollmentAction;
-  const confirmation = isBan ? "deactivate" : isUnban ? "reactivate" : "delete";
-  const title = isBan ? "Nonaktifkan pengguna?" : isUnban ? "Pulihkan pengguna?" : "Hapus pengguna?";
-  const description = isBan
-    ? "Akses siswa akan dinonaktifkan dan sesi aktifnya dicabut."
-    : isUnban
-      ? "Akses siswa akan dipulihkan. Sesi yang sudah ada tetap dicabut."
-      : "Siswa akan dihapus dari direktori dan akses akunnya dicabut.";
-  const actionLabel = isBan ? "Nonaktifkan pengguna" : isUnban ? "Pulihkan pengguna" : "Hapus pengguna";
   return (
     <>
-      <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
-        {showPasswordAction ? <StudentPasswordDialog returnPath={returnPath} studentId={studentId} /> : null}
-
-        {status === "active" ? (
-          <Button
-            className={compact ? "w-full" : "justify-start"}
-            onClick={() => setPendingAction("ban")}
-            size="default"
-            type="button"
-            variant="dangerOutline"
-          >
-            Nonaktifkan pengguna
-          </Button>
-        ) : status === "disabled" ? (
-          <Button
-            className={cn(compact ? "w-full" : "justify-start", "text-primary-700 hover:text-primary-800")}
-            onClick={() => setPendingAction("unban")}
-            size="default"
-            type="button"
-            variant="ghost"
-          >
-            Pulihkan pengguna
-          </Button>
-        ) : null}
-
-        <Button
-          className={compact ? "w-full" : "justify-start"}
-          onClick={() => setPendingAction("delete")}
-          size="default"
-          type="button"
-          variant="dangerOutline"
-        >
-          Hapus pengguna
-        </Button>
-      </div>
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingAction(null);
-          }
-        }}
-        open={pendingAction !== null}
-      >
-        <AlertDialogContent variant={isDelete ? "danger" : isBan ? "warning" : "info"}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{title}</AlertDialogTitle>
-            <AlertDialogDescription className="text-secondary-600">{description}</AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <form action={formAction}>
-            <input name="confirmation" type="hidden" value={confirmation} />
-            <input name="directoryQuery" type="hidden" value={directoryQuery} />
-            <input name="returnPath" type="hidden" value={returnPath} />
-            <input name="userId" type="hidden" value={studentId} />
-            <AlertDialogFooter>
-              <AlertDialogCancel type="button">Batal</AlertDialogCancel>
-              <SubmitButton
-                pendingLabel={`${actionLabel}…`}
-                type="submit"
-                variant={isDelete || isBan ? "destructive" : "brand"}
-              >
-                {actionLabel}
-              </SubmitButton>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
+      <StudentAccountActionButtons compact={compact} onSelect={setPendingAction} returnPath={returnPath} showPasswordAction={showPasswordAction} status={status} studentId={studentId} />
+      <StudentAccountConfirmation directoryQuery={directoryQuery} onClose={() => setPendingAction(null)} pendingAction={pendingAction} returnPath={returnPath} studentId={studentId} />
     </>
   );
 }

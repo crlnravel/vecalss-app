@@ -33,17 +33,17 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
         >
           <div
             style={{ width: `${consumedPercentage}%` }}
-            className="bg-primary-800 transition-all duration-500"
+            className="bg-primary-800 transition-[width] duration-500 motion-reduce:transition-none"
             title={`Terpakai: ${consumedPercentage}%`}
           />
           <div
             style={{ width: `${reservedPercentage}%` }}
-            className="bg-warning-400 transition-all duration-500"
+            className="bg-warning-400 transition-[width] duration-500 motion-reduce:transition-none"
             title={`Disiapkan: ${reservedPercentage}%`}
           />
           <div
             style={{ width: `${availablePercentage}%` }}
-            className="bg-sea-glass transition-all duration-500"
+            className="bg-sea-glass transition-[width] duration-500 motion-reduce:transition-none"
             title={`Tersedia: ${availablePercentage}%`}
           />
         </div>

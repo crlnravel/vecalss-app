@@ -186,6 +186,45 @@
 }
 
 @layer utilities {
+  .student-page-canvas {
+    background:
+      radial-gradient(
+        46rem 34rem at 0% 100%,
+        color-mix(in oklab, var(--voyage-deep) 24%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        54rem 30rem at 4% 0%,
+        color-mix(in oklab, var(--voyage-sea-glass) 64%, transparent),
+        transparent 68%
+      ),
+      linear-gradient(145deg,
+        color-mix(in oklab, var(--voyage-sea-glass-wash) 90%, var(--voyage-canvas)) 0%,
+        var(--voyage-canvas) 52%,
+        color-mix(in oklab, var(--voyage-sea-glass) 10%, var(--voyage-canvas)) 100%
+      );
+    background-color: var(--voyage-canvas);
+  }
+
+  .dark .student-page-canvas {
+    background:
+      radial-gradient(
+        46rem 34rem at 0% 100%,
+        color-mix(in oklab, var(--voyage-deep) 24%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        54rem 30rem at 4% 0%,
+        color-mix(in oklab, var(--voyage-sea-glass) 25%, transparent),
+        transparent 68%
+      ),
+      linear-gradient(145deg,
+        color-mix(in oklab, var(--background) 92%, var(--voyage-deep)),
+        var(--background) 58%
+      );
+    background-color: var(--background);
+  }
+
   .atlas-grid {
     background-image:
       linear-gradient(color-mix(in oklab, var(--voyage-deep) 5%, transparent) 1px, transparent 1px),

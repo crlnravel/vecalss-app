@@ -6,6 +6,7 @@ import {
   buildMentorTryoutHref,
   buildMentorTryoutOperationsHref,
   canonicalContextMessage,
+  getSafeRedirectUrl,
   parseMentorTryoutAttemptContext,
   type CanonicalContextIssue,
   type NavigationQueryValue,
@@ -44,7 +45,7 @@ export default async function TryoutAttemptDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published") redirect(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }));
+  if (operations.status !== "published") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
   const delivery = operations.sessions.find((candidate) => candidate.attempts.some((attempt) => attempt.id === attemptId));
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();

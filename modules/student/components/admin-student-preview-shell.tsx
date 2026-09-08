@@ -52,7 +52,7 @@ function AdminStudentPreviewShell({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-svh w-full bg-[var(--voyage-canvas)] text-secondary-900">
+      <div className="student-page-canvas flex min-h-svh w-full text-secondary-900">
         <StudentSidebar activeLabel={activeLabel} previewMode />
 
         <SidebarInset className="bg-transparent">

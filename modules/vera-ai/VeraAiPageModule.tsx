@@ -114,7 +114,6 @@ import {
   veraMaterialHistory,
   veraPracticeHistory,
   veraStudioTools,
-  veraToolModes,
   type VeraContextSource as VeraContextSourceSeed,
   type VeraContextTypeId,
   type VeraMaterialHistory,
@@ -557,24 +556,6 @@ const initialSessions: StudySession[] = [
   },
 ];
 
-function createNewStudySession(): StudySession {
-  return {
-    id: `session-${Date.now()}`,
-    title: "Sesi belajar baru",
-    updatedAt: "Baru saja",
-    sourceIds: [],
-    generatedTools: [],
-    messages: [
-      {
-        id: `new-session-${Date.now()}`,
-        role: "vera",
-        body: "Sesi baru sudah siap. Tambahkan hasil latihan, materi, atau dokumen supaya aku memahami apa yang sedang ingin kamu pelajari.",
-        createdAt: "Baru saja",
-      },
-    ],
-  };
-}
-
 const emptyStudySession: StudySession = {
   id: "",
   title: "Sesi belajar baru",
@@ -677,27 +658,6 @@ function moveItemToFront<T extends string>(items: T[], nextItem: T) {
   return [nextItem, ...items.filter((item) => item !== nextItem)];
 }
 
-function buildGeneralReply(prompt: string, sourceTitles: string[]) {
-  const sourceLine =
-    sourceTitles.length > 0
-      ? sourceTitles.join(", ")
-      : "konteks belajar di sesi ini";
-  const loweredPrompt = prompt.toLowerCase();
-
-  if (loweredPrompt.includes("rasio")) {
-    return `Dari ${sourceLine}, kesulitannya bukan di konsep perbandingan awal, tetapi saat basis hitung berubah pada langkah kedua. Coba tulis dulu apa yang dianggap 100%, baru ubah rasionya. Setelah itu kita cek satuannya bersama.`;
-  }
-
-  if (
-    loweredPrompt.includes("salah") ||
-    loweredPrompt.includes("jawaban")
-  ) {
-    return `Aku membaca ${sourceLine}. Pola kesalahan yang paling layak dibahas adalah memilih opsi yang benar secara umum tetapi tidak benar-benar didukung informasi pada soal. Kirim nomor soalnya, lalu kita bedah alasan setiap pilihan.`;
-  }
-
-  return `Aku menggunakan ${sourceLine} untuk menjawab ini. Kita bisa memecahnya menjadi satu konsep inti, satu contoh singkat, lalu satu latihan untuk memastikan caramu berpikir sudah konsisten.`;
-}
-
 type VeraAiWorkspaceProps = {
   activeArtifact: VeraStudioTool | null;
   activeArtifactDetail: VeraBackendArtifactDetail | null;
@@ -736,7 +696,6 @@ type VeraAiWorkspaceProps = {
   onToggleContext: (sourceId: string, active: boolean) => void;
   onMaterializeArtifact: () => void;
   onApplyArtifact: (target: VeraBackendArtifactTarget) => void;
-  selectedSources: VeraContextSource[];
   session: SessionContext;
   sessionSidebarCollapsed: boolean;
   sessions: StudySession[];
@@ -787,7 +746,6 @@ function VeraAiWorkspace({
   onApplyArtifact,
   progress,
   provisionalText,
-  selectedSources,
   session,
   sessionSidebarCollapsed,
   sessions,
@@ -800,7 +758,7 @@ function VeraAiWorkspace({
   const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
 
   return (
-    <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+    <div className="student-page-canvas vera-ai-motion min-h-svh text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar
           notificationFeed={notificationFeed}
@@ -950,324 +908,6 @@ function VeraAiWorkspace({
   );
 }
 
-function useVeraAiFallbackState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
-  const searchParams = useSearchParams();
-  const requestedArtifact = searchParams.get("artifact");
-  const requestedToolParam = searchParams.get("tool");
-  const requestedTool = isVeraToolId(requestedArtifact)
-    ? requestedArtifact
-    : isVeraToolId(requestedToolParam)
-      ? requestedToolParam
-      : null;
-
-  const [sessions, setSessions] = useState<StudySession[]>(() =>
-    requestedTool
-      ? initialSessions.map((item, index) =>
-          index === 0
-            ? {
-                ...item,
-                generatedTools: moveItemToFront(
-                  item.generatedTools,
-                  requestedTool,
-                ),
-              }
-            : item,
-        )
-      : initialSessions,
-  );
-  const [activeSessionId, setActiveSessionId] = useState(initialSessions[0].id);
-  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
-    requestedTool,
-  );
-  const [contextSources, setContextSources] = useState<VeraContextSource[]>(
-    () => {
-      const addedSourceIds = new Set(
-        initialSessions.flatMap((item) => item.sourceIds),
-      );
-
-      return veraContextSources.filter((source) =>
-        addedSourceIds.has(source.id),
-      );
-    },
-  );
-  const [fullscreenArtifactId, setFullscreenArtifactId] =
-    useState<VeraToolId | null>(null);
-  const [draft, setDraft] = useState("");
-  const [contextDialogOpen, setContextDialogOpen] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
-  const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
-    useState(true);
-
-  const activeSession =
-    sessions.find((item) => item.id === activeSessionId) ?? sessions[0];
-  const activeSourceIdSet = useMemo(
-    () => new Set(activeSession.sourceIds),
-    [activeSession.sourceIds],
-  );
-
-  const selectedSources = useMemo(
-    () =>
-      contextSources.filter((source) =>
-        activeSourceIdSet.has(source.id),
-      ),
-    [activeSourceIdSet, contextSources],
-  );
-
-  const generatedArtifacts = useMemo(
-    () =>
-      activeSession.generatedTools
-        .map((toolId) => veraStudioTools.find((tool) => tool.id === toolId))
-        .filter((tool): tool is VeraStudioTool => Boolean(tool)),
-    [activeSession.generatedTools],
-  );
-
-  const activeArtifact =
-    generatedArtifacts.find((tool) => tool.id === activeArtifactId) ?? null;
-  const fullscreenArtifact =
-    generatedArtifacts.find((tool) => tool.id === fullscreenArtifactId) ?? null;
-
-  function updateActiveSession(
-    update: (current: StudySession) => StudySession,
-  ) {
-    setSessions((current) =>
-      current.map((item) =>
-        item.id === activeSession.id ? update(item) : item,
-      ),
-    );
-  }
-
-  function handleSelectSession(nextSessionId: string) {
-    setActiveSessionId(nextSessionId);
-    setActiveArtifactId(null);
-    setDraft("");
-    setWorkspaceTab("chat");
-  }
-
-  function handleNewSession() {
-    const nextSession = createNewStudySession();
-
-    setSessions((current) => [nextSession, ...current]);
-    setActiveSessionId(nextSession.id);
-    setActiveArtifactId(null);
-    setWorkspaceTab("chat");
-  }
-
-  function handleRenameSession(nextTitle: string) {
-    const title = nextTitle.trim();
-
-    if (!title || title === activeSession.title) {
-      return;
-    }
-
-    updateActiveSession((current) => ({
-      ...current,
-      title,
-      updatedAt: "Baru saja",
-    }));
-  }
-
-  function handleSaveContext(
-    nextSourceIds: string[],
-    addedSources: VeraContextSource[] = [],
-  ) {
-    const limitedSourceIds = nextSourceIds.slice(
-      0,
-      MAX_CONTEXTS_PER_SESSION,
-    );
-
-    if (addedSources.length > 0) {
-      setContextSources((current) => {
-        const existingIds = new Set(current.map((source) => source.id));
-
-        return [
-          ...current,
-          ...addedSources.filter((source) => !existingIds.has(source.id)),
-        ];
-      });
-    }
-
-    updateActiveSession((current) => ({
-      ...current,
-      sourceIds: limitedSourceIds,
-      updatedAt: "Baru saja",
-    }));
-    setContextDialogOpen(false);
-  }
-
-  function handleRemoveContexts(sourceIds: string[]) {
-    const removedSourceIds = new Set(sourceIds);
-
-    setContextSources((current) =>
-      current.filter((source) => !removedSourceIds.has(source.id)),
-    );
-    setSessions((current) =>
-      current.map((item) => {
-        const nextSourceIds = item.sourceIds.filter(
-          (sourceId) => !removedSourceIds.has(sourceId),
-        );
-
-        return nextSourceIds.length === item.sourceIds.length
-          ? item
-          : {
-              ...item,
-              sourceIds: nextSourceIds,
-              updatedAt: "Baru saja",
-            };
-      }),
-    );
-  }
-
-  function handleToggleContext(sourceId: string, active: boolean) {
-    updateActiveSession((current) => {
-      if (!active) {
-        return {
-          ...current,
-          sourceIds: current.sourceIds.filter((id) => id !== sourceId),
-          updatedAt: "Baru saja",
-        };
-      }
-
-      if (
-        current.sourceIds.includes(sourceId) ||
-        current.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        sourceIds: [...current.sourceIds, sourceId],
-        updatedAt: "Baru saja",
-      };
-    });
-  }
-
-  function handleSend() {
-    const nextDraft = draft.trim();
-
-    if (!nextDraft) {
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-
-    updateActiveSession((current) => ({
-      ...current,
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-${Date.now()}`,
-          role: "student",
-          body: nextDraft,
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-${Date.now()}`,
-          role: "vera",
-          body: buildGeneralReply(nextDraft, citations),
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setDraft("");
-  }
-
-  function handleToolRequest(toolId: VeraToolId) {
-    const tool = veraStudioTools.find((item) => item.id === toolId);
-
-    if (!tool) {
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-    updateActiveSession((current) => ({
-      ...current,
-      generatedTools: moveItemToFront(current.generatedTools, toolId),
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-tool-${Date.now()}`,
-          role: "student",
-          body: toolRequestLabels[toolId],
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-tool-${Date.now()}`,
-          role: "vera",
-          body: `${tool.outputTitle} sudah aku siapkan di Vera Studio. Hasilnya tersimpan di sesi ini, jadi kamu bisa kembali membacanya kapan saja.`,
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setActiveArtifactId(toolId);
-    setWorkspaceTab("studio");
-  }
-
-  function handleOpenArtifact(toolId: VeraToolId) {
-    setActiveArtifactId(toolId);
-    setWorkspaceTab("studio");
-  }
-
-  return {
-    activeArtifact,
-    activeArtifactDetail: null,
-    activeSession,
-    backendMode: false,
-    busy: false,
-    contextDialogOpen,
-    contextSources,
-    draft,
-    error: null,
-    fullscreenArtifact,
-    fullscreenArtifactDetail: null,
-    generatedArtifacts,
-    generatedArtifactSummaries: [],
-    notice: null,
-    notificationFeed,
-    onApplyArtifact: () => undefined,
-    onCancelRequest: () => undefined,
-    onCloseArtifact: () => setActiveArtifactId(null),
-    onCloseFullscreen: () => setFullscreenArtifactId(null),
-    onContextDialogOpenChange: setContextDialogOpen,
-    onDraftChange: setDraft,
-    onExpandArtifact: setFullscreenArtifactId,
-    onGenerateTool: handleToolRequest,
-    onMaterializeArtifact: () => undefined,
-    onNewSession: handleNewSession,
-    onOpenAddContext: () => setContextDialogOpen(true),
-    onOpenArtifact: handleOpenArtifact,
-    onRetry: () => undefined,
-    onRemoveContexts: handleRemoveContexts,
-    onRenameSession: handleRenameSession,
-    onSaveContext: handleSaveContext,
-    onSend: handleSend,
-    onSelectSession: handleSelectSession,
-    onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
-    onSetWorkspaceTab: setWorkspaceTab,
-    onToggleContext: handleToggleContext,
-    progress: null,
-    provisionalText: null,
-    selectedSources,
-    session,
-    sessionSidebarCollapsed,
-    sessions,
-    usage: null,
-    dataAsOf: null,
-    dataState: "unavailable",
-    workspaceTab,
-    returnToHref: buildStudentReturnHref(returnToHref),
-  };
-}
-
-function VeraAiPageModuleFallback({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }) {
-  const workspaceProps = useVeraAiFallbackState({ notificationFeed, returnToHref, session });
-  return <VeraAiWorkspace {...workspaceProps} />;
-}
-
 function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
@@ -1310,7 +950,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
   const [draft, setDraft] = useState("");
-  const [contextDialogOpen, setContextDialogOpen] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
     useState(true);
@@ -1340,15 +979,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     sessions.find((item) => item.id === activeSessionId) ??
     sessions[0] ??
     emptyStudySession;
-  const activeSourceIdSet = useMemo(
-    () => new Set(activeSession.sourceIds),
-    [activeSession.sourceIds],
-  );
-  const selectedSources = useMemo(
-    () =>
-      contextSources.filter((source) => activeSourceIdSet.has(source.id)),
-    [activeSourceIdSet, contextSources],
-  );
   const generatedArtifacts = useMemo(
     () =>
       activeSession.generatedTools
@@ -1561,7 +1191,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
   function handleSaveContext(
     nextSourceIds: string[],
-    addedSources: VeraContextSource[] = [],
   ) {
     const limitedSourceIds = nextSourceIds.slice(
       0,
@@ -2244,7 +1873,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     onToggleContext: handleToggleContext,
     progress,
     provisionalText,
-    selectedSources,
     session,
     sessionSidebarCollapsed,
     sessions,
@@ -2462,27 +2090,29 @@ function VeraTopBar({
   );
 }
 
-function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
+function getVeraUsageSummary(usage: VeraBackendUsage | null) {
   const usedUnits = usage?.usedQuotaUnits ?? null;
   const limitUnits = usage?.quotaLimitUnits ?? null;
   const usagePercent = usage && limitUnits && limitUnits > 0
     ? Math.min(100, Math.round((usage.usedQuotaUnits / limitUnits) * 100))
     : null;
-  const usageState = usage
-    ? !usage.redisAvailable
-      ? "Pembatas permintaan tidak tersedia"
-      : !usage.providerAvailable
-        ? "Penyedia AI tidak tersedia"
-        : usage.quotaDebtUnits > 0
-          ? `Overrun ${usage.quotaDebtUnits} unit`
-          : usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits
-            ? "Kuota habis"
-            : usage.reservedQuotaUnits > 0
-              ? `${usage.reservedQuotaUnits} unit sedang diproses`
-              : usage.rawTokenUsageState === "unknown"
-                ? "Penggunaan token belum diketahui"
-                : "Tersedia"
-    : "Data penggunaan belum tersedia dari server.";
+  let usageState = "Data penggunaan belum tersedia dari server.";
+
+  if (usage) {
+    if (!usage.redisAvailable) usageState = "Pembatas permintaan tidak tersedia";
+    else if (!usage.providerAvailable) usageState = "Penyedia AI tidak tersedia";
+    else if (usage.quotaDebtUnits > 0) usageState = `Overrun ${usage.quotaDebtUnits} unit`;
+    else if (usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits) usageState = "Kuota habis";
+    else if (usage.reservedQuotaUnits > 0) usageState = `${usage.reservedQuotaUnits} unit sedang diproses`;
+    else if (usage.rawTokenUsageState === "unknown") usageState = "Penggunaan token belum diketahui";
+    else usageState = "Tersedia";
+  }
+
+  return { limitUnits, usagePercent, usageState, usedUnits };
+}
+
+function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
+  const { limitUnits, usagePercent, usageState, usedUnits } = getVeraUsageSummary(usage);
 
   return (
     <Popover>
@@ -3705,39 +3335,6 @@ function StudioArtifactDocument({
       )}
     </article>
   );
-}
-
-function buildStudioArtifactMarkdown(
-  tool: VeraStudioTool,
-  mode: (typeof veraToolModes)[VeraToolId],
-  selectedSources: VeraContextSource[],
-) {
-  const metrics = mode.metrics
-    .map((metric) => {
-      const value =
-        metric.label === "Sumber" && metric.value.includes("konteks")
-          ? `${selectedSources.length} konteks`
-          : metric.value;
-
-      return `**${metric.label}:** ${value}`;
-    })
-    .join("  \n");
-  const highlights = mode.highlights.map((highlight) => `- ${highlight}`).join("\n");
-  const sources = selectedSources.length
-    ? selectedSources.map((source) => `- ${source.title}`).join("\n")
-    : "_Tanpa konteks terpasang_";
-
-  return [
-    `# ${tool.outputTitle}`,
-    tool.outputBody,
-    metrics,
-    "## Apa yang Vera lihat",
-    mode.description,
-    "## Temuan utama",
-    highlights,
-    "## Konteks yang digunakan",
-    sources,
-  ].join("\n\n");
 }
 
 function StudioArtifactMarkdown({

@@ -93,6 +93,22 @@ function LogoutDialogFooter() {
   );
 }
 
+function DebugAccountOptionContent({ account, isCurrent }: { account: DebugAccount; isCurrent: boolean }) {
+  return <div className="flex min-w-0 flex-col gap-0.5 text-left"><div className="flex items-center gap-2"><span className="truncate font-semibold text-secondary-900">{account.fullName}</span>{isCurrent ? <StudentBadge size="xs" tone="active">Aktif</StudentBadge> : null}</div><div className="flex items-center gap-1.5 text-xs text-secondary-500"><span className="truncate">{account.email}</span><span>•</span><span className="font-medium text-secondary-700">{account.roles.map((role) => debugRoleLabels[role] ?? role).join(", ")}</span></div></div>;
+}
+
+function DebugAccountSelection({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccount, selectedAccountId, sessionUserId, setSelectedAccountId, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccount: DebugAccount | null; selectedAccountId: string; sessionUserId: string; setSelectedAccountId: (id: string) => void; switchingAccountId: string | null }) {
+  if (isLoadingDebugAccounts) return <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600"><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memuat akun…</div>;
+  if (debugAccountsError) return <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{debugAccountsError}</p>;
+  if (!debugAccounts?.length) return <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">Belum ada akun aktif yang bisa dipilih.</p>;
+  return <DropdownMenu><DropdownMenuTrigger aria-label="Pilih Akun" disabled={switchingAccountId !== null} id="debug-account-select" render={<Button className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}>{selectedAccount ? <DebugAccountOptionContent account={selectedAccount} isCurrent={selectedAccount.id === sessionUserId} /> : <span className="text-secondary-500">Pilih akun…</span>}<ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width) min-w-[280px] p-1.5"><DropdownMenuRadioGroup onValueChange={setSelectedAccountId} value={selectedAccountId}>{debugAccounts.map((account) => <DropdownMenuRadioItem className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl py-2.5 pr-8 pl-3" closeOnClick key={account.id} value={account.id}><DebugAccountOptionContent account={account} isCurrent={account.id === sessionUserId} /></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
+}
+
+function DebugAccountSwitchButton({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccountId, sessionUserId, switchAccount, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccountId: string; sessionUserId: string; switchAccount: (id: string) => Promise<void>; switchingAccountId: string | null }) {
+  const disabled = !selectedAccountId || selectedAccountId === sessionUserId || switchingAccountId !== null || isLoadingDebugAccounts || Boolean(debugAccountsError) || !debugAccounts?.length;
+  return <Button className="w-full sm:w-auto" disabled={disabled} onClick={() => { if (!disabled) void switchAccount(selectedAccountId); }} type="button" variant="brand">{switchingAccountId !== null ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memproses…</> : "Ganti akun"}</Button>;
+}
+
 function DebugAccountSwitcherDialog({
   debugAccounts,
   debugAccountsError,
@@ -136,141 +152,10 @@ function DebugAccountSwitcherDialog({
           <DialogTitle>Ganti Akun</DialogTitle>
         </DialogHeader>
 
-        <div aria-live="polite" className="min-h-24">
-          {isLoadingDebugAccounts ? (
-            <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600">
-              <LoaderCircle className="animate-spin motion-reduce:animate-none" />
-              Memuat akun…
-            </div>
-          ) : debugAccountsError ? (
-            <p
-              className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-              role="alert"
-            >
-              {debugAccountsError}
-            </p>
-          ) : debugAccounts?.length ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label="Pilih Akun"
-                disabled={switchingAccountId !== null}
-                id="debug-account-select"
-                render={
-                  <Button
-                    className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40"
-                    variant="context"
-                  />
-                }
-              >
-                {selectedAccount ? (
-                  <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold text-secondary-900">
-                        {selectedAccount.fullName}
-                      </span>
-                      {selectedAccount.id === sessionUserId ? (
-                        <StudentBadge size="xs" tone="active">
-                          Aktif
-                        </StudentBadge>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-secondary-500">
-                      <span className="truncate">{selectedAccount.email}</span>
-                      <span>•</span>
-                      <span className="font-medium text-secondary-700">
-                        {selectedAccount.roles
-                          .map((r) => debugRoleLabels[r] ?? r)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-secondary-500">Pilih akun…</span>
-                )}
-                <ChevronDown
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-secondary-500"
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-(--anchor-width) min-w-[280px] p-1.5"
-              >
-                <DropdownMenuRadioGroup
-                  onValueChange={(value) => setSelectedAccountId(value)}
-                  value={selectedAccountId}
-                >
-                  {debugAccounts.map((account) => {
-                    const isCurrentAccount = account.id === sessionUserId;
-                    return (
-                      <DropdownMenuRadioItem
-                        closeOnClick
-                        key={account.id}
-                        value={account.id}
-                        className="flex items-center justify-between gap-3 py-2.5 pr-8 pl-3 rounded-2xl cursor-pointer"
-                      >
-                        <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate font-semibold text-secondary-900">
-                              {account.fullName}
-                            </span>
-                            {isCurrentAccount ? (
-                              <StudentBadge size="xs" tone="active">
-                                Aktif
-                              </StudentBadge>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-secondary-500">
-                            <span className="truncate">{account.email}</span>
-                            <span>•</span>
-                            <span className="font-medium text-secondary-700">
-                              {account.roles
-                                .map((r) => debugRoleLabels[r] ?? r)
-                                .join(", ")}
-                            </span>
-                          </div>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    );
-                  })}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">
-              Belum ada akun aktif yang bisa dipilih.
-            </p>
-          )}
-        </div>
+        <div aria-live="polite" className="min-h-24"><DebugAccountSelection debugAccounts={debugAccounts} debugAccountsError={debugAccountsError} isLoadingDebugAccounts={isLoadingDebugAccounts} selectedAccount={selectedAccount} selectedAccountId={selectedAccountId} sessionUserId={sessionUserId} setSelectedAccountId={setSelectedAccountId} switchingAccountId={switchingAccountId} /></div>
 
         <DialogFooter>
-          <Button
-            className="w-full sm:w-auto"
-            disabled={
-              !selectedAccountId ||
-              selectedAccountId === sessionUserId ||
-              switchingAccountId !== null ||
-              isLoadingDebugAccounts ||
-              Boolean(debugAccountsError) ||
-              !debugAccounts?.length
-            }
-            onClick={() => {
-              if (selectedAccountId && selectedAccountId !== sessionUserId) {
-                void switchAccount(selectedAccountId);
-              }
-            }}
-            type="button"
-            variant="brand"
-          >
-            {switchingAccountId !== null ? (
-              <>
-                <LoaderCircle className="animate-spin motion-reduce:animate-none" />
-                Memproses…
-              </>
-            ) : (
-              "Ganti akun"
-            )}
-          </Button>
+          <DebugAccountSwitchButton debugAccounts={debugAccounts} debugAccountsError={debugAccountsError} isLoadingDebugAccounts={isLoadingDebugAccounts} selectedAccountId={selectedAccountId} sessionUserId={sessionUserId} switchAccount={switchAccount} switchingAccountId={switchingAccountId} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

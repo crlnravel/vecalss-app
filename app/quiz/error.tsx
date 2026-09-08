@@ -17,6 +17,7 @@ export default function QuizError({
 
   return (
     <TypedRouteState
+      className="student-page-canvas"
       description="Kuis belum dapat dimuat. Coba lagi untuk memeriksa layanan Kuis; jawaban yang sudah tersimpan tidak berubah."
       kind="error"
       onRetry={reset}

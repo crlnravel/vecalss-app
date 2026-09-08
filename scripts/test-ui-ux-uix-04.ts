@@ -12,7 +12,7 @@ import {
 } from "@/modules/assessment/AssessmentWorkspace";
 import { AiHourlyLockChart } from "@/modules/admin/ai/components/AiHourlyLockChart";
 import type { QuotaHealthState } from "@/lib/admin/ai/contracts";
-import { resolveDataTableClassName } from "@/components/ui/data-table";
+import { resolveDataTableClassName } from "@/components/ui/data-table-utils";
 import { Table } from "@/components/ui/table";
 
 const root = process.cwd();
@@ -68,9 +68,9 @@ includes(providers, "min-w-0 break-words", "Provider credential fingerprints mus
 includes(providers, "<h2", "Provider sections must follow the page h1 with h2 headings.");
 includes(providers, "</h2>", "Provider section headings must be closed at the same level.");
 excludes(providers, "</h3>", "Provider section heading markup must not leave a stale h3 closing tag.");
-includes(capacity, 'role="meter"', "Capacity bars must expose meter semantics.");
-includes(capacity, "aria-valuenow", "Capacity meters must expose their current values.");
-includes(capacity, "aria-valuetext", "Capacity meters must expose text equivalents.");
+includes(capacity, "<meter", "Capacity bars must expose native meter semantics.");
+includes(capacity, "max={100}", "Capacity meters must expose their range.");
+includes(capacity, "value={Math.max", "Capacity meters must expose their current values.");
 includes(capacity, "motion-reduce:transition-none", "Capacity animation must respect reduced motion.");
 includes(routing, 'role="img"', "Routing charts must expose an accessible aggregate.");
 includes(routing, "Rincian penyelesaian aktual", "Routing charts must expose a visible value legend.");
@@ -91,6 +91,7 @@ const aiPolicies = read("modules/admin/ai/AiPoliciesPageModule.tsx");
 const aiUsage = read("modules/admin/ai/AiUsagePageModule.tsx");
 const aiHourlyLockChart = read("modules/admin/ai/components/AiHourlyLockChart.tsx");
 const dataTable = read("components/ui/data-table.tsx");
+const dataTableUtils = read("components/ui/data-table-utils.ts");
 const compactFilterTabs = read("components/ui/compact-filter-tabs.tsx");
 const mentorWorkspaceShell = read("modules/mentor/components/mentor-workspace-shell.tsx");
 const kaptenUi = read("modules/mentor/components/kapten-ui.tsx");
@@ -118,7 +119,7 @@ includes(aiHourlyLockChart, "motion-reduce:transition-none", "Hourly lock chart 
 includes(dataTable, "useId", "Data table search controls must use an instance-safe label association.");
 includes(dataTable, "htmlFor={searchId}", "Data table search labels must associate with their input.");
 includes(dataTable, "size-[44px]", "Data table compact actions must retain the 44px target.");
-includes(dataTable, "resolveDataTableClassName", "Data table width classes must resolve through an instance-safe helper.");
+includes(dataTableUtils, "resolveDataTableClassName", "Data table width classes must resolve through an instance-safe helper.");
 includes(dataTable, "!min-w-full", "Data table empty states must take precedence over caller dense minimum widths.");
 includes(dataTable, "motion-reduce:transform-none motion-reduce:transition-none", "Data table clear-all actions must reset transform and transition under reduced motion.");
 includes(dataTable, "transition-[border-color,box-shadow,background-color] motion-reduce:transition-none", "Data table search focus transitions must respect reduced motion.");

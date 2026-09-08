@@ -861,12 +861,18 @@ async function resolveAndMaterializeAssemblies(
       foundVersionIds: versions.map((version) => version.id).sort(),
     });
   }
-  const wrongPurposeBanks = versions.flatMap((version) => version.bankScopes
-    .filter((scope) => scope.questionBank.purpose !== "tryout")
-    .map((scope) => ({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose, versionId: version.id })));
-  const wrongPurposeSourceBanks = versions.flatMap((version) => version.sourceBank.purpose !== "tryout"
-    ? [{ bankId: version.sourceBank.id, purpose: version.sourceBank.purpose, versionId: version.id }]
-    : []);
+  const wrongPurposeBanks: Array<{ bankId: string; purpose: string; versionId: string }> = [];
+  const wrongPurposeSourceBanks: Array<{ bankId: string; purpose: string; versionId: string }> = [];
+  for (const version of versions) {
+    for (const scope of version.bankScopes) {
+      if (scope.questionBank.purpose !== "tryout") {
+        wrongPurposeBanks.push({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose, versionId: version.id });
+      }
+    }
+    if (version.sourceBank.purpose !== "tryout") {
+      wrongPurposeSourceBanks.push({ bankId: version.sourceBank.id, purpose: version.sourceBank.purpose, versionId: version.id });
+    }
+  }
   wrongPurposeBanks.push(...wrongPurposeSourceBanks);
   if (wrongPurposeBanks.length) {
     resolutionError("scope", "Tryout hanya dapat mematerialisasi assembly dari Bank Soal tujuan Tryout.", {
@@ -1404,27 +1410,39 @@ async function assertTryoutReleaseEligibility(
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
   }
   const scopedBanks = tryout.sections.flatMap((section) => section.packageVersion?.bankScopes ?? []);
-  const selectedQuestionIds = [...new Set(tryout.sections.flatMap((section) => [
-    ...section.items.map((item) => item.sourceQuestionId),
-    ...(section.packageVersion?.items ?? []).map((item) => item.sourceQuestionId),
-  ]).filter((id): id is string => Boolean(id)))];
+  const selectedQuestionIdSet = new Set<string>();
+  for (const section of tryout.sections) {
+    for (const item of section.items) {
+      if (item.sourceQuestionId) selectedQuestionIdSet.add(item.sourceQuestionId);
+    }
+    for (const item of section.packageVersion?.items ?? []) {
+      if (item.sourceQuestionId) selectedQuestionIdSet.add(item.sourceQuestionId);
+    }
+  }
+  const selectedQuestionIds = [...selectedQuestionIdSet];
   const selectedSources = selectedQuestionIds.length
     ? await tx.question.findMany({
       where: { id: { in: selectedQuestionIds } },
       select: { id: true, questionBank: { select: { id: true, purpose: true } } },
     })
     : [];
-  const wrongPurposeSources = [
-    ...scopedBanks
-      .filter((scope) => scope.questionBank.purpose !== "tryout")
-      .map((scope) => ({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose })),
-    ...tryout.sections.flatMap((section) => section.packageVersion?.sourceBank && section.packageVersion.sourceBank.purpose !== "tryout"
-      ? [{ bankId: section.packageVersion.sourceBank.id, purpose: section.packageVersion.sourceBank.purpose }]
-      : []),
-    ...selectedSources
-      .filter((source) => source.questionBank?.purpose !== "tryout")
-      .map((source) => ({ bankId: source.questionBank?.id ?? null, purpose: source.questionBank?.purpose ?? null, sourceQuestionId: source.id })),
-  ];
+  const wrongPurposeSources: Array<{ bankId: string | null; purpose: string | null; sourceQuestionId?: string }> = [];
+  for (const scope of scopedBanks) {
+    if (scope.questionBank.purpose !== "tryout") {
+      wrongPurposeSources.push({ bankId: scope.questionBankId, purpose: scope.questionBank.purpose });
+    }
+  }
+  for (const section of tryout.sections) {
+    const sourceBank = section.packageVersion?.sourceBank;
+    if (sourceBank && sourceBank.purpose !== "tryout") {
+      wrongPurposeSources.push({ bankId: sourceBank.id, purpose: sourceBank.purpose });
+    }
+  }
+  for (const source of selectedSources) {
+    if (source.questionBank?.purpose !== "tryout") {
+      wrongPurposeSources.push({ bankId: source.questionBank?.id ?? null, purpose: source.questionBank?.purpose ?? null, sourceQuestionId: source.id });
+    }
+  }
   if (wrongPurposeSources.length) {
     throw new Error("Tryout hanya dapat memakai soal dari Bank Soal tujuan Tryout.");
   }

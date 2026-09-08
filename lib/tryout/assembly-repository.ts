@@ -979,8 +979,9 @@ async function listReadyAssemblyRevisions(target: AssemblyAttachmentTarget = "tr
       include: versionInclude,
       orderBy: [{ package: { title: "asc" } }, { versionNo: "desc" }],
     });
+    const matchingVersions = versions.filter((version) => assemblyVersionMatchesPurpose(version, expectedPurpose));
     const summaries = await Promise.all(
-      versions.map(async (version) => {
+      matchingVersions.map(async (version) => {
         const report = await collectReadiness(tx, definitionInputForVersion(version), {
           expectedDefinitionDigest: version.definitionDigest,
           expectedPackageMode: version.package.mode as AssemblyMode,
@@ -992,9 +993,7 @@ async function listReadyAssemblyRevisions(target: AssemblyAttachmentTarget = "tr
         return { summary: toAttachmentSummary(version, report.readiness), version };
       }),
     );
-    return summaries
-      .filter(({ version }) => assemblyVersionMatchesPurpose(version, expectedPurpose))
-      .map(({ summary }) => summary);
+    return summaries.map(({ summary }) => summary);
   });
 }
 

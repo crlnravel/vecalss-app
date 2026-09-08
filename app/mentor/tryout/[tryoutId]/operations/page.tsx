@@ -10,8 +10,7 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export default async function TryoutOperationsPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const { tryoutId } = await params;
-  const [session, query] = await Promise.all([requireTutorSession(), searchParams]);
+  const [{ tryoutId }, session, query] = await Promise.all([params, requireTutorSession(), searchParams]);
   const parsed = parseMentorTryoutContext(query);
   if (parsed.issues.length) {
     return (

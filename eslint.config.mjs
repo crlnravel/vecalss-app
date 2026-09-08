@@ -13,6 +13,10 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "tmp/**",
+    // Repository-local tooling and skill copies are not application source.
+    ".agents/**",
+    ".claude/**",
+    ".opencode/**",
   ]),
 ]);
 

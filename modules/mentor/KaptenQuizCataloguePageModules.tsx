@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, ListChecks, Plus, X } from "@/lib/icons";
-import { useMemo, useReducer } from "react";
+import { useMemo, useReducer, type Dispatch } from "react";
 
 import {
   ReferenceEmptyState,
@@ -208,6 +208,158 @@ function QuizRow({ onSelectedChange, quiz, selectionMode, selected }: { onSelect
   );
 }
 
+function quizLifecycleConfirmation(intent: QuizCatalogueState["intent"], count: number) {
+  return intent === "publish"
+    ? { confirm: "Terbitkan semua", description: `${count} quiz akan tersedia untuk siswa.`, title: "Terbitkan quiz terpilih?" }
+    : { confirm: "Batalkan terbit", description: `${count} quiz kembali menjadi draf dan tidak tersedia untuk siswa.`, title: "Batalkan penerbitan quiz?" };
+}
+
+async function runQuizLifecycle({
+  dispatch,
+  intent,
+  isPending,
+  refresh,
+  selectedQuizzes,
+}: {
+  dispatch: Dispatch<QuizCatalogueAction>;
+  intent: QuizCatalogueState["intent"];
+  isPending: boolean;
+  refresh: () => void;
+  selectedQuizzes: KaptenQuiz[];
+}) {
+  if (!intent || isPending || !selectedQuizzes.length) return;
+  dispatch({ patch: { error: null, isPending: true }, type: "patch" });
+  try {
+    const ids = selectedQuizzes.map((quiz) => quiz.id);
+    const result = intent === "publish" ? await bulkPublishStandaloneQuizzesAction(ids) : await bulkUnpublishStandaloneQuizzesAction(ids);
+    if (!result.ok) {
+      dispatch({ patch: { error: result.message }, type: "patch" });
+      return;
+    }
+    dispatch({ ids: result.affectedIds, status: result.status, type: "update-status" });
+    dispatch({ patch: { intent: null, notice: result.message, selectedIds: new Set(), selectionMode: false }, type: "patch" });
+    refresh();
+  } catch (caughtError) {
+    dispatch({ patch: { error: caughtError instanceof Error ? caughtError.message : "Status quiz tidak dapat diubah saat ini. Coba lagi." }, type: "patch" });
+  } finally {
+    dispatch({ patch: { isPending: false }, type: "patch" });
+  }
+}
+
+function QuizSubjectHeader({ subject }: { subject: KaptenSubject }) {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <Button aria-label="Kembali ke semua quiz" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke semua quiz" variant="ghost"><ChevronLeft /></Button>
+      <ReferencePageHeader
+        className="min-w-0 flex-1"
+        actions={<TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Buat quiz baru" nativeButton={false} render={<Link href={buildMentorQuizCreateHref(subject.code)} />} size="default" variant="brand" />}><Plus />Buat Kuis</TooltipTrigger><TooltipContent>Buat quiz baru</TooltipContent></Tooltip></TooltipProvider>}
+        title={subject.name}
+      />
+    </div>
+  );
+}
+
+function QuizSelectionToolbar({
+  areAllVisibleSelected,
+  canPublish,
+  canUnpublish,
+  dispatch,
+  eligibilityReason,
+  isPending,
+  onToggleAll,
+  selectedCount,
+}: {
+  areAllVisibleSelected: boolean;
+  canPublish: boolean;
+  canUnpublish: boolean;
+  dispatch: Dispatch<QuizCatalogueAction>;
+  eligibilityReason: string | null;
+  isPending: boolean;
+  onToggleAll: (checked: boolean) => void;
+  selectedCount: number;
+}) {
+  return (
+    <ReferenceSurface as="div" className="flex flex-wrap items-center gap-5 px-5 py-4" variant="inset">
+      <Button aria-label="Keluar dari mode pilih" onClick={() => dispatch({ patch: { selectedIds: new Set(), selectionMode: false }, type: "patch" })} size="icon" type="button" variant="ghost"><X /></Button>
+      <span className="text-sm font-semibold text-secondary-900">{selectedCount} dipilih</span>
+      <Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => onToggleAll(checked === true)} />
+      <span className="text-sm font-semibold text-secondary-700">Semua hasil</span>
+      <div className="ml-auto flex flex-wrap items-center gap-3">
+        <Button disabled={!canPublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "publish" }, type: "patch" })} size="default" type="button" variant="reference">Terbitkan</Button>
+        <Button disabled={!canUnpublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "unpublish" }, type: "patch" })} size="default" type="button" variant="brandOutline">Batalkan terbit</Button>
+        <Button disabled={isPending} onClick={() => dispatch({ patch: { selectedIds: new Set() }, type: "patch" })} size="default" type="button" variant="ghost">Hapus pilihan</Button>
+      </div>
+      {eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}
+    </ReferenceSurface>
+  );
+}
+
+function QuizSubjectList({
+  createHref,
+  dispatch,
+  notice,
+  pagedQuizzes,
+  page,
+  pageCount,
+  quizzes,
+  selectedIds,
+  selectionMode,
+}: {
+  createHref: string;
+  dispatch: Dispatch<QuizCatalogueAction>;
+  notice: string | null;
+  pagedQuizzes: KaptenQuiz[];
+  page: number;
+  pageCount: number;
+  quizzes: KaptenQuiz[];
+  selectedIds: Set<string>;
+  selectionMode: boolean;
+}) {
+  return (
+    <section className="space-y-3">
+      {notice ? <ReferenceSurface className="px-4 py-3 text-sm font-medium text-primary-900" role="status" variant="inset">{notice}</ReferenceSurface> : null}
+      {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} onSelectedChange={(checked) => dispatch({ checked, id: quiz.id, type: "toggle-selected" })} quiz={quiz} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
+        <ReferenceSurface className="min-h-56" variant="inset"><ReferenceEmptyState action={<Button nativeButton={false} render={<Link href={createHref} />} size="default" variant="brand"><Plus />Buat quiz pertama</Button>} description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka." icon={ListChecks} title="Belum ada quiz di subject ini" /></ReferenceSurface>
+      ) : (
+        <ReferenceSurface className="min-h-52" variant="inset"><ReferenceEmptyState description="Coba kata kunci lain atau tampilkan semua status quiz." icon={ListChecks} title="Tidak ada quiz yang cocok" /></ReferenceSurface>
+      )}
+      <PaginationControls onPageChange={(nextPage) => dispatch({ patch: { page: nextPage }, type: "patch" })} page={page} pageCount={pageCount} />
+    </section>
+  );
+}
+
+function QuizLifecycleDialog({
+  canPublish,
+  canUnpublish,
+  dispatch,
+  error,
+  intent,
+  isPending,
+  onConfirm,
+  selectedCount,
+}: {
+  canPublish: boolean;
+  canUnpublish: boolean;
+  dispatch: Dispatch<QuizCatalogueAction>;
+  error: string | null;
+  intent: QuizCatalogueState["intent"];
+  isPending: boolean;
+  onConfirm: () => void;
+  selectedCount: number;
+}) {
+  if (!intent) return null;
+  const confirmation = quizLifecycleConfirmation(intent, selectedCount);
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !isPending) dispatch({ patch: { error: null, intent: null }, type: "patch" }); }} open>
+      <DialogContent pending={isPending} showCloseButton={!isPending} variant="info">
+        <DialogHeader><DialogTitle>{confirmation.title}</DialogTitle><DialogDescription>{confirmation.description}</DialogDescription></DialogHeader>
+        {error ? <div aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg" role="alert">{error}</div> : null}
+        <DialogFooter><DialogClose disabled={isPending} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isPending || (intent === "publish" ? !canPublish : !canUnpublish)} onClick={onConfirm} type="button" variant="brand">{isPending ? "Memproses..." : confirmation.confirm}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogue: KaptenQuiz[]; session: SessionContext; subject: KaptenSubject }) {
   const router = useRouter();
   const [catalogueState, dispatch] = useReducer(quizCatalogueReducer, {
@@ -222,22 +374,9 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     selectionMode: false,
     statusFilter: "",
   });
-  const {
-    error,
-    intent,
-    isPending,
-    notice,
-    page,
-    query,
-    quizzes,
-    selectedIds,
-    selectionMode,
-    statusFilter,
-  } = catalogueState;
-  const visibleQuizzes = quizzes.filter((quiz) =>
-    (!query.trim() || [quiz.title, quiz.status, quiz.primaryMetric].some((value) => value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
-    && (!statusFilter || quiz.status === statusFilter)
-  );
+  const { error, intent, isPending, notice, page, query, quizzes, selectedIds, selectionMode, statusFilter } = catalogueState;
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleQuizzes = quizzes.filter((quiz) => (!normalizedQuery || [quiz.title, quiz.status, quiz.primaryMetric].some((value) => value.toLocaleLowerCase().includes(normalizedQuery))) && (!statusFilter || quiz.status === statusFilter));
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(visibleQuizzes.length / pageSize));
   const pagedQuizzes = visibleQuizzes.slice((page - 1) * pageSize, page * pageSize);
@@ -246,91 +385,19 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
   const canUnpublish = selectedQuizzes.length > 0 && selectedQuizzes.every((quiz) => quiz.status === "published");
   const areAllVisibleSelected = visibleQuizzes.length > 0 && visibleQuizzes.every((quiz) => selectedIds.has(quiz.id));
   const eligibilityReason = selectedQuizzes.length > 0 && !canPublish && !canUnpublish ? "Pilih hanya quiz draf yang memiliki soal atau quiz yang sudah diterbitkan." : null;
-  const confirmation = intent === "publish" ? { confirm: "Terbitkan semua", description: `${selectedQuizzes.length} quiz akan tersedia untuk siswa.`, title: "Terbitkan quiz terpilih?" } : { confirm: "Batalkan terbit", description: `${selectedQuizzes.length} quiz kembali menjadi draf dan tidak tersedia untuk siswa.`, title: "Batalkan penerbitan quiz?" };
-
-  const toggleSelected = (id: string, checked: boolean) => dispatch({ checked, id, type: "toggle-selected" });
-  const toggleAllVisible = (checked: boolean) => dispatch({ checked, ids: visibleQuizzes.map((quiz) => quiz.id), type: "toggle-all-visible" });
-  const confirmLifecycle = async () => {
-    if (!intent || isPending || !selectedQuizzes.length) return;
-    dispatch({ patch: { error: null, isPending: true }, type: "patch" });
-    try {
-      const result = intent === "publish" ? await bulkPublishStandaloneQuizzesAction(selectedQuizzes.map((quiz) => quiz.id)) : await bulkUnpublishStandaloneQuizzesAction(selectedQuizzes.map((quiz) => quiz.id));
-      if (!result.ok) { dispatch({ patch: { error: result.message }, type: "patch" }); return; }
-      const affectedIds = new Set(result.affectedIds);
-      dispatch({ ids: [...affectedIds], status: result.status, type: "update-status" });
-      dispatch({ patch: { intent: null, notice: result.message, selectedIds: new Set(), selectionMode: false }, type: "patch" });
-      router.refresh();
-    } catch (caughtError) { dispatch({ patch: { error: caughtError instanceof Error ? caughtError.message : "Status quiz tidak dapat diubah saat ini. Coba lagi." }, type: "patch" }); }
-    finally { dispatch({ patch: { isPending: false }, type: "patch" }); }
-  };
+  const confirmLifecycle = () => void runQuizLifecycle({ dispatch, intent, isPending, refresh: () => router.refresh(), selectedQuizzes });
   return (
     <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={subject.code} searchPlaceholder="Cari kuis..." session={session} sidebarAppearance="reference">
       <div className="space-y-8">
-        <div className="flex min-w-0 items-start gap-3">
-          <Button aria-label="Kembali ke semua quiz" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke semua quiz" variant="ghost"><ChevronLeft /></Button>
-          <ReferencePageHeader
-            className="min-w-0 flex-1"
-            actions={
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label="Buat quiz baru"
-                        nativeButton={false}
-                        render={<Link href={buildMentorQuizCreateHref(subject.code)} />}
-                        size="default"
-                        variant="brand"
-                      />
-                    }
-                  >
-                    <Plus />
-                    Buat Kuis
-                  </TooltipTrigger>
-                  <TooltipContent>Buat quiz baru</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            }
-            title={subject.name}
-          />
-        </div>
+        <QuizSubjectHeader subject={subject} />
         <section aria-label="Filter Kuis" className="space-y-4">
-          <QuizStatusTabs
-            items={quizzes}
-            onChange={(value) => dispatch({ patch: { page: 1, selectedIds: new Set(), statusFilter: value }, type: "patch" })}
-            value={statusFilter}
-          />
-          <div className="w-full max-w-2xl">
-            <CatalogueSearchInput
-              onChange={(value) => dispatch({ patch: { page: 1, query: value, selectedIds: new Set() }, type: "patch" })}
-              placeholder="Cari judul, jumlah soal, atau status..."
-              value={query}
-            />
-          </div>
+          <QuizStatusTabs items={quizzes} onChange={(value) => dispatch({ patch: { page: 1, selectedIds: new Set(), statusFilter: value }, type: "patch" })} value={statusFilter} />
+          <div className="w-full max-w-2xl"><CatalogueSearchInput onChange={(value) => dispatch({ patch: { page: 1, query: value, selectedIds: new Set() }, type: "patch" })} placeholder="Cari judul, jumlah soal, atau status..." value={query} /></div>
         </section>
-        <section className="space-y-3">
-          {selectionMode ? <ReferenceSurface as="div" className="flex flex-wrap items-center gap-5 px-5 py-4" variant="inset"><Button aria-label="Keluar dari mode pilih" onClick={() => dispatch({ patch: { selectedIds: new Set(), selectionMode: false }, type: "patch" })} size="icon" type="button" variant="ghost"><X /></Button><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Semua hasil</span><div className="ml-auto flex flex-wrap items-center gap-3"><Button disabled={!canPublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "publish" }, type: "patch" })} size="default" type="button" variant="reference">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "unpublish" }, type: "patch" })} size="default" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => dispatch({ patch: { selectedIds: new Set() }, type: "patch" })} size="default" type="button" variant="ghost">Hapus pilihan</Button></div>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</ReferenceSurface> : null}
-          {notice ? <ReferenceSurface className="px-4 py-3 text-sm font-medium text-primary-900" role="status" variant="inset">{notice}</ReferenceSurface> : null}
-          {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} quiz={quiz} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
-            <ReferenceSurface className="min-h-56" variant="inset">
-              <ReferenceEmptyState
-                action={<Button nativeButton={false} render={<Link href={buildMentorQuizCreateHref(subject.code)} />} size="default" variant="brand"><Plus />Buat quiz pertama</Button>}
-                description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka."
-                icon={ListChecks}
-                title="Belum ada quiz di subject ini"
-              />
-            </ReferenceSurface>
-          ) : (
-            <ReferenceSurface className="min-h-52" variant="inset">
-              <ReferenceEmptyState description="Coba kata kunci lain atau tampilkan semua status quiz." icon={ListChecks} title="Tidak ada quiz yang cocok" />
-            </ReferenceSurface>
-          )}
-          <PaginationControls onPageChange={(nextPage) => dispatch({ patch: { page: nextPage }, type: "patch" })} page={page} pageCount={pageCount} />
-        </section>
+        {selectionMode ? <QuizSelectionToolbar areAllVisibleSelected={areAllVisibleSelected} canPublish={canPublish} canUnpublish={canUnpublish} dispatch={dispatch} eligibilityReason={eligibilityReason} isPending={isPending} onToggleAll={(checked) => dispatch({ checked, ids: visibleQuizzes.map((quiz) => quiz.id), type: "toggle-all-visible" })} selectedCount={selectedQuizzes.length} /> : null}
+        <QuizSubjectList createHref={buildMentorQuizCreateHref(subject.code)} dispatch={dispatch} notice={notice} page={page} pageCount={pageCount} pagedQuizzes={pagedQuizzes} quizzes={quizzes} selectedIds={selectedIds} selectionMode={selectionMode} />
       </div>
-      <Dialog onOpenChange={(open) => { if (!open && !isPending) dispatch({ patch: { error: null, intent: null }, type: "patch" }); }} open={Boolean(intent)}>
-        <DialogContent pending={isPending} showCloseButton={!isPending} variant="info"><DialogHeader><DialogTitle>{confirmation.title}</DialogTitle><DialogDescription>{confirmation.description}</DialogDescription></DialogHeader>{error ? <div aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg" role="alert">{error}</div> : null}<DialogFooter><DialogClose disabled={isPending} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isPending || (intent === "publish" ? !canPublish : !canUnpublish)} onClick={confirmLifecycle} type="button" variant="brand">{isPending ? "Memproses..." : confirmation.confirm}</Button></DialogFooter></DialogContent>
-      </Dialog>
+      <QuizLifecycleDialog canPublish={canPublish} canUnpublish={canUnpublish} dispatch={dispatch} error={error} intent={intent} isPending={isPending} onConfirm={confirmLifecycle} selectedCount={selectedQuizzes.length} />
     </MentorWorkspaceShell>
   );
 }

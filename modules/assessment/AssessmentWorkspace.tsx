@@ -63,7 +63,7 @@ function AssessmentWorkspace({
   navigation?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-svh bg-secondary-50 text-secondary-900">
+    <div className="student-page-canvas relative min-h-svh text-secondary-900">
       {dialog}
 
       <div className="flex min-h-svh flex-col">
@@ -84,7 +84,7 @@ function AssessmentWorkspace({
           ) : null}
         </div>
 
-        <main className="flex min-h-0 flex-1 flex-col bg-secondary-50">
+        <main className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 px-4 py-8 pb-32 sm:px-6 md:py-10 md:pb-36 lg:px-12 xl:px-16">{content}</div>
           {footer}
         </main>
@@ -519,7 +519,7 @@ function AssessmentResultWorkspace({
   const normalizedScore = Math.max(0, Math.min(100, score));
 
   return (
-    <div className="min-h-svh bg-secondary-50 text-secondary-900">
+    <div className="student-page-canvas min-h-svh text-secondary-900">
       <header className={cn(
         "relative grid min-h-20 grid-cols-[1fr_auto_1fr] items-center bg-white px-4 py-3 sm:min-h-24 sm:px-8 print:min-h-0 print:border-0 print:px-0 print:py-3",
         smoothHeaderDivider ? "border-t-2 border-primary-800 border-b border-primary-200/80" : "border-t-4 border-primary-700 border-b border-primary-100",
@@ -568,7 +568,7 @@ function AssessmentResultWorkspace({
           ) : null}
         </aside>
 
-        <main className="min-w-0 bg-secondary-50 px-4 py-6 sm:px-8 lg:px-7 xl:px-10 print:bg-white print:px-0 print:py-3">
+        <main className="min-w-0 px-4 py-6 sm:px-8 lg:px-7 xl:px-10 print:bg-white print:px-0 print:py-3">
           <div className="mx-auto w-full max-w-[920px]">{children}</div>
         </main>
 
@@ -618,6 +618,18 @@ function AssessmentResultNavigation({
   );
 }
 
+function getAssessmentResultDetails(marker: AssessmentResultMarkerItem) {
+  const outcome = marker.outcome ?? (marker.state === "correct" || marker.state === "incorrect" || marker.state === "unanswered" ? marker.state : undefined);
+  const labels: Record<string, string> = {
+    correct: "benar",
+    incorrect: "salah",
+    neutral: "sedang ditinjau",
+    unanswered: "tidak dijawab",
+  };
+  const cues: Record<string, string> = { correct: "✓", incorrect: "×", unanswered: "—" };
+  return { label: outcome ? labels[outcome] ?? labels.neutral : labels.neutral, cue: outcome ? cues[outcome] ?? null : null };
+}
+
 function AssessmentResultMarker({
   compact = false,
   marker,
@@ -627,20 +639,12 @@ function AssessmentResultMarker({
   marker: AssessmentResultMarkerItem;
   onClick: () => void;
 }) {
-  const outcome = marker.outcome ?? (marker.state === "correct" || marker.state === "incorrect" || marker.state === "unanswered" ? marker.state : undefined);
-  const outcomeLabel = outcome === "correct"
-    ? "benar"
-    : outcome === "incorrect"
-      ? "salah"
-      : outcome === "unanswered"
-        ? "tidak dijawab"
-        : "sedang ditinjau";
-  const outcomeCue = outcome === "correct" ? "✓" : outcome === "incorrect" ? "×" : outcome === "unanswered" ? "—" : null;
+  const { cue, label } = getAssessmentResultDetails(marker);
 
   return (
     <button
       aria-current={marker.state === "current" ? "step" : undefined}
-      aria-label={`Soal ${marker.number}, ${outcomeLabel}`}
+      aria-label={`Soal ${marker.number}, ${label}`}
       className={cn(
         "flex min-h-11 min-w-11 items-center justify-center border font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         compact ? "size-11 rounded-xl text-xs" : "aspect-square rounded-xl text-sm",
@@ -655,7 +659,7 @@ function AssessmentResultMarker({
     >
       <span aria-hidden="true" className="inline-flex flex-col items-center gap-0.5 leading-none">
         <span>{marker.number}</span>
-        {outcomeCue ? <span className="text-xs font-bold">{outcomeCue}</span> : null}
+        {cue ? <span className="text-xs font-bold">{cue}</span> : null}
       </span>
     </button>
   );

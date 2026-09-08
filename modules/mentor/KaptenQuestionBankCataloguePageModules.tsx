@@ -17,7 +17,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
+import { useMemo, useState, useTransition, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
@@ -231,6 +231,111 @@ function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
         : "attention";
 
   return <MentorBadge size="sm" tone={tone}>{statusCopy(status)}</MentorBadge>;
+}
+
+function createQuestionBankCatalogueColumns({ onOpenFolder }: { onOpenFolder: (folder: FolderNode) => void }): DataTableColumn<QuestionBankCatalogueRow>[] {
+  return [
+    {
+      cell: (row) => row.kind === "folder" ? (
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Folder className="size-4" /></span>
+            <div className="min-w-0">
+              <button className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" onClick={() => onOpenFolder(row.folder)} type="button">{row.folder.name}</button>
+              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.folder.bankCount} bank{row.folder.children?.length ? ` · ${row.folder.children.length} subfolder` : ""}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><LibraryBig aria-hidden="true" className="size-4" /></span>
+            <div className="min-w-0">
+              <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" href={row.bank.href}>{row.bank.title}</Link>
+              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal</p>
+            </div>
+          </div>
+        </div>
+      ),
+      headerClassName: "min-w-[18rem]",
+      hideable: false,
+      id: "name",
+      label: "Nama",
+      width: 34,
+    },
+    {
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
+        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.subjectCoverage.join(" · ")}>
+          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <MentorBadge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="compact" tone="category">{subject}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
+        </div>
+      ),
+      headerClassName: "min-w-[9rem]",
+      id: "subject",
+      label: "Subject",
+      width: 22,
+    },
+    {
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
+        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.categories.map((category) => category.name).join(" · ")}>
+          {row.bank.categories.length ? row.bank.categories.map((category) => <MentorBadge className="min-w-0 max-w-[10rem] shrink-0 truncate" key={category.id} size="compact" tone="category">{category.name}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
+        </div>
+      ),
+      headerClassName: "min-w-[10rem]",
+      id: "category",
+      label: "Kategori",
+      width: 24,
+    },
+    {
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
+      headerClassName: "min-w-[7rem]",
+      id: "status",
+      label: "Status",
+      width: 13,
+    },
+  ];
+}
+
+function QuestionBankCatalogueRowContextMenu({ actions, row }: {
+  actions: {
+    onEditBank: (bank: BankEntry["bank"]) => void;
+    onManageBankCategories: (bank: BankEntry["bank"]) => void;
+    onManageFolder: (folder: FolderNode, kind: "move" | "rename" | "remove") => void;
+    onSetLifecycle: (bank: BankEntry["bank"], action: LifecycleAction) => void;
+  };
+  row: QuestionBankCatalogueRow;
+}) {
+  if (row.kind === "folder") {
+    return <ContextMenuContent className="w-48"><ContextMenuItem onClick={() => actions.onManageFolder(row.folder, "rename")}><Pencil />Ubah nama</ContextMenuItem><ContextMenuSeparator /><ContextMenuItem onClick={() => actions.onManageFolder(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</ContextMenuItem></ContextMenuContent>;
+  }
+
+  return <ContextMenuContent className="w-52"><ContextMenuItem onClick={() => actions.onEditBank(row.bank)}><Pencil />Edit bank soal</ContextMenuItem><ContextMenuItem disabled={row.bank.status === "archived"} onClick={() => actions.onManageBankCategories(row.bank)}><Tag />Kelola kategori</ContextMenuItem><ContextMenuSeparator /><ContextMenuGroup>{row.bank.status === "draft" ? <ContextMenuItem onClick={() => actions.onSetLifecycle(row.bank, "publish")}><Upload />Terbitkan</ContextMenuItem> : null}{row.bank.status === "published" ? <ContextMenuItem onClick={() => actions.onSetLifecycle(row.bank, "unpublish")}><FilePenLine />Jadikan draf</ContextMenuItem> : null}{row.bank.status !== "archived" ? <ContextMenuItem onClick={() => actions.onSetLifecycle(row.bank, "archive")}><Archive />Arsipkan</ContextMenuItem> : <ContextMenuItem onClick={() => actions.onSetLifecycle(row.bank, "restore")}><Upload />Pulihkan</ContextMenuItem>}</ContextMenuGroup></ContextMenuContent>;
+}
+
+function QuestionBankFolderBreadcrumb({ currentPath, onSelect }: {
+  currentPath: Array<{ id: string | null; name: string }>;
+  onSelect: (item: { id: string | null; name: string }, index: number) => void;
+}) {
+  return <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500">{currentPath.map((item, index) => <span className="flex shrink-0 items-center gap-1" key={`${item.id ?? "root"}-${item.name}`}><button className={cn("rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200", index === currentPath.length - 1 ? "font-semibold text-secondary-900" : "")} onClick={() => onSelect(item, index)} type="button">{item.name}</button>{index < currentPath.length - 1 ? <ChevronRight className="size-3.5 text-secondary-300" /> : null}</span>)}</nav>;
+}
+
+function QuestionBankSortMenu({ initialSort, onChange }: { initialSort: BankSortMode; onChange: (sort: BankSortMode) => void }) {
+  return <><DropdownMenuLabel className="font-semibold text-secondary-900">Urutkan koleksi</DropdownMenuLabel><DropdownMenuRadioGroup onValueChange={(value) => onChange(value as BankSortMode)} value={initialSort}><DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem><DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem></DropdownMenuRadioGroup></>;
+}
+
+function getQuestionBankActiveFilters({ initialPurpose, initialSearch, initialSort, selectedCategories, selectedFolder, selectedSubjects, statusFilter }: {
+  initialPurpose: QuestionBankPurpose;
+  initialSearch: string;
+  initialSort: BankSortMode;
+  selectedCategories: string[];
+  selectedFolder: FolderSelection;
+  selectedSubjects: string[];
+  statusFilter: string;
+}): DataTableFilter[] {
+  return [
+    ...(selectedSubjects.length ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, status: statusFilter }), id: "subjects", label: "Subject", value: selectedSubjects.join(", ") }] : []),
+    ...(selectedCategories.length ? [{ href: questionBankHref({ folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), id: "categories", label: "Kategori", value: `${selectedCategories.length} dipilih` }] : []),
+    ...(statusFilter ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, subjects: selectedSubjects }), id: "status", label: "Status", value: statusCopy(statusFilter as KaptenQuestionBank["status"]) }] : []),
+  ];
 }
 
 function QuestionBankCatalogueFilterPanel({
@@ -587,6 +692,407 @@ function QuestionBankLifecycleConfirmationDialog({
   );
 }
 
+type CatalogueStateSetter<T> = Dispatch<SetStateAction<T>>;
+
+function useQuestionBankFolderActions({
+  folderDialog,
+  folderName,
+  folderParentId,
+  folders,
+  isApplying,
+  refreshFromServer,
+  selectedFolder,
+  setEntries,
+  setFolderDialog,
+  setFolderError,
+  setFolderName,
+  setFolderParentId,
+  setFolders,
+  setIsApplying,
+  setPendingConfirmation,
+  setSelectedFolder,
+}: {
+  folderDialog: FolderDialogState;
+  folderName: string;
+  folderParentId: string | null;
+  folders: FolderNode[];
+  isApplying: boolean;
+  refreshFromServer: () => void;
+  selectedFolder: FolderSelection;
+  setEntries: CatalogueStateSetter<BankEntry[]>;
+  setFolderDialog: CatalogueStateSetter<FolderDialogState>;
+  setFolderError: CatalogueStateSetter<string | null>;
+  setFolderName: CatalogueStateSetter<string>;
+  setFolderParentId: CatalogueStateSetter<string | null>;
+  setFolders: CatalogueStateSetter<FolderNode[]>;
+  setIsApplying: CatalogueStateSetter<boolean>;
+  setPendingConfirmation: CatalogueStateSetter<ConfirmationState>;
+  setSelectedFolder: CatalogueStateSetter<FolderSelection>;
+}) {
+  async function removeFolderFromServer(folder: FolderNode) {
+    setIsApplying(true);
+    setFolderError(null);
+    try {
+      const result = await removeQuestionBankFolderAction(folder.id ?? "", { expectedUpdatedAt: folder.updatedAt });
+      if (!result.ok) {
+        setFolderError(result.message);
+        return;
+      }
+      const removedId = folder.id ?? "";
+      const nextFolders = updateFolderBankCount(removeFolder(folders, removedId), folder.parentId, folder.bankCount);
+      setFolders(nextFolders);
+      setEntries((current) => current.map((entry) => {
+        const nextFolderId = entry.bank.folderId === folder.id ? folder.parentId : entry.bank.folderId;
+        return { ...entry, bank: { ...entry.bank, folder: folderReference(nextFolders, nextFolderId), folderId: nextFolderId, folderPath: folderPath(nextFolders, nextFolderId) } };
+      }));
+      if (selectedFolder === folder.id) setSelectedFolder(folder.parentId);
+      setPendingConfirmation(null);
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  function openFolderCreate(parentId: string | null) {
+    setFolderError(null);
+    setFolderName("");
+    setFolderParentId(parentId);
+    setFolderDialog({ kind: "create" });
+  }
+
+  function openFolderManage(folder: FolderNode, kind: "move" | "rename" | "remove") {
+    if (kind === "remove") {
+      setPendingConfirmation({ description: "Bank di dalam folder akan dipindahkan ke tingkat induknya. Subfolder juga akan dinaikkan satu tingkat.", label: "Hapus folder", onConfirm: () => void removeFolderFromServer(folder), title: `Hapus folder “${folder.name}”?` });
+      return;
+    }
+    setFolderError(null);
+    setFolderName(folder.name);
+    setFolderParentId(folder.parentId);
+    setFolderDialog({ folderId: folder.id ?? undefined, kind });
+  }
+
+  async function submitFolderDialog() {
+    if (!folderDialog || isApplying) return;
+    setIsApplying(true);
+    setFolderError(null);
+    try {
+      if (folderDialog.kind === "create") {
+        const result = await createQuestionBankFolderAction({ name: folderName, parentId: folderParentId });
+        if (!result.ok) {
+          setFolderError(result.message);
+          return;
+        }
+        setFolders((current) => insertFolder(current, { ...result.result, id: result.result.id, children: undefined }));
+      } else if (folderDialog.kind === "rename") {
+        const folder = findFolder(folders, folderDialog.folderId ?? null);
+        const result = await renameQuestionBankFolderAction(folderDialog.folderId ?? "", folderName, { expectedUpdatedAt: folder?.updatedAt });
+        if (!result.ok) {
+          setFolderError(result.message);
+          return;
+        }
+        const renamedId = result.result.id;
+        if (!renamedId) return;
+        const nextFolders = updateFolder(folders, renamedId, (item) => ({ ...item, ...result.result }));
+        setFolders(nextFolders);
+        setEntries((current) => current.map((entry) => ({
+          ...entry,
+          bank: {
+            ...entry.bank,
+            folder: folderReference(nextFolders, entry.bank.folderId),
+            folderPath: folderPath(nextFolders, entry.bank.folderId),
+          },
+        })));
+      } else {
+        const folder = findFolder(folders, folderDialog.folderId ?? null);
+        const result = await moveQuestionBankFolderAction(folderDialog.folderId ?? "", folderParentId, { expectedUpdatedAt: folder?.updatedAt });
+        if (!result.ok) {
+          setFolderError(result.message);
+          return;
+        }
+        const movedId = result.result.id;
+        if (!movedId) return;
+        const nextFolders = moveFolder(folders, movedId, result.result.parentId);
+        setFolders(nextFolders);
+        setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, folderPath: folderPath(nextFolders, entry.bank.folderId) } })));
+      }
+      setFolderDialog(null);
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  return { openFolderCreate, openFolderManage, submitFolderDialog };
+}
+
+function useQuestionBankBankActions({
+  bankCategoryId,
+  bankCategorySelection,
+  bankMoveId,
+  categories,
+  categoryBank,
+  folderParentId,
+  folders,
+  isApplying,
+  refreshFromServer,
+  selectedBank,
+  setBankCategoryId,
+  setBankCategorySelection,
+  setBankMoveId,
+  setEntries,
+  setFolderError,
+  setFolders,
+  setIsApplying,
+}: {
+  bankCategoryId: string | null;
+  bankCategorySelection: string[];
+  bankMoveId: string | null;
+  categories: CategoryNode[];
+  categoryBank: BankEntry["bank"] | null;
+  folderParentId: string | null;
+  folders: FolderNode[];
+  isApplying: boolean;
+  refreshFromServer: () => void;
+  selectedBank: BankEntry["bank"] | null;
+  setBankCategoryId: CatalogueStateSetter<string | null>;
+  setBankCategorySelection: CatalogueStateSetter<string[]>;
+  setBankMoveId: CatalogueStateSetter<string | null>;
+  setEntries: CatalogueStateSetter<BankEntry[]>;
+  setFolderError: CatalogueStateSetter<string | null>;
+  setFolders: CatalogueStateSetter<FolderNode[]>;
+  setIsApplying: CatalogueStateSetter<boolean>;
+}) {
+  function openMoveBank(bankId: string) {
+    setFolderError(null);
+    setBankMoveId(bankId);
+  }
+
+  async function moveBankToFolder() {
+    if (!bankMoveId || isApplying) return;
+    setIsApplying(true);
+    setFolderError(null);
+    try {
+      const bank = selectedBank;
+      if (!bank) {
+        setFolderError("Bank Soal tidak ditemukan. Muat ulang halaman lalu coba lagi.");
+        return;
+      }
+      const result = await moveQuestionBanksToFolderAction([bankMoveId], folderParentId, { expected: { [bankMoveId]: { expectedRevision: bank.revision, expectedUpdatedAt: bank.updatedAt } } });
+      if (!result.ok) {
+        setFolderError(result.message);
+        return;
+      }
+      const sourceFolderId = selectedBank.folderId ?? null;
+      const nextFolders = moveFolderBankCount(folders, sourceFolderId, folderParentId);
+      setFolders(nextFolders);
+      const version = result.result.versions.find((item) => item.id === bankMoveId);
+      setEntries((current) => current.map((entry) => entry.bank.id === bankMoveId ? { ...entry, bank: { ...entry.bank, folderId: folderParentId, folder: folderReference(nextFolders, folderParentId), folderPath: folderPath(nextFolders, folderParentId), ...(version ? { revision: version.revision, updatedAt: version.updatedAt } : {}) } } : entry));
+      setBankMoveId(null);
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  function openBankCategories(bank: BankEntry["bank"]) {
+    setBankCategoryId(bank.id);
+    setBankCategorySelection(bank.categoryIds ?? []);
+    setFolderError(null);
+  }
+
+  async function saveBankCategories() {
+    if (!bankCategoryId || isApplying) return;
+    setIsApplying(true);
+    setFolderError(null);
+    try {
+      const bank = categoryBank;
+      if (!bank) {
+        setFolderError("Bank Soal tidak ditemukan. Muat ulang halaman lalu coba lagi.");
+        return;
+      }
+      const result = await setQuestionBankCategoriesAction(bankCategoryId, bankCategorySelection, { expectedRevision: bank.revision, expectedUpdatedAt: bank.updatedAt });
+      if (!result.ok) {
+        setFolderError(result.message);
+        return;
+      }
+      const categoryMap = new Map(categories.map((category) => [category.id, category.name]));
+      const newCategories = bankCategorySelection.flatMap((id) => {
+        const name = categoryMap.get(id);
+        return name ? [{ id, name }] : [];
+      });
+      setEntries((current) => current.map((entry) => entry.bank.id === bankCategoryId ? { ...entry, bank: { ...entry.bank, categories: newCategories, categoryIds: bankCategorySelection, revision: result.result.revision, updatedAt: result.result.updatedAt } } : entry));
+      setBankCategoryId(null);
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  return { moveBankToFolder, openBankCategories, openMoveBank, saveBankCategories };
+}
+
+function useQuestionBankCategoryActions({
+  categories,
+  categoryEditor,
+  categoryName,
+  isApplying,
+  refreshFromServer,
+  setCategories,
+  setCategoryEditor,
+  setCategoryName,
+  setEntries,
+  setFolderError,
+  setIsApplying,
+  setPendingConfirmation,
+}: {
+  categories: CategoryNode[];
+  categoryEditor: CategoryEditorState;
+  categoryName: string;
+  isApplying: boolean;
+  refreshFromServer: () => void;
+  setCategories: CatalogueStateSetter<CategoryNode[]>;
+  setCategoryEditor: CatalogueStateSetter<CategoryEditorState>;
+  setCategoryName: CatalogueStateSetter<string>;
+  setEntries: CatalogueStateSetter<BankEntry[]>;
+  setFolderError: CatalogueStateSetter<string | null>;
+  setIsApplying: CatalogueStateSetter<boolean>;
+  setPendingConfirmation: CatalogueStateSetter<ConfirmationState>;
+}) {
+  function openCategoryCreate() {
+    setCategoryName("");
+    setFolderError(null);
+    setCategoryEditor({ categoryId: "", kind: "create" });
+  }
+
+  function openCategoryRename(category: CategoryNode) {
+    setCategoryName(category.name);
+    setFolderError(null);
+    setCategoryEditor({ categoryId: category.id, kind: "rename" });
+  }
+
+  function cancelCategoryEditor() {
+    setCategoryEditor(null);
+    setCategoryName("");
+    setFolderError(null);
+  }
+
+  async function submitCategoryEditor() {
+    if (!categoryEditor || isApplying || !categoryName.trim()) return;
+    setIsApplying(true);
+    setFolderError(null);
+    try {
+      if (categoryEditor.kind === "create") {
+        const result = await createQuestionBankCategoryAction(categoryName.trim());
+        if (!result.ok) {
+          setFolderError(result.message);
+          return;
+        }
+        setCategories((current) => [...current, result.result].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })));
+      } else {
+        const category = categories.find((item) => item.id === categoryEditor.categoryId);
+        const result = await renameQuestionBankCategoryAction(categoryEditor.categoryId ?? "", categoryName.trim(), { expectedUpdatedAt: category?.updatedAt });
+        if (!result.ok) {
+          setFolderError(result.message);
+          return;
+        }
+        setCategories((current) => current.map((item) => item.id === result.result.id ? result.result : item));
+        setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categories: entry.bank.categories.map((item) => item.id === result.result.id ? { id: item.id, name: result.result.name } : item) } })));
+      }
+      setCategoryEditor(null);
+      setCategoryName("");
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  function handleCategoryEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void submitCategoryEditor();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelCategoryEditor();
+    }
+  }
+
+  async function removeCategory(category: CategoryNode) {
+    setPendingConfirmation({ description: "Kategori akan dilepas dari semua bank. Isi bank dan snapshot yang sudah ada tidak berubah.", label: "Hapus kategori", onConfirm: () => void (async () => { setIsApplying(true); try { const result = await removeQuestionBankCategoryAction(category.id, { expectedUpdatedAt: category.updatedAt }); if (!result.ok) { setFolderError(result.message); return; } setCategories((current) => current.filter((item) => item.id !== category.id)); setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categoryIds: entry.bank.categoryIds.filter((id) => id !== category.id), categories: entry.bank.categories.filter((item) => item.id !== category.id) } }))); setPendingConfirmation(null); refreshFromServer(); } finally { setIsApplying(false); } })(), title: `Hapus kategori “${category.name}”?` });
+  }
+
+  return { cancelCategoryEditor, handleCategoryEditorKeyDown, openCategoryCreate, openCategoryRename, removeCategory, submitCategoryEditor };
+}
+
+function useQuestionBankLifecycleActions({
+  isApplying,
+  pendingLifecycle,
+  refreshFromServer,
+  setEntries,
+  setIsApplying,
+  setLifecycleError,
+  setPendingLifecycle,
+}: {
+  isApplying: boolean;
+  pendingLifecycle: { action: LifecycleAction; bank: BankEntry["bank"] } | null;
+  refreshFromServer: () => void;
+  setEntries: CatalogueStateSetter<BankEntry[]>;
+  setIsApplying: CatalogueStateSetter<boolean>;
+  setLifecycleError: CatalogueStateSetter<string | null>;
+  setPendingLifecycle: CatalogueStateSetter<{ action: LifecycleAction; bank: BankEntry["bank"] } | null>;
+}) {
+  async function applyLifecycle() {
+    if (!pendingLifecycle || isApplying) return;
+    setIsApplying(true);
+    setLifecycleError(null);
+    try {
+      const result = await updateQuestionBankLifecycleAction(pendingLifecycle.bank.id, pendingLifecycle.action, { expectedRevision: pendingLifecycle.bank.revision ?? 1 });
+      if (!result.ok) {
+        setLifecycleError(result.message);
+        return;
+      }
+      setEntries((current) => current.map((entry) => entry.bank.id === pendingLifecycle.bank.id ? { ...entry, bank: { ...entry.bank, revision: result.result.revision, status: result.result.status } } : entry));
+      setPendingLifecycle(null);
+      refreshFromServer();
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  return { applyLifecycle };
+}
+
+function getQuestionBankCatalogueViewModel({
+  flatFolders,
+  folders,
+  initialPageSize,
+  initialSearch,
+  initialTotal,
+  page,
+  selectedFolder,
+}: {
+  flatFolders: Array<{ depth: number; folder: FolderNode }>;
+  folders: FolderNode[];
+  initialPageSize: number;
+  initialSearch: string;
+  initialTotal: number;
+  page: number;
+  selectedFolder: FolderSelection;
+}) {
+  const currentFolder = selectedFolder !== ROOT_FOLDER && selectedFolder !== null ? findFolder(folders, selectedFolder) : selectedFolder === null ? findFolder(folders, null) : null;
+  const currentPath = selectedFolder === ROOT_FOLDER ? [{ id: null, name: "Bank soal" }] : [{ id: null, name: "Bank soal" }, ...(selectedFolder === null ? [{ id: null, name: "Belum ditempatkan" }] : folderPath(folders, selectedFolder))];
+  const folderCreateParentId = selectedFolder === ROOT_FOLDER || selectedFolder === null ? null : selectedFolder;
+  const folderCreateLabel = selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat folder" : "Buat subfolder";
+  const totalPages = Math.max(1, Math.ceil(initialTotal / initialPageSize));
+  const visiblePage = Math.min(page, totalPages);
+  const isGlobalSearch = Boolean(initialSearch.trim());
+  const childFolders = selectedFolder === ROOT_FOLDER
+    ? folders.filter((folder) => folder.id !== null)
+    : selectedFolder && currentFolder
+      ? currentFolder.children ?? []
+      : [];
+  return { childFolders, currentFolder, currentPath, folderCreateLabel, folderCreateParentId, isGlobalSearch, totalPages, visiblePage, flatFolders };
+}
+
 function useQuestionBankCatalogueState({
   initialCategories,
   initialEntries,
@@ -642,18 +1148,16 @@ function useQuestionBankCatalogueState({
   const [bankCategorySelection, setBankCategorySelection] = useState<string[]>([]);
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
-  const currentFolder = selectedFolder !== ROOT_FOLDER && selectedFolder !== null ? findFolder(folders, selectedFolder) : selectedFolder === null ? findFolder(folders, null) : null;
-  const currentPath = selectedFolder === ROOT_FOLDER ? [{ id: null, name: "Bank soal" }] : [{ id: null, name: "Bank soal" }, ...(selectedFolder === null ? [{ id: null, name: "Belum ditempatkan" }] : folderPath(folders, selectedFolder))];
-  const folderCreateParentId = selectedFolder === ROOT_FOLDER || selectedFolder === null ? null : selectedFolder;
-  const folderCreateLabel = selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat folder" : "Buat subfolder";
-  const totalPages = Math.max(1, Math.ceil(initialTotal / initialPageSize));
-  const visiblePage = Math.min(page, totalPages);
-  const isGlobalSearch = Boolean(initialSearch.trim());
-  const childFolders = selectedFolder === ROOT_FOLDER
-    ? folders.filter((folder) => folder.id !== null)
-    : selectedFolder && currentFolder
-      ? currentFolder.children ?? []
-      : [];
+  const {
+    childFolders,
+    currentFolder,
+    currentPath,
+    folderCreateLabel,
+    folderCreateParentId,
+    isGlobalSearch,
+    totalPages,
+    visiblePage,
+  } = getQuestionBankCatalogueViewModel({ flatFolders, folders, initialPageSize, initialSearch, initialTotal, page, selectedFolder });
   const selectedBank = bankMoveId ? entries.find(({ bank }) => bank.id === bankMoveId)?.bank ?? null : null;
   const categoryBank = bankCategoryId ? entries.find(({ bank }) => bank.id === bankCategoryId)?.bank ?? null : null;
 
@@ -665,269 +1169,101 @@ function useQuestionBankCatalogueState({
     const nextStatus = next.status ?? statusFilter;
     const nextSubjects = next.subjects ?? selectedSubjects;
     const nextPage = next.page ?? 1;
-    startCatalogueTransition(() => {
-      router.push(questionBankHref({ categories: nextCategories, folder: nextFolder, page: nextPage, purpose: initialPurpose, query: nextQuery, sort: nextSort, status: nextStatus, subjects: nextSubjects }));
-    });
+    startCatalogueTransition(() => router.push(questionBankHref({ categories: nextCategories, folder: nextFolder, page: nextPage, purpose: initialPurpose, query: nextQuery, sort: nextSort, status: nextStatus, subjects: nextSubjects })));
   }
+
   function resetPage() { setPage(1); }
+
   function refreshFromServer() {
     startCatalogueTransition(() => router.refresh());
   }
-  function openFolderCreate(parentId: string | null) { setFolderError(null); setFolderName(""); setFolderParentId(parentId); setFolderDialog({ kind: "create" }); }
-  function openFolderManage(folder: FolderNode, kind: "move" | "rename" | "remove") {
-    if (kind === "remove") {
-      setPendingConfirmation({ description: "Bank di dalam folder akan dipindahkan ke tingkat induknya. Subfolder juga akan dinaikkan satu tingkat.", label: "Hapus folder", onConfirm: () => void removeFolderFromServer(folder), title: `Hapus folder “${folder.name}”?` });
-      return;
-    }
-    setFolderError(null);
-    setFolderName(folder.name);
-    setFolderParentId(folder.parentId);
-    setFolderDialog({ folderId: folder.id ?? undefined, kind });
-  }
-  async function removeFolderFromServer(folder: FolderNode) {
-    setIsApplying(true);
-    setFolderError(null);
-    try {
-      const result = await removeQuestionBankFolderAction(folder.id ?? "", { expectedUpdatedAt: folder.updatedAt });
-      if (!result.ok) { setFolderError(result.message); return; }
-      const removedId = folder.id ?? "";
-      const nextFolders = updateFolderBankCount(removeFolder(folders, removedId), folder.parentId, folder.bankCount);
-      setFolders(nextFolders);
-      setEntries((current) => current.map((entry) => {
-        const nextFolderId = entry.bank.folderId === folder.id ? folder.parentId : entry.bank.folderId;
-        return { ...entry, bank: { ...entry.bank, folder: folderReference(nextFolders, nextFolderId), folderId: nextFolderId, folderPath: folderPath(nextFolders, nextFolderId) } };
-      }));
-      if (selectedFolder === folder.id) setSelectedFolder(folder.parentId);
-      setPendingConfirmation(null);
-      refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
-  async function submitFolderDialog() {
-    if (!folderDialog || isApplying) return;
-    setIsApplying(true); setFolderError(null);
-    try {
-      if (folderDialog.kind === "create") {
-        const result = await createQuestionBankFolderAction({ name: folderName, parentId: folderParentId });
-        if (!result.ok) { setFolderError(result.message); return; }
-        setFolders((current) => insertFolder(current, { ...result.result, id: result.result.id, children: undefined }));
-      } else if (folderDialog.kind === "rename") {
-        const folder = findFolder(folders, folderDialog.folderId ?? null);
-        const result = await renameQuestionBankFolderAction(folderDialog.folderId ?? "", folderName, { expectedUpdatedAt: folder?.updatedAt });
-        if (!result.ok) { setFolderError(result.message); return; }
-        const renamedId = result.result.id;
-        if (!renamedId) return;
-        const nextFolders = updateFolder(folders, renamedId, (item) => ({ ...item, ...result.result }));
-        setFolders(nextFolders);
-        setEntries((current) => current.map((entry) => ({
-          ...entry,
-          bank: {
-            ...entry.bank,
-            folder: folderReference(nextFolders, entry.bank.folderId),
-            folderPath: folderPath(nextFolders, entry.bank.folderId),
-          },
-        })));
-      } else {
-        const folder = findFolder(folders, folderDialog.folderId ?? null);
-        const result = await moveQuestionBankFolderAction(folderDialog.folderId ?? "", folderParentId, { expectedUpdatedAt: folder?.updatedAt });
-        if (!result.ok) { setFolderError(result.message); return; }
-        const movedId = result.result.id;
-        if (!movedId) return;
-        const nextFolders = moveFolder(folders, movedId, result.result.parentId);
-        setFolders(nextFolders);
-        setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, folderPath: folderPath(nextFolders, entry.bank.folderId) } })));
-      }
-      setFolderDialog(null); refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
-  function openMoveBank(bankId: string) { setFolderError(null); setBankMoveId(bankId); }
-  async function moveBankToFolder() {
-    if (!bankMoveId || isApplying) return;
-    setIsApplying(true); setFolderError(null);
-    try {
-      const bank = selectedBank;
-      if (!bank) { setFolderError("Bank Soal tidak ditemukan. Muat ulang halaman lalu coba lagi."); return; }
-      const result = await moveQuestionBanksToFolderAction([bankMoveId], folderParentId, { expected: { [bankMoveId]: { expectedRevision: bank.revision, expectedUpdatedAt: bank.updatedAt } } });
-      if (!result.ok) { setFolderError(result.message); return; }
-      const sourceFolderId = selectedBank?.folderId ?? null;
-      const nextFolders = moveFolderBankCount(folders, sourceFolderId, folderParentId);
-      setFolders(nextFolders);
-      const version = result.result.versions.find((item) => item.id === bankMoveId);
-      setEntries((current) => current.map((entry) => entry.bank.id === bankMoveId ? { ...entry, bank: { ...entry.bank, folderId: folderParentId, folder: folderReference(nextFolders, folderParentId), folderPath: folderPath(nextFolders, folderParentId), ...(version ? { revision: version.revision, updatedAt: version.updatedAt } : {}) } } : entry));
-      setBankMoveId(null); refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
-  function openBankCategories(bank: BankEntry["bank"]) { setBankCategoryId(bank.id); setBankCategorySelection(bank.categoryIds ?? []); setFolderError(null); }
-  async function saveBankCategories() {
-    if (!bankCategoryId || isApplying) return;
-    setIsApplying(true); setFolderError(null);
-    try {
-      const bank = categoryBank;
-      if (!bank) { setFolderError("Bank Soal tidak ditemukan. Muat ulang halaman lalu coba lagi."); return; }
-      const result = await setQuestionBankCategoriesAction(bankCategoryId, bankCategorySelection, { expectedRevision: bank.revision, expectedUpdatedAt: bank.updatedAt });
-      if (!result.ok) { setFolderError(result.message); return; }
-      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
-      const newCategories = bankCategorySelection.flatMap((id) => {
-        const name = categoryMap.get(id);
-        return name ? [{ id, name }] : [];
-      });
-      setEntries((current) => current.map((entry) => entry.bank.id === bankCategoryId ? { ...entry, bank: { ...entry.bank, categories: newCategories, categoryIds: bankCategorySelection, revision: result.result.revision, updatedAt: result.result.updatedAt } } : entry));
-      setBankCategoryId(null); refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
-  function openCategoryCreate() { setCategoryName(""); setFolderError(null); setCategoryEditor({ categoryId: "", kind: "create" }); }
-  function openCategoryRename(category: CategoryNode) { setCategoryName(category.name); setFolderError(null); setCategoryEditor({ categoryId: category.id, kind: "rename" }); }
-  function cancelCategoryEditor() { setCategoryEditor(null); setCategoryName(""); setFolderError(null); }
-  function handleCategoryEditorKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void submitCategoryEditor();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      cancelCategoryEditor();
-    }
-  }
-  async function submitCategoryEditor() {
-    if (!categoryEditor || isApplying || !categoryName.trim()) return;
-    setIsApplying(true); setFolderError(null);
-    try {
-      if (categoryEditor.kind === "create") {
-        const result = await createQuestionBankCategoryAction(categoryName.trim());
-        if (!result.ok) { setFolderError(result.message); return; }
-        setCategories((current) => [...current, result.result].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })));
-      } else {
-        const category = categories.find((item) => item.id === categoryEditor.categoryId);
-        const result = await renameQuestionBankCategoryAction(categoryEditor.categoryId ?? "", categoryName.trim(), { expectedUpdatedAt: category?.updatedAt });
-        if (!result.ok) { setFolderError(result.message); return; }
-        setCategories((current) => current.map((item) => item.id === result.result.id ? result.result : item));
-        setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categories: entry.bank.categories.map((item) => item.id === result.result.id ? { id: item.id, name: result.result.name } : item) } })));
-      }
-      setCategoryEditor(null); setCategoryName(""); refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
-  async function removeCategory(category: CategoryNode) {
-    setPendingConfirmation({ description: "Kategori akan dilepas dari semua bank. Isi bank dan snapshot yang sudah ada tidak berubah.", label: "Hapus kategori", onConfirm: () => void (async () => { setIsApplying(true); try { const result = await removeQuestionBankCategoryAction(category.id, { expectedUpdatedAt: category.updatedAt }); if (!result.ok) { setFolderError(result.message); return; } setCategories((current) => current.filter((item) => item.id !== category.id)); setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categoryIds: entry.bank.categoryIds.filter((id) => id !== category.id), categories: entry.bank.categories.filter((item) => item.id !== category.id) } }))); setPendingConfirmation(null); refreshFromServer(); } finally { setIsApplying(false); } })(), title: `Hapus kategori “${category.name}”?` });
-  }
-  async function applyLifecycle() {
-    if (!pendingLifecycle || isApplying) return;
-    setIsApplying(true); setLifecycleError(null);
-    try {
-      const result = await updateQuestionBankLifecycleAction(pendingLifecycle.bank.id, pendingLifecycle.action, { expectedRevision: pendingLifecycle.bank.revision ?? 1 });
-      if (!result.ok) { setLifecycleError(result.message); return; }
-      setEntries((current) => current.map((entry) => entry.bank.id === pendingLifecycle.bank.id ? { ...entry, bank: { ...entry.bank, revision: result.result.revision, status: result.result.status } } : entry));
-      setPendingLifecycle(null); refreshFromServer();
-    } finally { setIsApplying(false); }
-  }
+
+  const folderActions = useQuestionBankFolderActions({
+    folderDialog,
+    folderName,
+    folderParentId,
+    folders,
+    isApplying,
+    refreshFromServer,
+    selectedFolder,
+    setEntries,
+    setFolderDialog,
+    setFolderError,
+    setFolderName,
+    setFolderParentId,
+    setFolders,
+    setIsApplying,
+    setPendingConfirmation,
+    setSelectedFolder,
+  });
+  const bankActions = useQuestionBankBankActions({
+    bankCategoryId,
+    bankCategorySelection,
+    bankMoveId,
+    categories,
+    categoryBank,
+    folderParentId,
+    folders,
+    isApplying,
+    refreshFromServer,
+    selectedBank,
+    setBankCategoryId,
+    setBankCategorySelection,
+    setBankMoveId,
+    setEntries,
+    setFolderError,
+    setFolders,
+    setIsApplying,
+  });
+  const categoryActions = useQuestionBankCategoryActions({
+    categories,
+    categoryEditor,
+    categoryName,
+    isApplying,
+    refreshFromServer,
+    setCategories,
+    setCategoryEditor,
+    setCategoryName,
+    setEntries,
+    setFolderError,
+    setIsApplying,
+    setPendingConfirmation,
+  });
+  const lifecycleActions = useQuestionBankLifecycleActions({
+    isApplying,
+    pendingLifecycle,
+    refreshFromServer,
+    setEntries,
+    setIsApplying,
+    setLifecycleError,
+    setPendingLifecycle,
+  });
+
+  const { openFolderCreate, openFolderManage, submitFolderDialog } = folderActions;
+  const { moveBankToFolder, openBankCategories, openMoveBank, saveBankCategories } = bankActions;
+  const { cancelCategoryEditor, handleCategoryEditorKeyDown, openCategoryCreate, openCategoryRename, removeCategory, submitCategoryEditor } = categoryActions;
+  const { applyLifecycle } = lifecycleActions;
 
   const catalogueRows: QuestionBankCatalogueRow[] = [
     ...childFolders.map((folder): QuestionBankCatalogueRow => ({ folder, kind: "folder" })),
     ...entries.map(({ bank }): QuestionBankCatalogueRow => ({ bank, kind: "bank" })),
   ];
 
-  const catalogueColumns: DataTableColumn<QuestionBankCatalogueRow>[] = [
-    {
-      cell: (row) => row.kind === "folder" ? (
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Folder className="size-4" /></span>
-            <div className="min-w-0">
-              <button className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" onClick={() => { setSelectedFolder(row.folder.id); resetPage(); navigateCatalogue({ folder: row.folder.id, page: 1 }); }} type="button">{row.folder.name}</button>
-              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.folder.bankCount} bank{row.folder.children?.length ? ` · ${row.folder.children.length} subfolder` : ""}</p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><LibraryBig aria-hidden="true" className="size-4" /></span>
-            <div className="min-w-0">
-              <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" href={row.bank.href}>{row.bank.title}</Link>
-              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal</p>
-            </div>
-          </div>
-        </div>
-      ),
-      headerClassName: "min-w-[18rem]",
-      hideable: false,
-      id: "name",
-      label: "Nama",
-      width: 34,
-    },
-    {
-      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
-        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.subjectCoverage.join(" · ")}>
-          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <MentorBadge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="compact" tone="category">{subject}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
-        </div>
-      ),
-      headerClassName: "min-w-[9rem]",
-      id: "subject",
-      label: "Subject",
-      width: 22,
-    },
-    {
-      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
-        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.categories.map((category) => category.name).join(" · ")}>
-          {row.bank.categories.length ? row.bank.categories.map((category) => <MentorBadge className="min-w-0 max-w-[10rem] shrink-0 truncate" key={category.id} size="compact" tone="category">{category.name}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
-        </div>
-      ),
-      headerClassName: "min-w-[10rem]",
-      id: "category",
-      label: "Kategori",
-      width: 24,
-    },
-    {
-      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
-      headerClassName: "min-w-[7rem]",
-      id: "status",
-      label: "Status",
-      width: 13,
-    },
-  ];
-
-  const catalogueRowContextMenu = (row: QuestionBankCatalogueRow) => row.kind === "folder" ? (
-    <ContextMenuContent className="w-48">
-      <ContextMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</ContextMenuItem>
-    </ContextMenuContent>
-  ) : (
-    <ContextMenuContent className="w-52">
-      <ContextMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</ContextMenuItem>
-      <ContextMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuGroup>
-        {row.bank.status === "draft" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</ContextMenuItem> : null}
-        {row.bank.status === "published" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</ContextMenuItem> : null}
-        {row.bank.status !== "archived" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</ContextMenuItem> : <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</ContextMenuItem>}
-      </ContextMenuGroup>
-    </ContextMenuContent>
-  );
-
-  const activeFilters: DataTableFilter[] = [
-    ...(selectedSubjects.length ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, status: statusFilter }), id: "subjects", label: "Subject", value: selectedSubjects.join(", ") }] : []),
-    ...(selectedCategories.length ? [{ href: questionBankHref({ folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), id: "categories", label: "Kategori", value: `${selectedCategories.length} dipilih` }] : []),
-    ...(statusFilter ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, query: initialSearch, sort: initialSort, subjects: selectedSubjects }), id: "status", label: "Status", value: statusCopy(statusFilter as KaptenQuestionBank["status"]) }] : []),
-  ];
+  const openCatalogueFolder = (folder: FolderNode) => {
+    setSelectedFolder(folder.id);
+    resetPage();
+    navigateCatalogue({ folder: folder.id, page: 1 });
+  };
+  const openBankLifecycle = (bank: BankEntry["bank"], action: LifecycleAction) => {
+    setLifecycleError(null);
+    setPendingLifecycle({ action, bank });
+  };
+  const catalogueColumns = createQuestionBankCatalogueColumns({ onOpenFolder: openCatalogueFolder });
+  const catalogueRowContextMenu = (row: QuestionBankCatalogueRow) => <QuestionBankCatalogueRowContextMenu actions={{ onEditBank: (bank) => router.push(bank.href), onManageBankCategories: openBankCategories, onManageFolder: openFolderManage, onSetLifecycle: openBankLifecycle }} row={row} />;
+  const activeFilters = getQuestionBankActiveFilters({ initialPurpose, initialSearch, initialSort, selectedCategories, selectedFolder, selectedSubjects, statusFilter });
   const clearFiltersHref = questionBankHref({ folder: selectedFolder, page: 1, purpose: initialPurpose, sort: initialSort });
-  const folderBreadcrumb = (
-    <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500">
-      {currentPath.map((item, index) => (
-        <span className="flex shrink-0 items-center gap-1" key={`${item.id ?? "root"}-${item.name}`}>
-          <button className={cn("rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200", index === currentPath.length - 1 ? "font-semibold text-secondary-900" : "")} onClick={() => { const next = index === 0 ? ROOT_FOLDER : item.id; setSelectedFolder(next); resetPage(); navigateCatalogue({ folder: next, page: 1 }); }} type="button">{item.name}</button>
-          {index < currentPath.length - 1 ? <ChevronRight className="size-3.5 text-secondary-300" /> : null}
-        </span>
-      ))}
-    </nav>
-  );
-  const sortMenu = (
-    <>
-      <DropdownMenuLabel className="font-semibold text-secondary-900">Urutkan koleksi</DropdownMenuLabel>
-      <DropdownMenuRadioGroup onValueChange={(value) => { resetPage(); navigateCatalogue({ page: 1, sort: value as BankSortMode }); }} value={initialSort}>
-        <DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem>
-        <DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem>
-        <DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem>
-      </DropdownMenuRadioGroup>
-    </>
-  );
+  const folderBreadcrumb = <QuestionBankFolderBreadcrumb currentPath={currentPath} onSelect={(item, index) => { const next = index === 0 ? ROOT_FOLDER : item.id; setSelectedFolder(next); resetPage(); navigateCatalogue({ folder: next, page: 1 }); }} />;
+  const sortMenu = <QuestionBankSortMenu initialSort={initialSort} onChange={(sort) => { resetPage(); navigateCatalogue({ page: 1, sort }); }} />;
 
   return {
     activeFilters,
@@ -1002,36 +1338,21 @@ function useQuestionBankCatalogueState({
   };
 }
 
-function KaptenQuestionBankPageModule({
-  initialCategories,
-  initialEntries,
-  initialFolderTree,
-  initialPage = 1,
-  initialPageSize = BANKS_PER_PAGE,
-  initialPurpose = "quiz",
-  initialSearch = "",
-  initialSort = "updated",
-  initialSelectedCategories = [],
-  initialSelectedFolder = ROOT_FOLDER,
-  initialSelectedSubjects = [],
-  initialStatusFilter = "",
-  initialTotal,
-  session,
-}: {
-  initialCategories: CategoryNode[];
-  initialEntries: BankEntry[];
-  initialFolderTree: FolderNode[];
-  initialPage?: number;
-  initialPageSize?: number;
-  initialPurpose?: QuestionBankPurpose;
-  initialSearch?: string;
-  initialSort?: BankSortMode;
-  initialSelectedCategories?: string[];
-  initialSelectedFolder?: FolderSelection;
-  initialSelectedSubjects?: string[];
-  initialStatusFilter?: string;
+function getQuestionBankLifecycleCopy(action?: LifecycleAction): [string, string, string] {
+  if (action === "publish") return ["Terbitkan bank?", "Bank yang lengkap akan tersedia sebagai sumber baru.", "Terbitkan"];
+  if (action === "unpublish") return ["Kembalikan ke draf?", "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.", "Jadikan draf"];
+  if (action === "archive") return ["Arsipkan bank?", "Bank disembunyikan dari sumber baru tanpa menghapus soal atau snapshot.", "Arsipkan"];
+  return ["Pulihkan bank?", "Bank kembali sebagai draf dan dapat diatur lagi.", "Pulihkan"];
+}
+
+type QuestionBankCatalogueState = ReturnType<typeof useQuestionBankCatalogueState>;
+
+function QuestionBankCataloguePageContent({ initialPurpose, initialSearch, initialSort, initialTotal, state }: {
+  initialPurpose: QuestionBankPurpose;
+  initialSearch: string;
+  initialSort: BankSortMode;
   initialTotal: number;
-  session: SessionContext;
+  state: QuestionBankCatalogueState;
 }) {
   const {
     activeFilters,
@@ -1101,7 +1422,104 @@ function KaptenQuestionBankPageModule({
     submitFolderDialog,
     totalPages,
     visiblePage,
-  } = useQuestionBankCatalogueState({
+  } = state;
+  const lifecycleCopy = getQuestionBankLifecycleCopy(pendingLifecycle?.action);
+
+  return (
+    <div className="space-y-8">
+      <ReferencePageHeader
+        actions={(
+          <>
+            <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
+            <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
+            <Button aria-label="Tambah Soal" render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" title="Tambah Soal" type="button" variant="brand"><Plus />Tambah Soal</Button>
+          </>
+        )}
+        title="Bank Soal"
+      />
+
+      <nav aria-label="Tujuan Bank Soal" className="flex w-full gap-1 border-b border-primary-100" role="tablist">
+        {(["quiz", "tryout"] as const).map((purpose) => (
+          <Link
+            aria-selected={initialPurpose === purpose}
+            className={cn(
+              "rounded-t-xl px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200",
+              initialPurpose === purpose ? "border-b-2 border-primary-700 bg-primary-50 text-primary-900" : "text-secondary-500 hover:bg-primary-50/60 hover:text-primary-800",
+            )}
+            href={questionBankHref({ purpose })}
+            key={purpose}
+            role="tab"
+          >
+            {purpose === "quiz" ? "Kuis" : "Tryout"}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="min-w-0">
+        <MentorCatalogueTable
+          breadcrumb={folderBreadcrumb}
+          caption="Daftar folder dan bank soal"
+          clearFiltersHref={clearFiltersHref}
+          columns={catalogueColumns}
+          emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
+          filterPanel={<QuestionBankCatalogueFilterPanel categories={categories} navigateCatalogue={navigateCatalogue} resetPage={resetPage} selectedCategories={selectedCategories} selectedSubjects={selectedSubjects} setSelectedCategories={setSelectedCategories} setSelectedSubjects={setSelectedSubjects} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
+          filters={activeFilters}
+          getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
+          headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
+          isLoading={isCataloguePending}
+          loadingLabel="Memuat bank soal…"
+          moreMenu={sortMenu}
+          rowContextMenu={catalogueRowContextMenu}
+          rows={catalogueRows}
+          search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { purpose: initialPurpose, ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
+          showColumnVisibility={false}
+          tableClassName="min-w-[760px]"
+          wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
+        />
+        {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
+      </div>
+
+      <QuestionBankFolderDialog flatFolders={flatFolders} folderDialog={folderDialog} folderError={folderError} folderName={folderName} folderParentId={folderParentId} folders={folders} isApplying={isApplying} onClose={() => { setFolderDialog(null); setFolderError(null); }} onFolderNameChange={setFolderName} onFolderParentIdChange={setFolderParentId} onSubmit={() => void submitFolderDialog()} />
+      <QuestionBankMoveDialog bankMoveId={bankMoveId} flatFolders={flatFolders} folderError={folderError} folderParentId={folderParentId} isApplying={isApplying} onClose={() => { setBankMoveId(null); setFolderError(null); }} onFolderParentIdChange={setFolderParentId} onSubmit={() => void moveBankToFolder()} selectedBank={selectedBank} />
+      <QuestionBankCategorySelectionDialog bankCategoryId={bankCategoryId} bankCategorySelection={bankCategorySelection} categories={categories} folderError={folderError} isApplying={isApplying} onClose={() => { setBankCategoryId(null); setFolderError(null); }} onSelectionChange={setBankCategorySelection} onSubmit={() => void saveBankCategories()} />
+      <QuestionBankCategoryManagementDialog categories={categories} categoryEditor={categoryEditor} categoryManagementOpen={categoryManagementOpen} categoryName={categoryName} folderError={folderError} handleCategoryEditorKeyDown={handleCategoryEditorKeyDown} isApplying={isApplying} onCancelCategoryEditor={cancelCategoryEditor} onCategoryNameChange={setCategoryName} onClose={() => { setCategoryManagementOpen(false); setCategoryEditor(null); setCategoryName(""); setFolderError(null); }} onOpenCategoryCreate={openCategoryCreate} onOpenCategoryRename={openCategoryRename} onRemoveCategory={(category) => void removeCategory(category)} onSubmitCategoryEditor={() => void submitCategoryEditor()} />
+      <QuestionBankLifecycleConfirmationDialog folderError={folderError} isApplying={isApplying} lifecycleCopy={lifecycleCopy} lifecycleError={lifecycleError} onCancel={() => { setPendingLifecycle(null); setPendingConfirmation(null); }} onConfirm={() => { if (pendingConfirmation) pendingConfirmation.onConfirm(); else void applyLifecycle(); }} onOpenChange={(open) => { if (!open && !isApplying) { setPendingLifecycle(null); setPendingConfirmation(null); setLifecycleError(null); } }} open={Boolean(pendingLifecycle || pendingConfirmation)} pendingConfirmation={pendingConfirmation} />
+    </div>
+  );
+}
+
+function KaptenQuestionBankPageModule({
+  initialCategories,
+  initialEntries,
+  initialFolderTree,
+  initialPage = 1,
+  initialPageSize = BANKS_PER_PAGE,
+  initialPurpose = "quiz",
+  initialSearch = "",
+  initialSort = "updated",
+  initialSelectedCategories = [],
+  initialSelectedFolder = ROOT_FOLDER,
+  initialSelectedSubjects = [],
+  initialStatusFilter = "",
+  initialTotal,
+  session,
+}: {
+  initialCategories: CategoryNode[];
+  initialEntries: BankEntry[];
+  initialFolderTree: FolderNode[];
+  initialPage?: number;
+  initialPageSize?: number;
+  initialPurpose?: QuestionBankPurpose;
+  initialSearch?: string;
+  initialSort?: BankSortMode;
+  initialSelectedCategories?: string[];
+  initialSelectedFolder?: FolderSelection;
+  initialSelectedSubjects?: string[];
+  initialStatusFilter?: string;
+  initialTotal: number;
+  session: SessionContext;
+}) {
+  const catalogueState = useQuestionBankCatalogueState({
     initialCategories,
     initialEntries,
     initialFolderTree,
@@ -1117,141 +1535,9 @@ function KaptenQuestionBankPageModule({
     initialTotal,
   });
 
-  const lifecycleCopy = pendingLifecycle?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan tersedia sebagai sumber baru.", "Terbitkan"] : pendingLifecycle?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.", "Jadikan draf"] : pendingLifecycle?.action === "archive" ? ["Arsipkan bank?", "Bank disembunyikan dari sumber baru tanpa menghapus soal atau snapshot.", "Arsipkan"] : ["Pulihkan bank?", "Bank kembali sebagai draf dan dapat diatur lagi.", "Pulihkan"];
-
   return (
     <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false} sidebarAppearance="reference">
-      <div className="space-y-8">
-        <ReferencePageHeader
-          actions={(
-            <>
-              <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
-              <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
-              <Button aria-label="Tambah Soal" render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" title="Tambah Soal" type="button" variant="brand"><Plus />Tambah Soal</Button>
-            </>
-          )}
-          title="Bank Soal"
-        />
-
-        <nav aria-label="Tujuan Bank Soal" className="flex w-full gap-1 border-b border-primary-100" role="tablist">
-          {(["quiz", "tryout"] as const).map((purpose) => (
-            <Link
-              aria-selected={initialPurpose === purpose}
-              className={cn(
-                "rounded-t-xl px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200",
-                initialPurpose === purpose ? "border-b-2 border-primary-700 bg-primary-50 text-primary-900" : "text-secondary-500 hover:bg-primary-50/60 hover:text-primary-800",
-              )}
-              href={questionBankHref({ purpose })}
-              key={purpose}
-              role="tab"
-            >
-              {purpose === "quiz" ? "Kuis" : "Tryout"}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="min-w-0">
-          <MentorCatalogueTable
-            breadcrumb={folderBreadcrumb}
-            caption="Daftar folder dan bank soal"
-            clearFiltersHref={clearFiltersHref}
-            columns={catalogueColumns}
-            emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
-            filterPanel={
-              <QuestionBankCatalogueFilterPanel
-                categories={categories}
-                navigateCatalogue={navigateCatalogue}
-                resetPage={resetPage}
-                selectedCategories={selectedCategories}
-                selectedSubjects={selectedSubjects}
-                setSelectedCategories={setSelectedCategories}
-                setSelectedSubjects={setSelectedSubjects}
-                setStatusFilter={setStatusFilter}
-                statusFilter={statusFilter}
-              />
-            }
-            filters={activeFilters}
-            getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
-            headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
-            isLoading={isCataloguePending}
-            loadingLabel="Memuat bank soal…"
-            moreMenu={sortMenu}
-            rowContextMenu={catalogueRowContextMenu}
-            rows={catalogueRows}
-            search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { purpose: initialPurpose, ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
-            showColumnVisibility={false}
-            tableClassName="min-w-[760px]"
-            wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
-          />
-          {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
-        </div>
-      </div>
-
-      <QuestionBankFolderDialog
-        flatFolders={flatFolders}
-        folderDialog={folderDialog}
-        folderError={folderError}
-        folderName={folderName}
-        folderParentId={folderParentId}
-        folders={folders}
-        isApplying={isApplying}
-        onClose={() => { setFolderDialog(null); setFolderError(null); }}
-        onFolderNameChange={setFolderName}
-        onFolderParentIdChange={setFolderParentId}
-        onSubmit={() => void submitFolderDialog()}
-      />
-
-      <QuestionBankMoveDialog
-        bankMoveId={bankMoveId}
-        flatFolders={flatFolders}
-        folderError={folderError}
-        folderParentId={folderParentId}
-        isApplying={isApplying}
-        onClose={() => { setBankMoveId(null); setFolderError(null); }}
-        onFolderParentIdChange={setFolderParentId}
-        onSubmit={() => void moveBankToFolder()}
-        selectedBank={selectedBank}
-      />
-
-      <QuestionBankCategorySelectionDialog
-        bankCategoryId={bankCategoryId}
-        bankCategorySelection={bankCategorySelection}
-        categories={categories}
-        folderError={folderError}
-        isApplying={isApplying}
-        onClose={() => { setBankCategoryId(null); setFolderError(null); }}
-        onSelectionChange={setBankCategorySelection}
-        onSubmit={() => void saveBankCategories()}
-      />
-
-      <QuestionBankCategoryManagementDialog
-        categories={categories}
-        categoryEditor={categoryEditor}
-        categoryManagementOpen={categoryManagementOpen}
-        categoryName={categoryName}
-        folderError={folderError}
-        handleCategoryEditorKeyDown={handleCategoryEditorKeyDown}
-        isApplying={isApplying}
-        onCancelCategoryEditor={cancelCategoryEditor}
-        onCategoryNameChange={setCategoryName}
-        onClose={() => { setCategoryManagementOpen(false); setCategoryEditor(null); setCategoryName(""); setFolderError(null); }}
-        onOpenCategoryCreate={openCategoryCreate}
-        onOpenCategoryRename={openCategoryRename}
-        onRemoveCategory={(cat) => void removeCategory(cat)}
-        onSubmitCategoryEditor={() => void submitCategoryEditor()}
-      />
-
-      <QuestionBankLifecycleConfirmationDialog
-        folderError={folderError}
-        isApplying={isApplying}
-        lifecycleCopy={lifecycleCopy as [string, string, string]}
-        lifecycleError={lifecycleError}
-        onCancel={() => { setPendingLifecycle(null); setPendingConfirmation(null); }}
-        onConfirm={() => { if (pendingConfirmation) { pendingConfirmation.onConfirm(); } else { void applyLifecycle(); } }}
-        onOpenChange={(open) => { if (!open && !isApplying) { setPendingLifecycle(null); setPendingConfirmation(null); setLifecycleError(null); } }}
-        open={Boolean(pendingLifecycle || pendingConfirmation)}
-        pendingConfirmation={pendingConfirmation}
-      />
+      <QuestionBankCataloguePageContent initialPurpose={initialPurpose} initialSearch={initialSearch} initialSort={initialSort} initialTotal={initialTotal} state={catalogueState} />
     </MentorWorkspaceShell>
   );
 }

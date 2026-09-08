@@ -92,6 +92,97 @@ function MateriVideoPreview({
   );
 }
 
+function MateriLessonHeader({
+  position,
+  showDuration,
+  showSectionLabel,
+  subject,
+  title,
+  duration,
+  isDocumentMode,
+}: {
+  duration?: string;
+  isDocumentMode: boolean;
+  position?: number;
+  showDuration: boolean;
+  showSectionLabel: boolean;
+  subject: string;
+  title: string;
+}) {
+  const subjectDetails = isDocumentMode
+    ? null
+    : showDuration && duration
+      ? `Materi ${subject} · ${duration}`
+      : `Materi ${subject}`;
+
+  return (
+    <header className="mt-2">
+      {showSectionLabel ? (
+        <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
+          Bagian{position === undefined ? "" : ` ${position + 1}`}
+        </p>
+      ) : null}
+      <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[var(--voyage-ink)] text-balance md:text-4xl lg:text-[2.25rem]`}>
+        {title.trim() || "Materi tanpa judul"}
+      </h1>
+      {subjectDetails ? <p className="mt-2 text-base text-[var(--voyage-muted-ink)] md:text-lg">{subjectDetails}</p> : null}
+    </header>
+  );
+}
+
+function MateriDocumentSection({
+  action,
+  completionAction,
+  document,
+  documentDeliveryUrl,
+  managedDocumentPreview,
+  title,
+}: {
+  action?: ReactNode;
+  completionAction?: ReactNode;
+  document: MateriDocument | null;
+  documentDeliveryUrl?: string;
+  managedDocumentPreview?: ReactNode;
+  title: string;
+}) {
+  return (
+    <section aria-label="Dokumen Materi" className="mt-7 space-y-3 md:mt-9">
+      {managedDocumentPreview ? (
+        <>
+          {managedDocumentPreview}
+          {completionAction || action ? <div className="flex items-center gap-2" role="group">{completionAction}{action}</div> : null}
+        </>
+      ) : (
+        <StudentPdfPreview actions={action} completionAction={completionAction} document={document} documentDeliveryUrl={documentDeliveryUrl} title={title} />
+      )}
+    </section>
+  );
+}
+
+function MateriVideoFrame({ title, videoUrls }: { title: string; videoUrls?: VideoUrls }) {
+  return (
+    <div className="mt-7 overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[var(--voyage-soft-border)] md:mt-9 md:rounded-[2rem]">
+      <div className="relative aspect-video w-full">
+        {videoUrls ? <iframe
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="absolute inset-0 size-full border-0"
+          loading="lazy"
+          src={videoUrls.embedUrl}
+          title={`Video pembelajaran: ${title.trim() || "Materi"}`}
+        /> : <p className="grid size-full place-items-center px-6 text-center text-sm font-medium text-white/70">Video belum tersedia.</p>}
+      </div>
+    </div>
+  );
+}
+
+function MateriLessonActions({ action, completionAction, providerLink }: { action?: ReactNode; completionAction?: ReactNode; providerLink: ReactNode }) {
+  if (completionAction || action) {
+    return <div className="mt-5 flex items-center gap-2">{completionAction}{action}{providerLink}</div>;
+  }
+  return providerLink ? <div className="mt-5">{providerLink}</div> : null;
+}
+
 function MateriLessonPresentation({
   action,
   completionAction,
@@ -121,11 +212,6 @@ function MateriLessonPresentation({
 }) {
   const videoUrls = getVideoUrls(videoUrl ?? "");
   const isDocumentMode = document !== undefined;
-  const subjectDetails = isDocumentMode
-    ? null
-    : showDuration && duration
-      ? `Materi ${subject} · ${duration}`
-      : `Materi ${subject}`;
   const providerLink = videoUrls ? (
     <a
       className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl px-1 text-sm font-semibold text-[var(--voyage-muted-ink)] underline decoration-[var(--voyage-sea-glass)] underline-offset-4 outline-none hover:text-[var(--voyage-ink)] focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30"
@@ -139,62 +225,11 @@ function MateriLessonPresentation({
 
   return (
     <>
-      <header className="mt-2">
-        {showSectionLabel ? (
-          <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">
-            Bagian{position === undefined ? "" : ` ${position + 1}`}
-          </p>
-        ) : null}
-        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[var(--voyage-ink)] text-balance md:text-4xl lg:text-[2.25rem]`}>
-          {title.trim() || "Materi tanpa judul"}
-        </h1>
-        {subjectDetails ? <p className="mt-2 text-base text-[var(--voyage-muted-ink)] md:text-lg">{subjectDetails}</p> : null}
-      </header>
-
-      {isDocumentMode ? (
-        <section aria-label="Dokumen Materi" className="mt-7 space-y-3 md:mt-9">
-          {managedDocumentPreview ? (
-            <>
-              {managedDocumentPreview}
-              {completionAction || action ? (
-                <div className="flex items-center gap-2" role="group">
-                  {completionAction}
-                  {action}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <StudentPdfPreview
-              actions={action}
-              completionAction={completionAction}
-              document={document ?? null}
-              documentDeliveryUrl={documentDeliveryUrl}
-              title={title}
-            />
-          )}
-        </section>
-      ) : <div className="mt-7 overflow-hidden rounded-[1.65rem] bg-black ring-1 ring-[var(--voyage-soft-border)] md:mt-9 md:rounded-[2rem]">
-        <div className="relative aspect-video w-full">
-          {videoUrls ? <iframe
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="absolute inset-0 size-full border-0"
-            loading="lazy"
-            src={videoUrls.embedUrl}
-            title={`Video pembelajaran: ${title.trim() || "Materi"}`}
-          /> : <p className="grid size-full place-items-center px-6 text-center text-sm font-medium text-white/70">Video belum tersedia.</p>}
-        </div>
-      </div>}
+      <MateriLessonHeader duration={duration} isDocumentMode={isDocumentMode} position={position} showDuration={showDuration} showSectionLabel={showSectionLabel} subject={subject} title={title} />
+      {isDocumentMode ? <MateriDocumentSection action={action} completionAction={completionAction} document={document ?? null} documentDeliveryUrl={documentDeliveryUrl} managedDocumentPreview={managedDocumentPreview} title={title} /> : <MateriVideoFrame title={title} videoUrls={videoUrls} />}
 
       {isDocumentMode ? <MateriVideoPreview title={title} videoUrls={videoUrls} /> : null}
-
-      {!isDocumentMode && (completionAction || action) ? (
-        <div className="mt-5 flex items-center gap-2">
-          {completionAction}
-          {action}
-          {providerLink}
-        </div>
-      ) : providerLink ? <div className="mt-5">{providerLink}</div> : null}
+      {!isDocumentMode ? <MateriLessonActions action={action} completionAction={completionAction} providerLink={providerLink} /> : null}
     </>
   );
 }

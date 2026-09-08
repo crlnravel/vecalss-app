@@ -96,17 +96,18 @@ async function readBannerAssetViews(assetIds: string[]) {
     },
   });
 
-  return Object.fromEntries(
-    assets
-      .filter((asset) => isImageMimeType(asset.mimeType))
-      .map((asset): [string, BannerAssetView] => [asset.id, {
-        assetId: asset.id,
-        height: asset.height,
-        name: asset.originalName ?? "Gambar tanpa nama",
-        url: asset.url || `/api/media/admin/assets/${asset.id}/thumbnail`,
-        width: asset.width,
-      }]),
-  );
+  return assets.reduce<Record<string, BannerAssetView>>((views, asset) => {
+    if (!isImageMimeType(asset.mimeType)) return views;
+
+    views[asset.id] = {
+      assetId: asset.id,
+      height: asset.height,
+      name: asset.originalName ?? "Gambar tanpa nama",
+      url: asset.url || `/api/media/admin/assets/${asset.id}/thumbnail`,
+      width: asset.width,
+    };
+    return views;
+  }, {});
 }
 
 async function getBannerMakerSnapshot(): Promise<BannerMakerSnapshot> {
@@ -151,7 +152,10 @@ async function assertBannerAssets(
   });
 
   const validAssetIds = new Set(
-    assets.filter((asset) => isImageMimeType(asset.mimeType)).map((asset) => asset.id),
+    assets.reduce<string[]>((ids, asset) => {
+      if (isImageMimeType(asset.mimeType)) ids.push(asset.id);
+      return ids;
+    }, []),
   );
 
   if (validAssetIds.size !== assetIds.length || assetIds.some((assetId) => !validAssetIds.has(assetId))) {

@@ -35,6 +35,14 @@ export async function GET(
       lessonCode: lessonId,
     });
 
+    const wantsDownload = url.searchParams.get("download") === "1";
+    if (url.searchParams.get("format") === "pdf" || wantsDownload) {
+      return new Response(null, {
+        headers: { ...responseHeaders, Location: wantsDownload ? result.data.downloadUrl ?? result.data.documentUrl : result.data.documentUrl },
+        status: 302,
+      });
+    }
+
     return Response.json(result.data, { headers: responseHeaders });
   } catch (error) {
     if (error instanceof AdminStudentPreviewDocumentError) {

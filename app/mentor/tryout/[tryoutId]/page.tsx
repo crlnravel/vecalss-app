@@ -17,6 +17,85 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 
 export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
+type ParsedTryoutContext = ReturnType<typeof parseMentorTryoutContext>;
+type TryoutDraft = NonNullable<Awaited<ReturnType<typeof getTryoutForEdit>>>;
+type InitialOperations = NonNullable<ReturnType<typeof toTryoutWorkspaceView>>;
+type TryoutContextIssue = ParsedTryoutContext["issues"][number];
+
+function collectTryoutContextIssues(
+  parsedQuery: ParsedTryoutContext,
+  parentDraft: TryoutDraft | null,
+  operationsInitial: InitialOperations,
+): TryoutContextIssue[] {
+  const issues = [...parsedQuery.issues];
+  if (parsedQuery.parent && !parentDraft) {
+    issues.push({ code: "unsupported", field: "parent", message: "Tryout induk tersebut tidak tersedia untuk dipilih.", value: parsedQuery.parent });
+  }
+  if (parsedQuery.session && !operationsInitial.sessions.some((candidate) => candidate.id === parsedQuery.session)) {
+    issues.push({ code: "unsupported", field: "session", message: "Sesi Tryout tersebut tidak tersedia untuk dipilih.", value: parsedQuery.session });
+  }
+  return issues;
+}
+
+function TryoutContextError({
+  initialDraft,
+  issues,
+  session,
+}: {
+  initialDraft: TryoutDraft;
+  issues: TryoutContextIssue[];
+  session: Awaited<ReturnType<typeof requireTutorSession>>;
+}) {
+  return (
+    <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={initialDraft.status === "published" ? "Detail Tryout" : "Edit Tryout"} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <section aria-labelledby="tryout-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
+        <h1 className="text-lg font-semibold" id="tryout-context-unavailable">Konteks Tryout tidak tersedia</h1>
+        <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
+        <p className="mt-2 text-sm leading-6">Pilih workspace atau sesi Tryout yang tersedia untuk melanjutkan.</p>
+      </section>
+    </MentorWorkspaceShell>
+  );
+}
+
+function TryoutWorkspace({
+  initialDraft,
+  initialOperations,
+  parentDraft,
+  parsedQuery,
+  session,
+  sourceCatalog,
+  tryoutId,
+}: {
+  initialDraft: TryoutDraft;
+  initialOperations: InitialOperations;
+  parentDraft: TryoutDraft | null;
+  parsedQuery: ParsedTryoutContext;
+  session: Awaited<ReturnType<typeof requireTutorSession>>;
+  sourceCatalog: Awaited<ReturnType<typeof listQuestionBankSourcePage>>;
+  tryoutId: string;
+}) {
+  const initialWorkspace = parsedQuery.workspace ?? (initialDraft.status === "published" ? "delivery" : "basics");
+  const parent = parentDraft
+    ? { id: parentDraft.id, publishedAt: parentDraft.assessmentRelease?.publishedAt, title: parentDraft.title }
+    : undefined;
+
+  return (
+    <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={initialDraft.status === "published" ? "Detail Tryout" : "Edit Tryout"} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <KaptenTryoutBuilderPageModule
+        id={tryoutId}
+        initialDeliveryArea={parsedQuery.delivery ?? undefined}
+        initialDraft={initialDraft}
+        initialParent={parent}
+        initialSessionId={parsedQuery.session}
+        initialSourceBankTotal={sourceCatalog.total}
+        initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)}
+        initialWorkspace={initialWorkspace}
+        operationsInitial={initialOperations}
+      />
+    </MentorWorkspaceShell>
+  );
+}
+
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
   const parsedQuery = parseMentorTryoutContext(query);
@@ -32,23 +111,9 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // embargoed results by walking its initial props.
   const operationsInitial = operations ? toTryoutWorkspaceView(operations) : null;
   if (!initialDraft || !operationsInitial) notFound();
-  const issues = [...parsedQuery.issues];
-  if (parsedQuery.parent && !parentDraft) {
-    issues.push({ code: "unsupported", field: "parent", message: "Tryout induk tersebut tidak tersedia untuk dipilih.", value: parsedQuery.parent });
-  }
-  if (parsedQuery.session && !operationsInitial.sessions.some((candidate) => candidate.id === parsedQuery.session)) {
-    issues.push({ code: "unsupported", field: "session", message: "Sesi Tryout tersebut tidak tersedia untuk dipilih.", value: parsedQuery.session });
-  }
+  const issues = collectTryoutContextIssues(parsedQuery, parentDraft, operationsInitial);
   if (issues.length) {
-    return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={initialDraft.status === "published" ? "Detail Tryout" : "Edit Tryout"} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
-        <section aria-labelledby="tryout-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
-          <h1 className="text-lg font-semibold" id="tryout-context-unavailable">Konteks Tryout tidak tersedia</h1>
-          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih workspace atau sesi Tryout yang tersedia untuk melanjutkan.</p>
-        </section>
-      </MentorWorkspaceShell>
-    );
+    return <TryoutContextError initialDraft={initialDraft} issues={issues} session={session} />;
   }
   const normalizedContext = {
     delivery: parsedQuery.delivery ?? undefined,
@@ -59,6 +124,5 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   };
   const canonicalHref = buildMentorTryoutHref(tryoutId, normalizedContext);
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
-  const initialWorkspace = parsedQuery.workspace ?? (initialDraft.status === "published" ? "delivery" : "basics");
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={initialDraft.status === "published" ? "Detail Tryout" : "Edit Tryout"} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule id={tryoutId} initialDeliveryArea={parsedQuery.delivery ?? undefined} initialDraft={initialDraft} initialParent={parentDraft ? { id: parentDraft.id, publishedAt: parentDraft.assessmentRelease?.publishedAt, title: parentDraft.title } : undefined} initialSessionId={parsedQuery.session} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} session={session} /></MentorWorkspaceShell>;
+  return <TryoutWorkspace initialDraft={initialDraft} initialOperations={operationsInitial} parentDraft={parentDraft} parsedQuery={parsedQuery} session={session} sourceCatalog={sourceCatalog} tryoutId={tryoutId} />;
 }

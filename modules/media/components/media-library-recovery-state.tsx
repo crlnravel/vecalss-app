@@ -5,6 +5,60 @@ import { cn } from "@/lib/utils";
 
 type MediaLibraryRecoveryKind = "empty" | "error" | "filtered" | "storage";
 
+function getRecoveryCopy(kind: MediaLibraryRecoveryKind, mediaLabel: string, errorMessage: string | null | undefined, canUpload: boolean) {
+  const mediaName = mediaLabel.toLowerCase();
+  const isFiltered = kind === "filtered";
+  const isStorageUnavailable = kind === "storage";
+  const Icon = kind === "error" ? AlertCircle : isStorageUnavailable ? ImageOff : isFiltered ? Search : FileImage;
+  const title = kind === "error"
+    ? "Library media belum dapat dibuka"
+    : isStorageUnavailable
+      ? "Penyimpanan media tidak tersedia"
+      : isFiltered
+        ? `${mediaLabel[0]?.toUpperCase() ?? "M"}${mediaLabel.slice(1)} tidak ditemukan`
+        : `Belum ada ${mediaName}`;
+  const description = kind === "error"
+    ? errorMessage || "Koneksi ke library media belum berhasil. Coba lagi untuk memuat ulang daftar media."
+    : isStorageUnavailable
+      ? "Penyimpanan R2 belum dikonfigurasi, jadi upload dan preview media belum dapat digunakan. Coba lagi atau hubungi pemilik operasi setelah storage dikonfigurasi."
+      : isFiltered
+        ? "Tidak ada media yang cocok dengan pencarian atau filter ini. Hapus filter untuk melihat isi library."
+        : canUpload
+          ? `Belum ada ${mediaName} di folder ini. Upload ${mediaName} untuk mulai menyusun library.`
+          : `Belum ada ${mediaName} di folder ini. Upload ${mediaName} setelah penyimpanan tersedia.`;
+
+  return { Icon, isFiltered, isStorageUnavailable, title, description };
+}
+
+function MediaLibraryRecoveryActions({
+  isFiltered,
+  isPicker,
+  isStorageUnavailable,
+  kind,
+  mediaName,
+  onClear,
+  onRetry,
+  onUpload,
+}: {
+  isFiltered: boolean;
+  isPicker: boolean;
+  isStorageUnavailable: boolean;
+  kind: MediaLibraryRecoveryKind;
+  mediaName: string;
+  onClear?: () => void;
+  onRetry?: () => void;
+  onUpload?: () => void;
+}) {
+  return (
+    <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      {isFiltered && onClear ? <Button onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button> : null}
+      {isStorageUnavailable && onRetry ? <Button onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
+      {kind === "error" && onRetry ? <Button onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
+      {kind === "empty" && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Upload {mediaName}</Button> : null}
+    </div>
+  );
+}
+
 function MediaLibraryRecoveryState({
   className,
   errorMessage,
@@ -24,26 +78,8 @@ function MediaLibraryRecoveryState({
   onRetry?: () => void;
   onUpload?: () => void;
 }) {
+  const { Icon, description, isFiltered, isStorageUnavailable, title } = getRecoveryCopy(kind, mediaLabel, errorMessage, Boolean(onUpload));
   const mediaName = mediaLabel.toLowerCase();
-  const isFiltered = kind === "filtered";
-  const isStorageUnavailable = kind === "storage";
-  const Icon = kind === "error" ? AlertCircle : isStorageUnavailable ? ImageOff : isFiltered ? Search : FileImage;
-  const title = kind === "error"
-    ? "Library media belum dapat dibuka"
-    : isStorageUnavailable
-      ? "Penyimpanan media tidak tersedia"
-      : isFiltered
-        ? `${mediaLabel[0]?.toUpperCase() ?? "M"}${mediaLabel.slice(1)} tidak ditemukan`
-        : `Belum ada ${mediaName}`;
-  const description = kind === "error"
-    ? errorMessage || "Koneksi ke library media belum berhasil. Coba lagi untuk memuat ulang daftar media."
-    : isStorageUnavailable
-      ? "Penyimpanan R2 belum dikonfigurasi, jadi upload dan preview media belum dapat digunakan. Coba lagi atau hubungi pemilik operasi setelah storage dikonfigurasi."
-      : isFiltered
-      ? "Tidak ada media yang cocok dengan pencarian atau filter ini. Hapus filter untuk melihat isi library."
-        : onUpload
-          ? `Belum ada ${mediaName} di folder ini. Upload ${mediaName} untuk mulai menyusun library.`
-          : `Belum ada ${mediaName} di folder ini. Upload ${mediaName} setelah penyimpanan tersedia.`;
 
   return (
     <section
@@ -56,31 +92,7 @@ function MediaLibraryRecoveryState({
       </div>
       <h2 className="text-base font-semibold text-secondary-900">{title}</h2>
       <p className="mt-2 max-w-[44ch] text-sm leading-6 text-secondary-600">{description}</p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        {isFiltered && onClear ? (
-          <Button onClick={onClear} variant="brandOutline">
-            Hapus pencarian/filter
-          </Button>
-        ) : null}
-        {isStorageUnavailable && onRetry ? (
-          <Button onClick={onRetry} variant="brandOutline">
-            <RefreshCw data-icon="inline-start" />
-            Coba lagi
-          </Button>
-        ) : null}
-        {kind === "error" && onRetry ? (
-          <Button onClick={onRetry} variant="brand">
-            <RefreshCw data-icon="inline-start" />
-            Coba lagi
-          </Button>
-        ) : null}
-        {kind === "empty" && onUpload ? (
-          <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand">
-            <Upload data-icon="inline-start" />
-            Upload {mediaName}
-          </Button>
-        ) : null}
-      </div>
+      <MediaLibraryRecoveryActions isFiltered={isFiltered} isPicker={isPicker} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} />
     </section>
   );
 }

@@ -42,5 +42,5 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
   });
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
   const initialWorkspace = parsedQuery.workspace ?? (parsedQuery.delivery ? "schedule" : "basics");
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule initialDeliveryArea={parsedQuery.delivery ?? undefined} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule initialDeliveryArea={parsedQuery.delivery ?? undefined} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} /></MentorWorkspaceShell>;
 }

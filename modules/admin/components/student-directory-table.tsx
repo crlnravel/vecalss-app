@@ -580,6 +580,29 @@ function StudentFilterPanel({
   );
 }
 
+function buildStudentDirectoryFilters({
+  addedFrom,
+  addedTo,
+  clearDateHref,
+  clearStatusHref,
+  statusFilters,
+}: {
+  addedFrom: string | null;
+  addedTo: string | null;
+  clearDateHref: string;
+  clearStatusHref: string;
+  statusFilters: UserStatus[];
+}) {
+  const filters: DataTableFilter[] = [];
+  if (statusFilters.length) {
+    filters.push({ href: clearStatusHref, id: "status", label: "Status", value: statusFilters.map(formatStudentStatus).join(" or ") });
+  }
+  if (addedFrom || addedTo) {
+    filters.push({ href: clearDateHref, id: "added", label: "Ditambahkan", value: formatDateFilter(addedFrom, addedTo) });
+  }
+  return filters;
+}
+
 function StudentDirectoryTable({
   addedFrom,
   addedTo,
@@ -614,25 +637,7 @@ function StudentDirectoryTable({
   const clearStatusHref = directoryHref({ addedFrom, addedTo, direction, demo, pageSize, search, sort, statuses: [] });
   const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search, sort, statuses: statusFilters });
   const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search: "", sort, statuses: [] });
-  const filters: DataTableFilter[] = [];
-
-  if (statusFilters.length) {
-    filters.push({
-      href: clearStatusHref,
-      id: "status",
-      label: "Status",
-      value: statusFilters.map(formatStudentStatus).join(" or "),
-    });
-  }
-
-  if (addedFrom || addedTo) {
-    filters.push({
-      href: clearDateHref,
-      id: "added",
-       label: "Ditambahkan",
-      value: formatDateFilter(addedFrom, addedTo),
-    });
-  }
+  const filters = buildStudentDirectoryFilters({ addedFrom, addedTo, clearDateHref, clearStatusHref, statusFilters });
 
   const columns: DataTableColumn<StudentDirectoryItem>[] = [
     {

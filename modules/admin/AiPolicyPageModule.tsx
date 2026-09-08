@@ -645,311 +645,296 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
   };
 }
 
+type AiPolicyPageState = ReturnType<typeof useAiPolicyPageState>;
+type PolicyConfirmationRequester = (title: string, description: string, action: () => void | Promise<void>) => void;
+
+function AiPolicyScopeSection({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { busy, canGovern, canPolicy, createDraft, metadata, reason, setReason } = state;
+
+  return (
+    <ReferenceSurface as="section" className="p-5 sm:p-6">
+      <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Ruang lingkup kebijakan yang dapat diedit</h2>
+      <p className="mt-2 text-sm leading-6 text-secondary-600">Form perubahan bagian tersusun di backend dengan batas tetap: kuota 1.000–50.000, penyelesaian 30 menit–6 jam, laporan k≤5 dan maksimal 31 hari, serta percobaan penyedia tepat 2.</p>
+      <div className="mt-5 grid gap-3 text-sm text-secondary-700 sm:grid-cols-2">
+        <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Kebijakan</span><br />Kuota, mode, anggaran laporan<br /><span className="text-xs text-secondary-500">{canPolicy ? "Dapat mengedit bagian" : "Tidak diberikan"}</span></ReferenceSurface>
+        <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Tata kelola</span><br />Penyelesaian, retensi bukti<br /><span className="text-xs text-secondary-500">{canGovern ? "Dapat mengedit bagian" : "Tidak diberikan"}</span></ReferenceSurface>
+      </div>
+      {metadata.canMutate ? (
+        <div className="mt-6 border-t border-primary-100 pt-5">
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan</label>
+          <textarea
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y rounded-2xl`}
+            id="policy-reason"
+            maxLength={500}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Contoh: menyelaraskan batas report burst untuk periode ujian."
+            value={reason}
+          />
+          <Button
+            className="mt-3"
+            disabled={busy || reason.trim().length === 0}
+            onClick={() => requestConfirmation(
+              "Konfirmasi pembuatan draf kebijakan",
+              `Draf baru akan dibuat dengan alasan: ${reason.trim()}. Draf belum aktif dan tidak mengubah akses sampai siklus hidup berikutnya selesai.`,
+              createDraft,
+            )}
+            type="button"
+            variant="brand"
+          >
+            Buat draf lengkap
+          </Button>
+        </div>
+      ) : null}
+    </ReferenceSurface>
+  );
+}
+
+function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { approveDraft, busy, draft, previewDraft, validateDraft } = state;
+  if (!draft) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        disabled={busy || draft.state !== "draft"}
+        onClick={() => requestConfirmation(
+          "Konfirmasi validasi draf",
+          "Server akan memvalidasi draf dan dapat mengubah status siklus hidupnya. Tidak ada kebijakan aktif yang ditulis sebelum persetujuan dan aktivasi terpisah.",
+          validateDraft,
+        )}
+        type="button"
+        variant="brand"
+      >Validasi draf</Button>
+      <Button
+        disabled={busy || draft.state !== "pending_approval"}
+        onClick={() => requestConfirmation(
+          "Konfirmasi pratinjau dampak",
+          "Pratinjau membaca dampak yang hanya berlaku ke depan untuk penerimaan, reservasi laporan, dan bukti konten. Pratinjau tidak mengubah riwayat, tetapi dapat membuat reservasi audit.",
+          () => void previewDraft("categorical"),
+        )}
+        type="button"
+        variant="reference"
+      >Pratinjau dampak</Button>
+      <Button
+        disabled={busy || draft.state !== "pending_approval"}
+        onClick={() => requestConfirmation(
+          "Konfirmasi persetujuan kebijakan",
+          `Operator kedua akan menyetujui digest ${draft.validationDigest}. Perubahan belum aktif sampai dijadwalkan dan diaktifkan.`,
+          approveDraft,
+        )}
+        type="button"
+        variant="reference"
+      >Setujui (operator kedua)</Button>
+    </div>
+  );
+}
+
+function AiPolicyAggregatePreview({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { busy, draft, previewDraft, previewFrom, previewTimezone, previewTo, setPreviewFrom, setPreviewTimezone, setPreviewTo } = state;
+  if (!draft || draft.state !== "pending_approval") return null;
+
+  return (
+    <ReferenceSurface className="grid gap-3 rounded-2xl p-4" variant="inset">
+      <div className="grid gap-2">
+        <p className="text-sm font-semibold text-secondary-800">Rentang pratinjau agregat</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
+          <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
+        </div>
+        <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
+        <Button
+          disabled={busy || !previewFrom || !previewTo}
+          onClick={() => requestConfirmation(
+            "Konfirmasi pratinjau agregat",
+            `Pratinjau agregat akan membaca rentang ${previewFrom} sampai ${previewTo} (${previewTimezone}) dan mencatat reservasi audit tanpa mengubah kebijakan aktif.`,
+            () => void previewDraft("aggregate"),
+          )}
+          type="button"
+          variant="reference"
+        >Jalankan pratinjau agregat</Button>
+      </div>
+      <div className="text-xs leading-5 text-secondary-600">
+        Pratinjau memerlukan rentang kalender lokal dengan batas akhir eksklusif, maksimum 31 hari. Biaya penuh tetap dicatat meskipun hasil ditekan atau tidak tersedia.
+      </div>
+    </ReferenceSurface>
+  );
+}
+
+function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { activateDraft, busy, draft, effectiveAt, scheduleDraft, setEffectiveAt } = state;
+  if (!draft || (draft.state !== "pending_approval" && draft.state !== "scheduled")) return null;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
+        Waktu berlaku (lokal browser → UTC)
+        <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
+      </label>
+      <div className="flex items-end gap-2">
+        <Button
+          disabled={busy || draft.state !== "pending_approval" || !effectiveAt}
+          onClick={() => requestConfirmation(
+            "Konfirmasi jadwal kebijakan",
+            `Kebijakan ini akan mulai memengaruhi penerimaan, reservasi laporan, dan bukti konten pada ${effectiveAt}. Waktu dikirim ke server sebagai UTC dan perubahan hanya berlaku ke depan.`,
+            scheduleDraft,
+          )}
+          type="button"
+          variant="brand"
+        >Jadwalkan</Button>
+        <Button
+          disabled={busy || draft.state !== "scheduled"}
+          onClick={() => requestConfirmation(
+            "Konfirmasi aktivasi kebijakan",
+            "Aktivasi akan mengganti kebijakan aktif yang jatuh tempo. Server akan menyimpan aktor audit, digest, alasan, dan hasil perintah.",
+            activateDraft,
+          )}
+          type="button"
+          variant="reference"
+        >Aktifkan yang jatuh tempo</Button>
+      </div>
+    </div>
+  );
+}
+
+function AiPolicyPreviewStatus({ preview }: { preview: AiPolicyImpactPreviewDto | null }) {
+  if (!preview) return null;
+
+  return (
+    <ReferenceSurface className="p-4 text-sm text-secondary-700" role="status" variant="inset">
+      <p className="font-semibold text-secondary-900">Status pratinjau: {formatAiPreviewState(preview.state)}</p>
+      <p className="mt-1">Penerimaan {formatAiImpactState(preview.effects.futureAdmissions.state)}; reservasi laporan {formatAiImpactState(preview.effects.futureReportReservations.state)}; bukti konten {formatAiImpactState(preview.effects.futureContentEvidence.state)}.</p>
+    </ReferenceSurface>
+  );
+}
+
+function AiPolicyLifecyclePanel({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { busy, canGovern, canPolicy, dailyLimit, dirtySectionLabel, dirtySections, draft, editDraft, markDirty, preview, quotaConfig, reportConfig, retentionConfig, setDailyLimit, setQuotaConfig, setReportConfig, setRetentionConfig, setSettlementConfig, settlementConfig, updateModeConfig } = state;
+  if (!draft) return null;
+
+  return (
+    <ReferenceSurface className="mt-6 space-y-4 p-4" data-testid="policy-lifecycle-controls" variant="inset">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Draf terpilih</p>
+          <p className="mt-1 break-all text-sm font-semibold text-secondary-900">{draft.bundleVersion} · {formatAiPolicyState(draft.state)} · revisi {draft.revision}</p>
+        </div>
+        <ReferenceStatusBadge label={formatAiProviderGateState(draft.providerGateState)} size="xs" status="blocked" />
+      </div>
+      {quotaConfig && settlementConfig && reportConfig && retentionConfig ? (
+        <AiPolicyTypedControls
+          busy={busy}
+          canGovern={canGovern}
+          canPolicy={canPolicy}
+          dailyLimit={dailyLimit}
+          dirtySectionLabel={dirtySectionLabel}
+          dirtySections={dirtySections}
+          draft={draft}
+          editDraft={editDraft}
+          markDirty={markDirty}
+          quotaConfig={quotaConfig}
+          reportConfig={reportConfig}
+          retentionConfig={retentionConfig}
+          setDailyLimit={setDailyLimit}
+          setQuotaConfig={setQuotaConfig}
+          setReportConfig={setReportConfig}
+          setRetentionConfig={setRetentionConfig}
+          setSettlementConfig={setSettlementConfig}
+          settlementConfig={settlementConfig}
+          updateModeConfig={updateModeConfig}
+        />
+      ) : null}
+      <AiPolicyLifecycleActions requestConfirmation={requestConfirmation} state={state} />
+      <AiPolicyAggregatePreview requestConfirmation={requestConfirmation} state={state} />
+      <AiPolicyScheduleControls requestConfirmation={requestConfirmation} state={state} />
+      <AiPolicyPreviewStatus preview={preview} />
+    </ReferenceSurface>
+  );
+}
+
+function AiPolicyRetentionSection({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
+  const { busy, canGovern, reason, requestedUpperBound, requestRetentionExtension, setRequestedUpperBound, setTargetReference, targetReference } = state;
+
+  return (
+    <ReferenceSurface as="section" className="p-5 sm:p-6">
+      <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Serah-terima retensi</h2>
+      <p className="mt-2 text-sm leading-6 text-secondary-600">Permintaan perpanjangan hanya dicatat sebagai menunggu. Tidak ada tenggat, siklus hidup, klaim penghapusan, atau tindakan kunci yang berubah di Sprint 4.</p>
+      {canGovern ? (
+        <div className="mt-5 space-y-3">
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target</label>
+          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/referensi tanpa isi" value={targetReference} />
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)</label>
+          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" value={requestedUpperBound} />
+          <Button
+            disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()}
+            onClick={() => requestConfirmation(
+              "Konfirmasi serah-terima retensi",
+              `Serah-terima untuk ${targetReference.trim()} akan dicatat sebagai menunggu sampai ${requestedUpperBound.trim()}. Tenggat, siklus hidup, klaim penghapusan, dan tindakan kunci tidak berubah dari perintah ini.`,
+              requestRetentionExtension,
+            )}
+            type="button"
+            variant="reference"
+          >Kirim serah-terima untuk ditinjau</Button>
+        </div>
+      ) : <ReferenceSurface className="mt-5 p-4 text-sm text-secondary-600" variant="inset">Kapabilitas tata kelola diperlukan untuk membuat serah-terima. Tidak ada tombol pengganti atau bypass.</ReferenceSurface>}
+    </ReferenceSurface>
+  );
+}
+
 function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
-  const {
-    activateDraft,
-    approveDraft,
-    busy,
-    canGovern,
-    canPolicy,
-    capabilitySummary,
-    createDraft,
-    dailyLimit,
-    dirtySectionLabel,
-    dirtySections,
-    draft,
-    editDraft,
-    effectiveAt,
-    markDirty,
-    message,
-    metadata,
-    preview,
-    previewDraft,
-    previewFrom,
-    previewTimezone,
-    previewTo,
-    quotaConfig,
-    reason,
-    refresh,
-    reportConfig,
-    requestRetentionExtension,
-    requestedUpperBound,
-    retentionConfig,
-    rollbackBundle,
-    scheduleDraft,
-    setDailyLimit,
-    setEffectiveAt,
-    setMessage,
-    setPreviewFrom,
-    setPreviewTimezone,
-    setPreviewTo,
-    setQuotaConfig,
-    setReason,
-    setReportConfig,
-    setRequestedUpperBound,
-    setRetentionConfig,
-    setSettlementConfig,
-    setTargetReference,
-    settlementConfig,
-    targetReference,
-    updateModeConfig,
-    validateDraft,
-  } = useAiPolicyPageState(props);
+  const state = useAiPolicyPageState(props);
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingPolicyConfirmation | null>(null);
-
-  function requestConfirmation(title: string, description: string, action: () => void | Promise<void>) {
+  const requestConfirmation: PolicyConfirmationRequester = (title, description, action) => {
     setPendingConfirmation({ action, description, title });
-  }
-
-  function confirmPendingAction() {
+  };
+  const confirmPendingAction = () => {
     const confirmation = pendingConfirmation;
     setPendingConfirmation(null);
     if (confirmation) void confirmation.action();
-  }
-
-  function requestRollback(bundleId: string) {
-    requestConfirmation(
-      "Konfirmasi pemulihan kebijakan",
-      `Pemulihan akan membuat snapshot kebijakan baru dari ${bundleId}. Riwayat lama tetap tidak berubah dan perubahan hanya berlaku setelah server menyelesaikan perintah dengan konteks audit.`,
-      () => rollbackBundle(bundleId),
-    );
-  }
+  };
+  const requestRollback = (bundleId: string) => requestConfirmation(
+    "Konfirmasi pemulihan kebijakan",
+    `Pemulihan akan membuat snapshot kebijakan baru dari ${bundleId}. Riwayat lama tetap tidak berubah dan perubahan hanya berlaku setelah server menyelesaikan perintah dengan konteks audit.`,
+    () => state.rollbackBundle(bundleId),
+  );
 
   return (
     <div className="flex flex-col gap-8">
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) setPendingConfirmation(null);
-        }}
-        open={Boolean(pendingConfirmation)}
-      >
+      <AlertDialog onOpenChange={(open) => { if (!open) setPendingConfirmation(null); }} open={Boolean(pendingConfirmation)}>
         <AlertDialogContent data-testid="policy-action-confirmation" variant="warning">
           <AlertDialogHeader>
             <AlertDialogMedia variant="warning" />
             <AlertDialogTitle>{pendingConfirmation?.title ?? "Konfirmasi perubahan kebijakan"}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingConfirmation?.description ?? "Perubahan ini belum dijalankan."}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{pendingConfirmation?.description ?? "Perubahan ini belum dijalankan."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={confirmPendingAction} variant="brand">
-              Konfirmasi dan jalankan
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={state.busy}>Batal</AlertDialogCancel>
+            <AlertDialogAction disabled={state.busy} onClick={confirmPendingAction} variant="brand">Konfirmasi dan jalankan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <ReferencePageHeader
-        actions={
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <ReferenceStatusBadge label={formatAiProviderGateState("open_blocked")} size="sm" status="blocked" />
-            <ReferenceStatusBadge label={capabilitySummary} size="sm" status={metadata.canMutate ? "active" : "neutral"} />
-          </div>
-        }
+        actions={<div className="flex shrink-0 flex-wrap gap-2"><ReferenceStatusBadge label={formatAiProviderGateState("open_blocked")} size="sm" status="blocked" /><ReferenceStatusBadge label={state.capabilitySummary} size="sm" status={state.metadata.canMutate ? "active" : "neutral"} /></div>}
         description="Kelola snapshot operasional untuk penerimaan, reservasi laporan, penyelesaian, dan bukti konten yang berlaku ke depan. Perubahan tidak menulis ulang riwayat."
         title="Kebijakan kendali Vera AI"
       />
 
-      <AiPolicyMetadataSummary metadata={metadata} />
-
+      <AiPolicyMetadataSummary metadata={state.metadata} />
       <section className="grid gap-5 md:grid-cols-2">
-        <ReferenceSurface as="section" className="p-5 sm:p-6">
-          <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Ruang lingkup kebijakan yang dapat diedit</h2>
-          <p className="mt-2 text-sm leading-6 text-secondary-600">Form perubahan bagian tersusun di backend dengan batas tetap: kuota 1.000–50.000, penyelesaian 30 menit–6 jam, laporan k≤5 dan maksimal 31 hari, serta percobaan penyedia tepat 2.</p>
-          <div className="mt-5 grid gap-3 text-sm text-secondary-700 sm:grid-cols-2">
-            <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Kebijakan</span><br />Kuota, mode, anggaran laporan<br /><span className="text-xs text-secondary-500">{canPolicy ? "Dapat mengedit bagian" : "Tidak diberikan"}</span></ReferenceSurface>
-            <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Tata kelola</span><br />Penyelesaian, retensi bukti<br /><span className="text-xs text-secondary-500">{canGovern ? "Dapat mengedit bagian" : "Tidak diberikan"}</span></ReferenceSurface>
-          </div>
-          {metadata.canMutate ? (
-            <div className="mt-6 border-t border-primary-100 pt-5">
-              <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan</label>
-              <textarea
-                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y rounded-2xl`}
-                id="policy-reason"
-                maxLength={500}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Contoh: menyelaraskan batas report burst untuk periode ujian."
-                value={reason}
-              />
-              <Button
-                className="mt-3"
-                disabled={busy || reason.trim().length === 0}
-                onClick={() => requestConfirmation(
-                  "Konfirmasi pembuatan draf kebijakan",
-                  `Draf baru akan dibuat dengan alasan: ${reason.trim()}. Draf belum aktif dan tidak mengubah akses sampai siklus hidup berikutnya selesai.`,
-                  createDraft,
-                )}
-                type="button"
-                variant="brand"
-              >
-                Buat draf lengkap
-              </Button>
-            </div>
-          ) : null}
-          {draft ? (
-            <ReferenceSurface className="mt-6 space-y-4 p-4" data-testid="policy-lifecycle-controls" variant="inset">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Draf terpilih</p>
-                  <p className="mt-1 break-all text-sm font-semibold text-secondary-900">{draft.bundleVersion} · {formatAiPolicyState(draft.state)} · revisi {draft.revision}</p>
-                </div>
-                <ReferenceStatusBadge label={formatAiProviderGateState(draft.providerGateState)} size="xs" status="blocked" />
-              </div>
-              {quotaConfig && settlementConfig && reportConfig && retentionConfig ? (
-                <AiPolicyTypedControls
-                  busy={busy}
-                  canGovern={canGovern}
-                  canPolicy={canPolicy}
-                  dailyLimit={dailyLimit}
-                  dirtySectionLabel={dirtySectionLabel}
-                  dirtySections={dirtySections}
-                  draft={draft}
-                  editDraft={editDraft}
-                  markDirty={markDirty}
-                  quotaConfig={quotaConfig}
-                  reportConfig={reportConfig}
-                  retentionConfig={retentionConfig}
-                  setDailyLimit={setDailyLimit}
-                  setQuotaConfig={setQuotaConfig}
-                  setReportConfig={setReportConfig}
-                  setRetentionConfig={setRetentionConfig}
-                  setSettlementConfig={setSettlementConfig}
-                  settlementConfig={settlementConfig}
-                  updateModeConfig={updateModeConfig}
-                />
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={busy || draft.state !== "draft"}
-                  onClick={() => requestConfirmation(
-                    "Konfirmasi validasi draf",
-                    "Server akan memvalidasi draf dan dapat mengubah status siklus hidupnya. Tidak ada kebijakan aktif yang ditulis sebelum persetujuan dan aktivasi terpisah.",
-                    validateDraft,
-                  )}
-                  type="button"
-                  variant="brand"
-                >Validasi draf</Button>
-                <Button
-                  disabled={busy || draft.state !== "pending_approval"}
-                  onClick={() => requestConfirmation(
-                    "Konfirmasi pratinjau dampak",
-                    "Pratinjau membaca dampak yang hanya berlaku ke depan untuk penerimaan, reservasi laporan, dan bukti konten. Pratinjau tidak mengubah riwayat, tetapi dapat membuat reservasi audit.",
-                    () => previewDraft("categorical"),
-                  )}
-                  type="button"
-                  variant="reference"
-                >Pratinjau dampak</Button>
-                <Button
-                  disabled={busy || draft.state !== "pending_approval"}
-                  onClick={() => requestConfirmation(
-                    "Konfirmasi persetujuan kebijakan",
-                    `Operator kedua akan menyetujui digest ${draft.validationDigest}. Perubahan belum aktif sampai dijadwalkan dan diaktifkan.`,
-                    approveDraft,
-                  )}
-                  type="button"
-                  variant="reference"
-                >Setujui (operator kedua)</Button>
-              </div>
-              {draft.state === "pending_approval" ? (
-                <ReferenceSurface className="grid gap-3 rounded-2xl p-4" variant="inset">
-                  <div className="grid gap-2">
-                    <p className="text-sm font-semibold text-secondary-800">Rentang pratinjau agregat</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
-                      <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
-                    </div>
-                    <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
-                    <Button
-                      disabled={busy || !previewFrom || !previewTo}
-                      onClick={() => requestConfirmation(
-                        "Konfirmasi pratinjau agregat",
-                        `Pratinjau agregat akan membaca rentang ${previewFrom} sampai ${previewTo} (${previewTimezone}) dan mencatat reservasi audit tanpa mengubah kebijakan aktif.`,
-                        () => previewDraft("aggregate"),
-                      )}
-                      type="button"
-                      variant="reference"
-                    >Jalankan pratinjau agregat</Button>
-                  </div>
-                  <div className="text-xs leading-5 text-secondary-600">
-                    Pratinjau memerlukan rentang kalender lokal dengan batas akhir eksklusif, maksimum 31 hari. Biaya penuh tetap dicatat meskipun hasil ditekan atau tidak tersedia.
-                  </div>
-                </ReferenceSurface>
-              ) : null}
-              {draft.state === "pending_approval" || draft.state === "scheduled" ? (
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
-                    Waktu berlaku (lokal browser → UTC)
-                    <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
-                  </label>
-                  <div className="flex items-end gap-2">
-                    <Button
-                      disabled={busy || draft.state !== "pending_approval" || !effectiveAt}
-                      onClick={() => requestConfirmation(
-                        "Konfirmasi jadwal kebijakan",
-                        `Kebijakan ini akan mulai memengaruhi penerimaan, reservasi laporan, dan bukti konten pada ${effectiveAt}. Waktu dikirim ke server sebagai UTC dan perubahan hanya berlaku ke depan.`,
-                        scheduleDraft,
-                      )}
-                      type="button"
-                      variant="brand"
-                    >Jadwalkan</Button>
-                    <Button
-                      disabled={busy || draft.state !== "scheduled"}
-                      onClick={() => requestConfirmation(
-                        "Konfirmasi aktivasi kebijakan",
-                        "Aktivasi akan mengganti kebijakan aktif yang jatuh tempo. Server akan menyimpan aktor audit, digest, alasan, dan hasil perintah.",
-                        activateDraft,
-                      )}
-                      type="button"
-                      variant="reference"
-                    >Aktifkan yang jatuh tempo</Button>
-                  </div>
-                </div>
-              ) : null}
-              {preview ? (
-                <ReferenceSurface className="p-4 text-sm text-secondary-700" role="status" variant="inset">
-                  <p className="font-semibold text-secondary-900">Status pratinjau: {formatAiPreviewState(preview.state)}</p>
-                  <p className="mt-1">Penerimaan {formatAiImpactState(preview.effects.futureAdmissions.state)}; reservasi laporan {formatAiImpactState(preview.effects.futureReportReservations.state)}; bukti konten {formatAiImpactState(preview.effects.futureContentEvidence.state)}.</p>
-                </ReferenceSurface>
-              ) : null}
-            </ReferenceSurface>
-          ) : null}
-        </ReferenceSurface>
-
-        <ReferenceSurface as="section" className="p-5 sm:p-6">
-          <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Serah-terima retensi</h2>
-          <p className="mt-2 text-sm leading-6 text-secondary-600">Permintaan perpanjangan hanya dicatat sebagai menunggu. Tidak ada tenggat, siklus hidup, klaim penghapusan, atau tindakan kunci yang berubah di Sprint 4.</p>
-          {canGovern ? (
-            <div className="mt-5 space-y-3">
-              <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target</label>
-              <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/referensi tanpa isi" value={targetReference} />
-              <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)</label>
-              <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" value={requestedUpperBound} />
-              <Button
-                disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()}
-                onClick={() => requestConfirmation(
-                  "Konfirmasi serah-terima retensi",
-                  `Serah-terima untuk ${targetReference.trim()} akan dicatat sebagai menunggu sampai ${requestedUpperBound.trim()}. Tenggat, siklus hidup, klaim penghapusan, dan tindakan kunci tidak berubah dari perintah ini.`,
-                  requestRetentionExtension,
-                )}
-                type="button"
-                variant="reference"
-              >Kirim serah-terima untuk ditinjau</Button>
-            </div>
-          ) : <ReferenceSurface className="mt-5 p-4 text-sm text-secondary-600" variant="inset">Kapabilitas tata kelola diperlukan untuk membuat serah-terima. Tidak ada tombol pengganti atau bypass.</ReferenceSurface>}
-        </ReferenceSurface>
+        <div>
+          <AiPolicyScopeSection requestConfirmation={requestConfirmation} state={state} />
+          <AiPolicyLifecyclePanel requestConfirmation={requestConfirmation} state={state} />
+        </div>
+        <AiPolicyRetentionSection requestConfirmation={requestConfirmation} state={state} />
       </section>
-
-      {message ? <ReferenceSurface aria-live="polite" className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">{message}</ReferenceSurface> : null}
-
+      {state.message ? <ReferenceSurface aria-live="polite" className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">{state.message}</ReferenceSurface> : null}
       <AiPolicyAuditHistory
-        busy={busy}
-        canPolicy={canPolicy}
-        history={metadata.history}
-        onRefresh={() => void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))}
+        busy={state.busy}
+        canPolicy={state.canPolicy}
+        history={state.metadata.history}
+        onRefresh={() => void state.refresh().catch((error) => state.setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))}
         rollbackBundle={requestRollback}
       />
-
       <p className="text-sm text-secondary-600">Butuh konteks operasional lain? Kembali ke <Link className="font-bold text-primary-800 underline decoration-primary-200 underline-offset-4" href="/admin">dashboard admin</Link>.</p>
     </div>
   );

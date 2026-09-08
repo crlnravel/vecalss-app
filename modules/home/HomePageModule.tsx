@@ -2,8 +2,6 @@ import Image from "next/image";
 import { ArrowRight } from "@/lib/icons";
 
 import { featuredTopAlumni, type TopAlumni } from "@/modules/alumni/data";
-import { ContactForm } from "./components/contact-form";
-import { CountUpStats } from "./components/count-up-stats";
 import { FAQ } from "./components/FAQ";
 import { MarketingHeader } from "./components/marketing-header";
 import { ActionButtonLink } from "./components/home-primitives";
@@ -13,7 +11,6 @@ import {
   campusCrewMarks,
   crewMembers,
   faqItems,
-  journeyStats,
   pathways,
   testimonials,
   voyagePrinciples,
@@ -491,28 +488,6 @@ function VeraAiSection() {
   );
 }
 
-function BriefingSection() {
-  return (
-    <section
-      id="briefing"
-      className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10"
-    >
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.42fr_1fr] lg:items-start">
-        <div className="lg:pt-8">
-          <SectionIntro
-            title="Ceritakan titik berangkatmu."
-            body="Tim Vecalss akan membantu membaca kebutuhanmu, memilih rute belajar yang paling masuk akal, dan menjelaskan langkah awal tanpa membuat prosesnya terasa rumit."
-          />
-          <p className="mt-8 max-w-[34ch] text-sm leading-7 text-[var(--voyage-deep)]/58">
-            Balasan akan diarahkan ke kontak yang kamu tuliskan di form.
-          </p>
-        </div>
-        <ContactForm />
-      </div>
-    </section>
-  );
-}
-
 function FinalCTA() {
   return (
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
@@ -550,7 +525,6 @@ function HomePageModule() {
   return (
     <main className="overflow-x-clip bg-white text-[var(--voyage-deep)]">
       <Hero />
-      {/* <CountUpStats items={journeyStats} /> */}
       <LogoMarquee />
       <AboutSection />
       <PrinciplesSection />
@@ -560,7 +534,6 @@ function HomePageModule() {
       <ResultsSection />
       <QuestionsSection />
       <VeraAiSection />
-      {/* <BriefingSection /> */}
       <FinalCTA />
       <HomeFooter />
     </main>

@@ -251,6 +251,120 @@ function MateriUnsavedChangesBar({
   );
 }
 
+
+function MateriBuilderPreview({ builderState, onPreviewChange, selectedSubjectName, status }: { builderState: MateriBuilderState; onPreviewChange: (open: boolean) => void; selectedSubjectName: string; status: KaptenMateriView["status"] }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-secondary-900">Pratinjau materi</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="min-w-0 max-w-[42ch] truncate text-xs text-secondary-500">{builderState.title || "Materi tanpa judul"}</p>
+            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
+          </div>
+        </div>
+        <Button onClick={() => onPreviewChange(false)} type="button" variant="reference"><ChevronLeft />Kembali ke editor</Button>
+      </div>
+      <ReferenceSurface as="section" aria-live="polite" className="max-w-4xl p-5 sm:p-7">
+        <MateriLessonPresentation
+          document={toPreviewDocument(builderState)}
+          duration={builderState.videoDuration.trim() || undefined}
+          managedDocumentPreview={builderState.documentAssetId ? <MediaAssetPreview alt={builderState.documentName.trim() || "Dokumen Materi"} assetId={builderState.documentAssetId} className="min-h-[16rem] rounded-none bg-voyage-canvas md:min-h-[24rem]" showDownloadControls /> : undefined}
+          showDuration
+          showSectionLabel={false}
+          subject={selectedSubjectName}
+          title={builderState.title}
+          videoUrl={builderState.videoUrl}
+        />
+      </ReferenceSurface>
+    </>
+  );
+}
+
+function MateriBasicsSection({ builderState, errors, isArchived, onFieldChange, subjects }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; subjects: KaptenMateriSubjectView[] }) {
+  const selectedSubjectOption = subjects.find((subject) => subject.slug === builderState.subjectSlug);
+  return (
+    <ReferenceSurface as="section" aria-labelledby="materi-details-title" className="grid gap-5 p-5 sm:p-7">
+      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-details-title">Materi</h2></div>
+      <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
+        <Field>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-subject">Subject</FieldLabel>
+          <DropdownMenu>
+            <DropdownMenuTrigger aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined} aria-invalid={Boolean(errors.subjectSlug)} aria-label="Subject" disabled={isArchived} id="materi-subject" render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "h-12", errors.subjectSlug && "border-student-status-danger-border")} variant="reference" />}>
+              <span className="truncate">{selectedSubjectOption ? selectedSubjectOption.code + " · " + selectedSubjectOption.name : "Pilih subject"}</span>
+              <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-(--anchor-width)">
+              <DropdownMenuRadioGroup onValueChange={(value) => onFieldChange("subjectSlug", value)} value={builderState.subjectSlug}>
+                {subjects.map((subject) => <DropdownMenuRadioItem closeOnClick key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <FieldError error={errors.subjectSlug} id="materi-subject-error" />
+        </Field>
+        <Field>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-title">Judul materi</FieldLabel>
+          <FieldInput aria-describedby={errors.title ? "materi-title-error" : undefined} aria-invalid={Boolean(errors.title)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 text-base font-semibold")} disabled={isArchived} id="materi-title" onChange={(event) => onFieldChange("title", event.target.value)} value={builderState.title} />
+          <FieldError error={errors.title} id="materi-title-error" />
+        </Field>
+      </div>
+    </ReferenceSurface>
+  );
+}
+
+function MateriDocumentSection({ builderState, errors, isArchived, onOpenPicker, selectedDocumentName }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onOpenPicker: () => void; selectedDocumentName: string }) {
+  const hasDocumentName = Boolean(builderState.documentName.trim());
+  return (
+    <ReferenceSurface as="section" aria-labelledby="materi-document-title" className="grid gap-5 p-5 sm:p-7">
+      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-document-title">Bacaan PDF</h2></div>
+      <ReferenceSurface className="space-y-4 p-4 sm:p-5" variant="inset">
+        <div className={cn("flex flex-wrap justify-between gap-4", hasDocumentName ? "items-center" : "items-start")}>
+          <div className={cn("flex min-w-0 gap-3", hasDocumentName ? "items-center" : "items-start")}>
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-primary-800 ring-1 ring-primary-100"><FileText className="size-5" /></span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-secondary-900">{hasDocumentName ? selectedDocumentName : "Belum ada PDF dipilih"}</p>
+              {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Pilih PDF dari pustaka media untuk melanjutkan.</p> : null}
+            </div>
+          </div>
+          <Button aria-describedby={errors.documentAssetId || errors.documentMimeType ? "materi-document-error" : undefined} aria-invalid={Boolean(errors.documentAssetId || errors.documentMimeType)} disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="reference">{builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}</Button>
+        </div>
+        <FieldError error={errors.documentAssetId || errors.documentMimeType} id="materi-document-error" />
+      </ReferenceSurface>
+    </ReferenceSurface>
+  );
+}
+
+function MateriVideoSection({ builderState, errors, isArchived, onFieldChange, readiness }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; readiness: "ready" | "incomplete" }) {
+  return (
+    <ReferenceSurface as="section" aria-labelledby="materi-video-title" className="grid gap-5 p-5 sm:p-7">
+      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-video-title">Video pendamping (opsional)</h2></div>
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
+        <Field>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-url">URL video</FieldLabel>
+          <FieldInput aria-describedby={errors.videoUrl ? "materi-video-url-error" : undefined} aria-invalid={Boolean(errors.videoUrl)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")} disabled={isArchived} id="materi-video-url" onChange={(event) => onFieldChange("videoUrl", event.target.value)} placeholder="https://youtube.com/..." type="url" value={builderState.videoUrl} />
+          <FieldError error={errors.videoUrl} id="materi-video-url-error" />
+        </Field>
+        <Field>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-duration">Durasi video</FieldLabel>
+          <FieldInput aria-describedby={errors.videoDuration ? "materi-video-duration-error" : undefined} aria-invalid={Boolean(errors.videoDuration)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")} disabled={isArchived} id="materi-video-duration" onChange={(event) => onFieldChange("videoDuration", event.target.value)} placeholder="08:30" value={builderState.videoDuration} />
+          <FieldError error={errors.videoDuration} id="materi-video-duration-error" />
+        </Field>
+      </div>
+      {readiness === "incomplete" ? <ReferenceSurface className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">Lengkapi subject, judul, dan PDF. Video pendamping hanya perlu diisi jika URL dan durasinya lengkap.</ReferenceSurface> : null}
+    </ReferenceSurface>
+  );
+}
+
+function MateriBuilderForm({ builderState, errors, isArchived, onFieldChange, onOpenPicker, onSave, readiness, selectedDocumentName, subjects }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; onOpenPicker: () => void; onSave: () => void; readiness: "ready" | "incomplete"; selectedDocumentName: string; subjects: KaptenMateriSubjectView[] }) {
+  return (
+    <form action={onSave} className="space-y-5" noValidate>
+      <MateriBasicsSection builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} subjects={subjects} />
+      <MateriDocumentSection builderState={builderState} errors={errors} isArchived={isArchived} onOpenPicker={onOpenPicker} selectedDocumentName={selectedDocumentName} />
+      <MateriVideoSection builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} readiness={readiness} />
+    </form>
+  );
+}
+
 function MateriBuilderEditor({
   builderState,
   errors,
@@ -280,183 +394,10 @@ function MateriBuilderEditor({
   status: KaptenMateriView["status"];
   subjects: KaptenMateriSubjectView[];
 }) {
-  const selectedSubjectOption = subjects.find((subject) => subject.slug === builderState.subjectSlug);
-  const hasDocumentName = Boolean(builderState.documentName.trim());
-
-  return isPreviewOpen ? (
-    <>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-secondary-900">Pratinjau materi</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="min-w-0 max-w-[42ch] truncate text-xs text-secondary-500">
-              {builderState.title || "Materi tanpa judul"}
-            </p>
-            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
-          </div>
-        </div>
-        <Button onClick={() => onPreviewChange(false)} type="button" variant="reference">
-          <ChevronLeft />
-          Kembali ke editor
-        </Button>
-      </div>
-      <ReferenceSurface as="section" aria-live="polite" className="max-w-4xl p-5 sm:p-7">
-        <MateriLessonPresentation
-          document={toPreviewDocument(builderState)}
-          duration={builderState.videoDuration.trim() || undefined}
-          managedDocumentPreview={builderState.documentAssetId ? (
-            <MediaAssetPreview
-              alt={builderState.documentName.trim() || "Dokumen Materi"}
-              assetId={builderState.documentAssetId}
-              className="min-h-[16rem] rounded-none bg-voyage-canvas md:min-h-[24rem]"
-              showDownloadControls
-            />
-          ) : undefined}
-          showDuration
-          showSectionLabel={false}
-          subject={selectedSubjectName}
-          title={builderState.title}
-          videoUrl={builderState.videoUrl}
-        />
-      </ReferenceSurface>
-    </>
-  ) : (
-    <form
-      className="space-y-5"
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave();
-      }}
-    >
-      <ReferenceSurface as="section" aria-labelledby="materi-details-title" className="grid gap-5 p-5 sm:p-7">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-details-title">Materi</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-subject">Subject</FieldLabel>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined}
-                aria-invalid={Boolean(errors.subjectSlug)}
-                aria-label="Subject"
-                disabled={isArchived}
-                id="materi-subject"
-                render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "h-12", errors.subjectSlug && "border-student-status-danger-border")} variant="reference" />}
-              >
-                <span className="truncate">
-                  {selectedSubjectOption ? `${selectedSubjectOption.code} · ${selectedSubjectOption.name}` : "Pilih subject"}
-                </span>
-                <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-(--anchor-width)">
-                <DropdownMenuRadioGroup onValueChange={(value) => onFieldChange("subjectSlug", value)} value={builderState.subjectSlug}>
-                  {subjects.map((subject) => (
-                    <DropdownMenuRadioItem closeOnClick key={subject.slug} value={subject.slug}>
-                      {subject.code} · {subject.name}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <FieldError error={errors.subjectSlug} id="materi-subject-error" />
-          </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-title">Judul materi</FieldLabel>
-            <FieldInput
-              aria-describedby={errors.title ? "materi-title-error" : undefined}
-              aria-invalid={Boolean(errors.title)}
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`}
-              disabled={isArchived}
-              id="materi-title"
-              onChange={(event) => onFieldChange("title", event.target.value)}
-              value={builderState.title}
-            />
-            <FieldError error={errors.title} id="materi-title-error" />
-          </Field>
-        </div>
-      </ReferenceSurface>
-
-      <ReferenceSurface as="section" aria-labelledby="materi-document-title" className="grid gap-5 p-5 sm:p-7">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-document-title">Bacaan PDF</h2>
-        </div>
-
-        <ReferenceSurface className="space-y-4 p-4 sm:p-5" variant="inset">
-          <div className={cn("flex flex-wrap justify-between gap-4", hasDocumentName ? "items-center" : "items-start")}>
-            <div className={cn("flex min-w-0 gap-3", hasDocumentName ? "items-center" : "items-start")}>
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-primary-800 ring-1 ring-primary-100">
-                <FileText className="size-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-secondary-900">
-                  {hasDocumentName ? selectedDocumentName : "Belum ada PDF dipilih"}
-                </p>
-                {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Pilih PDF dari pustaka media untuk melanjutkan.</p> : null}
-              </div>
-            </div>
-            <Button
-              aria-describedby={errors.documentAssetId || errors.documentMimeType ? "materi-document-error" : undefined}
-              aria-invalid={Boolean(errors.documentAssetId || errors.documentMimeType)}
-              disabled={isArchived}
-              onClick={onOpenPicker}
-              size="sm"
-              type="button"
-              variant="reference"
-            >
-              {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
-            </Button>
-          </div>
-          <FieldError error={errors.documentAssetId || errors.documentMimeType} id="materi-document-error" />
-        </ReferenceSurface>
-      </ReferenceSurface>
-
-      <ReferenceSurface as="section" aria-labelledby="materi-video-title" className="grid gap-5 p-5 sm:p-7">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-video-title">Video pendamping (opsional)</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-url">URL video</FieldLabel>
-            <FieldInput
-              aria-describedby={errors.videoUrl ? "materi-video-url-error" : undefined}
-              aria-invalid={Boolean(errors.videoUrl)}
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
-              disabled={isArchived}
-              id="materi-video-url"
-              onChange={(event) => onFieldChange("videoUrl", event.target.value)}
-              placeholder="https://youtube.com/..."
-              type="url"
-              value={builderState.videoUrl}
-            />
-            <FieldError error={errors.videoUrl} id="materi-video-url-error" />
-          </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-duration">Durasi video</FieldLabel>
-            <FieldInput
-              aria-describedby={errors.videoDuration ? "materi-video-duration-error" : undefined}
-              aria-invalid={Boolean(errors.videoDuration)}
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
-              disabled={isArchived}
-              id="materi-video-duration"
-              onChange={(event) => onFieldChange("videoDuration", event.target.value)}
-              placeholder="08:30"
-              value={builderState.videoDuration}
-            />
-            <FieldError error={errors.videoDuration} id="materi-video-duration-error" />
-          </Field>
-        </div>
-        {readiness === "incomplete" ? (
-          <ReferenceSurface className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
-            Lengkapi subject, judul, dan PDF. Video pendamping hanya perlu diisi jika URL dan durasinya lengkap.
-          </ReferenceSurface>
-        ) : null}
-      </ReferenceSurface>
-    </form>
-  );
+  return isPreviewOpen
+    ? <MateriBuilderPreview builderState={builderState} onPreviewChange={onPreviewChange} selectedSubjectName={selectedSubjectName} status={status} />
+    : <MateriBuilderForm builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} onOpenPicker={onOpenPicker} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} subjects={subjects} />;
 }
-
 function useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router }: { hasUnsavedChanges: boolean; pendingRouteReplacement: string | null; router: ReturnType<typeof useRouter> }) {
   useEffect(() => {
     if (!hasUnsavedChanges) return;

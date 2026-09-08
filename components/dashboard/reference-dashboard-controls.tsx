@@ -37,6 +37,10 @@ type ReferenceSelectProps = {
   value: string;
 };
 
+function toInternalValue(optionValue: string) {
+  return optionValue === "" ? null : optionValue;
+}
+
 function ReferenceSelect({
   "aria-describedby": ariaDescribedby,
   "aria-label": ariaLabel,
@@ -52,8 +56,6 @@ function ReferenceSelect({
   required = false,
   value,
 }: ReferenceSelectProps) {
-  const toInternalValue = (optionValue: string) => (optionValue === "" ? null : optionValue);
-
   return (
     <SelectPrimitive.Root
       items={options.map(({ label, value: optionValue }) => ({ label, value: toInternalValue(optionValue) }))}

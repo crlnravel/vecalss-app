@@ -189,7 +189,7 @@ function OnboardingForm({
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--voyage-canvas)] text-secondary-900">
+    <main className="student-page-canvas relative min-h-screen overflow-hidden text-secondary-900">
       <DoodleBackdrop />
       <div className="relative mx-auto flex min-h-screen w-full max-w-[42rem] flex-col px-5 pb-7 sm:px-8">
         {step > 0 ? (

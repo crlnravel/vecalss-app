@@ -74,11 +74,11 @@ function StudentPdfDocument({ file, fullscreen = false, onError, onReady, title 
       >
         {numPages > 0 ? (
           <div aria-label={title} className="flex flex-col items-center gap-4">
-            {Array.from({ length: Math.min(numPages, visiblePageCount) }, (_, index) => (
+            {Array.from({ length: Math.min(numPages, visiblePageCount) }, (_, index) => index + 1).map((pageNumber) => (
               <Page
                 className="max-w-full overflow-hidden rounded-xl bg-white shadow-[0_14px_32px_-28px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] ring-1 ring-[var(--voyage-soft-border)]"
-                key={`${file}-${index + 1}`}
-                pageNumber={index + 1}
+                key={`${file}-${pageNumber}`}
+                pageNumber={pageNumber}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
                 width={pageWidth}

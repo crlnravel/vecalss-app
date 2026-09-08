@@ -4,14 +4,14 @@ import { requireStudentSession } from "@/lib/auth/access";
 import {
   buildStudentTryoutHref,
   canonicalContextMessage,
+  getSafeRedirectUrl,
   parseStudentTryoutContext,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 export default async function TryoutRegistrationPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const { tryoutId } = await params;
-  const [session, query] = await Promise.all([requireStudentSession(), searchParams]);
+  const [{ tryoutId }, session, query] = await Promise.all([params, requireStudentSession(), searchParams]);
   const parsed = parseStudentTryoutContext(query);
   if (parsed.issues.length) {
     return (
@@ -23,5 +23,5 @@ export default async function TryoutRegistrationPage({ params, searchParams }: {
       </CourseWorkspaceShell>
     );
   }
-  redirect(buildStudentTryoutHref(tryoutId, { returnTo: parsed.returnTo, session: parsed.session }));
+  redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryoutId, { returnTo: parsed.returnTo, session: parsed.session }), ["/tryout"]));
 }

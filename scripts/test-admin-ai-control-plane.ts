@@ -1,8 +1,5 @@
 import {
   VERA_CAPABILITIES,
-  VERA_PRIVACY_MIN_COHORT_SIZE,
-  type MetricDataState,
-  type SemanticMetric,
 } from "@/lib/admin/ai/contracts";
 import {
   buildVeraAiOverviewDto,

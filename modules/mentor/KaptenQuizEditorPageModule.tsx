@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "@/lib/icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   AlertDialog,
@@ -44,7 +44,6 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
@@ -55,6 +54,7 @@ import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
+import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import type { QuizChoice, QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
@@ -400,22 +400,13 @@ function QuizMobileInventory({
               {questions.map((question, index) => {
                 const issueCount = questionIssues(question).length;
                 return (
-                  <DropdownMenuRadioItem key={question.id} value={question.id}>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="w-5 shrink-0 text-xs font-semibold text-secondary-500">{index + 1}.</span>
-                      <span className="min-w-0 truncate">{question.prompt || "Soal tanpa pertanyaan"}</span>
-                      {issueCount > 0 ? (
-                        <span
-                          aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`}
-                          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-student-status-attention-bg text-student-status-attention-fg"
-                          role="img"
-                          title={`Soal ${index + 1} memiliki ${issueCount} masalah`}
-                        >
-                          <AlertTriangle aria-hidden="true" className="size-3.5" />
-                        </span>
-                      ) : null}
-                    </span>
-                  </DropdownMenuRadioItem>
+                  <QuestionMobileInventoryOption
+                    issueCount={issueCount}
+                    key={question.id}
+                    prompt={question.prompt}
+                    questionNumber={index + 1}
+                    value={question.id}
+                  />
                 );
               })}
             </DropdownMenuRadioGroup>
@@ -510,39 +501,19 @@ function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
   );
 }
 
-function KaptenQuizEditorPageModule({
-  initialQuestions = [],
-  initialQuiz = null,
-  initialSubjectCode,
-  mode,
-  quizId,
-  session,
+type QuizEditorChangeMarker = (nextForm?: QuizEditorForm) => void;
+
+function useQuizEditorNavigation({
+  hasUnsavedChanges,
+  pendingRouteReplacement,
+  router,
+  setPendingExitRoute,
 }: {
-  initialQuestions?: QuizQuestionSnapshot[];
-  initialQuiz?: KaptenQuiz | null;
-  initialSubjectCode?: string;
-  mode: "create" | "edit";
-  quizId?: string;
-  session: SessionContext;
+  hasUnsavedChanges: boolean;
+  pendingRouteReplacement: string | null;
+  router: ReturnType<typeof useRouter>;
+  setPendingExitRoute: (route: string | null) => void;
 }) {
-  const router = useRouter();
-  const initialForm = useState<QuizEditorForm>(() => getInitialForm(initialQuiz, initialQuestions, initialSubjectCode))[0];
-  const [form, setForm] = useState<QuizEditorForm>(initialForm);
-  const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(initialQuiz);
-  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(initialForm.questions[0]?.id ?? null);
-  const [questionEditorTab, setQuestionEditorTab] = useState("edit");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(mode === "create" && hasQuizDraftContent(initialForm));
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [mediaPickerTarget, setMediaPickerTarget] = useState<MediaPickerTarget | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [pendingExitRoute, setPendingExitRoute] = useState<string | null>(null);
-  const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
-
-  const activeQuestion = useMemo(() => form.questions.find((question) => question.id === activeQuestionId) ?? null, [activeQuestionId, form.questions]);
-  const editorDisabled = savedQuiz?.status === "archived";
-  const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
-
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -558,18 +529,37 @@ function KaptenQuizEditorPageModule({
     return () => window.cancelAnimationFrame(frame);
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 
-  function markChanged(nextForm: QuizEditorForm = form) {
-    setHasUnsavedChanges(mode === "create" ? hasQuizDraftContent(nextForm) : true);
-    setSaveError(null);
-  }
+  const requestExit = useCallback((route: string) => {
+    if (hasUnsavedChanges) {
+      setPendingExitRoute(route);
+      return;
+    }
+    router.push(route);
+  }, [hasUnsavedChanges, router, setPendingExitRoute]);
 
-  function patchForm(patch: Partial<QuizEditorForm>) {
-    const nextForm = { ...form, ...patch };
-    setForm(nextForm);
-    markChanged(nextForm);
-  }
+  return { requestExit };
+}
 
-  function updateActiveQuestion(patch: Partial<QuizQuestionSnapshot>) {
+function useQuizEditorQuestionListActions({
+  activeQuestionId,
+  editorDisabled,
+  form,
+  markChanged,
+  setActiveQuestionId,
+  setForm,
+  setPendingDeleteId,
+  setQuestionEditorTab,
+}: {
+  activeQuestionId: string | null;
+  editorDisabled: boolean;
+  form: QuizEditorForm;
+  markChanged: QuizEditorChangeMarker;
+  setActiveQuestionId: (id: string | null) => void;
+  setForm: (form: QuizEditorForm) => void;
+  setPendingDeleteId: (id: string | null) => void;
+  setQuestionEditorTab: (tab: string) => void;
+}) {
+  const updateActiveQuestion = useCallback((patch: Partial<QuizQuestionSnapshot>) => {
     if (!activeQuestionId || editorDisabled) return;
     const nextForm = {
       ...form,
@@ -577,9 +567,9 @@ function KaptenQuizEditorPageModule({
     };
     setForm(nextForm);
     markChanged(nextForm);
-  }
+  }, [activeQuestionId, editorDisabled, form, markChanged, setForm]);
 
-  function addQuestion() {
+  const addQuestion = useCallback(() => {
     if (editorDisabled) return;
     const question = createEmptyQuestion();
     const nextForm = { ...form, questions: [...form.questions, question] };
@@ -587,9 +577,9 @@ function KaptenQuizEditorPageModule({
     setActiveQuestionId(question.id);
     setQuestionEditorTab("edit");
     markChanged(nextForm);
-  }
+  }, [editorDisabled, form, markChanged, setActiveQuestionId, setForm, setQuestionEditorTab]);
 
-  function removeQuestion(questionId: string) {
+  const removeQuestion = useCallback((questionId: string) => {
     if (editorDisabled) return;
     const nextQuestions = form.questions.filter((question) => question.id !== questionId);
     const nextForm = { ...form, questions: nextQuestions };
@@ -600,9 +590,9 @@ function KaptenQuizEditorPageModule({
     }
     setPendingDeleteId(null);
     markChanged(nextForm);
-  }
+  }, [activeQuestionId, editorDisabled, form, markChanged, setActiveQuestionId, setForm, setPendingDeleteId]);
 
-  function moveQuestion(questionId: string, direction: "up" | "down") {
+  const moveQuestion = useCallback((questionId: string, direction: "up" | "down") => {
     if (editorDisabled) return;
     const index = form.questions.findIndex((question) => question.id === questionId);
     const nextIndex = direction === "up" ? index - 1 : index + 1;
@@ -614,35 +604,77 @@ function KaptenQuizEditorPageModule({
     const nextForm = { ...form, questions };
     setForm(nextForm);
     markChanged(nextForm);
-  }
+  }, [editorDisabled, form, markChanged, setForm]);
 
-  function addChoice() {
+  return { addQuestion, moveQuestion, removeQuestion, updateActiveQuestion };
+}
+
+function useQuizEditorChoiceActions({
+  activeQuestion,
+  editorDisabled,
+  setMediaPickerTarget,
+  updateActiveQuestion,
+}: {
+  activeQuestion: QuizQuestionSnapshot | null;
+  editorDisabled: boolean;
+  setMediaPickerTarget: (target: MediaPickerTarget | null) => void;
+  updateActiveQuestion: (patch: Partial<QuizQuestionSnapshot>) => void;
+}) {
+  const addChoice = useCallback(() => {
     if (!activeQuestion || activeQuestion.choices.length >= 5 || editorDisabled) return;
     updateActiveQuestion({ choices: [...activeQuestion.choices, emptyChoice(activeQuestion.choices.length)] });
-  }
+  }, [activeQuestion, editorDisabled, updateActiveQuestion]);
 
-  function removeChoice(choiceId: string) {
+  const removeChoice = useCallback((choiceId: string) => {
     if (!activeQuestion || activeQuestion.choices.length <= 2 || editorDisabled) return;
     const choices = activeQuestion.choices.filter((choice) => choice.id !== choiceId);
     updateActiveQuestion({ choices, correctChoiceId: activeQuestion.correctChoiceId === choiceId ? choices[0]?.id ?? "a" : activeQuestion.correctChoiceId });
-  }
+  }, [activeQuestion, editorDisabled, updateActiveQuestion]);
 
-  function removeMedia(target: MediaPickerTarget) {
+  const removeMedia = useCallback((target: MediaPickerTarget) => {
     if (!activeQuestion) return;
     if (target.kind === "prompt") updateActiveQuestion({ promptMediaAssetId: undefined });
     else if (target.kind === "explanation") updateActiveQuestion({ explanationMediaAssetId: undefined });
     else updateActiveQuestion({ choices: activeQuestion.choices.map((choice) => choice.id === target.choiceId ? { ...choice, mediaAssetId: undefined } : choice) });
-  }
+  }, [activeQuestion, updateActiveQuestion]);
 
-  function selectMediaAsset(asset: MediaAssetDto) {
-    if (!mediaPickerTarget || !activeQuestion) return;
-    if (mediaPickerTarget.kind === "prompt") updateActiveQuestion({ promptMediaAssetId: asset.id });
-    else if (mediaPickerTarget.kind === "explanation") updateActiveQuestion({ explanationMediaAssetId: asset.id });
-    else updateActiveQuestion({ choices: activeQuestion.choices.map((choice) => choice.id === mediaPickerTarget.choiceId ? { ...choice, mediaAssetId: asset.id } : choice) });
+  const selectMediaAsset = useCallback((asset: MediaAssetDto, target: MediaPickerTarget | null) => {
+    if (!target || !activeQuestion) return;
+    if (target.kind === "prompt") updateActiveQuestion({ promptMediaAssetId: asset.id });
+    else if (target.kind === "explanation") updateActiveQuestion({ explanationMediaAssetId: asset.id });
+    else updateActiveQuestion({ choices: activeQuestion.choices.map((choice) => choice.id === target.choiceId ? { ...choice, mediaAssetId: asset.id } : choice) });
     setMediaPickerTarget(null);
-  }
+  }, [activeQuestion, setMediaPickerTarget, updateActiveQuestion]);
 
-  async function saveQuiz() {
+  return { addChoice, removeChoice, removeMedia, selectMediaAsset };
+}
+
+function useQuizEditorPersistence({
+  editorDisabled,
+  form,
+  isSaving,
+  mode,
+  quizId,
+  savedQuiz,
+  setIsSaving,
+  setPendingRouteReplacement,
+  setSaveError,
+  setSavedQuiz,
+  setHasUnsavedChanges,
+}: {
+  editorDisabled: boolean;
+  form: QuizEditorForm;
+  isSaving: boolean;
+  mode: "create" | "edit";
+  quizId?: string;
+  savedQuiz: KaptenQuiz | null;
+  setIsSaving: (saving: boolean) => void;
+  setPendingRouteReplacement: (route: string | null) => void;
+  setSaveError: (error: string | null) => void;
+  setSavedQuiz: (quiz: KaptenQuiz | null) => void;
+  setHasUnsavedChanges: (value: boolean) => void;
+}) {
+  const saveQuiz = useCallback(async () => {
     if (isSaving || editorDisabled) return;
     setIsSaving(true);
     setSaveError(null);
@@ -669,6 +701,7 @@ function KaptenQuizEditorPageModule({
       }
       setSavedQuiz(result.quiz);
       setHasUnsavedChanges(false);
+      setSaveError(null);
       showToast("Perubahan Kuis tersimpan.", { variant: "success" });
       if (!quizId) setPendingRouteReplacement(buildMentorQuizEditorHref(result.quiz.id, form.subjectCode));
     } catch (error) {
@@ -676,91 +709,191 @@ function KaptenQuizEditorPageModule({
     } finally {
       setIsSaving(false);
     }
-  }
+  }, [editorDisabled, form, isSaving, mode, quizId, savedQuiz, setHasUnsavedChanges, setIsSaving, setPendingRouteReplacement, setSaveError, setSavedQuiz]);
 
-  function requestExit(route: string) {
-    if (hasUnsavedChanges) {
-      setPendingExitRoute(route);
-      return;
-    }
-    router.push(route);
-  }
+  return { saveQuiz };
+}
 
-  if (mode === "edit") {
-    const detailHref = `/mentor/quiz/${quizId}`;
-    const subject = kaptenSubjects.find((item) => item.code === form.subjectCode);
-    const selectQuestion = (id: string) => {
-      setActiveQuestionId(id);
-      setQuestionEditorTab("edit");
-    };
-    const inventory = <QuestionInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onDelete={setPendingDeleteId} onMove={moveQuestion} onSelect={selectQuestion} questions={form.questions} />;
-    const mobileInventory = <QuizMobileInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onSelect={selectQuestion} questions={form.questions} />;
-    const questionEditor = activeQuestion ? (
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
-          <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">
-            Toggle preview
-            <Switch
-              checked={questionEditorTab === "preview"}
-              id="quiz-preview-toggle"
-              onCheckedChange={(checked) => setQuestionEditorTab(checked ? "preview" : "edit")}
-            />
-          </label>
-        </div>
-        {questionEditorTab === "edit" ? <QuestionForm disabled={editorDisabled} onAddChoice={addChoice} onChange={updateActiveQuestion} onOpenMedia={setMediaPickerTarget} onRemoveChoice={removeChoice} onRemoveMedia={removeMedia} question={activeQuestion} /> : <QuestionPreview question={activeQuestion} />}
-      </div>
-    ) : (
-      <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" variant="inset"><ReferenceEmptyState action={<Button disabled={editorDisabled} onClick={addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal</Button>} description="Daftar soalmu masih kosong. Tambahkan soal pertama dari panel di sebelah kiri." icon={CircleHelp} title="Pilih soal untuk mulai mengedit" /></ReferenceSurface>
-    );
+function useQuizEditorState({
+  initialQuestions,
+  initialQuiz,
+  initialSubjectCode,
+  mode,
+  quizId,
+}: {
+  initialQuestions: QuizQuestionSnapshot[];
+  initialQuiz: KaptenQuiz | null;
+  initialSubjectCode?: string;
+  mode: "create" | "edit";
+  quizId?: string;
+}) {
+  const router = useRouter();
+  const initialForm = useState<QuizEditorForm>(() => getInitialForm(initialQuiz, initialQuestions, initialSubjectCode))[0];
+  const [form, setForm] = useState<QuizEditorForm>(initialForm);
+  const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(initialQuiz);
+  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(initialForm.questions[0]?.id ?? null);
+  const [questionEditorTab, setQuestionEditorTab] = useState("edit");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(mode === "create" && hasQuizDraftContent(initialForm));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<MediaPickerTarget | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingExitRoute, setPendingExitRoute] = useState<string | null>(null);
+  const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
+  const activeQuestion = useMemo(() => form.questions.find((question) => question.id === activeQuestionId) ?? null, [activeQuestionId, form.questions]);
+  const editorDisabled = savedQuiz?.status === "archived";
+  const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
 
-    return <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell="full-page">
-      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0"><div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3"><Button aria-label="Kembali ke detail Kuis" onClick={() => requestExit(detailHref)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button><div className="flex min-w-0 items-center gap-2.5"><h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{form.title || "Kuis"}</h1>{hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}{subject ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{subject.code}</MentorBadge> : null}</div></div><div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={isSaving} aria-label="Simpan" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant="brand"><Save />{isSaving ? "Menyimpan…" : "Simpan"}</Button></div></header>
-      {saveError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p aria-live="assertive" className="text-xs font-semibold text-student-status-danger-fg" role="alert">{saveError}</p></div> : null}
-      {scheduleError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p className="text-xs font-semibold text-student-status-danger-fg" role="alert">{scheduleError}</p></div> : null}
-      {mobileInventory}
-      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">{inventory}</div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div></main></div>
-      <MediaPickerDialog onOpenChange={(open) => { if (!open) setMediaPickerTarget(null); }} onSelect={selectMediaAsset} open={Boolean(mediaPickerTarget)} selectedAssetId={mediaPickerTarget?.kind === "prompt" ? activeQuestion?.promptMediaAssetId : mediaPickerTarget?.kind === "explanation" ? activeQuestion?.explanationMediaAssetId : activeQuestion?.choices.find((choice) => choice.id === mediaPickerTarget?.choiceId)?.mediaAssetId} title={mediaPickerTarget?.label ?? "Pilih gambar"} />
-      <AlertDialog onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }} open={Boolean(pendingDeleteId)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (pendingDeleteId) removeQuestion(pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <AlertDialog onOpenChange={(open) => { if (!open) setPendingExitRoute(null); }} open={Boolean(pendingExitRoute)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle><AlertDialogDescription>Perubahan Kuis yang belum disimpan akan hilang.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setPendingExitRoute(null)}>Tetap di editor</AlertDialogCancel><AlertDialogAction onClick={() => { const route = pendingExitRoute; setPendingExitRoute(null); if (route) router.push(route); }} variant="destructive">Keluar tanpa menyimpan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    </div>;
-  }
+  const markChanged = useCallback((nextForm = form) => {
+    setHasUnsavedChanges(mode === "create" ? hasQuizDraftContent(nextForm) : true);
+    setSaveError(null);
+  }, [form, mode]);
 
+  const patchForm = useCallback((patch: Partial<QuizEditorForm>) => {
+    const nextForm = { ...form, ...patch };
+    setForm(nextForm);
+    markChanged(nextForm);
+  }, [form, markChanged]);
+  const navigation = useQuizEditorNavigation({ hasUnsavedChanges, pendingRouteReplacement, router, setPendingExitRoute });
+  const questionActions = useQuizEditorQuestionListActions({ activeQuestionId, editorDisabled, form, markChanged, setActiveQuestionId, setForm, setPendingDeleteId, setQuestionEditorTab });
+  const choiceActions = useQuizEditorChoiceActions({ activeQuestion, editorDisabled, setMediaPickerTarget, updateActiveQuestion: questionActions.updateActiveQuestion });
+  const persistence = useQuizEditorPersistence({ editorDisabled, form, isSaving, mode, quizId, savedQuiz, setHasUnsavedChanges, setIsSaving, setPendingRouteReplacement, setSaveError, setSavedQuiz });
+
+  return {
+    activeQuestion,
+    activeQuestionId,
+    editorDisabled,
+    form,
+    hasUnsavedChanges,
+    isSaving,
+    mediaPickerTarget,
+    navigation,
+    pendingDeleteId,
+    pendingExitRoute,
+    patchForm,
+    persistence,
+    questionActions,
+    questionEditorTab,
+    saveError,
+    savedQuiz,
+    scheduleError,
+    setActiveQuestionId,
+    setMediaPickerTarget,
+    setPendingDeleteId,
+    setPendingExitRoute,
+    setQuestionEditorTab,
+    choiceActions,
+    router,
+  };
+}
+
+type QuizEditorState = ReturnType<typeof useQuizEditorState>;
+
+function QuizEditorFeedback({ saveError, scheduleError }: Pick<QuizEditorState, "saveError" | "scheduleError">) {
   return (
-    <MentorWorkspaceShell
-      activeLabel="Kuis"
-      breadcrumbLabel={mode === "create" ? "Buat Kuis" : `${initialQuiz?.title ?? "Edit Kuis"} · Editor`}
-      contentElement="div"
-      mainClassName="max-w-[1500px] gap-6"
-      onNavigateAway={() => !hasUnsavedChanges}
-      session={session}
-      showSearch={false}
-      sidebarAppearance="reference"
-      shouldGuardNavigation={hasUnsavedChanges}
-    >
-      <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <Button aria-label={mode === "create" ? "Kembali ke daftar Kuis" : "Kembali ke Detail Kuis"} nativeButton={false} render={<Link href={quizId ? `/mentor/quiz/${quizId}` : "/mentor/quiz"} />} size="sm" type="button" variant="ghost"><ChevronLeft />{mode === "create" ? null : "Kembali ke Detail"}</Button>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">{form.title || "Kuis tanpa judul"}</h1>
-            {hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}
-          </div>
-          <p className="mt-2 text-sm leading-6 text-secondary-500">Atur informasi dasar Kuis sebelum menambahkan soal.</p>
-        </div>
-        <Button aria-busy={isSaving} aria-label="Buat" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant="brand"><Save /> {isSaving ? "Membuat…" : "Buat"}</Button>
-      </header>
-
+    <>
       {saveError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{saveError}</p> : null}
       {scheduleError ? <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{scheduleError}</p> : null}
-
-      <ReferenceSurface as="section" className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.38fr)] md:p-7">
-        <Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-title">Judul Kuis</FieldLabel><FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={editorDisabled} id="quiz-editor-title" onChange={(event) => patchForm({ title: event.target.value })} value={form.title} /></Field>
-        <Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-subject">Subjek</FieldLabel><ReferenceSelect disabled={editorDisabled} id="quiz-editor-subject" onValueChange={(value) => patchForm({ subjectCode: value })} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value={form.subjectCode} /></Field>
-        <Field className="md:col-span-2"><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-description">Deskripsi <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[96px]`} disabled={editorDisabled} id="quiz-editor-description" onChange={(event) => patchForm({ description: event.target.value })} value={form.description} /></Field>
-      </ReferenceSurface>
-
-    </MentorWorkspaceShell>
+    </>
   );
+}
+
+function QuizEditHeader({ quizId, state, subject }: { quizId?: string; state: QuizEditorState; subject?: (typeof kaptenSubjects)[number] }) {
+  return (
+    <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
+      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+        <Button aria-label="Kembali ke detail Kuis" onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}`)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{state.form.title || "Kuis"}</h1>
+          {state.hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}
+          {subject ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{subject.code}</MentorBadge> : null}
+        </div>
+      </div>
+      <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={state.isSaving} aria-label="Simpan" disabled={state.isSaving || state.editorDisabled} onClick={() => void state.persistence.saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant="brand"><Save />{state.isSaving ? "Menyimpan…" : "Simpan"}</Button></div>
+    </header>
+  );
+}
+
+function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
+  const selectQuestion = (id: string) => {
+    state.setActiveQuestionId(id);
+    state.setQuestionEditorTab("edit");
+  };
+  const questionEditor = state.activeQuestion ? (
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
+        <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">Toggle preview<Switch checked={state.questionEditorTab === "preview"} id="quiz-preview-toggle" onCheckedChange={(checked) => state.setQuestionEditorTab(checked ? "preview" : "edit")} /></label>
+      </div>
+      {state.questionEditorTab === "edit" ? <QuestionForm disabled={state.editorDisabled} onAddChoice={state.choiceActions.addChoice} onChange={state.questionActions.updateActiveQuestion} onOpenMedia={state.setMediaPickerTarget} onRemoveChoice={state.choiceActions.removeChoice} onRemoveMedia={state.choiceActions.removeMedia} question={state.activeQuestion} /> : <QuestionPreview question={state.activeQuestion} />}
+    </div>
+  ) : <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" variant="inset"><ReferenceEmptyState action={<Button disabled={state.editorDisabled} onClick={state.questionActions.addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal</Button>} description="Daftar soalmu masih kosong. Tambahkan soal pertama dari panel di sebelah kiri." icon={CircleHelp} title="Pilih soal untuk mulai mengedit" /></ReferenceSurface>;
+
+  return (
+    <>
+      <QuizMobileInventory activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onSelect={selectQuestion} questions={state.form.questions} />
+      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none"><QuestionInventory activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onDelete={state.setPendingDeleteId} onMove={state.questionActions.moveQuestion} onSelect={selectQuestion} questions={state.form.questions} /></div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div></main></div>
+    </>
+  );
+}
+
+function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
+  const mediaPickerTarget = state.mediaPickerTarget;
+  const selectedAssetId = mediaPickerTarget?.kind === "prompt"
+    ? state.activeQuestion?.promptMediaAssetId
+    : mediaPickerTarget?.kind === "explanation"
+      ? state.activeQuestion?.explanationMediaAssetId
+      : mediaPickerTarget?.kind === "choice"
+        ? state.activeQuestion?.choices.find((choice) => choice.id === mediaPickerTarget.choiceId)?.mediaAssetId
+        : undefined;
+
+  return (
+    <>
+      <MediaPickerDialog onOpenChange={(open) => { if (!open) state.setMediaPickerTarget(null); }} onSelect={(asset) => state.choiceActions.selectMediaAsset(asset, state.mediaPickerTarget)} open={Boolean(state.mediaPickerTarget)} selectedAssetId={selectedAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
+      <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingDeleteId(null); }} open={Boolean(state.pendingDeleteId)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (state.pendingDeleteId) state.questionActions.removeQuestion(state.pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingExitRoute(null); }} open={Boolean(state.pendingExitRoute)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle><AlertDialogDescription>Perubahan Kuis yang belum disimpan akan hilang.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingExitRoute(null)}>Tetap di editor</AlertDialogCancel><AlertDialogAction onClick={() => { const route = state.pendingExitRoute; state.setPendingExitRoute(null); if (route) state.router.push(route); }} variant="destructive">Keluar tanpa menyimpan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    </>
+  );
+}
+
+function QuizEditWorkspace({ quizId, state }: { quizId?: string; state: QuizEditorState }) {
+  const subject = kaptenSubjects.find((item) => item.code === state.form.subjectCode);
+  return <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell="full-page"><QuizEditHeader quizId={quizId} state={state} subject={subject} /><QuizEditorFeedback saveError={state.saveError} scheduleError={state.scheduleError} /><QuizEditQuestionArea state={state} /><QuizEditorDialogs state={state} /></div>;
+}
+
+function QuizCreateHeader({ state }: { state: QuizEditorState }) {
+  return <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><Button aria-label="Kembali ke daftar Kuis" nativeButton={false} render={<Link href="/mentor/quiz" />} size="sm" type="button" variant="ghost"><ChevronLeft />Kembali ke daftar</Button><div className="mt-4 flex flex-wrap items-center gap-3"><h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">{state.form.title || "Kuis tanpa judul"}</h1>{state.hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}</div><p className="mt-2 text-sm leading-6 text-secondary-500">Atur informasi dasar Kuis sebelum menambahkan soal.</p></div><Button aria-busy={state.isSaving} aria-label="Buat" disabled={state.isSaving || state.editorDisabled} onClick={() => void state.persistence.saveQuiz()} type="button" variant="brand"><Save /> {state.isSaving ? "Membuat…" : "Buat"}</Button></header>;
+}
+
+function QuizCreateFields({ state }: { state: QuizEditorState }) {
+  return <ReferenceSurface as="section" className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.38fr)] md:p-7"><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-title">Judul Kuis</FieldLabel><FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={state.editorDisabled} id="quiz-editor-title" onChange={(event) => state.patchForm({ title: event.target.value })} value={state.form.title} /></Field><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-subject">Subjek</FieldLabel><ReferenceSelect disabled={state.editorDisabled} id="quiz-editor-subject" onValueChange={(value) => state.patchForm({ subjectCode: value })} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value={state.form.subjectCode} /></Field><Field className="md:col-span-2"><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-editor-description">Deskripsi <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[96px]`} disabled={state.editorDisabled} id="quiz-editor-description" onChange={(event) => state.patchForm({ description: event.target.value })} value={state.form.description} /></Field></ReferenceSurface>;
+}
+
+function QuizCreateWorkspace({ session, state }: { session: SessionContext; state: QuizEditorState }) {
+  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel="Buat Kuis" contentElement="div" mainClassName="max-w-[1500px] gap-6" onNavigateAway={() => !state.hasUnsavedChanges} session={session} showSearch={false} sidebarAppearance="reference" shouldGuardNavigation={state.hasUnsavedChanges}><QuizCreateHeader state={state} /><QuizEditorFeedback saveError={state.saveError} scheduleError={state.scheduleError} /><QuizCreateFields state={state} /></MentorWorkspaceShell>;
+}
+
+function KaptenQuizEditorPageModule({
+  initialQuestions = [],
+  initialQuiz = null,
+  initialSubjectCode,
+  mode,
+  quizId,
+  session,
+}: {
+  initialQuestions?: QuizQuestionSnapshot[];
+  initialQuiz?: KaptenQuiz | null;
+  initialSubjectCode?: string;
+  mode: "create" | "edit";
+  quizId?: string;
+  session: SessionContext;
+}) {
+  const state = useQuizEditorState({ initialQuestions, initialQuiz, initialSubjectCode, mode, quizId });
+  return mode === "edit"
+    ? <QuizEditWorkspace quizId={quizId} state={state} />
+    : <QuizCreateWorkspace session={session} state={state} />;
+
+  /* legacy edit workspace removed */
 }
 
 export { KaptenQuizEditorPageModule };

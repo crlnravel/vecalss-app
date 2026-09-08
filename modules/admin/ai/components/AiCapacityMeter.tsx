@@ -57,22 +57,25 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                 </div>
               </div>
 
-              <div
-                aria-label={item.label}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={Math.max(0, Math.min(100, item.value))}
-                aria-valuetext={`${item.value}% ${item.status}`}
-                className="h-2 w-full overflow-hidden rounded-full bg-secondary-100"
-                role="meter"
-              >
-                <div
-                  style={{ width: `${item.value}%` }}
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500 motion-reduce:transition-none",
-                    isCritical ? "bg-danger-600" : isElevated ? "bg-warning-500" : "bg-primary-700",
-                  )}
-                />
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary-100">
+                <meter
+                  aria-label={item.label}
+                  className="sr-only"
+                  max={100}
+                  min={0}
+                  value={Math.max(0, Math.min(100, item.value))}
+                >
+                  {`${item.value}% ${item.status}`}
+                </meter>
+                <div aria-hidden="true" className="absolute inset-0">
+                  <div
+                    style={{ width: `${item.value}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none",
+                      isCritical ? "bg-danger-600" : isElevated ? "bg-warning-500" : "bg-primary-700",
+                    )}
+                  />
+                </div>
               </div>
             </div>
           );
