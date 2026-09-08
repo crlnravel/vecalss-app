@@ -949,6 +949,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   );
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
+  const [contextDialogOpen, setContextDialogOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
