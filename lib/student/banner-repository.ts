@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_noStore } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
+import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -155,6 +156,8 @@ async function saveStudentBannerDraft({
   expectedVersion: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+
     const current = await tx.systemConfig.findUnique({
       select: {
         configValue: true,
@@ -254,6 +257,8 @@ async function publishStudentBannerContents({
   expectedVersion: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+
     const current = await tx.systemConfig.findUnique({
       select: {
         configValue: true,

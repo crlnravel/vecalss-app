@@ -9,6 +9,7 @@ import {
 } from "@/generated/prisma/client";
 import { isImageMimeType } from "@/lib/media/domain";
 import { prisma } from "@/lib/prisma";
+import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
 
 import {
   BANNER_MAKER_CONFIG_KEY,
@@ -173,6 +174,8 @@ async function saveBannerMakerDraft({
   expectedVersion: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+
     const current = await tx.systemConfig.findUnique({
       select: {
         configValue: true,
@@ -287,6 +290,8 @@ async function publishBannerMakerDesign({
   expectedVersion: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+
     const current = await tx.systemConfig.findUnique({
       select: {
         configValue: true,
