@@ -132,7 +132,7 @@ function DashboardPageModule({
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
       breadcrumbLabel="Beranda"
-      mainClassName="gap-10"
+      mainClassName="gap-10 [--reference-surface-border:var(--learning-card-border)]"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
