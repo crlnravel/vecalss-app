@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 
 import {
+  BannerMakerValidationError,
   createDefaultBannerDesign,
   type BannerDesign,
 } from "../lib/admin/banner-maker";
@@ -241,6 +242,15 @@ function assertServiceError(
   assert.ok(outcome.error instanceof MediaServiceError, "the repository must expose its service error");
   if (outcome.error instanceof MediaServiceError) {
     assert.equal(outcome.error.status, 409);
+    assert.match(outcome.error.message, messagePattern);
+  }
+}
+
+function assertBannerValidationError(outcome: Outcome<unknown>, messagePattern: RegExp) {
+  assert.equal(outcome.ok, false, "the banner writer must reject");
+  if (outcome.ok) return;
+  assert.ok(outcome.error instanceof BannerMakerValidationError, "the banner writer must expose its validation error");
+  if (outcome.error instanceof BannerMakerValidationError) {
     assert.match(outcome.error.message, messagePattern);
   }
 }
@@ -481,52 +491,178 @@ async function main() {
       assert.equal((await assetState(successfulPending.assetId))?.state, "trashed");
       assert.equal((await assetState(successfulReady.assetId))?.state, "trashed");
 
-      // Save versus asset trash: the real banner writer wins the lock, then
-      // the real scanner rejects the queued trash and preserves the asset.
+      // Save/publish versus asset/folder trash covers every pairing in both
+      // lock acquisition orders. Writer-first cases seed a draft for publish
+      // before the race; trash-first publish cases deliberately leave no draft
+      // that already references the image, because that draft would correctly
+      // make the trash operation fail before publish gets the lock.
       await reset();
-      const saveFolder = await createFolder("save-race");
-      const saveAsset = await createReadyAsset(saveFolder.id);
-      const saveDesign = createImageDesign(saveAsset.assetId);
-      const saveRace = await runLockOrderedRace(
+      const saveAssetWriterFirstFolder = await createFolder("save-asset-writer-first");
+      const saveAssetWriterFirstAsset = await createReadyAsset(saveAssetWriterFirstFolder.id);
+      const saveAssetWriterFirstDesign = createImageDesign(saveAssetWriterFirstAsset.assetId);
+      const saveAssetWriterFirstRace = await runLockOrderedRace(
         safety,
-        () => banner.saveBannerMakerDraft({ actorUserId, design: saveDesign, expectedVersion: null }),
-        () => media.trashMediaAsset("admin", saveAsset.assetId),
+        () => banner.saveBannerMakerDraft({ actorUserId, design: saveAssetWriterFirstDesign, expectedVersion: null }),
+        () => media.trashMediaAsset("admin", saveAssetWriterFirstAsset.assetId),
       );
-      assert.equal(saveRace.first.ok, true);
-      assertServiceError(saveRace.second, media.MediaServiceError, /masih digunakan/iu);
-      assert.equal((await assetState(saveAsset.assetId))?.state, "ready");
-      assert.deepEqual((await configState(BANNER_LEGACY_CONFIG_KEY))?.draftValue, saveDesign);
+      assert.equal(saveAssetWriterFirstRace.first.ok, true);
+      assertServiceError(saveAssetWriterFirstRace.second, media.MediaServiceError, /masih digunakan/iu);
+      const saveAssetWriterFirstConfig = await configState(BANNER_LEGACY_CONFIG_KEY);
+      assert.deepEqual(saveAssetWriterFirstConfig?.configValue, createDefaultBannerDesign());
+      assert.deepEqual(saveAssetWriterFirstConfig?.draftValue, saveAssetWriterFirstDesign);
+      assert.equal((await folderState(saveAssetWriterFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(saveAssetWriterFirstAsset.assetId))?.state, "ready");
 
-      // Publish versus folder trash exercises the other banner writer and the
-      // subtree scanner/transaction rollback.
       await reset();
-      const publishFolder = await createFolder("publish-race");
-      const publishAsset = await createReadyAsset(publishFolder.id);
-      const publishDraftInput = createImageDesign(publishAsset.assetId);
-      const savedPublishDraft = await banner.saveBannerMakerDraft({ actorUserId, design: publishDraftInput, expectedVersion: null });
-      const publishDesign = savedPublishDraft.design;
+      const saveFolderWriterFirstFolder = await createFolder("save-folder-writer-first");
+      const saveFolderWriterFirstAsset = await createReadyAsset(saveFolderWriterFirstFolder.id);
+      const saveFolderWriterFirstDesign = createImageDesign(saveFolderWriterFirstAsset.assetId);
+      const saveFolderWriterFirstRace = await runLockOrderedRace(
+        safety,
+        () => banner.saveBannerMakerDraft({ actorUserId, design: saveFolderWriterFirstDesign, expectedVersion: null }),
+        () => media.trashMediaFolder("admin", saveFolderWriterFirstFolder.id),
+      );
+      assert.equal(saveFolderWriterFirstRace.first.ok, true);
+      assertServiceError(saveFolderWriterFirstRace.second, media.MediaServiceError, /masih digunakan/iu);
+      const saveFolderWriterFirstConfig = await configState(BANNER_LEGACY_CONFIG_KEY);
+      assert.deepEqual(saveFolderWriterFirstConfig?.configValue, createDefaultBannerDesign());
+      assert.deepEqual(saveFolderWriterFirstConfig?.draftValue, saveFolderWriterFirstDesign);
+      assert.equal((await folderState(saveFolderWriterFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(saveFolderWriterFirstAsset.assetId))?.state, "ready");
+
+      await reset();
+      const publishAssetWriterFirstFolder = await createFolder("publish-asset-writer-first");
+      const publishAssetWriterFirstAsset = await createReadyAsset(publishAssetWriterFirstFolder.id);
+      const publishAssetWriterFirstSavedDraft = await banner.saveBannerMakerDraft({
+        actorUserId,
+        design: createImageDesign(publishAssetWriterFirstAsset.assetId),
+        expectedVersion: null,
+      });
+      const publishAssetWriterFirstRace = await runLockOrderedRace(
+        safety,
+        () => banner.publishBannerMakerDesign({
+          actorUserId,
+          design: publishAssetWriterFirstSavedDraft.design,
+          expectedVersion: publishAssetWriterFirstSavedDraft.draftVersion,
+        }),
+        () => media.trashMediaAsset("admin", publishAssetWriterFirstAsset.assetId),
+      );
+      assert.equal(publishAssetWriterFirstRace.first.ok, true);
+      assertServiceError(publishAssetWriterFirstRace.second, media.MediaServiceError, /masih digunakan/iu);
+      const publishAssetWriterFirstConfig = await configState(BANNER_LEGACY_CONFIG_KEY);
+      assert.deepEqual(publishAssetWriterFirstConfig?.configValue, publishAssetWriterFirstSavedDraft.design);
+      assert.equal(publishAssetWriterFirstConfig?.draftValue, null);
+      assert.equal((await folderState(publishAssetWriterFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(publishAssetWriterFirstAsset.assetId))?.state, "ready");
+
+      await reset();
+      const publishFolderWriterFirstFolder = await createFolder("publish-folder-writer-first");
+      const publishFolderWriterFirstAsset = await createReadyAsset(publishFolderWriterFirstFolder.id);
+      const publishFolderWriterFirstSavedDraft = await banner.saveBannerMakerDraft({
+        actorUserId,
+        design: createImageDesign(publishFolderWriterFirstAsset.assetId),
+        expectedVersion: null,
+      });
       const persistedPublishDraft = await configState(BANNER_LEGACY_CONFIG_KEY);
       assert.equal(
-        savedPublishDraft.draftVersion,
+        publishFolderWriterFirstSavedDraft.draftVersion,
         persistedPublishDraft?.draftUpdatedAt?.toISOString(),
         "publish must use the exact persisted PostgreSQL timestamptz version returned by save",
       );
-      const publishRace = await runLockOrderedRace(
+      const publishFolderWriterFirstRace = await runLockOrderedRace(
         safety,
-        () => banner.publishBannerMakerDesign({ actorUserId, design: publishDesign, expectedVersion: savedPublishDraft.draftVersion }),
-        () => media.trashMediaFolder("admin", publishFolder.id),
+        () => banner.publishBannerMakerDesign({
+          actorUserId,
+          design: publishFolderWriterFirstSavedDraft.design,
+          expectedVersion: publishFolderWriterFirstSavedDraft.draftVersion,
+        }),
+        () => media.trashMediaFolder("admin", publishFolderWriterFirstFolder.id),
       );
       assert.equal(
-        publishRace.first.ok,
+        publishFolderWriterFirstRace.first.ok,
         true,
-        publishRace.first.ok
+        publishFolderWriterFirstRace.first.ok
           ? undefined
-          : `publish failed: ${publishRace.first.error instanceof Error ? `${publishRace.first.error.name}: ${publishRace.first.error.message}` : String(publishRace.first.error)}`,
+          : `publish failed: ${publishFolderWriterFirstRace.first.error instanceof Error ? `${publishFolderWriterFirstRace.first.error.name}: ${publishFolderWriterFirstRace.first.error.message}` : String(publishFolderWriterFirstRace.first.error)}`,
       );
-      assertServiceError(publishRace.second, media.MediaServiceError, /masih digunakan/iu);
-      assert.equal((await folderState(publishFolder.id))?.trashedAt, null);
-      assert.equal((await assetState(publishAsset.assetId))?.state, "ready");
-      assert.deepEqual((await configState(BANNER_LEGACY_CONFIG_KEY))?.configValue, publishDesign);
+      assertServiceError(publishFolderWriterFirstRace.second, media.MediaServiceError, /masih digunakan/iu);
+      const publishFolderWriterFirstConfig = await configState(BANNER_LEGACY_CONFIG_KEY);
+      assert.deepEqual(publishFolderWriterFirstConfig?.configValue, publishFolderWriterFirstSavedDraft.design);
+      assert.equal(publishFolderWriterFirstConfig?.draftValue, null);
+      assert.equal((await folderState(publishFolderWriterFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(publishFolderWriterFirstAsset.assetId))?.state, "ready");
+
+      await reset();
+      const saveAssetTrashFirstFolder = await createFolder("save-asset-trash-first");
+      const saveAssetTrashFirstAsset = await createReadyAsset(saveAssetTrashFirstFolder.id);
+      const saveAssetTrashFirstRace = await runLockOrderedRace(
+        safety,
+        () => media.trashMediaAsset("admin", saveAssetTrashFirstAsset.assetId),
+        () => banner.saveBannerMakerDraft({
+          actorUserId,
+          design: createImageDesign(saveAssetTrashFirstAsset.assetId),
+          expectedVersion: null,
+        }),
+      );
+      assert.equal(saveAssetTrashFirstRace.first.ok, true);
+      assertBannerValidationError(saveAssetTrashFirstRace.second, /masih tersedia/iu);
+      assert.equal((await folderState(saveAssetTrashFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(saveAssetTrashFirstAsset.assetId))?.state, "trashed");
+      assert.equal(await configState(BANNER_LEGACY_CONFIG_KEY), null);
+
+      await reset();
+      const saveFolderTrashFirstFolder = await createFolder("save-folder-trash-first");
+      const saveFolderTrashFirstAsset = await createReadyAsset(saveFolderTrashFirstFolder.id);
+      const saveFolderTrashFirstRace = await runLockOrderedRace(
+        safety,
+        () => media.trashMediaFolder("admin", saveFolderTrashFirstFolder.id),
+        () => banner.saveBannerMakerDraft({
+          actorUserId,
+          design: createImageDesign(saveFolderTrashFirstAsset.assetId),
+          expectedVersion: null,
+        }),
+      );
+      assert.equal(saveFolderTrashFirstRace.first.ok, true);
+      assertBannerValidationError(saveFolderTrashFirstRace.second, /masih tersedia/iu);
+      assert.ok((await folderState(saveFolderTrashFirstFolder.id))?.trashedAt);
+      assert.equal((await assetState(saveFolderTrashFirstAsset.assetId))?.state, "trashed");
+      assert.equal(await configState(BANNER_LEGACY_CONFIG_KEY), null);
+
+      await reset();
+      const publishAssetTrashFirstFolder = await createFolder("publish-asset-trash-first");
+      const publishAssetTrashFirstAsset = await createReadyAsset(publishAssetTrashFirstFolder.id);
+      const publishAssetTrashFirstRace = await runLockOrderedRace(
+        safety,
+        () => media.trashMediaAsset("admin", publishAssetTrashFirstAsset.assetId),
+        () => banner.publishBannerMakerDesign({
+          actorUserId,
+          design: createImageDesign(publishAssetTrashFirstAsset.assetId),
+          expectedVersion: null,
+        }),
+      );
+      assert.equal(publishAssetTrashFirstRace.first.ok, true);
+      assertBannerValidationError(publishAssetTrashFirstRace.second, /masih tersedia/iu);
+      assert.equal((await folderState(publishAssetTrashFirstFolder.id))?.trashedAt, null);
+      assert.equal((await assetState(publishAssetTrashFirstAsset.assetId))?.state, "trashed");
+      assert.equal(await configState(BANNER_LEGACY_CONFIG_KEY), null);
+
+      await reset();
+      const publishFolderTrashFirstFolder = await createFolder("publish-folder-trash-first");
+      const publishFolderTrashFirstAsset = await createReadyAsset(publishFolderTrashFirstFolder.id);
+      const publishFolderTrashFirstRace = await runLockOrderedRace(
+        safety,
+        () => media.trashMediaFolder("admin", publishFolderTrashFirstFolder.id),
+        () => banner.publishBannerMakerDesign({
+          actorUserId,
+          design: createImageDesign(publishFolderTrashFirstAsset.assetId),
+          expectedVersion: null,
+        }),
+      );
+      assert.equal(publishFolderTrashFirstRace.first.ok, true);
+      assertBannerValidationError(publishFolderTrashFirstRace.second, /masih tersedia/iu);
+      assert.ok((await folderState(publishFolderTrashFirstFolder.id))?.trashedAt);
+      assert.equal((await assetState(publishFolderTrashFirstAsset.assetId))?.state, "trashed");
+      assert.equal(await configState(BANNER_LEGACY_CONFIG_KEY), null);
 
       // Folder creation and folder move both serialize before subtree trash.
       await reset();
