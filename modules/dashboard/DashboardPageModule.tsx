@@ -271,28 +271,22 @@ function QuickAccessSection() {
         {quickAccessItems.map((item) => (
           <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
-              item.href === "/courses"
-                ? REFERENCE_SURFACE_CLASS_NAMES.tactileActive
-                : REFERENCE_SURFACE_CLASS_NAMES.tactile,
+              REFERENCE_SURFACE_CLASS_NAMES.tactile,
               "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
-              item.href === "/courses" && "border-learning-hero-bg bg-learning-hero-bg",
             )}>
               <CardContent className="flex min-h-24 items-center gap-5 px-5 py-4">
-                <div className={cn(
-                  "flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep",
-                  item.href === "/courses" && "bg-voyage-surface text-voyage-deep",
-                )}>
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep">
                   <item.icon aria-hidden="true" className="size-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className={cn("text-base font-extrabold text-voyage-ink", item.href === "/courses" && "text-learning-hero-fg")}>
+                  <CardTitle className="text-base font-extrabold text-voyage-ink">
                     {item.label}
                   </CardTitle>
-                  <CardDescription className={cn("mt-1 text-sm leading-5 text-learning-muted-ink", item.href === "/courses" && "text-learning-hero-muted")}>
+                  <CardDescription className="mt-1 text-sm leading-5 text-learning-muted-ink">
                     {item.description}
                   </CardDescription>
                 </div>
-                <ChevronRight aria-hidden="true" className={cn("size-5 shrink-0 text-voyage-deep", item.href === "/courses" && "text-learning-hero-fg")} />
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-voyage-deep" />
               </CardContent>
             </Card>
           </Link>
