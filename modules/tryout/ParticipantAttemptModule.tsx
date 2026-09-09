@@ -70,6 +70,7 @@ type RunSummary = { id: string; section: Section; sequenceNo: number; status: st
 type State = {
   activeRun: null | {
     answers: Array<{ selectedOptionId: string | null; tryoutItemId: string }>;
+    activeItemId: string | null;
     contentSnapshot: Snapshot;
     fullscreenPrompt: boolean;
     id: string;
@@ -306,9 +307,15 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   const run = state?.activeRun;
   const snapshot = run?.contentSnapshot;
+  const activeItemId = run?.activeItemId;
   const items = useMemo(
-    () => snapshot?.testType === "cat" ? (snapshot.items.length ? [snapshot.items.at(-1)!] : []) : snapshot?.items ?? [],
-    [snapshot],
+    () => {
+      if (!snapshot) return [];
+      if (snapshot.testType !== "cat") return snapshot.items;
+      const activeItem = activeItemId ? snapshot.items.find((candidate) => candidate.id === activeItemId) : undefined;
+      return activeItem ? [activeItem] : [];
+    },
+    [activeItemId, snapshot],
   );
   const activeRunId = run?.id;
   const fullscreenPrompt = run?.fullscreenPrompt;
