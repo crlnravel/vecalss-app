@@ -27,7 +27,7 @@ type AppIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 type ReferenceSurfaceProps = React.ComponentProps<"div"> & {
   as?: "article" | "aside" | "div" | "section";
   interactive?: boolean;
-  variant?: "inset" | "raised";
+  variant?: "inset" | "raised" | "tactile";
 };
 
 function ReferenceSurface({

@@ -57,9 +57,8 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
   return (
     <Link
       className={cn(
-        REFERENCE_SURFACE_CLASS_NAMES.raised,
-        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
-        "group flex items-start gap-4 px-5 py-4 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+        REFERENCE_SURFACE_CLASS_NAMES.tactile,
+        "group flex items-start gap-4 border-learning-card-border px-5 py-4 transition-[border-color,background-color] duration-200 hover:border-voyage-forest focus-visible:ring-3 focus-visible:ring-primary-300/35 motion-reduce:transition-none",
       )}
       href={`/notifications/${item.id}`}
       prefetch={false}
@@ -143,7 +142,7 @@ function NotificationsPageModule({
           </section>
         ) : (
           <ReferenceEmptyState
-            className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "overflow-hidden")}
+            className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "border-learning-card-border overflow-hidden")}
             description="Update dari kelas dan aktivitas belajar akan muncul di sini."
             icon={Bell}
             title="Belum ada notifikasi"

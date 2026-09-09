@@ -148,6 +148,7 @@ function NotificationDetailPageModule({
         <ReferenceSurface
           as="article"
           className="border-learning-card-border px-5 py-7 sm:px-8 sm:py-9"
+          variant="tactile"
         >
           <div className="max-w-3xl text-base">
             <ReactMarkdown
