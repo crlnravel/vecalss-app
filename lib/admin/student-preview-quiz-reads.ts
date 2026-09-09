@@ -4,8 +4,11 @@ import { ContentStatus, Prisma } from "@/generated/prisma/client";
 import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
+import type { StudentBannerVariables } from "@/lib/student/banner-content";
 import { prisma } from "@/lib/prisma";
+import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import { PreviewReadBoundary } from "@/lib/admin/preview-read-boundary";
+import { getStudentBannerVariablesForUser } from "@/lib/student/banner-variables";
 import {
   ADMIN_PREVIEW_QUIZ_SUBJECTS,
   assertAdminPreviewQuizPayloadSafe,
@@ -59,6 +62,7 @@ type AdminPreviewQuizCatalogueRead = {
 
 type AdminPreviewQuizCatalogueSurfaceRead = AdminPreviewQuizCatalogueRead & {
   banner: AdminStudentBannerRead;
+  bannerVariables: StudentBannerVariables;
 };
 
 function toContractRecord(record: PreviewQuizRecord) {
@@ -158,14 +162,17 @@ async function readAdminPreviewQuizDetail(subjectSlug: string, quizSlug: string)
 }
 
 async function readAdminPreviewQuizCatalogueSurface(
+  context: AdminStudentPreviewContext,
   bannerRequest: AdminStudentBannerRequest = { mode: "published" },
 ): Promise<AdminPreviewQuizCatalogueSurfaceRead> {
-  const [catalogue, banners] = await Promise.all([
+  const [catalogue, banners, bannerVariables] = await Promise.all([
     readAdminPreviewQuizCatalogue(),
     getAdminStudentPreviewBannerPresentation("kuis", bannerRequest),
+    getStudentBannerVariablesForUser(context.student.id, context.student.displayName),
   ]);
   const result = {
     banner: banners,
+    bannerVariables,
     subjects: catalogue.subjects,
   } satisfies AdminPreviewQuizCatalogueSurfaceRead;
   assertAdminPreviewQuizPayloadSafe(result.subjects);
@@ -179,7 +186,7 @@ async function getAdminPreviewQuizCatalogue() {
 async function getAdminPreviewQuizCatalogueSurface(
   bannerRequest: AdminStudentBannerRequest = { mode: "published" },
 ) {
-  return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogueSurface(bannerRequest));
+  return PreviewReadBoundary.run(async (context) => readAdminPreviewQuizCatalogueSurface(context, bannerRequest));
 }
 
 async function getAdminPreviewQuizSubject(slug: string) {

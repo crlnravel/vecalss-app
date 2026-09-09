@@ -13,7 +13,14 @@ import {
 import {
   createBannerDesignEnvelope,
 } from "../lib/banner/envelope";
-import { BANNER_DESTINATIONS } from "../lib/banner/destinations";
+import {
+  BANNER_BP01_WRITER_PROTECTION_ACK_ENV,
+  BANNER_LEGACY_WRITER_DRAIN_ACK_ENV,
+  BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV,
+  BANNER_V2_ACTIVATION_ENV,
+} from "../lib/banner/activation";
+import { BANNER_DESTINATIONS, type BannerDestination } from "../lib/banner/destinations";
+import type { SessionContext } from "../lib/auth/types";
 
 const { Client } = pg;
 const TEST_DATABASE_ENV = "BANNER_MEDIA_SAFETY_TEST_DATABASE_URL";
@@ -35,8 +42,39 @@ const STUDENT_SESSION_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const ASSET_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const REVISION = "11111111-1111-4111-8111-111111111111";
 const STALE_REVISION = "22222222-2222-4222-8222-222222222222";
+const DESTINATION_REVISIONS: Record<BannerDestination, string> = {
+  beranda: REVISION,
+  materi: "33333333-3333-4333-8333-333333333333",
+  kuis: "44444444-4444-4444-8444-444444444444",
+  tryout: "55555555-5555-4555-8555-555555555555",
+};
 const CONFIG_KEY = BANNER_DESTINATIONS.find(({ key }) => key === "beranda")?.configKey ?? "student.banner-maker.v2.beranda";
 const NOW = new Date("2035-01-01T00:00:00.000Z");
+const activationKeys = [
+  BANNER_V2_ACTIVATION_ENV,
+  BANNER_BP01_WRITER_PROTECTION_ACK_ENV,
+  BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV,
+  BANNER_LEGACY_WRITER_DRAIN_ACK_ENV,
+] as const;
+const activeActivation = {
+  [BANNER_BP01_WRITER_PROTECTION_ACK_ENV]: "yes",
+  [BANNER_LEGACY_WRITER_DRAIN_ACK_ENV]: "1",
+  [BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV]: "true",
+  [BANNER_V2_ACTIVATION_ENV]: "enabled",
+};
+
+function applyActivation(values: Partial<Record<(typeof activationKeys)[number], string>>) {
+  for (const key of activationKeys) delete process.env[key];
+  Object.assign(process.env, values);
+}
+
+function restoreActivation(previous: Record<string, string | undefined>) {
+  for (const key of activationKeys) {
+    const value = previous[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
 
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
@@ -146,8 +184,12 @@ function makeDesign(): BannerDesign {
   };
 }
 
-function routeContext(slot = "background", revision = REVISION) {
-  return { params: Promise.resolve({ destination: "beranda", revision, slot }) };
+function routeContext(
+  destination: BannerDestination = "beranda",
+  slot = "background",
+  revision = DESTINATION_REVISIONS[destination],
+) {
+  return { params: Promise.resolve({ destination, revision, slot }) };
 }
 
 function bytesStream(bytes = new Uint8Array([137, 80, 78, 71])) {
@@ -216,11 +258,13 @@ async function insertAsset(client: pg.Client, schema: string, overrides: Record<
 }
 
 async function insertConfig(client: pg.Client, schema: string, {
+  configKey = CONFIG_KEY,
   configValue,
   draftValue,
   draftUpdatedAt = NOW,
   publishedAt = NOW,
 }: {
+  configKey?: string;
   configValue: unknown;
   draftValue?: unknown;
   draftUpdatedAt?: Date | null;
@@ -230,7 +274,7 @@ async function insertConfig(client: pg.Client, schema: string, {
     `INSERT INTO ${quoteIdentifier(schema)}."system_configs"
       (id, config_key, config_value, draft_value, draft_updated_at, published_at, updated_at)
      VALUES ($1::uuid, $2, $3::jsonb, $4::jsonb, $5, $6, $7)`,
-    [randomUUID(), CONFIG_KEY, JSON.stringify(configValue), draftValue === undefined ? null : JSON.stringify(draftValue), draftUpdatedAt, publishedAt, NOW],
+    [randomUUID(), configKey, JSON.stringify(configValue), draftValue === undefined ? null : JSON.stringify(draftValue), draftUpdatedAt, publishedAt, NOW],
   );
 }
 
@@ -239,6 +283,7 @@ async function main() {
 
   const schema = `banner_rendering_${process.pid}_${Date.now()}`;
   const previousPreviewFlag = process.env.ADMIN_STUDENT_PREVIEW_ENABLED;
+  const previousActivation = Object.fromEntries(activationKeys.map((key) => [key, process.env[key]]));
   process.env.ADMIN_STUDENT_PREVIEW_ENABLED = "true";
   const adminToken = "admin-rendering-session-token";
   const studentToken = "student-rendering-session-token";
@@ -248,8 +293,9 @@ async function main() {
     await createIsolatedSchema(client, schema);
     const isolatedUrl = schemaDatabaseUrl(databaseUrl, schema);
     process.env.DATABASE_URL = isolatedUrl;
-    const [{ GET: getPublished }, { GET: getDraft }, auth, delivery, r2, preview] = await Promise.all([
+    const [{ GET: getPublished }, { GET: getAdminPublished }, { GET: getDraft }, auth, delivery, r2, preview] = await Promise.all([
       import("../app/api/student-banners/[destination]/[revision]/[slot]/route"),
+      import("../app/api/admin/student-banners/[destination]/published/[revision]/[slot]/route"),
       import("../app/api/admin/student-banners/[destination]/draft/[revision]/[slot]/route"),
       import("../lib/auth/session"),
       import("../lib/banner/delivery"),
@@ -257,8 +303,6 @@ async function main() {
       import("../lib/admin/student-preview"),
     ]);
     const design = makeDesign();
-    const envelope = createBannerDesignEnvelope(design, { revision: REVISION });
-    const draftEnvelope = createBannerDesignEnvelope({ ...design, name: "DB draft" }, { revision: REVISION });
 
     await insertUser(client, schema, { email: "db-admin@example.invalid", id: ADMIN_ID });
     await insertRole(client, schema, ADMIN_ID, "admin");
@@ -278,7 +322,15 @@ async function main() {
       [FIXTURE_ID, "Managed Preview Student", "Asia/Jakarta"],
     );
     await insertAsset(client, schema);
-    await insertConfig(client, schema, { configValue: envelope, draftValue: draftEnvelope });
+    for (const { configKey, key } of BANNER_DESTINATIONS) {
+      const envelope = createBannerDesignEnvelope(design, { revision: DESTINATION_REVISIONS[key] });
+      const draftEnvelope = createBannerDesignEnvelope({ ...design, name: `DB ${key} draft` }, { revision: DESTINATION_REVISIONS[key] });
+      await insertConfig(client, schema, {
+        configKey,
+        configValue: envelope,
+        draftValue: draftEnvelope,
+      });
+    }
 
     const adminSession = await auth.getReadOnlySessionContextForToken(adminToken);
     const studentSession = await auth.getReadOnlySessionContextForToken(studentToken);
@@ -286,19 +338,67 @@ async function main() {
     assert.equal(studentSession?.user.roles[0], RoleName.student);
     assert.equal((await preview.resolveAdminStudentPreviewSubject())?.id, FIXTURE_ID);
 
+    applyActivation(activeActivation);
     const storage = {
       readObject: async () => ({ body: bytesStream(), contentLength: 4, contentType: "image/png" }),
     };
+    let safeMediaReads = 0;
+    const safeStorage = {
+      readObject: async () => {
+        safeMediaReads += 1;
+        return { body: bytesStream(), contentLength: 4, contentType: "image/png" };
+      },
+    };
+    applyActivation({});
+    const safePublished = await delivery.withBannerDeliveryTestOverrides({
+      resolveSession: async () => studentSession,
+    }, async () => r2.withMediaStorageTestOverrides(safeStorage, async () => getPublished(new Request("https://vecalss.invalid"), routeContext())));
+    assert.equal(safePublished.status, 404, "student image delivery must fail closed while readers are disabled");
+    const safeAdminPublished = await delivery.withBannerDeliveryTestOverrides({
+      resolveSession: async () => adminSession,
+    }, async () => r2.withMediaStorageTestOverrides(safeStorage, async () => getAdminPublished(new Request("https://vecalss.invalid"), routeContext())));
+    assert.equal(safeAdminPublished.status, 404, "Admin published image delivery must fail closed while readers are disabled");
+    const safeDraft = await delivery.withBannerDeliveryTestOverrides({
+      resolveSession: async () => adminSession,
+    }, async () => r2.withMediaStorageTestOverrides(safeStorage, async () => getDraft(new Request("https://vecalss.invalid"), routeContext())));
+    assert.equal(safeDraft.status, 404, "Admin draft image delivery must fail closed while readers are disabled");
+    assert.equal(safeMediaReads, 0, "safe fallback must deny before reading managed media");
+
+    applyActivation(activeActivation);
     const published = await delivery.withBannerDeliveryTestOverrides({
       resolveSession: async () => studentSession,
     }, async () => r2.withMediaStorageTestOverrides(storage, async () => getPublished(new Request("https://vecalss.invalid"), routeContext())));
     assert.equal(published.status, 200, "real student session/config/asset rows must publish the image");
     assert.equal((await published.arrayBuffer()).byteLength, 4);
 
+    for (const { key } of BANNER_DESTINATIONS) {
+      const destinationPublished: Response = await delivery.withBannerDeliveryTestOverrides({
+        resolveSession: async (): Promise<SessionContext | null> => studentSession,
+      }, async () => r2.withMediaStorageTestOverrides(storage, async () => getPublished(new Request("https://vecalss.invalid"), routeContext(key))));
+      assert.equal(destinationPublished.status, 200, `real student ${key} route/config/asset rows must publish the image`);
+      assert.equal((await destinationPublished.arrayBuffer()).byteLength, 4);
+    }
+
+    for (const { key } of BANNER_DESTINATIONS) {
+      const destinationAdminPublished: Response = await delivery.withBannerDeliveryTestOverrides({
+        resolveSession: async (): Promise<SessionContext | null> => adminSession,
+      }, async () => r2.withMediaStorageTestOverrides(storage, async () => getAdminPublished(new Request("https://vecalss.invalid"), routeContext(key))));
+      assert.equal(destinationAdminPublished.status, 200, `real Admin published ${key} route must authorize managed preview delivery`);
+      assert.equal((await destinationAdminPublished.arrayBuffer()).byteLength, 4);
+    }
+
     const draft = await delivery.withBannerDeliveryTestOverrides({
       resolveSession: async () => adminSession,
     }, async () => r2.withMediaStorageTestOverrides(storage, async () => getDraft(new Request("https://vecalss.invalid"), routeContext())));
     assert.equal(draft.status, 200, "real Admin session + managed fixture + draft config must authorize preview");
+
+    for (const { key } of BANNER_DESTINATIONS) {
+      const destinationDraft: Response = await delivery.withBannerDeliveryTestOverrides({
+        resolveSession: async (): Promise<SessionContext | null> => adminSession,
+      }, async () => r2.withMediaStorageTestOverrides(storage, async () => getDraft(new Request("https://vecalss.invalid"), routeContext(key))));
+      assert.equal(destinationDraft.status, 200, `real Admin draft ${key} route must authorize managed preview delivery`);
+      assert.equal((await destinationDraft.arrayBuffer()).byteLength, 4);
+    }
 
     const deniedDraft = await delivery.withBannerDeliveryTestOverrides({
       resolveSession: async () => studentSession,
@@ -307,7 +407,7 @@ async function main() {
 
     const stale = await delivery.withBannerDeliveryTestOverrides({
       resolveSession: async () => studentSession,
-    }, async () => r2.withMediaStorageTestOverrides(storage, async () => getPublished(new Request("https://vecalss.invalid"), routeContext("background", STALE_REVISION))));
+    }, async () => r2.withMediaStorageTestOverrides(storage, async () => getPublished(new Request("https://vecalss.invalid"), routeContext("beranda", "background", STALE_REVISION))));
     assert.equal(stale.status, 404);
 
     await client.query(`UPDATE ${quoteIdentifier(schema)}."assets" SET library_scope = 'kapten'::${quoteIdentifier(schema)}."media_library_scope" WHERE id = $1::uuid`, [ASSET_ID]);
@@ -364,6 +464,7 @@ async function main() {
     await client.end();
     if (previousPreviewFlag === undefined) delete process.env.ADMIN_STUDENT_PREVIEW_ENABLED;
     else process.env.ADMIN_STUDENT_PREVIEW_ENABLED = previousPreviewFlag;
+    restoreActivation(previousActivation);
   }
 }
 

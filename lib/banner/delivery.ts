@@ -22,6 +22,7 @@ import {
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
 
+import { isBannerV2ReaderEnabled } from "./activation";
 import {
   getBannerDestination,
   parseBannerDestination,
@@ -810,37 +811,41 @@ async function deliverBannerImage({
 }) {
   const budget = createBannerDeliveryBudget(signal);
   try {
-  let destination: BannerDestination;
-  try {
-    destination = parseBannerDestination(destinationValue);
-  } catch {
-    throw new BannerDeliveryError("Tujuan banner tidak dikenali.", 404);
-  }
-  if (!/^(?:background|[A-Za-z0-9_-]{1,80}|layer:[A-Za-z0-9_-]{1,80})$/u.test(slot)) {
-    throw new BannerDeliveryError("Slot banner tidak valid.", 404);
-  }
+    if (!isBannerV2ReaderEnabled()) {
+      throw new BannerDeliveryError("Pengiriman banner v2 belum diaktifkan.", 404);
+    }
 
-  if (budget.signal.aborted) throw deliveryAbortError(budget);
-  const design = await readBannerDesignForDelivery({ destination, revision, source });
-  if (budget.signal.aborted) throw deliveryAbortError(budget);
-  const assetId = readDesignImageReference(design, slot);
-  if (!assetId) throw new BannerDeliveryError("Slot banner tidak memiliki gambar.", 404);
+    let destination: BannerDestination;
+    try {
+      destination = parseBannerDestination(destinationValue);
+    } catch {
+      throw new BannerDeliveryError("Tujuan banner tidak dikenali.", 404);
+    }
+    if (!/^(?:background|[A-Za-z0-9_-]{1,80}|layer:[A-Za-z0-9_-]{1,80})$/u.test(slot)) {
+      throw new BannerDeliveryError("Slot banner tidak valid.", 404);
+    }
 
-  const asset = await readBannerAsset(assetId);
-  if (!asset || !isImageMimeType(asset.mimeType)) {
-    throw new BannerDeliveryError("Gambar banner belum tersedia.", 404);
-  }
+    if (budget.signal.aborted) throw deliveryAbortError(budget);
+    const design = await readBannerDesignForDelivery({ destination, revision, source });
+    if (budget.signal.aborted) throw deliveryAbortError(budget);
+    const assetId = readDesignImageReference(design, slot);
+    if (!assetId) throw new BannerDeliveryError("Slot banner tidak memiliki gambar.", 404);
 
-  const contentType = normalizeContentType(asset.mimeType);
-  const object = await readManagedImage(asset, contentType, budget);
+    const asset = await readBannerAsset(assetId);
+    if (!asset || !isImageMimeType(asset.mimeType)) {
+      throw new BannerDeliveryError("Gambar banner belum tersedia.", 404);
+    }
 
-  return {
-    ...object,
-    destination,
-    revision,
-    slot,
-    source,
-  };
+    const contentType = normalizeContentType(asset.mimeType);
+    const object = await readManagedImage(asset, contentType, budget);
+
+    return {
+      ...object,
+      destination,
+      revision,
+      slot,
+      source,
+    };
   } catch (error) {
     budget.abort(error);
     budget.dispose();

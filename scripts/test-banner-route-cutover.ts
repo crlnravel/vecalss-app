@@ -16,7 +16,11 @@ import {
   publishStudentBannerContents,
   saveStudentBannerDraft,
 } from "../lib/student/banner-repository";
-import type { StudentBannerSet } from "../lib/student/banner-content";
+import {
+  buildStudentBannerVariables,
+  resolveStudentBannerText,
+  type StudentBannerSet,
+} from "../lib/student/banner-content";
 import {
   getBannerActivationState,
   LegacyBannerWritesRetiredError,
@@ -303,12 +307,85 @@ try {
     /Unsafe admin student preview banner revision/u,
   );
 
-  const previewPageSource = await readFile(resolve(root, "app/admin/student-preview/[[...slug]]/page.tsx"), "utf8");
-  const bannerPageSource = await readFile(resolve(root, "app/admin/student-banners/page.tsx"), "utf8");
+  assert.deepEqual(
+    buildStudentBannerVariables({
+      fullName: "  Alya Voyager ",
+      targetMajor: "Teknik Informatika",
+      targetUniversity: "UI",
+    }),
+    { firstName: "Alya", target: "Teknik Informatika · UI" },
+  );
+  assert.equal(
+    resolveStudentBannerText("Halo, {firstName}; target: {target}.", {
+      firstName: "Alya",
+      target: "Teknik Informatika · UI",
+    }),
+    "Halo, Alya; target: Teknik Informatika · UI.",
+  );
+
+  const [
+    previewPageSource,
+    bannerPageSource,
+    deliverySource,
+    studentDeliveryRouteSource,
+    adminPublishedDeliveryRouteSource,
+    adminDraftDeliveryRouteSource,
+    coursesPageSource,
+    quizPageSource,
+    tryoutPageSource,
+    coursesModuleSource,
+    quizModuleSource,
+    tryoutModuleSource,
+    adminSurfaceSource,
+    adminQuizSurfaceSource,
+    adminMateriReadsSource,
+    adminQuizReadsSource,
+    adminTryoutReadsSource,
+  ] = await Promise.all([
+    readFile(resolve(root, "app/admin/student-preview/[[...slug]]/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/admin/student-banners/page.tsx"), "utf8"),
+    readFile(resolve(root, "lib/banner/delivery.ts"), "utf8"),
+    readFile(resolve(root, "app/api/student-banners/[destination]/[revision]/[slot]/route.ts"), "utf8"),
+    readFile(resolve(root, "app/api/admin/student-banners/[destination]/published/[revision]/[slot]/route.ts"), "utf8"),
+    readFile(resolve(root, "app/api/admin/student-banners/[destination]/draft/[revision]/[slot]/route.ts"), "utf8"),
+    readFile(resolve(root, "app/courses/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/quiz/page.tsx"), "utf8"),
+    readFile(resolve(root, "app/tryout/page.tsx"), "utf8"),
+    readFile(resolve(root, "modules/courses/CourseCataloguePageModule.tsx"), "utf8"),
+    readFile(resolve(root, "modules/quiz/QuizCataloguePageModule.tsx"), "utf8"),
+    readFile(resolve(root, "modules/tryout/ParticipantTryoutWorkspace.tsx"), "utf8"),
+    readFile(resolve(root, "modules/student/components/admin-student-preview-surfaces.tsx"), "utf8"),
+    readFile(resolve(root, "modules/student/components/admin-student-preview-quiz.tsx"), "utf8"),
+    readFile(resolve(root, "lib/admin/student-preview-reads.ts"), "utf8"),
+    readFile(resolve(root, "lib/admin/student-preview-quiz-reads.ts"), "utf8"),
+    readFile(resolve(root, "lib/admin/student-preview-tryout-reads.ts"), "utf8"),
+  ]);
   assert.match(previewPageSource, /editBanners[\s\S]{0,240}redirect\(buildBannerMakerDestinationRoute/u);
   assert.match(bannerPageSource, /editBanners[\s\S]{0,180}redirect\(`\/admin\/student-banners\?destination=/u);
   assert.doesNotMatch(previewPageSource, /StudentBannerEditor|updateAdminStudentPreviewBannersAction/u);
   assert.doesNotMatch(bannerPageSource, /getBannerMakerSnapshot|BannerMakerPageModule/u);
+
+  assert.match(deliverySource, /isBannerV2ReaderEnabled/u);
+  assert.match(deliverySource, /if\s*\(!isBannerV2ReaderEnabled\(\)\)[\s\S]{0,180}BannerDeliveryError/u);
+  const deliveryGatePosition = deliverySource.indexOf("if (!isBannerV2ReaderEnabled())");
+  const deliveryConfigReadPosition = deliverySource.indexOf("const design = await readBannerDesignForDelivery");
+  assert.ok(deliveryGatePosition >= 0 && deliveryGatePosition < deliveryConfigReadPosition, "delivery activation gate must precede v2 config reads");
+  for (const routeSource of [studentDeliveryRouteSource, adminPublishedDeliveryRouteSource, adminDraftDeliveryRouteSource]) {
+    assert.match(routeSource, /deliverBannerImage/u);
+  }
+  for (const pageSource of [coursesPageSource, quizPageSource, tryoutPageSource]) {
+    assert.match(pageSource, /getStudentBannerVariablesForUser/u);
+    assert.match(pageSource, /bannerVariables/u);
+  }
+  for (const moduleSource of [coursesModuleSource, quizModuleSource, tryoutModuleSource]) {
+    assert.match(moduleSource, /resolveStudentBannerText/u);
+    assert.match(moduleSource, /variables=\{bannerVariables\}/u);
+  }
+  assert.match(adminSurfaceSource, /variables=\{bannerVariables\}/u);
+  assert.match(adminQuizSurfaceSource, /variables=\{bannerVariables\}/u);
+  assert.match(adminMateriReadsSource, /getStudentBannerVariablesForUser/u);
+  assert.match(adminQuizReadsSource, /getStudentBannerVariablesForUser/u);
+  assert.match(adminTryoutReadsSource, /getStudentBannerVariablesForUser/u);
 
   console.log("banner route cutover, preview-source, and activation checks passed");
 } finally {

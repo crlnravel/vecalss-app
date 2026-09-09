@@ -22,6 +22,7 @@ import {
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
 } from "@/lib/student/banner-presentation";
+import type { StudentBannerVariables } from "@/lib/student/banner-content";
 import {
   buildAdminStudentPreviewMateriDocumentRoute,
   buildAdminStudentPreviewMateriRoute,
@@ -52,7 +53,7 @@ function PreviewSurfaceHeader({
   banner?: AdminStudentBannerRead;
   description?: string;
   title?: string;
-  variables?: { firstName?: string; target?: string };
+  variables?: StudentBannerVariables;
 }) {
   if (banner && isStudentBannerDraftUnavailable(banner)) {
     return (
@@ -115,9 +116,6 @@ function PreviewNavigation({ activeLabel = "Beranda" }: { activeLabel?: "Beranda
 }
 
 function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBerandaRead }) {
-  const target = [data.profile.targetMajor, data.profile.targetUniversity]
-    .filter(Boolean)
-    .join(" · ") || "target belajarmu";
   const daysLeft = data.profile.examDaysLeft;
 
   if (isStudentBannerDraftUnavailable(data.banner)) {
@@ -130,7 +128,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
   }
 
   const banner = data.banner;
-  const bannerVariables = { firstName: data.firstName, target };
+  const bannerVariables = data.bannerVariables;
 
   return (
     <section className="grid gap-7">
@@ -233,13 +231,15 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 function AdminStudentPreviewMateriCatalogueSurface({
   courses,
   banner,
+  bannerVariables,
 }: {
   banner: AdminPreviewBerandaRead["banner"];
+  bannerVariables: StudentBannerVariables;
   courses: AdminPreviewMateriCourse[];
 }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <PreviewSurfaceHeader banner={banner} />
+      <PreviewSurfaceHeader banner={banner} variables={bannerVariables} />
       {courses.length > 0 ? (
         <section aria-labelledby="preview-course-list-title" className="flex flex-col gap-4">
           <div className="flex items-center gap-4 px-1">
@@ -460,14 +460,16 @@ function TryoutScheduleLine({ session }: { session: AdminPreviewTryoutSchedule }
 
 function AdminStudentPreviewTryoutCatalogueSurface({
   banner,
+  bannerVariables,
   tryouts,
 }: {
   banner: AdminPreviewTryoutRead["banner"];
+  bannerVariables: StudentBannerVariables;
   tryouts: AdminPreviewTryout[];
 }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <PreviewSurfaceHeader banner={banner} />
+      <PreviewSurfaceHeader banner={banner} variables={bannerVariables} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <ShieldCheck className="size-5 shrink-0 text-[var(--voyage-warm-sun-ink)]" />

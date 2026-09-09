@@ -28,6 +28,8 @@ import {
 import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
+import { buildStudentBannerVariables, type StudentBannerVariables } from "@/lib/student/banner-content";
+import { getStudentBannerVariablesForUser } from "@/lib/student/banner-variables";
 import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import {
   sanitizePreviewFileName,
@@ -41,6 +43,7 @@ const PREVIEW_DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
 type AdminPreviewBerandaRead = {
   banner: AdminStudentBannerRead;
+  bannerVariables: StudentBannerVariables;
   firstName: string;
   profile: {
     displayName: string;
@@ -79,6 +82,7 @@ type AdminPreviewMateriCourse = {
 
 type AdminPreviewMateriCatalogueRead = {
   banner: AdminStudentBannerRead;
+  bannerVariables: StudentBannerVariables;
   courses: AdminPreviewMateriCourse[];
 };
 
@@ -187,18 +191,26 @@ async function readAdminPreviewBeranda(
   ]);
 
   const displayName = sanitizePreviewText(profile?.displayName) || sanitizePreviewText(context.student.displayName) || "Voyager";
+  const targetMajor = sanitizePreviewText(profile?.targetMajor?.name) || null;
+  const targetUniversity = sanitizePreviewText(profile?.targetUniversity?.shortName || profile?.targetUniversity?.name) || null;
+  const bannerVariables = buildStudentBannerVariables({
+    fullName: displayName,
+    targetMajor,
+    targetUniversity,
+  });
 
   return {
     banner,
-    firstName: displayName.split(/\s+/u)[0] || "Voyager",
+    bannerVariables,
+    firstName: bannerVariables.firstName ?? "Voyager",
     profile: {
       displayName,
       examDaysLeft: profile?.targetExamEvent?.examDate
         ? Math.max(0, Math.ceil((profile.targetExamEvent.examDate.getTime() - Date.now()) / 86_400_000))
         : null,
       examDate: profile?.targetExamEvent?.examDate?.toISOString() ?? null,
-      targetMajor: sanitizePreviewText(profile?.targetMajor?.name) || null,
-      targetUniversity: sanitizePreviewText(profile?.targetUniversity?.shortName || profile?.targetUniversity?.name) || null,
+      targetMajor,
+      targetUniversity,
     },
   };
 }
@@ -321,12 +333,13 @@ async function getAdminPreviewMateriCatalogue() {
 async function getAdminPreviewMateriCatalogueSurface(
   bannerRequest: AdminStudentBannerRequest = { mode: "published" },
 ) {
-  return PreviewReadBoundary.run(async () => {
-    const [courses, banner] = await Promise.all([
+  return PreviewReadBoundary.run(async (context) => {
+    const [courses, banner, bannerVariables] = await Promise.all([
       readAdminPreviewMateriCatalogue(),
       getAdminStudentPreviewBannerPresentation("materi", bannerRequest),
+      getStudentBannerVariablesForUser(context.student.id, context.student.displayName),
     ]);
-    return { banner, courses } satisfies AdminPreviewMateriCatalogueRead;
+    return { banner, bannerVariables, courses } satisfies AdminPreviewMateriCatalogueRead;
   });
 }
 

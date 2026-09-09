@@ -23,6 +23,7 @@ import {
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
 } from "@/lib/student/banner-presentation";
+import type { StudentBannerVariables } from "@/lib/student/banner-content";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import type {
   AdminPreviewQuizAvailability,
@@ -36,10 +37,12 @@ function QuizPreviewHeader({
   banner,
   description,
   title,
+  variables,
 }: {
   banner?: AdminStudentBannerRead;
   description?: string;
   title?: string;
+  variables?: StudentBannerVariables;
 }) {
   if (banner && isStudentBannerDraftUnavailable(banner)) {
     return (
@@ -52,12 +55,12 @@ function QuizPreviewHeader({
     );
   }
 
-  const resolvedTitle = banner ? getStudentBannerHeading(banner) : title ?? "Kuis";
-  const resolvedDescription = banner ? getStudentBannerDescription(banner) : description ?? "";
+  const resolvedTitle = banner ? getStudentBannerHeading(banner, variables) : title ?? "Kuis";
+  const resolvedDescription = banner ? getStudentBannerDescription(banner, variables) : description ?? "";
 
   return (
     <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
-      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" /> : null}
+      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={variables} /> : null}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
@@ -131,9 +134,11 @@ function QuizPreviewQuestionMedia({ media }: { media: AdminPreviewQuizQuestion["
 
 function AdminStudentPreviewQuizCatalogueSurface({
   banner,
+  bannerVariables,
   subjects,
 }: {
   banner: AdminStudentBannerRead;
+  bannerVariables: StudentBannerVariables;
   subjects: AdminPreviewQuizSubjectWithQuizzes[];
 }) {
   const subjectGroups = (["TPS", "TPA"] as const)
@@ -145,7 +150,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
 
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <QuizPreviewHeader banner={banner} />
+      <QuizPreviewHeader banner={banner} variables={bannerVariables} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Read-only</span>

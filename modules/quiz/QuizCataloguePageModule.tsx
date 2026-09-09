@@ -21,6 +21,7 @@ import {
   getStudentBannerHeading,
   type StudentBannerPresentation,
 } from "@/lib/student/banner-presentation";
+import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -41,11 +42,13 @@ const subjectGroupOrder = ["TPS", "TPA"] as const;
 
 function QuizCataloguePageModule({
   banner,
+  bannerVariables,
   notificationFeed,
   session,
   subjects,
 }: {
   banner: StudentBannerPresentation;
+  bannerVariables: StudentBannerVariables;
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   subjects: QuizSubject[];
@@ -69,10 +72,10 @@ function QuizCataloguePageModule({
         <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
           {banner.design ? (
             <>
-              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" />
+              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={bannerVariables} />
               <div className="sr-only">
-                <h1>{getStudentBannerHeading(banner)}</h1>
-                <p>{getStudentBannerDescription(banner)}</p>
+                <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+                <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
               </div>
               <div className="relative z-10 flex min-h-[18rem] items-end">
                 <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
@@ -93,10 +96,10 @@ function QuizCataloguePageModule({
               />
               <div className="relative z-10 max-w-[42rem]">
                 <h1 className="font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
-                  {banner.fallback.title}
+                  {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
                 </h1>
                 <p className="mt-4 max-w-[48ch] text-sm leading-7 text-learning-hero-muted md:text-base">
-                  {banner.fallback.description}
+                  {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">

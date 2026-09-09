@@ -15,6 +15,12 @@ import {
   createDefaultBannerDesign,
   parseBannerDesign,
 } from "../lib/admin/banner-maker";
+import {
+  BANNER_BP01_WRITER_PROTECTION_ACK_ENV,
+  BANNER_LEGACY_WRITER_DRAIN_ACK_ENV,
+  BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV,
+  BANNER_V2_ACTIVATION_ENV,
+} from "../lib/banner/activation";
 import { withMediaStorageTestOverrides } from "../lib/media/r2";
 import type { SessionContext } from "../lib/auth/types";
 
@@ -22,6 +28,18 @@ const revision = "11111111-1111-4111-8111-111111111111";
 const staleRevision = "22222222-2222-4222-8222-222222222222";
 const assetId = "33333333-3333-4333-8333-333333333333";
 const sessionId = "44444444-4444-4444-8444-444444444444";
+const activationKeys = [
+  BANNER_V2_ACTIVATION_ENV,
+  BANNER_BP01_WRITER_PROTECTION_ACK_ENV,
+  BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV,
+  BANNER_LEGACY_WRITER_DRAIN_ACK_ENV,
+] as const;
+const activeActivation = {
+  [BANNER_BP01_WRITER_PROTECTION_ACK_ENV]: "yes",
+  [BANNER_LEGACY_WRITER_DRAIN_ACK_ENV]: "1",
+  [BANNER_LEGACY_WRITER_RETIREMENT_ACK_ENV]: "true",
+  [BANNER_V2_ACTIVATION_ENV]: "enabled",
+};
 
 const studentSession: SessionContext = {
   expiresAt: new Date(Date.now() + 60_000),
@@ -96,6 +114,32 @@ function routeContext(slot = "background", requestedRevision = revision) {
   return { params: Promise.resolve({ destination: "beranda", revision: requestedRevision, slot }) };
 }
 
+function applyActivation(values: Partial<Record<(typeof activationKeys)[number], string>>) {
+  for (const key of activationKeys) delete process.env[key];
+  Object.assign(process.env, values);
+}
+
+function restoreActivation(previous: Record<string, string | undefined>) {
+  for (const key of activationKeys) {
+    const value = previous[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
+async function withActivation<T>(
+  values: Partial<Record<(typeof activationKeys)[number], string>>,
+  callback: () => Promise<T>,
+) {
+  const previous = Object.fromEntries(activationKeys.map((key) => [key, process.env[key]]));
+  applyActivation(values);
+  try {
+    return await callback();
+  } finally {
+    restoreActivation(previous);
+  }
+}
+
 async function publishedRoute(overrides: {
   asset?: BannerDeliveryAsset | null;
   body?: Uint8Array;
@@ -127,6 +171,17 @@ async function main() {
   assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
   assert.equal(response.headers.get("content-type"), "image/png");
   assert.equal(new Uint8Array(await response.arrayBuffer()).length, 4);
+
+  let safePublishedRead = false;
+  const safeResponse = await withActivation({}, async () => withBannerDeliveryTestOverrides({
+    readPublished: async () => {
+      safePublishedRead = true;
+      return { design: imageDesign, revision };
+    },
+    resolveSession: async () => studentSession,
+  }, async () => GET_PUBLISHED(new Request("https://vecalss.invalid"), routeContext())));
+  assert.equal(safeResponse.status, 404, "delivery must fail closed while v2 readers are in safe fallback");
+  assert.equal(safePublishedRead, false, "safe fallback must deny before reading v2 config/media");
 
   assert.equal((await publishedRoute({ session: null })).status, 401);
   assert.equal((await publishedRoute({ session: adminSession })).status, 403);
@@ -441,4 +496,10 @@ async function main() {
   console.log("banner renderer and delivery contract checks passed");
 }
 
-await main();
+const previousActivation = Object.fromEntries(activationKeys.map((key) => [key, process.env[key]]));
+applyActivation(activeActivation);
+try {
+  await main();
+} finally {
+  restoreActivation(previousActivation);
+}

@@ -351,7 +351,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     return renderPreviewShell({
       activeLabel: "Materi",
       breadcrumbLabel: "Materi preview",
-      children: <AdminStudentPreviewMateriCatalogueSurface banner={data.data.banner} courses={data.data.courses} />,
+      children: <AdminStudentPreviewMateriCatalogueSurface banner={data.data.banner} bannerVariables={data.data.bannerVariables} courses={data.data.courses} />,
       context: data.context,
       isRootPage: true,
     });
@@ -383,7 +383,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     return renderPreviewShell({
       activeLabel: "Kuis",
       breadcrumbLabel: "Kuis preview",
-      children: <AdminStudentPreviewQuizCatalogueSurface banner={data.data.banner} subjects={data.data.subjects} />,
+      children: <AdminStudentPreviewQuizCatalogueSurface banner={data.data.banner} bannerVariables={data.data.bannerVariables} subjects={data.data.subjects} />,
       context: data.context,
       isRootPage: true,
     });
@@ -415,7 +415,7 @@ function renderResolvedPreviewPage(data: PreviewPageData) {
     return renderPreviewShell({
       activeLabel: "Tryout",
       breadcrumbLabel: "Tryout preview",
-      children: <AdminStudentPreviewTryoutCatalogueSurface banner={data.data.banner} tryouts={data.data.tryouts} />,
+      children: <AdminStudentPreviewTryoutCatalogueSurface banner={data.data.banner} bannerVariables={data.data.bannerVariables} tryouts={data.data.tryouts} />,
       context: data.context,
       isRootPage: true,
     });
