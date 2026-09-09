@@ -194,6 +194,10 @@ async function createLocalSchema(client: pg.Client, schema: string, onSchemaCrea
 
   await client.query(`CREATE SCHEMA ${quotedSchema}`);
   onSchemaCreated();
+  // Reconstructed DDL contains deparsed unqualified enum casts/operators.
+  // Resolve them only against the fixture schema and pg_catalog; never fall
+  // back to public while cloning the topology.
+  await client.query(`SET search_path TO ${quotedSchema}, pg_catalog`);
   for (const [typeName, labels] of enums) {
     await client.query(
       `CREATE TYPE ${quotedSchema}.${quoteIdentifier(typeName)} AS ENUM (${labels.map(quoteLiteral).join(", ")})`,
@@ -278,8 +282,8 @@ async function createLocalSchema(client: pg.Client, schema: string, onSchemaCrea
   // indexes. Copy every non-constraint unique index before foreign keys so a
   // composite FK cannot silently disappear just because PostgreSQL requires a
   // unique index (rather than a UNIQUE constraint) on its target columns.
-  await cloneLocalUniqueIndexes(client, schema);
-  await cloneLocalConstraints(client, schema);
+  await cloneLocalUniqueIndexes(client, schema, enumNames, sequenceNames);
+  await cloneLocalConstraints(client, schema, enumNames, sequenceNames);
 }
 
 function rewriteCatalogExpression(
@@ -306,7 +310,7 @@ function rewriteCatalogExpression(
   return rewritten;
 }
 
-async function cloneLocalConstraints(client: pg.Client, schema: string) {
+async function cloneLocalConstraints(client: pg.Client, schema: string, enumNames: string[], sequenceNames: Set<string>) {
   const constraints = await client.query<{
     tableName: string;
     constraintName: string;
@@ -328,15 +332,14 @@ async function cloneLocalConstraints(client: pg.Client, schema: string) {
   );
   const quotedSchema = quoteIdentifier(schema);
   for (const row of constraints.rows.filter(({ constraintType }) => constraintType !== "f")) {
+    const definition = rewriteCatalogExpression(row.definition, schema, enumNames, sequenceNames);
     await client.query(
-      `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${row.definition}`,
+      `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${definition}`,
     );
   }
   for (const row of constraints.rows.filter(({ constraintType }) => constraintType === "f")) {
     assert.ok(row.referencedTableName);
-    const definition = row.definition
-      .replaceAll('"public".', `${quotedSchema}.`)
-      .replaceAll("public.", `${quotedSchema}.`)
+    const definition = rewriteCatalogExpression(row.definition, schema, enumNames, sequenceNames)
       .replace(
         new RegExp(`REFERENCES\\s+(?:${schema}\\.)?"?${row.referencedTableName}"?`, "iu"),
         `REFERENCES ${quotedSchema}.${quoteIdentifier(row.referencedTableName)}`,
@@ -353,7 +356,7 @@ async function cloneLocalConstraints(client: pg.Client, schema: string) {
   }
 }
 
-async function cloneLocalUniqueIndexes(client: pg.Client, schema: string) {
+async function cloneLocalUniqueIndexes(client: pg.Client, schema: string, enumNames: string[], sequenceNames: Set<string>) {
   const result = await client.query<UniqueIndexRow>(
     `SELECT index_class.relname AS "indexName",
             pg_get_indexdef(index_class.oid) AS "indexDefinition"
@@ -373,8 +376,9 @@ async function cloneLocalUniqueIndexes(client: pg.Client, schema: string) {
   const quotedSchema = quoteIdentifier(schema);
   for (const row of result.rows) {
     const prefix = /^CREATE UNIQUE INDEX\s+(?:"(?:[^"]|"")+"|\S+)\s+ON\s+(ONLY\s+)?/u;
-    assert.match(row.indexDefinition, prefix, `BP06 cannot rewrite unique index ${row.indexName}`);
-    const rewritten = row.indexDefinition
+    const sourceDefinition = rewriteCatalogExpression(row.indexDefinition, schema, enumNames, sequenceNames);
+    assert.match(sourceDefinition, prefix, `BP06 cannot rewrite unique index ${row.indexName}`);
+    const rewritten = sourceDefinition
       .replace(prefix, (_match, only: string | undefined) =>
         // PostgreSQL's CREATE INDEX grammar takes an unqualified index name;
         // the index is created in the schema of its (schema-qualified) table.
@@ -859,17 +863,48 @@ async function assertFixtureIsolation(state: FixtureState) {
       referencedName: string;
       referencedKind: string;
     }>(
-      `SELECT dependent_class.relname AS "dependentName",
-              COALESCE(referenced_class.relname, referenced_type.typname, referenced_namespace.nspname) AS "referencedName",
+      `WITH local_dependents AS (
+         SELECT 'pg_class'::regclass AS class_id, class.oid AS object_id,
+                format('relation:%s', class.relname) AS object_name
+           FROM pg_class class
+           JOIN pg_namespace namespace ON namespace.oid = class.relnamespace
+          WHERE namespace.nspname = $1
+         UNION ALL
+         SELECT 'pg_constraint'::regclass, constraint_row.oid,
+                format('constraint:%s.%s', source.relname, constraint_row.conname)
+           FROM pg_constraint constraint_row
+           JOIN pg_class source ON source.oid = constraint_row.conrelid
+           JOIN pg_namespace namespace ON namespace.oid = source.relnamespace
+          WHERE namespace.nspname = $1
+         UNION ALL
+         SELECT 'pg_type'::regclass, type.oid, format('type:%s', type.typname)
+           FROM pg_type type
+           JOIN pg_namespace namespace ON namespace.oid = type.typnamespace
+          WHERE namespace.nspname = $1
+       )
+       SELECT local_dependents.object_name AS "dependentName",
+              COALESCE(
+                referenced_class.relname,
+                referenced_type.typname,
+                referenced_namespace.nspname,
+                referenced_proc.proname,
+                referenced_operator.oprname,
+                referenced_opclass.opcname,
+                referenced_collation.collname
+              ) AS "referencedName",
               CASE
                 WHEN referenced_class.oid IS NOT NULL THEN 'relation'
                 WHEN referenced_type.oid IS NOT NULL THEN 'type'
+                WHEN referenced_proc.oid IS NOT NULL THEN 'function'
+                WHEN referenced_operator.oid IS NOT NULL THEN 'operator'
+                WHEN referenced_opclass.oid IS NOT NULL THEN 'operator class'
+                WHEN referenced_collation.oid IS NOT NULL THEN 'collation'
                 ELSE 'namespace'
               END AS "referencedKind"
          FROM pg_depend dependency
-         JOIN pg_class dependent_class
-           ON dependency.classid = 'pg_class'::regclass AND dependent_class.oid = dependency.objid
-         JOIN pg_namespace dependent_namespace ON dependent_namespace.oid = dependent_class.relnamespace
+         JOIN local_dependents
+           ON local_dependents.class_id = dependency.classid
+          AND local_dependents.object_id = dependency.objid
          LEFT JOIN pg_class referenced_class
            ON dependency.refclassid = 'pg_class'::regclass AND referenced_class.oid = dependency.refobjid
          LEFT JOIN pg_namespace referenced_class_namespace ON referenced_class_namespace.oid = referenced_class.relnamespace
@@ -878,11 +913,26 @@ async function assertFixtureIsolation(state: FixtureState) {
          LEFT JOIN pg_namespace referenced_type_namespace ON referenced_type_namespace.oid = referenced_type.typnamespace
          LEFT JOIN pg_namespace referenced_namespace
            ON dependency.refclassid = 'pg_namespace'::regclass AND referenced_namespace.oid = dependency.refobjid
-        WHERE dependent_namespace.nspname = $1
-          AND COALESCE(
+         LEFT JOIN pg_proc referenced_proc
+           ON dependency.refclassid = 'pg_proc'::regclass AND referenced_proc.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_proc_namespace ON referenced_proc_namespace.oid = referenced_proc.pronamespace
+         LEFT JOIN pg_operator referenced_operator
+           ON dependency.refclassid = 'pg_operator'::regclass AND referenced_operator.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_operator_namespace ON referenced_operator_namespace.oid = referenced_operator.oprnamespace
+         LEFT JOIN pg_opclass referenced_opclass
+           ON dependency.refclassid = 'pg_opclass'::regclass AND referenced_opclass.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_opclass_namespace ON referenced_opclass_namespace.oid = referenced_opclass.opcnamespace
+         LEFT JOIN pg_collation referenced_collation
+           ON dependency.refclassid = 'pg_collation'::regclass AND referenced_collation.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_collation_namespace ON referenced_collation_namespace.oid = referenced_collation.collnamespace
+        WHERE COALESCE(
             referenced_class_namespace.nspname,
             referenced_type_namespace.nspname,
-            referenced_namespace.nspname
+            referenced_namespace.nspname,
+            referenced_proc_namespace.nspname,
+            referenced_operator_namespace.nspname,
+            referenced_opclass_namespace.nspname,
+            referenced_collation_namespace.nspname
           ) = 'public'`,
       [state.schema],
     );
