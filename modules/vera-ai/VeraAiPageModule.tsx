@@ -1986,11 +1986,11 @@ function VeraTopBar({
   usage: VeraBackendUsage | null;
 }) {
   return (
-    <header className="mx-2 mt-2 flex min-h-18 items-center gap-3 rounded-[1.65rem] bg-learning-hero-bg px-3 py-3 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:mx-3 md:mt-3 md:px-4">
+    <header className="mx-2 mt-2 flex min-h-18 items-center gap-3 px-3 py-3 text-secondary-900 md:mx-3 md:mt-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-colors motion-reduce:transition-none hover:bg-white/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/40"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-colors motion-reduce:transition-none hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
           href={returnToHref}
         >
           <Image
@@ -2002,7 +2002,7 @@ function VeraTopBar({
             width={52}
           />
           <span
-            className="hidden text-2xl leading-none tracking-[0.04em] text-white sm:inline"
+            className="hidden text-2xl leading-none tracking-[0.04em] text-primary-700 sm:inline"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
