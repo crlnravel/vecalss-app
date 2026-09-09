@@ -46,14 +46,7 @@ export default function QuizLoading() {
           </header>
 
           <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
-            <section aria-hidden="true" className="relative isolate min-h-[15rem] overflow-hidden rounded-[2rem] bg-primary-100/70 px-6 py-8 text-secondary-900 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
-              <div className="pointer-events-none absolute right-[-2rem] bottom-[-4rem] size-64 rounded-full bg-voyage-sea-glass/40 blur-2xl sm:right-8 sm:size-72" />
-              <div className="relative z-10 flex min-h-[11rem] flex-col items-start justify-end gap-4 md:min-h-[12rem]">
-                <LoadingBlock className="h-11 w-[min(27rem,85%)] rounded-xl bg-white/45" />
-                <LoadingBlock className="h-4 w-[min(32rem,82%)] rounded-full bg-white/35" />
-                <LoadingBlock className="h-10 w-40 rounded-full bg-[var(--voyage-warm-sun)]/70" />
-              </div>
-            </section>
+            <section aria-hidden="true" className="min-h-[15rem] rounded-[2rem] bg-primary-100/70 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] motion-safe:animate-pulse md:min-h-[18rem]" />
 
             <div className="flex flex-col gap-10">
               <section aria-hidden="true" className="flex flex-col gap-4">
