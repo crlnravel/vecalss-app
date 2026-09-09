@@ -376,7 +376,9 @@ async function cloneLocalUniqueIndexes(client: pg.Client, schema: string) {
     assert.match(row.indexDefinition, prefix, `BP06 cannot rewrite unique index ${row.indexName}`);
     const rewritten = row.indexDefinition
       .replace(prefix, (_match, only: string | undefined) =>
-        `CREATE UNIQUE INDEX ${quotedSchema}.${quoteIdentifier(row.indexName)} ON ${only ?? ""}`)
+        // PostgreSQL's CREATE INDEX grammar takes an unqualified index name;
+        // the index is created in the schema of its (schema-qualified) table.
+        `CREATE UNIQUE INDEX ${quoteIdentifier(row.indexName)} ON ${only ?? ""}`)
       .replaceAll('"public".', `${quotedSchema}.`)
       .replaceAll("public.", `${quotedSchema}.`);
     assert.doesNotMatch(rewritten, /(?:^|\W)"?public"?\./u, `BP06 unique index ${row.indexName} still references public`);
@@ -815,6 +817,143 @@ async function cleanup() {
   console.log(`BP06 browser fixture cleaned: ${state.schema}`);
 }
 
+async function assertFixtureIsolation(state: FixtureState) {
+  const client = new Client({ connectionString: state.databaseUrl });
+  await client.connect();
+  try {
+    const definitions = await client.query<{ source: string; definition: string }>(
+      `SELECT format('default:%s.%s', class.relname, attribute.attname) AS source,
+              pg_get_expr(default_row.adbin, default_row.adrelid) AS definition
+         FROM pg_attrdef default_row
+         JOIN pg_class class ON class.oid = default_row.adrelid
+         JOIN pg_namespace namespace ON namespace.oid = class.relnamespace
+         JOIN pg_attribute attribute
+           ON attribute.attrelid = default_row.adrelid AND attribute.attnum = default_row.adnum
+        WHERE namespace.nspname = $1
+       UNION ALL
+       SELECT format('constraint:%s.%s', source.relname, constraint_row.conname) AS source,
+              pg_get_constraintdef(constraint_row.oid, true) AS definition
+         FROM pg_constraint constraint_row
+         JOIN pg_class source ON source.oid = constraint_row.conrelid
+         JOIN pg_namespace namespace ON namespace.oid = source.relnamespace
+        WHERE namespace.nspname = $1
+       UNION ALL
+       SELECT format('index:%s', index_class.relname) AS source,
+              pg_get_indexdef(index_class.oid) AS definition
+         FROM pg_index index_row
+         JOIN pg_class index_class ON index_class.oid = index_row.indexrelid
+         JOIN pg_class table_class ON table_class.oid = index_row.indrelid
+         JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = $1`,
+      [state.schema],
+    );
+    const publicDefinitions = definitions.rows.filter(({ definition }) => /public\./iu.test(definition));
+    assert.deepEqual(
+      publicDefinitions,
+      [],
+      `BP06 fixture definitions must not reference public schema: ${JSON.stringify(publicDefinitions)}`,
+    );
+
+    const publicDependencies = await client.query<{
+      dependentName: string;
+      referencedName: string;
+      referencedKind: string;
+    }>(
+      `SELECT dependent_class.relname AS "dependentName",
+              COALESCE(referenced_class.relname, referenced_type.typname, referenced_namespace.nspname) AS "referencedName",
+              CASE
+                WHEN referenced_class.oid IS NOT NULL THEN 'relation'
+                WHEN referenced_type.oid IS NOT NULL THEN 'type'
+                ELSE 'namespace'
+              END AS "referencedKind"
+         FROM pg_depend dependency
+         JOIN pg_class dependent_class
+           ON dependency.classid = 'pg_class'::regclass AND dependent_class.oid = dependency.objid
+         JOIN pg_namespace dependent_namespace ON dependent_namespace.oid = dependent_class.relnamespace
+         LEFT JOIN pg_class referenced_class
+           ON dependency.refclassid = 'pg_class'::regclass AND referenced_class.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_class_namespace ON referenced_class_namespace.oid = referenced_class.relnamespace
+         LEFT JOIN pg_type referenced_type
+           ON dependency.refclassid = 'pg_type'::regclass AND referenced_type.oid = dependency.refobjid
+         LEFT JOIN pg_namespace referenced_type_namespace ON referenced_type_namespace.oid = referenced_type.typnamespace
+         LEFT JOIN pg_namespace referenced_namespace
+           ON dependency.refclassid = 'pg_namespace'::regclass AND referenced_namespace.oid = dependency.refobjid
+        WHERE dependent_namespace.nspname = $1
+          AND COALESCE(
+            referenced_class_namespace.nspname,
+            referenced_type_namespace.nspname,
+            referenced_namespace.nspname
+          ) = 'public'`,
+      [state.schema],
+    );
+    assert.deepEqual(
+      publicDependencies.rows,
+      [],
+      `BP06 fixture catalog dependencies must not point to public schema: ${JSON.stringify(publicDependencies.rows)}`,
+    );
+
+    const publicColumnTypes = await client.query<{ tableName: string; columnName: string; typeName: string }>(
+      `SELECT class.relname AS "tableName", attribute.attname AS "columnName", type.typname AS "typeName"
+         FROM pg_attribute attribute
+         JOIN pg_class class ON class.oid = attribute.attrelid
+         JOIN pg_namespace namespace ON namespace.oid = class.relnamespace
+         JOIN pg_type type ON type.oid = attribute.atttypid
+         JOIN pg_namespace type_namespace ON type_namespace.oid = type.typnamespace
+        WHERE namespace.nspname = $1
+          AND type_namespace.nspname = 'public'
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped`,
+      [state.schema],
+    );
+    assert.deepEqual(
+      publicColumnTypes.rows,
+      [],
+      `BP06 fixture columns must not use public user-defined types: ${JSON.stringify(publicColumnTypes.rows)}`,
+    );
+
+    const foreignKeys = await client.query<{ tableName: string; constraintName: string; targetSchema: string }>(
+      `SELECT source.relname AS "tableName", constraint_row.conname AS "constraintName",
+              target_namespace.nspname AS "targetSchema"
+         FROM pg_constraint constraint_row
+         JOIN pg_class source ON source.oid = constraint_row.conrelid
+         JOIN pg_namespace source_namespace ON source_namespace.oid = source.relnamespace
+         JOIN pg_class target ON target.oid = constraint_row.confrelid
+         JOIN pg_namespace target_namespace ON target_namespace.oid = target.relnamespace
+        WHERE source_namespace.nspname = $1
+          AND constraint_row.contype = 'f'
+          AND target_namespace.nspname <> $1`,
+      [state.schema],
+    );
+    assert.deepEqual(
+      foreignKeys.rows,
+      [],
+      `BP06 fixture foreign keys must stay inside the local schema: ${JSON.stringify(foreignKeys.rows)}`,
+    );
+
+    console.log(`BP06 fixture smoke isolation PASS: ${state.schema}`);
+  } finally {
+    await client.end();
+  }
+}
+
+async function runFixtureSmoke() {
+  // This deliberately exercises the exact production setup/cleanup functions;
+  // it never starts Next or ego-browser and leaves no disposable state.
+  try {
+    await setup();
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
+    await assertFixtureIsolation(state);
+  } finally {
+    await cleanup();
+  }
+  await assert.rejects(
+    lstat(statePath()),
+    (error: unknown) => hasErrnoCode(error, "ENOENT"),
+    "BP06 fixture smoke must remove its exact state file",
+  );
+  console.log("BP06 fixture smoke cleanup PASS: no state remains");
+}
+
 function sleep(milliseconds: number) {
   return new Promise<void>((resolveSleep) => setTimeout(resolveSleep, milliseconds));
 }
@@ -1205,8 +1344,9 @@ async function runBrowserSupervisor() {
   }
 }
 
-const mode = process.argv.find((value) => ["setup", "cleanup", "browser-supervisor"].includes(value)) ?? "setup";
+const mode = process.argv.find((value) => ["setup", "cleanup", "smoke", "browser-supervisor"].includes(value)) ?? "setup";
 if (mode === "setup") await setup();
 else if (mode === "cleanup") await cleanup();
+else if (mode === "smoke") await runFixtureSmoke();
 else if (mode === "browser-supervisor") await runBrowserSupervisor();
 else throw new Error(`Unknown BP06 browser fixture mode: ${mode}`);
