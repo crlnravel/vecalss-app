@@ -95,7 +95,7 @@ function NotificationsPageModule({
       session={session}
     >
       <section className="flex flex-col gap-8">
-        <header className="flex flex-col gap-4 border-b border-primary-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Notifikasi</h1>
           <form action={markAllNotificationsReadAction}>
             <Button disabled={!hasUnread} size="default" type="submit" variant="brand">
@@ -105,13 +105,7 @@ function NotificationsPageModule({
         </header>
 
         {items.length > 0 ? (
-          <section aria-labelledby="notification-list-title" className="grid gap-4">
-            <div className="flex items-center gap-4 px-1">
-              <h2 className="text-xl font-extrabold tracking-[-0.025em] text-voyage-ink" id="notification-list-title">
-                Pembaruan terbaru
-              </h2>
-              <span aria-hidden="true" className="h-px flex-1 bg-learning-card-border" />
-            </div>
+          <section aria-label="Daftar notifikasi" className="grid gap-4">
             <div className="grid gap-4">
               {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
             </div>
