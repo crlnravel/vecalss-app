@@ -2125,7 +2125,7 @@ function WorkspaceTabs({
   onChange: (value: WorkspaceTab) => void;
 }) {
   return (
-    <div className="shrink-0 border-b border-learning-card-border px-3 pt-2 md:px-4">
+    <div className="shrink-0 border-b border-learning-card-border">
       <FullWidthLineTabsList
         aria-label="Area kerja Vera"
       >
