@@ -27,7 +27,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_SHADOW_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompactTabsList, CompactTabsTrigger } from "@/components/ui/compact-filter-tabs";
@@ -137,14 +140,17 @@ function DashboardPageModule({
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
       breadcrumbLabel="Beranda"
-      mainClassName="gap-10 [--reference-surface-border:var(--learning-card-border)]"
+      mainClassName="gap-10"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
     >
       <section>
         {banner.design ? (
-          <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
+          <Card className={cn(
+            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+          )}>
             <StudentBannerArtwork
               banner={banner}
               className="absolute inset-0 size-full rounded-none"
@@ -162,7 +168,10 @@ function DashboardPageModule({
             </CardHeader>
           </Card>
         ) : (
-          <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
+          <Card className={cn(
+            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+          )}>
             <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
               <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
               <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
@@ -262,7 +271,9 @@ function QuickAccessSection() {
         {quickAccessItems.map((item) => (
           <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
-              REFERENCE_SURFACE_CLASS_NAMES.raised,
+              item.href === "/courses"
+                ? REFERENCE_SURFACE_CLASS_NAMES.tactileActive
+                : REFERENCE_SURFACE_CLASS_NAMES.tactile,
               "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
               item.href === "/courses" && "border-learning-hero-bg bg-learning-hero-bg",
             )}>
@@ -295,7 +306,7 @@ function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-4" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
           <CardDescription className="text-sm text-learning-muted-ink">
             Belum tersedia karena sumber aktivitas belum tersambung.
@@ -331,7 +342,7 @@ function AnalyticsSection() {
 
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
+    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
       <CardHeader className="gap-1 px-5 pb-0 pt-5">
         <CardTitle className="text-base font-bold text-voyage-ink">{title}</CardTitle>
         <CardDescription className="text-sm text-learning-muted-ink">{description}</CardDescription>
@@ -380,7 +391,7 @@ function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
           <Tabs defaultValue="PU">
             <CompactTabsList aria-label="Pilih bab">
@@ -424,7 +435,7 @@ function RecentActivitySection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
         <CardContent className="p-4 md:p-5">
           <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
             <EmptyMedia className="mb-1" variant="default">

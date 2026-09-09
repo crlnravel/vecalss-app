@@ -11,8 +11,17 @@ const REFERENCE_SURFACE_CLASS_NAMES = {
     "rounded-3xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]",
   raised:
     "rounded-4xl border border-primary-100 bg-white [--reference-surface-border:var(--primary-100)] shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent),0_22px_42px_-28px_color-mix(in_oklab,var(--voyage-forest)_24%,transparent)]",
+  tactile:
+    "rounded-4xl border border-primary-100 bg-white shadow-[0_9px_0_var(--voyage-sea-glass),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]",
+  tactileActive:
+    "rounded-4xl border border-primary-100 bg-white shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
   raisedInteractive:
     "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)]",
+} as const;
+
+const REFERENCE_SHADOW_CLASS_NAMES = {
+  tactileActive:
+    "shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
 } as const;
 
 const REFERENCE_FIELD_LABEL_CLASS_NAME =
@@ -90,6 +99,7 @@ export {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_ICON_TONE_CLASS_NAMES,
   REFERENCE_NAV_CLASS_NAMES,
+  REFERENCE_SHADOW_CLASS_NAMES,
   REFERENCE_STATUS_LABELS,
   REFERENCE_STATUS_TONE_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
