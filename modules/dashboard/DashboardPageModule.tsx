@@ -140,7 +140,7 @@ function DashboardPageModule({
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
       breadcrumbLabel="Beranda"
-      mainClassName="gap-10"
+      mainClassName="gap-12"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
@@ -160,7 +160,7 @@ function DashboardPageModule({
               <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
               <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
             </div>
-            <CardHeader className="relative z-10 gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
+            <CardHeader className="relative z-10 gap-8 px-7 py-9 md:px-11 md:py-11 xl:pr-[38%]">
               <div className="flex flex-wrap gap-3">
                 <HeroCountdownPill daysLeft={examDaysLeft} />
                 <HeroDataPill />
@@ -185,8 +185,8 @@ function DashboardPageModule({
                 width={416}
               />
             </div>
-            <CardHeader className="relative gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
-              <div className="grid gap-10">
+            <CardHeader className="relative gap-8 px-7 py-9 md:px-11 md:py-11 xl:pr-[38%]">
+              <div className="grid gap-12">
                 <div>
                   <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
                     {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
@@ -239,7 +239,7 @@ function HeroDataPill() {
 function DashboardDataNotice() {
   return (
     <Card className="border border-learning-card-border bg-voyage-surface py-0 shadow-none ring-0">
-      <CardContent className="flex items-start gap-3 px-5 py-4">
+      <CardContent className="flex items-start gap-4 px-6 py-5">
         <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
         <div>
           <p className="text-sm font-semibold text-secondary-900">Data dashboard belum tersedia</p>
@@ -254,7 +254,7 @@ function DashboardDataNotice() {
 
 function DashboardSectionHeading({ icon: Icon, title }: { icon: DashboardIcon; title: string }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
         <Icon aria-hidden="true" className="size-5" />
       </span>
@@ -265,9 +265,9 @@ function DashboardSectionHeading({ icon: Icon, title }: { icon: DashboardIcon; t
 
 function QuickAccessSection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={Zap} title="Akses Cepat" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
           <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
@@ -277,7 +277,7 @@ function QuickAccessSection() {
               "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
               item.href === "/courses" && "border-learning-hero-bg bg-learning-hero-bg",
             )}>
-              <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
+              <CardContent className="flex min-h-24 items-center gap-5 px-5 py-4">
                 <div className={cn(
                   "flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep",
                   item.href === "/courses" && "bg-voyage-surface text-voyage-deep",
@@ -304,16 +304,16 @@ function QuickAccessSection() {
 
 function DailyMissionSection() {
   return (
-    <section className="flex flex-col gap-4" id="daily-mission">
+    <section className="flex flex-col gap-5" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian" />
       <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
+        <CardHeader className="flex flex-row items-center justify-between gap-5 px-6 pb-5 pt-6">
           <CardDescription className="text-sm text-learning-muted-ink">
             Belum tersedia karena sumber aktivitas belum tersambung.
           </CardDescription>
           <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">Belum dimulai</span>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 px-5 pb-5">
+        <CardContent className="flex flex-col gap-3 px-6 pb-6">
           {dailyMissionItems.map((mission) => (
             <div
               aria-disabled="true"
@@ -332,7 +332,7 @@ function DailyMissionSection() {
 
 function AnalyticsSection() {
   return (
-    <section className="grid gap-4 lg:grid-cols-3" id="progress">
+    <section className="grid gap-5 lg:grid-cols-3" id="progress">
       <AccuracyCard />
       <PracticeActivityCard />
       <TryoutProgressCard />
@@ -343,11 +343,11 @@ function AnalyticsSection() {
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
-      <CardHeader className="gap-1 px-5 pb-0 pt-5">
+      <CardHeader className="gap-2 px-6 pb-0 pt-6">
         <CardTitle className="text-base font-bold text-voyage-ink">{title}</CardTitle>
         <CardDescription className="text-sm text-learning-muted-ink">{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 px-5 pb-5 pt-3">{children}</CardContent>
+      <CardContent className="flex flex-1 px-6 pb-6 pt-4">{children}</CardContent>
     </Card>
   );
 }
@@ -363,7 +363,7 @@ function PracticeActivityCard() {
 function UnavailableAnalyticsCard({ description, title }: { description: string; title: string }) {
   return (
     <AnalyticsCard description={description} title={title}>
-      <Empty className="min-h-40 gap-3 border-0 p-4">
+      <Empty className="min-h-40 gap-4 border-0 p-5">
         <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-learning-muted-ink" variant="icon">
           <Info />
         </EmptyMedia>
@@ -378,7 +378,7 @@ function UnavailableAnalyticsCard({ description, title }: { description: string;
 function TryoutProgressCard() {
   return (
     <AnalyticsCard description="Nilai Tryout terakhir" title="Progress Tryout">
-      <Empty className="min-h-40 gap-3 border-0 p-4">
+      <Empty className="min-h-40 gap-4 border-0 p-5">
         <EmptyHeader>
           <EmptyTitle className="text-sm font-medium text-learning-muted-ink">Belum ada data Tryout yang selesai</EmptyTitle>
         </EmptyHeader>
@@ -389,10 +389,10 @@ function TryoutProgressCard() {
 
 function ChapterSkillsSection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
       <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
-        <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
+        <CardContent className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
           <Tabs defaultValue="PU">
             <CompactTabsList aria-label="Pilih bab">
               {chapterTabs.map((chapter) => (
@@ -405,8 +405,8 @@ function ChapterSkillsSection() {
               ))}
             </CompactTabsList>
             {chapterTabs.map((chapter) => (
-              <TabsContent className="mt-2" key={chapter.value} value={chapter.value}>
-                <Empty className="min-h-[240px] border-0 p-5">
+              <TabsContent className="mt-4" key={chapter.value} value={chapter.value}>
+                <Empty className="min-h-[240px] gap-4 border-0 p-6">
                   <EmptyMedia className="size-14 rounded-full bg-primary-50 text-primary-500" variant="icon">
                     <BookOpen />
                   </EmptyMedia>
@@ -433,11 +433,11 @@ function ChapterSkillsSection() {
 
 function RecentActivitySection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
       <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
-        <CardContent className="p-4 md:p-5">
-          <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
+        <CardContent className="p-5 md:p-6">
+          <Empty className="min-h-[250px] gap-4 rounded-3xl border border-dashed border-secondary-300 bg-transparent p-6">
             <EmptyMedia className="mb-1" variant="default">
               <Image alt="" className="size-16 object-contain opacity-45 grayscale" height={64} src="/brand/mascot-vecalss.png" width={64} />
             </EmptyMedia>

@@ -12,9 +12,9 @@ const REFERENCE_SURFACE_CLASS_NAMES = {
   raised:
     "rounded-4xl border border-primary-100 bg-white [--reference-surface-border:var(--primary-100)] shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent),0_22px_42px_-28px_color-mix(in_oklab,var(--voyage-forest)_24%,transparent)]",
   tactile:
-    "rounded-4xl border border-primary-100 bg-white shadow-[0_9px_0_var(--voyage-sea-glass),0_24px_44px_-32px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]",
+    "rounded-4xl border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-sea-glass),0_18px_36px_-26px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent)]",
   tactileActive:
-    "rounded-4xl border border-primary-100 bg-white shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
+    "rounded-4xl border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-deep-hover),0_20px_38px_-26px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)]",
   raisedInteractive:
     "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)]",
 } as const;
