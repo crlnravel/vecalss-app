@@ -112,6 +112,9 @@ assert.match(dbHarness, /const TARGET_HOST = "127\.0\.0\.1"/u, "the opt-in DB ha
 assert.match(dbHarness, /const TARGET_PORT = 55432/u, "the opt-in DB harness must pin the exact local port");
 assert.match(dbHarness, /const CREATED_ENV = "TRYOUT_CAT_RETRY_TEST_DATABASE_CREATED"/u, "the opt-in DB harness must require outer ownership of a newly created target");
 assert.match(dbHarness, /current_database\(\)/u, "the opt-in DB harness must verify the actual connected database");
+assert.match(dbHarness, /current_user/u, "the opt-in DB harness must verify the actual connected role");
+assert.match(dbHarness, /sameDatabase/u, "the opt-in DB harness must normalize local aliases when comparing runtime database identity");
+assert.doesNotMatch(dbHarness, /client_address.*TARGET_HOST/u, "Docker bridge client addresses must not be mistaken for the target URL host");
 assert.doesNotMatch(dbHarness, /assert\.match\(identity\.database/u, "a broad name heuristic must not replace exact target identity");
 assert.doesNotMatch(dbHarness, /DATABASE_URL\s*\?\?/u, "the opt-in DB harness must never fall back to DATABASE_URL");
 assert.match(dbHarness, /append-only/u, "fixture cleanup must account for immutable release rows");

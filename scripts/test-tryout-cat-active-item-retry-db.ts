@@ -12,6 +12,7 @@ const TARGET_DATABASE = "vecalss_cat_retry_20260909";
 const TARGET_HOST = "127.0.0.1";
 const TARGET_PORT = 55432;
 const TARGET_USER = "vecalss";
+const LOCAL_HOST_ALIASES = new Set(["localhost", "127.0.0.1", "::1"]);
 
 function databaseIdentity(raw: string) {
   const url = new URL(raw);
@@ -24,24 +25,34 @@ function databaseIdentity(raw: string) {
   };
 }
 
+function comparableHost(host: string) {
+  return LOCAL_HOST_ALIASES.has(host) ? "loopback" : host;
+}
+
+function sameDatabase(left: ReturnType<typeof databaseIdentity>, right: ReturnType<typeof databaseIdentity>) {
+  return left.database === right.database
+    && comparableHost(left.host) === comparableHost(right.host)
+    && left.port === right.port
+    && left.user === right.user;
+}
+
 function assertExactDisposableDatabase(raw: string, runtimeRaw?: string) {
   const identity = databaseIdentity(raw);
   const runtime = runtimeRaw ? databaseIdentity(runtimeRaw) : null;
   assert.deepEqual(identity, { database: TARGET_DATABASE, host: TARGET_HOST, port: TARGET_PORT, user: TARGET_USER }, `${TEST_DATABASE_ENV} must target the exact disposable PostgreSQL endpoint.`);
   assert.equal(process.env[ACK_ENV], "1", `${ACK_ENV}=1 is required before mutating the disposable fixture database.`);
   assert.equal(process.env[CREATED_ENV], "1", `${CREATED_ENV}=1 is required; the outer procedure must prove this exact database was newly created for the run.`);
-  assert.ok(!runtime || JSON.stringify(identity) !== JSON.stringify(runtime), `${TEST_DATABASE_ENV} must be distinct from DATABASE_URL.`);
+  assert.ok(!runtime || !sameDatabase(identity, runtime), `${TEST_DATABASE_ENV} must be distinct from DATABASE_URL, including loopback aliases.`);
 }
 
 async function assertConnectedToExactDisposableDatabase(prisma: { $queryRaw: (query: TemplateStringsArray, ...values: never[]) => Promise<unknown> }) {
   const rows = await prisma.$queryRaw`
     SELECT
       current_database() AS database_name,
-      current_user AS user_name,
-      COALESCE(inet_client_addr()::text, '') AS client_address
-  ` as Array<{ database_name: string; user_name: string; client_address: string }>;
+      current_user AS user_name
+  ` as Array<{ database_name: string; user_name: string }>;
   const identity = rows[0];
-  assert.deepEqual(identity, { database_name: TARGET_DATABASE, user_name: TARGET_USER, client_address: TARGET_HOST }, "the opened Prisma connection must prove the exact target database and loopback client.");
+  assert.deepEqual(identity, { database_name: TARGET_DATABASE, user_name: TARGET_USER }, "the opened Prisma connection must prove the exact target database and role.");
 }
 
 function asJson(value: unknown) {
