@@ -31,7 +31,6 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
-import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { cn } from "@/lib/utils";
@@ -171,13 +170,30 @@ function SettingsPageModule({
     >
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
-        <StudentPageHero
-          actions={<div className="flex flex-wrap items-center gap-2">{returnToHref ? <Button className="border-white/20 bg-transparent text-white hover:border-white/40 hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href={returnToHref} />} size="lg" variant="outline">Kembali</Button> : null}<SubmitButton className="bg-student-status-attention-solid-bg text-student-status-attention-solid-fg hover:bg-voyage-warm-sun/90" pendingLabel="Menyimpan…" size="lg" type="submit" variant="brand">Simpan perubahan</SubmitButton></div>}
-          description="Atur data diri, tujuan kampus, dan target ujian agar perjalanan belajarmu tetap terarah."
-          icon={UserRound}
-          meta={<span className="inline-flex min-h-10 items-center rounded-full bg-voyage-sea-glass px-4 text-sm font-bold text-voyage-deep">Voyager</span>}
-          title="Profil"
-        />
+        <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Profil</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            {returnToHref ? (
+              <Button
+                nativeButton={false}
+                render={<Link href={returnToHref} />}
+                size="default"
+                variant="brandOutline"
+              >
+                Kembali
+              </Button>
+            ) : null}
+            <SubmitButton
+              className="bg-student-status-attention-solid-bg text-student-status-attention-solid-fg hover:bg-voyage-warm-sun/90"
+              pendingLabel="Menyimpan…"
+              size="default"
+              type="submit"
+              variant="brand"
+            >
+              Simpan perubahan
+            </SubmitButton>
+          </div>
+        </header>
 
         {state.message ? (
           <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
