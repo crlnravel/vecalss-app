@@ -783,47 +783,49 @@ function VeraAiWorkspace({
                   onRetry={onRetry}
                   progress={progress}
                 />
-                <WorkspaceTabs onChange={onSetWorkspaceTab} />
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
-                  <ChatWorkspace
-                    activeSession={activeSession}
-                    busy={busy}
-                    className="flex"
-                    draft={draft}
-                    onDraftChange={onDraftChange}
-                    onCancel={onCancelRequest}
-                    onRenameSession={onRenameSession}
-                    onSend={onSend}
-                    provisionalText={provisionalText}
-                  />
-                </TabsContent>
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
-                  <ContextWorkspace
-                    activeSourceIds={activeSession.sourceIds}
-                    className="flex"
-                    key={`${activeSession.id}-${workspaceTab}`}
-                    onOpenAddContext={onOpenAddContext}
-                    onRemoveContexts={onRemoveContexts}
-                    onToggleContext={onToggleContext}
-                    sources={contextSources}
-                  />
-                </TabsContent>
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
-                  <StudioPanel
-                    activeArtifact={activeArtifact}
-                    activeArtifactDetail={activeArtifactDetail}
-                    className="flex"
-                    generatedArtifacts={generatedArtifacts}
-                    generatedArtifactSummaries={generatedArtifactSummaries}
-                    busy={busy}
-                    onCloseArtifact={onCloseArtifact}
-                    onExpandArtifact={onExpandArtifact}
-                    onGenerateTool={onGenerateTool}
-                    onOpenArtifact={onOpenArtifact}
-                    onMaterializeArtifact={onMaterializeArtifact}
-                    onApplyArtifact={onApplyArtifact}
-                  />
-                </TabsContent>
+                <WorkspacePanel className="flex flex-1">
+                  <WorkspaceTabs onChange={onSetWorkspaceTab} />
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="chat">
+                    <ChatWorkspace
+                      activeSession={activeSession}
+                      busy={busy}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      draft={draft}
+                      onDraftChange={onDraftChange}
+                      onCancel={onCancelRequest}
+                      onRenameSession={onRenameSession}
+                      onSend={onSend}
+                      provisionalText={provisionalText}
+                    />
+                  </TabsContent>
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="context">
+                    <ContextWorkspace
+                      activeSourceIds={activeSession.sourceIds}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      key={`${activeSession.id}-${workspaceTab}`}
+                      onOpenAddContext={onOpenAddContext}
+                      onRemoveContexts={onRemoveContexts}
+                      onToggleContext={onToggleContext}
+                      sources={contextSources}
+                    />
+                  </TabsContent>
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="studio">
+                    <StudioPanel
+                      activeArtifact={activeArtifact}
+                      activeArtifactDetail={activeArtifactDetail}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      generatedArtifacts={generatedArtifacts}
+                      generatedArtifactSummaries={generatedArtifactSummaries}
+                      busy={busy}
+                      onCloseArtifact={onCloseArtifact}
+                      onExpandArtifact={onExpandArtifact}
+                      onGenerateTool={onGenerateTool}
+                      onOpenArtifact={onOpenArtifact}
+                      onMaterializeArtifact={onMaterializeArtifact}
+                      onApplyArtifact={onApplyArtifact}
+                    />
+                  </TabsContent>
+                </WorkspacePanel>
               </Tabs>
             </div>
           ) : (
@@ -1990,7 +1992,7 @@ function VeraTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-colors motion-reduce:transition-none hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
           href={returnToHref}
         >
           <Image
@@ -2006,9 +2008,6 @@ function VeraTopBar({
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
-          </span>
-          <span className="inline-flex min-h-8 items-center rounded-full bg-student-status-attention-solid-bg px-3 text-xs font-extrabold tracking-[0.08em] text-student-status-attention-solid-fg uppercase">
-            Vera AI
           </span>
         </Link>
       </div>
@@ -2126,7 +2125,7 @@ function WorkspaceTabs({
   onChange: (value: WorkspaceTab) => void;
 }) {
   return (
-    <div className="mb-2 md:mb-3">
+    <div className="shrink-0 border-b border-learning-card-border px-3 pt-2 md:px-4">
       <FullWidthLineTabsList
         aria-label="Area kerja Vera"
       >
