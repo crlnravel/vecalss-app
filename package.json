@@ -38,6 +38,7 @@
     "test:banner-lifecycle": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-lifecycle.ts",
     "test:banner-lifecycle-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-lifecycle-db.ts",
     "test:banner-editor-workflow": "tsx scripts/test-banner-editor-workflow.ts",
+    "test:banner-route-cutover": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-route-cutover.ts",
     "test:banner-rendering": "tsx scripts/test-banner-presentation.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-rendering.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-rendering-db.ts",
     "test:student-banner-validation": "tsx scripts/test-student-banner-validation.ts",
     "test:admin-student-preview-banners": "tsx scripts/test-admin-student-preview-banners.ts",

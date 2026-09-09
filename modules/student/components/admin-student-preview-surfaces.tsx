@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { StudentBadge } from "@/components/ui/student-badge";
-import { resolveStudentBannerText } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  isStudentBannerDraftUnavailable,
+  type AdminStudentBannerRead,
+} from "@/lib/student/banner-presentation";
 import {
   buildAdminStudentPreviewMateriDocumentRoute,
   buildAdminStudentPreviewMateriRoute,
@@ -36,26 +41,50 @@ import type {
 } from "@/lib/admin/student-preview-tryout-reads";
 import { MateriLessonPresentation } from "@/modules/courses/MateriLessonPresentation";
 import { AdminStudentPreviewTryoutRestart } from "@/modules/student/components/admin-student-preview-tryout-restart";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
 function PreviewSurfaceHeader({
+  banner,
   description,
   title,
+  variables,
 }: {
-  description: string;
-  title: string;
+  banner?: AdminStudentBannerRead;
+  description?: string;
+  title?: string;
+  variables?: { firstName?: string; target?: string };
 }) {
+  if (banner && isStudentBannerDraftUnavailable(banner)) {
+    return (
+      <header className="relative isolate overflow-hidden rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg px-6 py-7 text-student-status-danger-fg shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-10 md:py-9">
+        <div className="relative max-w-2xl">
+          <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">Draf banner tidak tersedia</h1>
+          <p className="mt-3 max-w-xl text-sm leading-7 md:text-base">{banner.message}</p>
+        </div>
+      </header>
+    );
+  }
+
+  const resolvedTitle = banner
+    ? getStudentBannerHeading(banner, variables)
+    : title ?? "Student preview";
+  const resolvedDescription = banner
+    ? getStudentBannerDescription(banner, variables)
+    : description ?? "";
+
   return (
     <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
+      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={variables} /> : null}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
       />
       <div className="relative max-w-2xl">
-        <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
-          {title}
+        <h1 className={banner?.design ? "sr-only" : "text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl"}>
+          {resolvedTitle}
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base">
-          {description}
+        <p className={banner?.design ? "sr-only" : "mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base"}>
+          {resolvedDescription}
         </p>
       </div>
     </header>
@@ -91,35 +120,53 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
     .join(" · ") || "target belajarmu";
   const daysLeft = data.profile.examDaysLeft;
 
+  if (isStudentBannerDraftUnavailable(data.banner)) {
+    return (
+      <section className="grid gap-7">
+        <PreviewSurfaceHeader banner={data.banner} />
+        <PreviewNavigation activeLabel="Beranda" />
+      </section>
+    );
+  }
+
+  const banner = data.banner;
+  const bannerVariables = { firstName: data.firstName, target };
+
   return (
     <section className="grid gap-7">
       <Card className="relative min-h-[290px] overflow-hidden rounded-[2rem] border border-primary-200 bg-[linear-gradient(125deg,var(--voyage-surface)_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
-          <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
-          <Image
-            alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
-            height={416}
-            sizes="(min-width: 1280px) 416px, 352px"
-            src="/brand/mascot-vecalss.png"
-            width={416}
-          />
-        </div>
-        <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
-          <div>
-            <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-[-0.03em] text-secondary-900 md:text-5xl">
-              {resolveStudentBannerText(data.banner.beranda.title, {
-                firstName: data.firstName,
-                target,
-              })}
-            </h1>
-            <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600">
-              {resolveStudentBannerText(data.banner.beranda.description, {
-                firstName: data.firstName,
-                target,
-              })}
-            </CardDescription>
+        {banner.design ? (
+          <>
+            <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={bannerVariables} />
+            <div className="sr-only">
+              <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+              <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+            </div>
+          </>
+        ) : (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
+            <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
+            <Image
+              alt=""
+              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
+              height={416}
+              sizes="(min-width: 1280px) 416px, 352px"
+              src="/brand/mascot-vecalss.png"
+              width={416}
+            />
           </div>
+        )}
+        <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
+          {banner.design ? null : (
+            <div>
+              <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-[-0.03em] text-secondary-900 md:text-5xl">
+                {getStudentBannerHeading(banner, bannerVariables)}
+              </h1>
+              <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600">
+                {getStudentBannerDescription(banner, bannerVariables)}
+              </CardDescription>
+            </div>
+          )}
           <div className="flex flex-wrap gap-3">
             <span className="inline-flex min-h-10 items-center rounded-full border border-white/80 bg-white/90 px-4 py-2 text-sm font-bold text-primary-700 shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)]">
               {daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`}
@@ -192,10 +239,7 @@ function AdminStudentPreviewMateriCatalogueSurface({
 }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <PreviewSurfaceHeader
-        description={banner.materi.description}
-        title={banner.materi.title}
-      />
+      <PreviewSurfaceHeader banner={banner} />
       {courses.length > 0 ? (
         <section aria-labelledby="preview-course-list-title" className="flex flex-col gap-4">
           <div className="flex items-center gap-4 px-1">
@@ -423,7 +467,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
 }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <PreviewSurfaceHeader description={banner.description} title={banner.title} />
+      <PreviewSurfaceHeader banner={banner} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <ShieldCheck className="size-5 shrink-0 text-[var(--voyage-warm-sun-ink)]" />

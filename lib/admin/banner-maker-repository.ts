@@ -10,6 +10,7 @@ import {
 import { isImageMimeType } from "@/lib/media/domain";
 import { prisma } from "@/lib/prisma";
 import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
+import { assertLegacyBannerWritesRetired } from "@/lib/banner/activation";
 
 import {
   BANNER_MAKER_CONFIG_KEY,
@@ -202,6 +203,7 @@ async function saveBannerMakerDraft({
   design: BannerDesign;
   expectedVersion: string | null;
 }) {
+  assertLegacyBannerWritesRetired();
   return prisma.$transaction(async (tx) => {
     await acquireBannerMediaMutationLock(tx);
 
@@ -318,6 +320,7 @@ async function publishBannerMakerDesign({
   design: BannerDesign;
   expectedVersion: string | null;
 }) {
+  assertLegacyBannerWritesRetired();
   return prisma.$transaction(async (tx) => {
     await acquireBannerMediaMutationLock(tx);
 
@@ -1159,8 +1162,47 @@ async function getPublishedBannerMakerDestinationDesign(destinationValue: Banner
   }
 }
 
+/**
+ * Explicit Admin-preview draft reads are revision-fenced and intentionally
+ * separate from the published reader. A missing, stale, malformed, or
+ * unpublished draft is represented as `design: null`; callers must report the
+ * missing draft and must not substitute a made-up design.
+ */
+async function getBannerMakerDestinationDraft(
+  destinationValue: BannerDestination,
+  revision: string,
+) {
+  unstable_noStore();
+  const destination = parseBannerDestination(destinationValue);
+  const definition = getBannerDestination(destination);
+  if (!definition || !isUuid(revision)) {
+    return { destination, design: null, revision: null };
+  }
+
+  const config = await readDestinationConfig(definition.configKey);
+  if (!config) return { destination, design: null, revision: null };
+
+  try {
+    const parsed = parseDestinationConfig(config);
+    if (!parsed.draftEnvelope?.design || !config.draftUpdatedAt || parsed.error) {
+      return { destination, design: null, revision: null };
+    }
+    if (parsed.draftEnvelope.revision !== revision) {
+      return { destination, design: null, revision: null };
+    }
+    return {
+      destination,
+      design: parsed.draftEnvelope.design,
+      revision: parsed.draftEnvelope.revision,
+    };
+  } catch {
+    return { destination, design: null, revision: null };
+  }
+}
+
 export {
   getBannerMakerDestinationSnapshot,
+  getBannerMakerDestinationDraft,
   getBannerMakerSnapshot,
   getPublishedBannerMakerDestinationDesign,
   getPublishedBannerMakerDesign,

@@ -7,7 +7,7 @@ import {
   type BannerPresentationDesign,
 } from "./renderer";
 
-type BannerPresentationAssetSource = "draft" | "published";
+type BannerPresentationAssetSource = "admin-published" | "draft" | "published";
 
 function bannerLayerSlot(layerId: string) {
   return `${BANNER_LAYER_SLOT_PREFIX}${layerId}`;
@@ -27,9 +27,13 @@ function bannerImageEndpoint({
   const encodedDestination = encodeURIComponent(destination);
   const encodedRevision = encodeURIComponent(revision);
   const encodedSlot = encodeURIComponent(slot);
-  return source === "draft"
-    ? `/api/admin/student-banners/${encodedDestination}/draft/${encodedRevision}/${encodedSlot}`
-    : `/api/student-banners/${encodedDestination}/${encodedRevision}/${encodedSlot}`;
+  if (source === "draft") {
+    return `/api/admin/student-banners/${encodedDestination}/draft/${encodedRevision}/${encodedSlot}`;
+  }
+  if (source === "admin-published") {
+    return `/api/admin/student-banners/${encodedDestination}/published/${encodedRevision}/${encodedSlot}`;
+  }
+  return `/api/student-banners/${encodedDestination}/${encodedRevision}/${encodedSlot}`;
 }
 
 /**

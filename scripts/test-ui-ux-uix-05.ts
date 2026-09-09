@@ -88,12 +88,9 @@ includes(sources.bannerEditor, "Draf banner siswa yang sudah disimpan", "publish
 matches(sources.bannerEditor, /state\.status === "success" && state\.message[\s\S]{0,500}aria-live="polite"[\s\S]{0,300}role="status"/u, "banner success uses a polite status region");
 matches(sources.bannerEditor, /state\.status === "error" && state\.message[\s\S]{0,500}aria-live="assertive"[\s\S]{0,300}role="alert"/u, "banner errors use an assertive alert region");
 includes(sources.bannerEditor, "hasInlineState", "banner toast emission is suppressed when inline feedback is present");
-includes(sources.bannerActions, "Draft saved. Students still see the published copy.", "banner action reports draft-versus-published status");
-includes(sources.bannerActions, "requireAdminStudentPreviewContext", "banner writes require the preview context");
-includes(sources.bannerActions, "saveStudentBannerDraft", "banner action uses the draft repository operation");
-includes(sources.bannerActions, "publishStudentBannerContents", "banner action uses the publish repository operation");
-includes(sources.bannerActions, "revalidatePreviewBannerPaths", "banner action revalidates preview surfaces after writes");
-includes(sources.bannerActions, "revalidatePublishedBannerPaths", "banner action revalidates published surfaces after publish");
+includes(sources.bannerActions, "assertLegacyBannerWritesRetired", "legacy banner action retains the retirement guard");
+includes(sources.bannerActions, "LegacyBannerWritesRetiredError", "legacy banner action reports retired-writer errors");
+check(!/saveStudentBannerDraft|publishStudentBannerContents|revalidatePath/u.test(sources.bannerActions), "legacy banner action cannot write or revalidate through the retired path");
 
 for (const kind of ["empty", "error", "filtered", "storage"]) {
   includes(sources.mediaRecovery, `"${kind}"`, `media recovery defines the ${kind} state`);

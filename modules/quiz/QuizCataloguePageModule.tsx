@@ -16,7 +16,12 @@ import {
 
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
@@ -40,7 +45,7 @@ function QuizCataloguePageModule({
   session,
   subjects,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   subjects: QuizSubject[];
@@ -62,43 +67,61 @@ function QuizCataloguePageModule({
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-10">
         <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-voyage-sea-glass/20"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-voyage-forest/55 blur-3xl"
-          />
-          <div className="relative z-10 max-w-[42rem]">
-            <h1 className="font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
-              {banner.title}
-            </h1>
-            <p className="mt-4 max-w-[48ch] text-sm leading-7 text-learning-hero-muted md:text-base">
-              {banner.description}
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
-                <ListChecks aria-hidden="true" className="size-4" />
-                {subjects.length} subtes tersedia
-              </span>
-            </div>
-          </div>
+          {banner.design ? (
+            <>
+              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" />
+              <div className="sr-only">
+                <h1>{getStudentBannerHeading(banner)}</h1>
+                <p>{getStudentBannerDescription(banner)}</p>
+              </div>
+              <div className="relative z-10 flex min-h-[18rem] items-end">
+                <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                  <ListChecks aria-hidden="true" className="size-4" />
+                  {subjects.length} subtes tersedia
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-voyage-sea-glass/20"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-voyage-forest/55 blur-3xl"
+              />
+              <div className="relative z-10 max-w-[42rem]">
+                <h1 className="font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
+                  {banner.fallback.title}
+                </h1>
+                <p className="mt-4 max-w-[48ch] text-sm leading-7 text-learning-hero-muted md:text-base">
+                  {banner.fallback.description}
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                    <ListChecks aria-hidden="true" className="size-4" />
+                    {subjects.length} subtes tersedia
+                  </span>
+                </div>
+              </div>
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-[-1rem] bottom-[-1.25rem] hidden w-[18rem] sm:block md:right-0 md:w-[19rem]"
-          >
-            <Image
-              alt=""
-              className="h-auto w-full object-contain drop-shadow-[0_30px_48px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)]"
-              height={464}
-              priority
-              sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
-              src="/brand/mascot-vecalss.png"
-              width={464}
-            />
-          </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-[-1rem] bottom-[-1.25rem] hidden w-[18rem] sm:block md:right-0 md:w-[19rem]"
+              >
+                <Image
+                  alt=""
+                  className="h-auto w-full object-contain drop-shadow-[0_30px_48px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)]"
+                  height={464}
+                  priority
+                  sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
+                  src="/brand/mascot-vecalss.png"
+                  width={464}
+                />
+              </div>
+            </>
+          )}
         </section>
 
         <div className="flex flex-col gap-10">

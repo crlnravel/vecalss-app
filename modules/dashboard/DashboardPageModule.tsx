@@ -42,9 +42,14 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import {
   resolveStudentBannerText,
-  type StudentBannerContent,
 } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import { cn } from "@/lib/utils";
 
 type DashboardProfile = StudentProfile & {
@@ -114,7 +119,7 @@ function DashboardPageModule({
   profile,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
   notificationFeed?: StudentNotificationFeed;
   profile: DashboardProfile;
   session: SessionContext;
@@ -138,37 +143,57 @@ function DashboardPageModule({
       session={session}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
-            <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
-            <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
-            <div className="absolute right-9 top-10 size-10 rounded-full bg-voyage-warm-sun" />
-            <Image
-              alt=""
-              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
-              height={416}
-              sizes="(min-width: 1280px) 416px, 352px"
-              src="/brand/mascot-vecalss.png"
-              width={416}
+        {banner.design ? (
+          <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
+            <StudentBannerArtwork
+              banner={banner}
+              className="absolute inset-0 size-full rounded-none"
+              variables={bannerVariables}
             />
-          </div>
-          <CardHeader className="relative gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
-            <div className="grid gap-10">
-              <div>
-                <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
-                  {resolveStudentBannerText(banner.title, bannerVariables)}
-                </h1>
-                <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-learning-hero-muted">
-                  {resolveStudentBannerText(banner.description, bannerVariables)}
-                </CardDescription>
-              </div>
+            <div className="sr-only">
+              <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+              <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+            </div>
+            <CardHeader className="relative z-10 gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
               <div className="flex flex-wrap gap-3">
                 <HeroCountdownPill daysLeft={examDaysLeft} />
                 <HeroDataPill />
               </div>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
+              <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
+              <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
+              <div className="absolute right-9 top-10 size-10 rounded-full bg-voyage-warm-sun" />
+              <Image
+                alt=""
+                className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
+                height={416}
+                sizes="(min-width: 1280px) 416px, 352px"
+                src="/brand/mascot-vecalss.png"
+                width={416}
+              />
             </div>
-          </CardHeader>
-        </Card>
+            <CardHeader className="relative gap-7 px-6 py-8 md:px-10 md:py-10 xl:pr-[38%]">
+              <div className="grid gap-10">
+                <div>
+                  <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
+                    {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+                  </h1>
+                  <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-learning-hero-muted">
+                    {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <HeroCountdownPill daysLeft={examDaysLeft} />
+                  <HeroDataPill />
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
       </section>
 
       <DashboardDataNotice />

@@ -20,6 +20,7 @@ import {
   buildAdminStudentPreviewExit,
   buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
+import type { BannerDestination } from "@/lib/banner/destinations";
 import type { StudentSurfaceContext } from "@/lib/student/surface-context";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentSidebar } from "@/modules/student/components/student-sidebar";
@@ -48,7 +49,13 @@ function AdminStudentPreviewShell({
 }) {
   const rootHref = buildAdminStudentPreviewRoute(previewRootByLabel[activeLabel]);
   const adminExitHref = buildAdminStudentPreviewExit("/admin");
-  const bannerEditorHref = buildAdminStudentPreviewBannerEditorRoute();
+  const bannerDestinationByLabel: Record<typeof activeLabel, BannerDestination> = {
+    Beranda: "beranda",
+    Kuis: "kuis",
+    Materi: "materi",
+    Tryout: "tryout",
+  };
+  const bannerEditorHref = buildAdminStudentPreviewBannerEditorRoute(bannerDestinationByLabel[activeLabel]);
 
   return (
     <SidebarProvider>

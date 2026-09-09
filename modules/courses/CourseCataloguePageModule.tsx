@@ -20,7 +20,12 @@ import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
@@ -50,7 +55,7 @@ function CourseCataloguePageModule({
   progress,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
   courses: Course[];
   notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
@@ -66,30 +71,42 @@ function CourseCataloguePageModule({
     >
       <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
         <header className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:px-10 md:py-10">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-6 hidden w-52 lg:block xl:right-10"
-          >
-            <div className="absolute right-0 top-7 size-44 rounded-full border border-voyage-sea-glass/40" />
-            <div className="absolute right-4 top-11 size-36 rounded-full bg-voyage-sea-glass" />
-            <div className="absolute right-1 top-7 size-8 rounded-full bg-voyage-warm-sun" />
-            <Image
-              alt=""
-              className="absolute right-[-2rem] bottom-0 h-auto w-72 max-w-none object-contain"
-              height={162}
-              sizes="288px"
-              src="/brand/voyage-assets/perahu.png"
-              width={288}
-            />
-          </div>
-          <div className="relative lg:pr-60">
-            <h1 className="font-display text-4xl leading-tight font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
-              {banner.title}
-            </h1>
-            <p className="mt-4 max-w-xl text-base leading-7 text-learning-hero-muted">
-              {banner.description}
-            </p>
-          </div>
+          {banner.design ? (
+            <>
+              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" />
+              <div className="sr-only">
+                <h1>{getStudentBannerHeading(banner)}</h1>
+                <p>{getStudentBannerDescription(banner)}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-6 hidden w-52 lg:block xl:right-10"
+              >
+                <div className="absolute right-0 top-7 size-44 rounded-full border border-voyage-sea-glass/40" />
+                <div className="absolute right-4 top-11 size-36 rounded-full bg-voyage-sea-glass" />
+                <div className="absolute right-1 top-7 size-8 rounded-full bg-voyage-warm-sun" />
+                <Image
+                  alt=""
+                  className="absolute right-[-2rem] bottom-0 h-auto w-72 max-w-none object-contain"
+                  height={162}
+                  sizes="288px"
+                  src="/brand/voyage-assets/perahu.png"
+                  width={288}
+                />
+              </div>
+              <div className="relative lg:pr-60">
+                <h1 className="font-display text-4xl leading-tight font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
+                  {banner.fallback.title}
+                </h1>
+                <p className="mt-4 max-w-xl text-base leading-7 text-learning-hero-muted">
+                  {banner.fallback.description}
+                </p>
+              </div>
+            </>
+          )}
         </header>
 
         {courses.length > 0 ? (

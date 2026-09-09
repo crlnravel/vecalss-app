@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, type FormEvent } from "react";
 
 import {
@@ -24,6 +25,7 @@ import {
   BANNER_DESTINATIONS,
   type BannerDestination,
 } from "@/lib/banner/destinations";
+import { buildAdminStudentPreviewBannerDraftRoute } from "@/lib/student/preview-routes";
 import {
   BANNER_MAX_TEXT_LENGTH,
   type BannerBootstrap,
@@ -262,6 +264,7 @@ function PublishDialog({
 function DestinationEditorHeader({
   canPublish,
   destination,
+  draftPreviewHref,
   isDirty,
   isPending,
   onPublish,
@@ -270,6 +273,7 @@ function DestinationEditorHeader({
 }: {
   canPublish: boolean;
   destination: BannerDestination;
+  draftPreviewHref?: string;
   isDirty: boolean;
   isPending: boolean;
   onPublish: () => void;
@@ -285,6 +289,18 @@ function DestinationEditorHeader({
         <h1 className="truncate text-base font-semibold">{label}</h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {draftPreviewHref ? (
+          <Button
+            aria-label={`Pratinjau draf ${label}`}
+            className="hidden min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10 sm:inline-flex"
+            nativeButton={false}
+            render={<Link href={draftPreviewHref} />}
+            variant="inverseOutline"
+          >
+            <Eye data-icon="inline-start" />
+            <span>Pratinjau draf</span>
+          </Button>
+        ) : null}
         <Button aria-label={`Simpan draf ${label}`} className="min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10" disabled={!isDirty || isPending} onClick={onSave} type="button" variant="inverseOutline">
           <Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span>
         </Button>
@@ -375,6 +391,9 @@ function BannerMakerDestinationEditorInstance({ action, requestId, session, snap
   const controller = useDestinationEditorController({ action, requestId, snapshot });
   const { destination } = controller;
   const sourceValue = controller.source;
+  const draftPreviewHref = controller.hasSavedDraft && controller.revision
+    ? buildAdminStudentPreviewBannerDraftRoute(destination, controller.revision)
+    : undefined;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     handleBannerMakerDestinationSubmit({
@@ -400,7 +419,7 @@ function BannerMakerDestinationEditorInstance({ action, requestId, session, snap
         <input name="source" type="hidden" value={sourceValue ? JSON.stringify(sourceValue) : ""} readOnly />
         <input name="design" type="hidden" value={controller.design ? JSON.stringify(controller.design) : ""} readOnly />
         <input name="intent" type="hidden" value="save-draft" readOnly />
-        <DestinationEditorHeader canPublish={controller.canPublish} destination={destination} isDirty={controller.isDirty} isPending={controller.isPending} onPublish={() => controller.setPublishDialogOpen(true)} onSave={controller.submitSave} session={session} />
+        <DestinationEditorHeader canPublish={controller.canPublish} destination={destination} draftPreviewHref={draftPreviewHref} isDirty={controller.isDirty} isPending={controller.isPending} onPublish={() => controller.setPublishDialogOpen(true)} onSave={controller.submitSave} session={session} />
         <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-primary-100 bg-white px-3 py-2 sm:px-5">
           <Field className="min-w-0 flex-1 sm:max-w-sm">
             <FieldLabel className="sr-only" htmlFor="banner-destination">Tujuan banner</FieldLabel>

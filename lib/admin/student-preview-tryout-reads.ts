@@ -10,7 +10,9 @@ import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import { PreviewReadBoundary } from "@/lib/admin/preview-read-boundary";
 import { sanitizePreviewText } from "@/lib/admin/student-preview-content-contract";
 import { prisma } from "@/lib/prisma";
-import { getAdminStudentPreviewBannerContents } from "@/lib/student/banner-repository";
+import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 
 import {
   AdminPreviewTryoutRestartError,
@@ -71,7 +73,7 @@ type AdminPreviewTryout = {
 };
 
 type AdminPreviewTryoutRead = {
-  banner: Awaited<ReturnType<typeof getAdminStudentPreviewBannerContents>>["tryout"];
+  banner: AdminStudentBannerRead;
   tryouts: AdminPreviewTryout[];
 };
 
@@ -257,13 +259,15 @@ async function prismaTryoutFindMany(tryoutId: string | undefined, previewStudent
   });
 }
 
-async function getAdminPreviewTryoutCatalogue() {
+async function getAdminPreviewTryoutCatalogue(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+) {
   return PreviewReadBoundary.run(async (context) => {
     const [tryouts, banner] = await Promise.all([
       readAdminPreviewTryouts(context),
-      getAdminStudentPreviewBannerContents(),
+      getAdminStudentPreviewBannerPresentation("tryout", bannerRequest),
     ]);
-    return { banner: banner.tryout, tryouts } satisfies AdminPreviewTryoutRead;
+    return { banner, tryouts } satisfies AdminPreviewTryoutRead;
   });
 }
 

@@ -154,7 +154,8 @@ assert.match(destinationEditorSource, /Terbitkan banner \{getBannerDestinationLa
 assert.match(destinationEditorSource, /name="source"/u);
 assert.match(destinationEditorSource, /name="design"/u);
 assert.doesNotMatch(destinationControllerSource, /student-account-menu|media-library|banner-maker-editor["']/u);
-assert.match(pageSource, /BANNER_V2_EDITOR_PUBLICLY_ENABLED = false/u);
+assert.match(pageSource, /isBannerV2EditorEnabled\(\)/u);
+assert.match(pageSource, /mode="safe-fallback"/u);
 assert.match(pageSource, /parseBannerDestinationQuery/u);
 assert.match(pageSource, /BannerDestinationQueryError/u);
 assert.match(rendererEditorSource, /from "\.\/banner-maker-canvas"/u);

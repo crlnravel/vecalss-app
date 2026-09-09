@@ -169,23 +169,18 @@ const run = async () => {
     assertMutationLockBoundary(mediaSource, name, mediaMutatorNames, firstReadPattern);
   }
 
-  const bannerMutators = ["saveBannerMakerDraft", "publishBannerMakerDesign"] as const;
+  const bannerMutators = ["saveBannerMakerDestinationDraft", "publishBannerMakerDestinationDesign"] as const;
   for (const name of bannerMutators) {
     assertMutationLockBoundary(
       bannerRepositorySource,
       name,
       bannerMutators,
-      /tx\.systemConfig\.findUnique/u,
+      /readDestinationConfig\(definition\.configKey, tx\)/u,
     );
   }
-  const studentMutators = ["saveStudentBannerDraft", "publishStudentBannerContents"] as const;
-  for (const name of studentMutators) {
-    assertMutationLockBoundary(
-      studentRepositorySource,
-      name,
-      studentMutators,
-      /tx\.systemConfig\.findUnique/u,
-    );
+  for (const name of ["saveStudentBannerDraft", "publishStudentBannerContents"] as const) {
+    const functionSource = sourceForFunction(studentRepositorySource, name, ["saveStudentBannerDraft", "publishStudentBannerContents"]);
+    assert.match(functionSource, /assertLegacyBannerWritesRetired\(\)/u, `${name} must retain the retired-writer guard`);
   }
   assert.match(mediaSource, /state: \{ in: \[MediaAssetState\.pending, MediaAssetState\.ready\] \}/u);
   assert.match(mediaSource, /trashedAt: null/u);

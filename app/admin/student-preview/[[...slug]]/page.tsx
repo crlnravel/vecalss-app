@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,6 @@ import {
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
 import {
   getAdminPreviewBeranda,
-  getAdminPreviewBannerEditor,
   getAdminPreviewMateriCatalogueSurface,
   getAdminPreviewMateriCourse,
   getAdminPreviewMateriLesson,
@@ -30,14 +30,14 @@ import {
   isAdminStudentPreviewUnavailableError,
   type AdminStudentPreviewContext,
 } from "@/lib/admin/student-preview";
+import { buildBannerMakerDestinationRoute, type BannerDestination } from "@/lib/banner/destinations";
+import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
 import {
   buildAdminStudentPreviewMateriRoute,
   buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
 import { AdminStudentPreviewShell } from "@/modules/student/components/admin-student-preview-shell";
 import { AdminStudentPreviewUnavailable } from "@/modules/student/components/admin-student-preview-unavailable";
-import { StudentBannerEditor } from "@/modules/admin/components/student-banner-editor";
-import { updateAdminStudentPreviewBannersAction } from "@/modules/admin/student-banners-actions";
 import {
   AdminStudentPreviewBerandaSurface,
   AdminStudentPreviewMateriCatalogueSurface,
@@ -201,7 +201,6 @@ function renderPreviewShell({
 
 type PreviewPageData =
   | {
-      bannerEditor?: Awaited<ReturnType<typeof getAdminPreviewBannerEditor>>["data"];
       kind: "beranda";
       context: AdminStudentPreviewContext;
       data: Awaited<ReturnType<typeof getAdminPreviewBeranda>>["data"];
@@ -216,17 +215,46 @@ type PreviewPageData =
   | { kind: "tryout-detail"; context: AdminStudentPreviewContext; data: Awaited<ReturnType<typeof getAdminPreviewTryoutDetail>>["data"] }
   | { kind: "placeholder"; context: AdminStudentPreviewContext; surface: PreviewSurface };
 
+function readPreviewQueryValue(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string,
+) {
+  const value = searchParams[key];
+  return typeof value === "string" ? value : null;
+}
+
+function parseBannerPreviewRequest(
+  searchParams: Record<string, string | string[] | undefined>,
+): AdminStudentBannerRequest {
+  if (readPreviewQueryValue(searchParams, "bannerSource") !== "draft") {
+    return { mode: "published" };
+  }
+
+  const revision = readPreviewQueryValue(searchParams, "revision");
+  return {
+    mode: "draft",
+    revision: revision && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(revision)
+      ? revision
+      : null,
+  };
+}
+
+function previewBannerDestination(slug: string[]): BannerDestination {
+  if (slug[0] === "courses") return "materi";
+  if (slug[0] === "quiz") return "kuis";
+  if (slug[0] === "tryout") return "tryout";
+  return "beranda";
+}
+
 async function resolvePreviewPageData(
   slug: string[],
-  editBanners: boolean,
+  bannerRequest: AdminStudentBannerRequest,
 ): Promise<PreviewPageData> {
   const key = slug.join("/");
 
   if (key === "") {
-    const result = await getAdminPreviewBeranda();
-    const bannerEditor = editBanners ? await getAdminPreviewBannerEditor() : undefined;
+    const result = await getAdminPreviewBeranda(bannerRequest);
     return {
-      bannerEditor: bannerEditor?.data,
       context: result.context,
       data: result.data,
       kind: "beranda",
@@ -234,7 +262,7 @@ async function resolvePreviewPageData(
   }
 
   if (key === "courses") {
-    const catalogue = await getAdminPreviewMateriCatalogueSurface();
+    const catalogue = await getAdminPreviewMateriCatalogueSurface(bannerRequest);
     return {
       context: catalogue.context,
       data: catalogue.data,
@@ -243,7 +271,7 @@ async function resolvePreviewPageData(
   }
 
   if (key === "quiz") {
-    const catalogue = await getAdminPreviewQuizCatalogueSurface();
+    const catalogue = await getAdminPreviewQuizCatalogueSurface(bannerRequest);
     return {
       context: catalogue.context,
       data: catalogue.data,
@@ -252,7 +280,7 @@ async function resolvePreviewPageData(
   }
 
   if (key === "tryout") {
-    const catalogue = await getAdminPreviewTryoutCatalogue();
+    const catalogue = await getAdminPreviewTryoutCatalogue(bannerRequest);
     return {
       context: catalogue.context,
       data: catalogue.data,
@@ -306,33 +334,15 @@ async function resolvePreviewPageData(
 
 function renderResolvedPreviewPage(data: PreviewPageData) {
   if (data.kind === "beranda") {
-    const bannerEditor = data.bannerEditor ? (
-      <section
-        aria-label="Edit student banners"
-        className="rounded-[2rem] border border-primary-200 bg-white p-5 shadow-[0_24px_58px_-44px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] sm:p-7"
-      >
-        <StudentBannerEditor
-          action={updateAdminStudentPreviewBannersAction}
-          banners={data.bannerEditor.banners}
-          hasUnpublishedChanges={data.bannerEditor.hasUnpublishedChanges}
-          previewHref={buildAdminStudentPreviewRoute("/")}
-          previewMode
-          version={data.bannerEditor.version}
-        />
-      </section>
-    ) : null;
-
     return renderPreviewShell({
       activeLabel: "Beranda",
       breadcrumbLabel: "Beranda preview",
       children: (
         <>
           <AdminStudentPreviewBerandaSurface data={data.data} />
-          {bannerEditor}
         </>
       ),
       context: data.context,
-      bannerEditMode: Boolean(data.bannerEditor),
       isRootPage: true,
     });
   }
@@ -443,10 +453,14 @@ export default async function AdminStudentPreviewPage({
   const resolvedSearchParams = await searchParams;
   const editBanners = resolvedSearchParams?.edit === "banners"
     || (Array.isArray(resolvedSearchParams?.edit) && resolvedSearchParams.edit.includes("banners"));
+  if (editBanners) {
+    redirect(buildBannerMakerDestinationRoute(previewBannerDestination(slug)));
+  }
+  const bannerRequest = parseBannerPreviewRequest(resolvedSearchParams ?? {});
   let data: PreviewPageData;
 
   try {
-    data = await resolvePreviewPageData(slug, editBanners);
+    data = await resolvePreviewPageData(slug, bannerRequest);
   } catch (error) {
     if (isAdminStudentPreviewUnavailableError(error)) {
       return <AdminStudentPreviewUnavailable description={error.message} variant="context" />;

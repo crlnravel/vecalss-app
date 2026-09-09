@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import {
   requireAdminSession,
   requireAdminStudentPreviewContext,
@@ -10,167 +8,59 @@ import {
   isAdminStudentPreviewUnavailableError,
 } from "@/lib/admin/student-preview";
 import {
-  STUDENT_BANNER_KEYS,
-  type StudentBannerSet,
-} from "@/lib/student/banner-content";
-import { validateStudentBannerFields } from "@/lib/student/banner-validation";
-import {
-  StudentBannerConflictError,
-  StudentBannerDraftMismatchError,
-  publishStudentBannerContents,
-  saveStudentBannerDraft,
-} from "@/lib/student/banner-repository";
+  assertLegacyBannerWritesRetired,
+  LegacyBannerWritesRetiredError,
+} from "@/lib/banner/activation";
 import type { FormState } from "@/modules/auth/form-state";
 
-function readTextField(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function buildFields(formData: FormData) {
-  return Object.fromEntries(
-    [
-      ["version", readTextField(formData, "version")],
-      ...STUDENT_BANNER_KEYS.flatMap((key) => [
-        [`${key}.title`, readTextField(formData, `${key}.title`)],
-        [`${key}.description`, readTextField(formData, `${key}.description`)],
-      ]),
-    ],
-  );
-}
-
-function buildBanners(fields: Record<string, string>): StudentBannerSet {
-  return Object.fromEntries(
-    STUDENT_BANNER_KEYS.map((key) => [key, {
-      description: fields[`${key}.description`] ?? "",
-      title: fields[`${key}.title`] ?? "",
-    }]),
-  ) as StudentBannerSet;
-}
-
-function readIntent(formData: FormData) {
-  return formData.get("intent") === "publish" ? "publish" : "save-draft";
-}
-
-function revalidatePreviewBannerPaths() {
-  revalidatePath("/admin/student-preview");
-  revalidatePath("/admin/student-preview/courses");
-  revalidatePath("/admin/student-preview/quiz");
-  revalidatePath("/admin/student-preview/tryout");
-}
-
-function revalidatePublishedBannerPaths() {
-  revalidatePath("/dashboard");
-  revalidatePath("/courses");
-  revalidatePath("/quiz");
-  revalidatePath("/tryout");
-}
-
-async function runUpdateStudentBannersAction(
-  previousState: FormState,
-  formData: FormData,
-  actorUserId: string,
-): Promise<FormState> {
-  const intent = readIntent(formData);
-  const fields = buildFields(formData);
-  const fieldErrors = validateStudentBannerFields(fields);
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return {
-      fieldErrors,
-      fields,
-      hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-      message: "Fix the highlighted fields.",
-      status: "error",
-    };
-  }
-
+function retiredLegacyBannerState(previousState: FormState): FormState {
   try {
-    if (intent === "publish") {
-      const result = await publishStudentBannerContents({
-        actorUserId,
-        banners: buildBanners(fields),
-        expectedVersion: fields.version || null,
-      });
-
-      revalidatePublishedBannerPaths();
-      revalidatePreviewBannerPaths();
-      revalidatePath("/admin/student-banners");
-
-      return {
-        fields: { ...fields, version: result.updatedAt },
-        hasUnpublishedChanges: false,
-        message: "Published.",
-        published: true,
-        status: "success",
-      };
-    }
-
-    const result = await saveStudentBannerDraft({
-      actorUserId,
-      banners: buildBanners(fields),
-      expectedVersion: fields.version || null,
-    });
-
-    revalidatePath("/admin/student-banners");
-    revalidatePreviewBannerPaths();
-
-    return {
-      fields: { ...fields, version: result.draftVersion },
-      hasUnpublishedChanges: result.hasUnpublishedChanges,
-      message: result.hasUnpublishedChanges
-        ? "Draft saved. Students still see the published copy."
-        : "Draft saved.",
-      published: false,
-      status: "success",
-    };
+    assertLegacyBannerWritesRetired();
   } catch (error) {
-    if (error instanceof StudentBannerDraftMismatchError) {
+    if (error instanceof LegacyBannerWritesRetiredError) {
       return {
-        fields,
-        hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-        message: "Save a draft first.",
+        ...previousState,
+        message: error.message,
         status: "error",
       };
     }
-
-    if (error instanceof StudentBannerConflictError) {
-      return {
-        fields,
-        hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-        message: "Content changed. Refresh and try again.",
-        status: "error",
-      };
-    }
-
-    return {
-      fields,
-      hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-      message: "Couldn’t save. Refresh and try again.",
-      status: "error",
-    };
+    throw error;
   }
+
+  // The guard above is deliberately unconditional. Keep a fail-closed return
+  // for type-level exhaustiveness if the retirement policy changes later.
+  return {
+    ...previousState,
+    message: "Penulisan banner lama tidak tersedia.",
+    status: "error",
+  };
 }
 
+/**
+ * The pre-BP05 four-field editor remains only as a stale-form compatibility
+ * boundary. It authenticates the caller, then rejects without parsing or
+ * mutating `student.banners`.
+ */
 async function updateStudentBannersAction(
   previousState: FormState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<FormState> {
-  const session = await requireAdminSession();
-  return runUpdateStudentBannersAction(previousState, formData, session.user.id);
+  await requireAdminSession();
+  return retiredLegacyBannerState(previousState);
 }
 
+/**
+ * Managed student Preview used to expose the same legacy writer. Keep its
+ * capability check, but retire the mutation path so an old tab cannot write
+ * after cutover.
+ */
 async function updateAdminStudentPreviewBannersAction(
   previousState: FormState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<FormState> {
   try {
-    const context = await requireAdminStudentPreviewContext();
-    return runUpdateStudentBannersAction(
-      previousState,
-      formData,
-      context.actor.session.user.id,
-    );
+    await requireAdminStudentPreviewContext();
+    return retiredLegacyBannerState(previousState);
   } catch (error) {
     if (isAdminStudentPreviewUnavailableError(error)) {
       return {
@@ -179,7 +69,6 @@ async function updateAdminStudentPreviewBannersAction(
         status: "error",
       };
     }
-
     throw error;
   }
 }

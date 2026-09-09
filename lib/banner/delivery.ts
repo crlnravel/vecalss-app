@@ -44,7 +44,7 @@ const BANNER_DELIVERY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
-type BannerDeliverySource = "draft" | "published";
+type BannerDeliverySource = "admin-published" | "draft" | "published";
 
 type BannerDeliveryAsset = {
   mimeType: string;
@@ -860,7 +860,7 @@ function assertBannerDeliverySession(
   if (source === "published" && !session.user.roles.includes(RoleName.student)) {
     throw new BannerDeliveryError("Akses banner tidak diizinkan.", 403);
   }
-  if (source === "draft" && !session.user.roles.includes(RoleName.admin)) {
+  if ((source === "draft" || source === "admin-published") && !session.user.roles.includes(RoleName.admin)) {
     throw new BannerDeliveryError("Akses banner tidak diizinkan.", 403);
   }
 }

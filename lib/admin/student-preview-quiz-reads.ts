@@ -1,14 +1,15 @@
 import "server-only";
 
 import { ContentStatus, Prisma } from "@/generated/prisma/client";
-import { getAdminStudentPreviewBannerContents } from "@/lib/student/banner-repository";
+import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 import { prisma } from "@/lib/prisma";
 import { PreviewReadBoundary } from "@/lib/admin/preview-read-boundary";
 import {
   ADMIN_PREVIEW_QUIZ_SUBJECTS,
   assertAdminPreviewQuizPayloadSafe,
   getAdminPreviewQuizSubjectBySlug,
-  sanitizeAdminPreviewQuizBanner,
   toAdminPreviewQuizDetail,
   toAdminPreviewQuizSummary,
   type AdminPreviewQuizDetail,
@@ -57,10 +58,7 @@ type AdminPreviewQuizCatalogueRead = {
 };
 
 type AdminPreviewQuizCatalogueSurfaceRead = AdminPreviewQuizCatalogueRead & {
-  banner: {
-    description: string;
-    title: string;
-  };
+  banner: AdminStudentBannerRead;
 };
 
 function toContractRecord(record: PreviewQuizRecord) {
@@ -159,13 +157,15 @@ async function readAdminPreviewQuizDetail(subjectSlug: string, quizSlug: string)
   return detail;
 }
 
-async function readAdminPreviewQuizCatalogueSurface(): Promise<AdminPreviewQuizCatalogueSurfaceRead> {
+async function readAdminPreviewQuizCatalogueSurface(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+): Promise<AdminPreviewQuizCatalogueSurfaceRead> {
   const [catalogue, banners] = await Promise.all([
     readAdminPreviewQuizCatalogue(),
-    getAdminStudentPreviewBannerContents(),
+    getAdminStudentPreviewBannerPresentation("kuis", bannerRequest),
   ]);
   const result = {
-    banner: sanitizeAdminPreviewQuizBanner(banners.kuis),
+    banner: banners,
     subjects: catalogue.subjects,
   } satisfies AdminPreviewQuizCatalogueSurfaceRead;
   assertAdminPreviewQuizPayloadSafe(result.subjects);
@@ -176,8 +176,10 @@ async function getAdminPreviewQuizCatalogue() {
   return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogue());
 }
 
-async function getAdminPreviewQuizCatalogueSurface() {
-  return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogueSurface());
+async function getAdminPreviewQuizCatalogueSurface(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+) {
+  return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogueSurface(bannerRequest));
 }
 
 async function getAdminPreviewQuizSubject(slug: string) {

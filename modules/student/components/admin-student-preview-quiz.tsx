@@ -17,25 +17,54 @@ import {
   buildAdminStudentPreviewQuizRoute,
   buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  isStudentBannerDraftUnavailable,
+  type AdminStudentBannerRead,
+} from "@/lib/student/banner-presentation";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import type {
   AdminPreviewQuizAvailability,
-  AdminPreviewQuizBanner,
   AdminPreviewQuizDetail,
   AdminPreviewQuizQuestion,
   AdminPreviewQuizSubjectWithQuizzes,
   AdminPreviewQuizSummary,
 } from "@/lib/admin/student-preview-quiz-contract";
 
-function QuizPreviewHeader({ description, title }: { description: string; title: string }) {
+function QuizPreviewHeader({
+  banner,
+  description,
+  title,
+}: {
+  banner?: AdminStudentBannerRead;
+  description?: string;
+  title?: string;
+}) {
+  if (banner && isStudentBannerDraftUnavailable(banner)) {
+    return (
+      <header className="relative isolate overflow-hidden rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg px-6 py-7 text-student-status-danger-fg shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-10 md:py-9">
+        <div className="relative max-w-2xl">
+          <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">Draf banner tidak tersedia</h1>
+          <p className="mt-3 max-w-xl text-sm leading-7 md:text-base">{banner.message}</p>
+        </div>
+      </header>
+    );
+  }
+
+  const resolvedTitle = banner ? getStudentBannerHeading(banner) : title ?? "Kuis";
+  const resolvedDescription = banner ? getStudentBannerDescription(banner) : description ?? "";
+
   return (
     <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
+      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" /> : null}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
       />
       <div className="relative max-w-2xl">
-        <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">{title}</h1>
-        <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base">{description}</p>
+        <h1 className={banner?.design ? "sr-only" : "text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl"}>{resolvedTitle}</h1>
+        <p className={banner?.design ? "sr-only" : "mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base"}>{resolvedDescription}</p>
       </div>
     </header>
   );
@@ -104,7 +133,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
   banner,
   subjects,
 }: {
-  banner: AdminPreviewQuizBanner;
+  banner: AdminStudentBannerRead;
   subjects: AdminPreviewQuizSubjectWithQuizzes[];
 }) {
   const subjectGroups = (["TPS", "TPA"] as const)
@@ -116,7 +145,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
 
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <QuizPreviewHeader description={banner.description} title={banner.title} />
+      <QuizPreviewHeader banner={banner} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Read-only</span>

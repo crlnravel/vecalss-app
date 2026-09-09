@@ -51,7 +51,7 @@ assert.throws(
 const repositorySource = await readFile(resolve(root, "lib/admin/banner-maker-repository.ts"), "utf8");
 const actionSource = await readFile(resolve(root, "modules/admin/banner-maker-actions.ts"), "utf8");
 const actionHandlerSource = await readFile(resolve(root, "lib/admin/banner-maker-action-handler.ts"), "utf8");
-assert.match(actionSource, /const BANNER_V2_MUTATIONS_ENABLED = false/u, "v2 mutations remain staged-disabled until BP-05");
+assert.match(actionSource, /isBannerV2EditorEnabled\(\)/u, "v2 mutations are controlled by the coordinated activation gate");
 for (const functionName of [
   "getBannerMakerDestinationSnapshot",
   "saveBannerMakerDestinationDraft",
@@ -64,7 +64,7 @@ assert.match(repositorySource, /acquireBannerMediaMutationLock\(tx\)/u);
 assert.match(repositorySource, /student_banner_maker_v2_draft_saved/u);
 assert.match(repositorySource, /student_banner_maker_v2_published/u);
 assert.match(actionSource, /requireAdminSession\(\)/u);
-assert.match(actionSource, /mutationsEnabled: BANNER_V2_MUTATIONS_ENABLED/u);
+assert.match(actionSource, /mutationsEnabled: isBannerV2EditorEnabled\(\)/u);
 assert.match(actionSource, /handleBannerMakerDestinationAction/u);
 assert.match(actionSource, /updateBannerMakerDestinationAction/u);
 assert.match(actionHandlerSource, /dependencies\.requireAdminSession/u);

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { requireAdminSession } from "@/lib/auth/access";
-import { getBannerMakerDestinationSnapshot, getBannerMakerSnapshot } from "@/lib/admin/banner-maker-repository";
+import { getBannerMakerDestinationSnapshot } from "@/lib/admin/banner-maker-repository";
+import { isBannerV2EditorEnabled } from "@/lib/banner/activation";
 import { BannerDestinationError, parseBannerDestinationQuery, type BannerDestination } from "@/lib/banner/destinations";
 import { BannerDestinationQueryError } from "@/modules/admin/BannerDestinationQueryError";
 import { BannerMakerDestinationPageModule } from "@/modules/admin/BannerMakerDestinationPageModule";
-import { BannerMakerPageModule } from "@/modules/admin/BannerMakerPageModule";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +14,16 @@ export const metadata: Metadata = {
   title: "Banner maker | Vecalss LMS",
 };
 
-/** BP-05 flips this only after legacy writers/readers are retired and drained. */
-const BANNER_V2_EDITOR_PUBLICLY_ENABLED = false;
-
 export default async function AdminStudentBannersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ destination?: string | string[] }>;
+  searchParams: Promise<{
+    destination?: string | string[];
+    edit?: string | string[];
+  }>;
 }) {
   const session = await requireAdminSession();
-  const { destination: rawDestination } = await searchParams;
+  const { destination: rawDestination, edit: rawEdit } = await searchParams;
   let destination: BannerDestination;
   try {
     destination = parseBannerDestinationQuery(rawDestination);
@@ -31,12 +32,16 @@ export default async function AdminStudentBannersPage({
     return <BannerDestinationQueryError />;
   }
 
-  if (BANNER_V2_EDITOR_PUBLICLY_ENABLED) {
-    const snapshot = await getBannerMakerDestinationSnapshot(destination);
-    return <BannerMakerDestinationPageModule session={session} snapshot={snapshot} />;
+  const editBanners = rawEdit === "banners"
+    || (Array.isArray(rawEdit) && rawEdit.includes("banners"));
+  if (editBanners) {
+    redirect(`/admin/student-banners?destination=${encodeURIComponent(destination)}`);
   }
 
-  const snapshot = await getBannerMakerSnapshot();
+  if (!isBannerV2EditorEnabled()) {
+    return <BannerDestinationQueryError mode="safe-fallback" />;
+  }
 
-  return <BannerMakerPageModule session={session} snapshot={snapshot} />;
+  const snapshot = await getBannerMakerDestinationSnapshot(destination);
+  return <BannerMakerDestinationPageModule session={session} snapshot={snapshot} />;
 }

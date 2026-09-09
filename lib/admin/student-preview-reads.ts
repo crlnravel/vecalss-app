@@ -23,9 +23,11 @@ import {
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
 import {
-  getAdminStudentPreviewBannerContents,
   getAdminStudentPreviewBannerSnapshot,
 } from "@/lib/student/banner-repository";
+import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import {
   sanitizePreviewFileName,
@@ -38,7 +40,7 @@ import { PreviewReadBoundary } from "./preview-read-boundary";
 const PREVIEW_DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
 type AdminPreviewBerandaRead = {
-  banner: Awaited<ReturnType<typeof getAdminStudentPreviewBannerContents>>;
+  banner: AdminStudentBannerRead;
   firstName: string;
   profile: {
     displayName: string;
@@ -76,7 +78,7 @@ type AdminPreviewMateriCourse = {
 };
 
 type AdminPreviewMateriCatalogueRead = {
-  banner: Awaited<ReturnType<typeof getAdminStudentPreviewBannerContents>>;
+  banner: AdminStudentBannerRead;
   courses: AdminPreviewMateriCourse[];
 };
 
@@ -166,7 +168,10 @@ function toPreviewLesson(
   };
 }
 
-async function readAdminPreviewBeranda(context: AdminStudentPreviewContext): Promise<AdminPreviewBerandaRead> {
+async function readAdminPreviewBeranda(
+  context: AdminStudentPreviewContext,
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+): Promise<AdminPreviewBerandaRead> {
   const [profile, banner] = await Promise.all([
     prisma.studentProfile.findUnique({
       select: {
@@ -178,7 +183,7 @@ async function readAdminPreviewBeranda(context: AdminStudentPreviewContext): Pro
       },
       where: { userId: context.student.id },
     }),
-    getAdminStudentPreviewBannerContents(),
+    getAdminStudentPreviewBannerPresentation("beranda", bannerRequest),
   ]);
 
   const displayName = sanitizePreviewText(profile?.displayName) || sanitizePreviewText(context.student.displayName) || "Voyager";
@@ -294,8 +299,10 @@ async function readAdminPreviewMateriCourse(
   return catalogue.find((course) => course.slug === slug);
 }
 
-async function getAdminPreviewBeranda() {
-  return PreviewReadBoundary.run(readAdminPreviewBeranda);
+async function getAdminPreviewBeranda(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+) {
+  return PreviewReadBoundary.run((context) => readAdminPreviewBeranda(context, bannerRequest));
 }
 
 /**
@@ -311,11 +318,13 @@ async function getAdminPreviewMateriCatalogue() {
   return PreviewReadBoundary.run(readAdminPreviewMateriCatalogue);
 }
 
-async function getAdminPreviewMateriCatalogueSurface() {
+async function getAdminPreviewMateriCatalogueSurface(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+) {
   return PreviewReadBoundary.run(async () => {
     const [courses, banner] = await Promise.all([
       readAdminPreviewMateriCatalogue(),
-      getAdminStudentPreviewBannerContents(),
+      getAdminStudentPreviewBannerPresentation("materi", bannerRequest),
     ]);
     return { banner, courses } satisfies AdminPreviewMateriCatalogueRead;
   });

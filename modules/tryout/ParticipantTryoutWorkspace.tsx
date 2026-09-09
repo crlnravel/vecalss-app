@@ -21,9 +21,14 @@ import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-car
 import type { SessionContext } from "@/lib/auth/types";
 import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import {
   canEnterParticipantWaitingRoom,
   formatDuration,
@@ -64,7 +69,7 @@ function ParticipantTryoutWorkspace({
   notificationFeed,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
   initialTryouts: ParticipantTryout[];
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
@@ -119,38 +124,56 @@ function ParticipantTryoutWorkspace({
       showSearch={false}
     >
       <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-5 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-voyage-sea-glass/20 sm:size-80"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[40%] min-w-[18rem] lg:block"
-        >
-          <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
-          <Image
-            alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] xl:w-[26rem]"
-            height={416}
-            sizes="(min-width: 1280px) 416px, 352px"
-            src="/brand/mascot-vecalss.png"
-            width={416}
-          />
-        </div>
-        <div className="relative max-w-3xl lg:max-w-[60%]">
-          <h1 className="max-w-[15ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance sm:text-5xl">
-            {banner.title}
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-learning-hero-muted sm:text-base sm:leading-7">
-            {banner.description}
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
-              <CalendarDays aria-hidden="true" className="size-4" />
-              {initialTryouts.length} tryout tersedia
-            </span>
-          </div>
-        </div>
+        {banner.design ? (
+          <>
+            <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" />
+            <div className="sr-only">
+              <h1>{getStudentBannerHeading(banner)}</h1>
+              <p>{getStudentBannerDescription(banner)}</p>
+            </div>
+            <div className="relative z-10 flex min-h-[18rem] items-end">
+              <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                <CalendarDays aria-hidden="true" className="size-4" />
+                {initialTryouts.length} tryout tersedia
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-voyage-sea-glass/20 sm:size-80"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 hidden w-[40%] min-w-[18rem] lg:block"
+            >
+              <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
+              <Image
+                alt=""
+                className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] xl:w-[26rem]"
+                height={416}
+                sizes="(min-width: 1280px) 416px, 352px"
+                src="/brand/mascot-vecalss.png"
+                width={416}
+              />
+            </div>
+            <div className="relative max-w-3xl lg:max-w-[60%]">
+              <h1 className="max-w-[15ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance sm:text-5xl">
+                {banner.fallback.title}
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-learning-hero-muted sm:text-base sm:leading-7">
+                {banner.fallback.description}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                  <CalendarDays aria-hidden="true" className="size-4" />
+                  {initialTryouts.length} tryout tersedia
+                </span>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <section aria-label="Cari dan filter tryout" className="grid gap-6">

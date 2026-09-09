@@ -1,4 +1,5 @@
 import type { StudentSurfaceContext } from "@/lib/student/surface-context";
+import { buildBannerMakerDestinationRoute, type BannerDestination } from "@/lib/banner/destinations";
 
 const ADMIN_STUDENT_PREVIEW_PREFIX = "/admin/student-preview" as const;
 
@@ -126,8 +127,31 @@ function buildAdminStudentPreviewMateriDocumentRoute(
   return `${documentPath}?assetId=${encodeURIComponent(normalizedAssetId)}`;
 }
 
-function buildAdminStudentPreviewBannerEditorRoute() {
-  return `${ADMIN_STUDENT_PREVIEW_PREFIX}?edit=banners`;
+function buildAdminStudentPreviewBannerEditorRoute(destination: BannerDestination = "beranda") {
+  return buildBannerMakerDestinationRoute(destination);
+}
+
+function isBannerRevision(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+}
+
+function buildAdminStudentPreviewBannerDraftRoute(
+  destination: BannerDestination,
+  revision: string,
+) {
+  if (!isBannerRevision(revision)) {
+    throw new Error("Unsafe admin student preview banner revision.");
+  }
+
+  const pathByDestination: Record<BannerDestination, string> = {
+    beranda: "/",
+    kuis: "/quiz",
+    materi: "/courses",
+    tryout: "/tryout",
+  };
+  return buildAdminStudentPreviewRoute(
+    `${pathByDestination[destination]}?bannerSource=draft&revision=${encodeURIComponent(revision)}`,
+  );
 }
 
 function buildAdminStudentPreviewExit(exit: Exclude<AdminStudentPreviewApprovedExit, "logout">) {
@@ -175,6 +199,7 @@ export {
   ADMIN_STUDENT_PREVIEW_PREFIX,
   buildAdminStudentPreviewExit,
   buildAdminStudentPreviewBannerEditorRoute,
+  buildAdminStudentPreviewBannerDraftRoute,
   buildAdminStudentPreviewMateriDocumentRoute,
   buildAdminStudentPreviewMateriRoute,
   buildAdminStudentPreviewQuizRoute,

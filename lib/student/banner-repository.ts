@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_noStore } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
+import { assertLegacyBannerWritesRetired } from "@/lib/banner/activation";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -155,6 +156,7 @@ async function saveStudentBannerDraft({
   banners: StudentBannerSet;
   expectedVersion: string | null;
 }) {
+  assertLegacyBannerWritesRetired();
   return prisma.$transaction(async (tx) => {
     await acquireBannerMediaMutationLock(tx);
 
@@ -256,6 +258,7 @@ async function publishStudentBannerContents({
   banners: StudentBannerSet;
   expectedVersion: string | null;
 }) {
+  assertLegacyBannerWritesRetired();
   return prisma.$transaction(async (tx) => {
     await acquireBannerMediaMutationLock(tx);
 
