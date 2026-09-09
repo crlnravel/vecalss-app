@@ -35,9 +35,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const requestedLimit = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
   const limit = Number.isFinite(requestedLimit) ? requestedLimit : undefined;
+  const requestedPage = Number.parseInt(url.searchParams.get("page") ?? "", 10);
+  const page = Number.isFinite(requestedPage) ? requestedPage : undefined;
 
   try {
-    const feed = await getStudentNotificationFeed({ limit, userId: session.user.id });
+    const feed = await getStudentNotificationFeed({ limit, page, userId: session.user.id });
     return Response.json(feed, { headers: responseHeaders });
   } catch {
     return Response.json(

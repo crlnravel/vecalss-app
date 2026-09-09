@@ -4,12 +4,18 @@ import { Bell, ChevronRight } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { ReferenceEmptyState } from "@/components/dashboard";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { markAllNotificationsReadAction } from "@/modules/student/actions";
-import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 function NotificationEntry({ item }: { item: StudentNotificationItem }) {
@@ -65,14 +71,19 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
 
 function NotificationsPageModule({
   items,
+  page,
+  pageCount,
   session,
   unreadCount,
 }: {
   items: StudentNotificationItem[];
+  page: number;
+  pageCount: number;
   session: SessionContext;
   unreadCount: number;
 }) {
   const hasUnread = unreadCount > 0;
+  const pageHref = (nextPage: number) => nextPage === 1 ? "/notifications" : `/notifications?page=${nextPage}`;
 
   return (
     <StudentWorkspaceShell
@@ -84,29 +95,14 @@ function NotificationsPageModule({
       session={session}
     >
       <section className="flex flex-col gap-8">
-        <StudentPageHero
-          actions={
-            <form action={markAllNotificationsReadAction}>
-              <Button
-                className="border-white/20 bg-white text-voyage-deep hover:border-white hover:bg-voyage-sea-glass hover:text-voyage-deep disabled:bg-white/55 disabled:text-voyage-deep/65"
-                disabled={!hasUnread}
-                size="default"
-                type="submit"
-                variant="outline"
-              >
-                Tandai sudah dibaca
-              </Button>
-            </form>
-          }
-          description="Pantau pembaruan kelas, pengingat belajar, dan undangan Tryout dari satu tempat."
-          icon={Bell}
-          meta={
-            <span className="inline-flex min-h-10 items-center rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
-              {hasUnread ? `${unreadCount} belum dibaca` : "Semua sudah dibaca"}
-            </span>
-          }
-          title="Notifikasi"
-        />
+        <header className="flex flex-col gap-4 border-b border-primary-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Notifikasi</h1>
+          <form action={markAllNotificationsReadAction}>
+            <Button disabled={!hasUnread} size="default" type="submit" variant="brand">
+              Tandai sudah dibaca
+            </Button>
+          </form>
+        </header>
 
         {items.length > 0 ? (
           <section aria-labelledby="notification-list-title" className="grid gap-4">
@@ -119,6 +115,37 @@ function NotificationsPageModule({
             <div className="grid gap-4">
               {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
             </div>
+            {pageCount > 1 ? (
+              <Pagination aria-label="Halaman notifikasi" className="pt-2">
+                <PaginationContent className="w-full justify-between sm:w-auto sm:justify-center">
+                  <PaginationItem>
+                    {page > 1 ? (
+                      <PaginationPrevious
+                        nativeButton={false}
+                        render={<Link href={pageHref(page - 1)} />}
+                      />
+                    ) : (
+                      <PaginationPrevious disabled />
+                    )}
+                  </PaginationItem>
+                  <PaginationItem>
+                    <span aria-current="page" className="px-3 text-sm font-semibold tabular-nums text-secondary-600">
+                      Halaman {page} dari {pageCount}
+                    </span>
+                  </PaginationItem>
+                  <PaginationItem>
+                    {page < pageCount ? (
+                      <PaginationNext
+                        nativeButton={false}
+                        render={<Link href={pageHref(page + 1)} />}
+                      />
+                    ) : (
+                      <PaginationNext disabled />
+                    )}
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            ) : null}
           </section>
         ) : (
           <ReferenceEmptyState

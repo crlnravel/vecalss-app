@@ -22,6 +22,10 @@ const ZOOM_LINK_PATTERN = /https:\/\/(?:[a-z0-9-]+\.)?zoom\.(?:us|com)(?:[/:?#]|
 type NotificationFeed = {
   items: StudentNotificationItem[];
   unreadCount: number;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 type StudentNotificationDetail = {
@@ -84,6 +88,14 @@ function normalizeLimit(limit?: number) {
   }
 
   return Math.min(MAX_NOTIFICATION_LIMIT, Math.max(1, Math.floor(limit ?? DEFAULT_NOTIFICATION_LIMIT)));
+}
+
+function normalizePage(page?: number) {
+  if (!Number.isFinite(page)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.floor(page ?? 1));
 }
 
 function formatNotificationTime(createdAt: Date, now: Date) {
@@ -149,28 +161,20 @@ function validateKelasNotificationInput(input: Omit<SendKelasNotificationInput, 
 
 async function getStudentNotificationFeed({
   limit = DEFAULT_NOTIFICATION_LIMIT,
+  page = 1,
   userId,
 }: {
   limit?: number;
+  page?: number;
   userId: string;
 }): Promise<NotificationFeed> {
   return prisma.$transaction(async (tx) => {
     const now = new Date();
     const where = activeNotificationWhere(userId, now);
-    const [notifications, unreadCount] = await Promise.all([
-      tx.notification.findMany({
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-        select: {
-          body: true,
-          createdAt: true,
-          deepLink: true,
-          id: true,
-          readAt: true,
-          title: true,
-        },
-        take: normalizeLimit(limit),
-        where,
-      }),
+    const pageSize = normalizeLimit(limit);
+    const requestedPage = normalizePage(page);
+    const [totalCount, unreadCount] = await Promise.all([
+      tx.notification.count({ where }),
       tx.notification.count({
         where: {
           ...where,
@@ -178,6 +182,22 @@ async function getStudentNotificationFeed({
         },
       }),
     ]);
+    const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+    const currentPage = Math.min(requestedPage, pageCount);
+    const notifications = await tx.notification.findMany({
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      select: {
+        body: true,
+        createdAt: true,
+        deepLink: true,
+        id: true,
+        readAt: true,
+        title: true,
+      },
+      skip: (currentPage - 1) * pageSize,
+      take: pageSize,
+      where,
+    });
 
     return {
       items: notifications.map((notification) => ({
@@ -189,6 +209,10 @@ async function getStudentNotificationFeed({
         unread: notification.readAt === null,
       })),
       unreadCount,
+      page: currentPage,
+      pageCount,
+      pageSize,
+      totalCount,
     };
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
