@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { requireAdminSession } from "@/lib/auth/access";
 import { getBannerMakerDestinationSnapshot, getBannerMakerSnapshot } from "@/lib/admin/banner-maker-repository";
-import { parseBannerDestinationQuery } from "@/lib/banner/destinations";
+import { BannerDestinationError, parseBannerDestinationQuery, type BannerDestination } from "@/lib/banner/destinations";
+import { BannerDestinationQueryError } from "@/modules/admin/BannerDestinationQueryError";
 import { BannerMakerDestinationPageModule } from "@/modules/admin/BannerMakerDestinationPageModule";
 import { BannerMakerPageModule } from "@/modules/admin/BannerMakerPageModule";
 
@@ -22,7 +23,13 @@ export default async function AdminStudentBannersPage({
 }) {
   const session = await requireAdminSession();
   const { destination: rawDestination } = await searchParams;
-  const destination = parseBannerDestinationQuery(rawDestination);
+  let destination: BannerDestination;
+  try {
+    destination = parseBannerDestinationQuery(rawDestination);
+  } catch (error) {
+    if (!(error instanceof BannerDestinationError)) throw error;
+    return <BannerDestinationQueryError />;
+  }
 
   if (BANNER_V2_EDITOR_PUBLICLY_ENABLED) {
     const snapshot = await getBannerMakerDestinationSnapshot(destination);
