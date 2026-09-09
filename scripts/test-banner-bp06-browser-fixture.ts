@@ -27,6 +27,8 @@ const PORT = 5146;
 const STATE_PREFIX = "vecalss-bp06-browser-state";
 const MIRROR_PREFIX = "vecalss-bp06-browser-";
 const SCHEMA_PREFIX = "banner_bp06_browser_";
+const MIRROR_DIST_DIR = ".next-bp06-browser";
+const NEXT_ROUTE_TYPE_REFERENCES = ["./.next/types/routes.d.ts", "./.next/dev/types/routes.d.ts"] as const;
 
 const ADMIN_ID = "a1111111-1111-4111-8111-111111111111";
 const VOYAGER_ID = "b2222222-2222-4222-8222-222222222222";
@@ -70,6 +72,11 @@ type CatalogRow = {
   defaultExpression?: string | null;
 };
 
+type UniqueIndexRow = {
+  indexName: string;
+  indexDefinition: string;
+};
+
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
@@ -84,6 +91,13 @@ function shellQuote(value: string) {
 
 function statePath() {
   return resolve(process.env[STATE_ENV]?.trim() || join(tmpdir(), `${STATE_PREFIX}.json`));
+}
+
+function hasErrnoCode(error: unknown, code: string): boolean {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error as { code?: unknown }).code === code;
 }
 
 function connectionIdentity(raw: string) {
@@ -260,6 +274,11 @@ async function createLocalSchema(client: pg.Client, schema: string, onSchemaCrea
     );
   }
 
+  // `CREATE TABLE ... LIKE ... INCLUDING DEFAULTS` does not copy standalone
+  // indexes. Copy every non-constraint unique index before foreign keys so a
+  // composite FK cannot silently disappear just because PostgreSQL requires a
+  // unique index (rather than a UNIQUE constraint) on its target columns.
+  await cloneLocalUniqueIndexes(client, schema);
   await cloneLocalConstraints(client, schema);
 }
 
@@ -313,7 +332,6 @@ async function cloneLocalConstraints(client: pg.Client, schema: string) {
       `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${row.definition}`,
     );
   }
-  let skippedUnbackedForeignKeys = 0;
   for (const row of constraints.rows.filter(({ constraintType }) => constraintType === "f")) {
     assert.ok(row.referencedTableName);
     const definition = row.definition
@@ -323,23 +341,46 @@ async function cloneLocalConstraints(client: pg.Client, schema: string) {
         new RegExp(`REFERENCES\\s+(?:${schema}\\.)?"?${row.referencedTableName}"?`, "iu"),
         `REFERENCES ${quotedSchema}.${quoteIdentifier(row.referencedTableName)}`,
       );
-    try {
-      await client.query(
-        `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${definition}`,
-      );
-    } catch (error) {
-      // Some production partition/revision FKs intentionally target an
-      // index-backed topology that is not representable by a standalone
-      // local PK/UNIQUE constraint. The browser fixture must not invent a
-      // public reference or fail the whole schema for an unused empty table;
-      // omit only PostgreSQL's exact "no unique constraint" rejection and
-      // preserve all other schema errors.
-      if ((error as { code?: string }).code !== "42830") throw error;
-      skippedUnbackedForeignKeys += 1;
-    }
+    // Do not catch 42830 here. The historical omission was
+    // `questions_current_revision_identity_fkey`, whose target
+    // `question_revisions(question_id, id)` is backed by the standalone
+    // `question_revisions_question_id_id_key` index. That index is now copied
+    // above; any remaining failure means the local schema is incomplete and
+    // must fail closed instead of weakening fixture integrity.
+    await client.query(
+      `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${definition}`,
+    );
   }
-  if (skippedUnbackedForeignKeys > 0) {
-    console.log(`BP06 fixture omitted ${skippedUnbackedForeignKeys} source FKs without a local unique target key`);
+}
+
+async function cloneLocalUniqueIndexes(client: pg.Client, schema: string) {
+  const result = await client.query<UniqueIndexRow>(
+    `SELECT index_class.relname AS "indexName",
+            pg_get_indexdef(index_class.oid) AS "indexDefinition"
+       FROM pg_index index_row
+       JOIN pg_class table_class ON table_class.oid = index_row.indrelid
+       JOIN pg_namespace table_namespace ON table_namespace.oid = table_class.relnamespace
+       JOIN pg_class index_class ON index_class.oid = index_row.indexrelid
+       LEFT JOIN pg_constraint constraint_row ON constraint_row.conindid = index_row.indexrelid
+      WHERE table_namespace.nspname = 'public'
+        AND table_class.relkind IN ('r', 'p')
+        AND index_class.relkind IN ('i', 'I')
+        AND index_row.indisunique
+        AND NOT index_row.indisprimary
+        AND constraint_row.oid IS NULL
+      ORDER BY table_class.relname, index_class.relname`,
+  );
+  const quotedSchema = quoteIdentifier(schema);
+  for (const row of result.rows) {
+    const prefix = /^CREATE UNIQUE INDEX\s+(?:"(?:[^"]|"")+"|\S+)\s+ON\s+(ONLY\s+)?/u;
+    assert.match(row.indexDefinition, prefix, `BP06 cannot rewrite unique index ${row.indexName}`);
+    const rewritten = row.indexDefinition
+      .replace(prefix, (_match, only: string | undefined) =>
+        `CREATE UNIQUE INDEX ${quotedSchema}.${quoteIdentifier(row.indexName)} ON ${only ?? ""}`)
+      .replaceAll('"public".', `${quotedSchema}.`)
+      .replaceAll("public.", `${quotedSchema}.`);
+    assert.doesNotMatch(rewritten, /(?:^|\W)"?public"?\./u, `BP06 unique index ${row.indexName} still references public`);
+    await client.query(rewritten);
   }
 }
 
@@ -563,6 +604,23 @@ async function setup() {
   const client = new Client({ connectionString: databaseUrl });
   const adminPassword = `BP06-${randomUUID()}-Aa7`;
   const voyagerPassword = `BP06-${randomUUID()}-Vv7`;
+  const fixtureState: FixtureState = {
+    credentialFile,
+    databaseUrl: isolatedUrl,
+    draftRevisions: DRAFT_REVISIONS,
+    envFile,
+    mirrorRoot,
+    port: PORT,
+    publishedRevisions: PUBLISHED_REVISIONS,
+    schema,
+    stateFile,
+  };
+  const fixtureCredentials = {
+    adminEmail: ADMIN_EMAIL,
+    adminPassword,
+    voyagerEmail: VOYAGER_EMAIL,
+    voyagerPassword,
+  };
   let schemaOwned = false;
   try {
     await client.connect();
@@ -578,46 +636,44 @@ async function setup() {
     // Mirror creation is intentionally explicit so no Next-generated file can
     // land through a symlink in the source workspace.
     const mirror = await createMirrorAt(sourceRoot, mirrorRoot);
-    const state: FixtureState = {
-      credentialFile,
-      databaseUrl: isolatedUrl,
-      draftRevisions: DRAFT_REVISIONS,
-      envFile,
-      mirrorRoot: mirror,
-      port: PORT,
-      publishedRevisions: PUBLISHED_REVISIONS,
-      schema,
-      stateFile,
-    };
-    await writeStateFiles(state, {
-      adminEmail: ADMIN_EMAIL,
-      adminPassword,
-      voyagerEmail: VOYAGER_EMAIL,
-      voyagerPassword,
-    });
-    printRoutes(state);
+    await assertMirrorBoundary(sourceRoot, mirror);
+    assert.equal(mirror, fixtureState.mirrorRoot);
+    await writeStateFiles(fixtureState, fixtureCredentials);
+    printRoutes(fixtureState);
   } catch (error) {
     await client.end().catch(() => undefined);
+    let schemaCleanupError: unknown = null;
     if (schemaOwned) {
       const cleanupClient = new Client({ connectionString: databaseUrl });
-      let cleanupFailed = false;
       try {
         await cleanupClient.connect();
         await dropLocalSchema(cleanupClient, schema);
-      } catch {
-        cleanupFailed = true;
+      } catch (cleanupError) {
+        schemaCleanupError = cleanupError;
       } finally {
-        await cleanupClient.end().catch(() => {
-          cleanupFailed = true;
-        });
+        try {
+          await cleanupClient.end();
+        } catch (closeError) {
+          schemaCleanupError ??= closeError;
+        }
       }
-      if (cleanupFailed) {
-        console.error("BP06 fixture setup failed and exact owned-schema cleanup also failed; manual exact cleanup is required");
+      if (schemaCleanupError) {
+        // Preserve exact ownership evidence when schema cleanup fails. The
+        // private state lets a later explicit cleanup retry only this schema;
+        // it is never replaced by a broad drop or silently discarded.
+        try {
+          await writeStateFiles(fixtureState, fixtureCredentials);
+          console.error(`BP06 fixture setup failed; exact schema cleanup failed. Ownership state retained at ${stateFile}`);
+        } catch {
+          console.error(`BP06 fixture setup failed; exact schema cleanup failed and ownership state could not be retained for ${schema}`);
+        }
       }
     }
-    await rm(mirrorRoot, { recursive: true, force: true }).catch(() => undefined);
-    await rm(envFile, { force: true }).catch(() => undefined);
-    await rm(credentialFile, { force: true }).catch(() => undefined);
+    if (!schemaCleanupError) {
+      await rm(mirrorRoot, { recursive: true, force: true });
+      await rm(envFile, { force: true });
+      await rm(credentialFile, { force: true });
+    }
     throw error;
   }
 }
@@ -631,23 +687,57 @@ async function createMirrorAt(root: string, mirrorRoot: string) {
     const target = join(mirrorRoot, entry.name);
     if (entry.name === "next.config.ts") {
       const config = await readFile(source, "utf8");
-      const patched = config.replace(
-        "const nextConfig: NextConfig = {",
-        "const nextConfig: NextConfig = {\n  distDir: \".next-bp06-browser\",",
-      );
+      const distDirPattern = /\bdistDir\s*:\s*(["'])[^"']+\1/u;
+      const patched = distDirPattern.test(config)
+        ? config.replace(distDirPattern, `distDir: "${MIRROR_DIST_DIR}"`)
+        : config.replace(
+          "const nextConfig: NextConfig = {",
+          `const nextConfig: NextConfig = {\n  distDir: "${MIRROR_DIST_DIR}",`,
+        );
       assert.notEqual(patched, config, "BP06 mirror must patch Next distDir in its private config copy.");
+      assert.match(patched, new RegExp(`\\bdistDir\\s*:\\s*["']${MIRROR_DIST_DIR}["']`, "u"));
       await writeFile(target, patched, "utf8");
     } else if (entry.name === "next-env.d.ts") {
       const sourceText = await readFile(source, "utf8");
-      const patched = sourceText.replaceAll("./.next/types/routes.d.ts", "./.next-bp06-browser/types/routes.d.ts");
-      assert.notEqual(patched, sourceText, "BP06 mirror must keep next-env route types inside its private distDir.");
+      const patched = NEXT_ROUTE_TYPE_REFERENCES.reduce(
+        (text, reference) => text.replaceAll(reference, reference.replace("./.next", `./${MIRROR_DIST_DIR}`)),
+        sourceText,
+      );
+      assert.notEqual(patched, sourceText, "BP06 mirror must patch the generated next-env route type reference.");
+      assert.doesNotMatch(
+        patched,
+        /import\s+["']\.\/\.next(?:\/dev)?\/types\/routes\.d\.ts["']/u,
+        "BP06 mirror must keep every next-env route type inside its private distDir.",
+      );
+      assert.match(
+        patched,
+        new RegExp(`import\\s+["']\\./${MIRROR_DIST_DIR}(?:/dev)?/types/routes\\.d\\.ts["']`, "u"),
+      );
       await writeFile(target, patched, "utf8");
     } else if (entry.name === "tsconfig.json") {
       const sourceText = await readFile(source, "utf8");
       const patched = sourceText
-        .replaceAll(".next/types/**/*.ts", ".next-bp06-browser/types/**/*.ts")
-        .replaceAll(".next/dev/types/**/*.ts", ".next-bp06-browser/dev/types/**/*.ts");
-      await writeFile(target, patched, "utf8");
+        .replaceAll(".next/types/**/*.ts", `${MIRROR_DIST_DIR}/types/**/*.ts`)
+        .replaceAll(".next/dev/types/**/*.ts", `${MIRROR_DIST_DIR}/dev/types/**/*.ts`);
+      const tsconfig = JSON.parse(patched) as {
+        compilerOptions?: Record<string, unknown>;
+        include?: unknown;
+      };
+      tsconfig.compilerOptions ??= {};
+      tsconfig.compilerOptions.tsBuildInfoFile = `${MIRROR_DIST_DIR}/tsconfig.tsbuildinfo`;
+      assert.ok(
+        Array.isArray(tsconfig.include)
+          && tsconfig.include.every((entry) => typeof entry !== "string" || !entry.startsWith(".next/")),
+        "BP06 mirror tsconfig must not include source .next paths",
+      );
+      assert.equal(
+        tsconfig.compilerOptions.tsBuildInfoFile,
+        `${MIRROR_DIST_DIR}/tsconfig.tsbuildinfo`,
+        "BP06 mirror tsconfig must keep incremental output private",
+      );
+      const serialized = `${JSON.stringify(tsconfig, null, 2)}\n`;
+      assert.match(serialized, new RegExp(MIRROR_DIST_DIR, "u"));
+      await writeFile(target, serialized, "utf8");
     } else if (["package.json", "pnpm-lock.yaml"].includes(entry.name)) {
       await copyFile(source, target);
     } else {
@@ -655,15 +745,55 @@ async function createMirrorAt(root: string, mirrorRoot: string) {
     }
   }
   await symlink(join(root, "node_modules"), join(mirrorRoot, "node_modules"), "dir");
-  await mkdir(join(mirrorRoot, ".next-bp06-browser"), { recursive: true });
+  await mkdir(join(mirrorRoot, MIRROR_DIST_DIR), { recursive: true });
   return mirrorRoot;
+}
+
+async function assertMirrorBoundary(sourceRoot: string, mirrorRoot: string) {
+  assert.notEqual(resolve(sourceRoot), resolve(mirrorRoot), "BP06 mirror must not be the source workspace");
+  const privateOutput = await lstat(join(mirrorRoot, MIRROR_DIST_DIR));
+  assert.ok(privateOutput.isDirectory() && !privateOutput.isSymbolicLink(), "BP06 Next output must be a real mirror-local directory");
+  const sourceDependencies = await lstat(join(mirrorRoot, "node_modules"));
+  assert.ok(sourceDependencies.isSymbolicLink(), "BP06 dependency mirror may symlink node_modules only");
+  for (const copiedFile of ["next.config.ts", "next-env.d.ts", "tsconfig.json", "package.json", "pnpm-lock.yaml"]) {
+    const copied = await lstat(join(mirrorRoot, copiedFile));
+    assert.ok(copied.isFile() && !copied.isSymbolicLink(), `BP06 ${copiedFile} must be a private copied file`);
+  }
+  await assert.rejects(
+    lstat(join(mirrorRoot, ".next")),
+    (error: unknown) => hasErrnoCode(error, "ENOENT"),
+    "BP06 mirror must not expose the source .next directory",
+  );
 }
 
 async function cleanup() {
   const file = statePath();
-  const state = JSON.parse(await readFile(file, "utf8")) as FixtureState;
+  let serializedState: string;
+  try {
+    serializedState = await readFile(file, "utf8");
+  } catch (error) {
+    if (hasErrnoCode(error, "ENOENT")) {
+      console.log(`BP06 browser fixture cleanup: no state at ${file}; no owned fixture state exists.`);
+      return;
+    }
+    throw error;
+  }
+  const state = JSON.parse(serializedState) as FixtureState;
+  assert.equal(resolve(state.stateFile), file, "BP06 cleanup state must identify this exact state file.");
   assert.match(state.schema, new RegExp(`^${SCHEMA_PREFIX}[a-z0-9_]+$`, "u"));
   assert.match(state.mirrorRoot, new RegExp(`^${tmpdir().replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\/${MIRROR_PREFIX}`, "u"));
+  assert.equal(state.port, PORT, "BP06 cleanup state must target the approved fixture port.");
+  const stateDirectory = dirname(file);
+  assert.equal(
+    resolve(state.envFile),
+    join(stateDirectory, `${STATE_PREFIX}.env`),
+    "BP06 cleanup env path must stay beside the exact state file",
+  );
+  assert.equal(
+    resolve(state.credentialFile),
+    join(stateDirectory, `${STATE_PREFIX}.credentials.json`),
+    "BP06 cleanup credential path must stay beside the exact state file",
+  );
   const rawDatabaseUrl = readDisposableDatabaseUrl();
   const identity = connectionIdentity(rawDatabaseUrl);
   const isolated = connectionIdentity(state.databaseUrl);
@@ -675,6 +805,9 @@ async function cleanup() {
   } finally {
     await client.end();
   }
+  // State and private paths are ownership evidence until the exact schema
+  // drop and database connection close both succeed. Any removal failure
+  // below propagates and leaves the state file for a subsequent exact retry.
   await rm(state.mirrorRoot, { recursive: true, force: true });
   await rm(state.credentialFile, { force: true });
   await rm(state.envFile, { force: true });
@@ -1039,16 +1172,16 @@ async function runBrowserSupervisor() {
     NEXT_TELEMETRY_DISABLED: "1",
   };
   const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
-  const nextChild = spawn(process.execPath, [nextBin, "dev", "--hostname", "127.0.0.1", "--port", String(PORT)], {
-    cwd: state.mirrorRoot,
-    env: childEnv,
-    shell: false,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  const nextOutput = captureChildOutput(nextChild);
+  let nextChild: ChildProcess | null = null;
   let browserChild: ChildProcess | null = null;
-  let browserOutput: string[] = [];
   try {
+    nextChild = spawn(process.execPath, [nextBin, "dev", "--hostname", "127.0.0.1", "--port", String(PORT)], {
+      cwd: state.mirrorRoot,
+      env: childEnv,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const nextOutput = captureChildOutput(nextChild);
     await waitForNextReady(nextChild, nextOutput);
     console.log(`BP06 supervised Next child ready on ${routeUrl(PORT, "/")}`);
     browserChild = spawn("ego-browser", ["nodejs"], {
@@ -1057,7 +1190,7 @@ async function runBrowserSupervisor() {
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    browserOutput = captureChildOutput(browserChild);
+    const browserOutput = captureChildOutput(browserChild);
     browserChild.stdin?.end(browserVerificationScript());
     await waitForChildExit(browserChild, 180_000);
     if (browserChild.exitCode === null) {
