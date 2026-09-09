@@ -47,6 +47,14 @@ function parseBannerDestination(value: unknown): BannerDestination {
   return value;
 }
 
+function parseBannerDestinationQuery(value: string | string[] | undefined): BannerDestination {
+  return value === undefined ? "beranda" : parseBannerDestination(value);
+}
+
+function buildBannerMakerDestinationRoute(destination: BannerDestination = "beranda") {
+  return `/admin/student-banners?destination=${encodeURIComponent(parseBannerDestination(destination))}`;
+}
+
 function getBannerDestination(value: unknown): BannerDestinationDefinition | null {
   return BANNER_DESTINATIONS.find((destination) => destination.key === value) ?? null;
 }
@@ -60,9 +68,11 @@ export {
   BANNER_LEGACY_CONFIG_KEY,
   BANNER_V2_CONFIG_KEYS,
   BannerDestinationError,
+  buildBannerMakerDestinationRoute,
   getBannerDestination,
   getBannerDestinationByConfigKey,
   isBannerDestination,
   parseBannerDestination,
+  parseBannerDestinationQuery,
 };
 export type { BannerDestination, BannerDestinationDefinition };

@@ -75,6 +75,12 @@ import {
   type BannerMakerFormState,
   type BannerTextLayer,
 } from "@/lib/admin/banner-maker";
+import {
+  getBannerImagePaint,
+  getBannerLayerLayout,
+  getBannerTextPaint,
+  calculateBannerGeometry,
+} from "@/lib/banner/renderer";
 import type { SessionContext } from "@/lib/auth/types";
 import { imageMediaMimeTypes } from "@/lib/media/domain";
 import type { MediaAssetDto } from "@/lib/media/types";
@@ -182,18 +188,11 @@ function createLayerId(prefix: string) {
   return `${prefix}-${Date.now()}`;
 }
 
-function safeCssUrl(url: string) {
-  return url.replaceAll("\\", "%5C").replaceAll('"', "%22").replaceAll("\n", "");
-}
-
 function assetPreviewUrl(asset: MediaAssetDto) {
   return asset.thumbnailUrl ?? asset.previewUrl ?? `/api/media/admin/assets/${asset.id}/thumbnail`;
 }
 
-function backgroundStyle(
-  background: BannerBackground,
-  assetUrls: Record<string, BannerAssetView>,
-): CSSProperties {
+function backgroundStyle(background: BannerBackground): CSSProperties {
   if (background.type === "color") {
     return { backgroundColor: background.color };
   }
@@ -204,17 +203,7 @@ function backgroundStyle(
     };
   }
 
-  const image = assetUrls[background.assetId];
-  return image
-    ? {
-        backgroundImage: `linear-gradient(120deg, rgba(1, 76, 56, 0.48), rgba(23, 107, 77, 0.12)), url("${safeCssUrl(image.url)}")`,
-        backgroundPosition: "center",
-        backgroundSize: "cover",
-      }
-    : {
-        backgroundColor: "#014C38",
-        backgroundImage: "linear-gradient(120deg, #014C38, #176B4D)",
-      };
+  return { backgroundColor: "#014C38" };
 }
 
 function layerLabel(layer: BannerLayer) {
@@ -797,6 +786,7 @@ function BannerCanvas({
   const [editingTextLayerId, setEditingTextLayerId] = useState<string | null>(null);
   const editingTextRef = useRef<HTMLDivElement>(null);
   const scale = canvasWidth > 0 ? canvasWidth / design.frame.width : 1;
+  const geometry = calculateBannerGeometry(design.frame, canvasWidth || design.frame.width);
 
   useEffect(() => {
     if (!editingTextLayerId) return;
@@ -916,7 +906,19 @@ function BannerCanvas({
       }}
       tabIndex={0}
     >
-      <div className="pointer-events-none absolute inset-0" style={backgroundStyle(design.background, assetUrls)} />
+      <div className="pointer-events-none absolute inset-0" style={backgroundStyle(design.background)} />
+      {design.background.type === "image" ? (
+        <>
+          <img
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 size-full object-cover"
+            src={assetUrls[design.background.assetId]?.url ?? ""}
+            style={getBannerImagePaint("background")}
+          />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(1,76,56,0.42),rgba(23,107,77,0.08))]" />
+        </>
+      ) : null}
       {showGuides ? (
         <>
           <div className="pointer-events-none absolute inset-x-[5%] top-1/2 border-t border-dashed border-white/30" />
@@ -936,22 +938,17 @@ function BannerCanvas({
 
       {design.layers.map((layer) => {
         const imageUrl = layer.type === "image" ? assetUrls[layer.assetId]?.url : null;
-        const layerStyle: CSSProperties = {
-          height: `${layer.height}%`,
-          left: `${layer.x}%`,
-          opacity: layer.opacity,
-          top: `${layer.y}%`,
-          transform: `rotate(${layer.rotation}deg)`,
-          width: `${layer.width}%`,
-        };
+        const layerStyle: CSSProperties = getBannerLayerLayout(layer);
 
         const isEditingText = layer.type === "text" && editingTextLayerId === layer.id;
-        const textStyle: CSSProperties = layer.type === "text" ? {
-          color: layer.color,
-          fontSize: `${Math.max(10, layer.fontSize * scale)}px`,
-          fontWeight: layer.weight === "bold" ? 700 : layer.weight === "medium" ? 500 : 400,
-          textAlign: layer.align,
-        } : {};
+        const textStyle: CSSProperties = layer.type === "text"
+          ? {
+              ...getBannerTextPaint(layer, geometry),
+              boxSizing: "border-box",
+              fontSize: `${layer.fontSize * geometry.scale}px`,
+              padding: `${geometry.textInset}px`,
+            }
+          : {};
 
         if (isEditingText && layer.type === "text") {
           return (
@@ -959,7 +956,7 @@ function BannerCanvas({
               aria-label="Edit teks banner"
               aria-multiline="true"
               autoFocus
-              className="absolute z-20 flex min-w-0 items-center overflow-hidden border border-white bg-transparent p-2 leading-[1.05] outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              className="absolute z-20 flex min-w-0 items-center overflow-hidden border border-white bg-transparent leading-[1.05] outline-none focus-visible:ring-2 focus-visible:ring-white/80"
               contentEditable
               key={layer.id}
               onBlur={() => setEditingTextLayerId(null)}
@@ -1015,7 +1012,7 @@ function BannerCanvas({
                 aria-label={`Pilih ${layerLabel(layer)}${layer.type === "text" ? ". Klik dua kali atau tekan Enter untuk edit teks." : ""}`}
                 aria-pressed={selectedLayerId === layer.id}
                 className={cn(
-                  "absolute z-10 flex min-w-0 cursor-grab items-center overflow-hidden rounded-none border border-transparent p-2 text-left outline-none transition-shadow active:cursor-grabbing",
+                  "absolute z-10 flex min-w-0 cursor-grab items-center overflow-hidden rounded-none border border-transparent text-left outline-none transition-shadow active:cursor-grabbing",
                   selectedLayerId === layer.id ? "border-white" : "focus-visible:ring-2 focus-visible:ring-white/90",
                   layer.type === "text" ? "break-words" : "justify-center",
                 )}
@@ -1029,7 +1026,7 @@ function BannerCanvas({
                 }}
                 onKeyDown={(event) => onLayerKeyDown(event, layer)}
                 onPointerDown={(event) => onLayerPointerDown(event, layer)}
-                style={layerStyle}
+                style={{ ...layerStyle, boxSizing: "border-box" }}
                 type="button"
               >
                 {layer.type === "image" ? (
@@ -1040,6 +1037,7 @@ function BannerCanvas({
                       fill
                       sizes="100vw"
                       src={imageUrl}
+                      style={getBannerImagePaint("layer")}
                       unoptimized
                     />
                   ) : (
@@ -1652,5 +1650,16 @@ function BannerMakerEditor({ action, assetUrls: initialAssetUrls, design: initia
 }
 
 
-export { BannerMakerEditor };
-export type { BannerMakerAction, BannerMakerEditorProps };
+export {
+  AssetPickerPanel,
+  BannerCanvas,
+  BannerMakerEditor,
+  EditorPropertiesPanel,
+  LayerList,
+  createBannerMakerEditorActions,
+};
+export type {
+  BannerMakerAction,
+  BannerMakerEditorActions,
+  BannerMakerEditorProps,
+};

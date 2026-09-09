@@ -469,6 +469,16 @@ const fallbackMarkup = renderToStaticMarkup(createElement(BannerPresentation, {
 assert.match(fallbackMarkup, /Lanjutkan rute belajarmu/u);
 assert.doesNotMatch(fallbackMarkup, /api\/student-banners/u);
 
+const literalBraceFallbackMarkup = renderToStaticMarkup(createElement(BannerPresentation, {
+  assets: {},
+  design: presentationDesign,
+  destination: "beranda",
+  fallback: { description: "Target {target}", title: "Halo {firstName}" },
+  variables: { firstName: "{target}", target: "Kedokteran UI" },
+}));
+assert.match(literalBraceFallbackMarkup, /Halo \{target\}/u, "fallback variables resolve exactly once");
+assert.doesNotMatch(literalBraceFallbackMarkup, /Halo Kedokteran UI/u, "fallback variables must not resolve twice");
+
 await withMountedDomTest(async (rootElement, render) => {
   const oldAssets = { ...assetMap, [assetId]: { src: "/banner-old.png", alt: "Peta" } };
   const changedDesign = {

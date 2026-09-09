@@ -56,11 +56,12 @@ function BannerPresentation({
     generationRef.current = generation;
   }, [generation]);
   const geometry = calculateBannerGeometry(design.frame, frameWidth || design.frame.width);
-  const fallbackCopy = fallback ?? getBannerPresentationFallback(destination, variables);
-  const resolvedFallback = {
-    description: resolveBannerPresentationText(fallbackCopy.description, variables),
-    title: resolveBannerPresentationText(fallbackCopy.title, variables),
-  };
+  const resolvedFallback = fallback
+    ? {
+        description: resolveBannerPresentationText(fallback.description, variables),
+        title: resolveBannerPresentationText(fallback.title, variables),
+      }
+    : getBannerPresentationFallback(destination, variables);
   const imageReady = hasAllBannerImages(design, assets);
   const showFallback = failedImageKey === generation || !imageReady;
   const accessibleText = showFallback
