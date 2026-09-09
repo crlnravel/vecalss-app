@@ -94,7 +94,7 @@ function LogoutDialogFooter() {
 }
 
 function DebugAccountOptionContent({ account, isCurrent }: { account: DebugAccount; isCurrent: boolean }) {
-  return <div className="flex min-w-0 flex-col gap-0.5 text-left"><div className="flex items-center gap-2"><span className="truncate font-semibold text-secondary-900">{account.fullName}</span>{isCurrent ? <StudentBadge size="xs" tone="active">Aktif</StudentBadge> : null}</div><div className="flex items-center gap-1.5 text-xs text-secondary-500"><span className="truncate">{account.email}</span><span>•</span><span className="font-medium text-secondary-700">{account.roles.map((role) => debugRoleLabels[role] ?? role).join(", ")}</span></div></div>;
+  return <div className="flex min-w-0 flex-col gap-0.5 text-left"><div className="flex items-center gap-2"><span className="truncate font-semibold text-secondary-900">{account.fullName}</span>{isCurrent ? <StudentBadge size="xs" tone="success">Aktif</StudentBadge> : null}</div><div className="flex items-center gap-1.5 text-xs text-secondary-500"><span className="truncate">{account.email}</span><span>•</span><span className="font-medium text-secondary-700">{account.roles.map((role) => debugRoleLabels[role] ?? role).join(", ")}</span></div></div>;
 }
 
 function DebugAccountSelection({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccount, selectedAccountId, sessionUserId, setSelectedAccountId, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccount: DebugAccount | null; selectedAccountId: string; sessionUserId: string; setSelectedAccountId: (id: string) => void; switchingAccountId: string | null }) {
