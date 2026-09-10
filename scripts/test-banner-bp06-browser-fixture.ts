@@ -947,7 +947,13 @@ function printRoutes(state: FixtureState) {
   for (const { key } of BANNER_DESTINATIONS) {
     const published = state.publishedRevisions[key];
     const draft = state.draftRevisions[key];
-    const suffix = key === "beranda" ? "" : `/${key === "materi" ? "courses" : key}`;
+    const suffix = key === "beranda"
+      ? ""
+      : key === "materi"
+        ? "/courses"
+        : key === "kuis"
+          ? "/quiz"
+          : "/tryout";
     console.log(`Admin preview ${key} published=${routeUrl(state.port, `/admin/student-preview${suffix}`)}`);
     console.log(`Admin preview ${key} draft=${routeUrl(state.port, `/admin/student-preview${suffix}?bannerSource=draft&revision=${draft}`)}`);
     console.log(`revisions ${key}: published=${published} draft=${draft}`);
