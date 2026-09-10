@@ -1512,12 +1512,22 @@ function captureChildOutput(child: ChildProcess) {
   return lines;
 }
 
+function safeDiagnosticTail(lines: string[], limit = 12) {
+  return lines
+    .slice(-limit)
+    .map((line) => line
+      .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|]+/giu, "[redacted]")
+      .replaceAll(/(?:postgres(?:ql)?|mysql|redis):\/\/[^\s|]+/giu, "[redacted-url]")
+      .slice(0, 600))
+    .join(" | ");
+}
+
 async function waitForNextReady(child: ChildProcess, output: string[]) {
   const url = routeUrl(PORT, "/login");
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`Next child exited before readiness (code ${child.exitCode}). Tail: ${output.slice(-12).join(" | ")}`);
+      throw new Error(`Next child exited before readiness (code ${child.exitCode}). Tail: ${safeDiagnosticTail(output)}`);
     }
     try {
       const response = await fetch(url, { redirect: "manual" });
@@ -1527,7 +1537,7 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
     }
     await sleep(500);
   }
-  throw new Error(`Next child did not become ready within 90s. Tail: ${output.slice(-12).join(" | ")}`);
+  throw new Error(`Next child did not become ready within 90s. Tail: ${safeDiagnosticTail(output)}`);
 }
 
 function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
@@ -1694,6 +1704,67 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     return String(await snapshotText());
   }
 
+  function safeDiagnostic(value, limit = 1200) {
+    return String(value ?? "")
+      .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|,]+/giu, "[redacted]")
+      .replaceAll(/(?:postgres(?:ql)?|mysql|redis):\/\/[^\s|,]+/giu, "[redacted-url]")
+      .replaceAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[redacted-email]")
+      .slice(0, limit);
+  }
+
+  async function captureLoginDiagnostics(navigationInfo, snapshot, error) {
+    let info = navigationInfo;
+    try {
+      info = await pageInfo();
+    } catch {
+      // Preserve the original navigation failure while recording what is available.
+    }
+    let dom = null;
+    try {
+      dom = await js("(() => ({ readyState: document.readyState, href: location.href, title: document.title, bodyText: (document.body?.innerText || '').slice(0, 1200), errorText: Array.from(document.querySelectorAll('[role=alert], [data-error]')).map((node) => node.textContent || '').join(' | ').slice(0, 600) }))()");
+    } catch (domError) {
+      dom = { error: safeDiagnostic(domError) };
+    }
+    let http = null;
+    try {
+      http = await js("(async () => { const response = await fetch(" + JSON.stringify(baseUrl + "/login") + ", { cache: 'no-store', redirect: 'manual' }); return { status: response.status, contentType: response.headers.get('content-type'), location: response.headers.get('location') }; })()");
+    } catch (httpError) {
+      http = { error: safeDiagnostic(httpError) };
+    }
+    let screenshotCaptured = false;
+    try {
+      await captureScreenshot();
+      screenshotCaptured = true;
+    } catch {
+      // Screenshot availability is diagnostic only and must not mask the assertion.
+    }
+    cliLog("BP06_BROWSER_DIAGNOSTIC " + JSON.stringify({
+      check: "login-page-real-route",
+      error: safeDiagnostic(error),
+      page: info && {
+        url: safeDiagnostic(info.url),
+        title: safeDiagnostic(info.title),
+        width: info.w,
+        height: info.h,
+      },
+      dom: dom && {
+        readyState: safeDiagnostic(dom.readyState),
+        href: safeDiagnostic(dom.href),
+        title: safeDiagnostic(dom.title),
+        bodyText: safeDiagnostic(dom.bodyText),
+        errorText: safeDiagnostic(dom.errorText || dom.error),
+      },
+      http: http && {
+        status: http.status,
+        contentType: safeDiagnostic(http.contentType),
+        location: safeDiagnostic(http.location),
+        error: safeDiagnostic(http.error),
+      },
+      snapshot: safeDiagnostic(snapshot),
+      screenshotCaptured,
+    }));
+  }
+
   function revisionFromDraftLink(link) {
     try {
       return new URL(link, baseUrl).searchParams.get("revision");
@@ -1781,10 +1852,17 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     task = await useOrCreateTaskSpace("BP06 isolated browser verification");
 
     await check("login-page-real-route", async () => {
-      const info = await go("/login");
-      const body = await text();
-      if (!String(info.url).includes("/login") || !body.includes("Masuk ke Vecalss")) fail("login page did not render");
-      return { url: info.url };
+      let info = null;
+      let body = "";
+      try {
+        info = await go("/login");
+        body = await text();
+        if (!String(info.url).includes("/login") || !body.includes("Masuk ke Vecalss")) fail("login page did not render");
+        return { url: info.url };
+      } catch (error) {
+        await captureLoginDiagnostics(info, body, error);
+        throw error;
+      }
     });
 
     await check("admin-login-cookie-and-redirect", async () => {
@@ -2169,7 +2247,7 @@ async function runBrowserSupervisor() {
       throw new Error("ego-browser child exceeded the bounded 180s verification window");
     }
     if (browserChild.exitCode !== 0) {
-      throw new Error(`ego-browser verification exited ${browserChild.exitCode}. Tail: ${browserOutput.slice(-20).join(" | ")}`);
+      throw new Error(`ego-browser verification exited ${browserChild.exitCode}. Ego tail: ${safeDiagnosticTail(browserOutput, 20)}. Next tail: ${safeDiagnosticTail(nextOutput, 20)}`);
     }
     if (transitionCount !== 3) {
       throw new Error(`ego-browser verification exited cleanly without completing all supervisor transitions (${transitionCount}/3).`);
