@@ -1601,6 +1601,13 @@ function safeDiagnosticTail(lines: string[], limit = 12) {
     .join(" | ");
 }
 
+function safeBrowserCaseDiagnostics(lines: string[], limit = 12) {
+  return lines
+    .filter((line) => /BP06_BROWSER_(?:CASE_DIAGNOSTIC|DIAGNOSTIC_ERROR)\b/u.test(line))
+    .slice(-limit)
+    .map((line) => safeDiagnosticText(line, 5_000));
+}
+
 async function waitForNextReady(child: ChildProcess, output: string[]) {
   const url = routeUrl(PORT, "/login");
   const deadline = Date.now() + 90_000;
@@ -2492,6 +2499,7 @@ async function runBrowserSupervisor() {
   } catch (error) {
     try {
       await writeBrowserDiagnosticArtifact(state, {
+        browserCaseDiagnostics: safeBrowserCaseDiagnostics(browserOutput),
         browserTail: safeDiagnosticTail(browserOutput, 20),
         error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
         nextTail: safeDiagnosticTail(nextOutput, 20),
