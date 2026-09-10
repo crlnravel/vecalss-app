@@ -452,7 +452,9 @@ async function assertLocalForeignKeyTargets(client: pg.Client, schema: string) {
          SELECT array_agg(index_class.relname ORDER BY index_class.relname) AS names
            FROM pg_index candidate
            JOIN pg_class index_class ON index_class.oid = candidate.indexrelid
-           LEFT JOIN pg_constraint owning_constraint ON owning_constraint.conindid = candidate.indexrelid
+           LEFT JOIN pg_constraint owning_constraint
+             ON owning_constraint.conindid = candidate.indexrelid
+            AND owning_constraint.contype IN ('p', 'u', 'x')
           WHERE candidate.indrelid = expected."targetOid"
             AND index_class.relkind IN ('i', 'I')
             AND candidate.indisunique
@@ -540,7 +542,9 @@ async function cloneLocalUniqueIndexes(client: pg.Client, schema: string, enumNa
        JOIN pg_class table_class ON table_class.oid = index_row.indrelid
        JOIN pg_namespace table_namespace ON table_namespace.oid = table_class.relnamespace
        JOIN pg_class index_class ON index_class.oid = index_row.indexrelid
-       LEFT JOIN pg_constraint constraint_row ON constraint_row.conindid = index_row.indexrelid
+       LEFT JOIN pg_constraint constraint_row
+         ON constraint_row.conindid = index_row.indexrelid
+        AND constraint_row.contype IN ('p', 'u', 'x')
       WHERE table_namespace.nspname = 'public'
         AND table_class.relkind IN ('r', 'p')
         AND index_class.relkind IN ('i', 'I')
