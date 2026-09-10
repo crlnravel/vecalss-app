@@ -1765,6 +1765,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       cliLog("BP06_BROWSER_PASS " + name + (detail ? " " + JSON.stringify(detail) : ""));
       return true;
     } catch (error) {
+      await captureCaseDiagnostics(name, error);
       const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
       failed.push({ name, message });
       outcomes.set(name, "failed");
@@ -1832,11 +1833,116 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   }
 
   function safeDiagnostic(value, limit = 1200) {
-    return String(value ?? "")
+    let text = String(value ?? "");
+    for (const secret of [
+      credentials?.adminEmail,
+      credentials?.adminPassword,
+      credentials?.voyagerEmail,
+      credentials?.voyagerPassword,
+    ]) {
+      if (typeof secret === "string" && secret.length > 0) {
+        text = text.split(secret).join("[redacted-credential]");
+      }
+    }
+    return text
       .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|,]+/giu, "[redacted]")
       .replaceAll(/(?:postgres(?:ql)?|mysql|redis):\/\/[^\s|,]+/giu, "[redacted-url]")
       .replaceAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[redacted-email]")
       .slice(0, limit);
+  }
+
+  function safePageUrl(value) {
+    if (!value) return null;
+    try {
+      const parsed = new URL(String(value), baseUrl);
+      return parsed.origin + parsed.pathname;
+    } catch {
+      return safeDiagnostic(value, 300);
+    }
+  }
+
+  async function captureCaseDiagnostics(name, error) {
+    try {
+      let info = null;
+      try {
+        info = await pageInfo();
+      } catch {
+        // Preserve the original case failure while recording what is available.
+      }
+
+      let dom = null;
+      try {
+        dom = await js("(() => { const nodes = Array.from(document.querySelectorAll('[role=alert], [data-error]')); const active = document.activeElement; return { readyState: document.readyState, href: location.href, title: document.title, bodyTextLength: (document.body?.innerText || '').length, errorCount: nodes.length, errorText: nodes.map((node) => node.textContent || '').join(' | ').slice(0, 600), activeElement: active ? { tag: active.tagName, id: active.id || null, ariaLabel: active.getAttribute('aria-label') } : null }; })()");
+      } catch (domError) {
+        dom = { error: safeDiagnostic(domError) };
+      }
+
+      let http = null;
+      try {
+        http = await js("(async () => { const response = await fetch(location.href, { cache: 'no-store', redirect: 'manual' }); return { status: response.status, contentType: response.headers.get('content-type'), location: response.headers.get('location') }; })()");
+      } catch (httpError) {
+        http = { error: safeDiagnostic(httpError) };
+      }
+
+      let events = null;
+      try {
+        const rawEvents = await drainEvents();
+        const list = Array.isArray(rawEvents) ? rawEvents : [];
+        events = list.slice(-20).map((event) => ({
+          type: safeDiagnostic(event?.type, 80),
+          method: safeDiagnostic(event?.method ?? event?.request?.method, 20),
+          status: typeof event?.status === "number" ? event.status : typeof event?.response?.status === "number" ? event.response.status : null,
+          url: safePageUrl(event?.url ?? event?.request?.url ?? event?.response?.url),
+          error: safeDiagnostic(event?.error, 300),
+        }));
+      } catch (eventError) {
+        events = { error: safeDiagnostic(eventError) };
+      }
+
+      let screenshotCaptured = false;
+      try {
+        await captureScreenshot();
+        screenshotCaptured = true;
+      } catch {
+        // Screenshot availability is diagnostic only and must not mask the assertion.
+      }
+
+      cliLog("BP06_BROWSER_CASE_DIAGNOSTIC " + JSON.stringify({
+        check: name,
+        error: safeDiagnostic(error),
+        page: info && {
+          url: safePageUrl(info.url),
+          title: safeDiagnostic(info.title),
+          width: info.w,
+          height: info.h,
+        },
+        dom: dom && {
+          readyState: safeDiagnostic(dom.readyState),
+          href: safePageUrl(dom.href),
+          title: safeDiagnostic(dom.title),
+          bodyTextLength: dom.bodyTextLength,
+          errorCount: dom.errorCount,
+          errorText: safeDiagnostic(dom.errorText || dom.error),
+          activeElement: dom.activeElement && {
+            tag: safeDiagnostic(dom.activeElement.tag),
+            id: safeDiagnostic(dom.activeElement.id),
+            ariaLabel: safeDiagnostic(dom.activeElement.ariaLabel),
+          },
+        },
+        http: http && {
+          status: http.status,
+          contentType: safeDiagnostic(http.contentType),
+          location: safePageUrl(http.location),
+          error: safeDiagnostic(http.error),
+        },
+        events,
+        console: "ego-browser exposes no console-history helper; DOM error nodes and bounded drainEvents output recorded",
+        screenshotCaptured,
+        nextDiagnostic: "captured by the guarded supervisor from the bounded Next child tail",
+      }));
+    } catch (diagnosticError) {
+      cliLog("BP06_BROWSER_DIAGNOSTIC_ERROR " + name + " " + safeDiagnostic(diagnosticError));
+    }
   }
 
   async function captureLoginDiagnostics(navigationInfo, snapshot, error) {
