@@ -1550,7 +1550,14 @@ async function runBrowserSupervisor() {
   let nextChild: ChildProcess | null = null;
   let browserChild: ChildProcess | null = null;
   try {
-    nextChild = spawn(process.execPath, [nextBin, "dev", "--hostname", "127.0.0.1", "--port", String(PORT)], {
+    // Next 16 defaults to Turbopack, which rejects this fixture's deliberately
+    // isolated mirror when its only dependency link resolves outside the
+    // mirror root. Webpack is an officially supported dev-only selector and
+    // keeps this browser fixture on the real app/server code without widening
+    // turbopack.root or changing production next.config.
+    const nextArgs = [nextBin, "dev", "--webpack", "--hostname", "127.0.0.1", "--port", String(PORT)];
+    console.log(`BP06 supervised Next child launch: ${process.execPath} ${nextArgs.slice(1).join(" ")}`);
+    nextChild = spawn(process.execPath, nextArgs, {
       cwd: state.mirrorRoot,
       env: childEnv,
       shell: false,
