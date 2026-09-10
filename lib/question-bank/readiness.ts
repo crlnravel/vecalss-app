@@ -60,6 +60,7 @@ export type NormalizedQuestionReadinessInput = {
   id: string;
   prompt: string | null | undefined;
   promptAsset?: QuestionReadinessAsset;
+  questionType?: string;
   subtestCode: string | null | undefined;
 };
 
@@ -72,6 +73,7 @@ export type QuestionDraftReadinessInput = {
     text: string | null | undefined;
   }[];
   correctChoiceId: string | null | undefined;
+  correctChoiceIds?: readonly string[];
   explanationMediaAsset?: QuestionReadinessAsset;
   explanationMediaAssetId?: string | null;
   explanationMediaAssetState?: string | null;
@@ -80,6 +82,7 @@ export type QuestionDraftReadinessInput = {
   promptMediaAsset?: QuestionReadinessAsset;
   promptMediaAssetId?: string | null;
   promptMediaAssetState?: string | null;
+  questionType?: string;
   subjectCode?: string | null;
 };
 
@@ -99,6 +102,7 @@ export type QuestionRevisionReadinessInput = {
     promptAsset?: QuestionReadinessAsset;
     promptAssetId?: string | null;
     stem: string | null | undefined;
+    questionType?: string;
   } | null;
   subtestCode?: string | null;
 };
@@ -159,13 +163,21 @@ export function evaluateQuestionReadiness(
     }
   }
 
+  const questionType = question.questionType ?? "single_choice";
   const correctChoiceIds = question.correctChoiceIds ?? (
     question.correctChoiceId === undefined || question.correctChoiceId === null
       ? []
       : [question.correctChoiceId]
   );
-  const selectedCorrectChoiceId = question.correctChoiceId ?? correctChoiceIds[0];
-  if (correctChoiceIds.length !== 1 || !question.choices.some((choice) => choice.id === selectedCorrectChoiceId)) {
+  const choiceIds = new Set(question.choices.map((choice) => choice.id));
+  const uniqueCorrectChoiceIds = new Set(correctChoiceIds);
+  const hasValidAnswerMode = questionType === "single_choice" || questionType === "multiple_choice";
+  const hasValidCorrectChoiceIds = correctChoiceIds.every((choiceId) => choiceIds.has(choiceId))
+    && uniqueCorrectChoiceIds.size === correctChoiceIds.length;
+  const hasValidCorrectChoiceCount = questionType === "multiple_choice"
+    ? correctChoiceIds.length > 0
+    : correctChoiceIds.length === 1;
+  if (!hasValidAnswerMode || !hasValidCorrectChoiceIds || !hasValidCorrectChoiceCount) {
     issues.push(issue(question.id, "invalid_correct_choice", "correctChoice"));
   }
 
@@ -200,11 +212,12 @@ export function normalizeQuestionDraftForReadiness(
       text: choice.text,
     })),
     correctChoiceId: question.correctChoiceId,
-    correctChoiceIds: question.correctChoiceId ? [question.correctChoiceId] : [],
+    correctChoiceIds: question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []),
     explanationAsset: asAsset(question.explanationMediaAsset, question.explanationMediaAssetState),
     id: question.id,
     prompt: question.prompt,
     promptAsset: asAsset(question.promptMediaAsset, question.promptMediaAssetState),
+    questionType: question.questionType,
     subtestCode: question.subjectCode,
   };
 }
@@ -226,6 +239,7 @@ export function normalizeQuestionRevisionForReadiness(
     id: input.questionId,
     prompt: revision?.stem,
     promptAsset: revision?.promptAsset,
+    questionType: revision?.questionType,
     subtestCode: input.subtestCode,
   };
 }

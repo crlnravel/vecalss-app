@@ -118,6 +118,7 @@
     "test:question-bank-purpose": "node scripts/test-question-bank-purpose.mjs",
     "test:question-bank-purpose-migration-db": "tsx scripts/test-question-bank-purpose-migration-db.ts",
     "test:question-bank-persistence": "tsx scripts/test-question-bank-persistence.ts",
+    "test:question-bank-multiple-answer": "tsx scripts/test-question-bank-multiple-answer.ts",
     "test:question-bank-readiness": "tsx scripts/test-question-bank-readiness.ts",
     "test:package-lifecycle": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-package-lifecycle.ts",
     "test:package-atomic-save": "node scripts/test-package-atomic-save.mjs",

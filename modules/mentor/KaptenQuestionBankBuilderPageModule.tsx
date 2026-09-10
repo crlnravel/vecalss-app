@@ -69,6 +69,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import type { SessionContext } from "@/lib/auth/types";
+import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
+import { compareSelectedOptionSets } from "@/lib/question-bank/answer-contract";
 import type { MediaAssetDto } from "@/lib/media/types";
 import {
   getQuestionBankReadinessFromDrafts,
@@ -127,6 +129,7 @@ type QuestionBankEditorState = {
   isSaving: boolean;
   questionEditorTab: string;
   previewChoiceId: string | null;
+  previewChoiceIds: string[];
   hasSubmittedPreview: boolean;
 };
 
@@ -225,13 +228,33 @@ const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
     { id: "b", text: "" },
   ],
   correctChoiceId: "a",
+  correctChoiceIds: ["a"],
   difficulty: "medium",
   explanation: "",
   id: "",
   prompt: "",
+  questionType: "single_choice",
   subjectCode,
   tags: [],
 });
+
+function questionTypeFor(question: Pick<BankQuestion, "questionType">) {
+  return question.questionType ?? "single_choice";
+}
+
+function correctChoiceIdsFor(question: Pick<BankQuestion, "correctChoiceId" | "correctChoiceIds">) {
+  const ids = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
+  return [...new Set(ids)];
+}
+
+function withCorrectChoiceIds(question: BankQuestion, correctChoiceIds: readonly string[]): BankQuestion {
+  const ids = [...new Set(correctChoiceIds)];
+  return {
+    ...question,
+    correctChoiceId: ids[0] ?? "",
+    correctChoiceIds: ids,
+  };
+}
 
 function createQuestionId(subjectCode: string) {
   // Temporary question ids are persisted by the bank repository until the
@@ -315,7 +338,10 @@ function pruneServerReadinessForDraftChange(
     if (!previous) return true;
     if (issue.field === "prompt") return previous.prompt === next.prompt;
     if (issue.field === "subtest") return previous.subjectCode === next.subjectCode;
-    if (issue.field === "correctChoice") return previous.correctChoiceId === next.correctChoiceId;
+    if (issue.field === "correctChoice") {
+      return questionTypeFor(previous) === questionTypeFor(next)
+        && JSON.stringify(correctChoiceIdsFor(previous)) === JSON.stringify(correctChoiceIdsFor(next));
+    }
     if (issue.field === "choice") {
       if (previous.choices.length !== next.choices.length) return false;
       if (!issue.choiceId) return true;
@@ -339,9 +365,14 @@ function pruneServerReadinessForDraftChange(
 }
 
 function toQuestionDraft(question: BankQuestion): BankQuestion {
+  const questionType = questionTypeFor(question);
+  const correctChoiceIds = correctChoiceIdsFor(question);
   return {
     ...question,
     choices: question.choices.map((choice) => ({ ...choice })),
+    correctChoiceId: correctChoiceIds[0] ?? question.correctChoiceId,
+    correctChoiceIds,
+    questionType,
     tags: [],
   };
 }
@@ -400,6 +431,48 @@ function QuestionPromptField({
   );
 }
 
+function QuestionAnswerModeField({
+  isQuestionContentLocked,
+  onUpdate,
+  questionDraft,
+}: {
+  isQuestionContentLocked: boolean;
+  onUpdate: (question: BankQuestion) => void;
+  questionDraft: BankQuestion;
+}) {
+  const questionType = questionTypeFor(questionDraft);
+  const modeLabel = questionType === "multiple_choice" ? "Beberapa jawaban" : "Satu jawaban";
+  return (
+    <Field>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-answer-mode">Mode jawaban</FieldLabel>
+      <DropdownMenu>
+        <DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby="question-answer-mode-hint" className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")} data-question-anchor="correctChoice" data-question-field="correctChoice" id="question-answer-mode" type="button" variant="reference" />}>
+          <span>{modeLabel}</span><ChevronDown className="text-secondary-400" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuLabel>Pilih mode jawaban</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuRadioGroup
+              onValueChange={(value) => {
+                const nextType = value as "single_choice" | "multiple_choice";
+                const ids = correctChoiceIdsFor(questionDraft);
+                onUpdate(withCorrectChoiceIds({ ...questionDraft, questionType: nextType }, nextType === "multiple_choice" ? ids : ids.slice(0, 1)));
+              }}
+              value={questionType}
+            >
+              <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="single_choice">Satu jawaban</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="multiple_choice">Beberapa jawaban</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <p className="text-xs leading-5 text-secondary-500" id="question-answer-mode-hint">
+        {questionType === "multiple_choice" ? "Pilih semua opsi yang benar." : "Pilih satu opsi yang benar."}
+      </p>
+    </Field>
+  );
+}
+
 function QuestionChoiceControls({
   activeQuestionId,
   choice,
@@ -431,9 +504,18 @@ function QuestionChoiceControls({
   const { hasChoiceCountIssue, hasChoiceMediaIssue, hasChoiceTextIssue, hasCorrectChoiceIssue } = issueState;
   const inputId = "bank-choice-" + choice.id;
   const choiceLabelText = "Gambar opsi " + choiceLabel;
+  const multipleAnswer = questionTypeFor(questionDraft) === "multiple_choice";
+  const selectedCorrectChoiceIds = correctChoiceIdsFor(questionDraft);
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-label={"Jawaban benar opsi " + (Number(choiceLabel.charCodeAt(0)) - 64)} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={"bank-correct-choice-" + choice.id} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
+      <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-label={(multipleAnswer ? "Tandai benar opsi " : "Jawaban benar opsi ") + (Number(choiceLabel.charCodeAt(0)) - 64)} checked={selectedCorrectChoiceIds.includes(choice.id)} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={"bank-correct-choice-" + choice.id} name={multipleAnswer ? undefined : "bank-correct-choice"} onChange={() => {
+        const nextIds = multipleAnswer
+          ? selectedCorrectChoiceIds.includes(choice.id)
+            ? selectedCorrectChoiceIds.filter((id) => id !== choice.id)
+            : [...selectedCorrectChoiceIds, choice.id]
+          : [choice.id];
+        onUpdate(withCorrectChoiceIds(questionDraft, nextIds));
+      }} type={multipleAnswer ? "checkbox" : "radio"} />
       <label className="text-sm font-semibold text-primary-800" htmlFor={"bank-correct-choice-" + choice.id}>{choiceLabel}</label>
       <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceCountIssue ? "question-choice-count-error" : undefined, hasChoiceTextIssue ? "question-choice-" + choice.id + "-error" : undefined)} aria-invalid={hasChoiceTextIssue} aria-label={"Opsi " + (Number(choiceLabel.charCodeAt(0)) - 64)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-w-0 flex-1 bg-transparent py-2")} data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={"Opsi " + choiceLabel} value={choice.text} />
       <Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceMediaIssue ? "question-choice-" + choice.id + "-media-error" : undefined)} aria-invalid={hasChoiceMediaIssue} aria-label={(choice.mediaAssetId ? "Ganti" : "Tambah") + " gambar opsi " + choiceLabel} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={"choice:" + choice.id} disabled={!activeQuestionId || isQuestionContentLocked} id={"question-media-choice-" + choice.id} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: choiceLabelText })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
@@ -543,7 +625,7 @@ function QuestionChoicesField({
         </fieldset>
       </fieldset>
       {hasChoiceCountIssue ? <p className="-mt-1 text-sm font-medium text-student-status-danger-fg" id="question-choice-count-error">Jumlah opsi harus antara 2 dan 5.</p> : null}
-      {hasCorrectChoiceIssue ? <p className="-mt-1 text-sm font-medium text-student-status-danger-fg" id="question-correct-choice-error">Pilih tepat satu jawaban benar.</p> : null}
+      {hasCorrectChoiceIssue ? <p className="-mt-1 text-sm font-medium text-student-status-danger-fg" id="question-correct-choice-error">{questionTypeFor(questionDraft) === "multiple_choice" ? "Pilih minimal satu jawaban benar." : "Pilih tepat satu jawaban benar."}</p> : null}
       <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={onAddChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
     </>
   );
@@ -621,6 +703,7 @@ function QuestionBankEditorForm({
   return (
     <ReferenceSurface as="div" className="grid min-w-0 gap-6 p-5 md:p-6">
       <QuestionPromptField activeQuestionId={activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onOpenMedia={onOpenMedia} onUpdate={onUpdate} questionDraft={questionDraft} />
+      <QuestionAnswerModeField isQuestionContentLocked={isQuestionContentLocked} onUpdate={onUpdate} questionDraft={questionDraft} />
       <QuestionChoicesField activeQuestionId={activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onAddChoice={onAddChoice} onOpenMedia={onOpenMedia} onRemoveChoice={onRemoveChoice} onRemoveChoiceMedia={onRemoveChoiceMedia} onUpdate={onUpdate} questionDraft={questionDraft} />
       <div className="grid gap-5 sm:grid-cols-2">
         <QuestionSubtestField isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onUpdate={onUpdate} questionDraft={questionDraft} />
@@ -631,12 +714,26 @@ function QuestionBankEditorForm({
     </ReferenceSurface>
   );
 }
-function QuestionBankPreview({ hasSubmittedPreview, onChoiceChange, onSubmit, previewChoiceId, questionDraft }: { hasSubmittedPreview: boolean; onChoiceChange: (choiceId: string) => void; onSubmit: () => void; previewChoiceId: string | null; questionDraft: BankQuestion }) {
+function QuestionBankPreview({ hasSubmittedPreview, onChoiceChange, onSubmit, previewChoiceId, previewChoiceIds, questionDraft }: { hasSubmittedPreview: boolean; onChoiceChange: (choiceId: string) => void; onSubmit: () => void; previewChoiceId: string | null; previewChoiceIds: string[]; questionDraft: BankQuestion }) {
+  const multipleAnswer = questionTypeFor(questionDraft) === "multiple_choice";
+  const correctChoiceIds = correctChoiceIdsFor(questionDraft);
+  const answerComparison = compareSelectedOptionSets(previewChoiceIds, correctChoiceIds);
+  const isCorrect = answerComparison.ok && answerComparison.equal;
   return <ReferenceSurface as="section" className="min-w-0 p-5 md:p-6">
     {questionDraft.promptMediaAssetId ? <MediaAssetPreview alt="Gambar pertanyaan" assetId={questionDraft.promptMediaAssetId} className="mb-5" /> : null}
     <p className="text-xl leading-8 font-normal text-secondary-900">{questionDraft.prompt || "Pertanyaan akan tampil di sini."}</p>
-    <RadioGroup key={questionDraft.id} className="mt-6" onValueChange={onChoiceChange} value={previewChoiceId ?? undefined}>{questionDraft.choices.map((choice, index) => { const choiceLabel = String.fromCharCode(65 + index); const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`; return <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "cursor-pointer text-sm text-secondary-700 transition-colors")} htmlFor={choiceId} key={choice.id}><RadioGroupItem id={choiceId} value={choice.id} /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} assetId={choice.mediaAssetId} className="max-h-44" /> : null}</span></label>; })}</RadioGroup>
-    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-primary-100 pt-5"><Button disabled={!previewChoiceId} onClick={onSubmit} type="button" variant="brand">Kirim jawaban</Button>{hasSubmittedPreview ? <p aria-live="polite" className={cn("rounded-2xl px-3 py-2 text-sm font-medium", previewChoiceId === questionDraft.correctChoiceId ? "bg-primary-50 text-primary-800" : "bg-red-50 text-red-800")}>{previewChoiceId === questionDraft.correctChoiceId ? "Jawaban benar." : "Belum tepat. Coba lagi."}</p> : null}</div>
+    {multipleAnswer ? (
+      <div className="mt-6 grid gap-3">
+        {questionDraft.choices.map((choice, index) => {
+          const choiceLabel = String.fromCharCode(65 + index);
+          const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`;
+          return <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "cursor-pointer text-sm text-secondary-700 transition-colors")} htmlFor={choiceId} key={choice.id}><input aria-label={`Pilih opsi ${choiceLabel}`} checked={previewChoiceIds.includes(choice.id)} className="size-4 accent-primary-700" id={choiceId} onChange={() => onChoiceChange(choice.id)} type="checkbox" /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} className="max-h-44" assetId={choice.mediaAssetId} /> : null}</span></label>;
+        })}
+      </div>
+    ) : (
+      <RadioGroup key={questionDraft.id} className="mt-6" onValueChange={onChoiceChange} value={previewChoiceId ?? undefined}>{questionDraft.choices.map((choice, index) => { const choiceLabel = String.fromCharCode(65 + index); const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`; return <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "cursor-pointer text-sm text-secondary-700 transition-colors")} htmlFor={choiceId} key={choice.id}><RadioGroupItem id={choiceId} value={choice.id} /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} className="max-h-44" assetId={choice.mediaAssetId} /> : null}</span></label>; })}</RadioGroup>
+    )}
+    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-primary-100 pt-5"><Button disabled={!previewChoiceIds.length} onClick={onSubmit} type="button" variant="brand">Kirim jawaban</Button>{hasSubmittedPreview ? <p aria-live="polite" className={cn("rounded-2xl px-3 py-2 text-sm font-medium", isCorrect ? "bg-primary-50 text-primary-800" : "bg-red-50 text-red-800")}>{isCorrect ? "Jawaban benar." : "Belum tepat. Coba lagi."}</p> : null}</div>
   </ReferenceSurface>;
 }
 
@@ -1060,6 +1157,7 @@ type QuestionBankBuilderViewState = {
   mediaPickerTarget: MediaPickerTarget | null;
   pendingRouteReplacement: string | null;
   previewChoiceId: string | null;
+  previewChoiceIds: string[];
   questionRowRefs: QuestionRowRefs;
   questionDraft: BankQuestion;
   questionEditorTab: string;
@@ -1095,9 +1193,10 @@ type QuestionBankBuilderActions = {
 
 function QuestionBankEditorTitle({ builderState, mode, onFocusIssue, state }: { builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; onFocusIssue: () => void; state: QuestionBankBuilderViewState }) {
   const title = mode === "create" ? "Buat Bank Soal " + (builderState.purpose === "quiz" ? "Kuis" : "Tryout") : builderState.title;
+  const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
-      <Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`} />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button>
+      <Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`} />} aria-label={`Kembali ke ${navigationLabel}`} size="icon-sm" title={`Kembali ke ${navigationLabel}`} variant="ghost"><ChevronLeft /></Button>
       <div className="mt-5 flex flex-col gap-x-3 gap-y-2">
         <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{title}</h1><MentorBadge size="xs" tone="category">{builderState.purpose === "quiz" ? "Kuis" : "Tryout"}</MentorBadge></div>
         {state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}
@@ -1249,7 +1348,7 @@ function QuestionBankQuestionContent({ actions, builderState, isQuestionContentL
   return (
     <>
       {questionIssues.length ? <p aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950" role="status"><AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>Soal ini memiliki {questionIssues.length} masalah. Perbaiki bidang yang ditandai sebelum menerbitkan.</span></p> : null}
-      {state.questionEditorTab === "preview" ? <QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /> : <QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} readinessIssues={questionIssues} />}
+      {state.questionEditorTab === "preview" ? <QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} previewChoiceIds={state.previewChoiceIds} questionDraft={state.questionDraft} /> : <QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} readinessIssues={questionIssues} />}
     </>
   );
 }
@@ -1270,8 +1369,10 @@ function QuestionBankEditQuestionWorkspace({ actions, builderState, state, works
 }
 
 function QuestionBankCreateWorkspace({ actions, builderState, categories, session, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; session: SessionContext; state: QuestionBankBuilderViewState }) {
+  const navigationLabel = questionBankNavigationLabel(builderState.purpose);
+
   return (
-    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Buat Bank Soal" contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges} sidebarAppearance="reference">
+    <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={`Buat ${navigationLabel}`} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges} sidebarAppearance="reference">
       <QuestionBankEditorHeader actions={actions} builderState={builderState} mode="create" state={state} />
       <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
       <QuestionBankLifecycleError message={state.lifecycleError} />
@@ -1476,6 +1577,7 @@ function useQuestionBankDraftActions({
       activeQuestionId: question.id,
       hasSubmittedPreview: false,
       previewChoiceId: null,
+      previewChoiceIds: [],
       questionDraft: toQuestionDraft(question),
       readinessAnnouncement: issueCount ? `Soal ${getQuestionNumber(builderState.questions, question.id)} dipilih. Ada ${issueCount} masalah yang perlu diperbaiki.` : "",
     });
@@ -1521,7 +1623,9 @@ function useQuestionBankDraftActions({
     const question = builderState.questions.find((item) => item.id === activeQuestionId);
     if (!question || question.choices.length <= 2) return;
     const choices = question.choices.filter((choice) => choice.id !== choiceId);
-    updateQuestionDraft({ ...question, choices, correctChoiceId: question.correctChoiceId === choiceId ? choices[0]?.id ?? "a" : question.correctChoiceId });
+    const correctChoiceIds = correctChoiceIdsFor(question).filter((id) => id !== choiceId);
+    const nextCorrectChoiceIds = correctChoiceIds.length ? correctChoiceIds : [choices[0]?.id ?? "a"];
+    updateQuestionDraft(withCorrectChoiceIds({ ...question, choices }, nextCorrectChoiceIds));
   }, [activeQuestionId, builderState.questions, isQuestionContentLocked, updateQuestionDraft]);
 
   const addQuestion = useCallback(() => {
@@ -1534,6 +1638,7 @@ function useQuestionBankDraftActions({
       activeQuestionId: id,
       hasSubmittedPreview: false,
       previewChoiceId: null,
+      previewChoiceIds: [],
       questionDraft: nextQuestion,
       readinessAnnouncement: "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menerbitkan.",
     });
@@ -1550,6 +1655,7 @@ function useQuestionBankDraftActions({
       activeQuestionId: nextActiveQuestion?.id ?? null,
       hasSubmittedPreview: false,
       previewChoiceId: null,
+      previewChoiceIds: [],
       questionDraft: nextActiveQuestion ? toQuestionDraft(nextActiveQuestion) : fallbackQuestion,
       readinessAnnouncement: nextActiveQuestion ? "Soal dihapus." : "Soal terakhir dihapus. Bank soal tetap dapat disimpan tanpa soal.",
     });
@@ -1620,7 +1726,7 @@ function useQuestionBankIssueNavigation({
   const openQuestion = useCallback((questionId: string) => {
     const question = builderState.questions.find((item) => item.id === questionId);
     if (!question) return;
-    updateEditor({ activeQuestionId: question.id, hasSubmittedPreview: false, previewChoiceId: null, questionDraft: toQuestionDraft(question), readinessAnnouncement: "" });
+    updateEditor({ activeQuestionId: question.id, hasSubmittedPreview: false, previewChoiceId: null, previewChoiceIds: [], questionDraft: toQuestionDraft(question), readinessAnnouncement: "" });
   }, [builderState.questions, updateEditor]);
 
   const focusIssueAt = useCallback((index: number) => {
@@ -1746,7 +1852,7 @@ function getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, in
   const initialBuilderState: LocalQuestionBankState = { categoryIds: initialBank?.categoryIds ?? [], description: initialBank?.description ?? "", purpose: initialBank?.purpose ?? purpose, questions: initialQuestions, subjectCode: initialBank?.subjectCode ?? "PU", title: initialBank?.title ?? "" };
   const initialQuestion = (initialActiveQuestionId ? initialBuilderState.questions.find((question) => question.id === initialActiveQuestionId) : null) ?? initialBuilderState.questions[0] ?? null;
   const fallbackQuestionDraft = emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", initialBank?.subjectCode ?? "PU");
-  const initialEditorState: QuestionBankEditorState = { activeQuestionId: initialQuestion?.id ?? null, confirmationRequest: null, hasSubmittedPreview: false, hasUnsavedChanges: mode === "create" && hasQuestionBankDraftContent(initialBuilderState), isSaving: false, lifecycleError: null, lifecycleStatus: initialBank?.status ?? "draft", mediaPickerTarget: null, pendingRouteReplacement: null, previewChoiceId: null, questionDraft: initialQuestion ? toQuestionDraft(initialQuestion) : fallbackQuestionDraft, questionEditorTab: "edit", readinessAnnouncement: "", serverReadiness: mode === "edit" ? initialReadiness : null };
+  const initialEditorState: QuestionBankEditorState = { activeQuestionId: initialQuestion?.id ?? null, confirmationRequest: null, hasSubmittedPreview: false, hasUnsavedChanges: mode === "create" && hasQuestionBankDraftContent(initialBuilderState), isSaving: false, lifecycleError: null, lifecycleStatus: initialBank?.status ?? "draft", mediaPickerTarget: null, pendingRouteReplacement: null, previewChoiceId: null, previewChoiceIds: [], questionDraft: initialQuestion ? toQuestionDraft(initialQuestion) : fallbackQuestionDraft, questionEditorTab: "edit", readinessAnnouncement: "", serverReadiness: mode === "edit" ? initialReadiness : null };
   return { fallbackQuestionDraft, initialBuilderState, initialEditorState };
 }
 
@@ -1834,7 +1940,14 @@ function useQuestionBankBuilderState({
   useQuestionBankNavigationGuards({ hasUnsavedChanges: editorState.hasUnsavedChanges, pendingRouteReplacement: editorState.pendingRouteReplacement, router });
   const persistence = useQuestionBankPersistence({ bankIdRef, builderState, mode, onBankNoLongerEditable: (id) => updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}` }), revisionRef, setServerReadiness: (nextReadiness) => updateEditor({ serverReadiness: nextReadiness }), setLocalBuilderState, updateEditor });
   const lifecycleActions = useQuestionBankLifecycleActions({ builderState, confirmationRequest: editorState.confirmationRequest, hasUnsavedChanges: editorState.hasUnsavedChanges, removeQuestion: draftActions.removeQuestion, router, updateEditor, updateLifecycle: persistence.updateLifecycle });
-  const actions = createQuestionBankBuilderActions({ draftActions, focusFirstIssue: issueNavigation.focusFirstIssue, lifecycleActions, onChoiceChange: (value) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }), onCloseMedia: () => updateEditor({ mediaPickerTarget: null }), onEditorTabChange: (value) => updateEditor({ questionEditorTab: value as "edit" | "preview" }), onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }), onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }), persistence });
+  const actions = createQuestionBankBuilderActions({ draftActions, focusFirstIssue: issueNavigation.focusFirstIssue, lifecycleActions, onChoiceChange: (value) => {
+    const nextIds = questionTypeFor(editorState.questionDraft) === "multiple_choice"
+      ? editorState.previewChoiceIds.includes(value)
+        ? editorState.previewChoiceIds.filter((id) => id !== value)
+        : [...editorState.previewChoiceIds, value]
+      : [value];
+    updateEditor({ hasSubmittedPreview: false, previewChoiceId: nextIds[0] ?? null, previewChoiceIds: nextIds });
+  }, onCloseMedia: () => updateEditor({ mediaPickerTarget: null }), onEditorTabChange: (value) => updateEditor({ questionEditorTab: value as "edit" | "preview" }), onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }), onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }), persistence });
   return {
     actions,
     bankIdValue: bankId ?? initialBank?.id,
@@ -1915,6 +2028,7 @@ function KaptenQuestionBankBuilderPageModule({
         mediaPickerTarget: editorState.mediaPickerTarget,
         pendingRouteReplacement: editorState.pendingRouteReplacement,
         previewChoiceId: editorState.previewChoiceId,
+        previewChoiceIds: editorState.previewChoiceIds,
         questionDraft: editorState.questionDraft,
         questionEditorTab: editorState.questionEditorTab,
         questionRowRefs,

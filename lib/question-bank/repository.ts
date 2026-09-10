@@ -13,6 +13,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
+import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import {
   getQuestionBankReadinessFromRevisions,
@@ -52,12 +53,14 @@ type BankChoiceInput = { id: string; mediaAssetId?: string; text: string };
 type BankQuestionInput = {
   choices: BankChoiceInput[];
   correctChoiceId: string;
+  correctChoiceIds?: string[];
   difficulty: "easy" | "medium" | "hard";
   explanation: string;
   explanationMediaAssetId?: string;
   id?: string;
   prompt: string;
   promptMediaAssetId?: string;
+  questionType?: QuestionAnswerMode;
   subjectCode: string;
 };
 type SaveBankInput = {
@@ -84,6 +87,7 @@ type BankQuestionDto = {
   catReady?: boolean;
   choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
   correctChoiceId: string;
+  correctChoiceIds: string[];
   difficulty: "easy" | "medium" | "hard";
   explanation: string;
   explanationMediaAssetId?: string;
@@ -95,6 +99,7 @@ type BankQuestionDto = {
   questionRevisionNo?: number;
   questionRevisionProvenance?: QuestionRevisionProvenance;
   questionRevisionStatus?: QuestionRevisionStatus;
+  questionType: "single_choice" | "multiple_choice";
   subjectCode: string;
   status: ContentStatus;
   tags: string[];
@@ -224,14 +229,16 @@ function toBankDifficulty(value: DifficultyLevel): "easy" | "medium" | "hard" {
 
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
 
-type RevisionReadinessRecord = Pick<QuestionRevisionRecord, "status" | "stem" | "options" | "promptAsset" | "explanationAsset">;
+type RevisionReadinessRecord = Pick<QuestionRevisionRecord, "status" | "stem" | "options" | "promptAsset" | "explanationAsset" | "questionType">;
 
-function isValidRevision(revision: Pick<RevisionReadinessRecord, "stem" | "options" | "promptAsset" | "explanationAsset"> | null) {
+function isValidRevision(revision: Pick<RevisionReadinessRecord, "stem" | "options" | "promptAsset" | "explanationAsset" | "questionType"> | null) {
+  const answerMode = revision?.questionType === QuestionType.multiple_choice ? "multiple_choice" : "single_choice";
+  const answerKey = revision ? validateAnswerKey(answerMode, revision.options.map((option) => ({ id: option.id, isCorrect: option.isCorrect }))) : null;
   return Boolean(revision
     && revision.stem.trim()
     && revision.options.length >= 2
     && revision.options.length <= 5
-    && revision.options.filter((option) => option.isCorrect).length === 1
+    && answerKey?.ok
     && revision.options.every((option) => option.content.trim() && isReadyAsset(option.asset))
     && isReadyAsset(revision.promptAsset)
     && isReadyAsset(revision.explanationAsset));
@@ -247,13 +254,17 @@ type BankMetrics = {
   subjectCoverage: string[];
 };
 
-function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "options" | "subtest" | "currentRevision">, bankId: string, catReady = false): BankQuestionDto {
+function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "questionType" | "options" | "subtest" | "currentRevision">, bankId: string, catReady = false): BankQuestionDto {
   const revision = question.currentRevision;
   const options = revision?.options ?? question.options;
   const stem = revision?.stem ?? question.stem;
   const explanation = revision?.explanation ?? question.explanation;
   const explanationAssetId = revision?.explanationAssetId ?? question.explanationAssetId;
   const promptAssetId = revision?.promptAssetId ?? question.promptAssetId;
+  const questionType = (revision?.questionType ?? question.questionType) === QuestionType.multiple_choice
+    ? "multiple_choice"
+    : "single_choice";
+  const correctChoiceIds = options.filter((option) => option.isCorrect).map((option) => option.id);
   const status = revision?.status === QuestionRevisionStatus.ready
     ? ContentStatus.published
     : revision?.status === QuestionRevisionStatus.retired
@@ -263,7 +274,8 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
     bankId,
     catReady,
     choices: options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
-    correctChoiceId: options.find((option) => option.isCorrect)?.id ?? options[0]?.id ?? "",
+    correctChoiceId: correctChoiceIds[0] ?? options[0]?.id ?? "",
+    correctChoiceIds,
     difficulty: toBankDifficulty(revision?.difficulty ?? question.difficulty),
     explanation: explanation ?? "",
     explanationMediaAssetId: explanationAssetId ?? undefined,
@@ -275,6 +287,7 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
     questionRevisionNo: revision?.revisionNo,
     questionRevisionProvenance: revision?.provenance,
     questionRevisionStatus: revision?.status,
+    questionType,
     subjectCode: question.subtest?.code ?? "",
     status,
     tags: [] as string[],
@@ -338,7 +351,10 @@ async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, B
         WHERE active_revisions.status = 'ready'
           AND BTRIM(active_revisions.stem) <> ''
           AND active_revisions.option_count BETWEEN 2 AND 5
-          AND active_revisions.correct_count = 1
+          AND (
+            (active_revisions.question_type = 'single_choice' AND active_revisions.correct_count = 1)
+            OR (active_revisions.question_type = 'multiple_choice' AND active_revisions.correct_count >= 1)
+          )
           AND active_revisions.options_ready
           AND (pa.id IS NULL OR pa.state = 'ready')
           AND (ea.id IS NULL OR ea.state = 'ready')
@@ -376,7 +392,13 @@ function validate(input: SaveBankInput) {
   }
   for (const question of input.questions) {
     if (question.choices.length < 2 || question.choices.length > 5) throw new QuestionBankError("Setiap soal harus memiliki 2 sampai 5 opsi.");
-    if (new Set(question.choices.map((choice) => choice.id)).size !== question.choices.length || !question.choices.some((choice) => choice.id === question.correctChoiceId)) {
+    const questionType = question.questionType ?? QuestionType.single_choice;
+    if (questionType !== QuestionType.single_choice && questionType !== QuestionType.multiple_choice) {
+      throw new QuestionBankError("Mode jawaban soal tidak valid.", { code: "invalid_input" });
+    }
+    const correctChoiceIds = question.correctChoiceIds ?? [question.correctChoiceId];
+    const answerKey = validateAnswerKey(questionType, question.choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+    if (new Set(question.choices.map((choice) => choice.id)).size !== question.choices.length || new Set(correctChoiceIds).size !== correctChoiceIds.length || !answerKey.ok) {
       throw new QuestionBankError("Opsi jawaban soal tidak valid.");
     }
   }
@@ -500,7 +522,10 @@ function buildReadySourceQuestionCondition(questionAlias: string, bankAlias: str
         AND ${Prisma.raw(`${revisionAlias}.status`)} = 'ready'
         AND BTRIM(${Prisma.raw(`${revisionAlias}.stem`)}) <> ''
         AND (SELECT COUNT(*) FROM question_revision_options ro WHERE ro.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)}) BETWEEN 2 AND 5
-        AND (SELECT COUNT(*) FROM question_revision_options rc WHERE rc.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)} AND rc.is_correct) = 1
+        AND (
+          (${Prisma.raw(`${revisionAlias}.question_type`)} = 'single_choice' AND (SELECT COUNT(*) FROM question_revision_options rc WHERE rc.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)} AND rc.is_correct) = 1)
+          OR (${Prisma.raw(`${revisionAlias}.question_type`)} = 'multiple_choice' AND (SELECT COUNT(*) FROM question_revision_options rc WHERE rc.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)} AND rc.is_correct) >= 1)
+        )
         AND NOT EXISTS (
           SELECT 1 FROM question_revision_options ri
           LEFT JOIN assets ria ON ria.id = ri.asset_id
@@ -688,10 +713,11 @@ type RevisionOptionWrite = {
 };
 
 function revisionOptionWrites(input: BankQuestionInput): RevisionOptionWrite[] {
+  const correctChoiceIds = new Set(input.correctChoiceIds ?? [input.correctChoiceId]);
   return input.choices.map((choice, optionIndex) => ({
     assetId: choice.mediaAssetId || null,
     content: choice.text,
-    isCorrect: choice.id === input.correctChoiceId,
+    isCorrect: correctChoiceIds.has(choice.id),
     label: String.fromCharCode(65 + optionIndex),
     sortOrder: optionIndex,
   }));
@@ -711,7 +737,7 @@ function canonicalDigestFromInput(input: BankQuestionInput, options = revisionOp
     options,
     prompt: input.prompt,
     promptAssetId: input.promptMediaAssetId || null,
-    questionType: QuestionType.single_choice,
+    questionType: input.questionType ?? QuestionType.single_choice,
   });
 }
 
@@ -867,6 +893,7 @@ async function createQuestionRevision(
     explanation: string | null;
     explanationAssetId: string | null;
     promptAssetId: string | null;
+    questionType: QuestionAnswerMode;
   },
 ) {
   const contentDigest = questionRevisionContentDigest({
@@ -876,7 +903,7 @@ async function createQuestionRevision(
     options: input.options,
     prompt: input.stem,
     promptAssetId: input.promptAssetId,
-    questionType: QuestionType.single_choice,
+    questionType: input.questionType,
   });
   const revision = await tx.questionRevision.create({
     data: {
@@ -889,6 +916,7 @@ async function createQuestionRevision(
       promptAssetId: input.promptAssetId,
       provenance: QuestionRevisionProvenance.authored,
       questionId: input.questionId,
+      questionType: input.questionType,
       revisionNo: input.revisionNo,
       status: input.status ?? QuestionRevisionStatus.draft,
       stem: input.stem,
@@ -914,6 +942,7 @@ async function updateDraftQuestionRevision(
     explanation: string | null;
     explanationAssetId: string | null;
     promptAssetId: string | null;
+    questionType: QuestionAnswerMode;
   },
 ) {
   const contentDigest = questionRevisionContentDigest({
@@ -923,7 +952,7 @@ async function updateDraftQuestionRevision(
     options: input.options,
     prompt: input.stem,
     promptAssetId: input.promptAssetId,
-    questionType: QuestionType.single_choice,
+    questionType: input.questionType,
   });
   await tx.questionRevision.update({
     where: { id: revision.id },
@@ -933,6 +962,7 @@ async function updateDraftQuestionRevision(
       explanation: input.explanation,
       explanationAssetId: input.explanationAssetId,
       promptAssetId: input.promptAssetId,
+      questionType: input.questionType,
       stem: input.stem,
       updatedByUserId: input.actorId,
     },
@@ -1071,11 +1101,13 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         }
 
         const options = revisionOptionWrites(question);
+        const questionType = question.questionType ?? QuestionType.single_choice;
         const data = {
           difficulty: question.difficulty as DifficultyLevel,
           explanation: question.explanation.trim() || null,
           explanationAssetId: question.explanationMediaAssetId || null,
           promptAssetId: question.promptMediaAssetId || null,
+          questionType,
           stem: question.prompt,
           subtestId: subtest.id,
           topicId: null,
@@ -1105,6 +1137,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             questionId: saved.id,
             revisionNo: 1,
             stem: data.stem,
+            questionType,
           });
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
           await tx.question.update({ where: { id: saved.id }, data: { currentRevisionId: revision.id, revision: revision.revisionNo } });
@@ -1135,6 +1168,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             questionId: current.id,
             revisionNo: nextRevisionNo,
             stem: data.stem,
+            questionType,
           });
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: revision.id, revision: nextRevisionNo } });
         } else {
@@ -1146,12 +1180,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             options,
             promptAssetId: data.promptAssetId,
             stem: data.stem,
+            questionType,
           });
           // QuestionRevision is now the content authority. Keep the legacy
           // QuestionOption projection stable so historical source-option IDs
           // cannot silently change when a draft is edited.
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: currentRevision.id } });
         }
+        await syncLegacyQuestionOptions(tx, current.id, current.options, options);
       }),
     );
     const removed = existing.filter((question) => !retainedIds.has(question.id));

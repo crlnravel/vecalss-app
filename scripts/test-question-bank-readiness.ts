@@ -142,6 +142,41 @@ assert.deepEqual(
   "persisted revisions with more than one correct option must fail the same correctness rule",
 );
 
+assert.deepEqual(
+  getQuestionReadinessFromDraft({
+    choices: [
+      { id: "a", text: "Pilihan A" },
+      { id: "b", text: "Pilihan B" },
+      { id: "c", text: "Pilihan C" },
+    ],
+    correctChoiceId: "a",
+    correctChoiceIds: ["a", "c"],
+    id: "question-multiple-ready",
+    prompt: "Pertanyaan dengan dua jawaban benar",
+    questionType: "multiple_choice",
+    subjectCode: "PU",
+  }),
+  [],
+  "multiple-answer drafts are ready when every selected correct option is valid",
+);
+
+assert.deepEqual(
+  getQuestionReadinessFromDraft({
+    choices: [
+      { id: "a", text: "Pilihan A" },
+      { id: "b", text: "Pilihan B" },
+    ],
+    correctChoiceId: "a",
+    correctChoiceIds: ["a", "missing"],
+    id: "question-multiple-invalid",
+    prompt: "Pertanyaan dengan kunci asing",
+    questionType: "multiple_choice",
+    subjectCode: "PU",
+  }).map(({ code, field, focusTarget, questionId }) => ({ code, field, focusTarget, questionId })),
+  [{ code: "invalid_correct_choice", field: "correctChoice", focusTarget: "correctChoice", questionId: "question-multiple-invalid" }],
+  "multiple-answer drafts reject foreign correct option IDs",
+);
+
 const bankReadiness = getQuestionBankReadinessFromDrafts([readyDraft, incompleteDraft]);
 assert.deepEqual(bankReadiness, {
   incompleteCount: 1,
