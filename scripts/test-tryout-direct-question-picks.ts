@@ -47,6 +47,7 @@ assert.doesNotMatch(repository, /sectionInput\.packageVersionId/u, "Tryout autho
 assert.match(assessmentRelease, /if \(section\.packageVersionId\)\s*\{[\s\S]*?section\.packageVersion\?\.status/u, "release eligibility must retain the published package branch for historical releases");
 assert.match(assessmentRelease, /item\.packageVersionId !== null[\s\S]*?item\.sourceRevisionProvenance === QuestionRevisionProvenance\.legacy_unknown/u, "release eligibility must validate direct snapshot provenance");
 assert.match(assessmentRelease, /section\.packageVersionId \? section\.packageVersion\?\.items \?\? \[\] : section\.items/u, "direct CAT release eligibility must inspect physical direct items");
+assert.match(assessmentRelease, /hasUnsupportedDirectCatItem[\s\S]*?questionType === QuestionType\.multiple_choice/u, "direct CAT releases must reject multiple-answer items");
 
 assert.match(sourceRepository, /catReady\?: boolean/u, "source question DTOs must expose CAT readiness for authoring review");
 assert.match(sourceRepository, /CANONICAL_2PL_MODEL_VERSION/u, "CAT readiness must use the canonical calibration profile");

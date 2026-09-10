@@ -1398,6 +1398,7 @@ async function assertTryoutReleaseEligibility(
           items: {
             select: {
               packageVersionId: true,
+              questionType: true,
               sourceContentDigest: true,
               sourceQuestionId: true,
               sourceQuestionRevisionId: true,
@@ -1482,6 +1483,13 @@ async function assertTryoutReleaseEligibility(
     if (latestArchivedReleasePayload?.tryout?.revision === tryout.revision) return tryout;
     throw new Error("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuka rilis baru.");
   }
+  const hasUnsupportedDirectCatItem = tryout.sections.some((section) =>
+    section.testType === "cat"
+    && section.items.some((item) => item.questionType === QuestionType.multiple_choice),
+  );
+  if (hasUnsupportedDirectCatItem) {
+    throw new Error("CAT hanya dapat memakai soal dengan satu jawaban benar. Ubah soal menjadi Single Answer sebelum membuka Tryout.");
+  }
   if (tryout.sections.length !== 7 || tryout.sections.some((section) => {
     if (section.packageVersionId) {
       const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
@@ -1537,7 +1545,15 @@ async function assertTryoutReleaseEligibility(
   }
   const catItems = tryout.sections.flatMap((section) => {
     if (section.testType !== "cat" || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool) return [];
-    const items = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
+    const items: Array<{
+      packageVersionId: string | null;
+      questionType?: QuestionType;
+      sourceContentDigest: string | null;
+      sourceQuestionId: string | null;
+      sourceQuestionRevisionId: string | null;
+      sourceRevisionProvenance: QuestionRevisionProvenance | null;
+      subtestId: string;
+    }> = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
     if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
       throw new Error("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
     }
