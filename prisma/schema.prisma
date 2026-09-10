@@ -2106,6 +2106,8 @@ model StandaloneQuizVersion {
   publishedAt              DateTime?                             @map("published_at") @db.Timestamptz
   publishedByUserId        String?                               @map("published_by_user_id") @db.Uuid
   provenance               StandaloneQuizVersionProvenance       @default(runtime)
+  opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
+  closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
   createdAt                DateTime                              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
