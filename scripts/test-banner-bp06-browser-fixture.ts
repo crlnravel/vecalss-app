@@ -77,6 +77,20 @@ type UniqueIndexRow = {
   indexDefinition: string;
 };
 
+type ForeignKeyTargetRow = {
+  constraintName: string;
+  targetSchemaName: string;
+  targetTableName: string;
+  targetColumns: string[];
+  targetAttnums: number[];
+  sourceConstraintNames: string[];
+  sourceIndexNames: string[];
+  sourceStandaloneIndexNames: string[];
+  localTableExists: boolean;
+  matchingConstraintNames: string[];
+  matchingIndexNames: string[];
+};
+
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
@@ -337,6 +351,14 @@ async function cloneLocalConstraints(client: pg.Client, schema: string, enumName
       `ALTER TABLE ${quotedSchema}.${quoteIdentifier(row.tableName)} ADD CONSTRAINT ${quoteIdentifier(row.constraintName)} ${definition}`,
     );
   }
+  // PostgreSQL validates every foreign-key target against the local
+  // pg_constraint/pg_index topology at ADD CONSTRAINT time. Check the exact
+  // ordered key, relation, uniqueness and index validity first so a missing
+  // replay is reported with bounded, non-secret diagnostics rather than as an
+  // opaque 42830 from whichever FK happens to be visited first. This covers
+  // every source FK, including keys backed by standalone unique indexes and
+  // keys backed by UNIQUE/PRIMARY KEY constraints.
+  await assertLocalForeignKeyTargets(client, schema);
   for (const row of constraints.rows.filter(({ constraintType }) => constraintType === "f")) {
     assert.ok(row.referencedTableName);
     const definition = rewriteCatalogExpression(row.definition, schema, enumNames, sequenceNames)
@@ -356,6 +378,160 @@ async function cloneLocalConstraints(client: pg.Client, schema: string, enumName
   }
 }
 
+async function assertLocalForeignKeyTargets(client: pg.Client, schema: string) {
+  const result = await client.query<ForeignKeyTargetRow>(
+    `WITH expected AS (
+       SELECT foreign_key.oid AS "foreignKeyOid",
+              foreign_key.conname AS "constraintName",
+              target_namespace.nspname AS "targetSchemaName",
+              target.oid AS "targetOid",
+              target.relname AS "targetTableName",
+              array_agg(target_attribute.attname ORDER BY key_part.key_position)::text[] AS "targetColumns",
+              array_agg(target_attribute.attnum::int ORDER BY key_part.key_position)::int[] AS "targetAttnums"
+         FROM pg_constraint foreign_key
+         JOIN pg_class source ON source.oid = foreign_key.conrelid
+         JOIN pg_namespace source_namespace ON source_namespace.oid = source.relnamespace
+         JOIN pg_class target ON target.oid = foreign_key.confrelid
+         JOIN pg_namespace target_namespace ON target_namespace.oid = target.relnamespace
+         CROSS JOIN LATERAL unnest(foreign_key.confkey) WITH ORDINALITY
+           AS key_part(attnum, key_position)
+         JOIN pg_attribute target_attribute
+           ON target_attribute.attrelid = target.oid
+          AND target_attribute.attnum = key_part.attnum
+        WHERE source_namespace.nspname = 'public'
+          AND source.relkind IN ('r', 'p')
+          AND target.relkind IN ('r', 'p')
+          AND foreign_key.contype = 'f'
+        GROUP BY foreign_key.oid, foreign_key.conname, target.oid, target_namespace.nspname, target.relname
+     )
+     SELECT expected."constraintName",
+            expected."targetSchemaName",
+            expected."targetTableName",
+            expected."targetColumns",
+            expected."targetAttnums",
+            COALESCE(source_constraints.names, ARRAY[]::text[]) AS "sourceConstraintNames",
+            COALESCE(source_indexes.names, ARRAY[]::text[]) AS "sourceIndexNames",
+            COALESCE(source_standalone_indexes.names, ARRAY[]::text[]) AS "sourceStandaloneIndexNames",
+            local_target.oid IS NOT NULL AS "localTableExists",
+            COALESCE(matching_constraints.names, ARRAY[]::text[]) AS "matchingConstraintNames",
+            COALESCE(matching_indexes.names, ARRAY[]::text[]) AS "matchingIndexNames"
+       FROM expected
+       LEFT JOIN LATERAL (
+         SELECT array_agg(candidate.conname ORDER BY candidate.conname) AS names
+           FROM pg_constraint candidate
+          WHERE candidate.conrelid = expected."targetOid"
+            AND candidate.contype IN ('p', 'u')
+            AND candidate.convalidated
+            AND ARRAY(
+              SELECT key_part.attnum::int
+                FROM unnest(candidate.conkey) WITH ORDINALITY
+                  AS key_part(attnum, key_position)
+               ORDER BY key_part.key_position
+            ) = expected."targetAttnums"
+       ) source_constraints ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT array_agg(index_class.relname ORDER BY index_class.relname) AS names
+           FROM pg_index candidate
+           JOIN pg_class index_class ON index_class.oid = candidate.indexrelid
+          WHERE candidate.indrelid = expected."targetOid"
+            AND index_class.relkind IN ('i', 'I')
+            AND candidate.indisunique
+            AND candidate.indisvalid
+            AND candidate.indisready
+            AND candidate.indpred IS NULL
+            AND candidate.indnkeyatts = cardinality(expected."targetAttnums")
+            AND ARRAY(
+              SELECT key_part.attnum::int
+                FROM unnest(candidate.indkey::smallint[]) WITH ORDINALITY
+                  AS key_part(attnum, key_position)
+               WHERE key_part.key_position <= candidate.indnkeyatts
+               ORDER BY key_part.key_position
+            ) = expected."targetAttnums"
+       ) source_indexes ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT array_agg(index_class.relname ORDER BY index_class.relname) AS names
+           FROM pg_index candidate
+           JOIN pg_class index_class ON index_class.oid = candidate.indexrelid
+           LEFT JOIN pg_constraint owning_constraint ON owning_constraint.conindid = candidate.indexrelid
+          WHERE candidate.indrelid = expected."targetOid"
+            AND index_class.relkind IN ('i', 'I')
+            AND candidate.indisunique
+            AND candidate.indisvalid
+            AND candidate.indisready
+            AND candidate.indpred IS NULL
+            AND candidate.indnkeyatts = cardinality(expected."targetAttnums")
+            AND owning_constraint.oid IS NULL
+            AND ARRAY(
+              SELECT key_part.attnum::int
+                FROM unnest(candidate.indkey::smallint[]) WITH ORDINALITY
+                  AS key_part(attnum, key_position)
+               WHERE key_part.key_position <= candidate.indnkeyatts
+               ORDER BY key_part.key_position
+            ) = expected."targetAttnums"
+       ) source_standalone_indexes ON TRUE
+       LEFT JOIN pg_class local_target
+         ON local_target.relname = expected."targetTableName"
+        AND expected."targetSchemaName" = 'public'
+        AND local_target.relkind IN ('r', 'p')
+        AND local_target.relnamespace = (
+          SELECT local_namespace.oid
+            FROM pg_namespace local_namespace
+           WHERE local_namespace.nspname = $1
+        )
+       LEFT JOIN LATERAL (
+         SELECT array_agg(candidate.conname ORDER BY candidate.conname) AS names
+           FROM pg_constraint candidate
+          WHERE candidate.conrelid = local_target.oid
+            AND candidate.contype IN ('p', 'u')
+            AND candidate.convalidated
+            AND ARRAY(
+              SELECT key_part.attnum::int
+                FROM unnest(candidate.conkey) WITH ORDINALITY
+                  AS key_part(attnum, key_position)
+               ORDER BY key_part.key_position
+            ) = expected."targetAttnums"
+       ) matching_constraints ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT array_agg(index_class.relname ORDER BY index_class.relname) AS names
+           FROM pg_index candidate
+           JOIN pg_class index_class ON index_class.oid = candidate.indexrelid
+          WHERE candidate.indrelid = local_target.oid
+            AND candidate.indisunique
+            AND candidate.indisvalid
+            AND candidate.indisready
+            AND candidate.indpred IS NULL
+            AND candidate.indnkeyatts = cardinality(expected."targetAttnums")
+            AND ARRAY(
+              SELECT key_part.attnum::int
+                FROM unnest(candidate.indkey::smallint[]) WITH ORDINALITY
+                  AS key_part(attnum, key_position)
+               WHERE key_part.key_position <= candidate.indnkeyatts
+               ORDER BY key_part.key_position
+            ) = expected."targetAttnums"
+       ) matching_indexes ON TRUE
+      ORDER BY expected."targetTableName", expected."constraintName"`,
+    [schema],
+  );
+  const missing = result.rows.filter(({ localTableExists, matchingConstraintNames, matchingIndexNames }) =>
+    !localTableExists || (matchingConstraintNames.length === 0 && matchingIndexNames.length === 0));
+  if (missing.length === 0) return;
+
+  const boundedDiagnostics = missing.slice(0, 12).map((row) => ({
+    constraintName: row.constraintName,
+    targetSchemaName: row.targetSchemaName,
+    targetTableName: row.targetTableName,
+    targetColumns: row.targetColumns,
+    sourceConstraintNames: row.sourceConstraintNames.slice(0, 8),
+    sourceIndexNames: row.sourceIndexNames.slice(0, 8),
+    sourceStandaloneIndexNames: row.sourceStandaloneIndexNames.slice(0, 8),
+    localTableExists: row.localTableExists,
+    matchingConstraintNames: row.matchingConstraintNames.slice(0, 8),
+    matchingIndexNames: row.matchingIndexNames.slice(0, 8),
+  }));
+  console.error(`BP06 FK target invariant failed for ${missing.length} source FK(s): ${JSON.stringify(boundedDiagnostics)}`);
+  assert.fail(`BP06 local FK target invariant failed for ${missing.length} source FK(s); see bounded diagnostics above`);
+}
+
 async function cloneLocalUniqueIndexes(client: pg.Client, schema: string, enumNames: string[], sequenceNames: Set<string>) {
   const result = await client.query<UniqueIndexRow>(
     `SELECT index_class.relname AS "indexName",
@@ -369,6 +545,8 @@ async function cloneLocalUniqueIndexes(client: pg.Client, schema: string, enumNa
         AND table_class.relkind IN ('r', 'p')
         AND index_class.relkind IN ('i', 'I')
         AND index_row.indisunique
+        AND index_row.indisvalid
+        AND index_row.indisready
         AND NOT index_row.indisprimary
         AND constraint_row.oid IS NULL
       ORDER BY table_class.relname, index_class.relname`,
