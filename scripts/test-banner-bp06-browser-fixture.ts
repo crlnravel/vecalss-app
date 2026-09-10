@@ -798,7 +798,7 @@ async function applyBrowserTransition(state: FixtureState, operation: BrowserTra
     assert.ok(legacyId, "BP06 recovery transition legacy text config id is missing");
 
     if (operation === "prepare-recovery") {
-      await client.query(
+      const destinationUpdate = await client.query(
         `UPDATE ${schemaName}."system_configs"
             SET config_value = $1::jsonb,
                 draft_value = NULL,
@@ -807,29 +807,33 @@ async function applyBrowserTransition(state: FixtureState, operation: BrowserTra
           WHERE id = $2::uuid`,
         [JSON.stringify({ design: null, revision: "broken", storageVersion: 2 }), destinationId],
       );
-      await client.query(
+      assert.equal(destinationUpdate.rowCount, 1, "BP06 recovery transition must update exactly the seeded tryout config row");
+      const legacyUpdate = await client.query(
         `UPDATE ${schemaName}."system_configs"
             SET config_value = $1::jsonb,
                 updated_at = NOW()
           WHERE id = $2::uuid`,
         [JSON.stringify(recoveryLegacyFixture(RECOVERY_TITLE)), legacyId],
       );
+      assert.equal(legacyUpdate.rowCount, 1, "BP06 recovery transition must update exactly the seeded legacy text row");
     } else if (operation === "source-conflict") {
-      await client.query(
+      const legacyUpdate = await client.query(
         `UPDATE ${schemaName}."system_configs"
             SET config_value = $1::jsonb,
                 updated_at = NOW()
           WHERE id = $2::uuid`,
         [JSON.stringify(recoveryLegacyFixture(RECOVERY_CONFLICT_TITLE)), legacyId],
       );
+      assert.equal(legacyUpdate.rowCount, 1, "BP06 source-conflict transition must update exactly the seeded legacy text row");
     } else {
-      await client.query(
+      const legacyUpdate = await client.query(
         `UPDATE ${schemaName}."system_configs"
             SET config_value = $1::jsonb,
                 updated_at = NOW()
           WHERE id = $2::uuid`,
         [JSON.stringify(recoveryLegacyFixture(RECOVERY_TITLE)), legacyId],
       );
+      assert.equal(legacyUpdate.rowCount, 1, "BP06 recovery restore transition must update exactly the seeded legacy text row");
     }
     await client.query("COMMIT");
     const provenance = operation === "prepare-recovery"
@@ -1683,13 +1687,19 @@ function browserVerificationScript() {
     await check("admin-preview-published-and-draft-four-destinations", async () => {
       const details = [];
       for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
-        const suffix = destination === "beranda" ? "" : "/" + (destination === "materi" ? "courses" : destination);
+        const suffix = destination === "beranda"
+          ? ""
+          : destination === "materi"
+            ? "/courses"
+            : destination === "kuis"
+              ? "/quiz"
+              : "/tryout";
         const publishedInfo = await go("/admin/student-preview" + suffix);
         const publishedBody = await text();
-        if (!String(publishedInfo.url).includes("/admin/student-preview") || !publishedBody.includes("Preview subject")) fail("published preview failed for " + destination);
+        if (!String(publishedInfo.url).includes("/admin/student-preview") || !publishedBody.includes("Student preview")) fail("published preview failed for " + destination);
         const draftInfo = await go("/admin/student-preview" + suffix + "?bannerSource=draft&revision=" + drafts[destination]);
         const draftBody = await text();
-        if (!String(draftInfo.url).includes("bannerSource=draft") || !String(draftInfo.url).includes(drafts[destination]) || !draftBody.includes("Preview subject")) fail("draft preview failed for " + destination);
+        if (!String(draftInfo.url).includes("bannerSource=draft") || !String(draftInfo.url).includes(drafts[destination]) || !draftBody.includes("Student preview")) fail("draft preview failed for " + destination);
         details.push(destination);
       }
       return { destinations: details };
@@ -1842,8 +1852,8 @@ function browserVerificationScript() {
       if (initial.description !== "BP06 legacy description {firstName} {targetMajor} {targetUniversity}") fail("legacy description was not retained losslessly");
       const correctedTitle = "BP06 recovered title {firstName}";
       const correctedDescription = "BP06 recovered description {targetMajor} {targetUniversity}";
-      await fillInput("#banner-starter-title", correctedTitle);
       await fillInput("#banner-starter-description", correctedDescription);
+      await fillInput("#banner-starter-title", correctedTitle);
       await pressKey("Tab");
       const corrected = await js("(() => ({ correction: Boolean(document.querySelector('[data-testid=\"banner-starter-correction\"]')), editor: Boolean(document.querySelector('button[aria-label=\"Tambahkan teks\"]')) }))()");
       if (!corrected || corrected.correction || !corrected.editor) fail("valid correction did not open the banner editor");
