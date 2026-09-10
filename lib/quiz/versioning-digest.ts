@@ -21,6 +21,7 @@ type KuisDefinitionQuestion = {
   id: string;
   choices: readonly KuisDefinitionChoice[];
   correctChoiceId: string;
+  correctChoiceIds?: readonly string[];
   explanation: string;
   explanationAssetId?: string | null;
   explanationMediaAssetId?: string | null;
@@ -28,6 +29,7 @@ type KuisDefinitionQuestion = {
   prompt: string;
   promptAssetId?: string | null;
   promptMediaAssetId?: string | null;
+  questionType?: "single_choice" | "multiple_choice" | null;
   sourceContentDigest?: string | null;
   sourceQuestionId?: string | null;
   sourceQuestionRevisionId?: string | null;
@@ -133,12 +135,14 @@ function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput)
         text: choice.text,
       })),
       correctChoiceId: question.correctChoiceId,
+      correctChoiceIds: question.correctChoiceIds?.length ? [...question.correctChoiceIds] : undefined,
       explanation: question.explanation,
       explanationMediaAssetId: nullableText(question.explanationMediaAssetId ?? question.explanationAssetId),
       id: question.id,
       origin: question.origin,
       prompt: question.prompt,
       promptMediaAssetId: nullableText(question.promptMediaAssetId ?? question.promptAssetId),
+      questionType: question.questionType ?? null,
       sourceContentDigest: nullableText(question.sourceContentDigest),
       sourceQuestionId: nullableText(question.sourceQuestionId),
       sourceQuestionRevisionId: nullableText(question.sourceQuestionRevisionId),
@@ -182,22 +186,35 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
     correctAnswerVisibility: definition.correctAnswerVisibility,
     description: definition.description,
     formBehavior: definition.formBehavior,
-    questions: definition.questions.map((question) => ({
-      choices: question.choices.map((choice) => ({
-        mediaAssetId: choice.mediaAssetId ?? null,
-        text: choice.text,
-      })),
-      correctChoiceIndex: question.choices.findIndex((choice) => choice.id === question.correctChoiceId),
-      explanation: question.explanation,
-      explanationMediaAssetId: question.explanationMediaAssetId ?? null,
-      origin: question.origin,
-      prompt: question.prompt,
-      promptMediaAssetId: question.promptMediaAssetId ?? null,
-      sourceContentDigest: question.sourceContentDigest ?? null,
-      sourceQuestionId: question.sourceQuestionId ?? null,
-      sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? null,
-      sourceRevisionProvenance: question.sourceRevisionProvenance ?? null,
-    })),
+    questions: definition.questions.map((question) => {
+      const correctChoiceIds = question.correctChoiceIds?.length
+        ? question.correctChoiceIds
+        : [question.correctChoiceId];
+      const isMultipleAnswer = question.questionType === "multiple_choice" || correctChoiceIds.length > 1;
+      return {
+        choices: question.choices.map((choice) => ({
+          mediaAssetId: choice.mediaAssetId ?? null,
+          text: choice.text,
+        })),
+        correctChoiceIndex: isMultipleAnswer ? undefined : question.choices.findIndex((choice) => choice.id === question.correctChoiceId),
+        correctChoiceIndices: isMultipleAnswer
+          ? question.choices
+            .map((choice, index) => ({ choice, index }))
+            .filter(({ choice }) => correctChoiceIds.includes(choice.id))
+            .map(({ index }) => index)
+          : undefined,
+        explanation: question.explanation,
+        explanationMediaAssetId: question.explanationMediaAssetId ?? null,
+        origin: question.origin,
+        prompt: question.prompt,
+        promptMediaAssetId: question.promptMediaAssetId ?? null,
+        questionType: isMultipleAnswer ? "multiple_choice" : undefined,
+        sourceContentDigest: question.sourceContentDigest ?? null,
+        sourceQuestionId: question.sourceQuestionId ?? null,
+        sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? null,
+        sourceRevisionProvenance: question.sourceRevisionProvenance ?? null,
+      };
+    }),
     retryDelaySeconds: definition.retryDelaySeconds,
     reviewTiming: definition.reviewTiming,
     scorePolicy: definition.scorePolicy,

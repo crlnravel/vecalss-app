@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [schema, migration, answerContract] = await Promise.all([
+const [schema, migration, itemScopingMigration, answerContract] = await Promise.all([
   readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260910100000_add_standalone_quiz_version_storage/migration.sql", import.meta.url), "utf8"),
+  readFile(new URL("../prisma/migrations/20260910160000_scope_standalone_quiz_items_to_versions/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../lib/question-bank/answer-contract.ts", import.meta.url), "utf8"),
 ]);
 
@@ -40,6 +41,12 @@ assert.match(migration, /UPDATE "standalone_quiz_participations" participation/u
 assert.match(migration, /jsonb_build_array\("selected_option_id"\)/u);
 assert.match(migration, /ON CONFLICT \("quiz_id", "student_id", "request_id"\) DO NOTHING/u);
 assert.match(migration, /one_active_per_quiz/u);
+assert.match(schema, /@@index\(\[quizId, sortOrder\]\)/u);
+assert.match(itemScopingMigration, /DROP INDEX IF EXISTS "standalone_quiz_items_quiz_id_sort_order_key"/u);
+assert.match(itemScopingMigration, /standalone_quiz_items_quiz_id_sort_order_legacy_key/u);
+assert.match(itemScopingMigration, /WHERE "quiz_version_id" IS NULL/u);
+assert.match(itemScopingMigration, /standalone_quiz_items_quiz_version_id_sort_order_key/u);
+assert.match(itemScopingMigration, /WHERE "quiz_version_id" IS NOT NULL/u);
 
 const versionTable = migration.indexOf('CREATE TABLE "standalone_quiz_versions"');
 const versionBackfill = migration.indexOf('INSERT INTO "standalone_quiz_versions"');
@@ -51,6 +58,7 @@ assert.ok(itemBackfill > versionBackfill, "item links must be backfilled after v
 assert.ok(commandBackfill > commandTable, "start commands must exist before their legacy backfill");
 
 assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
+assert.doesNotMatch(itemScopingMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.match(answerContract, /compareSelectedOptionSets/u);
 assert.match(answerContract, /decodeLegacyAnswerSelection/u);
 

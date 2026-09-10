@@ -46,6 +46,13 @@ const secondQuestion = {
   sourceQuestionId: "source-question-2",
   sourceQuestionRevisionId: "source-revision-2",
 };
+const multiAnswerQuestion = {
+  ...question,
+  correctChoiceId: "choice-a",
+  correctChoiceIds: ["choice-a", "choice-b"],
+  id: "question-multi",
+  questionType: "multiple_choice" as const,
+};
 
 const definition: KuisAssessmentDefinitionInput = {
   assemblyDefinitionDigest: "assembly-digest-v1",
@@ -134,6 +141,19 @@ assert.notEqual(
   digestKuisAssessmentDefinition(definition),
   digestKuisAssessmentDefinition({ ...definition, assemblySeed: "seed-2" }),
   "assembly identity is versioned",
+);
+assert.notEqual(
+  digestKuisAssessmentDefinition({ ...definition, questions: [question] }),
+  digestKuisAssessmentDefinition({ ...definition, questions: [multiAnswerQuestion] }),
+  "single and multiple answer definitions must have distinct digests",
+);
+assert.notEqual(
+  digestKuisAssessmentDefinition({ ...definition, questions: [multiAnswerQuestion] }),
+  digestKuisAssessmentDefinition({
+    ...definition,
+    questions: [{ ...multiAnswerQuestion, correctChoiceIds: ["choice-a"] }],
+  }),
+  "the complete multiple answer key is part of the version digest",
 );
 assert.equal(
   digestKuisAssessmentDefinition(definition),

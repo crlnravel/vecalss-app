@@ -2155,7 +2155,10 @@ model StandaloneQuizItem {
   options                StandaloneQuizItemOption[]
   answers                StandaloneQuizAnswer[]
 
-  @@unique([quizId, sortOrder])
+  // Versioned Kuis drafts and active snapshots share the stable quiz identity.
+  // The forward migration installs scoped partial unique indexes so legacy
+  // unversioned rows remain ordered while multiple version snapshots coexist.
+  @@index([quizId, sortOrder])
   @@unique([quizId, idempotencyKey])
   @@index([quizVersionId, sortOrder])
   @@map("standalone_quiz_items")
