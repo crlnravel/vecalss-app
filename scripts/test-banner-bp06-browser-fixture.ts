@@ -1512,32 +1512,70 @@ function captureChildOutput(child: ChildProcess) {
   return lines;
 }
 
+function safeDiagnosticText(value: string, limit = 1200) {
+  return String(value)
+    .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|,]+/giu, "[redacted]")
+    .replaceAll(/(?:postgres(?:ql)?|mysql|redis):\/\/[^\s|,]+/giu, "[redacted-url]")
+    .replaceAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[redacted-email]")
+    .slice(0, limit);
+}
+
 function safeDiagnosticTail(lines: string[], limit = 12) {
   return lines
     .slice(-limit)
-    .map((line) => line
-      .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|]+/giu, "[redacted]")
-      .replaceAll(/(?:postgres(?:ql)?|mysql|redis):\/\/[^\s|]+/giu, "[redacted-url]")
-      .slice(0, 600))
+    .map((line) => safeDiagnosticText(line, 600))
     .join(" | ");
 }
 
 async function waitForNextReady(child: ChildProcess, output: string[]) {
   const url = routeUrl(PORT, "/login");
   const deadline = Date.now() + 90_000;
+  let lastProbe: {
+    bodySample?: string;
+    contentType?: string | null;
+    error?: string;
+    location?: string | null;
+    markers?: {
+      email: boolean;
+      heading: boolean;
+      password: boolean;
+    };
+    status: number | null;
+  } = { status: null };
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error(`Next child exited before readiness (code ${child.exitCode}). Tail: ${safeDiagnosticTail(output)}`);
     }
     try {
-      const response = await fetch(url, { redirect: "manual" });
-      if (response.status >= 200 && response.status < 500) return;
-    } catch {
+      const response = await fetch(url, { cache: "no-store", redirect: "manual" });
+      const body = await response.text();
+      const markers = {
+        email: body.includes('id="login-email"'),
+        heading: body.includes("Masuk ke Vecalss"),
+        password: body.includes('id="login-password"'),
+      };
+      lastProbe = {
+        bodySample: safeDiagnosticText(body),
+        contentType: response.headers.get("content-type"),
+        location: response.headers.get("location"),
+        markers,
+        status: response.status,
+      };
+      if (response.status !== 200) {
+        throw new Error(`login readiness returned HTTP ${response.status}; expected 200 HTML (location=${safeDiagnosticText(response.headers.get("location") ?? "")})`);
+      }
+      if (String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html") && markers.heading && markers.email && markers.password) return;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("login readiness returned HTTP")) throw error;
+      lastProbe = {
+        ...lastProbe,
+        error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
+      };
       // The listener is not ready yet; bounded polling is intentional.
     }
     await sleep(500);
   }
-  throw new Error(`Next child did not become ready within 90s. Tail: ${safeDiagnosticTail(output)}`);
+  throw new Error(`Next child did not render the expected login HTML within 90s. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
 }
 
 function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
