@@ -136,10 +136,12 @@ BEGIN
     IF BTRIM(NEW.stem) = ''
       OR option_count < 2
       OR option_count > 5
-      OR CASE
-        WHEN question_bank_id IS NOT NULL AND NEW.question_type = 'multiple_choice' THEN correct_count < 1
-        ELSE correct_count <> 1
-      END
+      OR (
+        CASE
+          WHEN question_bank_id IS NOT NULL AND NEW.question_type = 'multiple_choice' THEN correct_count < 1
+          ELSE correct_count <> 1
+        END
+      )
       OR NOT options_ready
       OR (NEW.prompt_asset_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM assets WHERE assets.id = NEW.prompt_asset_id AND assets.state = 'ready'))
       OR (NEW.explanation_asset_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM assets WHERE assets.id = NEW.explanation_asset_id AND assets.state = 'ready'))
