@@ -354,6 +354,29 @@ enum StandaloneQuizCorrectAnswerVisibility {
   @@map("standalone_quiz_correct_answer_visibility")
 }
 
+enum StandaloneQuizVersionState {
+  draft
+  active
+  superseded
+
+  @@map("standalone_quiz_version_state")
+}
+
+enum StandaloneQuizVersionProvenance {
+  runtime
+  legacy_migration
+
+  @@map("standalone_quiz_version_provenance")
+}
+
+enum StandaloneQuizAnswerFormat {
+  legacy_scalar
+  single_option
+  multiple_options
+
+  @@map("standalone_quiz_answer_format")
+}
+
 enum AnswerSource {
   server
   client
@@ -1182,7 +1205,9 @@ model User {
   authoredQuestionRevisions              QuestionRevision[]               @relation("QuestionRevisionCreatedBy")
   modifiedQuestionRevisions              QuestionRevision[]               @relation("QuestionRevisionUpdatedBy")
   authoredStandaloneQuizzes              StandaloneQuiz[]                 @relation("StandaloneQuizAuthor")
+  publishedStandaloneQuizVersions        StandaloneQuizVersion[]          @relation("StandaloneQuizVersionPublishedBy")
   standaloneQuizParticipations           StandaloneQuizParticipation[]
+  standaloneQuizStartCommands            StandaloneQuizStartCommand[]
   quizAttempts                           QuizAttempt[]
   createdTryoutPackages                  TryoutPackage[]                  @relation("TryoutCreatedBy")
   assessmentReleasesCreated              AssessmentRelease[]              @relation("AssessmentReleaseCreatedBy")
@@ -1770,6 +1795,7 @@ model QuestionBank {
   categories                               QuestionBankCategoryAssignment[]
   questions                                Question[]
   sourceQuizzes                            StandaloneQuiz[]
+  sourceQuizVersions                       StandaloneQuizVersion[]          @relation("StandaloneQuizVersionSourceBank")
   adaptivePracticeSessions                 AdaptivePracticeSession[]
   reusableQuestionPackages                 ReusableQuestionPackage[]                 @relation("ReusablePackageSourceBank")
   reusableQuestionPackageVersions          ReusableQuestionPackageVersion[]          @relation("ReusablePackageVersionSourceBank")
@@ -2041,6 +2067,8 @@ model StandaloneQuiz {
   assemblyPackageVersion ReusableQuestionPackageVersion? @relation("StandaloneQuizAssemblyVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
   items                  StandaloneQuizItem[]
   participations         StandaloneQuizParticipation[]
+  versions               StandaloneQuizVersion[]
+  startCommands          StandaloneQuizStartCommand[]
 
   @@index([status, opensAt, closesAt])
   @@index([subtestId, status])
@@ -2048,13 +2076,65 @@ model StandaloneQuiz {
   @@map("standalone_quizzes")
 }
 
+/// Versioned Kuis definition. The stable StandaloneQuiz row remains the
+/// catalogue/ownership identity while this aggregate becomes the future
+/// draft/publication boundary. Nullable links on existing child rows keep the
+/// migration additive until the application cutover ticket is implemented.
+model StandaloneQuizVersion {
+  id                       String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId                   String                                @map("quiz_id") @db.Uuid
+  baseVersionId            String?                               @map("base_version_id") @db.Uuid
+  state                    StandaloneQuizVersionState            @default(draft)
+  versionNo                Int?                                  @map("version_no")
+  title                    String                                @db.VarChar(220)
+  description              String?                               @db.Text
+  attemptsAllowed          Int?                                  @map("attempts_allowed")
+  scorePolicy              StandaloneQuizScorePolicy              @default(latest) @map("score_policy")
+  retryDelaySeconds        Int?                                  @map("retry_delay_seconds")
+  formBehavior             StandaloneQuizFormBehavior             @default(same) @map("form_behavior")
+  reviewTiming             StandaloneQuizReviewTiming              @default(immediate) @map("review_timing")
+  correctAnswerVisibility  StandaloneQuizCorrectAnswerVisibility  @default(show) @map("correct_answer_visibility")
+  sourceBankId             String?                               @map("source_bank_id") @db.Uuid
+  assemblyMode             ReusableQuestionPackageMode?          @map("assembly_mode")
+  assemblyPackageVersionId String?                               @map("assembly_package_version_id") @db.Uuid
+  assemblyDefinitionDigest String?                               @map("assembly_definition_digest") @db.VarChar(128)
+  assemblySeed             String?                               @map("assembly_seed") @db.VarChar(128)
+  definitionVersion        String                                @default("kuis-assessment-definition-v1") @map("definition_version") @db.VarChar(120)
+  definitionDigest         String?                               @map("definition_digest") @db.VarChar(128)
+  draftRevision             Int?                                  @map("draft_revision")
+  publishRequestId          String?                               @unique @map("publish_request_id") @db.Uuid
+  publishedAt              DateTime?                             @map("published_at") @db.Timestamptz
+  publishedByUserId        String?                               @map("published_by_user_id") @db.Uuid
+  provenance               StandaloneQuizVersionProvenance       @default(runtime)
+  createdAt                DateTime                              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  quiz                     StandaloneQuiz                         @relation(fields: [quizId], references: [id], onDelete: Restrict)
+  baseVersion              StandaloneQuizVersion?                  @relation("StandaloneQuizVersionBase", fields: [baseVersionId], references: [id], onDelete: Restrict)
+  derivedVersions          StandaloneQuizVersion[]                 @relation("StandaloneQuizVersionBase")
+  sourceBank               QuestionBank?                           @relation("StandaloneQuizVersionSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  assemblyPackageVersion   ReusableQuestionPackageVersion?          @relation("StandaloneQuizVersionAssemblyVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
+  publishedBy              User?                                   @relation("StandaloneQuizVersionPublishedBy", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  items                    StandaloneQuizItem[]
+  participations           StandaloneQuizParticipation[]
+  startCommands            StandaloneQuizStartCommand[]
+
+  @@unique([quizId, versionNo])
+  @@index([quizId, state])
+  @@index([sourceBankId])
+  @@index([assemblyPackageVersionId])
+  @@map("standalone_quiz_versions")
+}
+
 model StandaloneQuizItem {
   id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   quizId                   String                      @map("quiz_id") @db.Uuid
+  quizVersionId            String?                     @map("quiz_version_id") @db.Uuid
   sortOrder                Int                         @map("sort_order")
   prompt                   String                      @db.Text
   explanation              String?                     @db.Text
   difficulty               DifficultyLevel             @default(medium)
+  questionType             QuestionType                @default(single_choice) @map("question_type")
   subtestId                String                      @map("subtest_id") @db.Uuid
   sourceQuestionId         String?                     @map("source_question_id") @db.Uuid
   sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
@@ -2066,6 +2146,7 @@ model StandaloneQuizItem {
   createdAt                DateTime                    @default(now()) @map("created_at") @db.Timestamptz
 
   quiz                   StandaloneQuiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizVersion            StandaloneQuizVersion?      @relation(fields: [quizVersionId], references: [id], onDelete: Restrict)
   subtest                Subtest                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   sourceQuestion         Question?                  @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
   sourceQuestionRevision QuestionRevision?          @relation("StandaloneQuizItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
@@ -2076,6 +2157,7 @@ model StandaloneQuizItem {
 
   @@unique([quizId, sortOrder])
   @@unique([quizId, idempotencyKey])
+  @@index([quizVersionId, sortOrder])
   @@map("standalone_quiz_items")
 }
 
@@ -2103,16 +2185,19 @@ model StandaloneQuizItemOption {
 model StandaloneQuizParticipation {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   quizId         String   @map("quiz_id") @db.Uuid
+  quizVersionId  String?  @map("quiz_version_id") @db.Uuid
   studentId      String   @map("student_id") @db.Uuid
   policySnapshot Json     @map("policy_snapshot") @db.JsonB
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   quiz     StandaloneQuiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizVersion StandaloneQuizVersion? @relation(fields: [quizVersionId], references: [id], onDelete: Restrict)
   student  User                    @relation(fields: [studentId], references: [id])
   attempts StandaloneQuizAttempt[]
 
   @@unique([quizId, studentId])
+  @@index([quizVersionId, studentId])
   @@index([studentId])
   @@map("standalone_quiz_participations")
 }
@@ -2145,6 +2230,7 @@ model StandaloneQuizAttempt {
 
   participation StandaloneQuizParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
   answers       StandaloneQuizAnswer[]
+  startCommand  StandaloneQuizStartCommand? @relation("StandaloneQuizStartCommandAttempt")
 
   @@unique([participationId, attemptNo])
   @@unique([participationId, startRequestId])
@@ -2157,6 +2243,8 @@ model StandaloneQuizAnswer {
   attemptId        String   @map("attempt_id") @db.Uuid
   quizItemId       String   @map("quiz_item_id") @db.Uuid
   selectedOptionId String   @map("selected_option_id") @db.Uuid
+  selectedOptionIds Json?   @map("selected_option_ids") @db.JsonB
+  answerFormat     StandaloneQuizAnswerFormat @default(legacy_scalar) @map("answer_format")
   isCorrect        Boolean? @map("is_correct")
   pointsAwarded    Decimal? @map("points_awarded") @db.Decimal(8, 2)
   scoringVersion   String?  @map("scoring_version") @db.VarChar(120)
@@ -2170,6 +2258,27 @@ model StandaloneQuizAnswer {
   @@unique([attemptId, quizItemId])
   @@index([attemptId])
   @@map("standalone_quiz_answers")
+}
+
+/// Idempotency authority for starts that race a Kuis publication. The legacy
+/// attempt.startRequestId remains available for audit and old readers.
+model StandaloneQuizStartCommand {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId        String                  @map("quiz_id") @db.Uuid
+  quizVersionId String?                 @map("quiz_version_id") @db.Uuid
+  studentId     String                  @map("student_id") @db.Uuid
+  requestId     String                  @map("request_id") @db.Uuid
+  attemptId     String?                 @unique @map("attempt_id") @db.Uuid
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz
+
+  quiz        StandaloneQuiz          @relation(fields: [quizId], references: [id], onDelete: Restrict)
+  quizVersion StandaloneQuizVersion?  @relation(fields: [quizVersionId], references: [id], onDelete: Restrict)
+  student     User                    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  attempt     StandaloneQuizAttempt?  @relation("StandaloneQuizStartCommandAttempt", fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@unique([quizId, studentId, requestId])
+  @@index([quizId, studentId, createdAt])
+  @@map("standalone_quiz_start_commands")
 }
 
 model QuizItem {
@@ -2308,6 +2417,7 @@ model ReusableQuestionPackageVersion {
   tryoutItems                  TryoutItem[]
   assessmentReleasesByAssembly AssessmentRelease[]                           @relation("AssessmentReleaseAssemblyPackageVersion")
   standaloneQuizzes            StandaloneQuiz[]                              @relation("StandaloneQuizAssemblyVersion")
+  standaloneQuizVersions       StandaloneQuizVersion[]                       @relation("StandaloneQuizVersionAssemblyVersion")
 
   @@unique([packageId, versionNo])
   @@index([packageId, status])
