@@ -72,6 +72,11 @@ type FixtureState = {
   draftRevisions: Record<BannerDestination, string>;
 };
 
+type BrowserPrivatePaths = Pick<
+  FixtureState,
+  "credentialFile" | "stateFile" | "transitionRequestFile" | "transitionResponseFile"
+>;
+
 type BrowserTransitionOperation = "prepare-recovery" | "source-conflict" | "restore-recovery";
 
 type BrowserTransitionMessage = {
@@ -125,6 +130,55 @@ function quoteLiteral(value: string) {
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function expectedBrowserPrivatePaths(stateFile: string): BrowserPrivatePaths {
+  const state = resolve(stateFile);
+  const stateDirectory = dirname(state);
+  return {
+    credentialFile: join(stateDirectory, `${STATE_PREFIX}.credentials.json`),
+    stateFile: state,
+    transitionRequestFile: join(stateDirectory, `${STATE_PREFIX}.transition-request.json`),
+    transitionResponseFile: join(stateDirectory, `${STATE_PREFIX}.transition-response.json`),
+  };
+}
+
+async function assertPrivateRegularFile(file: string, label: string, ownerUid: number) {
+  const entry = await lstat(file);
+  assert.ok(entry.isFile() && !entry.isSymbolicLink(), `BP06 ${label} must be a regular non-symlink file`);
+  assert.equal(entry.mode & 0o777, 0o600, `BP06 ${label} must be mode 0600`);
+  assert.equal(entry.uid, ownerUid, `BP06 ${label} must be owned by the launching user`);
+}
+
+async function assertBrowserPrivatePaths(state: FixtureState): Promise<BrowserPrivatePaths> {
+  const expected = expectedBrowserPrivatePaths(state.stateFile);
+  const actual: BrowserPrivatePaths = {
+    credentialFile: resolve(state.credentialFile),
+    stateFile: resolve(state.stateFile),
+    transitionRequestFile: resolve(state.transitionRequestFile),
+    transitionResponseFile: resolve(state.transitionResponseFile),
+  };
+  for (const key of Object.keys(expected) as (keyof BrowserPrivatePaths)[]) {
+    assert.equal(actual[key], expected[key], `BP06 ${key} must stay beside the exact state file`);
+  }
+  const getUid = process.getuid;
+  if (typeof getUid !== "function") throw new Error("BP06 private-file ownership cannot be verified on this runtime");
+  const ownerUid = getUid();
+  await assertPrivateRegularFile(actual.stateFile, "state file", ownerUid);
+  await assertPrivateRegularFile(actual.credentialFile, "credential file", ownerUid);
+  for (const [path, label] of [
+    [actual.transitionRequestFile, "transition request file"],
+    [actual.transitionResponseFile, "transition response file"],
+    [`${actual.transitionRequestFile}.tmp`, "transition request temp file"],
+    [`${actual.transitionResponseFile}.tmp`, "transition response temp file"],
+  ] as const) {
+    try {
+      await assertPrivateRegularFile(path, label, ownerUid);
+    } catch (error) {
+      if (!hasErrnoCode(error, "ENOENT")) throw error;
+    }
+  }
+  return actual;
 }
 
 async function writePrivateJson(file: string, value: unknown) {
@@ -1476,17 +1530,67 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
   throw new Error(`Next child did not become ready within 90s. Tail: ${output.slice(-12).join(" | ")}`);
 }
 
-function browserVerificationScript() {
+function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
+  const serializedPrivatePaths = JSON.stringify(privatePaths);
   return String.raw`
 (async () => {
-  const { readFile, rename, rm, writeFile } = await import("node:fs/promises");
+  const { lstat, readFile, rename, rm, writeFile } = await import("node:fs/promises");
   const { randomUUID } = await import("node:crypto");
-  const baseUrl = process.env.BP06_BROWSER_BASE_URL || "http://127.0.0.1:5146";
-  const credentialPath = process.env.BP06_BROWSER_CREDENTIAL_FILE;
-  const transitionRequestPath = process.env.BP06_BROWSER_TRANSITION_REQUEST_FILE;
-  const transitionResponsePath = process.env.BP06_BROWSER_TRANSITION_RESPONSE_FILE;
-  if (!credentialPath || !transitionRequestPath || !transitionResponsePath) throw new Error("BP06 browser private state paths are missing from the child environment.");
-  const credentials = JSON.parse(await readFile(credentialPath, "utf8"));
+  const { dirname, join, resolve } = await import("node:path");
+  const privatePaths = ${serializedPrivatePaths};
+  const baseUrl = "http://127.0.0.1:5146";
+  const stateDirectory = dirname(resolve(privatePaths.stateFile));
+  const expectedPaths = {
+    credentialFile: join(stateDirectory, "${STATE_PREFIX}.credentials.json"),
+    stateFile: resolve(privatePaths.stateFile),
+    transitionRequestFile: join(stateDirectory, "${STATE_PREFIX}.transition-request.json"),
+    transitionResponseFile: join(stateDirectory, "${STATE_PREFIX}.transition-response.json"),
+  };
+  for (const key of Object.keys(expectedPaths)) {
+    if (resolve(privatePaths[key]) !== resolve(expectedPaths[key])) throw new Error("BP06 browser private path layout mismatch: " + key);
+  }
+  const getUid = process.getuid;
+  if (typeof getUid !== "function") throw new Error("BP06 browser private-file ownership cannot be verified in the embedded runtime");
+  const ownerUid = getUid();
+  function isMissing(error) {
+    return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+  }
+  async function assertPrivateFile(file, label, required) {
+    let entry;
+    try {
+      entry = await lstat(file);
+    } catch (error) {
+      if (!required && isMissing(error)) return;
+      throw new Error("BP06 " + label + " is not accessible");
+    }
+    if (!entry.isFile() || entry.isSymbolicLink()) throw new Error("BP06 " + label + " must be a regular non-symlink file");
+    if ((entry.mode & 0o777) !== 0o600) throw new Error("BP06 " + label + " must be mode 0600");
+    if (entry.uid !== ownerUid) throw new Error("BP06 " + label + " must be owned by the launching user");
+  }
+  await assertPrivateFile(privatePaths.stateFile, "state file", true);
+  await assertPrivateFile(privatePaths.credentialFile, "credential file", true);
+  await assertPrivateFile(privatePaths.transitionRequestFile, "transition request file", false);
+  await assertPrivateFile(privatePaths.transitionResponseFile, "transition response file", false);
+  await assertPrivateFile(privatePaths.transitionRequestFile + ".tmp", "transition request temp file", false);
+  await assertPrivateFile(privatePaths.transitionResponseFile + ".tmp", "transition response temp file", false);
+  let stateMetadata;
+  try {
+    stateMetadata = JSON.parse(await readFile(privatePaths.stateFile, "utf8"));
+  } catch {
+    throw new Error("BP06 browser private state file is unreadable");
+  }
+  for (const key of ["credentialFile", "stateFile", "transitionRequestFile", "transitionResponseFile"]) {
+    if (stateMetadata[key] !== privatePaths[key]) throw new Error("BP06 browser private state path mismatch: " + key);
+  }
+  let credentials;
+  try {
+    credentials = JSON.parse(await readFile(privatePaths.credentialFile, "utf8"));
+  } catch {
+    throw new Error("BP06 browser credential file is unreadable");
+  }
+  const credentialPath = privatePaths.credentialFile;
+  const transitionRequestPath = privatePaths.transitionRequestFile;
+  const transitionResponsePath = privatePaths.transitionResponseFile;
   const published = {
     beranda: "11111111-1111-4111-8111-111111111111",
     materi: "22222222-2222-4222-8222-222222222222",
@@ -2011,15 +2115,12 @@ function browserVerificationScript() {
 async function runBrowserSupervisor() {
   await setup();
   const state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
+  const privatePaths = await assertBrowserPrivatePaths(state);
   const fixtureEnv = parseDotenv(await readFile(state.envFile, "utf8"));
   const { NODE_OPTIONS: _nodeOptions, ...inheritedEnv } = process.env;
   const childEnv = {
     ...inheritedEnv,
     ...fixtureEnv,
-    BP06_BROWSER_BASE_URL: routeUrl(PORT, "/").replace(/\/$/u, ""),
-    BP06_BROWSER_CREDENTIAL_FILE: state.credentialFile,
-    BP06_BROWSER_TRANSITION_REQUEST_FILE: state.transitionRequestFile,
-    BP06_BROWSER_TRANSITION_RESPONSE_FILE: state.transitionResponseFile,
     NEXT_TELEMETRY_DISABLED: "1",
   };
   const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
@@ -2044,15 +2145,20 @@ async function runBrowserSupervisor() {
     const nextOutput = captureChildOutput(nextChild);
     await waitForNextReady(nextChild, nextOutput);
     console.log(`BP06 supervised Next child ready on ${routeUrl(PORT, "/")}`);
+    const browserEnv: NodeJS.ProcessEnv = {};
+    for (const key of ["HOME", "LANG", "LC_ALL", "LOGNAME", "PATH", "SHELL", "TERM", "TMP", "TEMP", "TMPDIR", "USER"]) {
+      const value = inheritedEnv[key];
+      if (value !== undefined) browserEnv[key] = value;
+    }
     browserChild = spawn("ego-browser", ["nodejs"], {
       cwd: state.mirrorRoot,
-      env: childEnv,
+      env: browserEnv,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
     });
     const browserOutput = captureChildOutput(browserChild);
     transitionPromise = superviseBrowserTransitions(state, () => browserDone);
-    browserChild.stdin?.end(browserVerificationScript());
+    browserChild.stdin?.end(browserVerificationScript(privatePaths));
     await waitForChildExit(browserChild, 180_000);
     browserDone = true;
     const transitionCount = await transitionPromise;
