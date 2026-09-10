@@ -24,7 +24,7 @@ assert.match(repository, /source\.subtest\?\.code !== subtest/);
 assert.match(repository, /source\.questionBankId !== sourceBankId/);
 assert.match(repository, /source\.questionBank === null/);
 assert.match(repository, /options\.length < 2/);
-assert.match(repository, /options\.filter\(\(option\) => option\.isCorrect\)\.length !== 1/);
+assert.match(repository, /validateAnswerKey\(answerModeForQuestionType\(revision\?\.questionType\) \?\? "single_choice"/);
 assert.match(repository, /options\.some\(\(option\) => !option\.content\.trim\(\) \|\| !isReadyAsset\(option\.asset\)\)/);
 assert.match(repository, /!revision\.stem\.trim\(\)/);
 assert.match(repository, /!isReadyAsset\(revision\.promptAsset\)/);

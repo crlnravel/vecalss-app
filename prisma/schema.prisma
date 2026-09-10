@@ -2791,6 +2791,7 @@ model TryoutItem {
   prompt                   String                      @db.Text
   explanation              String?                     @db.Text
   difficulty               DifficultyLevel             @default(medium)
+  questionType             QuestionType                @default(single_choice) @map("question_type")
   subtestId                String                      @map("subtest_id") @db.Uuid
   packageCode              String                      @map("package_code") @db.VarChar(80)
   promptAssetId            String?                     @map("prompt_asset_id") @db.Uuid
@@ -2981,6 +2982,7 @@ model TryoutAnswer {
   tryoutId         String    @map("tryout_id") @db.Uuid
   tryoutItemId     String    @map("tryout_item_id") @db.Uuid
   selectedOptionId String?   @map("selected_option_id") @db.Uuid
+  selectedOptionIds Json?    @map("selected_option_ids") @db.JsonB
   answerText       String?   @map("answer_text") @db.Text
   isCorrect        Boolean?  @map("is_correct")
   pointsAwarded    Decimal?  @map("points_awarded") @db.Decimal(6, 2)

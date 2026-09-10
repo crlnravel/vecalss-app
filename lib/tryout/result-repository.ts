@@ -421,7 +421,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       },
       tryout: { select: { title: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
       runs: {
-        include: { answers: { select: { isCorrect: true, pointsAwarded: true, selectedOptionId: true, tryoutItemId: true } }, section: { include: { subtest: true } } },
+        include: { answers: { select: { isCorrect: true, pointsAwarded: true, selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } }, section: { include: { subtest: true } } },
         orderBy: { sequenceNo: "asc" },
       },
       scoreBreakdowns: { orderBy: { subtestId: "asc" } },
@@ -500,6 +500,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
           id: string;
           options?: Array<{ choiceKey: string; content: string; id: string; isCorrect?: boolean }>;
           prompt: string;
+          questionType?: string | null;
         }>;
       }).items;
       const review = contentItems?.reduce<Array<{
@@ -509,14 +510,24 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
         options: Array<{ choiceKey: string; content: string; correct: boolean | undefined; id: string }>;
         prompt: string;
         selectedOptionId: string | null;
+        selectedOptionIds: string[];
+        questionType: "single_choice" | "multiple_choice";
       }>>((items, item) => {
         if (selectedItemIdSet && !selectedItemIdSet.has(item.id)) return items;
+        const answer = run.answers.find((candidate) => candidate.tryoutItemId === item.id);
+        const selectedOptionIds = Array.isArray(answer?.selectedOptionIds)
+          ? answer.selectedOptionIds.filter((value): value is string => typeof value === "string")
+          : answer?.selectedOptionId
+            ? [answer.selectedOptionId]
+            : [];
         items.push({
           difficulty: item.difficulty ?? "medium",
           explanation: item.explanation ?? "",
           explanationAssetId: item.explanationAssetId ?? null,
           prompt: item.prompt,
-          selectedOptionId: run.answers.find((answer) => answer.tryoutItemId === item.id)?.selectedOptionId ?? null,
+          questionType: item.questionType === "multiple_choice" ? "multiple_choice" : "single_choice",
+          selectedOptionId: selectedOptionIds[0] ?? null,
+          selectedOptionIds,
           options: item.options?.map((option) => ({ choiceKey: option.choiceKey, content: option.content, correct: option.isCorrect, id: option.id })) ?? [],
         });
         return items;

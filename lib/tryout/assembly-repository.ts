@@ -6,6 +6,7 @@ import {
   ContentStatus,
   DifficultyLevel,
   Prisma,
+  QuestionType,
   QuestionRevisionProvenance,
   QuestionRevisionStatus,
   ReusableQuestionPackageMode,
@@ -23,6 +24,7 @@ import {
   seededShuffle,
   validateAssemblyDefinitionShape,
 } from "./assembly-validation";
+import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import type {
   AssemblyAttachmentTarget,
   AssemblyAttachmentTestType,
@@ -149,6 +151,7 @@ const versionInclude = {
       explanationAsset: true,
       options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
       promptAsset: true,
+      sourceQuestionRevision: { select: { questionType: true } },
     },
     orderBy: { sortOrder: "asc" as const },
   },
@@ -181,6 +184,7 @@ type KuisAssemblyItem = {
     sortOrder: number;
     sourceQuestionRevisionOptionId: string | null;
   }>;
+  questionType: QuestionAnswerMode;
   prompt: string;
   promptAssetId: string | null;
   sourceContentDigest: string;
@@ -217,6 +221,12 @@ function throwIssue(candidate: AssemblyReadinessIssue): never {
 
 function isReadyAsset(asset: { state: string } | null | undefined) {
   return !asset || asset.state === "ready";
+}
+
+function answerModeForQuestionType(value: QuestionType | string | null | undefined): QuestionAnswerMode | null {
+  if (value === QuestionType.multiple_choice || value === "multiple_choice") return "multiple_choice";
+  if (value === QuestionType.single_choice || value === "single_choice" || value === null || value === undefined) return "single_choice";
+  return null;
 }
 
 function codeFromTitle(title: string) {
@@ -302,6 +312,7 @@ function sourceContentIssues(
   subtestId: string,
   bankIds: readonly string[],
   identity?: AssemblyCandidateSource,
+  allowMultipleChoice = true,
 ): AssemblyReadinessIssue[] {
   if (!source) {
     return [issue("stale_candidate", "Kandidat tidak lagi ditemukan di Bank Soal.", { sourceQuestionId: identity?.sourceQuestionId })];
@@ -353,8 +364,12 @@ function sourceContentIssues(
   if (!revision.stem.trim()) {
     blockers.push(issue("options", "Stem soal kandidat kosong.", { sourceQuestionId: source.id }));
   }
-  if (revision.options.length < 2 || revision.options.length > 5 || revision.options.filter((option) => option.isCorrect).length !== 1 || revision.options.some((option) => !option.content.trim())) {
-    blockers.push(issue("options", "Kandidat harus memiliki 2–5 opsi berisi dengan tepat satu jawaban benar.", {
+  const answerMode = answerModeForQuestionType(revision.questionType);
+  const answerKey = answerMode
+    ? validateAnswerKey(answerMode, revision.options.map((option) => ({ id: option.label, isCorrect: option.isCorrect })))
+    : null;
+  if (revision.options.length < 2 || revision.options.length > 5 || !answerMode || !answerKey?.ok || (!allowMultipleChoice && answerMode === "multiple_choice") || revision.options.some((option) => !option.content.trim())) {
+    blockers.push(issue("options", !allowMultipleChoice && answerMode === "multiple_choice" ? "Kandidat CAT harus memiliki tepat satu jawaban benar." : "Kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: revision.options.length,
       sourceQuestionId: source.id,
     }));
@@ -371,7 +386,7 @@ function sourceContentIssues(
   return blockers;
 }
 
-function versionItemContentIssues(item: VersionItemRecord, subtestId: string): AssemblyReadinessIssue[] {
+function versionItemContentIssues(item: VersionItemRecord, subtestId: string, allowMultipleChoice = true): AssemblyReadinessIssue[] {
   const blockers: AssemblyReadinessIssue[] = [];
   if (!item.sourceQuestionId.trim() || !item.sourceQuestionRevisionId?.trim() || !item.sourceContentDigest?.trim()) {
     blockers.push(issue("stale_candidate", "Snapshot soal tidak memiliki identitas Question, revisi Ready, dan digest yang lengkap.", {
@@ -389,11 +404,15 @@ function versionItemContentIssues(item: VersionItemRecord, subtestId: string): A
   if (!item.prompt.trim()) {
     blockers.push(issue("options", "Snapshot stem soal kosong.", { sourceQuestionId: item.sourceQuestionId }));
   }
+  const answerMode = answerModeForQuestionType(item.sourceQuestionRevision?.questionType)
+    ?? (item.options.filter((option) => option.isCorrect).length > 1 ? "multiple_choice" : "single_choice");
+  const answerKey = validateAnswerKey(answerMode, item.options.map((option) => ({ id: option.choiceKey, isCorrect: option.isCorrect })));
   if (item.options.length < 2
     || item.options.length > 5
-    || item.options.filter((option) => option.isCorrect).length !== 1
+    || !answerKey.ok
+    || (!allowMultipleChoice && answerMode === "multiple_choice")
     || item.options.some((option) => !option.content.trim())) {
-    blockers.push(issue("options", "Snapshot harus memiliki 2–5 opsi berisi dengan tepat satu jawaban benar.", {
+    blockers.push(issue("options", !allowMultipleChoice && answerMode === "multiple_choice" ? "Snapshot CAT harus memiliki tepat satu jawaban benar." : "Snapshot harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: item.options.length,
       sourceQuestionId: item.sourceQuestionId,
     }));
@@ -435,7 +454,7 @@ function candidateIssues(
       continue;
     }
     seen.add(candidate.sourceQuestionId);
-    blockers.push(...sourceContentIssues(sourceById.get(candidate.sourceQuestionId), definition.subtestId, definition.scope.bankIds, candidate));
+    blockers.push(...sourceContentIssues(sourceById.get(candidate.sourceQuestionId), definition.subtestId, definition.scope.bankIds, candidate, definition.mode !== "cat_pool"));
     if (definition.mode === "cat_pool") {
       const revision = sourceById.get(candidate.sourceQuestionId)?.currentRevision;
       const calibration = revision ? calibrations.get(revision.id) : undefined;
@@ -1161,9 +1180,9 @@ async function collectReadiness(
         requestedCount: definition.candidates.length,
       }));
     }
-    const snapshotBlockers = snapshotItems.flatMap((item) => versionItemContentIssues(item, definition.subtestId));
+    const snapshotBlockers = snapshotItems.flatMap((item) => versionItemContentIssues(item, definition.subtestId, definition.mode !== "cat_pool"));
     blockers.push(...snapshotBlockers);
-    const eligibleItems = snapshotItems.filter((item) => versionItemContentIssues(item, definition.subtestId).length === 0);
+    const eligibleItems = snapshotItems.filter((item) => versionItemContentIssues(item, definition.subtestId, definition.mode !== "cat_pool").length === 0);
     const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
     for (const item of eligibleItems) {
       const difficulty = item.difficulty;
@@ -1189,8 +1208,8 @@ async function collectReadiness(
   let eligibleSources: SourceRecord[] = [];
   if (definition.mode === "blueprint") {
     const scopeSources = await queryBlueprintSources(tx, definition, expectedPurpose);
-    for (const source of scopeSources) blockers.push(...sourceContentIssues(source, definition.subtestId, definition.scope.bankIds));
-    eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds).length === 0);
+    for (const source of scopeSources) blockers.push(...sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, undefined, true));
+    eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, undefined, true).length === 0);
   } else {
     const candidates = definition.candidates;
     if (!candidates.length) blockers.push(issue("shortage", "Assembly belum memiliki kandidat yang dapat dipakai.", {
@@ -1204,7 +1223,7 @@ async function collectReadiness(
     blockers.push(...candidateIssues(sources, candidates, definition, calibrations));
     const requestedCount = definition.rule?.requestedCount ?? 0;
     if (candidates.length < requestedCount) blockers.push(issue("shortage", "Jumlah kandidat lebih sedikit dari jumlah soal yang diminta.", { availableCount: candidates.length, requestedCount }));
-    eligibleSources = sources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, candidates.find((candidate) => candidate.sourceQuestionId === source.id)).length === 0);
+    eligibleSources = sources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, candidates.find((candidate) => candidate.sourceQuestionId === source.id), definition.mode !== "cat_pool").length === 0);
   }
 
   const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
@@ -1238,6 +1257,8 @@ async function collectReadiness(
 }
 
 function kuisItemFromVersionItem(item: VersionItemRecord): KuisAssemblyItem {
+  const questionType = answerModeForQuestionType(item.sourceQuestionRevision?.questionType)
+    ?? (item.options.filter((option) => option.isCorrect).length > 1 ? "multiple_choice" : "single_choice");
   return {
     difficulty: item.difficulty,
     explanation: item.explanation,
@@ -1250,6 +1271,7 @@ function kuisItemFromVersionItem(item: VersionItemRecord): KuisAssemblyItem {
       sortOrder: option.sortOrder,
       sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
     })),
+    questionType,
     prompt: item.prompt,
     promptAssetId: item.promptAssetId,
     sourceContentDigest: item.sourceContentDigest ?? "",
@@ -1277,6 +1299,7 @@ function kuisItemFromSource(source: SourceRecord, subtestId: string): KuisAssemb
       sortOrder: index,
       sourceQuestionRevisionOptionId: option.id,
     })),
+    questionType: answerModeForQuestionType(revision.questionType) ?? "single_choice",
     prompt: revision.stem,
     promptAssetId: revision.promptAssetId ?? source.promptAssetId ?? null,
     sourceContentDigest: revision.contentDigest,

@@ -5,6 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   ContentStatus,
   Prisma,
+  QuestionType,
   QuestionRevisionProvenance,
   QuestionRevisionStatus,
   ReusableQuestionPackageMode,
@@ -27,6 +28,7 @@ import {
   TRYOUT_CBT_SCORING_VERSION,
   TRYOUT_SCORE_AGGREGATION_VERSION,
 } from "@/lib/tryout/scoring";
+import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 
 const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v1";
 const LOGICAL_ASSESSMENT_REVISION_VERSION = 1;
@@ -74,6 +76,7 @@ const releaseTryoutInclude = {
               explanationAsset: true,
               options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
               promptAsset: true,
+              sourceQuestionRevision: { select: { questionType: true } },
             },
             orderBy: { sortOrder: "asc" as const },
           },
@@ -178,6 +181,7 @@ type ReleaseSnapshot = {
   difficulty: ReleaseTryoutRecord["sections"][number]["items"][number]["difficulty"];
   explanation: string | null;
   explanationAssetId: string | null;
+  questionType: QuestionAnswerMode;
   options: Array<{
     assetId: string | null;
     choiceKey: string;
@@ -333,6 +337,7 @@ function buildAssessmentReleasePayload(
         points: item.points.toString(),
         prompt: item.prompt,
         promptAssetId: item.promptAssetId,
+        questionType: item.questionType,
         sortOrder: item.sortOrder,
         sourceContentDigest: item.sourceContentDigest,
         sourceQuestionId: item.sourceQuestionId,
@@ -387,6 +392,7 @@ function sourceReadinessIssues(
     sourceQuestionRevisionId: string;
     sourceRevisionProvenance?: QuestionRevisionProvenance | null;
   },
+  allowMultipleChoice = true,
 ) {
   if (!source) {
     return [resolutionBlocker("stale_candidate", "Soal kandidat tidak lagi ditemukan.", {
@@ -468,13 +474,25 @@ function sourceReadinessIssues(
   if (!revision.stem.trim()) {
     blockers.push(resolutionBlocker("options", "Stem soal kandidat kosong.", { sourceQuestionId: source.id }));
   }
+  const answerMode: QuestionAnswerMode | null = revision.questionType === QuestionType.multiple_choice
+    ? "multiple_choice"
+    : revision.questionType === QuestionType.single_choice
+      ? "single_choice"
+      : null;
+  const answerKey = answerMode
+    ? validateAnswerKey(answerMode, revision.options.map((option) => ({ id: option.id, isCorrect: option.isCorrect })))
+    : null;
   if (
     revision.options.length < 2
     || revision.options.length > 5
-    || revision.options.filter((option) => option.isCorrect).length !== 1
+    || !answerMode
+    || !answerKey?.ok
+    || (!allowMultipleChoice && answerMode === "multiple_choice")
     || revision.options.some((option) => !option.content.trim())
   ) {
-    blockers.push(resolutionBlocker("options", "Soal kandidat harus memiliki 2–5 opsi berisi dengan tepat satu jawaban benar.", {
+    blockers.push(resolutionBlocker("options", !allowMultipleChoice && answerMode === "multiple_choice"
+      ? "Soal kandidat CAT harus memiliki tepat satu jawaban benar."
+      : "Soal kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: revision.options.length,
       sourceQuestionId: source.id,
     }));
@@ -521,6 +539,7 @@ function snapshotFromRevision(
     difficulty: revision.difficulty,
     explanation: revision.explanation,
     explanationAssetId: revision.explanationAssetId,
+    questionType: revision.questionType === QuestionType.multiple_choice ? "multiple_choice" : "single_choice",
     options: revision.options.map((option, index) => ({
       assetId: option.assetId,
       choiceKey: option.label || String.fromCharCode(65 + index),
@@ -551,6 +570,7 @@ function snapshotFromVersionItem(
     difficulty: item.difficulty,
     explanation: item.explanation,
     explanationAssetId: item.explanationAssetId,
+    questionType: item.sourceQuestionRevision?.questionType === QuestionType.multiple_choice ? "multiple_choice" : "single_choice",
     options: item.options.map((option) => ({
       assetId: option.assetId,
       choiceKey: option.choiceKey,
@@ -590,6 +610,12 @@ function catCalibrationIssues(
   calibration: CatCalibrationRecord | undefined,
 ) {
   const revision = source?.currentRevision;
+  if (revision?.questionType === QuestionType.multiple_choice) {
+    return [resolutionBlocker("mode_incompatible", "Kandidat CAT hanya boleh memakai soal dengan satu jawaban benar.", {
+      sourceQuestionId: item.sourceQuestionId,
+      sourceQuestionRevisionId: item.sourceQuestionRevisionId,
+    })];
+  }
   if (!calibration) {
     return [resolutionBlocker("calibration", "Kandidat CAT tidak memiliki kalibrasi 2PL kanonis yang dapat dipakai.", {
       approvalState: "missing",
@@ -845,6 +871,7 @@ async function resolveAndMaterializeAssemblies(
           explanationAsset: true,
           options: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
           promptAsset: true,
+          sourceQuestionRevision: { select: { questionType: true } },
         },
         orderBy: { sortOrder: "asc" },
       },
@@ -976,7 +1003,7 @@ async function resolveAndMaterializeAssemblies(
           sourceQuestionId: item.sourceQuestionId,
           sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
           sourceRevisionProvenance: item.sourceRevisionProvenance,
-        });
+        }, true);
         if (itemBlockers.length) {
           invalidSourceIds.push(item.sourceQuestionId);
           blockers.push(...itemBlockers.map((blocker) => ({
@@ -1056,7 +1083,7 @@ async function resolveAndMaterializeAssemblies(
             sourceQuestionId: item.sourceQuestionId,
             sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
             sourceRevisionProvenance: item.sourceRevisionProvenance,
-          }),
+          }, false),
           ...catCalibrationIssues(
             sourceById.get(item.sourceQuestionId),
             item,
@@ -1126,7 +1153,7 @@ async function resolveAndMaterializeAssemblies(
     const invalidBlockers: AssessmentReleaseResolutionBlocker[] = [];
     const validSources: ReleaseSourceRecord[] = [];
     for (const source of scopedSources) {
-      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds);
+      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds, undefined, true);
       if (blockers.length) {
         invalidSourceIds.push(source.id);
         invalidBlockers.push(...blockers.map((blocker) => ({
@@ -1243,6 +1270,7 @@ async function resolveAndMaterializeAssemblies(
           difficulty: snapshot.difficulty,
           explanation: snapshot.explanation,
           explanationAssetId: snapshot.explanationAssetId,
+          questionType: snapshot.questionType,
           packageCode: version.package.code,
           packageVersionId: version.id,
           points: snapshot.pointValue,

@@ -83,6 +83,7 @@ type DirectQuestionDraft = {
   sourceContentDigest?: string;
   sourceQuestionId: string;
   sourceQuestionRevisionId?: string;
+  questionType?: "single_choice" | "multiple_choice";
 };
 type TestDraft = {
   catItemCount?: number;
@@ -133,6 +134,7 @@ type SourceQuestion = {
   bankId: string;
   catReady?: boolean;
   choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
+  correctChoiceIds?: string[];
   difficulty: "easy" | "medium" | "hard";
   explanation: string;
   explanationMediaAssetId?: string;
@@ -141,6 +143,7 @@ type SourceQuestion = {
   promptMediaAssetId?: string;
   questionContentDigest?: string;
   questionRevisionId?: string;
+  questionType?: "single_choice" | "multiple_choice";
   subjectCode: string;
 };
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "live" | "attempts" | "results" | "review" | "publish";
@@ -309,6 +312,10 @@ function subjectName(code: SubjectCode) {
 
 function difficultyLabel(difficulty: SourceQuestion["difficulty"]) {
   return difficulty === "easy" ? "Mudah" : difficulty === "hard" ? "Sulit" : "Sedang";
+}
+
+function questionTypeLabel(questionType?: SourceQuestion["questionType"]) {
+  return questionType === "multiple_choice" ? "Beberapa jawaban" : "Satu jawaban";
 }
 
 function unavailablePhaseReason(phase: WorkspacePhase) {
@@ -727,6 +734,7 @@ function TryoutSourceQuestionCard({
               <div className="flex flex-wrap gap-2">
                 <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
                 <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
+                <MentorBadge size="compact" tone={question.questionType === "multiple_choice" ? "attention" : "neutral"}>{questionTypeLabel(question.questionType)}</MentorBadge>
               </div>
               <p className="mt-2 block w-full min-w-0 max-w-[60ch] truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
             </label>
@@ -802,9 +810,17 @@ function TryoutSourceQuestionList({
   saving,
 }: Pick<TryoutSectionsTabProps, "activeBrowseBank" | "activeDirectQuestions" | "activeSection" | "activeSourceQuestions" | "browseBankId" | "draft" | "onQuestionPageChange" | "onQuestionSearchChange" | "onToggleQuestion" | "selectedSourceQuestionIdsSet" | "sourceQuestionLoading" | "sourceQuestionPage" | "sourceQuestionSearch" | "sourceQuestionTotal" | "saving"> & { onPreviewQuestion: (question: SourceQuestion) => void }) {
   const sourceQuestionPageCount = Math.max(1, Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE));
+  const selectedCount = activeDirectQuestions.length;
 
   return (
     <ReferenceSurface className="min-w-0 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-secondary-900">Soal Ready</h3>
+          <p className="mt-1 text-xs leading-5 text-secondary-500">Pilih satu atau beberapa soal untuk Section {activeSection.subtest}.</p>
+        </div>
+        <MentorBadge size="compact" tone={selectedCount ? "category" : "neutral"}>{selectedCount} dipilih</MentorBadge>
+      </div>
       <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving || !browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
       {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
       {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => <TryoutSourceQuestionCard activeDirectQuestions={activeDirectQuestions} locked={draft.locked} onPreviewQuestion={onPreviewQuestion} onToggleQuestion={onToggleQuestion} question={question} selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet} key={question.id} saving={saving} />)}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
@@ -838,10 +854,14 @@ function TryoutSourceQuestionPreview({ question, onClose }: { question: SourceQu
         <DialogHeader><DialogTitle>Pratinjau soal</DialogTitle></DialogHeader>
         {question ? <div className="grid gap-5">
           <p className="break-words text-base leading-7 text-secondary-900">{question.prompt || "Pertanyaan belum tersedia."}</p>
+          <div className="flex flex-wrap gap-2">
+            <MentorBadge size="compact" tone="category">{questionTypeLabel(question.questionType)}</MentorBadge>
+            <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
+          </div>
           <ol aria-label="Pilihan jawaban" className="m-0 grid list-none gap-3 p-0">
-            {question.choices.map((choice, index) => <li className="flex min-w-0 items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/45 px-3 py-3" key={choice.id}>
+            {question.choices.map((choice, index) => <li className={`flex min-w-0 items-start gap-3 rounded-xl border px-3 py-3 ${question.correctChoiceIds?.includes(choice.id) ? "border-success-200 bg-success-50/55" : "border-primary-100 bg-primary-50/45"}`} key={choice.id}>
               <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-primary-800">{String.fromCharCode(65 + index)}</span>
-              <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">{choice.text}</span>
+              <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">{choice.text}{question.correctChoiceIds?.includes(choice.id) ? <span className="ml-2 text-xs font-semibold text-success-700">Kunci</span> : null}</span>
             </li>)}
           </ol>
         </div> : null}
@@ -1245,6 +1265,7 @@ function useTryoutBuilderState({
         sourceContentDigest: question.questionContentDigest,
         sourceQuestionId: question.id,
         sourceQuestionRevisionId: question.questionRevisionId,
+        questionType: question.questionType,
       }],
       testType: "cbt",
     });

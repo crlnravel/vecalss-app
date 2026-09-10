@@ -6,6 +6,8 @@
  * attempt to reproduce an official SNBT score, percentile, or equivalence.
  */
 
+import { decodeLegacyAnswerSelection, evaluateExactAnswer, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
+
 export const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
 export const TRYOUT_CBT_SCORING_VERSION = "cbt-frozen-item-points-v1";
 export const TRYOUT_CAT_SCORING_VERSION = "2pl-map-v1";
@@ -19,11 +21,13 @@ type FrozenScoreItem = {
   id: string;
   options: Array<{ id: string; isCorrect: boolean }>;
   points: string | number;
+  questionType?: QuestionAnswerMode | string | null;
 };
 
 type FrozenSelectedAnswer = {
   itemId: string;
-  selectedOptionId: string | null;
+  selectedOptionId?: string | null;
+  selectedOptionIds?: readonly string[] | null;
 };
 
 type MaterializedFrozenAnswer = {
@@ -94,6 +98,14 @@ function normalizeRunScore(result: unknown, testType: string, catSnapshot?: unkn
   return score === null || maxScore === null || maxScore <= 0 ? null : normalizeCbtScore(score, maxScore);
 }
 
+function answerModeForItem(item: FrozenScoreItem): QuestionAnswerMode {
+  if (item.questionType === "multiple_choice") return "multiple_choice";
+  // A release/run created before the explicit mode field may still carry a
+  // valid multiple-answer key. Preserve that historical intent instead of
+  // silently collapsing it to the legacy scalar path.
+  return item.options.filter((option) => option.isCorrect).length > 1 ? "multiple_choice" : "single_choice";
+}
+
 function aggregateTryoutScores(scores: readonly number[]) {
   if (scores.length !== TRYOUT_TEST_COUNT) {
     throw new Error(`Tryout score aggregation requires exactly ${TRYOUT_TEST_COUNT} Test scores.`);
@@ -132,16 +144,38 @@ function materializeFrozenAnswers(
   for (const item of deliveredItems) {
     const answer = answerByItem.get(item.id);
     if (!answer) continue;
-    if (!answer.selectedOptionId) {
+    // A null plural column is the pre-migration shape. Treat it as absent so
+    // legacy scalar rows continue to score; an actual array must agree with
+    // the scalar projection when both are present.
+    const scalarSelection = answer.selectedOptionId === null || answer.selectedOptionId === undefined
+      ? {}
+      : { selectedOptionId: answer.selectedOptionId };
+    const decoded = answer.selectedOptionIds === null || answer.selectedOptionIds === undefined
+      ? decodeLegacyAnswerSelection(scalarSelection)
+      : decodeLegacyAnswerSelection({ ...scalarSelection, selectedOptionIds: answer.selectedOptionIds });
+    if (!decoded.ok) {
+      invalid = true;
+      materializedAnswers.push({ itemId: item.id, isCorrect: null, pointsAwarded: 0 });
+      continue;
+    }
+    const mode = answerModeForItem(item);
+    const evaluation = evaluateExactAnswer({
+      availableOptionIds: item.options.map((option) => option.id),
+      correctOptionIds: item.options.filter((option) => option.isCorrect).map((option) => option.id),
+      mode,
+      selectedOptionIds: decoded.selectedOptionIds,
+    });
+    if (evaluation.status === "invalid") {
+      invalid = true;
+      materializedAnswers.push({ itemId: item.id, isCorrect: null, pointsAwarded: 0 });
+      continue;
+    }
+    if (evaluation.status === "unanswered") {
       materializedAnswers.push({ itemId: item.id, isCorrect: null, pointsAwarded: 0 });
       continue;
     }
     answeredCount += 1;
-    const option = answer.selectedOptionId
-      ? item.options.find((candidate) => candidate.id === answer.selectedOptionId)
-      : null;
-    if (answer.selectedOptionId && !option) invalid = true;
-    const isCorrect = option?.isCorrect === true;
+    const isCorrect = evaluation.status === "correct";
     const pointsAwarded = isCorrect ? Number(item.points) : 0;
     if (isCorrect) correctCount += 1;
     rawScore += pointsAwarded;

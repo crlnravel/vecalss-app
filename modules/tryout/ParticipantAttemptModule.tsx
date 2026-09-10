@@ -57,7 +57,7 @@ import {
 } from "./participant-actions";
 
 type Option = { choiceKey: string; content: string; id: string; sortOrder: number };
-type Item = { id: string; options: Option[]; prompt: string; sortOrder: number };
+type Item = { id: string; options: Option[]; prompt: string; questionType?: "single_choice" | "multiple_choice" | string | null; sortOrder: number };
 type Snapshot = { durationSeconds: number; instructions?: string | null; items: Item[]; testType: "cbt" | "cat" };
 type Section = {
   durationSeconds: number;
@@ -69,7 +69,7 @@ type Section = {
 type RunSummary = { id: string; section: Section; sequenceNo: number; status: string };
 type State = {
   activeRun: null | {
-    answers: Array<{ selectedOptionId: string | null; tryoutItemId: string }>;
+    answers: Array<{ selectedOptionId: string | null; selectedOptionIds?: string[] | null; tryoutItemId: string }>;
     activeItemId: string | null;
     contentSnapshot: Snapshot;
     fullscreenPrompt: boolean;
@@ -367,9 +367,20 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     window.localStorage.setItem(`tryout:${attemptId}:${run.id}:position`, item.id);
   }, [attemptId, item, run, snapshot?.testType]);
 
-  const selected = run?.answers.find((answer) => answer.tryoutItemId === item?.id)?.selectedOptionId ?? null;
+  const selected = run?.answers.find((answer) => answer.tryoutItemId === item?.id);
+  const selectedOptionIds = selected?.selectedOptionIds?.length
+    ? selected.selectedOptionIds
+    : selected?.selectedOptionId
+      ? [selected.selectedOptionId]
+      : [];
+  const selectionMode = item?.questionType === "multiple_choice" ? "multiple" as const : "single" as const;
   const answerIds = useMemo(() => new Set(run?.answers.reduce<string[]>((ids, answer) => {
-    if (answer.selectedOptionId) ids.push(answer.tryoutItemId);
+    const idsForAnswer = answer.selectedOptionIds?.length
+      ? answer.selectedOptionIds
+      : answer.selectedOptionId
+        ? [answer.selectedOptionId]
+        : [];
+    if (idsForAnswer.length) ids.push(answer.tryoutItemId);
     return ids;
   }, []) ?? []), [run?.answers]);
   const unansweredCount = items.filter((candidate) => !answerIds.has(candidate.id)).length;
@@ -377,10 +388,15 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   const save = async (optionId: string) => {
     if (!run || !item) return;
+    const nextSelectedOptionIds = selectionMode === "multiple"
+      ? selectedOptionIds.includes(optionId)
+        ? selectedOptionIds.filter((candidate) => candidate !== optionId)
+        : [...selectedOptionIds, optionId]
+      : [optionId];
     setSaveState("saving");
     setMessage("");
     try {
-      const response = await saveTryoutAnswerAction(attemptId, run.id, item.id, optionId);
+      const response = await saveTryoutAnswerAction(attemptId, run.id, item.id, nextSelectedOptionIds);
       if (!response.ok) {
         setSaveState("error");
         setMessage(response.message);
@@ -390,7 +406,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       setState((current) => {
         if (!current?.activeRun || current.activeRun.id !== run.id) return current;
         const otherAnswers = current.activeRun.answers.filter((answer) => answer.tryoutItemId !== item.id);
-        return { ...current, activeRun: { ...current.activeRun, answers: [...otherAnswers, { selectedOptionId: optionId, tryoutItemId: item.id }] } };
+        return { ...current, activeRun: { ...current.activeRun, answers: [...otherAnswers, { selectedOptionId: nextSelectedOptionIds[0] ?? null, selectedOptionIds: nextSelectedOptionIds, tryoutItemId: item.id }] } };
       });
       if (snapshot?.testType === "cat") await refresh();
     } catch (saveError) {
@@ -480,7 +496,8 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     safeReturnHref,
     save,
     saveState,
-    selected,
+    selected: selectedOptionIds,
+    selectionMode,
     setExitOpen,
     setIndex,
     setSubmitOpen,
@@ -515,7 +532,7 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
     return <main className="student-page-canvas mx-auto min-h-svh max-w-3xl px-5 py-12"><p role="alert">Snapshot soal aktif tidak tersedia. Muat ulang untuk memulihkan keadaan server.</p><Button className="mt-5" onClick={() => void controller.refresh()} variant="brand">Muat ulang</Button></main>;
   }
 
-  return <ParticipantAttemptScreen answerIds={controller.answerIds} annotationOpen={controller.annotationOpen} busy={controller.busy} enterFullscreen={controller.enterFullscreen} exitOpen={controller.exitOpen} index={controller.index} item={item} items={controller.items} marked={controller.marked} markedCount={controller.markedCount} message={controller.message} now={controller.now} onIndexChange={controller.setIndex} onExit={() => controller.router.push(controller.safeReturnHref)} onToggleAnnotation={controller.toggleAnnotation} onToggleReport={controller.toggleReport} reported={controller.reported} run={run} save={controller.save} saveState={controller.saveState} selected={controller.selected} setExitOpen={controller.setExitOpen} setSubmitOpen={controller.setSubmitOpen} snapshot={controller.snapshot} submit={controller.submit} submitOpen={controller.submitOpen} timerUrgent={controller.timerUrgent} tryoutTitle={state.tryoutTitle} runCount={state.runs.length} unansweredCount={controller.unansweredCount} />;
+  return <ParticipantAttemptScreen answerIds={controller.answerIds} annotationOpen={controller.annotationOpen} busy={controller.busy} enterFullscreen={controller.enterFullscreen} exitOpen={controller.exitOpen} index={controller.index} item={item} items={controller.items} marked={controller.marked} markedCount={controller.markedCount} message={controller.message} now={controller.now} onIndexChange={controller.setIndex} onExit={() => controller.router.push(controller.safeReturnHref)} onToggleAnnotation={controller.toggleAnnotation} onToggleReport={controller.toggleReport} reported={controller.reported} run={run} save={controller.save} saveState={controller.saveState} selected={controller.selected} selectionMode={controller.selectionMode} setExitOpen={controller.setExitOpen} setSubmitOpen={controller.setSubmitOpen} snapshot={controller.snapshot} submit={controller.submit} submitOpen={controller.submitOpen} timerUrgent={controller.timerUrgent} tryoutTitle={state.tryoutTitle} runCount={state.runs.length} unansweredCount={controller.unansweredCount} />;
 }
 
 type ActiveRun = NonNullable<State["activeRun"]>;
@@ -541,7 +558,8 @@ type ParticipantAttemptScreenProps = {
   run: ActiveRun;
   save: (optionId: string) => void;
   saveState: "idle" | "saving" | "saved" | "error";
-  selected: string | null;
+  selected: string[];
+  selectionMode: "single" | "multiple";
   setExitOpen: (open: boolean) => void;
   setSubmitOpen: (open: boolean) => void;
   snapshot: Snapshot | undefined;
@@ -586,10 +604,11 @@ function ParticipantAttemptQuestionContent({
   save,
   saveState,
   selected,
-}: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "item" | "items" | "message" | "onToggleReport" | "reported" | "save" | "saveState" | "selected">) {
+  selectionMode,
+}: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "item" | "items" | "message" | "onToggleReport" | "reported" | "save" | "saveState" | "selected" | "selectionMode">) {
   const [textScale, setTextScale] = useState<"compact" | "default" | "large">("default");
   const saveStatus = getAttemptSaveStatus(saveState);
-  return <div className="mx-auto w-full max-w-[1650px]"><div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16"><section className="min-w-0"><div className="flex min-h-12 items-center justify-between gap-4"><span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span><div className="flex min-w-0 flex-1 items-center justify-end gap-2">{saveStatus ? <span aria-live="polite" className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatus.className)} role={saveStatus.role}>{saveStatus.icon === LoaderCircle ? <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveStatus.icon === Check ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />}<span className="truncate">{saveStatus.label}</span></span> : null}<div className="flex shrink-0 items-center gap-2"><AssessmentUtilityPill active={reported.has(item.id)} icon={Flag} label="Laporkan soal" onClick={onToggleReport} /><AssessmentIconButton ariaLabel="Perkecil ukuran font" icon={Minus} onClick={() => setTextScale((current) => current === "large" ? "default" : "compact")} /><AssessmentIconButton ariaLabel="Perbesar ukuran font" icon={Plus} onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")} /></div></div></div>{message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role={saveState === "error" ? "alert" : "status"}><CircleAlert aria-hidden="true" />{message}</p> : null}<p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", getAttemptReadingTextClass(textScale))}>{item.prompt}</p></section><section className="grid gap-4">{item.options.map((option) => <AssessmentAnswerOption disabled={saveState === "saving" || busy} key={option.id} onClick={() => void save(option.id)} option={{ id: option.id, key: option.choiceKey, text: option.content }} selected={selected === option.id} textScale={textScale} />)}</section></div></div>;
+  return <div className="mx-auto w-full max-w-[1650px]"><div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16"><section className="min-w-0"><div className="flex min-h-12 items-center justify-between gap-4"><span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span><div className="flex min-w-0 flex-1 items-center justify-end gap-2">{saveStatus ? <span aria-live="polite" className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatus.className)} role={saveStatus.role}>{saveStatus.icon === LoaderCircle ? <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveStatus.icon === Check ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />}<span className="truncate">{saveStatus.label}</span></span> : null}<div className="flex shrink-0 items-center gap-2"><AssessmentUtilityPill active={reported.has(item.id)} icon={Flag} label="Laporkan soal" onClick={onToggleReport} /><AssessmentIconButton ariaLabel="Perkecil ukuran font" icon={Minus} onClick={() => setTextScale((current) => current === "large" ? "default" : "compact")} /><AssessmentIconButton ariaLabel="Perbesar ukuran font" icon={Plus} onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")} /></div></div></div>{message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role={saveState === "error" ? "alert" : "status"}><CircleAlert aria-hidden="true" />{message}</p> : null}<p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", getAttemptReadingTextClass(textScale))}>{item.prompt}</p></section><section className="grid gap-4">{item.options.map((option) => <AssessmentAnswerOption disabled={saveState === "saving" || busy} key={option.id} onClick={() => void save(option.id)} option={{ id: option.id, key: option.choiceKey, text: option.content }} selected={selected.includes(option.id)} selectionMode={selectionMode} textScale={textScale} />)}</section></div></div>;
 }
 
 function ParticipantAttemptDialogs({
@@ -617,7 +636,7 @@ function ParticipantAttemptFooter({
   snapshot,
 }: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "items" | "onIndexChange" | "saveState" | "selected" | "setSubmitOpen" | "snapshot">) {
   const isCat = snapshot?.testType === "cat";
-  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{isCat ? <Button aria-label={selected ? "Jawaban tersimpan, menyiapkan soal berikutnya" : "Pilih jawaban untuk lanjut"} className="h-12 w-full justify-center" disabled size="lg" variant="brand">{selected ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}</Button> : index >= items.length - 1 ? <Button aria-label="Selesai" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Selesai</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
+  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{isCat ? <Button aria-label={selected.length ? "Jawaban tersimpan, menyiapkan soal berikutnya" : "Pilih jawaban untuk lanjut"} className="h-12 w-full justify-center" disabled size="lg" variant="brand">{selected.length ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}</Button> : index >= items.length - 1 ? <Button aria-label="Selesai" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Selesai</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
 }
 
 function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUrgent, tryoutTitle }: Pick<ParticipantAttemptScreenProps, "enterFullscreen" | "now" | "run" | "runCount" | "timerUrgent" | "tryoutTitle">) {
@@ -626,6 +645,6 @@ function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUr
 
 function ParticipantAttemptScreen(props: ParticipantAttemptScreenProps) {
   const navigationItems = getAttemptNavigationItems(props.items, props.index, props.marked, props.answerIds);
-  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} message={props.message} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari tryout" variant="ghost"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
+  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} message={props.message} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} selectionMode={props.selectionMode} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari tryout" variant="ghost"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
 }
 export { ParticipantAttemptModule };

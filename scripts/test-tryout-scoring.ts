@@ -60,4 +60,26 @@ assert.equal(catSubset.unansweredCount, 0);
 assert.equal(catSubset.normalizedScore, 0);
 assert.equal(materializeFrozenAnswers(frozenItems, [{ itemId: "item-3", selectedOptionId: "option-a" }]).invalid, true);
 
+const multipleItems = [{
+  id: "item-multiple",
+  options: [
+    { id: "option-a", isCorrect: true },
+    { id: "option-b", isCorrect: false },
+    { id: "option-c", isCorrect: true },
+  ],
+  points: "3",
+  questionType: "multiple_choice" as const,
+}];
+const exactSetScore = materializeFrozenAnswers(multipleItems, [{
+  itemId: "item-multiple",
+  selectedOptionIds: ["option-c", "option-a"],
+}]);
+assert.equal(exactSetScore.invalid, false);
+assert.equal(exactSetScore.correctCount, 1);
+assert.equal(exactSetScore.rawScore, 3);
+assert.equal(materializeFrozenAnswers(multipleItems, [{ itemId: "item-multiple", selectedOptionIds: ["option-a"] }]).correctCount, 0, "a subset of the answer key is incorrect");
+assert.equal(materializeFrozenAnswers(multipleItems, [{ itemId: "item-multiple", selectedOptionIds: ["option-a", "option-b", "option-c"] }]).correctCount, 0, "a superset of the answer key is incorrect");
+assert.equal(materializeFrozenAnswers(multipleItems, [{ itemId: "item-multiple", selectedOptionIds: ["option-a", "option-a"] }]).invalid, true, "duplicate selections require review");
+assert.equal(materializeFrozenAnswers(multipleItems, [{ itemId: "item-multiple", selectedOptionIds: ["option-a"], selectedOptionId: "option-c" }]).invalid, true, "conflicting scalar and plural answers require review");
+
 console.log("Tryout scoring contract passed.");

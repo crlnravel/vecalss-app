@@ -1,12 +1,13 @@
 import "server-only";
 
-import { AssessmentAttemptState, AttemptStatus, ContentStatus, MediaAssetState, MediaLibraryScope, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAdmissionMode, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutResultReleasePolicy, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AttemptStatus, ContentStatus, MediaAssetState, MediaLibraryScope, Prisma, QuestionType, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAdmissionMode, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutResultReleasePolicy, TryoutTestType } from "@/generated/prisma/client";
 import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { distinctTryoutUsageCounts, summarizePackageLifecycle, type PackageLifecycleItem } from "@/lib/tryout/package-lifecycle";
 import { isImageMimeType } from "@/lib/media/domain";
 import { prisma } from "@/lib/prisma";
 import { packageReleaseTitle } from "@/lib/tryout/version-label";
+import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 
 const SUBJECTS = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 type SubjectCode = (typeof SUBJECTS)[number];
@@ -62,15 +63,20 @@ const sourceInclude = {
   explanationAsset: true,
   subtest: true,
 } satisfies Prisma.QuestionInclude;
-const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
+const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true, sourceQuestionRevision: { select: { questionType: true } } }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
 const packageLifecycleInclude = { sourceBank: { select: { id: true, name: true } }, subtest: { select: { code: true, id: true, name: true } }, items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
-const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true, purpose: true } } } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
+const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, questionType: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true, purpose: true } } } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 type TryoutReadRecord = Prisma.TryoutPackageGetPayload<{ include: typeof tryoutInclude }>;
 type TryoutPackageBindingRecord = { sections: Array<{ items: Array<{ packageVersionId: string | null }>; packageVersionId: string | null }> };
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
+function answerModeForQuestionType(value: QuestionType | string | null | undefined): QuestionAnswerMode | null {
+  if (value === QuestionType.multiple_choice || value === "multiple_choice") return "multiple_choice";
+  if (value === QuestionType.single_choice || value === "single_choice" || value === null || value === undefined) return "single_choice";
+  return null;
+}
 function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, calibrationByRevision = new Map<string, { contentDigest: string; difficulty: unknown; discrimination: unknown; questionId: string; sourceRevisionProvenance: string | null }>()) {
   const sourceQuestionIds = version.items.map((item) => item.sourceQuestionId);
   const hasUniqueSources = new Set(sourceQuestionIds).size === sourceQuestionIds.length;
@@ -78,11 +84,13 @@ function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionG
   const hasReadyMedia = version.items.every((item) => isReadyAsset(item.promptAsset) && isReadyAsset(item.explanationAsset) && item.options.every((option) => isReadyAsset(option.asset)));
   const contentReady = version.items.length > 0 && version.items.every((item) => {
     const options = item.options;
+    const answerMode = answerModeForQuestionType(item.sourceQuestionRevision?.questionType);
+    const answerKey = answerMode ? validateAnswerKey(answerMode, options.map((option) => ({ id: option.sourceQuestionRevisionOptionId ?? option.id, isCorrect: option.isCorrect }))) : null;
     return item.prompt.trim()
       && hasExplanations
       && options.length >= 2
       && options.length <= 5
-      && options.filter((option) => option.isCorrect).length === 1
+      && Boolean(answerKey?.ok)
       && options.every((option) => option.content.trim())
       && hasReadyMedia;
   }) && hasUniqueSources;
@@ -120,7 +128,8 @@ function assertReadySources(sources: Prisma.QuestionGetPayload<{ include: typeof
       || source.questionBank === null
       || options.length < 2
       || options.length > 5
-      || options.filter((option) => option.isCorrect).length !== 1
+      || !answerModeForQuestionType(revision?.questionType)
+      || !validateAnswerKey(answerModeForQuestionType(revision?.questionType) ?? "single_choice", options.map((option) => ({ id: option.id, isCorrect: option.isCorrect }))).ok
       || options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
       || !revision.stem.trim()
       || !isReadyAsset(revision.promptAsset)
@@ -146,7 +155,8 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
       || selection.sourceContentDigest !== revision.contentDigest
       || options.length < 2
       || options.length > 5
-      || options.filter((option) => option.isCorrect).length !== 1
+      || !answerModeForQuestionType(revision?.questionType)
+      || !validateAnswerKey(answerModeForQuestionType(revision?.questionType) ?? "single_choice", options.map((option) => ({ id: option.id, isCorrect: option.isCorrect }))).ok
       || options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
       || !revision.stem.trim()
       || !isReadyAsset(revision.promptAsset)
@@ -291,6 +301,7 @@ function toTryoutDto(record: TryoutReadRecord) {
           hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId),
           hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"),
           prompt: item.prompt,
+          questionType: answerModeForQuestionType(item.questionType) ?? "single_choice",
           sourceContentDigest: item.sourceContentDigest ?? undefined,
           sourceQuestionId: item.sourceQuestionId,
           sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined,
@@ -659,6 +670,9 @@ function validateTryoutInput(input: SaveTryoutInput) {
 async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], catItemCount?: number) {
   if (!catItemCount || sources.length < catItemCount) throw new TryoutValidationError("CAT memerlukan soal langsung yang cukup untuk pool dan jumlah soal.");
   const revisions = sources.map((source) => source.currentRevision).filter((revision): revision is NonNullable<typeof revision> => Boolean(revision));
+  if (revisions.some((revision) => answerModeForQuestionType(revision.questionType) !== "single_choice")) {
+    throw new TryoutValidationError("CAT saat ini hanya mendukung soal dengan satu jawaban benar. Gunakan Test CBT untuk soal dengan beberapa jawaban.");
+  }
   const revisionIds = revisions.map((revision) => revision.id);
   const calibrations = await tx.twoPlQuestionCalibration.findMany({
     where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
@@ -726,6 +740,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
           difficulty: revision.difficulty,
           explanation: revision.explanation,
           explanationAssetId: revision.explanationAssetId,
+          questionType: answerModeForQuestionType(revision.questionType) ?? "single_choice",
           options: revision.options.map((option, optionIndex) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + optionIndex), content: option.content, isCorrect: option.isCorrect, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: option.id })),
           pointValue: 1,
           prompt: revision.stem,
@@ -742,7 +757,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     const sourceQuestionIds = itemEntries.map(({ snapshot }) => snapshot.sourceQuestionId);
     if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
     await Promise.all(itemEntries.map(async ({ section, snapshot }) => {
-      const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: "direct", packageVersionId: null, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
+      const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: "direct", packageVersionId: null, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, questionType: snapshot.questionType, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
       await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId, tryoutItemId: item.id })) });
     }));
     if (input.status === "published") {

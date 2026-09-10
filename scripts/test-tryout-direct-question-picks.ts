@@ -15,6 +15,9 @@ assert.match(builder, /Pilih bank soal/u, "Tryout Questions must expose direct s
 assert.doesNotMatch(builder, /Set Ready|Pool Soal|Blueprint|CAT Pool/u, "Tryout Questions must expose only direct selection");
 assert.doesNotMatch(builder, /Behavior &amp; rules|question-selection-mode|DropdownMenuRadioGroup|<Switch/u, "authoring must not expose CAT or source-mode controls");
 assert.match(builder, /<Checkbox/u, "direct selection must use a checklist");
+assert.match(builder, /questionTypeLabel/u, "direct selection must communicate the answer mode");
+assert.match(builder, /correctChoiceIds/u, "question preview must expose the authored answer key");
+assert.match(builder, /\{selectedCount\} dipilih/u, "direct selection must keep the selected count visible");
 assert.match(builder, /toggleDirectQuestion/u, "checking a source question must add or remove it from the active Section");
 assert.match(builder, /shuffleItems: true/u, "new and saved sections must randomize question order");
 assert.match(builder, /listQuestionBankSourcePageAction/u, "direct selection must browse source Banks through the server action");

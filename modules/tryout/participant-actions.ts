@@ -109,10 +109,10 @@ async function reconcileTryoutDisconnectAction(attemptId: string, runId: string,
   }
 }
 
-async function saveTryoutAnswerAction(attemptId: string, runId: string, itemId: string, optionId: string | null) {
+async function saveTryoutAnswerAction(attemptId: string, runId: string, itemId: string, optionIds: readonly string[] | string | null) {
   const session = await participantSession();
   try {
-    return { ok: true as const, result: await saveTryoutAnswer(attemptId, runId, itemId, optionId, session.user.id) };
+    return { ok: true as const, result: await saveTryoutAnswer(attemptId, runId, itemId, optionIds, session.user.id) };
   } catch (error) {
     return { ok: false as const, message: message(error) };
   }
