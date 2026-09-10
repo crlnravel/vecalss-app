@@ -79,6 +79,9 @@ assert.match(repository, /transitionStandaloneQuizSourceModeVersioned/u);
 assert.match(repository, /bulkUpdateStandaloneQuizLifecycleVersioned/u);
 assert.match(repository, /resolveStandaloneQuizForAttempt/u);
 assert.match(repository, /ensureStandaloneQuizDraft/u);
+assert.match(repository, /isStandaloneQuizAvailableAt/u);
+assert.match(repository, /opensAt: version\.opensAt/u);
+assert.match(repository, /closesAt: version\.closesAt/u);
 
 const actions = readFileSync(resolve(projectRoot, "modules/mentor/quiz-actions.ts"), "utf8");
 assert.match(actions, /saveStandaloneQuizAction/u);

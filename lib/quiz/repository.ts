@@ -126,6 +126,8 @@ function projectStandaloneQuizVersion(record: VersionedQuizRecord, version: Vers
     description: version.description,
     formBehavior: version.formBehavior,
     items: version.items,
+    closesAt: version.closesAt,
+    opensAt: version.opensAt,
     retryDelaySeconds: version.retryDelaySeconds,
     reviewTiming: version.reviewTiming,
     scorePolicy: version.scorePolicy,
@@ -514,7 +516,11 @@ function toKaptenQuizVersion(
     activeVersionNo: activeVersion?.versionNo ?? undefined,
     draftRevision: draftVersion?.draftRevision ?? null,
     draftVersionId: draftVersion?.id,
-    hasUnpublishedChanges: Boolean(activeVersion && draftVersion && activeVersion.definitionDigest !== draftVersion.definitionDigest),
+    hasUnpublishedChanges: Boolean(activeVersion && draftVersion && (
+      activeVersion.definitionDigest !== draftVersion.definitionDigest
+      || activeVersion.opensAt?.getTime() !== draftVersion.opensAt?.getTime()
+      || activeVersion.closesAt?.getTime() !== draftVersion.closesAt?.getTime()
+    )),
     versionId: version.id,
     versionNo: version.versionNo,
   } satisfies KaptenQuiz;
@@ -922,6 +928,7 @@ function versionFieldsFrom(source: {
   assemblyPackageVersionId?: string | null;
   assemblySeed?: string | null;
   attemptsAllowed?: number | null;
+  closesAt?: Date | null;
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   description?: string | null;
   formBehavior?: QuizFormBehavior;
@@ -930,6 +937,7 @@ function versionFieldsFrom(source: {
   scorePolicy?: QuizScorePolicy;
   sourceBankId?: string | null;
   title: string;
+  opensAt?: Date | null;
 }) {
   return {
     assemblyDefinitionDigest: source.assemblyDefinitionDigest ?? null,
@@ -937,6 +945,7 @@ function versionFieldsFrom(source: {
     assemblyPackageVersionId: source.assemblyPackageVersionId ?? null,
     assemblySeed: source.assemblySeed ?? null,
     attemptsAllowed: source.attemptsAllowed === undefined ? 1 : source.attemptsAllowed,
+    closesAt: source.closesAt ?? null,
     correctAnswerVisibility: source.correctAnswerVisibility ?? "show",
     description: source.description ?? null,
     formBehavior: source.formBehavior ?? "same",
@@ -945,6 +954,7 @@ function versionFieldsFrom(source: {
     scorePolicy: source.scorePolicy ?? "latest",
     sourceBankId: source.sourceBankId ?? null,
     title: source.title,
+    opensAt: source.opensAt ?? null,
   } as const;
 }
 
@@ -1129,7 +1139,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
       validateForPublication({ ...input, assemblyVersionId: undefined, questions: input.questions }, opensAt, closesAt);
     }
 
-    const metadata = versionedQuizPolicyData(input, policy);
+    const metadata = { ...versionedQuizPolicyData(input, policy), closesAt, opensAt };
     if (!record) {
       record = await tx.standaloneQuiz.create({
         data: {
@@ -1179,6 +1189,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
           correctAnswerVisibility: metadata.correctAnswerVisibility,
           description: metadata.description,
           provenance: StandaloneQuizVersionProvenance.runtime,
+          opensAt,
           retryDelaySeconds: metadata.retryDelaySeconds,
           reviewTiming: metadata.reviewTiming,
           scorePolicy: metadata.scorePolicy,
@@ -1218,6 +1229,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
       where: { id: version.id },
       data: {
         attemptsAllowed: metadata.attemptsAllowed,
+        closesAt: metadata.closesAt,
         correctAnswerVisibility: metadata.correctAnswerVisibility,
         description: metadata.description,
         draftRevision: nextDraftRevision,
@@ -1225,6 +1237,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
         definitionDigest,
         retryDelaySeconds: metadata.retryDelaySeconds,
         reviewTiming: metadata.reviewTiming,
+        opensAt: metadata.opensAt,
         scorePolicy: metadata.scorePolicy,
         sourceBankId,
         state: StandaloneQuizVersionState.draft,
@@ -1242,11 +1255,13 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
         where: { id: updatedDraft.id },
         data: {
           baseVersionId: baseVersion?.id ?? updatedDraft.baseVersionId,
+          closesAt: metadata.closesAt,
           definitionDigest,
           draftRevision: null,
           publishedAt: new Date(),
           publishedByUserId: tutorId,
           publishRequestId: input.publishRequestId ?? crypto.randomUUID(),
+          opensAt: metadata.opensAt,
           state: StandaloneQuizVersionState.active,
           versionNo: nextVersionNo,
         },
@@ -2216,16 +2231,16 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
         }
         validateForPublication({
           assemblyVersionId: version.assemblyPackageVersionId ?? undefined,
-          closesAt: record.closesAt?.toISOString() ?? "",
+          closesAt: version.closesAt?.toISOString() ?? "",
           description: version.description ?? "",
           id: record.id,
-          opensAt: record.opensAt?.toISOString() ?? "",
+          opensAt: version.opensAt?.toISOString() ?? "",
           questions: publicationQuestions,
           sourceBankId: version.sourceBankId ?? undefined,
           status: "published",
           subjectCode: record.subtest.code,
           title: version.title,
-        }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(version.assemblyPackageVersionId) });
+        }, version.opensAt, version.closesAt, { materializedAssembly: Boolean(version.assemblyPackageVersionId) });
 
         if (version.state === StandaloneQuizVersionState.draft) {
           if (active && active.id !== version.id) {
@@ -2322,6 +2337,11 @@ async function updateStandaloneQuizLifecycle(id: string, tutorId: string, operat
   return toKaptenQuiz(saved);
 }
 function studentAvailabilityWhere(now = new Date()) { return { status: ContentStatus.published, AND: [{ OR: [{ opensAt: null }, { opensAt: { lte: now } }] }, { OR: [{ closesAt: null }, { closesAt: { gt: now } }] }] } satisfies Prisma.StandaloneQuizWhereInput; }
+function isStandaloneQuizAvailableAt(quiz: { closesAt: Date | null; opensAt: Date | null; status: ContentStatus }, now: Date) {
+  return quiz.status === ContentStatus.published
+    && (quiz.opensAt === null || quiz.opensAt <= now)
+    && (quiz.closesAt === null || quiz.closesAt > now);
+}
 async function getAvailableStandaloneQuiz(subjectCode: string, slug: string, now = new Date()) {
   return findStandaloneQuizForRuntime(prisma, { ...studentAvailabilityWhere(now), slug, subtest: { code: subjectCode } });
 }
@@ -2633,8 +2653,8 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
     }
 
     const checkNow = requestedNow ?? new Date();
-    const quiz = await findStandaloneQuizForRuntime(tx, { ...studentAvailabilityWhere(checkNow), id: identity.id }, pinnedVersion?.id);
-    if (!quiz) throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
+    const quiz = await findStandaloneQuizForRuntime(tx, { id: identity.id }, pinnedVersion?.id);
+    if (!quiz || !isStandaloneQuizAvailableAt(quiz, checkNow)) throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
 
     const participation = await tx.standaloneQuizParticipation.upsert({
       where: { quizId_studentId: { quizId: quiz.id, studentId } },
@@ -2994,9 +3014,7 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
   const retryDelayPassed = latestTerminalAt === undefined
     || policy.retryDelaySeconds === null
     || latestTerminalAt.getTime() + policy.retryDelaySeconds * 1000 <= now.getTime();
-  const quizAvailable = attempt.participation.quiz.status === ContentStatus.published
-    && (attempt.participation.quiz.opensAt === null || attempt.participation.quiz.opensAt <= now)
-    && (attempt.participation.quiz.closesAt === null || attempt.participation.quiz.closesAt > now);
+  const quizAvailable = isStandaloneQuizAvailableAt(quiz, now);
   const canRestart = quizAvailable && (activeAttempt || (attemptsRemain && retryDelayPassed));
   const releasedAttempts = attempt.participation.attempts.filter((candidate) => candidate.releaseState === AssessmentResultReleaseState.released);
   return {

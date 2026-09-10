@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [schema, migration, itemScopingMigration, answerContract] = await Promise.all([
+const [schema, migration, itemScopingMigration, scheduleMigration, answerContract] = await Promise.all([
   readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260910100000_add_standalone_quiz_version_storage/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260910160000_scope_standalone_quiz_items_to_versions/migration.sql", import.meta.url), "utf8"),
+  readFile(new URL("../prisma/migrations/20260911100000_add_standalone_quiz_version_schedule/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../lib/question-bank/answer-contract.ts", import.meta.url), "utf8"),
 ]);
 
@@ -19,6 +20,8 @@ assert.match(versionModel, /quizId\s+String/u);
 assert.match(versionModel, /baseVersionId\s+String\?/u);
 assert.match(versionModel, /definitionDigest\s+String\?/u);
 assert.match(versionModel, /publishedAt\s+DateTime\?/u);
+assert.match(versionModel, /opensAt\s+DateTime\?/u);
+assert.match(versionModel, /closesAt\s+DateTime\?/u);
 assert.match(versionModel, /provenance\s+StandaloneQuizVersionProvenance/u);
 assert.match(versionModel, /@@unique\(\[quizId, versionNo\]\)/u);
 assert.match(itemModel, /quizVersionId\s+String\?/u);
@@ -47,6 +50,9 @@ assert.match(itemScopingMigration, /standalone_quiz_items_quiz_id_sort_order_leg
 assert.match(itemScopingMigration, /WHERE "quiz_version_id" IS NULL/u);
 assert.match(itemScopingMigration, /standalone_quiz_items_quiz_version_id_sort_order_key/u);
 assert.match(itemScopingMigration, /WHERE "quiz_version_id" IS NOT NULL/u);
+assert.match(scheduleMigration, /ADD COLUMN "opens_at" TIMESTAMPTZ/u);
+assert.match(scheduleMigration, /ADD COLUMN "closes_at" TIMESTAMPTZ/u);
+assert.match(scheduleMigration, /UPDATE "standalone_quiz_versions" version/u);
 
 const versionTable = migration.indexOf('CREATE TABLE "standalone_quiz_versions"');
 const versionBackfill = migration.indexOf('INSERT INTO "standalone_quiz_versions"');
@@ -59,6 +65,7 @@ assert.ok(commandBackfill > commandTable, "start commands must exist before thei
 
 assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.doesNotMatch(itemScopingMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
+assert.doesNotMatch(scheduleMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.match(answerContract, /compareSelectedOptionSets/u);
 assert.match(answerContract, /decodeLegacyAnswerSelection/u);
 
