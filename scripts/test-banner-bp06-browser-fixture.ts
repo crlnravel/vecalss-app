@@ -2145,7 +2145,9 @@ async function runBrowserSupervisor() {
     const nextOutput = captureChildOutput(nextChild);
     await waitForNextReady(nextChild, nextOutput);
     console.log(`BP06 supervised Next child ready on ${routeUrl(PORT, "/")}`);
-    const browserEnv: NodeJS.ProcessEnv = {};
+    // Keep the embedded evaluator explicitly in test mode; never inherit the
+    // host application's NODE_ENV or fixture-private environment values.
+    const browserEnv: NodeJS.ProcessEnv = { NODE_ENV: "test" };
     for (const key of ["HOME", "LANG", "LC_ALL", "LOGNAME", "PATH", "SHELL", "TERM", "TMP", "TEMP", "TMPDIR", "USER"]) {
       const value = inheritedEnv[key];
       if (value !== undefined) browserEnv[key] = value;
