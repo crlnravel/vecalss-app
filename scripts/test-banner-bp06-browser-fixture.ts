@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmod, copyFile, lstat, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, lstat, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -38,6 +38,12 @@ const NOW = new Date("2035-01-01T00:00:00.000Z");
 const ASSET_URL = "https://placehold.co/1600x600/png?text=BP06+synthetic+banner";
 const ADMIN_EMAIL = "bp06-admin@vecalss.test";
 const VOYAGER_EMAIL = "bp06-voyager@vecalss.test";
+const RECOVERY_DESTINATION = "tryout" as const;
+const RECOVERY_TITLE_PREFIX = "BP06 legacy over-limit ";
+const RECOVERY_TITLE = `${RECOVERY_TITLE_PREFIX}${"L".repeat(181 - RECOVERY_TITLE_PREFIX.length)}`;
+const RECOVERY_CONFLICT_TITLE_PREFIX = "BP06 source changed ";
+const RECOVERY_CONFLICT_TITLE = `${RECOVERY_CONFLICT_TITLE_PREFIX}${"C".repeat(181 - RECOVERY_CONFLICT_TITLE_PREFIX.length)}`;
+const RECOVERY_DESCRIPTION = "BP06 legacy description {firstName} {targetMajor} {targetUniversity}";
 
 const PUBLISHED_REVISIONS: Record<BannerDestination, string> = {
   beranda: "11111111-1111-4111-8111-111111111111",
@@ -60,8 +66,26 @@ type FixtureState = {
   publishedRevisions: Record<BannerDestination, string>;
   schema: string;
   stateFile: string;
+  transitionRequestFile: string;
+  transitionResponseFile: string;
   databaseUrl: string;
   draftRevisions: Record<BannerDestination, string>;
+};
+
+type BrowserTransitionOperation = "prepare-recovery" | "source-conflict" | "restore-recovery";
+
+type BrowserTransitionMessage = {
+  operation: BrowserTransitionOperation;
+  nonce: string;
+};
+
+type BrowserTransitionResponse = {
+  completedAt: string;
+  nonce: string;
+  ok: boolean;
+  operation: BrowserTransitionOperation;
+  provenance?: string;
+  error?: string;
 };
 
 type CatalogRow = {
@@ -101,6 +125,13 @@ function quoteLiteral(value: string) {
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+async function writePrivateJson(file: string, value: unknown) {
+  const temporary = `${file}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
+  await chmod(temporary, 0o600);
+  await rename(temporary, file);
 }
 
 function statePath() {
@@ -664,6 +695,22 @@ async function insertConfig(client: pg.Client, schema: string, values: {
   );
 }
 
+function legacyTextFixture(title = "Legacy {firstName}") {
+  return Object.fromEntries(BANNER_DESTINATIONS.map(({ key }) => [key, {
+    description: "Legacy fallback untuk {firstName} · {targetMajor} · {targetUniversity}",
+    title,
+  }]));
+}
+
+function recoveryLegacyFixture(title: string) {
+  const value = legacyTextFixture();
+  value[RECOVERY_DESTINATION] = {
+    description: RECOVERY_DESCRIPTION,
+    title,
+  };
+  return value;
+}
+
 async function seedFixture(client: pg.Client, schema: string, credentials: { adminPassword: string; voyagerPassword: string }) {
   await insertUser(client, schema, {
     email: ADMIN_EMAIL,
@@ -691,13 +738,9 @@ async function seedFixture(client: pg.Client, schema: string, credentials: { adm
   await insertProfile(client, schema, FIXTURE_ID, "Managed BP06 Preview Subject");
   await insertAsset(client, schema);
 
-  const legacyText = Object.fromEntries(BANNER_DESTINATIONS.map(({ key }) => [key, {
-    description: "Legacy fallback untuk {firstName} · {targetMajor} · {targetUniversity}",
-    title: "Legacy {firstName}",
-  }]));
   await insertConfig(client, schema, {
     configKey: "student.banners",
-    configValue: legacyText,
+    configValue: legacyTextFixture(),
     draftValue: null,
     publishedAt: NOW,
   });
@@ -718,6 +761,148 @@ async function seedFixture(client: pg.Client, schema: string, credentials: { adm
       publishedAt: NOW,
     });
   }
+}
+
+async function applyBrowserTransition(state: FixtureState, operation: BrowserTransitionOperation) {
+  const rawDatabaseUrl = readDisposableDatabaseUrl();
+  assert.ok(
+    sameDatabase(connectionIdentity(rawDatabaseUrl), connectionIdentity(state.databaseUrl)),
+    "BP06 browser transition must target the exact validated disposable database",
+  );
+  const destinationDefinition = BANNER_DESTINATIONS.find(({ key }) => key === RECOVERY_DESTINATION);
+  assert.ok(destinationDefinition, "BP06 recovery destination definition is missing");
+  const schemaName = quoteIdentifier(state.schema);
+  const client = new Client({ connectionString: state.databaseUrl });
+  await client.connect();
+  try {
+    await client.query("BEGIN");
+    const destination = await client.query<{ id: string; configValue: unknown }>(
+      `SELECT id, config_value AS "configValue"
+         FROM ${schemaName}."system_configs"
+        WHERE config_key = $1
+        FOR UPDATE`,
+      [destinationDefinition.configKey],
+    );
+    assert.equal(destination.rowCount, 1, "BP06 recovery transition requires the seeded tryout config row");
+    const destinationId = destination.rows[0]?.id;
+    assert.ok(destinationId, "BP06 recovery transition tryout config id is missing");
+    const legacy = await client.query<{ id: string; configValue: unknown }>(
+      `SELECT id, config_value AS "configValue"
+         FROM ${schemaName}."system_configs"
+        WHERE config_key = $1
+        FOR UPDATE`,
+      ["student.banners"],
+    );
+    assert.equal(legacy.rowCount, 1, "BP06 recovery transition requires the seeded legacy text row");
+    const legacyId = legacy.rows[0]?.id;
+    assert.ok(legacyId, "BP06 recovery transition legacy text config id is missing");
+
+    if (operation === "prepare-recovery") {
+      await client.query(
+        `UPDATE ${schemaName}."system_configs"
+            SET config_value = $1::jsonb,
+                draft_value = NULL,
+                draft_updated_at = NULL,
+                updated_at = NOW()
+          WHERE id = $2::uuid`,
+        [JSON.stringify({ design: null, revision: "broken", storageVersion: 2 }), destinationId],
+      );
+      await client.query(
+        `UPDATE ${schemaName}."system_configs"
+            SET config_value = $1::jsonb,
+                updated_at = NOW()
+          WHERE id = $2::uuid`,
+        [JSON.stringify(recoveryLegacyFixture(RECOVERY_TITLE)), legacyId],
+      );
+    } else if (operation === "source-conflict") {
+      await client.query(
+        `UPDATE ${schemaName}."system_configs"
+            SET config_value = $1::jsonb,
+                updated_at = NOW()
+          WHERE id = $2::uuid`,
+        [JSON.stringify(recoveryLegacyFixture(RECOVERY_CONFLICT_TITLE)), legacyId],
+      );
+    } else {
+      await client.query(
+        `UPDATE ${schemaName}."system_configs"
+            SET config_value = $1::jsonb,
+                updated_at = NOW()
+          WHERE id = $2::uuid`,
+        [JSON.stringify(recoveryLegacyFixture(RECOVERY_TITLE)), legacyId],
+      );
+    }
+    await client.query("COMMIT");
+    const provenance = operation === "prepare-recovery"
+      ? `schema=${state.schema}; destination=${RECOVERY_DESTINATION}; v2 config invalidated; legacy text title length=${RECOVERY_TITLE.length}`
+      : operation === "source-conflict"
+        ? `schema=${state.schema}; legacy text source changed after recovery bootstrap; title length=${RECOVERY_CONFLICT_TITLE.length}`
+        : `schema=${state.schema}; legacy text source restored to recovery fixture; title length=${RECOVERY_TITLE.length}`;
+    console.log(`BP06 browser transition applied: ${operation}; ${provenance}`);
+    return provenance;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+async function superviseBrowserTransitions(state: FixtureState, shouldStop: () => boolean) {
+  const expected: BrowserTransitionOperation[] = ["prepare-recovery", "source-conflict", "restore-recovery"];
+  let nextExpected = 0;
+  const deadline = Date.now() + 210_000;
+  await rm(state.transitionRequestFile, { force: true });
+  await rm(state.transitionResponseFile, { force: true });
+  await rm(`${state.transitionRequestFile}.tmp`, { force: true });
+  await rm(`${state.transitionResponseFile}.tmp`, { force: true });
+  while (!shouldStop() && Date.now() < deadline) {
+    let request: BrowserTransitionMessage | null = null;
+    try {
+      request = JSON.parse(await readFile(state.transitionRequestFile, "utf8")) as BrowserTransitionMessage;
+    } catch (error) {
+      if (!hasErrnoCode(error, "ENOENT")) throw error;
+    }
+    if (request) {
+      await rm(state.transitionRequestFile, { force: true });
+      const operation = expected[nextExpected];
+      let response: BrowserTransitionResponse;
+      if (request.operation !== operation) {
+        response = {
+          completedAt: new Date().toISOString(),
+          error: `unexpected transition order; expected ${operation ?? "none"}`,
+          nonce: request.nonce,
+          ok: false,
+          operation: request.operation,
+        };
+      } else {
+        try {
+          const provenance = await applyBrowserTransition(state, request.operation);
+          response = {
+            completedAt: new Date().toISOString(),
+            nonce: request.nonce,
+            ok: true,
+            operation: request.operation,
+            provenance,
+          };
+          nextExpected += 1;
+        } catch (error) {
+          response = {
+            completedAt: new Date().toISOString(),
+            error: error instanceof Error ? error.message : String(error),
+            nonce: request.nonce,
+            ok: false,
+            operation: request.operation,
+          };
+        }
+      }
+      await writePrivateJson(state.transitionResponseFile, response);
+    }
+    await sleep(250);
+  }
+  if (!shouldStop() && nextExpected !== expected.length) {
+    throw new Error(`BP06 browser transition supervisor timed out after ${nextExpected}/${expected.length} transitions.`);
+  }
+  return nextExpected;
 }
 
 async function writeStateFiles(state: FixtureState, credentials: { adminEmail: string; adminPassword: string; voyagerEmail: string; voyagerPassword: string }) {
@@ -792,6 +977,8 @@ async function setup() {
   const mirrorRoot = join(tmpdir(), `${MIRROR_PREFIX}${process.pid}-${Date.now()}`);
   const envFile = join(dirname(stateFile), `${STATE_PREFIX}.env`);
   const credentialFile = join(dirname(stateFile), `${STATE_PREFIX}.credentials.json`);
+  const transitionRequestFile = join(dirname(stateFile), `${STATE_PREFIX}.transition-request.json`);
+  const transitionResponseFile = join(dirname(stateFile), `${STATE_PREFIX}.transition-response.json`);
   const isolatedUrl = schemaDatabaseUrl(databaseUrl, schema);
   const client = new Client({ connectionString: databaseUrl });
   const adminPassword = `BP06-${randomUUID()}-Aa7`;
@@ -806,6 +993,8 @@ async function setup() {
     publishedRevisions: PUBLISHED_REVISIONS,
     schema,
     stateFile,
+    transitionRequestFile,
+    transitionResponseFile,
   };
   const fixtureCredentials = {
     adminEmail: ADMIN_EMAIL,
@@ -814,6 +1003,13 @@ async function setup() {
     voyagerPassword,
   };
   let schemaOwned = false;
+  for (const privatePath of [transitionRequestFile, transitionResponseFile, `${transitionRequestFile}.tmp`, `${transitionResponseFile}.tmp`]) {
+    await assert.rejects(
+      lstat(privatePath),
+      (error: unknown) => hasErrnoCode(error, "ENOENT"),
+      `BP06 transition path already exists: ${privatePath}; run exact cleanup first.`,
+    );
+  }
   try {
     await client.connect();
     await createLocalSchema(client, schema, () => {
@@ -865,6 +1061,10 @@ async function setup() {
       await rm(mirrorRoot, { recursive: true, force: true });
       await rm(envFile, { force: true });
       await rm(credentialFile, { force: true });
+      await rm(transitionRequestFile, { force: true });
+      await rm(transitionResponseFile, { force: true });
+      await rm(`${transitionRequestFile}.tmp`, { force: true });
+      await rm(`${transitionResponseFile}.tmp`, { force: true });
     }
     throw error;
   }
@@ -986,6 +1186,16 @@ async function cleanup() {
     join(stateDirectory, `${STATE_PREFIX}.credentials.json`),
     "BP06 cleanup credential path must stay beside the exact state file",
   );
+  assert.equal(
+    resolve(state.transitionRequestFile),
+    join(stateDirectory, `${STATE_PREFIX}.transition-request.json`),
+    "BP06 cleanup transition request path must stay beside the exact state file",
+  );
+  assert.equal(
+    resolve(state.transitionResponseFile),
+    join(stateDirectory, `${STATE_PREFIX}.transition-response.json`),
+    "BP06 cleanup transition response path must stay beside the exact state file",
+  );
   const rawDatabaseUrl = readDisposableDatabaseUrl();
   const identity = connectionIdentity(rawDatabaseUrl);
   const isolated = connectionIdentity(state.databaseUrl);
@@ -1003,6 +1213,10 @@ async function cleanup() {
   await rm(state.mirrorRoot, { recursive: true, force: true });
   await rm(state.credentialFile, { force: true });
   await rm(state.envFile, { force: true });
+  await rm(state.transitionRequestFile, { force: true });
+  await rm(state.transitionResponseFile, { force: true });
+  await rm(`${state.transitionRequestFile}.tmp`, { force: true });
+  await rm(`${state.transitionResponseFile}.tmp`, { force: true });
   await rm(file, { force: true });
   console.log(`BP06 browser fixture cleaned: ${state.schema}`);
 }
@@ -1255,10 +1469,13 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
 function browserVerificationScript() {
   return String.raw`
 (async () => {
-  const { readFile } = await import("node:fs/promises");
+  const { readFile, rename, rm, writeFile } = await import("node:fs/promises");
+  const { randomUUID } = await import("node:crypto");
   const baseUrl = process.env.BP06_BROWSER_BASE_URL || "http://127.0.0.1:5146";
   const credentialPath = process.env.BP06_BROWSER_CREDENTIAL_FILE;
-  if (!credentialPath) throw new Error("BP06 browser credential path is missing from the private child environment.");
+  const transitionRequestPath = process.env.BP06_BROWSER_TRANSITION_REQUEST_FILE;
+  const transitionResponsePath = process.env.BP06_BROWSER_TRANSITION_RESPONSE_FILE;
+  if (!credentialPath || !transitionRequestPath || !transitionResponsePath) throw new Error("BP06 browser private state paths are missing from the child environment.");
   const credentials = JSON.parse(await readFile(credentialPath, "utf8"));
   const published = {
     beranda: "11111111-1111-4111-8111-111111111111",
@@ -1274,9 +1491,13 @@ function browserVerificationScript() {
   };
   const labels = { beranda: "Beranda", materi: "Materi", kuis: "Kuis", tryout: "Tryout" };
   const routes = { beranda: "/dashboard", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
+  const livePublishedRevisions = { ...published };
+  const liveDraftRevisions = { ...drafts };
   const passed = [];
   const failed = [];
+  const skipped = [];
   const notRun = [];
+  const outcomes = new Map();
   let task = null;
   let opened = false;
 
@@ -1288,16 +1509,59 @@ function browserVerificationScript() {
     throw new Error(message);
   }
 
-  async function check(name, action) {
+  async function check(name, action, dependencies = []) {
+    const unmet = dependencies.filter((dependency) => outcomes.get(dependency) !== "passed");
+    if (unmet.length > 0) {
+      const reason = "dependency not passed: " + unmet.join(", ");
+      skipped.push({ name, reason });
+      outcomes.set(name, "skipped");
+      cliLog("BP06_BROWSER_SKIP " + name + " " + reason);
+      return false;
+    }
     try {
       const detail = await action();
       passed.push({ name, detail: detail || null });
+      outcomes.set(name, "passed");
       cliLog("BP06_BROWSER_PASS " + name + (detail ? " " + JSON.stringify(detail) : ""));
+      return true;
     } catch (error) {
       const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
       failed.push({ name, message });
+      outcomes.set(name, "failed");
       cliLog("BP06_BROWSER_FAIL " + name + " " + message);
+      return false;
     }
+  }
+
+  async function screenshot(name) {
+    const info = await pageInfo();
+    await captureScreenshot();
+    cliLog("BP06_BROWSER_SCREENSHOT " + JSON.stringify({ name, url: info.url, width: info.w, height: info.h }));
+  }
+
+  async function requestTransition(operation) {
+    const nonce = randomUUID();
+    const temporary = transitionRequestPath + ".tmp";
+    await writeFile(temporary, JSON.stringify({ nonce, operation }) + "\n", { encoding: "utf8", mode: 0o600 });
+    await rename(temporary, transitionRequestPath);
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      try {
+        const response = JSON.parse(await readFile(transitionResponsePath, "utf8"));
+        if (response.nonce !== nonce) {
+          await wait(0.25);
+          continue;
+        }
+        await rm(transitionResponsePath, { force: true });
+        if (!response.ok) fail("supervisor transition " + operation + " failed: " + String(response.error || "unknown error"));
+        cliLog("BP06_BROWSER_TRANSITION_ACK " + JSON.stringify({ operation, provenance: response.provenance || null }));
+        return response;
+      } catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+      }
+      await wait(0.25);
+    }
+    fail("supervisor transition " + operation + " timed out");
   }
 
   async function go(path) {
@@ -1314,6 +1578,14 @@ function browserVerificationScript() {
 
   async function text() {
     return String(await snapshotText());
+  }
+
+  function revisionFromDraftLink(link) {
+    try {
+      return new URL(link, baseUrl).searchParams.get("revision");
+    } catch {
+      return null;
+    }
   }
 
   async function login(email, password, expectedPath) {
@@ -1335,6 +1607,11 @@ function browserVerificationScript() {
     const info = await pageInfo();
     if (!String(info.url).includes("/login")) fail("logout did not return to /login: " + info.url);
     if (expectedNotice && !String(info.url).includes(expectedNotice)) fail("logout notice missing: " + info.url);
+  }
+
+  async function cookieNames() {
+    const result = await cdp("Storage.getCookies");
+    return Array.isArray(result?.cookies) ? result.cookies.map((cookie) => String(cookie.name || "")) : [];
   }
 
   async function responsiveCheck(width) {
@@ -1359,11 +1636,30 @@ function browserVerificationScript() {
     return result;
   }
 
-  async function addAndSaveDraft(textValue) {
+  async function imageGetFailure(path) {
+    const result = await js("(async () => { const response = await fetch(" + JSON.stringify(path) + ", { cache: \"no-store\", redirect: \"manual\" }); return { status: response.status, type: response.headers.get(\"content-type\") }; })()");
+    if (!result || result.status < 400 || String(result.type || "").startsWith("image/")) {
+      fail("missing image did not fail as expected: " + JSON.stringify(result));
+    }
+    return result;
+  }
+
+  async function ensureTextLayer() {
+    const hasTextInput = await js("(() => Boolean(document.querySelector('#destination-desktop-layer-text')))()");
+    if (!hasTextInput) await click('button[aria-label="Tambahkan teks"]');
+    await wait(0.5);
+  }
+
+  async function saveDraftObserving(textValue) {
+    await ensureTextLayer();
     await fillInput("#destination-desktop-layer-text", textValue);
     await click('button[aria-label^="Simpan draf"]');
     await wait(3);
-    const body = await text();
+    return text();
+  }
+
+  async function addAndSaveDraft(textValue) {
+    const body = await saveDraftObserving(textValue);
     if (!body.includes("Draf banner tujuan tersimpan.")) fail("draft save confirmation was not rendered");
   }
 
@@ -1379,8 +1675,10 @@ function browserVerificationScript() {
 
     await check("admin-login-cookie-and-redirect", async () => {
       const info = await login(credentials.adminEmail, credentials.adminPassword, "/admin");
+      const names = await cookieNames();
+      if (!names.includes("vecalss_session")) fail("Admin login did not issue the expected session cookie");
       return { url: info.url };
-    });
+    }, ["login-page-real-route"]);
 
     await check("admin-preview-published-and-draft-four-destinations", async () => {
       const details = [];
@@ -1391,18 +1689,21 @@ function browserVerificationScript() {
         if (!String(publishedInfo.url).includes("/admin/student-preview") || !publishedBody.includes("Preview subject")) fail("published preview failed for " + destination);
         const draftInfo = await go("/admin/student-preview" + suffix + "?bannerSource=draft&revision=" + drafts[destination]);
         const draftBody = await text();
-        if (!String(draftInfo.url).includes("bannerSource=draft") || !draftBody.includes("Preview subject")) fail("draft preview failed for " + destination);
+        if (!String(draftInfo.url).includes("bannerSource=draft") || !String(draftInfo.url).includes(drafts[destination]) || !draftBody.includes("Preview subject")) fail("draft preview failed for " + destination);
         details.push(destination);
       }
       return { destinations: details };
-    });
+    }, ["admin-login-cookie-and-redirect"]);
 
     await check("admin-image-get-families", async () => {
-      await go("/admin/student-preview");
-      const adminPublished = await imageGet("/api/admin/student-banners/beranda/published/" + published.beranda + "/background");
-      const adminDraft = await imageGet("/api/admin/student-banners/beranda/draft/" + drafts.beranda + "/background");
-      return { adminPublished, adminDraft };
-    });
+      const details = [];
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        const adminPublished = await imageGet("/api/admin/student-banners/" + destination + "/published/" + published[destination] + "/background");
+        const adminDraft = await imageGet("/api/admin/student-banners/" + destination + "/draft/" + drafts[destination] + "/background");
+        details.push({ destination, adminPublished, adminDraft });
+      }
+      return { destinations: details };
+    }, ["admin-preview-published-and-draft-four-destinations"]);
 
     await check("admin-editor-four-destinations-controls-headings", async () => {
       const details = [];
@@ -1415,48 +1716,95 @@ function browserVerificationScript() {
         details.push(destination);
       }
       return { destinations: details };
-    });
+    }, ["admin-login-cookie-and-redirect"]);
 
     await check("admin-responsive-desktop-320-360-390-keyboard", async () => {
       await go("/admin/student-banners?destination=beranda");
       const viewports = {};
-      for (const width of [1280, 320, 360, 390]) viewports[width] = await responsiveCheck(width);
+      for (const width of [1280, 320, 360, 390]) {
+        viewports[width] = await responsiveCheck(width);
+        await screenshot("admin-editor-width-" + width);
+      }
       await pressKey("Tab");
       const active = await js("(() => ({ id: document.activeElement && document.activeElement.id, tag: document.activeElement && document.activeElement.tagName }))()");
       if (!active || !active.tag) fail("Tab did not leave an active element");
       await responsiveCheck(1280);
       return { viewports, active };
-    });
+    }, ["admin-editor-four-destinations-controls-headings"]);
 
     await check("admin-dirty-switch-recovery-dialog", async () => {
-      await go("/admin/student-banners?destination=beranda");
+      await go("/admin/student-banners?destination=materi");
       await click('button[aria-label="Tambahkan teks"]');
       await click("#banner-destination");
-      await click('[role="option"]:has-text("Materi")');
+      await click('[role="option"]:has-text("Kuis")');
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-destination-switch\"]')))");
       if (!dialog) fail("dirty destination switch dialog did not open");
       await click('[data-testid="banner-destination-switch"] button:has-text("Batal")');
-      return { dialog: true };
-    });
+      const afterCancel = await pageInfo();
+      if (!String(afterCancel.url).includes("destination=materi")) fail("dirty switch cancel left the current destination");
+      await click("#banner-destination");
+      await click('[role="option"]:has-text("Kuis")');
+      await click('[data-testid="banner-destination-switch"] button:has-text("Buang dan beralih")');
+      await wait(2);
+      const afterDiscard = await pageInfo();
+      if (!String(afterDiscard.url).includes("destination=kuis")) fail("dirty switch discard did not navigate");
+      return { cancel: true, discard: true };
+    }, ["admin-editor-four-destinations-controls-headings"]);
+
+    await check("admin-publish-dialog-cancel", async () => {
+      await go("/admin/student-banners?destination=kuis");
+      await click('button[aria-label^="Terbitkan"]');
+      const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-publish-confirmation\"]')))");
+      if (!dialog) fail("publish confirmation dialog did not open");
+      await click('[data-testid="banner-publish-confirmation"] button:has-text("Batal")');
+      const afterCancel = await js("(() => !document.querySelector('[data-testid=\"banner-publish-confirmation\"]'))()");
+      if (!afterCancel) fail("publish confirmation dialog did not close on cancel");
+      return { dialog: true, cancel: true };
+    }, ["admin-dirty-switch-recovery-dialog"]);
 
     await check("admin-save-publish-subsequent-draft-long-personalization-and-tall-short", async () => {
-      await go("/admin/student-banners?destination=beranda");
-      const longText = "BP06 {firstName} " + "x".repeat(150);
-      await addAndSaveDraft(longText);
-      const draftLink = await js("(() => { const node = document.querySelector('a[aria-label^=\"Pratinjau draf\"]'); return node ? node.getAttribute('href') : null; })()");
-      if (!draftLink || !draftLink.includes("bannerSource=draft")) fail("saved draft preview link missing");
-      await click('button[aria-label^="Terbitkan"]');
-      await click('button:has-text("Terbitkan Beranda")');
-      await wait(3);
-      const afterPublish = await text();
-      if (!afterPublish.includes("Banner tujuan diterbitkan.")) fail("publish confirmation was not rendered");
-      await fillInput("#destination-desktop-banner-frame-height", "160");
-      await pressKey("Tab");
-      await fillInput("#destination-desktop-banner-frame-height", "1200");
-      await pressKey("Tab");
-      await addAndSaveDraft("BP06 {firstName} subsequent draft {targetMajor} {targetUniversity}");
-      return { draftLink, longTextLength: longText.length, frameHeights: [160, 1200] };
-    });
+      const destinations = [];
+      const draftLinks = {};
+      const isolationTokens = [];
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        await go("/admin/student-banners?destination=" + destination);
+        const longText = "BP06 " + destination + " {firstName} " + "x".repeat(150);
+        const isolationToken = "BP06-ISOLATION-" + destination;
+        isolationTokens.push(isolationToken);
+        await addAndSaveDraft(longText + " " + isolationToken);
+        const draftLink = await js("(() => { const node = document.querySelector('a[aria-label^=\"Pratinjau draf\"]'); return node ? node.getAttribute('href') : null; })()");
+        if (!draftLink || !draftLink.includes("bannerSource=draft")) fail("saved draft preview link missing for " + destination);
+        draftLinks[destination] = draftLink;
+        const draftRevision = revisionFromDraftLink(draftLink);
+        if (draftRevision) liveDraftRevisions[destination] = draftRevision;
+        await screenshot("admin-" + destination + "-long-personalization");
+        await click('button[aria-label^="Terbitkan"]');
+        await click('button:has-text("Terbitkan ' + destination.charAt(0).toUpperCase() + destination.slice(1) + '")');
+        await wait(3);
+        const afterPublish = await text();
+        if (!afterPublish.includes("Banner tujuan diterbitkan.")) fail("publish confirmation was not rendered for " + destination);
+        const publishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
+        if (!publishedRevision) fail("published revision was not exposed for " + destination);
+        livePublishedRevisions[destination] = publishedRevision;
+        await fillInput("#destination-desktop-banner-frame-height", "160");
+        await pressKey("Tab");
+        await screenshot("admin-" + destination + "-short-160");
+        await fillInput("#destination-desktop-banner-frame-height", "1200");
+        await pressKey("Tab");
+        await screenshot("admin-" + destination + "-tall-1200");
+        await addAndSaveDraft("BP06 " + destination + " subsequent draft {firstName} {targetMajor} {targetUniversity}");
+        const body = await text();
+        if (!body.includes("Draf banner tujuan tersimpan.")) fail("subsequent draft confirmation was not rendered for " + destination);
+        const subsequentDraftLink = await js("(() => { const node = document.querySelector('a[aria-label^=\"Pratinjau draf\"]'); return node ? node.getAttribute('href') : null; })()");
+        const subsequentDraftRevision = subsequentDraftLink ? revisionFromDraftLink(subsequentDraftLink) : null;
+        if (subsequentDraftRevision) liveDraftRevisions[destination] = subsequentDraftRevision;
+        for (const otherToken of isolationTokens.filter((token) => !token.endsWith(destination))) {
+          if (body.includes(otherToken)) fail("draft text leaked across destinations: " + otherToken);
+        }
+        destinations.push(destination);
+      }
+      return { destinations, draftLinks, frameHeights: [160, 1200], longTextLength: 150 };
+    }, ["admin-publish-dialog-cancel"]);
 
     await check("admin-stale-conflict-two-tabs", async () => {
       const first = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=one", { wait: true, timeout: 30 });
@@ -1473,21 +1821,100 @@ function browserVerificationScript() {
       await switchTab(firstId);
       await addAndSaveDraft("BP06 conflict winner {firstName}");
       await switchTab(secondId);
-      await addAndSaveDraft("BP06 conflict stale {firstName}");
-      const body = await text();
+      const body = await saveDraftObserving("BP06 conflict stale {firstName}");
       if (!body.includes("Desain berubah di tab lain")) fail("stale conflict message missing");
       await closeTab(firstId);
       await closeTab(secondId);
       return { first: firstId, second: secondId };
-    });
+    }, ["admin-save-publish-subsequent-draft-long-personalization-and-tall-short"]);
 
-    notRun.push({ name: "recovery-correction", reason: "The retained browser fixture intentionally seeds valid v2 designs for all four fixed revisions; no malformed/legacy-only destination was introduced during this run." });
+    await check("fixture-transition-prepare-recovery", async () => {
+      const response = await requestTransition("prepare-recovery");
+      return { operation: response.operation, provenance: response.provenance };
+    }, ["admin-stale-conflict-two-tabs"]);
 
-    await logout("signed-out");
+    await check("admin-recovery-bootstrap-lossless-correction", async () => {
+      await go("/admin/student-banners?destination=tryout");
+      const body = await text();
+      if (!body.includes("Banner perlu dipulihkan") || !body.includes("Perbaiki starter teks sebelum menyimpan")) fail("recovery panel did not render");
+      const initial = await js("(() => ({ title: document.querySelector('#banner-starter-title')?.value || '', description: document.querySelector('#banner-starter-description')?.value || '' }))()");
+      if (!initial || initial.title.length !== 181 || !initial.title.startsWith("BP06 legacy over-limit ")) fail("over-limit legacy title was not retained losslessly");
+      if (initial.description !== "BP06 legacy description {firstName} {targetMajor} {targetUniversity}") fail("legacy description was not retained losslessly");
+      const correctedTitle = "BP06 recovered title {firstName}";
+      const correctedDescription = "BP06 recovered description {targetMajor} {targetUniversity}";
+      await fillInput("#banner-starter-title", correctedTitle);
+      await fillInput("#banner-starter-description", correctedDescription);
+      await pressKey("Tab");
+      const corrected = await js("(() => ({ correction: Boolean(document.querySelector('[data-testid=\"banner-starter-correction\"]')), editor: Boolean(document.querySelector('button[aria-label=\"Tambahkan teks\"]')) }))()");
+      if (!corrected || corrected.correction || !corrected.editor) fail("valid correction did not open the banner editor");
+      await screenshot("recovery-correction-canvas");
+      return { initialTitleLength: initial.title.length, correctedTitleLength: correctedTitle.length, correctedDescriptionLength: correctedDescription.length };
+    }, ["fixture-transition-prepare-recovery"]);
+
+    await check("fixture-transition-source-conflict", async () => {
+      const response = await requestTransition("source-conflict");
+      return { operation: response.operation, provenance: response.provenance };
+    }, ["admin-recovery-bootstrap-lossless-correction"]);
+
+    await check("admin-recovery-source-conflict", async () => {
+      const body = await saveDraftObserving("BP06 recovery conflict attempt {firstName}");
+      if (!body.includes("Sumber banner berubah sejak pemulihan ini dibuka.")) fail("source conflict was not shown after supervisor source mutation");
+      return { conflict: true };
+    }, ["fixture-transition-source-conflict"]);
+
+    await check("fixture-transition-restore-recovery", async () => {
+      const response = await requestTransition("restore-recovery");
+      return { operation: response.operation, provenance: response.provenance };
+    }, ["admin-recovery-source-conflict"]);
+
+    await check("admin-recovery-save-publish-subsequent-draft", async () => {
+      await go("/admin/student-banners?destination=tryout");
+      const body = await text();
+      if (!body.includes("Banner perlu dipulihkan")) fail("restored recovery source did not render");
+      await click('button:has-text("Gunakan starter teks dan perbaiki")');
+      await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
+      await fillInput("#banner-starter-description", "BP06 recovered final {targetMajor} {targetUniversity}");
+      await pressKey("Tab");
+      await addAndSaveDraft("BP06 tryout recovered subsequent {firstName} {targetMajor} {targetUniversity}");
+      const saved = await text();
+      if (!saved.includes("Draf banner tujuan tersimpan.")) fail("recovery draft save confirmation was not rendered");
+      const recoveryDraftLink = await js("(() => { const node = document.querySelector('a[aria-label^=\"Pratinjau draf\"]'); return node ? node.getAttribute('href') : null; })()");
+      const recoveryDraftRevision = recoveryDraftLink ? revisionFromDraftLink(recoveryDraftLink) : null;
+      if (!recoveryDraftRevision) fail("recovery draft preview revision was not exposed");
+      liveDraftRevisions.tryout = recoveryDraftRevision;
+      await click('button[aria-label^="Terbitkan"]');
+      await click('button:has-text("Terbitkan Tryout")');
+      await wait(3);
+      const publishedBody = await text();
+      if (!publishedBody.includes("Banner tujuan diterbitkan.")) fail("recovery publish confirmation was not rendered");
+      const recoveryPublishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
+      if (!recoveryPublishedRevision) fail("recovery published revision was not exposed");
+      livePublishedRevisions.tryout = recoveryPublishedRevision;
+      await fillInput("#destination-desktop-banner-frame-height", "160");
+      await pressKey("Tab");
+      await screenshot("recovery-tryout-short-160");
+      await fillInput("#destination-desktop-banner-frame-height", "1200");
+      await pressKey("Tab");
+      await screenshot("recovery-tryout-tall-1200");
+      await addAndSaveDraft("BP06 tryout recovered subsequent draft {firstName} {targetUniversity}");
+      const finalRecoveryDraftLink = await js("(() => { const node = document.querySelector('a[aria-label^=\"Pratinjau draf\"]'); return node ? node.getAttribute('href') : null; })()");
+      const finalRecoveryDraftRevision = finalRecoveryDraftLink ? revisionFromDraftLink(finalRecoveryDraftLink) : null;
+      if (finalRecoveryDraftRevision) liveDraftRevisions.tryout = finalRecoveryDraftRevision;
+      return { recovered: true, frameHeights: [160, 1200] };
+    }, ["fixture-transition-restore-recovery"]);
+
+    await check("admin-logout-real-session", async () => {
+      await logout("signed-out");
+      const names = await cookieNames();
+      if (names.includes("vecalss_session")) fail("Admin logout left the session cookie present");
+      return { signedOut: true, cookieNames: names.filter((name) => name !== "vecalss_session") };
+    }, ["admin-recovery-save-publish-subsequent-draft"]);
     await check("voyager-login-cookie-and-redirect", async () => {
       const info = await login(credentials.voyagerEmail, credentials.voyagerPassword, "/dashboard");
+      const names = await cookieNames();
+      if (!names.includes("vecalss_session")) fail("Voyager login did not issue the expected session cookie");
       return { url: info.url };
-    });
+    }, ["admin-logout-real-session"]);
 
     await check("voyager-dashboard-courses-quiz-tryout", async () => {
       const details = [];
@@ -1498,35 +1925,66 @@ function browserVerificationScript() {
         details.push({ destination, url: info.url });
       }
       return { routes: details };
-    });
+    }, ["voyager-login-cookie-and-redirect"]);
 
     await check("voyager-published-image-family-and-draft-invisibility", async () => {
-      await go("/dashboard");
-      const body = await text();
-      if (body.includes("draft") || body.includes(drafts.beranda)) fail("draft data was visible to Voyager");
-      const publicImage = await imageGet("/api/student-banners/beranda/" + published.beranda + "/background");
-      return { publicImage };
-    });
+      const details = [];
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        await go(routes[destination]);
+        const body = await text();
+        if (body.toLowerCase().includes("draft") || body.includes(drafts[destination]) || body.includes(liveDraftRevisions[destination])) fail("draft data was visible to Voyager for " + destination);
+        const publicImage = await imageGet("/api/student-banners/" + destination + "/" + livePublishedRevisions[destination] + "/background");
+        details.push({ destination, publicImage });
+      }
+      await screenshot("voyager-published-four-destinations");
+      return { destinations: details };
+    }, ["voyager-dashboard-courses-quiz-tryout"]);
 
     await check("voyager-image-failure-fallback", async () => {
-      await go("/dashboard");
-      const changed = await js("(() => { const image = document.querySelector('[role=\"img\"] img'); if (!image) return false; image.src = '/bp06-missing-image.png'; return true; })()");
-      if (!changed) fail("published banner image was not present for failure simulation");
-      await wait(2);
-      const fallback = await js("(() => Boolean(document.querySelector('[role=\"img\"] h2')))");
-      if (!fallback) fail("banner fallback did not appear after image failure");
-      return { fallback: true };
-    });
+      const details = [];
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        await go(routes[destination]);
+        const changed = await js("(() => { const image = document.querySelector('[role=\"img\"] img'); if (!image) return false; image.src = '/bp06-missing-image.png'; return true; })()");
+        if (!changed) fail("published banner image was not present for failure simulation: " + destination);
+        const failedGet = await imageGetFailure("/bp06-missing-image.png");
+        await wait(2);
+        const fallback = await js("(() => { const root = document.querySelector('[role=\"img\"]'); const heading = root?.querySelector('h2'); const description = root?.querySelector('p'); return { aria: root?.getAttribute('aria-label') || '', heading: heading?.textContent || '', description: description?.textContent || '', hasImage: Boolean(root?.querySelector('img')) }; })()");
+        if (!fallback || !fallback.heading.trim() || !fallback.description.trim() || !fallback.aria.includes(fallback.heading.trim()) || fallback.hasImage) fail("banner fallback text/accessible state was incomplete: " + destination);
+        await screenshot("voyager-" + destination + "-image-fallback");
+        details.push({ destination, failedGet, fallback: { heading: fallback.heading, description: fallback.description, ariaPresent: true } });
+      }
+      return { destinations: details };
+    }, ["voyager-published-image-family-and-draft-invisibility"]);
 
-    await logout("signed-out");
+    await check("voyager-logout-real-session", async () => {
+      await logout("signed-out");
+      const names = await cookieNames();
+      if (names.includes("vecalss_session")) fail("Voyager logout left the session cookie present");
+      return { signedOut: true, cookieNames: names.filter((name) => name !== "vecalss_session") };
+    }, ["voyager-image-failure-fallback"]);
+
+    await check("logout-protected-route-denial-all-four", async () => {
+      const denied = [];
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        const info = await go("/admin/student-banners?destination=" + destination);
+        if (!String(info.url).includes("/login")) fail("logged-out protected route was not denied for " + destination);
+        denied.push({ destination, url: info.url });
+      }
+      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
+        const info = await go(routes[destination]);
+        if (!String(info.url).includes("/login")) fail("logged-out Voyager route was not denied for " + destination);
+        denied.push({ destination, surface: "voyager", url: info.url });
+      }
+      return { denied };
+    }, ["voyager-logout-real-session"]);
   } finally {
     if (task) {
       await completeTaskSpace(task.id, { keep: false });
     }
   }
 
-  cliLog("BP06_BROWSER_SUMMARY " + JSON.stringify({ failed, notRun, passed }));
-  if (failed.length > 0 || notRun.length > 0) process.exitCode = 1;
+  cliLog("BP06_BROWSER_SUMMARY " + JSON.stringify({ failed, notRun, passed, skipped }));
+  if (failed.length > 0 || notRun.length > 0 || skipped.length > 0) process.exitCode = 1;
 })().catch((error) => {
   cliLog("BP06_BROWSER_FATAL " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
@@ -1544,11 +2002,15 @@ async function runBrowserSupervisor() {
     ...fixtureEnv,
     BP06_BROWSER_BASE_URL: routeUrl(PORT, "/").replace(/\/$/u, ""),
     BP06_BROWSER_CREDENTIAL_FILE: state.credentialFile,
+    BP06_BROWSER_TRANSITION_REQUEST_FILE: state.transitionRequestFile,
+    BP06_BROWSER_TRANSITION_RESPONSE_FILE: state.transitionResponseFile,
     NEXT_TELEMETRY_DISABLED: "1",
   };
   const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
   let nextChild: ChildProcess | null = null;
   let browserChild: ChildProcess | null = null;
+  let browserDone = false;
+  let transitionPromise: Promise<number> | null = null;
   try {
     // Next 16 defaults to Turbopack, which rejects this fixture's deliberately
     // isolated mirror when its only dependency link resolves outside the
@@ -1573,15 +2035,28 @@ async function runBrowserSupervisor() {
       stdio: ["pipe", "pipe", "pipe"],
     });
     const browserOutput = captureChildOutput(browserChild);
+    transitionPromise = superviseBrowserTransitions(state, () => browserDone);
     browserChild.stdin?.end(browserVerificationScript());
     await waitForChildExit(browserChild, 180_000);
+    browserDone = true;
+    const transitionCount = await transitionPromise;
+    transitionPromise = null;
     if (browserChild.exitCode === null) {
       throw new Error("ego-browser child exceeded the bounded 180s verification window");
     }
     if (browserChild.exitCode !== 0) {
       throw new Error(`ego-browser verification exited ${browserChild.exitCode}. Tail: ${browserOutput.slice(-20).join(" | ")}`);
     }
+    if (transitionCount !== 3) {
+      throw new Error(`ego-browser verification exited cleanly without completing all supervisor transitions (${transitionCount}/3).`);
+    }
   } finally {
+    browserDone = true;
+    if (transitionPromise) {
+      await transitionPromise.catch((error) => {
+        console.error(`BP06 transition supervisor stopped: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
     await stopOwnedChild(browserChild, "ego-browser child");
     await stopOwnedChild(nextChild, "Next child");
   }
