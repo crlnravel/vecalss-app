@@ -1014,6 +1014,17 @@ function printRoutes(state: FixtureState) {
   }
 }
 
+async function writeBrowserDiagnosticArtifact(state: FixtureState, payload: Record<string, unknown>) {
+  const diagnosticFile = `${state.stateFile}.diagnostic.json`;
+  const record = {
+    generatedAt: new Date().toISOString(),
+    ...payload,
+  };
+  await writeFile(diagnosticFile, `${JSON.stringify(record, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  await chmod(diagnosticFile, 0o600);
+  console.error(`BP06 diagnostic artifact retained at ${diagnosticFile}`);
+}
+
 async function setup() {
   const databaseUrl = readDisposableDatabaseUrl();
   const stateFile = statePath();
@@ -1089,6 +1100,7 @@ async function setup() {
     // land through a symlink in the source workspace.
     const mirror = await createMirrorAt(sourceRoot, mirrorRoot);
     await assertMirrorBoundary(sourceRoot, mirror);
+    await assertMirrorRouteBoundary(sourceRoot, mirror);
     assert.equal(mirror, fixtureState.mirrorRoot);
     await writeStateFiles(fixtureState, fixtureCredentials);
     printRoutes(fixtureState);
@@ -1137,11 +1149,17 @@ async function setup() {
 async function createMirrorAt(root: string, mirrorRoot: string) {
   const skip = new Set([".git", ".next", "node_modules", ".env", ".env.local", "tmp", "output"]);
   const entries = await readdir(root, { withFileTypes: true });
+  const routeDirectory = await findRouteDirectory(root, entries);
   for (const entry of entries) {
     if (skip.has(entry.name) || entry.name.startsWith(".")) continue;
     const source = join(root, entry.name);
     const target = join(mirrorRoot, entry.name);
-    if (entry.name === "next.config.ts") {
+    if (entry.name === routeDirectory || (routeDirectory === "src/app" && entry.name === "src")) {
+      // Next route discovery must see a real project-local app tree. The
+      // dependency/source symlink mirror is useful for ordinary imports, but
+      // a symlinked app root made the dev server answer 404 for /login.
+      await copyDirectoryTree(source, target);
+    } else if (entry.name === "next.config.ts") {
       const config = await readFile(source, "utf8");
       const distDirPattern = /\bdistDir\s*:\s*(["'])[^"']+\1/u;
       const patched = distDirPattern.test(config)
@@ -1203,6 +1221,62 @@ async function createMirrorAt(root: string, mirrorRoot: string) {
   await symlink(join(root, "node_modules"), join(mirrorRoot, "node_modules"), "dir");
   await mkdir(join(mirrorRoot, MIRROR_DIST_DIR), { recursive: true });
   return mirrorRoot;
+}
+
+type DirectoryEntry = {
+  isDirectory: () => boolean;
+  name: string;
+};
+
+async function findRouteDirectory(root: string, entries?: DirectoryEntry[]) {
+  const rootEntries = entries ?? await readdir(root, { withFileTypes: true });
+  if (rootEntries.some((entry) => entry.name === "app" && entry.isDirectory())) return "app";
+  const srcEntry = rootEntries.find((entry) => entry.name === "src" && entry.isDirectory());
+  if (!srcEntry) return null;
+  const srcEntries = await readdir(join(root, "src"), { withFileTypes: true });
+  return srcEntries.some((entry) => entry.name === "app" && entry.isDirectory()) ? "src/app" : null;
+}
+
+async function copyDirectoryTree(source: string, target: string) {
+  await mkdir(target, { recursive: true });
+  const entries = await readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = join(source, entry.name);
+    const targetPath = join(target, entry.name);
+    if (entry.isDirectory()) {
+      await copyDirectoryTree(sourcePath, targetPath);
+    } else if (entry.isFile()) {
+      await copyFile(sourcePath, targetPath);
+    } else {
+      throw new Error(`BP06 route tree contains unsupported non-file entry: ${sourcePath}`);
+    }
+  }
+}
+
+async function assertMirrorRouteBoundary(sourceRoot: string, mirrorRoot: string) {
+  const routeDirectory = await findRouteDirectory(sourceRoot);
+  assert.ok(routeDirectory, "BP06 source must contain app/ or src/app/ for route discovery");
+  if (!routeDirectory) throw new Error("BP06 source must contain app/ or src/app/ for route discovery");
+  const requiredRelativeFiles = [
+    `${routeDirectory}/globals.css`,
+    `${routeDirectory}/layout.tsx`,
+    `${routeDirectory}/login/page.tsx`,
+    `${routeDirectory}/fonts/Sports World-Regular.ttf`,
+  ];
+  for (const relativeFile of requiredRelativeFiles) {
+    const sourceFile = join(sourceRoot, relativeFile);
+    const mirrorFile = join(mirrorRoot, relativeFile);
+    const sourceEntry = await lstat(sourceFile);
+    assert.ok(sourceEntry.isFile() && !sourceEntry.isSymbolicLink(), `BP06 source route dependency must be a regular file: ${relativeFile}`);
+    const mirrorEntry = await lstat(mirrorFile);
+    assert.ok(mirrorEntry.isFile() && !mirrorEntry.isSymbolicLink(), `BP06 mirror route dependency must be a real regular file: ${relativeFile}`);
+    let parent = dirname(mirrorFile);
+    while (parent.startsWith(`${mirrorRoot}/`) && parent !== mirrorRoot) {
+      const parentEntry = await lstat(parent);
+      assert.ok(parentEntry.isDirectory() && !parentEntry.isSymbolicLink(), `BP06 mirror route dependency parent must be real: ${parent}`);
+      parent = dirname(parent);
+    }
+  }
 }
 
 async function assertMirrorBoundary(sourceRoot: string, mirrorRoot: string) {
@@ -1544,7 +1618,7 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
   } = { status: null };
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`Next child exited before readiness (code ${child.exitCode}). Tail: ${safeDiagnosticTail(output)}`);
+      throw new Error(`Next child exited before readiness (code ${child.exitCode}). Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
     }
     try {
       const response = await fetch(url, { cache: "no-store", redirect: "manual" });
@@ -1562,7 +1636,7 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
         status: response.status,
       };
       if (response.status !== 200) {
-        throw new Error(`login readiness returned HTTP ${response.status}; expected 200 HTML (location=${safeDiagnosticText(response.headers.get("location") ?? "")})`);
+        throw new Error(`login readiness returned HTTP ${response.status}; expected 200 HTML. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
       }
       if (String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html") && markers.heading && markers.email && markers.password) return;
     } catch (error) {
@@ -2242,6 +2316,8 @@ async function runBrowserSupervisor() {
   const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
   let nextChild: ChildProcess | null = null;
   let browserChild: ChildProcess | null = null;
+  let nextOutput: string[] = [];
+  let browserOutput: string[] = [];
   let browserDone = false;
   let transitionPromise: Promise<number> | null = null;
   try {
@@ -2258,7 +2334,7 @@ async function runBrowserSupervisor() {
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const nextOutput = captureChildOutput(nextChild);
+    nextOutput = captureChildOutput(nextChild);
     await waitForNextReady(nextChild, nextOutput);
     console.log(`BP06 supervised Next child ready on ${routeUrl(PORT, "/")}`);
     // Keep the embedded evaluator explicitly in test mode; never inherit the
@@ -2274,7 +2350,7 @@ async function runBrowserSupervisor() {
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const browserOutput = captureChildOutput(browserChild);
+    browserOutput = captureChildOutput(browserChild);
     transitionPromise = superviseBrowserTransitions(state, () => browserDone);
     browserChild.stdin?.end(browserVerificationScript(privatePaths));
     await waitForChildExit(browserChild, 180_000);
@@ -2290,6 +2366,18 @@ async function runBrowserSupervisor() {
     if (transitionCount !== 3) {
       throw new Error(`ego-browser verification exited cleanly without completing all supervisor transitions (${transitionCount}/3).`);
     }
+  } catch (error) {
+    try {
+      await writeBrowserDiagnosticArtifact(state, {
+        browserTail: safeDiagnosticTail(browserOutput, 20),
+        error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
+        nextTail: safeDiagnosticTail(nextOutput, 20),
+        stage: browserChild ? "browser-supervisor" : "next-readiness",
+      });
+    } catch (diagnosticError) {
+      console.error(`BP06 diagnostic artifact write failed: ${safeDiagnosticText(diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError))}`);
+    }
+    throw error;
   } finally {
     browserDone = true;
     if (transitionPromise) {
