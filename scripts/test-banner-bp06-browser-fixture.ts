@@ -1638,7 +1638,11 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
       if (response.status !== 200) {
         throw new Error(`login readiness returned HTTP ${response.status}; expected 200 HTML. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
       }
-      if (String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html") && markers.heading && markers.email && markers.password) return;
+      // The host probe proves the server-rendered login shell. The interactive
+      // client boundary owns the form controls, so their DOM presence is
+      // asserted by the browser case after hydration rather than by this raw
+      // response probe.
+      if (String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html") && markers.heading) return;
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("login readiness returned HTTP")) throw error;
       lastProbe = {
@@ -1649,7 +1653,7 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
     }
     await sleep(500);
   }
-  throw new Error(`Next child did not render the expected login HTML within 90s. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
+  throw new Error(`Next child did not render the expected login shell within 90s. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
 }
 
 function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
@@ -1816,6 +1820,17 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     return String(await snapshotText());
   }
 
+  async function waitForLoginForm() {
+    const deadline = Date.now() + 30_000;
+    let markers = { email: false, form: false, password: false };
+    while (Date.now() < deadline) {
+      markers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) }))()");
+      if (markers.form && markers.email && markers.password) return markers;
+      await wait(0.25);
+    }
+    fail("login form controls did not mount in the browser DOM within 30s: " + JSON.stringify(markers));
+  }
+
   function safeDiagnostic(value, limit = 1200) {
     return String(value ?? "")
       .replaceAll(/(?:password|credential|secret|token|cookie|authorization|database(?:_url)?|postgres(?:ql)?):?[^\s|,]+/giu, "[redacted]")
@@ -1833,7 +1848,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     }
     let dom = null;
     try {
-      dom = await js("(() => ({ readyState: document.readyState, href: location.href, title: document.title, bodyText: (document.body?.innerText || '').slice(0, 1200), errorText: Array.from(document.querySelectorAll('[role=alert], [data-error]')).map((node) => node.textContent || '').join(' | ').slice(0, 600) }))()");
+      dom = await js("(() => ({ readyState: document.readyState, href: location.href, title: document.title, bodyText: (document.body?.innerText || '').slice(0, 1200), errorText: Array.from(document.querySelectorAll('[role=alert], [data-error]')).map((node) => node.textContent || '').join(' | ').slice(0, 600), formMarkers: { form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) } }))()");
     } catch (domError) {
       dom = { error: safeDiagnostic(domError) };
     }
@@ -1865,6 +1880,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         title: safeDiagnostic(dom.title),
         bodyText: safeDiagnostic(dom.bodyText),
         errorText: safeDiagnostic(dom.errorText || dom.error),
+        formMarkers: dom.formMarkers,
       },
       http: http && {
         status: http.status,
@@ -1970,7 +1986,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         info = await go("/login");
         body = await text();
         if (!String(info.url).includes("/login") || !body.includes("Masuk ke Vecalss")) fail("login page did not render");
-        return { url: info.url };
+        const formMarkers = await waitForLoginForm();
+        return { formMarkers, url: info.url };
       } catch (error) {
         await captureLoginDiagnostics(info, body, error);
         throw error;
