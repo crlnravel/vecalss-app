@@ -1,6 +1,7 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionBankPurpose, QuestionRevisionStatus, ReusableQuestionPackageMode } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionBankPurpose, QuestionRevisionStatus, QuestionType, ReusableQuestionPackageMode, StandaloneQuizAnswerFormat } from "@/generated/prisma/client";
+import { decodeLegacyAnswerSelection, evaluateExactAnswer, validateAnswerKey, validateSelectedOptionIds, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
 import { resolveReadyAssemblyForKuis, type KuisAssemblyMaterialization } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
@@ -9,6 +10,7 @@ import type {
   QuizCorrectAnswerVisibility,
   QuizFormBehavior,
   QuizQuestionSnapshot,
+  QuizQuestionSourceUpdate,
   QuizReviewTiming,
   QuizScorePolicy,
 } from "@/modules/mentor/quiz-builder-types";
@@ -120,6 +122,28 @@ function parseOptionalDate(value: string, name: string) { if (!value) return nul
 function slugify(value: string) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "quiz"; }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
 
+function answerModeForQuestionType(value: QuestionType | string | null | undefined): QuestionAnswerMode | null {
+  if (value === QuestionType.multiple_choice || value === "multiple_choice") return "multiple_choice";
+  if (value === QuestionType.single_choice || value === "single_choice" || value === null || value === undefined) return "single_choice";
+  return null;
+}
+
+function correctChoiceIdsFromOptions(options: readonly { choiceKey: string; isCorrect: boolean }[]) {
+  return options.filter((option) => option.isCorrect).map((option) => option.choiceKey);
+}
+
+function jsonStringArray(value: Prisma.JsonValue | null | undefined): string[] | null {
+  return Array.isArray(value) && value.every((item): item is string => typeof item === "string") ? [...value] : null;
+}
+
+function storedAnswerSelectionIds(answer: { selectedOptionId: string | null; selectedOptionIds: Prisma.JsonValue | null }) {
+  const decoded = decodeLegacyAnswerSelection({
+    selectedOptionId: answer.selectedOptionId,
+    selectedOptionIds: jsonStringArray(answer.selectedOptionIds),
+  });
+  return decoded.ok ? decoded.selectedOptionIds : null;
+}
+
 const quizSourceInclude = {
   currentRevision: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true } },
   explanationAsset: true,
@@ -138,6 +162,10 @@ function assertReadyBankSources(
   if (!sources.length || sources.some((source) => {
     const revision = source.currentRevision;
     const options = revision?.options ?? source.options;
+    const answerMode = answerModeForQuestionType(revision?.questionType ?? source.questionType);
+    const answerKey = answerMode
+      ? validateAnswerKey(answerMode, options.map((option) => ({ id: option.label, isCorrect: option.isCorrect })))
+      : null;
     return source.questionBankId !== sourceBankId
       || source.questionBank?.purpose !== expectedPurpose
       || source.questionBank?.status === ContentStatus.archived
@@ -148,7 +176,7 @@ function assertReadyBankSources(
       || source.subtest?.code !== subtestCode
       || options.length < 2
       || options.length > 5
-      || options.filter((option) => option.isCorrect).length !== 1
+      || !answerKey?.ok
       || options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
       || !revision?.stem.trim()
       || !isReadyAsset(revision?.promptAsset ?? null)
@@ -159,7 +187,8 @@ function assertReadyBankSources(
 }
 
 function toSnapshot(item: Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>): QuizQuestionSnapshot {
-  return { choices: item.options.map((option) => ({ id: option.choiceKey, mediaAssetId: option.assetId ?? undefined, text: option.content })), correctChoiceId: item.options.find((option) => option.isCorrect)?.choiceKey ?? "", explanation: item.explanation ?? "", explanationMediaAssetId: item.explanationAssetId ?? undefined, id: item.id, origin: item.sourceQuestionId ? "bank" : "local", prompt: item.prompt, promptMediaAssetId: item.promptAssetId ?? undefined, sourceContentDigest: item.sourceContentDigest ?? undefined, sourceQuestionId: item.sourceQuestionId ?? undefined, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined, sourceRevisionProvenance: item.sourceRevisionProvenance ?? undefined };
+  const correctChoiceIds = correctChoiceIdsFromOptions(item.options);
+  return { choices: item.options.map((option) => ({ id: option.choiceKey, mediaAssetId: option.assetId ?? undefined, text: option.content })), correctChoiceId: correctChoiceIds[0] ?? "", correctChoiceIds, explanation: item.explanation ?? "", explanationMediaAssetId: item.explanationAssetId ?? undefined, id: item.id, origin: item.sourceQuestionId ? "bank" : "local", prompt: item.prompt, promptMediaAssetId: item.promptAssetId ?? undefined, questionType: answerModeForQuestionType(item.questionType) ?? "single_choice", sourceContentDigest: item.sourceContentDigest ?? undefined, sourceQuestionId: item.sourceQuestionId ?? undefined, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined, sourceRevisionProvenance: item.sourceRevisionProvenance ?? undefined };
 }
 
 type QuizBankImportSelection = {
@@ -178,6 +207,7 @@ function materializedQuizQuestion(source: QuizBankSourceRecord) {
     difficulty: revision.difficulty,
     explanation: revision.explanation,
     explanationAssetId: revision.explanationAssetId,
+    questionType: revision.questionType,
     options: revision.options.map((option, index) => ({
       assetId: option.assetId,
       choiceKey: option.label || String.fromCharCode(65 + index),
@@ -194,6 +224,81 @@ function materializedQuizQuestion(source: QuizBankSourceRecord) {
     sourceRevisionProvenance: revision.provenance,
     subtestId: source.subtestId,
   };
+}
+
+function latestReadySourceUpdate(
+  source: QuizBankSourceRecord,
+  expectedSubtestCode: string,
+): QuizQuestionSourceUpdate | null {
+  const revision = source.currentRevision;
+  if (!revision
+    || source.questionBank?.purpose !== QuestionBankPurpose.quiz
+    || source.questionBank.status !== ContentStatus.published
+    || source.status !== ContentStatus.published
+    || source.subtest?.code !== expectedSubtestCode
+    || revision.status !== QuestionRevisionStatus.ready
+    || !revision.stem.trim()
+    || revision.options.length < 2
+    || revision.options.length > 5
+    || revision.options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
+    || !isReadyAsset(revision.promptAsset)
+    || !isReadyAsset(revision.explanationAsset)) {
+    return null;
+  }
+  const answerMode = answerModeForQuestionType(revision.questionType);
+  if (!answerMode) return null;
+  const choices = revision.options.map((option, index) => ({
+    id: option.label || String.fromCharCode(65 + index),
+    mediaAssetId: option.assetId ?? undefined,
+    text: option.content,
+  }));
+  const correctChoiceIds = choices.filter((_, index) => revision.options[index]?.isCorrect).map((choice) => choice.id);
+  const answerKey = validateAnswerKey(answerMode, choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+  if (!answerKey.ok) return null;
+  return {
+    choices,
+    correctChoiceId: correctChoiceIds[0] ?? "",
+    correctChoiceIds,
+    explanation: revision.explanation ?? "",
+    explanationMediaAssetId: revision.explanationAssetId ?? undefined,
+    prompt: revision.stem,
+    promptMediaAssetId: revision.promptAssetId ?? undefined,
+    questionType: answerMode,
+    revisionNo: revision.revisionNo,
+    sourceContentDigest: revision.contentDigest,
+    sourceQuestionRevisionId: revision.id,
+    sourceRevisionProvenance: revision.provenance as QuizQuestionSourceUpdate["sourceRevisionProvenance"],
+  };
+}
+
+async function getQuizQuestionsWithSourceUpdates(
+  items: Array<Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>>,
+  subtestCode: string,
+) {
+  const sourceQuestionIds = [...new Set(items.map((item) => item.sourceQuestionId).filter((id): id is string => Boolean(id)))];
+  if (!sourceQuestionIds.length) return items.map(toSnapshot);
+  const sources = await prisma.question.findMany({
+    where: { id: { in: sourceQuestionIds } },
+    include: quizSourceInclude,
+  });
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  return items.map((item) => {
+    const snapshot = toSnapshot(item);
+    if (!item.sourceQuestionId
+      || !item.sourceQuestionRevisionId
+      || !item.sourceContentDigest
+      || item.sourceRevisionProvenance === "legacy_unknown") {
+      return snapshot;
+    }
+    const source = sourceById.get(item.sourceQuestionId);
+    const revision = source?.currentRevision;
+    if (!revision
+      || (revision.id === item.sourceQuestionRevisionId && revision.contentDigest === item.sourceContentDigest)) {
+      return snapshot;
+    }
+    const sourceUpdate = source ? latestReadySourceUpdate(source, subtestCode) : null;
+    return sourceUpdate ? { ...snapshot, sourceUpdate } : snapshot;
+  });
 }
 
 async function readReadyQuizBankSources(
@@ -264,12 +369,14 @@ function snapshotsFromAssembly(materialization: KuisAssemblyMaterialization): Qu
   return materialization.items.map((item, index) => ({
     choices: item.options.map((option) => ({ assetId: option.assetId ?? undefined, id: option.choiceKey, text: option.content })),
     correctChoiceId: item.options.find((option) => option.isCorrect)?.choiceKey ?? "",
+    correctChoiceIds: correctChoiceIdsFromOptions(item.options),
     explanation: item.explanation ?? "",
     explanationMediaAssetId: item.explanationAssetId ?? undefined,
     id: `assembly-${materialization.assemblyPackageVersionId}-${index + 1}`,
     origin: "bank",
     prompt: item.prompt,
     promptMediaAssetId: item.promptAssetId ?? undefined,
+    questionType: answerModeForQuestionType(item.questionType) ?? "single_choice",
     sourceContentDigest: item.sourceContentDigest,
     sourceQuestionId: item.sourceQuestionId,
     sourceQuestionRevisionId: item.sourceQuestionRevisionId,
@@ -293,6 +400,7 @@ function assertAssemblyItemsMatch(
       || item.sourceContentDigest !== expected.sourceContentDigest
       || item.sourceRevisionProvenance !== expected.sourceRevisionProvenance
       || item.subtestId !== expected.subtestId
+      || answerModeForQuestionType(item.questionType) !== answerModeForQuestionType(expected.questionType)
       || item.prompt !== expected.prompt
       || item.promptAssetId !== expected.promptAssetId
       || item.explanation !== expected.explanation
@@ -357,7 +465,18 @@ function validateForPublication(
   if (!input.title.trim()) throw new QuizValidationError("Isi judul quiz sebelum menerbitkan.");
   if (!input.questions.length && !input.assemblyVersionId) throw new QuizValidationError("Tambahkan minimal satu soal sebelum menerbitkan.");
   if (input.assemblyVersionId && input.questions.length && !options.materializedAssembly) throw new QuizValidationError("Soal langsung dan assembly tidak dapat dipakai bersamaan.");
-  if (input.questions.some((question) => !question.prompt.trim() || question.choices.length < 2 || question.choices.length > 5 || question.choices.some((choice) => !choice.text.trim()) || !question.choices.some((choice) => choice.id === question.correctChoiceId))) throw new QuizValidationError("Lengkapi semua soal sebelum menerbitkan.");
+  if (input.questions.some((question) => {
+    const answerMode = answerModeForQuestionType(question.questionType);
+    const correctChoiceIds = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
+    const answerKey = answerMode
+      ? validateAnswerKey(answerMode, question.choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })))
+      : null;
+    return !question.prompt.trim()
+      || question.choices.length < 2
+      || question.choices.length > 5
+      || question.choices.some((choice) => !choice.text.trim())
+      || !answerKey?.ok;
+  })) throw new QuizValidationError("Lengkapi semua soal sebelum menerbitkan.");
   if (opensAt && closesAt && closesAt <= opensAt) throw new QuizValidationError("Waktu tutup harus setelah waktu buka.");
   if (input.reviewTiming === "after_close" && !closesAt) throw new QuizValidationError("Review setelah quiz ditutup memerlukan waktu tutup.");
 }
@@ -372,15 +491,37 @@ function hasSubmittedSourceFields(question: QuizQuestionSnapshot) {
     || Boolean(question.sourceContentDigest || question.sourceQuestionId || question.sourceQuestionRevisionId || question.sourceRevisionProvenance);
 }
 
-function snapshotContentMatchesOption(
-  submitted: QuizQuestionSnapshot["choices"][number],
-  persisted: { assetId: string | null; choiceKey: string; content: string; isCorrect: boolean },
-  correctChoiceId: string,
+function correctChoiceIdsForSnapshot(question: QuizQuestionSnapshot) {
+  const ids = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
+  return [...new Set(ids)];
+}
+
+function answerModeForSnapshot(question: QuizQuestionSnapshot) {
+  return answerModeForQuestionType(question.questionType) ?? "single_choice";
+}
+
+function snapshotMatchesStoredBankItem(
+  submitted: QuizQuestionSnapshot,
+  persisted: Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>,
 ) {
-  return submitted.id === persisted.choiceKey
-    && submitted.text === persisted.content
-    && (submitted.mediaAssetId ?? null) === persisted.assetId
-    && (submitted.id === correctChoiceId) === persisted.isCorrect;
+  const persistedSnapshot = toSnapshot(persisted);
+  const submittedCorrectIds = correctChoiceIdsForSnapshot(submitted);
+  const persistedCorrectIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+  return submitted.prompt === persistedSnapshot.prompt
+    && submitted.promptMediaAssetId === persistedSnapshot.promptMediaAssetId
+    && submitted.explanation === persistedSnapshot.explanation
+    && submitted.explanationMediaAssetId === persistedSnapshot.explanationMediaAssetId
+    && answerModeForSnapshot(submitted) === answerModeForSnapshot(persistedSnapshot)
+    && submitted.choices.length === persistedSnapshot.choices.length
+    && submitted.choices.every((choice, index) => {
+      const persistedChoice = persistedSnapshot.choices[index];
+      return persistedChoice
+        && choice.id === persistedChoice.id
+        && choice.text === persistedChoice.text
+        && choice.mediaAssetId === persistedChoice.mediaAssetId;
+    })
+    && submittedCorrectIds.length === persistedCorrectIds.length
+    && submittedCorrectIds.every((choiceId) => persistedCorrectIds.includes(choiceId));
 }
 
 async function assertStoredBankItemLineage(
@@ -418,9 +559,13 @@ async function writeStandaloneQuizItems(
     }
     await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
     await Promise.all(input.questions.map(async (submitted, index) => {
-      const choices = submitted.choices.map((choice, choiceIndex) => ({ ...choice, id: choice.id || String.fromCharCode(97 + choiceIndex), correct: choice.id === submitted.correctChoiceId }));
-      const item = await tx.standaloneQuizItem.create({ data: { difficulty: DifficultyLevel.medium, explanation: submitted.explanation || null, explanationAssetId: submitted.explanationMediaAssetId || null, prompt: submitted.prompt, promptAssetId: submitted.promptMediaAssetId || null, quizId: input.quizId, sortOrder: index + 1, sourceContentDigest: null, sourceQuestionId: null, sourceQuestionRevisionId: null, sourceRevisionProvenance: null, subtestId: input.requestedSubtestId } });
-      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: choice.correct, quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: null })) });
+      const choices = submitted.choices.map((choice, choiceIndex) => ({ ...choice, id: choice.id || String.fromCharCode(97 + choiceIndex) }));
+      const correctChoiceIds = correctChoiceIdsForSnapshot({ ...submitted, choices });
+      const answerMode = answerModeForSnapshot(submitted);
+      const answerKey = validateAnswerKey(answerMode, choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+      if (!answerKey.ok) throw new QuizValidationError("Kunci jawaban Kuis lokal tidak valid.");
+      const item = await tx.standaloneQuizItem.create({ data: { difficulty: DifficultyLevel.medium, explanation: submitted.explanation || null, explanationAssetId: submitted.explanationMediaAssetId || null, prompt: submitted.prompt, promptAssetId: submitted.promptMediaAssetId || null, questionType: answerMode, quizId: input.quizId, sortOrder: index + 1, sourceContentDigest: null, sourceQuestionId: null, sourceQuestionRevisionId: null, sourceRevisionProvenance: null, subtestId: input.requestedSubtestId } });
+      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: correctChoiceIds.includes(choice.id), quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: null })) });
     }));
     return;
   }
@@ -435,18 +580,22 @@ async function writeStandaloneQuizItems(
       throw new QuizValidationError("Soal baru pada Kuis Bank Soal harus diimpor melalui perintah Import.");
     }
     if (existing.subtestId !== input.requestedSubtestId) throw new QuizValidationError("Semua soal Bank dalam Kuis harus memakai Subtest yang sama.");
+    if (!snapshotMatchesStoredBankItem(submitted, existing)) throw new QuizValidationError("Konten soal Bank Soal hanya dapat diubah dari editor Bank Soal.");
     return { existing, submitted };
   });
   await assertStoredBankItemLineage(tx, input.sourceBankId, selectedItems.map(({ existing }) => existing));
   await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
-  await Promise.all(selectedItems.map(async ({ existing, submitted }, index) => {
+  await Promise.all(selectedItems.map(async ({ existing }, index) => {
+    const persistedSnapshot = toSnapshot(existing);
+    const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
     const item = await tx.standaloneQuizItem.create({
       data: {
         difficulty: existing.difficulty,
-        explanation: submitted.explanation || null,
-        explanationAssetId: submitted.explanationMediaAssetId || null,
-        prompt: submitted.prompt,
-        promptAssetId: submitted.promptMediaAssetId || null,
+        explanation: existing.explanation,
+        explanationAssetId: existing.explanationAssetId,
+        prompt: existing.prompt,
+        promptAssetId: existing.promptAssetId,
+        questionType: answerModeForQuestionType(existing.questionType) ?? "single_choice",
         quizId: input.quizId,
         sortOrder: index + 1,
         sourceContentDigest: existing.sourceContentDigest,
@@ -458,18 +607,17 @@ async function writeStandaloneQuizItems(
     });
     const existingOptions = existing.options.slice().sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
     await tx.standaloneQuizItemOption.createMany({
-      data: submitted.choices.map((choice, optionIndex) => {
+      data: persistedSnapshot.choices.map((choice, optionIndex) => {
         const old = existingOptions[optionIndex];
-        const unchanged = Boolean(old && snapshotContentMatchesOption(choice, old, submitted.correctChoiceId));
         return {
           assetId: choice.mediaAssetId || null,
           choiceKey: String.fromCharCode(65 + optionIndex),
           content: choice.text,
-          isCorrect: choice.id === submitted.correctChoiceId,
+          isCorrect: correctChoiceIds.includes(choice.id),
           quizItemId: item.id,
           sortOrder: optionIndex,
-          sourceQuestionOptionId: unchanged ? old?.sourceQuestionOptionId ?? null : null,
-          sourceQuestionRevisionOptionId: unchanged ? old?.sourceQuestionRevisionOptionId ?? null : null,
+          sourceQuestionOptionId: old?.sourceQuestionOptionId ?? null,
+          sourceQuestionRevisionOptionId: old?.sourceQuestionRevisionOptionId ?? null,
         };
       }),
     });
@@ -584,6 +732,7 @@ async function transitionStandaloneQuizSourceMode(input: TransitionStandaloneQui
           explanationAssetId: question.explanationAssetId,
           prompt: question.prompt,
           promptAssetId: question.promptAssetId,
+          questionType: answerModeForQuestionType(question.questionType) ?? "single_choice",
           quizId: input.quizId,
           sortOrder: index + 1,
           sourceContentDigest: question.sourceContentDigest,
@@ -619,13 +768,130 @@ async function importStandaloneQuizBankQuestions(input: Omit<TransitionStandalon
   return transitionStandaloneQuizSourceMode({ ...input, mode: "bank" }, tutorId);
 }
 
+type AcceptStandaloneQuizQuestionUpdateInput = {
+  expectedCurrentContentDigest: string;
+  expectedCurrentRevisionId: string;
+  quizId: string;
+  quizItemId: string;
+  targetContentDigest: string;
+  targetRevisionId: string;
+};
+
+async function acceptStandaloneQuizQuestionUpdate(
+  input: AcceptStandaloneQuizQuestionUpdateInput,
+  tutorId: string,
+) {
+  if (!input.expectedCurrentContentDigest.trim()
+    || !input.expectedCurrentRevisionId.trim()
+    || !input.targetContentDigest.trim()
+    || !input.targetRevisionId.trim()) {
+    throw new QuizValidationError("Identitas revisi Bank Soal tidak lengkap. Muat ulang Kuis lalu coba lagi.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id: input.quizId, createdByUserId: tutorId },
+      include: {
+        items: { include: { options: true }, orderBy: { sortOrder: "asc" } },
+        participations: { select: { id: true }, take: 1 },
+        sourceBank: { select: { id: true, purpose: true, status: true } },
+        subtest: true,
+      },
+    });
+    if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    if (record.status !== ContentStatus.draft) {
+      throw new QuizValidationError("Jadikan Kuis draf sebelum menerima revisi Bank Soal agar rilis yang sudah terbit tetap tidak berubah.");
+    }
+    if (record.participations.length) throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
+    if (record.assemblyPackageVersionId) throw new QuizValidationError("Kuis yang terikat assembly harus diperbarui melalui versi draf assembly.");
+    if (!record.sourceBankId || record.sourceBank?.purpose !== QuestionBankPurpose.quiz) {
+      throw new QuizValidationError("Kuis ini tidak terikat ke Bank Soal Kuis.");
+    }
+
+    const item = record.items.find((candidate) => candidate.id === input.quizItemId);
+    if (!item) throw new QuizValidationError("Soal Kuis tidak ditemukan.");
+    if (item.quizVersionId) throw new QuizValidationError("Soal terikat ke versi Kuis. Perbarui melalui versi draf yang aktif.");
+    const sourceQuestionId = item.sourceQuestionId;
+    const currentRevisionId = item.sourceQuestionRevisionId;
+    const currentContentDigest = item.sourceContentDigest;
+    if (!sourceQuestionId || !currentRevisionId || !currentContentDigest || item.sourceRevisionProvenance === "legacy_unknown") {
+      throw new QuizValidationError("Soal ini tidak memiliki atribusi revisi Bank Soal yang dapat ditinjau.");
+    }
+    if (currentRevisionId !== input.expectedCurrentRevisionId || currentContentDigest !== input.expectedCurrentContentDigest) {
+      throw new QuizValidationError("Kuis telah berubah sejak tinjauan dibuka. Muat ulang lalu tinjau kembali.");
+    }
+
+    // Lock the source identity and its current revision so accepting a review
+    // cannot silently apply a revision different from the one the author saw.
+    await tx.$queryRaw`
+      SELECT q.id
+      FROM questions q
+      JOIN question_banks b ON b.id = q.question_bank_id
+      JOIN question_revisions r ON r.id = q.current_revision_id
+      WHERE q.id = ${sourceQuestionId}::uuid
+      FOR SHARE OF q, b, r
+    `;
+    const source = await tx.question.findFirst({
+      where: { id: sourceQuestionId },
+      include: quizSourceInclude,
+    });
+    if (!source?.currentRevision
+      || source.currentRevision.id !== input.targetRevisionId
+      || source.currentRevision.contentDigest !== input.targetContentDigest) {
+      throw new QuizValidationError("Revisi Bank Soal berubah. Muat ulang lalu tinjau kembali.");
+    }
+    if (source.currentRevision.id === currentRevisionId && source.currentRevision.contentDigest === currentContentDigest) {
+      throw new QuizValidationError("Revisi Bank Soal sudah diterapkan pada Kuis ini.");
+    }
+    assertReadyBankSources([source], record.subtest.code, record.sourceBankId, QuestionBankPurpose.quiz);
+    const materialized = materializedQuizQuestion(source);
+    await tx.standaloneQuizItem.update({
+      where: { id: item.id },
+      data: {
+        difficulty: materialized.difficulty,
+        explanation: materialized.explanation,
+        explanationAssetId: materialized.explanationAssetId,
+        prompt: materialized.prompt,
+        promptAssetId: materialized.promptAssetId,
+        questionType: answerModeForQuestionType(materialized.questionType) ?? "single_choice",
+        sourceContentDigest: materialized.sourceContentDigest,
+        sourceQuestionId: materialized.sourceQuestionId,
+        sourceQuestionRevisionId: materialized.sourceQuestionRevisionId,
+        sourceRevisionProvenance: materialized.sourceRevisionProvenance,
+        subtestId: materialized.subtestId,
+      },
+    });
+    await tx.standaloneQuizItemOption.deleteMany({ where: { quizItemId: item.id } });
+    await tx.standaloneQuizItemOption.createMany({
+      data: materialized.options.map((option) => ({
+        assetId: option.assetId,
+        choiceKey: option.choiceKey,
+        content: option.content,
+        isCorrect: option.isCorrect,
+        quizItemId: item.id,
+        sortOrder: option.sortOrder,
+        sourceQuestionOptionId: null,
+        sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+      })),
+    });
+    const saved = await tx.standaloneQuiz.update({
+      where: { id: input.quizId },
+      data: { revision: { increment: 1 } },
+      include: quizInclude,
+    });
+    return { quiz: toKaptenQuiz(saved), questions: saved.items.map(toSnapshot) };
+  });
+}
+
 async function getMentorStandaloneQuiz(id: string, tutorId: string) {
   const record = await prisma.standaloneQuiz.findFirst({ where: { id, createdByUserId: tutorId }, include: quizContentInclude });
   if (!record) return null;
   // Kuis-owned snapshots remain editable without traversing or revalidating the
   // live Bank Soal. Source attribution is returned for the editor, but the
   // server remains the authority for every lineage field on save.
-  return { questions: record.items.map(toSnapshot), quiz: toKaptenQuiz(record) };
+  const questions = await getQuizQuestionsWithSourceUpdates(record.items, record.subtest.code);
+  return { questions, quiz: toKaptenQuiz(record) };
 }
 
 async function attachStandaloneQuizAssembly(quizId: string, versionId: string, tutorId: string) {
@@ -650,6 +916,7 @@ async function attachStandaloneQuizAssembly(quizId: string, versionId: string, t
           explanationAssetId: question.explanationAssetId,
           prompt: question.prompt,
           promptAssetId: question.promptAssetId,
+          questionType: answerModeForQuestionType(question.questionType) ?? "single_choice",
           quizId,
           sortOrder: index + 1,
           sourceContentDigest: question.sourceContentDigest,
@@ -820,7 +1087,7 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
   if (attempt.status !== "in_progress" && !isReviewableStandaloneQuizAttemptStatus(attempt.status)) return null;
   const quiz = buildAttemptQuiz(attempt.participation.quiz, attempt);
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
-  const selectedOptionByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
+  const selectedOptionIdsByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, storedAnswerSelectionIds(answer) ?? []]));
   return {
     attemptNo: attempt.attemptNo,
     answeredCount: attempt.answers.length,
@@ -831,7 +1098,9 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
       explanation: item.explanation,
       options: item.options.map((option) => ({ correct: option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })),
       prompt: item.prompt,
-      selectedOptionId: selectedOptionByItem.get(item.id) ?? null,
+      questionType: answerModeForQuestionType(item.questionType) ?? "single_choice",
+      selectedOptionId: selectedOptionIdsByItem.get(item.id)?.[0] ?? null,
+      selectedOptionIds: selectedOptionIdsByItem.get(item.id) ?? [],
     })),
     releaseAt: attempt.releaseAt?.toISOString() ?? null,
     releaseState: attempt.releaseState,
@@ -953,6 +1222,7 @@ type AttemptFormSnapshotItem = {
   options: AttemptFormSnapshotOption[];
   prompt: string;
   promptAssetId: string | null;
+  questionType: QuestionAnswerMode;
   sortOrder: number;
 };
 
@@ -1014,6 +1284,7 @@ function toAttemptFormSnapshot(items: QuizItemRecord[]): AttemptFormSnapshot {
       })),
       prompt: item.prompt,
       promptAssetId: item.promptAssetId,
+      questionType: answerModeForQuestionType(item.questionType) ?? "single_choice",
       sortOrder: item.sortOrder,
     })),
     version: 1,
@@ -1027,6 +1298,7 @@ function parseAttemptFormSnapshot(snapshot: unknown): AttemptFormSnapshot | null
   const items = value.items.flatMap((rawItem) => {
     if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) return [];
     const item = rawItem as Record<string, unknown>;
+    const questionType = item.questionType === undefined ? "single_choice" : answerModeForQuestionType(item.questionType as string | null);
     if (
       typeof item.id !== "string"
       || typeof item.prompt !== "string"
@@ -1035,6 +1307,7 @@ function parseAttemptFormSnapshot(snapshot: unknown): AttemptFormSnapshot | null
       || (item.explanationAssetId !== null && typeof item.explanationAssetId !== "string")
       || typeof item.sortOrder !== "number"
       || !Array.isArray(item.options)
+      || !questionType
     ) return [];
     const options = item.options.flatMap((rawOption) => {
       if (!rawOption || typeof rawOption !== "object" || Array.isArray(rawOption)) return [];
@@ -1064,6 +1337,7 @@ function parseAttemptFormSnapshot(snapshot: unknown): AttemptFormSnapshot | null
       options,
       prompt: item.prompt,
       promptAssetId: item.promptAssetId,
+      questionType,
       sortOrder: item.sortOrder,
     } satisfies AttemptFormSnapshotItem];
   });
@@ -1126,6 +1400,7 @@ function buildAttemptQuiz(quiz: QuizRecord, attempt: { formItemOrder: unknown; f
       prompt: snapshotItem.prompt,
       promptAssetId: snapshotItem.promptAssetId,
       quizId: quiz.id,
+      questionType: snapshotItem.questionType,
       sortOrder: snapshotItem.sortOrder,
       sourceQuestionId: null,
       subtestId: quiz.subtestId,
@@ -1296,7 +1571,7 @@ async function getStandaloneQuizAttempt(subjectCode: string, slug: string, stude
   return { attempt, attemptId: attempt.id, attemptNo: attempt.attemptNo, policy, quiz: { ...quiz, ...policy } };
 }
 
-async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, selectedOptionId: string, studentId: string) {
+async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, selectedOptionIdsInput: readonly string[] | string, studentId: string) {
   if (!isUuid(attemptId)) throw new QuizAttemptValidationError("Sesi quiz tidak valid.");
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM standalone_quiz_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
@@ -1306,14 +1581,35 @@ async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, s
     });
     if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan atau sudah ditutup.");
     if (attempt.status !== "in_progress") throw new QuizAttemptValidationError("Quiz ini sudah dikirim dan jawabannya tidak dapat diubah.");
+    const requestedOptionIds = typeof selectedOptionIdsInput === "string" ? [selectedOptionIdsInput] : [...selectedOptionIdsInput];
     const snapshot = parseAttemptFormSnapshot(attempt.formSnapshot);
-    if (snapshot && !snapshot.items.some((item) => item.id === quizItemId && item.options.some((option) => option.id === selectedOptionId))) {
-      throw new QuizAttemptValidationError("Pilihan jawaban tidak valid untuk bentuk soal ini.");
+    const snapshotItem = snapshot?.items.find((item) => item.id === quizItemId);
+    const item = await tx.standaloneQuizItem.findFirst({
+      where: { id: quizItemId, quizId: attempt.participation.quizId },
+      select: { options: { select: { id: true } }, questionType: true },
+    });
+    if (!item) throw new QuizAttemptValidationError("Soal quiz tidak ditemukan.");
+    const mode = snapshotItem?.questionType ?? answerModeForQuestionType(item.questionType) ?? "single_choice";
+    const availableOptionIds = snapshotItem?.options.map((option) => option.id) ?? item.options.map((option) => option.id);
+    const validation = validateSelectedOptionIds(mode, requestedOptionIds, availableOptionIds);
+    if (!validation.ok) throw new QuizAttemptValidationError(validation.errors[0]?.message ?? "Pilihan jawaban tidak valid untuk bentuk soal ini.");
+    const persistedOptionIds = new Set(item.options.map((option) => option.id));
+    if (validation.selectedOptionIds.some((optionId) => !persistedOptionIds.has(optionId))) {
+      throw new QuizAttemptValidationError("Pilihan jawaban tidak valid untuk soal ini.");
     }
-    const option = await tx.standaloneQuizItemOption.findFirst({ where: { id: selectedOptionId, quizItemId, quizItem: { quizId: attempt.participation.quizId } }, select: { id: true } });
-    if (!option) throw new QuizAttemptValidationError("Pilihan jawaban tidak valid untuk soal ini.");
-    await tx.standaloneQuizAnswer.upsert({ where: { attemptId_quizItemId: { attemptId, quizItemId } }, create: { attemptId, quizItemId, selectedOptionId }, update: { isCorrect: null, pointsAwarded: null, scoringVersion: null, selectedOptionId } });
-    return { quizItemId, selectedOptionId };
+    if (!validation.selectedOptionIds.length) {
+      await tx.standaloneQuizAnswer.deleteMany({ where: { attemptId, quizItemId } });
+      return { quizItemId, selectedOptionId: null, selectedOptionIds: [] };
+    }
+    const selectedOptionId = validation.selectedOptionIds[0]!;
+    const selectedOptionIds = validation.selectedOptionIds as Prisma.InputJsonArray;
+    const answerFormat = mode === "multiple_choice" ? StandaloneQuizAnswerFormat.multiple_options : StandaloneQuizAnswerFormat.single_option;
+    await tx.standaloneQuizAnswer.upsert({
+      where: { attemptId_quizItemId: { attemptId, quizItemId } },
+      create: { answerFormat, attemptId, quizItemId, selectedOptionId, selectedOptionIds },
+      update: { answerFormat, isCorrect: null, pointsAwarded: null, scoringVersion: null, selectedOptionId, selectedOptionIds },
+    });
+    return { quizItemId, selectedOptionId, selectedOptionIds: validation.selectedOptionIds };
   });
 }
 
@@ -1365,12 +1661,20 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
     const updates: Array<{ id: string; isCorrect: boolean }> = [];
     for (const answer of attempt.answers) {
       const item = itemById.get(answer.quizItemId);
-      const option = item?.options.find((candidate) => candidate.id === answer.selectedOptionId);
-      if (!item || !option) {
+      const selectedOptionIds = storedAnswerSelectionIds(answer);
+      const evaluation = item && selectedOptionIds
+        ? evaluateExactAnswer({
+          availableOptionIds: item.options.map((option) => option.id),
+          correctOptionIds: item.options.filter((option) => option.isCorrect).map((option) => option.id),
+          mode: item.questionType,
+          selectedOptionIds,
+        })
+        : null;
+      if (!evaluation || evaluation.status === "invalid" || evaluation.status === "unanswered") {
         invalidAnswer = true;
         continue;
       }
-      const isCorrect = option.isCorrect;
+      const isCorrect = evaluation.status === "correct";
       if (isCorrect) correctCount += 1;
       updates.push({ id: answer.id, isCorrect });
     }
@@ -1481,7 +1785,7 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
   if (!reviewEligible) return null;
   const quiz = buildAttemptQuiz(attempt.participation.quiz, attempt);
   const totalQuestions = quiz.items.length;
-  const answersByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
+  const selectedOptionIdsByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, storedAnswerSelectionIds(answer) ?? []]));
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
   const isSubmitted = true;
   const releaseState = attempt.releaseState;
@@ -1513,7 +1817,10 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
     correctnessAvailable,
     isSubmitted,
     policy,
-    questions: quiz.items.map((item) => ({ explanation: reviewAvailable ? item.explanation : null, id: item.id, options: item.options.map((option) => ({ correct: correctnessAvailable && option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, selectedOptionId: answersByItem.get(item.id) ?? null })),
+    questions: quiz.items.map((item) => {
+      const selectedOptionIds = selectedOptionIdsByItem.get(item.id) ?? [];
+      return { explanation: reviewAvailable ? item.explanation : null, id: item.id, options: item.options.map((option) => ({ correct: correctnessAvailable && option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, questionType: answerModeForQuestionType(item.questionType) ?? "single_choice", selectedOptionId: selectedOptionIds[0] ?? null, selectedOptionIds };
+    }),
     releaseAt: attempt.releaseAt?.toISOString() ?? null,
     releaseState,
     released,
@@ -1544,5 +1851,5 @@ async function getStandaloneQuizAttemptStatuses(studentId: string, quizIds: stri
 }
 async function getAvailableStandaloneQuizCatalogue(now = new Date()) { return prisma.standaloneQuiz.findMany({ where: studentAvailabilityWhere(now), include: quizInclude, orderBy: { updatedAt: "desc" } }); }
 
-export { attachStandaloneQuizAssembly, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, detachStandaloneQuizAssembly, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizResults, getMentorStandaloneQuizSubmission, getMentorStandaloneQuizzes, getStandaloneQuizAttempt, getStandaloneQuizAttemptId, getStandaloneQuizAttemptStatuses, getStandaloneQuizResult, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, importStandaloneQuizBankQuestions, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus, saveStandaloneQuiz, saveStandaloneQuizAnswer, startStandaloneQuiz, studentAvailabilityWhere, submitStandaloneQuiz, terminalStandaloneQuizAttemptStatuses, transitionStandaloneQuizSourceMode, updateStandaloneQuizLifecycle, QuizAttemptValidationError, QuizValidationError };
-export type { SaveStandaloneQuizInput, StandaloneQuizAssemblySummary, TransitionStandaloneQuizSourceModeInput };
+export { acceptStandaloneQuizQuestionUpdate, attachStandaloneQuizAssembly, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, detachStandaloneQuizAssembly, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizResults, getMentorStandaloneQuizSubmission, getMentorStandaloneQuizzes, getStandaloneQuizAttempt, getStandaloneQuizAttemptId, getStandaloneQuizAttemptStatuses, getStandaloneQuizResult, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, importStandaloneQuizBankQuestions, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus, saveStandaloneQuiz, saveStandaloneQuizAnswer, startStandaloneQuiz, studentAvailabilityWhere, submitStandaloneQuiz, terminalStandaloneQuizAttemptStatuses, transitionStandaloneQuizSourceMode, updateStandaloneQuizLifecycle, QuizAttemptValidationError, QuizValidationError };
+export type { AcceptStandaloneQuizQuestionUpdateInput, SaveStandaloneQuizInput, StandaloneQuizAssemblySummary, TransitionStandaloneQuizSourceModeInput };

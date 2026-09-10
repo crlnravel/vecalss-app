@@ -133,6 +133,7 @@
     "test:kuis-ui-first-workspace": "tsx scripts/test-kuis-ui-first-workspace.ts",
     "test:kuis-versioning": "tsx scripts/test-kuis-versioning.ts",
     "test:assessment-answer-contract": "tsx scripts/test-assessment-answer-contract.ts",
+    "test:quiz-question-updates": "tsx scripts/test-quiz-question-updates.ts",
     "test:standalone-quiz-version-storage": "tsx scripts/test-standalone-quiz-version-storage.ts",
     "test:random-assembly-release": "tsx scripts/test-random-assembly-release.ts",
     "test:cat-pool-release": "tsx scripts/test-cat-pool-release.ts",

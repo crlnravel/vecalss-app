@@ -54,11 +54,12 @@ import { Switch } from "@/components/ui/switch";
 import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
+import { validateAnswerKey } from "@/lib/question-bank/answer-contract";
 import { cn } from "@/lib/utils";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizChoice, QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
-import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
+import { acceptStandaloneQuizQuestionUpdateAction, saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MediaAssetPreview, MediaPickerDialog } from "@/modules/media/media-library";
@@ -88,6 +89,20 @@ const emptyChoice = (index: number): QuizChoice => ({
   text: "",
 });
 
+function questionTypeFor(question: Pick<QuizQuestionSnapshot, "questionType">) {
+  return question.questionType ?? "single_choice";
+}
+
+function correctChoiceIdsFor(question: Pick<QuizQuestionSnapshot, "correctChoiceId" | "correctChoiceIds">) {
+  const ids = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
+  return [...new Set(ids)];
+}
+
+function withCorrectChoiceIds(question: QuizQuestionSnapshot, correctChoiceIds: readonly string[]): QuizQuestionSnapshot {
+  const ids = [...new Set(correctChoiceIds)];
+  return { ...question, correctChoiceId: ids[0] ?? "", correctChoiceIds: ids };
+}
+
 function createQuestionId() {
   return `local-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 }
@@ -96,6 +111,7 @@ function createEmptyQuestion(): QuizQuestionSnapshot {
   return {
     choices: [emptyChoice(0), emptyChoice(1)],
     correctChoiceId: "a",
+    correctChoiceIds: ["a"],
     explanation: "",
     id: createQuestionId(),
     origin: "local",
@@ -104,9 +120,11 @@ function createEmptyQuestion(): QuizQuestionSnapshot {
 }
 
 function asEditorQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
+  const correctChoiceIds = correctChoiceIdsFor(question);
   return {
     choices: question.choices.map((choice) => ({ ...choice })),
-    correctChoiceId: question.correctChoiceId,
+    correctChoiceId: correctChoiceIds[0] ?? question.correctChoiceId,
+    correctChoiceIds,
     explanation: question.explanation,
     explanationMediaAssetId: question.explanationMediaAssetId,
     id: question.id || createQuestionId(),
@@ -114,10 +132,18 @@ function asEditorQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot 
     origin: question.origin,
     prompt: question.prompt,
     promptMediaAssetId: question.promptMediaAssetId,
+    questionType: questionTypeFor(question),
     sourceContentDigest: question.sourceContentDigest,
     sourceQuestionId: question.sourceQuestionId,
     sourceQuestionRevisionId: question.sourceQuestionRevisionId,
     sourceRevisionProvenance: question.sourceRevisionProvenance,
+    sourceUpdate: question.sourceUpdate
+      ? {
+        ...question.sourceUpdate,
+        choices: question.sourceUpdate.choices.map((choice) => ({ ...choice })),
+        correctChoiceIds: [...question.sourceUpdate.correctChoiceIds],
+      }
+      : undefined,
   };
 }
 
@@ -156,7 +182,9 @@ function questionIssues(question: QuizQuestionSnapshot) {
   if (!question.prompt.trim()) issues.push("pertanyaan");
   if (question.choices.length < 2 || question.choices.length > 5) issues.push("jumlah opsi");
   if (question.choices.some((choice) => !choice.text.trim())) issues.push("teks opsi");
-  if (!question.choices.some((choice) => choice.id === question.correctChoiceId)) issues.push("jawaban benar");
+  const correctChoiceIds = correctChoiceIdsFor(question);
+  const answerKey = validateAnswerKey(questionTypeFor(question), question.choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+  if (!answerKey.ok) issues.push("jawaban benar");
   return issues;
 }
 
@@ -167,7 +195,7 @@ function hasQuizQuestionDraftContent(question: QuizQuestionSnapshot) {
       || question.promptMediaAssetId
       || question.explanationMediaAssetId
       || question.choices.length !== 2
-      || question.correctChoiceId !== "a"
+      || JSON.stringify(correctChoiceIdsFor(question)) !== JSON.stringify(["a"])
       || question.choices.some((choice) => choice.text.trim() || choice.mediaAssetId),
   );
 }
@@ -488,15 +516,19 @@ function QuestionForm({
         {question.promptMediaAssetId ? <MediaAttachment assetId={question.promptMediaAssetId} label="Gambar pertanyaan" onRemove={() => onRemoveMedia({ kind: "prompt", label: "Gambar pertanyaan" })} onReplace={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} /> : null}
       </Field>
 
+      <QuizAnswerModeField disabled={disabled} onChange={onChange} question={question} />
+
       <fieldset className="grid gap-3 border-0 p-0 sm:grid-cols-2">
         <legend className="text-base leading-7 text-primary-900">Pilihan jawaban</legend>
-        <p className="sm:col-span-2 text-sm leading-6 text-secondary-500">Pilih satu jawaban benar dengan radio di sebelah kiri.</p>
+        <p className="sm:col-span-2 text-sm leading-6 text-secondary-500">{questionTypeFor(question) === "multiple_choice" ? "Pilih semua jawaban benar dengan kotak centang di sebelah kiri." : "Pilih satu jawaban benar dengan radio di sebelah kiri."}</p>
         {question.choices.map((choice, index) => {
           const label = String.fromCharCode(65 + index);
+          const multipleAnswer = questionTypeFor(question) === "multiple_choice";
+          const correctChoiceIds = correctChoiceIdsFor(question);
           return (
             <ReferenceSurface as="div" className="min-w-0 p-3" key={choice.id} variant="inset">
               <div className="flex min-w-0 items-center gap-3">
-                <input aria-label={`Jawaban benar opsi ${label}`} checked={choice.id === question.correctChoiceId} disabled={disabled} name={`correct-choice-${question.id ?? "current"}`} onChange={() => onChange({ correctChoiceId: choice.id })} type="radio" />
+                <input aria-label={`${multipleAnswer ? "Tandai benar" : "Jawaban benar"} opsi ${label}`} checked={correctChoiceIds.includes(choice.id)} disabled={disabled} name={multipleAnswer ? undefined : `correct-choice-${question.id ?? "current"}`} onChange={() => onChange(withCorrectChoiceIds(question, multipleAnswer ? (correctChoiceIds.includes(choice.id) ? correctChoiceIds.filter((id) => id !== choice.id) : [...correctChoiceIds, choice.id]) : [choice.id]))} type={multipleAnswer ? "checkbox" : "radio"} />
                 <span aria-hidden="true" className="text-xs font-semibold text-primary-800">{label}</span>
                 <input aria-label={`Teks opsi ${label}`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-w-0 flex-1 py-2`} disabled={disabled} onChange={(event) => onChange({ choices: question.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${label}`} value={choice.text} />
                 <Button aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${label}`} disabled={disabled} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${label}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
@@ -522,15 +554,92 @@ function QuestionForm({
 }
 
 function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
+  const correctChoiceIds = correctChoiceIdsFor(question);
   return (
     <ReferenceSurface as="section" className="min-w-0 p-5 md:p-7">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold tracking-[0.12em] text-secondary-400 uppercase"><span>Preview soal</span><span>Tampilan penulis · belum dikirim</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold tracking-[0.12em] text-secondary-400 uppercase"><span>Preview soal</span><span>{questionTypeFor(question) === "multiple_choice" ? "Beberapa jawaban" : "Satu jawaban"} · Tampilan penulis · belum dikirim</span></div>
       <h3 className="mt-5 text-xl leading-8 font-semibold text-secondary-900">{question.prompt || "Pertanyaan akan tampil di sini."}</h3>
       {question.promptMediaAssetId ? <MediaAssetPreview alt="Gambar pertanyaan" assetId={question.promptMediaAssetId} className="mt-5" /> : null}
       <div className="mt-6 grid gap-3">
-        {question.choices.map((choice, index) => <div className="rounded-xl border border-primary-100 bg-secondary-50/40 p-4" key={choice.id}><div className="flex items-start gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold uppercase text-primary-800">{String.fromCharCode(65 + index)}</span><span className="min-w-0 flex-1 text-sm leading-6 text-secondary-800">{choice.text || `Opsi ${String.fromCharCode(65 + index)}`}{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${String.fromCharCode(65 + index)}`} assetId={choice.mediaAssetId} className="mt-3 max-h-44" /> : null}</span></div></div>)}
+        {question.choices.map((choice, index) => <div className="rounded-xl border border-primary-100 bg-secondary-50/40 p-4" key={choice.id}><div className="flex items-start gap-3"><span className={cn("flex size-6 shrink-0 items-center justify-center border text-xs font-bold uppercase", questionTypeFor(question) === "multiple_choice" ? "rounded-md" : "rounded-full", correctChoiceIds.includes(choice.id) ? "border-primary-700 bg-primary-700 text-white" : "border-primary-200 bg-primary-50 text-primary-800")}>{String.fromCharCode(65 + index)}</span><span className="min-w-0 flex-1 text-sm leading-6 text-secondary-800">{choice.text || `Opsi ${String.fromCharCode(65 + index)}`}{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${String.fromCharCode(65 + index)}`} assetId={choice.mediaAssetId} className="mt-3 max-h-44" /> : null}</span></div></div>)}
       </div>
       {question.explanation ? <div className="mt-6 border-t border-primary-100 pt-5"><h4 className="text-sm font-semibold text-secondary-900">Penjelasan</h4><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-secondary-600">{question.explanation}</p>{question.explanationMediaAssetId ? <MediaAssetPreview alt="Gambar penjelasan" assetId={question.explanationMediaAssetId} className="mt-4" /> : null}</div> : null}
+    </ReferenceSurface>
+  );
+}
+
+type QuizQuestionContentPreview = Pick<
+  QuizQuestionSnapshot,
+  "choices" | "correctChoiceId" | "correctChoiceIds" | "explanation" | "explanationMediaAssetId" | "prompt" | "promptMediaAssetId" | "questionType"
+>;
+
+function QuestionSourceContentPreview({ content, heading }: { content: QuizQuestionContentPreview; heading: string }) {
+  const correctChoiceIds = correctChoiceIdsFor(content);
+  return (
+    <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-4 sm:p-5">
+      <div className="text-xs font-bold tracking-[0.12em] text-secondary-400 uppercase">{heading}</div>
+      <p className="mt-4 whitespace-pre-wrap text-sm font-semibold leading-6 text-secondary-900">{content.prompt || "Pertanyaan kosong"}</p>
+      {content.promptMediaAssetId ? <MediaAssetPreview alt="Gambar pertanyaan" assetId={content.promptMediaAssetId} className="mt-4 max-h-44" /> : null}
+      <div className="mt-4 grid gap-2">
+        {content.choices.map((choice, index) => {
+          const choiceLabel = String.fromCharCode(65 + index);
+          const isCorrect = correctChoiceIds.includes(choice.id);
+          return (
+            <div className={cn("rounded-xl border px-3 py-2.5", isCorrect ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-secondary-50/40")} key={choice.id}>
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span className={cn("flex size-6 shrink-0 items-center justify-center border text-xs font-bold", questionTypeFor(content) === "multiple_choice" ? "rounded-md" : "rounded-full", isCorrect ? "border-primary-700 bg-primary-700 text-white" : "border-primary-200 bg-primary-50 text-primary-800")}>{choiceLabel}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-6 text-secondary-800">{choice.text || `Opsi ${choiceLabel}`}</span>
+              </div>
+              {choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} assetId={choice.mediaAssetId} className="mt-2 max-h-32" /> : null}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-secondary-500">Kunci jawaban: {correctChoiceIds.length ? correctChoiceIds.join(", ") : "belum ditentukan"}</p>
+      {content.explanation ? <div className="mt-4 border-t border-primary-100 pt-4"><p className="text-xs font-bold tracking-[0.12em] text-secondary-400 uppercase">Penjelasan</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-secondary-700">{content.explanation}</p>{content.explanationMediaAssetId ? <MediaAssetPreview alt="Gambar penjelasan" assetId={content.explanationMediaAssetId} className="mt-3 max-h-36" /> : null}</div> : null}
+    </div>
+  );
+}
+
+function QuestionSourceUpdateNotice({
+  accepting,
+  disabled,
+  onAccept,
+  question,
+  quizStatus,
+  sourceBankId,
+}: {
+  accepting: boolean;
+  disabled: boolean;
+  onAccept: () => void;
+  question: QuizQuestionSnapshot;
+  quizStatus?: KaptenQuiz["status"];
+  sourceBankId?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const update = question.sourceUpdate;
+  if (!update) return null;
+  const sourceHref = sourceBankId && question.sourceQuestionId
+    ? `/mentor/quiz/question-bank/${sourceBankId}`
+    : null;
+  const canAccept = !disabled && quizStatus === "draft" && Boolean(question.sourceQuestionRevisionId && question.sourceContentDigest);
+
+  return (
+    <ReferenceSurface as="section" className="grid gap-4 border-warning-300 bg-warning-50/70 p-4 sm:p-5" data-source-update-review="available" variant="inset">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2"><ReferenceStatusBadge appearance="mentor" label={`Revisi ${update.revisionNo} tersedia`} size="xs" status="need_help" tone="attention" /><span className="text-xs font-semibold text-secondary-500">Soal #{question.id}</span></div>
+          <p className="mt-2 text-sm leading-6 text-secondary-700">Bank Soal memiliki revisi siap yang berbeda dari snapshot di Kuis. Tinjau perubahannya sebelum menerapkannya.</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-warning-300 bg-white/70 px-2.5 py-1 text-xs font-semibold text-warning-900">Perlu ditinjau</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button aria-expanded={isOpen} onClick={() => setIsOpen((value) => !value)} size="sm" type="button" variant="brandOutline">{isOpen ? "Tutup tinjauan" : "Tinjau perubahan"}</Button>
+        {canAccept ? <Button aria-busy={accepting} data-source-update-action="accept" disabled={accepting} onClick={onAccept} size="sm" type="button" variant="brand">{accepting ? "Menerapkan…" : "Terima ke draf"}</Button> : null}
+        {!canAccept && sourceHref ? <Button nativeButton={false} render={<Link href={sourceHref} />} size="sm" type="button" variant="brandOutline">Buka Bank Soal</Button> : null}
+      </div>
+      {quizStatus !== "draft" ? <p className="text-xs leading-5 text-secondary-600">Kuis ini sudah diterbitkan. Jadikan draf terlebih dahulu agar rilis yang sudah terbit tetap tidak berubah.</p> : null}
+      {isOpen ? <div className="grid gap-3 border-t border-warning-200 pt-4 lg:grid-cols-2"><QuestionSourceContentPreview content={question} heading="Saat ini di Kuis" /><QuestionSourceContentPreview content={update} heading={`Revisi ${update.revisionNo} di Bank Soal`} /></div> : null}
     </ReferenceSurface>
   );
 }
@@ -572,6 +681,28 @@ function useQuizEditorNavigation({
   }, [hasUnsavedChanges, router, setPendingExitRoute]);
 
   return { requestExit };
+}
+
+function QuizAnswerModeField({ disabled, onChange, question }: { disabled: boolean; onChange: (patch: Partial<QuizQuestionSnapshot>) => void; question: QuizQuestionSnapshot }) {
+  const questionType = questionTypeFor(question);
+  const correctChoiceIds = correctChoiceIdsFor(question);
+  return (
+    <Field>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-question-answer-mode">Mode jawaban</FieldLabel>
+      <ReferenceSelect
+        aria-label="Mode jawaban"
+        disabled={disabled}
+        id="quiz-question-answer-mode"
+        onValueChange={(value) => {
+          const nextType = value as "single_choice" | "multiple_choice";
+          onChange(withCorrectChoiceIds({ ...question, questionType: nextType }, nextType === "multiple_choice" ? correctChoiceIds : correctChoiceIds.slice(0, 1)));
+        }}
+        options={[{ label: "Satu jawaban", value: "single_choice" }, { label: "Beberapa jawaban", value: "multiple_choice" }]}
+        value={questionType}
+      />
+      <p className="text-xs leading-5 text-secondary-500">{questionType === "multiple_choice" ? "Pilih semua opsi yang benar." : "Pilih satu opsi yang benar."}</p>
+    </Field>
+  );
 }
 
 function useQuizEditorQuestionListActions({
@@ -662,7 +793,9 @@ function useQuizEditorChoiceActions({
   const removeChoice = useCallback((choiceId: string) => {
     if (!activeQuestion || activeQuestion.choices.length <= 2 || editorDisabled) return;
     const choices = activeQuestion.choices.filter((choice) => choice.id !== choiceId);
-    updateActiveQuestion({ choices, correctChoiceId: activeQuestion.correctChoiceId === choiceId ? choices[0]?.id ?? "a" : activeQuestion.correctChoiceId });
+    const remainingCorrectChoiceIds = correctChoiceIdsFor(activeQuestion).filter((id) => id !== choiceId && choices.some((choice) => choice.id === id));
+    const nextCorrectChoiceIds = remainingCorrectChoiceIds.length ? remainingCorrectChoiceIds : [choices[0]?.id ?? "a"];
+    updateActiveQuestion(withCorrectChoiceIds({ ...activeQuestion, choices }, nextCorrectChoiceIds));
   }, [activeQuestion, editorDisabled, updateActiveQuestion]);
 
   const removeMedia = useCallback((target: MediaPickerTarget) => {
@@ -775,6 +908,7 @@ function useQuizEditorState({
   const [pendingExitRoute, setPendingExitRoute] = useState<string | null>(null);
   const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
   const [questionBankPickerOpen, setQuestionBankPickerOpen] = useState(false);
+  const [acceptingUpdateQuestionId, setAcceptingUpdateQuestionId] = useState<string | null>(null);
   const activeQuestion = useMemo(() => form.questions.find((question) => question.id === activeQuestionId) ?? null, [activeQuestionId, form.questions]);
   const editorDisabled = savedQuiz?.status === "archived";
   const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
@@ -798,6 +932,37 @@ function useQuizEditorState({
     setSaveError(null);
     showToast("Soal dari Bank Soal ditambahkan ke Kuis.", { variant: "success" });
   }, []);
+  const acceptSourceUpdate = useCallback(async (question: QuizQuestionSnapshot) => {
+    if (acceptingUpdateQuestionId || !savedQuiz?.id || savedQuiz.status !== "draft" || !question.sourceUpdate || !question.sourceQuestionRevisionId || !question.sourceContentDigest) return;
+    const sourceUpdate = question.sourceUpdate;
+    const hadUnsavedChanges = hasUnsavedChanges;
+    setAcceptingUpdateQuestionId(question.id);
+    setSaveError(null);
+    try {
+      const result = await acceptStandaloneQuizQuestionUpdateAction({
+        expectedCurrentContentDigest: question.sourceContentDigest,
+        expectedCurrentRevisionId: question.sourceQuestionRevisionId,
+        quizId: savedQuiz.id,
+        quizItemId: question.id,
+        targetContentDigest: sourceUpdate.sourceContentDigest,
+        targetRevisionId: sourceUpdate.sourceQuestionRevisionId,
+      });
+      if (!result.ok) {
+        setSaveError(result.message);
+        return;
+      }
+      const updatedQuestion = result.questions.find((candidate) => candidate.id === question.id);
+      if (updatedQuestion) setForm((current) => ({ ...current, questions: current.questions.map((candidate) => candidate.id === question.id ? asEditorQuestion(updatedQuestion) : candidate) }));
+      setSavedQuiz(result.quiz);
+      setHasUnsavedChanges(hadUnsavedChanges);
+      setSaveError(null);
+      showToast("Revisi Bank Soal diterapkan ke draf Kuis.", { variant: "success" });
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Revisi soal belum dapat diterapkan.");
+    } finally {
+      setAcceptingUpdateQuestionId(null);
+    }
+  }, [acceptingUpdateQuestionId, hasUnsavedChanges, savedQuiz, setForm, setHasUnsavedChanges, setSaveError, setSavedQuiz]);
   const navigation = useQuizEditorNavigation({ hasUnsavedChanges, pendingRouteReplacement, router, setPendingExitRoute });
   const questionActions = useQuizEditorQuestionListActions({ activeQuestionId, editorDisabled, form, markChanged, setActiveQuestionId, setForm, setPendingDeleteId, setQuestionEditorTab });
   const choiceActions = useQuizEditorChoiceActions({ activeQuestion, editorDisabled, setMediaPickerTarget, updateActiveQuestion: questionActions.updateActiveQuestion });
@@ -806,6 +971,8 @@ function useQuizEditorState({
   return {
     activeQuestion,
     activeQuestionId,
+    acceptingUpdateQuestionId,
+    acceptSourceUpdate,
     editorDisabled,
     form,
     hasUnsavedChanges,
@@ -873,6 +1040,7 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
         <h2 className="text-xl font-bold text-secondary-900">{state.activeQuestion.origin === "bank" ? "Soal dari Bank Soal" : "Edit soal"}</h2>
         <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">Toggle preview<Switch checked={state.questionEditorTab === "preview"} id="quiz-preview-toggle" onCheckedChange={(checked) => state.setQuestionEditorTab(checked ? "preview" : "edit")} /></label>
       </div>
+      <QuestionSourceUpdateNotice accepting={state.acceptingUpdateQuestionId === state.activeQuestion.id} disabled={state.editorDisabled} onAccept={() => void state.acceptSourceUpdate(state.activeQuestion!)} question={state.activeQuestion} quizStatus={state.savedQuiz?.status} sourceBankId={state.savedQuiz?.sourceBankId} />
       {state.questionEditorTab === "edit" ? <QuestionForm disabled={state.editorDisabled} onAddChoice={state.choiceActions.addChoice} onChange={state.questionActions.updateActiveQuestion} onOpenMedia={state.setMediaPickerTarget} onRemoveChoice={state.choiceActions.removeChoice} onRemoveMedia={state.choiceActions.removeMedia} question={state.activeQuestion} /> : <QuestionPreview question={state.activeQuestion} />}
     </div>
   ) : <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" variant="inset"><ReferenceEmptyState action={<Button disabled={state.editorDisabled} onClick={state.questionActions.addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal</Button>} description="Daftar soalmu masih kosong. Tambahkan soal pertama dari panel di sebelah kiri." icon={CircleHelp} title="Pilih soal untuk mulai mengedit" /></ReferenceSurface>;
