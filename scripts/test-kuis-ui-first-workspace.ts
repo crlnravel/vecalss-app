@@ -3,13 +3,14 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, builder, repository, results, submission, quizCatalogue] = await Promise.all([
+const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, picker, builder, repository, results, submission, quizCatalogue] = await Promise.all([
   readFile(`${root}/app/mentor/quiz/[quizId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/[quizId]/editor/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/create/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/[quizId]/results/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizDetailPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizEditorPageModule.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/components/question-bank-picker.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/lib/quiz/repository.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizResultsPageModule.tsx`, "utf8"),
@@ -21,7 +22,7 @@ const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, buil
 // server-owned persistence compatibility, and future import actions stay
 // server-only until an explicitly approved UI flow exists.
 const noBankOrAssemblyClientDependency = /listQuestionBank|listReadyAssembly|question-bank|QuestionBank|attachStandaloneQuizAssembly|detachStandaloneQuizAssembly|assemblyVersionId/u;
-for (const [label, source] of [["detail route", detailRoute], ["editor route", editorRoute], ["create route", createRoute], ["detail module", detail], ["editor module", editor], ["builder compatibility module", builder]] as const) {
+for (const [label, source] of [["detail route", detailRoute], ["editor route", editorRoute], ["create route", createRoute], ["detail module", detail], ["builder compatibility module", builder]] as const) {
   assert.doesNotMatch(source, noBankOrAssemblyClientDependency, `${label} must not browse or attach Bank Soal/Ready sources`);
 }
 
@@ -39,19 +40,22 @@ assert.match(detail, /router\.push\(`\/mentor\/quiz\/\$\{quiz\.id\}\?tab=\$\{nex
 assert.match(detail, /Edit soal/u, "detail must expose the dedicated editor action");
 assert.match(editorRoute, /KaptenQuizEditorPageModule/u, "editor route must render the dedicated editor");
 assert.match(editor, /Daftar soal/u, "editor must expose a question inventory");
+assert.match(editor, /QuestionBankPickerDialog/u, "editor must expose reusable Bank Soal selection");
+assert.match(editor, /Tambah soal dari Bank Soal/u, "editor must expose the Bank Soal primary add action");
+assert.match(editor, /Konten dikelola di Bank Soal/u, "bank-sourced question content must be read-only in the Kuis editor");
 assert.match(editor, /Tambah soal/u, "editor must add local questions");
 assert.match(editor, /Pindah soal/u, "editor must reorder questions");
 assert.match(editor, /Hapus soal/u, "editor must delete questions");
 assert.match(editor, /Edit soal/u, "editor must expose an edit mode");
 assert.match(editor, /Preview/u, "editor must expose a preview mode");
 assert.match(editor, /MediaPickerDialog/u, "editor must support media attachments");
-assert.match(editor, /shouldGuardNavigation=\{hasUnsavedChanges\}/u, "editor must guard unsaved navigation");
+assert.match(editor, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u, "editor must guard unsaved navigation");
 assert.match(editor, /function hasQuizDraftContent\(/u, "quiz exit guarding must recognize an empty create scaffold");
 assert.match(editor, /useState\(mode === "create" && hasQuizDraftContent\(initialForm\)\)/u, "empty create quizzes must not start with an unsaved-change guard");
 assert.match(editor, /setHasUnsavedChanges\(mode === "create" \? hasQuizDraftContent\(nextForm\) : true\)/u, "create-mode exit guarding must clear when its fields are emptied");
 assert.match(editor, /isSaving \? "Membuat…" : "Buat"/u, "create quiz action must use creation copy");
 assert.match(editor, /aria-label="Buat"[\s\S]*?variant="brand"/u, "create quiz action must use the primary button variant");
-assert.match(editor, /<ChevronLeft \/>\{mode === "create" \? null : "Kembali ke Detail"\}/u, "create quiz back action must be icon-only");
+assert.match(editor, /<ChevronLeft \/>Kembali ke daftar/u, "create quiz back action must return to the Kuis catalogue");
 assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
 assert.match(editor, /min-h-14 shrink-0 flex-wrap items-center/u, "full-page editor must expose the Bank Soal-style top header");
 assert.doesNotMatch(editor, /const metadata =|>\{metadata\}/u, "full-page editor must not render the removed quiz metadata card");
@@ -62,6 +66,11 @@ assert.doesNotMatch(editor, /<div className="h-5 w-px bg-primary-100" \/>/u, "qu
 assert.match(editor, /aria-label="Simpan"[\s\S]*?variant="brand"/u, "quiz save must remain a primary action");
 assert.match(editor, /Tampilan penulis · belum dikirim/u, "editor preview must be a neutral author preview");
 assert.match(editor, /Perubahan Kuis tersimpan/u, "editor must provide save feedback");
+assert.match(picker, /selectedQuestions/u, "Bank Soal picker must retain pending selection across server pages");
+assert.match(picker, /selectedOnly/u, "Bank Soal picker must expose selected-only review");
+assert.match(picker, /Pratinjau soal/u, "Bank Soal picker must preview without leaving the selection flow");
+assert.match(picker, /expectedSources/u, "Bank Soal picker must submit revision expectations");
+assert.match(picker, /Tambah(?:kan)? \$\{selectedCount\} soal/u, "Bank Soal picker must show a persistent selected count action");
 assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");
 assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil`/u, "legacy results route must redirect to Hasil");
 assert.match(results, /function KaptenQuizResultsContent/u, "results must have embeddable content");
@@ -86,7 +95,7 @@ assert.match(detail, /aria-label="Ubah judul Kuis"/u, "Kuis title metadata must 
 assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description metadata must use an inline edit affordance");
 assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
 assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untuk menambahkan\./u, "Kuis metadata must show the editable empty-description copy");
-assert.match(detail, /<MentorBadge size="xs" tone="category">\{subject \? `\$\{subject\.code\} · \$\{subject\.name\}` : form\.subjectCode\}<\/MentorBadge>/u, "Kuis metadata must use the Bank Soal subject chip sizing");
+assert.match(detail, /<MentorBadge size="xs" tone="category">\{subject \? `\$\{subject\.code\} · \$\{subject\.name\}` : value\}<\/MentorBadge>/u, "Kuis metadata must use the Bank Soal subject chip sizing");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
 assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");

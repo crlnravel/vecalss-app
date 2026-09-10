@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronDown,
   CircleHelp,
+  FilePenLine,
   ImagePlus,
   Plus,
   Save,
@@ -55,6 +56,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
+import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizChoice, QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
@@ -101,7 +103,7 @@ function createEmptyQuestion(): QuizQuestionSnapshot {
   };
 }
 
-function asLocalQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
+function asEditorQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
   return {
     choices: question.choices.map((choice) => ({ ...choice })),
     correctChoiceId: question.correctChoiceId,
@@ -109,14 +111,30 @@ function asLocalQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
     explanationMediaAssetId: question.explanationMediaAssetId,
     id: question.id || createQuestionId(),
     isReady: question.isReady,
-    origin: "local",
+    origin: question.origin,
     prompt: question.prompt,
     promptMediaAssetId: question.promptMediaAssetId,
+    sourceContentDigest: question.sourceContentDigest,
+    sourceQuestionId: question.sourceQuestionId,
+    sourceQuestionRevisionId: question.sourceQuestionRevisionId,
+    sourceRevisionProvenance: question.sourceRevisionProvenance,
+  };
+}
+
+function asLocalQuestion(question: QuizQuestionSnapshot): QuizQuestionSnapshot {
+  const editorQuestion = asEditorQuestion(question);
+  return {
+    ...editorQuestion,
+    origin: "local",
+    sourceContentDigest: undefined,
+    sourceQuestionId: undefined,
+    sourceQuestionRevisionId: undefined,
+    sourceRevisionProvenance: undefined,
   };
 }
 
 function getInitialForm(initialQuiz: KaptenQuiz | null | undefined, initialQuestions: QuizQuestionSnapshot[], initialSubjectCode?: string) {
-  const questions = initialQuestions.length ? initialQuestions.map(asLocalQuestion) : [createEmptyQuestion()];
+  const questions = initialQuestions.length ? initialQuestions.map(asEditorQuestion) : [createEmptyQuestion()];
   return {
     attemptsAllowed: initialQuiz?.attemptsAllowed ?? 1,
     closesAt: initialQuiz?.closesAt ?? "",
@@ -213,16 +231,20 @@ function MediaAttachment({
 
 function QuestionInventory({
   activeQuestionId,
+  allowLocalAdd,
   disabled,
   onAdd,
+  onAddFromBank,
   onDelete,
   onMove,
   onSelect,
   questions,
 }: {
   activeQuestionId: string | null;
+  allowLocalAdd: boolean;
   disabled: boolean;
   onAdd: () => void;
+  onAddFromBank: () => void;
   onDelete: (id: string) => void;
   onMove: (id: string, direction: "up" | "down") => void;
   onSelect: (id: string) => void;
@@ -247,16 +269,12 @@ function QuestionInventory({
             {questions.length} soal{incompleteCount > 0 ? ` · ${incompleteCount} perlu diperbaiki` : ""}
           </p>
         </div>
-        <Button
-          aria-label="Tambah soal"
-          disabled={disabled}
-          onClick={onAdd}
-          size="icon-sm"
-          type="button"
-          variant="brandOutline"
-        >
-          <Plus />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled} onClick={onAddFromBank} size="sm" type="button" variant="brandOutline">
+            <Plus /><span className="hidden lg:inline">Tambah dari Bank</span>
+          </Button>
+          {allowLocalAdd ? <Button aria-label="Buat soal lokal" disabled={disabled} onClick={onAdd} size="icon-sm" title="Buat soal lokal" type="button" variant="ghost"><FilePenLine /></Button> : null}
+        </div>
       </div>
       <nav aria-label="Navigasi soal" className="mt-3 flex min-h-0 flex-1 flex-col">
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" id="quiz-inventory-list">
@@ -351,14 +369,18 @@ function QuestionInventory({
 
 function QuizMobileInventory({
   activeQuestionId,
+  allowLocalAdd,
   disabled,
   onAdd,
+  onAddFromBank,
   onSelect,
   questions,
 }: {
   activeQuestionId: string | null;
+  allowLocalAdd: boolean;
   disabled: boolean;
   onAdd: () => void;
+  onAddFromBank: () => void;
   onSelect: (id: string) => void;
   questions: QuizQuestionSnapshot[];
 }) {
@@ -412,9 +434,10 @@ function QuizMobileInventory({
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button aria-label="Tambah soal" disabled={disabled} onClick={onAdd} size="icon-sm" type="button" variant="reference">
-          <Plus />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled} onClick={onAddFromBank} size="sm" type="button" variant="brandOutline"><Plus /><span className="hidden sm:inline">Tambah dari Bank</span></Button>
+          {allowLocalAdd ? <Button aria-label="Buat soal lokal" disabled={disabled} onClick={onAdd} size="icon-sm" type="button" variant="ghost"><FilePenLine /></Button> : null}
+        </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
         <span>{questions.length} soal di Kuis</span>
@@ -442,6 +465,17 @@ function QuestionForm({
   question: QuizQuestionSnapshot;
 }) {
   const issues = questionIssues(question);
+  if (question.origin === "bank") {
+    return (
+      <ReferenceSurface as="section" className="grid min-w-0 gap-4 p-5 md:p-7">
+        <div className="rounded-2xl border border-primary-200 bg-primary-50/70 px-4 py-3">
+          <p className="text-sm font-semibold text-primary-900">Konten dikelola di Bank Soal</p>
+          <p className="mt-1 text-sm leading-6 text-primary-800">Soal ini adalah snapshot dari revisi Bank Soal Kuis. Urutan dan penghapusan dikelola di Kuis; ubah pertanyaan, pilihan, atau kunci dari editor Bank Soal agar sumber tetap konsisten.</p>
+        </div>
+        <QuestionPreview question={question} />
+      </ReferenceSurface>
+    );
+  }
   return (
     <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 md:p-7">
       {issues.length ? <p aria-live="polite" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">Lengkapi {issues.join(", ")} sebelum Kuis diterbitkan.</p> : null}
@@ -740,6 +774,7 @@ function useQuizEditorState({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingExitRoute, setPendingExitRoute] = useState<string | null>(null);
   const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
+  const [questionBankPickerOpen, setQuestionBankPickerOpen] = useState(false);
   const activeQuestion = useMemo(() => form.questions.find((question) => question.id === activeQuestionId) ?? null, [activeQuestionId, form.questions]);
   const editorDisabled = savedQuiz?.status === "archived";
   const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
@@ -754,6 +789,15 @@ function useQuizEditorState({
     setForm(nextForm);
     markChanged(nextForm);
   }, [form, markChanged]);
+  const replaceImportedQuestions = useCallback((questions: QuizQuestionSnapshot[], quiz: KaptenQuiz) => {
+    setForm((current) => ({ ...current, questions }));
+    setSavedQuiz(quiz);
+    setActiveQuestionId(questions[0]?.id ?? null);
+    setQuestionEditorTab("edit");
+    setHasUnsavedChanges(false);
+    setSaveError(null);
+    showToast("Soal dari Bank Soal ditambahkan ke Kuis.", { variant: "success" });
+  }, []);
   const navigation = useQuizEditorNavigation({ hasUnsavedChanges, pendingRouteReplacement, router, setPendingExitRoute });
   const questionActions = useQuizEditorQuestionListActions({ activeQuestionId, editorDisabled, form, markChanged, setActiveQuestionId, setForm, setPendingDeleteId, setQuestionEditorTab });
   const choiceActions = useQuizEditorChoiceActions({ activeQuestion, editorDisabled, setMediaPickerTarget, updateActiveQuestion: questionActions.updateActiveQuestion });
@@ -772,6 +816,7 @@ function useQuizEditorState({
     pendingExitRoute,
     patchForm,
     persistence,
+    questionBankPickerOpen,
     questionActions,
     questionEditorTab,
     saveError,
@@ -781,7 +826,9 @@ function useQuizEditorState({
     setMediaPickerTarget,
     setPendingDeleteId,
     setPendingExitRoute,
+    setQuestionBankPickerOpen,
     setQuestionEditorTab,
+    replaceImportedQuestions,
     choiceActions,
     router,
   };
@@ -819,10 +866,11 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     state.setActiveQuestionId(id);
     state.setQuestionEditorTab("edit");
   };
+  const allowLocalAdd = !state.form.questions.some((question) => question.origin === "bank");
   const questionEditor = state.activeQuestion ? (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
+        <h2 className="text-xl font-bold text-secondary-900">{state.activeQuestion.origin === "bank" ? "Soal dari Bank Soal" : "Edit soal"}</h2>
         <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">Toggle preview<Switch checked={state.questionEditorTab === "preview"} id="quiz-preview-toggle" onCheckedChange={(checked) => state.setQuestionEditorTab(checked ? "preview" : "edit")} /></label>
       </div>
       {state.questionEditorTab === "edit" ? <QuestionForm disabled={state.editorDisabled} onAddChoice={state.choiceActions.addChoice} onChange={state.questionActions.updateActiveQuestion} onOpenMedia={state.setMediaPickerTarget} onRemoveChoice={state.choiceActions.removeChoice} onRemoveMedia={state.choiceActions.removeMedia} question={state.activeQuestion} /> : <QuestionPreview question={state.activeQuestion} />}
@@ -831,8 +879,8 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
 
   return (
     <>
-      <QuizMobileInventory activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onSelect={selectQuestion} questions={state.form.questions} />
-      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none"><QuestionInventory activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onDelete={state.setPendingDeleteId} onMove={state.questionActions.moveQuestion} onSelect={selectQuestion} questions={state.form.questions} /></div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div></main></div>
+      <QuizMobileInventory allowLocalAdd={allowLocalAdd} activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onAddFromBank={() => state.setQuestionBankPickerOpen(true)} onSelect={selectQuestion} questions={state.form.questions} />
+      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none"><QuestionInventory allowLocalAdd={allowLocalAdd} activeQuestionId={state.activeQuestionId} disabled={state.editorDisabled} onAdd={state.questionActions.addQuestion} onAddFromBank={() => state.setQuestionBankPickerOpen(true)} onDelete={state.setPendingDeleteId} onMove={state.questionActions.moveQuestion} onSelect={selectQuestion} questions={state.form.questions} /></div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div></main></div>
     </>
   );
 }
@@ -849,6 +897,7 @@ function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
 
   return (
     <>
+      <QuestionBankPickerDialog key={`${state.questionBankPickerOpen ? "open" : "closed"}-${state.savedQuiz?.sourceBankId ?? "none"}`} currentQuestions={state.form.questions} disabled={state.editorDisabled} onImported={state.replaceImportedQuestions} onOpenChange={state.setQuestionBankPickerOpen} open={state.questionBankPickerOpen} quizId={state.savedQuiz?.id} sourceBankId={state.savedQuiz?.sourceBankId} subjectCode={state.form.subjectCode} />
       <MediaPickerDialog onOpenChange={(open) => { if (!open) state.setMediaPickerTarget(null); }} onSelect={(asset) => state.choiceActions.selectMediaAsset(asset, state.mediaPickerTarget)} open={Boolean(state.mediaPickerTarget)} selectedAssetId={selectedAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
       <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingDeleteId(null); }} open={Boolean(state.pendingDeleteId)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (state.pendingDeleteId) state.questionActions.removeQuestion(state.pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingExitRoute(null); }} open={Boolean(state.pendingExitRoute)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle><AlertDialogDescription>Perubahan Kuis yang belum disimpan akan hilang.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingExitRoute(null)}>Tetap di editor</AlertDialogCancel><AlertDialogAction onClick={() => { const route = state.pendingExitRoute; state.setPendingExitRoute(null); if (route) state.router.push(route); }} variant="destructive">Keluar tanpa menyimpan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
