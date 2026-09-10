@@ -23,6 +23,7 @@ const QUESTION_PAGE_SIZE = 10;
 type QuestionBankPickerProps = {
   currentQuestions: QuizQuestionSnapshot[];
   disabled?: boolean;
+  expectedDraftRevision?: number | null;
   onImported: (questions: QuizQuestionSnapshot[], quiz: KaptenQuiz) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -138,6 +139,7 @@ function BankList({
 function QuestionBankPickerDialog({
   currentQuestions,
   disabled = false,
+  expectedDraftRevision,
   onImported,
   onOpenChange,
   open,
@@ -252,7 +254,7 @@ function QuestionBankPickerDialog({
         const current = currentBySourceId.get(questionId);
         return { contentDigest: selected?.questionContentDigest ?? current?.sourceContentDigest ?? null, questionId, revisionId: selected?.questionRevisionId ?? current?.sourceQuestionRevisionId ?? null };
       });
-      const result = await importStandaloneQuizBankQuestionsAction({ expectedSources, questionIds, quizId, bankId, subtestCode: subjectCode });
+      const result = await importStandaloneQuizBankQuestionsAction({ expectedDraftRevision, expectedSources, questionIds, quizId, bankId, subtestCode: subjectCode });
       if (!result.ok) {
         setError(result.message);
         return;

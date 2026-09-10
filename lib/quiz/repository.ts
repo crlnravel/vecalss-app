@@ -1,8 +1,9 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionBankPurpose, QuestionRevisionStatus, QuestionType, ReusableQuestionPackageMode, StandaloneQuizAnswerFormat } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionBankPurpose, QuestionRevisionProvenance, QuestionRevisionStatus, QuestionType, ReusableQuestionPackageMode, StandaloneQuizAnswerFormat, StandaloneQuizVersionProvenance, StandaloneQuizVersionState } from "@/generated/prisma/client";
 import { decodeLegacyAnswerSelection, evaluateExactAnswer, validateAnswerKey, validateSelectedOptionIds, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
+import { draftRevisionMatches, isStandaloneQuizVersioningCutoverEnabled, nextStandaloneQuizVersionNo, versionedDefinitionDigest } from "@/lib/quiz/versioning-runtime";
 import { resolveReadyAssemblyForKuis, type KuisAssemblyMaterialization } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
@@ -31,9 +32,11 @@ type SaveStandaloneQuizInput = {
   closesAt: string;
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   description: string;
+  expectedDraftRevision?: number | null;
   formBehavior?: QuizFormBehavior;
   id?: string;
   opensAt: string;
+  publishRequestId?: string | null;
   questions: QuizQuestionSnapshot[];
   retryDelaySeconds?: number | null;
   reviewTiming?: QuizReviewTiming;
@@ -83,11 +86,53 @@ const quizContentInclude = {
   items: { include: { options: { orderBy: { sortOrder: "asc" as const } } }, orderBy: { sortOrder: "asc" as const } },
   subtest: true,
 } satisfies Prisma.StandaloneQuizInclude;
+const quizVersionItemsInclude = {
+  items: { include: { options: { orderBy: { sortOrder: "asc" as const } } }, orderBy: { sortOrder: "asc" as const } },
+} satisfies Prisma.StandaloneQuizVersionInclude;
+const versionedQuizInclude = {
+  ...quizInclude,
+  versions: {
+    include: quizVersionItemsInclude,
+    orderBy: { updatedAt: "desc" as const },
+  },
+} satisfies Prisma.StandaloneQuizInclude;
 
 const scorePolicies = ["highest", "latest", "first", "average"] as const;
 const formBehaviors = ["same", "fresh_randomized"] as const;
 const reviewTimings = ["immediate", "after_close", "never"] as const;
 const correctAnswerVisibilities = ["show", "hide"] as const;
+
+type VersionedQuizRecord = Prisma.StandaloneQuizGetPayload<{ include: typeof versionedQuizInclude }>;
+type VersionedQuizVersionRecord = VersionedQuizRecord["versions"][number];
+type StableQuizRecord = Prisma.StandaloneQuizGetPayload<{ include: typeof quizInclude }>;
+
+function activeVersionFor(record: VersionedQuizRecord) {
+  return record.versions.find((version) => version.state === StandaloneQuizVersionState.active) ?? null;
+}
+
+function draftVersionFor(record: VersionedQuizRecord) {
+  return record.versions.find((version) => version.state === StandaloneQuizVersionState.draft) ?? null;
+}
+
+function projectStandaloneQuizVersion(record: VersionedQuizRecord, version: VersionedQuizVersionRecord): StableQuizRecord {
+  return {
+    ...record,
+    assemblyDefinitionDigest: version.assemblyDefinitionDigest,
+    assemblyMode: version.assemblyMode,
+    assemblyPackageVersionId: version.assemblyPackageVersionId,
+    assemblySeed: version.assemblySeed,
+    attemptsAllowed: version.attemptsAllowed,
+    correctAnswerVisibility: version.correctAnswerVisibility,
+    description: version.description,
+    formBehavior: version.formBehavior,
+    items: version.items,
+    retryDelaySeconds: version.retryDelaySeconds,
+    reviewTiming: version.reviewTiming,
+    scorePolicy: version.scorePolicy,
+    sourceBankId: version.sourceBankId,
+    title: version.title,
+  } as unknown as StableQuizRecord;
+}
 
 function isOneOf<T extends string>(value: string, values: readonly T[]): value is T {
   return values.includes(value as T);
@@ -456,6 +501,58 @@ function toKaptenQuiz(record: Prisma.StandaloneQuizGetPayload<{ include: typeof 
   return { assembly, attemptsAllowed: record.attemptsAllowed, closesAt: record.closesAt?.toISOString().slice(0, 16), correctAnswerVisibility: record.correctAnswerVisibility, description: record.description ?? "", formBehavior: record.formBehavior, href: `/mentor/quiz/${record.id}`, id: record.id, opensAt: record.opensAt?.toISOString().slice(0, 16), primaryMetric: `${record.items.length} soal`, progress: record.items.length ? 100 : 0, questionCount: record.items.length, resourceType: "quiz", retryDelaySeconds: record.retryDelaySeconds, reviewTiming: record.reviewTiming, scorePolicy: record.scorePolicy, sourceBank: relationRecord.sourceBank?.name ?? (relationRecord.sourceBankId ? "Bank Soal Kuis" : "Soal lokal"), sourceBankId: relationRecord.sourceBankId ?? undefined, sourceMode: sourceModeForQuiz(record), status: record.status === ContentStatus.published ? "published" : record.status === ContentStatus.archived ? "archived" : "draft", subjectCode: record.subtest.code, subjectName: subject?.name ?? record.subtest.code, title: record.title, updatedAt: record.updatedAt.toISOString() };
 }
 
+function toKaptenQuizVersion(
+  record: VersionedQuizRecord,
+  version: VersionedQuizVersionRecord,
+  activeVersion: VersionedQuizVersionRecord | null = activeVersionFor(record),
+  draftVersion: VersionedQuizVersionRecord | null = draftVersionFor(record),
+) {
+  const quiz = toKaptenQuiz(projectStandaloneQuizVersion(record, version));
+  return {
+    ...quiz,
+    activeVersionId: activeVersion?.id,
+    activeVersionNo: activeVersion?.versionNo ?? undefined,
+    draftRevision: draftVersion?.draftRevision ?? null,
+    draftVersionId: draftVersion?.id,
+    hasUnpublishedChanges: Boolean(activeVersion && draftVersion && activeVersion.definitionDigest !== draftVersion.definitionDigest),
+    versionId: version.id,
+    versionNo: version.versionNo,
+  } satisfies KaptenQuiz;
+}
+
+type QuizReadClient = typeof prisma | Prisma.TransactionClient;
+
+async function findStandaloneQuizForRuntime(
+  client: QuizReadClient,
+  where: Prisma.StandaloneQuizWhereInput,
+  preferredVersionId?: string | null,
+) {
+  if (!isStandaloneQuizVersioningCutoverEnabled()) {
+    return client.standaloneQuiz.findFirst({ where, include: quizInclude });
+  }
+  const record = await client.standaloneQuiz.findFirst({ where, include: versionedQuizInclude });
+  if (!record) return null;
+  const version = preferredVersionId
+    ? record.versions.find((candidate) => candidate.id === preferredVersionId)
+    : activeVersionFor(record);
+  return version ? projectStandaloneQuizVersion(record, version) : record as unknown as StableQuizRecord;
+}
+
+async function findManyStandaloneQuizzesForRuntime(
+  client: QuizReadClient,
+  where: Prisma.StandaloneQuizWhereInput,
+  orderBy: Prisma.StandaloneQuizOrderByWithRelationInput | Prisma.StandaloneQuizOrderByWithRelationInput[],
+) {
+  if (!isStandaloneQuizVersioningCutoverEnabled()) {
+    return client.standaloneQuiz.findMany({ where, include: quizInclude, orderBy });
+  }
+  const records = await client.standaloneQuiz.findMany({ where, include: versionedQuizInclude, orderBy });
+  return records.map((record) => {
+    const active = activeVersionFor(record);
+    return active ? projectStandaloneQuizVersion(record, active) : record as unknown as StableQuizRecord;
+  });
+}
+
 function validateForPublication(
   input: SaveStandaloneQuizInput,
   opensAt: Date | null,
@@ -494,6 +591,10 @@ function hasSubmittedSourceFields(question: QuizQuestionSnapshot) {
 function correctChoiceIdsForSnapshot(question: QuizQuestionSnapshot) {
   const ids = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
   return [...new Set(ids)];
+}
+
+function snapshotChoiceIsCorrect(correctChoiceIds: readonly string[], choiceId: string, storedChoiceKey: string) {
+  return correctChoiceIds.includes(choiceId) || correctChoiceIds.includes(storedChoiceKey);
 }
 
 function answerModeForSnapshot(question: QuizQuestionSnapshot) {
@@ -565,7 +666,7 @@ async function writeStandaloneQuizItems(
       const answerKey = validateAnswerKey(answerMode, choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
       if (!answerKey.ok) throw new QuizValidationError("Kunci jawaban Kuis lokal tidak valid.");
       const item = await tx.standaloneQuizItem.create({ data: { difficulty: DifficultyLevel.medium, explanation: submitted.explanation || null, explanationAssetId: submitted.explanationMediaAssetId || null, prompt: submitted.prompt, promptAssetId: submitted.promptMediaAssetId || null, questionType: answerMode, quizId: input.quizId, sortOrder: index + 1, sourceContentDigest: null, sourceQuestionId: null, sourceQuestionRevisionId: null, sourceRevisionProvenance: null, subtestId: input.requestedSubtestId } });
-      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: correctChoiceIds.includes(choice.id), quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: null })) });
+      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: snapshotChoiceIsCorrect(correctChoiceIds, choice.id, String.fromCharCode(65 + optionIndex)), quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: null })) });
     }));
     return;
   }
@@ -613,7 +714,7 @@ async function writeStandaloneQuizItems(
           assetId: choice.mediaAssetId || null,
           choiceKey: String.fromCharCode(65 + optionIndex),
           content: choice.text,
-          isCorrect: correctChoiceIds.includes(choice.id),
+          isCorrect: snapshotChoiceIsCorrect(correctChoiceIds, choice.id, String.fromCharCode(65 + optionIndex)),
           quizItemId: item.id,
           sortOrder: optionIndex,
           sourceQuestionOptionId: old?.sourceQuestionOptionId ?? null,
@@ -624,7 +725,578 @@ async function writeStandaloneQuizItems(
   }));
 }
 
+type VersionedQuizItemInput = {
+  existingItems: Array<Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }> >;
+  mode: "local" | "bank";
+  questions: readonly QuizQuestionSnapshot[];
+  quizId: string;
+  quizVersionId: string;
+  requestedSubtestId: string;
+  sourceBankId: string | null;
+};
+
+async function writeStandaloneQuizVersionItems(
+  tx: Prisma.TransactionClient,
+  input: VersionedQuizItemInput,
+) {
+  await tx.standaloneQuizItem.deleteMany({ where: { quizVersionId: input.quizVersionId } });
+
+  if (input.mode === "local") {
+    if (input.sourceBankId || input.questions.some(hasSubmittedSourceFields)) {
+      throw new QuizValidationError("Kuis lokal tidak boleh menyimpan atribusi Bank Soal.");
+    }
+    await Promise.all(input.questions.map(async (submitted, index) => {
+      const choices = submitted.choices.map((choice, choiceIndex) => ({ ...choice, id: choice.id || String.fromCharCode(97 + choiceIndex) }));
+      const correctChoiceIds = correctChoiceIdsForSnapshot({ ...submitted, choices });
+      const answerMode = answerModeForSnapshot(submitted);
+      const answerKey = validateAnswerKey(answerMode, choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+      if (!answerKey.ok) throw new QuizValidationError("Kunci jawaban Kuis lokal tidak valid.");
+      const item = await tx.standaloneQuizItem.create({
+        data: {
+          difficulty: DifficultyLevel.medium,
+          explanation: submitted.explanation || null,
+          explanationAssetId: submitted.explanationMediaAssetId || null,
+          prompt: submitted.prompt,
+          promptAssetId: submitted.promptMediaAssetId || null,
+          questionType: answerMode,
+          quizId: input.quizId,
+          quizVersionId: input.quizVersionId,
+          sortOrder: index + 1,
+          sourceContentDigest: null,
+          sourceQuestionId: null,
+          sourceQuestionRevisionId: null,
+          sourceRevisionProvenance: null,
+          subtestId: input.requestedSubtestId,
+        },
+      });
+      await tx.standaloneQuizItemOption.createMany({
+        data: choices.map((choice, optionIndex) => ({
+          assetId: choice.mediaAssetId || null,
+          choiceKey: String.fromCharCode(65 + optionIndex),
+          content: choice.text,
+          isCorrect: snapshotChoiceIsCorrect(correctChoiceIds, choice.id, String.fromCharCode(65 + optionIndex)),
+          quizItemId: item.id,
+          sortOrder: optionIndex,
+          sourceQuestionOptionId: null,
+          sourceQuestionRevisionOptionId: null,
+        })),
+      });
+    }));
+  } else {
+    if (!input.sourceBankId) throw new QuizValidationError("Kuis Bank Soal memerlukan satu Bank sumber.");
+    if (!input.questions.length) throw new QuizValidationError("Pilih minimal satu soal dari Bank Soal Kuis.");
+    if (new Set(input.questions.map((question) => question.id)).size !== input.questions.length) throw new QuizValidationError("Setiap soal Bank hanya boleh muncul satu kali.");
+    const existingById = new Map(input.existingItems.map((item) => [item.id, item]));
+    const selectedItems = input.questions.map((submitted) => {
+      const existing = existingById.get(submitted.id);
+      if (!existing || existing.sourceQuestionId === null || existing.sourceQuestionRevisionId === null || existing.sourceContentDigest === null || existing.sourceRevisionProvenance === null) {
+        throw new QuizValidationError("Soal baru pada Kuis Bank Soal harus diimpor melalui perintah Import.");
+      }
+      if (existing.subtestId !== input.requestedSubtestId) throw new QuizValidationError("Semua soal Bank dalam Kuis harus memakai Subtest yang sama.");
+      if (!snapshotMatchesStoredBankItem(submitted, existing)) throw new QuizValidationError("Konten soal Bank Soal hanya dapat diubah dari editor Bank Soal.");
+      return { existing, submitted };
+    });
+    await assertStoredBankItemLineage(tx, input.sourceBankId, selectedItems.map(({ existing }) => existing));
+    await Promise.all(selectedItems.map(async ({ existing }, index) => {
+      const persistedSnapshot = toSnapshot(existing);
+      const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+      const item = await tx.standaloneQuizItem.create({
+        data: {
+          difficulty: existing.difficulty,
+          explanation: existing.explanation,
+          explanationAssetId: existing.explanationAssetId,
+          prompt: existing.prompt,
+          promptAssetId: existing.promptAssetId,
+          questionType: answerModeForQuestionType(existing.questionType) ?? "single_choice",
+          quizId: input.quizId,
+          quizVersionId: input.quizVersionId,
+          sortOrder: index + 1,
+          sourceContentDigest: existing.sourceContentDigest,
+          sourceQuestionId: existing.sourceQuestionId,
+          sourceQuestionRevisionId: existing.sourceQuestionRevisionId,
+          sourceRevisionProvenance: existing.sourceRevisionProvenance,
+          subtestId: existing.subtestId,
+        },
+      });
+      const existingOptions = existing.options.slice().sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+      await tx.standaloneQuizItemOption.createMany({
+        data: persistedSnapshot.choices.map((choice, optionIndex) => {
+          const old = existingOptions[optionIndex];
+          return {
+            assetId: choice.mediaAssetId || null,
+            choiceKey: String.fromCharCode(65 + optionIndex),
+            content: choice.text,
+            isCorrect: snapshotChoiceIsCorrect(correctChoiceIds, choice.id, String.fromCharCode(65 + optionIndex)),
+            quizItemId: item.id,
+            sortOrder: optionIndex,
+            sourceQuestionOptionId: old?.sourceQuestionOptionId ?? null,
+            sourceQuestionRevisionOptionId: old?.sourceQuestionRevisionOptionId ?? null,
+          };
+        }),
+      });
+    }));
+  }
+
+  const savedItems = await tx.standaloneQuizItem.findMany({
+    where: { quizVersionId: input.quizVersionId },
+    include: { options: { orderBy: { sortOrder: "asc" } } },
+    orderBy: { sortOrder: "asc" },
+  });
+  return savedItems.map(toSnapshot);
+}
+
+type VersionedMaterializedQuizQuestion = {
+  difficulty: DifficultyLevel;
+  explanation: string | null;
+  explanationAssetId: string | null;
+  options: readonly {
+    assetId: string | null;
+    choiceKey: string;
+    content: string;
+    isCorrect: boolean;
+    sortOrder: number;
+    sourceQuestionRevisionOptionId: string | null;
+  }[];
+  prompt: string;
+  promptAssetId: string | null;
+  questionType: QuestionType;
+  sourceContentDigest: string;
+  sourceQuestionId: string;
+  sourceQuestionRevisionId: string;
+  sourceRevisionProvenance: QuestionRevisionProvenance;
+  subtestId: string;
+};
+
+async function writeStandaloneQuizVersionMaterializedItems(
+  tx: Prisma.TransactionClient,
+  input: {
+    quizId: string;
+    quizVersionId: string;
+    questions: readonly VersionedMaterializedQuizQuestion[];
+  },
+) {
+  await tx.standaloneQuizItem.deleteMany({ where: { quizVersionId: input.quizVersionId } });
+  await Promise.all(input.questions.map(async (question, index) => {
+    const item = await tx.standaloneQuizItem.create({
+      data: {
+        difficulty: question.difficulty,
+        explanation: question.explanation,
+        explanationAssetId: question.explanationAssetId,
+        prompt: question.prompt,
+        promptAssetId: question.promptAssetId,
+        questionType: answerModeForQuestionType(question.questionType) ?? "single_choice",
+        quizId: input.quizId,
+        quizVersionId: input.quizVersionId,
+        sortOrder: index + 1,
+        sourceContentDigest: question.sourceContentDigest,
+        sourceQuestionId: question.sourceQuestionId,
+        sourceQuestionRevisionId: question.sourceQuestionRevisionId,
+        sourceRevisionProvenance: question.sourceRevisionProvenance,
+        subtestId: question.subtestId,
+      },
+    });
+    await tx.standaloneQuizItemOption.createMany({
+      data: question.options.map((option) => ({
+        assetId: option.assetId,
+        choiceKey: option.choiceKey,
+        content: option.content,
+        isCorrect: option.isCorrect,
+        quizItemId: item.id,
+        sortOrder: option.sortOrder,
+        sourceQuestionOptionId: null,
+        sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+      })),
+    });
+  }));
+  const savedItems = await tx.standaloneQuizItem.findMany({
+    where: { quizVersionId: input.quizVersionId },
+    include: { options: { orderBy: { sortOrder: "asc" } } },
+    orderBy: { sortOrder: "asc" },
+  });
+  return savedItems.map(toSnapshot);
+}
+
+function versionFieldsFrom(source: {
+  assemblyDefinitionDigest?: string | null;
+  assemblyMode?: ReusableQuestionPackageMode | null;
+  assemblyPackageVersionId?: string | null;
+  assemblySeed?: string | null;
+  attemptsAllowed?: number | null;
+  correctAnswerVisibility?: QuizCorrectAnswerVisibility;
+  description?: string | null;
+  formBehavior?: QuizFormBehavior;
+  retryDelaySeconds?: number | null;
+  reviewTiming?: QuizReviewTiming;
+  scorePolicy?: QuizScorePolicy;
+  sourceBankId?: string | null;
+  title: string;
+}) {
+  return {
+    assemblyDefinitionDigest: source.assemblyDefinitionDigest ?? null,
+    assemblyMode: source.assemblyMode ?? null,
+    assemblyPackageVersionId: source.assemblyPackageVersionId ?? null,
+    assemblySeed: source.assemblySeed ?? null,
+    attemptsAllowed: source.attemptsAllowed === undefined ? 1 : source.attemptsAllowed,
+    correctAnswerVisibility: source.correctAnswerVisibility ?? "show",
+    description: source.description ?? null,
+    formBehavior: source.formBehavior ?? "same",
+    retryDelaySeconds: source.retryDelaySeconds ?? null,
+    reviewTiming: source.reviewTiming ?? "immediate",
+    scorePolicy: source.scorePolicy ?? "latest",
+    sourceBankId: source.sourceBankId ?? null,
+    title: source.title,
+  } as const;
+}
+
+async function cloneStandaloneQuizVersionItems(
+  tx: Prisma.TransactionClient,
+  input: {
+    quizId: string;
+    quizVersionId: string;
+    sourceItems: readonly Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>[];
+  },
+) {
+  await tx.standaloneQuizItem.deleteMany({ where: { quizVersionId: input.quizVersionId } });
+  await Promise.all(input.sourceItems.map(async (source, index) => {
+    const item = await tx.standaloneQuizItem.create({
+      data: {
+        difficulty: source.difficulty,
+        explanation: source.explanation,
+        explanationAssetId: source.explanationAssetId,
+        prompt: source.prompt,
+        promptAssetId: source.promptAssetId,
+        questionType: source.questionType,
+        quizId: input.quizId,
+        quizVersionId: input.quizVersionId,
+        sortOrder: index + 1,
+        sourceContentDigest: source.sourceContentDigest,
+        sourceQuestionId: source.sourceQuestionId,
+        sourceQuestionRevisionId: source.sourceQuestionRevisionId,
+        sourceRevisionProvenance: source.sourceRevisionProvenance,
+        subtestId: source.subtestId,
+      },
+    });
+    await tx.standaloneQuizItemOption.createMany({
+      data: source.options.map((option, optionIndex) => ({
+        assetId: option.assetId,
+        choiceKey: option.choiceKey,
+        content: option.content,
+        isCorrect: option.isCorrect,
+        quizItemId: item.id,
+        sortOrder: optionIndex,
+        sourceQuestionOptionId: option.sourceQuestionOptionId,
+        sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+      })),
+    });
+  }));
+  return tx.standaloneQuizItem.findMany({
+    where: { quizVersionId: input.quizVersionId },
+    include: { options: { orderBy: { sortOrder: "asc" } } },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+async function ensureStandaloneQuizDraft(
+  tx: Prisma.TransactionClient,
+  record: VersionedQuizRecord,
+) {
+  const existingDraft = draftVersionFor(record);
+  if (existingDraft) return existingDraft;
+  const base = activeVersionFor(record);
+  const source = base ?? record;
+  const created = await tx.standaloneQuizVersion.create({
+    data: {
+      ...versionFieldsFrom(source),
+      baseVersionId: base?.id ?? null,
+      definitionDigest: base?.definitionDigest ?? null,
+      draftRevision: 0,
+      provenance: StandaloneQuizVersionProvenance.runtime,
+      publishRequestId: null,
+      publishedAt: null,
+      publishedByUserId: null,
+      state: StandaloneQuizVersionState.draft,
+      quizId: record.id,
+    },
+    include: quizVersionItemsInclude,
+  });
+  return created;
+}
+
+async function ensureStandaloneQuizDraftItems(
+  tx: Prisma.TransactionClient,
+  record: VersionedQuizRecord,
+  draft: VersionedQuizVersionRecord,
+) {
+  if (draft.items.length) return draft;
+  const active = activeVersionFor(record);
+  if (!active?.items.length) return draft;
+  await cloneStandaloneQuizVersionItems(tx, {
+    quizId: record.id,
+    quizVersionId: draft.id,
+    sourceItems: active.items,
+  });
+  return tx.standaloneQuizVersion.findUniqueOrThrow({ where: { id: draft.id }, include: quizVersionItemsInclude });
+}
+
+function localSnapshotsFromVersion(version: VersionedQuizVersionRecord, fallback: readonly QuizQuestionSnapshot[]) {
+  const source = version.items.length ? version.items.map(toSnapshot) : fallback;
+  return source.map((question) => ({
+    ...question,
+    id: question.id,
+    origin: "local" as const,
+    sourceContentDigest: undefined,
+    sourceQuestionId: undefined,
+    sourceQuestionRevisionId: undefined,
+    sourceRevisionProvenance: undefined,
+  }));
+}
+
+function versionedDefinitionInputFromVersion(
+  version: VersionedQuizVersionRecord,
+  questions: readonly QuizQuestionSnapshot[],
+) {
+  return {
+    assemblyDefinitionDigest: version.assemblyDefinitionDigest,
+    assemblyMode: version.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
+    assemblyPackageVersionId: version.assemblyPackageVersionId,
+    assemblySeed: version.assemblySeed,
+    attemptsAllowed: version.attemptsAllowed,
+    correctAnswerVisibility: version.correctAnswerVisibility,
+    description: version.description ?? "",
+    formBehavior: version.formBehavior,
+    questions,
+    retryDelaySeconds: version.retryDelaySeconds,
+    reviewTiming: version.reviewTiming,
+    scorePolicy: version.scorePolicy,
+    sourceBankId: version.sourceBankId,
+    title: version.title,
+  };
+}
+
+function versionedQuizPolicyData(input: SaveStandaloneQuizInput, policy: ReturnType<typeof normalizeQuizPolicy>) {
+  return {
+    attemptsAllowed: policy.attemptsAllowed === undefined ? 1 : policy.attemptsAllowed,
+    correctAnswerVisibility: policy.correctAnswerVisibility ?? "show",
+    description: input.description.trim() || null,
+    formBehavior: policy.formBehavior ?? "same",
+    retryDelaySeconds: policy.retryDelaySeconds ?? null,
+    reviewTiming: policy.reviewTiming ?? "immediate",
+    scorePolicy: policy.scorePolicy ?? "latest",
+    title: input.title.trim() || "Draft Quiz Baru",
+  } as const;
+}
+
+async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutorId: string) {
+  const opensAt = parseOptionalDate(input.opensAt, "Waktu buka");
+  const closesAt = parseOptionalDate(input.closesAt, "Waktu tutup");
+  const policy = normalizeQuizPolicy(input);
+  if (input.publishRequestId !== undefined && input.publishRequestId !== null && !isUuid(input.publishRequestId)) {
+    throw new QuizValidationError("Permintaan terbit Kuis tidak valid.");
+  }
+  return prisma.$transaction(async (tx) => {
+    let record: VersionedQuizRecord | null = null;
+    if (input.id) {
+      await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.id}::uuid FOR UPDATE`;
+      record = await tx.standaloneQuiz.findFirst({
+        where: { id: input.id, createdByUserId: tutorId },
+        include: versionedQuizInclude,
+      });
+      if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    }
+
+    const requestedSubtest = await tx.subtest.findUnique({ where: { code: input.subjectCode } });
+    if (!requestedSubtest) throw new QuizValidationError("Subject quiz tidak valid.");
+    if (input.assemblyVersionId) throw new QuizValidationError("Gunakan perintah attachment khusus untuk mengikat assembly Kuis.");
+
+    const requestedMode = input.sourceMode ?? (input.sourceBankId ? "bank" : sourceModeForQuiz(record ?? {}));
+    if (requestedMode !== "local" && requestedMode !== "bank") throw new QuizValidationError("Mode sumber Kuis tidak valid.");
+    const active = record ? activeVersionFor(record) : null;
+    const draft = record ? draftVersionFor(record) : null;
+    const currentVersion = draft ?? active;
+    const currentMode = sourceModeForQuiz(currentVersion ?? record ?? {});
+    if (record) {
+      if (currentMode === "assembly") throw new QuizValidationError("Kuis yang terikat assembly harus diubah melalui perintah attachment atau pelepasan khusus.");
+      if (requestedMode !== currentMode) throw new QuizValidationError("Perubahan mode sumber Kuis harus memakai perintah transisi khusus.");
+      if (requestedMode === "bank" && input.sourceBankId && input.sourceBankId !== (currentVersion?.sourceBankId ?? record.sourceBankId)) throw new QuizValidationError("Pergantian Bank Soal harus memakai perintah transisi khusus.");
+      if (requestedMode === "local" && input.sourceBankId) throw new QuizValidationError("Kuis lokal tidak boleh memiliki Bank sumber.");
+      if (requestedMode === "bank" && record.subtestId !== requestedSubtest.id) throw new QuizValidationError("Subtest Kuis Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.");
+    } else if (requestedMode === "bank" || input.sourceBankId) {
+      throw new QuizValidationError("Buat Kuis terlebih dahulu, lalu impor soal dari Bank Soal Kuis.");
+    }
+
+    const sourceBankId = requestedMode === "bank" ? input.sourceBankId ?? currentVersion?.sourceBankId ?? record?.sourceBankId ?? null : null;
+    if (input.status === "published") {
+      validateForPublication({ ...input, assemblyVersionId: undefined, questions: input.questions }, opensAt, closesAt);
+    }
+
+    const metadata = versionedQuizPolicyData(input, policy);
+    if (!record) {
+      record = await tx.standaloneQuiz.create({
+        data: {
+          ...policy,
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+          closesAt,
+          createdByUserId: tutorId,
+          description: metadata.description,
+          opensAt,
+          slug: `${slugify(metadata.title)}-${crypto.randomUUID().slice(0, 8)}`,
+          sourceBankId: null,
+          status: input.status === "published" ? ContentStatus.published : ContentStatus.draft,
+          subtestId: requestedSubtest.id,
+          title: metadata.title,
+        },
+        include: versionedQuizInclude,
+      });
+    }
+
+    const stableRecord = record;
+    const existingDraft = draftVersionFor(stableRecord);
+    if (existingDraft && !draftRevisionMatches(input.expectedDraftRevision, existingDraft.draftRevision)) {
+      throw new QuizValidationError("Draf Kuis telah berubah di tab lain. Muat ulang sebelum menyimpan.");
+    }
+    const shouldPublish = input.status === "published";
+    const replayedPublication = shouldPublish && input.publishRequestId && record
+      ? record.versions.find((candidate) => candidate.publishRequestId === input.publishRequestId) ?? null
+      : null;
+    if (replayedPublication && record) return toKaptenQuizVersion(record, replayedPublication);
+    const baseVersion = activeVersionFor(stableRecord);
+    let version = existingDraft;
+    if (!version) {
+      version = await tx.standaloneQuizVersion.create({
+        data: {
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+          baseVersionId: baseVersion?.id ?? null,
+          definitionDigest: null,
+          draftRevision: 0,
+          formBehavior: metadata.formBehavior,
+          attemptsAllowed: metadata.attemptsAllowed,
+          correctAnswerVisibility: metadata.correctAnswerVisibility,
+          description: metadata.description,
+          provenance: StandaloneQuizVersionProvenance.runtime,
+          retryDelaySeconds: metadata.retryDelaySeconds,
+          reviewTiming: metadata.reviewTiming,
+          scorePolicy: metadata.scorePolicy,
+          sourceBankId,
+          state: StandaloneQuizVersionState.draft,
+          title: metadata.title,
+          quizId: stableRecord.id,
+        },
+        include: quizVersionItemsInclude,
+      });
+    }
+
+    const existingItems = version.items.length ? version.items : (baseVersion?.items ?? stableRecord.items);
+    const persistedQuestions = await writeStandaloneQuizVersionItems(tx, {
+      existingItems,
+      mode: requestedMode,
+      questions: input.questions,
+      quizId: stableRecord.id,
+      quizVersionId: version.id,
+      requestedSubtestId: requestedSubtest.id,
+      sourceBankId,
+    });
+    const definitionDigest = versionedDefinitionDigest({
+      attemptsAllowed: metadata.attemptsAllowed,
+      correctAnswerVisibility: metadata.correctAnswerVisibility,
+      description: metadata.description ?? "",
+      formBehavior: metadata.formBehavior,
+      questions: persistedQuestions,
+      retryDelaySeconds: metadata.retryDelaySeconds,
+      reviewTiming: metadata.reviewTiming,
+      scorePolicy: metadata.scorePolicy,
+      sourceBankId,
+      title: metadata.title,
+    });
+    const nextDraftRevision = (version.draftRevision ?? 0) + 1;
+    const updatedDraft = await tx.standaloneQuizVersion.update({
+      where: { id: version.id },
+      data: {
+        attemptsAllowed: metadata.attemptsAllowed,
+        correctAnswerVisibility: metadata.correctAnswerVisibility,
+        description: metadata.description,
+        draftRevision: nextDraftRevision,
+        formBehavior: metadata.formBehavior,
+        definitionDigest,
+        retryDelaySeconds: metadata.retryDelaySeconds,
+        reviewTiming: metadata.reviewTiming,
+        scorePolicy: metadata.scorePolicy,
+        sourceBankId,
+        state: StandaloneQuizVersionState.draft,
+        title: metadata.title,
+      },
+      include: quizVersionItemsInclude,
+    });
+
+    if (shouldPublish) {
+      const nextVersionNo = updatedDraft.versionNo ?? nextStandaloneQuizVersionNo(stableRecord.versions.map((candidate) => candidate.versionNo));
+      if (baseVersion) {
+        await tx.standaloneQuizVersion.update({ where: { id: baseVersion.id }, data: { state: StandaloneQuizVersionState.superseded } });
+      }
+      await tx.standaloneQuizVersion.update({
+        where: { id: updatedDraft.id },
+        data: {
+          baseVersionId: baseVersion?.id ?? updatedDraft.baseVersionId,
+          definitionDigest,
+          draftRevision: null,
+          publishedAt: new Date(),
+          publishedByUserId: tutorId,
+          publishRequestId: input.publishRequestId ?? crypto.randomUUID(),
+          state: StandaloneQuizVersionState.active,
+          versionNo: nextVersionNo,
+        },
+      });
+      await tx.standaloneQuiz.update({
+        where: { id: stableRecord.id },
+        data: {
+          ...policy,
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+          closesAt,
+          description: metadata.description,
+          opensAt,
+          revision: { increment: 1 },
+          sourceBankId,
+          status: ContentStatus.published,
+          subtestId: requestedSubtest.id,
+          title: metadata.title,
+        },
+      });
+    } else if (!baseVersion) {
+      await tx.standaloneQuiz.update({
+        where: { id: stableRecord.id },
+        data: {
+          ...policy,
+          closesAt,
+          description: metadata.description,
+          opensAt,
+          revision: { increment: 1 },
+          sourceBankId,
+          status: ContentStatus.draft,
+          subtestId: requestedSubtest.id,
+          title: metadata.title,
+        },
+      });
+    } else {
+      await tx.standaloneQuiz.update({ where: { id: stableRecord.id }, data: { revision: { increment: 1 } } });
+    }
+
+    const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: stableRecord.id }, include: versionedQuizInclude });
+    const selectedVersion = shouldPublish ? activeVersionFor(saved) : draftVersionFor(saved) ?? activeVersionFor(saved);
+    if (!selectedVersion) throw new QuizValidationError("Versi Kuis tidak dapat dibentuk.");
+    return toKaptenQuizVersion(saved, selectedVersion);
+  });
+}
+
 async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return saveStandaloneQuizVersioned(input, tutorId);
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka"); const closesAt = parseOptionalDate(input.closesAt, "Waktu tutup");
   const policy = normalizeQuizPolicy(input);
   return prisma.$transaction(async (tx) => {
@@ -670,13 +1342,106 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
 type TransitionStandaloneQuizSourceModeInput = {
   bankId?: string | null;
   expectedSources?: readonly QuizBankImportSelection[];
+  expectedDraftRevision?: number | null;
   mode: "local" | "bank";
   questionIds?: readonly string[];
   quizId: string;
   subtestCode?: string;
 };
 
+async function transitionStandaloneQuizSourceModeVersioned(
+  input: TransitionStandaloneQuizSourceModeInput,
+  tutorId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id: input.quizId, createdByUserId: tutorId },
+      include: versionedQuizInclude,
+    });
+    if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    if (await tx.standaloneQuizParticipation.count({ where: { quizId: input.quizId } })) {
+      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
+    }
+
+    const active = activeVersionFor(record);
+    const current = draftVersionFor(record) ?? active;
+    if (record.assemblyPackageVersionId || current?.assemblyPackageVersionId) {
+      throw new QuizValidationError("Kuis yang terikat assembly harus dilepas melalui perintah khusus sebelum mengganti sumber.");
+    }
+
+    const draft = await ensureStandaloneQuizDraft(tx, record);
+    if (!draftRevisionMatches(input.expectedDraftRevision, draft.draftRevision)) {
+      throw new QuizValidationError("Draf Kuis telah berubah di tab lain. Muat ulang sebelum mengganti sumber.");
+    }
+    const requestedSubtest = input.subtestCode ?? record.subtest.code;
+    let sourceBankId: string | null = null;
+    let questions: QuizQuestionSnapshot[];
+
+    if (input.mode === "local") {
+      questions = localSnapshotsFromVersion(draft, record.items.map(toSnapshot));
+      const savedItems = await writeStandaloneQuizVersionItems(tx, {
+        existingItems: draft.items.length ? draft.items : (active?.items ?? record.items),
+        mode: "local",
+        questions,
+        quizId: record.id,
+        quizVersionId: draft.id,
+        requestedSubtestId: record.subtestId,
+        sourceBankId: null,
+      });
+      questions = savedItems;
+    } else {
+      if (!input.bankId) throw new QuizValidationError("Pilih satu Bank Soal Kuis.");
+      const materialized = await readReadyQuizBankSources(tx, {
+        bankId: input.bankId,
+        expectedSources: input.expectedSources,
+        questionIds: input.questionIds ?? [],
+        subtestCode: requestedSubtest,
+      });
+      questions = await writeStandaloneQuizVersionMaterializedItems(tx, {
+        questions: materialized,
+        quizId: record.id,
+        quizVersionId: draft.id,
+      });
+      sourceBankId = input.bankId;
+    }
+
+    const definitionDigest = versionedDefinitionDigest(versionedDefinitionInputFromVersion(
+      { ...draft, sourceBankId } as VersionedQuizVersionRecord,
+      questions,
+    ));
+    const updatedDraft = await tx.standaloneQuizVersion.update({
+      where: { id: draft.id },
+      data: {
+        assemblyDefinitionDigest: null,
+        assemblyMode: null,
+        assemblyPackageVersionId: null,
+        assemblySeed: null,
+        definitionDigest,
+        draftRevision: (draft.draftRevision ?? 0) + 1,
+        sourceBankId,
+        state: StandaloneQuizVersionState.draft,
+      },
+      include: quizVersionItemsInclude,
+    });
+
+    if (!active) {
+      await tx.standaloneQuiz.update({
+        where: { id: record.id },
+        data: { revision: { increment: 1 }, sourceBankId },
+      });
+    } else {
+      await tx.standaloneQuiz.update({ where: { id: record.id }, data: { revision: { increment: 1 } } });
+    }
+
+    const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: record.id }, include: versionedQuizInclude });
+    const returnedDraft = draftVersionFor(saved) ?? updatedDraft;
+    return { quiz: toKaptenQuizVersion(saved, returnedDraft), questions: returnedDraft.items.map(toSnapshot) };
+  });
+}
+
 async function transitionStandaloneQuizSourceMode(input: TransitionStandaloneQuizSourceModeInput, tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return transitionStandaloneQuizSourceModeVersioned(input, tutorId);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
@@ -777,10 +1542,116 @@ type AcceptStandaloneQuizQuestionUpdateInput = {
   targetRevisionId: string;
 };
 
+async function acceptStandaloneQuizQuestionUpdateVersioned(
+  input: AcceptStandaloneQuizQuestionUpdateInput,
+  tutorId: string,
+) {
+  if (!input.expectedCurrentContentDigest.trim()
+    || !input.expectedCurrentRevisionId.trim()
+    || !input.targetContentDigest.trim()
+    || !input.targetRevisionId.trim()) {
+    throw new QuizValidationError("Identitas revisi Bank Soal tidak lengkap. Muat ulang Kuis lalu coba lagi.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id: input.quizId, createdByUserId: tutorId },
+      include: versionedQuizInclude,
+    });
+    if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    if (record.status !== ContentStatus.draft) {
+      throw new QuizValidationError("Jadikan Kuis draf sebelum menerima revisi Bank Soal agar rilis yang sudah terbit tetap tidak berubah.");
+    }
+    if (await tx.standaloneQuizParticipation.count({ where: { quizId: input.quizId } })) {
+      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
+    }
+    const active = activeVersionFor(record);
+    const draft = await ensureStandaloneQuizDraftItems(tx, record, await ensureStandaloneQuizDraft(tx, record));
+    const item = draft.items.find((candidate) => candidate.id === input.quizItemId)
+      ?? (active?.items.find((candidate) => candidate.id === input.quizItemId)
+        ? draft.items.find((candidate) => candidate.sourceQuestionId === active.items.find((activeItem) => activeItem.id === input.quizItemId)?.sourceQuestionId)
+        : null);
+    if (!item) throw new QuizValidationError("Soal Kuis tidak ditemukan.");
+    if (item.sourceQuestionId === null || item.sourceQuestionRevisionId === null || item.sourceContentDigest === null || item.sourceRevisionProvenance === "legacy_unknown") {
+      throw new QuizValidationError("Soal ini tidak memiliki atribusi revisi Bank Soal yang dapat ditinjau.");
+    }
+    if (item.sourceQuestionRevisionId !== input.expectedCurrentRevisionId || item.sourceContentDigest !== input.expectedCurrentContentDigest) {
+      throw new QuizValidationError("Kuis telah berubah sejak tinjauan dibuka. Muat ulang lalu tinjau kembali.");
+    }
+
+    await tx.$queryRaw`
+      SELECT q.id
+      FROM questions q
+      JOIN question_banks b ON b.id = q.question_bank_id
+      JOIN question_revisions r ON r.id = q.current_revision_id
+      WHERE q.id = ${item.sourceQuestionId}::uuid
+      FOR SHARE OF q, b, r
+    `;
+    const source = await tx.question.findFirst({ where: { id: item.sourceQuestionId }, include: quizSourceInclude });
+    if (!source?.currentRevision
+      || source.currentRevision.id !== input.targetRevisionId
+      || source.currentRevision.contentDigest !== input.targetContentDigest) {
+      throw new QuizValidationError("Revisi Bank Soal berubah. Muat ulang lalu tinjau kembali.");
+    }
+    if (source.currentRevision.id === item.sourceQuestionRevisionId && source.currentRevision.contentDigest === item.sourceContentDigest) {
+      throw new QuizValidationError("Revisi Bank Soal sudah diterapkan pada Kuis ini.");
+    }
+    assertReadyBankSources([source], record.subtest.code, draft.sourceBankId ?? record.sourceBankId ?? "", QuestionBankPurpose.quiz);
+    const materialized = materializedQuizQuestion(source);
+    await tx.standaloneQuizItem.update({
+      where: { id: item.id },
+      data: {
+        difficulty: materialized.difficulty,
+        explanation: materialized.explanation,
+        explanationAssetId: materialized.explanationAssetId,
+        prompt: materialized.prompt,
+        promptAssetId: materialized.promptAssetId,
+        questionType: answerModeForQuestionType(materialized.questionType) ?? "single_choice",
+        sourceContentDigest: materialized.sourceContentDigest,
+        sourceQuestionId: materialized.sourceQuestionId,
+        sourceQuestionRevisionId: materialized.sourceQuestionRevisionId,
+        sourceRevisionProvenance: materialized.sourceRevisionProvenance,
+        subtestId: materialized.subtestId,
+      },
+    });
+    await tx.standaloneQuizItemOption.deleteMany({ where: { quizItemId: item.id } });
+    await tx.standaloneQuizItemOption.createMany({
+      data: materialized.options.map((option) => ({
+        assetId: option.assetId,
+        choiceKey: option.choiceKey,
+        content: option.content,
+        isCorrect: option.isCorrect,
+        quizItemId: item.id,
+        sortOrder: option.sortOrder,
+        sourceQuestionOptionId: null,
+        sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+      })),
+    });
+    const updatedItems = await tx.standaloneQuizItem.findMany({
+      where: { quizVersionId: draft.id },
+      include: { options: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { sortOrder: "asc" },
+    });
+    const questions = updatedItems.map(toSnapshot);
+    const definitionDigest = versionedDefinitionDigest(versionedDefinitionInputFromVersion(draft, questions));
+    await tx.standaloneQuizVersion.update({
+      where: { id: draft.id },
+      data: { definitionDigest, draftRevision: (draft.draftRevision ?? 0) + 1, state: StandaloneQuizVersionState.draft },
+    });
+    await tx.standaloneQuiz.update({ where: { id: record.id }, data: { revision: { increment: 1 } } });
+    const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: record.id }, include: versionedQuizInclude });
+    const savedDraft = draftVersionFor(saved);
+    if (!savedDraft) throw new QuizValidationError("Draf Kuis tidak dapat dimuat ulang.");
+    return { quiz: toKaptenQuizVersion(saved, savedDraft), questions: savedDraft.items.map(toSnapshot) };
+  });
+}
+
 async function acceptStandaloneQuizQuestionUpdate(
   input: AcceptStandaloneQuizQuestionUpdateInput,
   tutorId: string,
 ) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return acceptStandaloneQuizQuestionUpdateVersioned(input, tutorId);
   if (!input.expectedCurrentContentDigest.trim()
     || !input.expectedCurrentRevisionId.trim()
     || !input.targetContentDigest.trim()
@@ -885,6 +1756,14 @@ async function acceptStandaloneQuizQuestionUpdate(
 }
 
 async function getMentorStandaloneQuiz(id: string, tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) {
+    const record = await prisma.standaloneQuiz.findFirst({ where: { id, createdByUserId: tutorId }, include: versionedQuizInclude });
+    if (!record) return null;
+    const version = draftVersionFor(record) ?? activeVersionFor(record);
+    if (!version) return { questions: [], quiz: toKaptenQuiz(record as unknown as StableQuizRecord) };
+    const questions = await getQuizQuestionsWithSourceUpdates(version.items, record.subtest.code);
+    return { questions, quiz: toKaptenQuizVersion(record, version) };
+  }
   const record = await prisma.standaloneQuiz.findFirst({ where: { id, createdByUserId: tutorId }, include: quizContentInclude });
   if (!record) return null;
   // Kuis-owned snapshots remain editable without traversing or revalidating the
@@ -894,7 +1773,91 @@ async function getMentorStandaloneQuiz(id: string, tutorId: string) {
   return { questions, quiz: toKaptenQuiz(record) };
 }
 
+async function attachStandaloneQuizAssemblyVersioned(quizId: string, versionId: string, tutorId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id: quizId, createdByUserId: tutorId },
+      include: versionedQuizInclude,
+    });
+    if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    if (await tx.standaloneQuizParticipation.count({ where: { quizId } })) {
+      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
+    }
+    const materialization = await resolveReadyAssemblyForKuis(tx, versionId, record.subtestId);
+    const active = activeVersionFor(record);
+    const draft = await ensureStandaloneQuizDraft(tx, record);
+    const questions = await writeStandaloneQuizVersionMaterializedItems(tx, {
+      questions: materialization.items.map((item) => ({
+        difficulty: item.difficulty,
+        explanation: item.explanation,
+        explanationAssetId: item.explanationAssetId,
+        options: item.options.map((option) => ({
+          assetId: option.assetId,
+          choiceKey: option.choiceKey,
+          content: option.content,
+          isCorrect: option.isCorrect,
+          sortOrder: option.sortOrder,
+          sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+        })),
+        prompt: item.prompt,
+        promptAssetId: item.promptAssetId,
+        questionType: item.questionType,
+        sourceContentDigest: item.sourceContentDigest,
+        sourceQuestionId: item.sourceQuestionId,
+        sourceQuestionRevisionId: item.sourceQuestionRevisionId,
+        sourceRevisionProvenance: item.sourceRevisionProvenance,
+        subtestId: item.subtestId,
+      })),
+      quizId: record.id,
+      quizVersionId: draft.id,
+    });
+    const versionIdentity = {
+      ...draft,
+      assemblyDefinitionDigest: materialization.assemblyDefinitionDigest,
+      assemblyMode: materialization.assemblyMode,
+      assemblyPackageVersionId: materialization.assemblyPackageVersionId,
+      assemblySeed: materialization.assemblySeed,
+      sourceBankId: materialization.sourceBankId,
+    } as VersionedQuizVersionRecord;
+    const definitionDigest = versionedDefinitionDigest(versionedDefinitionInputFromVersion(versionIdentity, questions));
+    const updatedDraft = await tx.standaloneQuizVersion.update({
+      where: { id: draft.id },
+      data: {
+        assemblyDefinitionDigest: materialization.assemblyDefinitionDigest,
+        assemblyMode: materialization.assemblyMode,
+        assemblyPackageVersionId: materialization.assemblyPackageVersionId,
+        assemblySeed: materialization.assemblySeed,
+        definitionDigest,
+        draftRevision: (draft.draftRevision ?? 0) + 1,
+        sourceBankId: materialization.sourceBankId,
+        state: StandaloneQuizVersionState.draft,
+      },
+      include: quizVersionItemsInclude,
+    });
+    if (!active) {
+      await tx.standaloneQuiz.update({
+        where: { id: record.id },
+        data: {
+          assemblyDefinitionDigest: materialization.assemblyDefinitionDigest,
+          assemblyMode: materialization.assemblyMode,
+          assemblyPackageVersionId: materialization.assemblyPackageVersionId,
+          assemblySeed: materialization.assemblySeed,
+          revision: { increment: 1 },
+          sourceBankId: materialization.sourceBankId,
+        },
+      });
+    } else {
+      await tx.standaloneQuiz.update({ where: { id: record.id }, data: { revision: { increment: 1 } } });
+    }
+    const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: record.id }, include: versionedQuizInclude });
+    const returnedDraft = draftVersionFor(saved) ?? updatedDraft;
+    return toKaptenQuizVersion(saved, returnedDraft);
+  });
+}
+
 async function attachStandaloneQuizAssembly(quizId: string, versionId: string, tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return attachStandaloneQuizAssemblyVersioned(quizId, versionId, tutorId);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
@@ -955,7 +1918,76 @@ async function attachStandaloneQuizAssembly(quizId: string, versionId: string, t
   });
 }
 
+async function detachStandaloneQuizAssemblyVersioned(quizId: string, tutorId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id: quizId, createdByUserId: tutorId },
+      include: versionedQuizInclude,
+    });
+    if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
+    if (await tx.standaloneQuizParticipation.count({ where: { quizId } })) {
+      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
+    }
+    const active = activeVersionFor(record);
+    const draft = await ensureStandaloneQuizDraftItems(tx, record, await ensureStandaloneQuizDraft(tx, record));
+    if (draft.assemblyPackageVersionId) {
+      try {
+        const materialization = await resolveReadyAssemblyForKuis(tx, draft.assemblyPackageVersionId, record.subtestId, {
+          expectedDefinitionDigest: draft.assemblyDefinitionDigest,
+          expectedMode: draft.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
+          seed: draft.assemblySeed,
+        });
+        assertAssemblyItemsMatch(draft.items, materialization);
+      } catch (error) {
+        if (error instanceof AssemblyValidationError) throw new QuizValidationError(error.message);
+        throw error;
+      }
+    }
+    const questions = draft.items.map(toSnapshot);
+    const versionIdentity = {
+      ...draft,
+      assemblyDefinitionDigest: null,
+      assemblyMode: null,
+      assemblyPackageVersionId: null,
+      assemblySeed: null,
+    } as VersionedQuizVersionRecord;
+    const definitionDigest = versionedDefinitionDigest(versionedDefinitionInputFromVersion(versionIdentity, questions));
+    const updatedDraft = await tx.standaloneQuizVersion.update({
+      where: { id: draft.id },
+      data: {
+        assemblyDefinitionDigest: null,
+        assemblyMode: null,
+        assemblyPackageVersionId: null,
+        assemblySeed: null,
+        definitionDigest,
+        draftRevision: (draft.draftRevision ?? 0) + 1,
+        state: StandaloneQuizVersionState.draft,
+      },
+      include: quizVersionItemsInclude,
+    });
+    if (!active) {
+      await tx.standaloneQuiz.update({
+        where: { id: record.id },
+        data: {
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+          revision: { increment: 1 },
+        },
+      });
+    } else {
+      await tx.standaloneQuiz.update({ where: { id: record.id }, data: { revision: { increment: 1 } } });
+    }
+    const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: record.id }, include: versionedQuizInclude });
+    const returnedDraft = draftVersionFor(saved) ?? updatedDraft;
+    return toKaptenQuizVersion(saved, returnedDraft);
+  });
+}
+
 async function detachStandaloneQuizAssembly(quizId: string, tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return detachStandaloneQuizAssemblyVersioned(quizId, tutorId);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({ where: { id: quizId, createdByUserId: tutorId }, include: quizInclude });
@@ -989,7 +2021,16 @@ async function detachStandaloneQuizAssembly(quizId: string, tutorId: string) {
     return toKaptenQuiz(saved);
   });
 }
-async function getMentorStandaloneQuizzes(tutorId: string) { return (await prisma.standaloneQuiz.findMany({ where: { createdByUserId: tutorId }, include: quizInclude, orderBy: { updatedAt: "desc" } })).map(toKaptenQuiz); }
+async function getMentorStandaloneQuizzes(tutorId: string) {
+  if (isStandaloneQuizVersioningCutoverEnabled()) {
+    const records = await prisma.standaloneQuiz.findMany({ where: { createdByUserId: tutorId }, include: versionedQuizInclude, orderBy: { updatedAt: "desc" } });
+    return records.map((record) => {
+      const version = draftVersionFor(record) ?? activeVersionFor(record);
+      return version ? toKaptenQuizVersion(record, version) : toKaptenQuiz(record as unknown as StableQuizRecord);
+    });
+  }
+  return (await prisma.standaloneQuiz.findMany({ where: { createdByUserId: tutorId }, include: quizInclude, orderBy: { updatedAt: "desc" } })).map(toKaptenQuiz);
+}
 async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
   const quiz = await prisma.standaloneQuiz.findFirst({
     where: { id: quizId, createdByUserId: tutorId },
@@ -1024,10 +2065,14 @@ async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
     },
   });
   if (!quiz) return null;
+  const runtimeQuiz = isStandaloneQuizVersioningCutoverEnabled()
+    ? await findStandaloneQuizForRuntime(prisma, { id: quiz.id })
+    : null;
+  const quizDefinition = runtimeQuiz ?? quiz;
   return {
     attempts: quiz.participations.flatMap((participation) => {
       const visibleAttempts = participation.attempts.filter((attempt) => attempt.status === "in_progress" || isReviewableStandaloneQuizAttemptStatus(attempt.status));
-      const participationPolicy = policyFromAttemptSnapshot(participation.policySnapshot, toQuizAttemptPolicy(quiz));
+      const participationPolicy = policyFromAttemptSnapshot(participation.policySnapshot, toQuizAttemptPolicy(quizDefinition));
       const finalScore = aggregateStandaloneQuizScore(visibleAttempts, participationPolicy.scorePolicy);
       return visibleAttempts.map((attempt) => ({
         attemptNo: attempt.attemptNo,
@@ -1056,12 +2101,12 @@ async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
       correctAnswerVisibility: quiz.correctAnswerVisibility,
       formBehavior: quiz.formBehavior,
       id: quiz.id,
-      questionCount: quiz.items.length,
-      retryDelaySeconds: quiz.retryDelaySeconds,
-      reviewTiming: quiz.reviewTiming,
-      scorePolicy: quiz.scorePolicy,
-      subject: quiz.subtest.code,
-      title: quiz.title,
+      questionCount: quizDefinition.items.length,
+      retryDelaySeconds: quizDefinition.retryDelaySeconds,
+      reviewTiming: quizDefinition.reviewTiming,
+      scorePolicy: quizDefinition.scorePolicy,
+      subject: quizDefinition.subtest.code,
+      title: quizDefinition.title,
     },
   };
 }
@@ -1075,6 +2120,7 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
       participation: {
         select: {
           policySnapshot: true,
+          quizVersionId: true,
           student: { select: { fullName: true } },
           quiz: {
             include: quizInclude,
@@ -1085,7 +2131,12 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
   });
   if (!attempt) return null;
   if (attempt.status !== "in_progress" && !isReviewableStandaloneQuizAttemptStatus(attempt.status)) return null;
-  const quiz = buildAttemptQuiz(attempt.participation.quiz, attempt);
+  const versionedQuiz = await resolveStandaloneQuizForAttempt(
+    prisma,
+    attempt.participation.quiz,
+    attempt.participation.quizVersionId,
+  );
+  const quiz = buildAttemptQuiz(versionedQuiz, attempt);
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
   const selectedOptionIdsByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, storedAnswerSelectionIds(answer) ?? []]));
   return {
@@ -1125,7 +2176,95 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
     },
   };
 }
+
+async function bulkUpdateStandaloneQuizLifecycleVersioned(
+  ids: string[],
+  tutorId: string,
+  operation: "publish" | "unpublish",
+) {
+  return prisma.$transaction(async (tx) => {
+    const uniqueIds = [...new Set(ids)];
+    const sortedIds = [...uniqueIds].sort();
+    await Promise.all(
+      sortedIds.map((id) => tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`),
+    );
+    const records = await tx.standaloneQuiz.findMany({
+      where: { id: { in: uniqueIds }, createdByUserId: tutorId },
+      include: versionedQuizInclude,
+    });
+    if (records.length !== uniqueIds.length) throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
+
+    if (operation === "publish") {
+      for (const record of records) {
+        const active = activeVersionFor(record);
+        const draft = draftVersionFor(record);
+        const version = draft ?? active ?? await ensureStandaloneQuizDraft(tx, record);
+        let publicationQuestions = version.items.map(toSnapshot);
+        if (version.assemblyPackageVersionId) {
+          try {
+            const materialization = await resolveReadyAssemblyForKuis(tx, version.assemblyPackageVersionId, record.subtestId, {
+              expectedDefinitionDigest: version.assemblyDefinitionDigest,
+              expectedMode: version.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
+              seed: version.assemblySeed,
+            });
+            assertAssemblyItemsMatch(version.items, materialization);
+            publicationQuestions = snapshotsFromAssembly(materialization);
+          } catch (error) {
+            if (error instanceof AssemblyValidationError) throw new QuizValidationError(error.message);
+            throw error;
+          }
+        }
+        validateForPublication({
+          assemblyVersionId: version.assemblyPackageVersionId ?? undefined,
+          closesAt: record.closesAt?.toISOString() ?? "",
+          description: version.description ?? "",
+          id: record.id,
+          opensAt: record.opensAt?.toISOString() ?? "",
+          questions: publicationQuestions,
+          sourceBankId: version.sourceBankId ?? undefined,
+          status: "published",
+          subjectCode: record.subtest.code,
+          title: version.title,
+        }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(version.assemblyPackageVersionId) });
+
+        if (version.state === StandaloneQuizVersionState.draft) {
+          if (active && active.id !== version.id) {
+            await tx.standaloneQuizVersion.update({ where: { id: active.id }, data: { state: StandaloneQuizVersionState.superseded } });
+          }
+          await tx.standaloneQuizVersion.update({
+            where: { id: version.id },
+            data: {
+              baseVersionId: active?.id ?? version.baseVersionId,
+              draftRevision: null,
+              publishedAt: new Date(),
+              publishedByUserId: tutorId,
+              publishRequestId: crypto.randomUUID(),
+              state: StandaloneQuizVersionState.active,
+              versionNo: version.versionNo ?? nextStandaloneQuizVersionNo(record.versions.map((candidate) => candidate.versionNo)),
+            },
+          });
+        }
+        await tx.standaloneQuiz.update({
+          where: { id: record.id },
+          data: {
+            ...versionFieldsFrom(version),
+            revision: { increment: 1 },
+            status: ContentStatus.published,
+          },
+        });
+      }
+    } else {
+      await tx.standaloneQuiz.updateMany({
+        where: { id: { in: uniqueIds }, createdByUserId: tutorId },
+        data: { revision: { increment: 1 }, status: ContentStatus.draft },
+      });
+    }
+    return { ids, status: operation === "publish" ? "published" as const : "draft" as const };
+  });
+}
+
 async function bulkUpdateStandaloneQuizLifecycle(ids: string[], tutorId: string, operation: "publish" | "unpublish") {
+  if (isStandaloneQuizVersioningCutoverEnabled()) return bulkUpdateStandaloneQuizLifecycleVersioned(ids, tutorId, operation);
   return prisma.$transaction(async (tx) => {
     const uniqueIds = [...new Set(ids)];
     const sortedIds = [...uniqueIds].sort();
@@ -1183,7 +2322,9 @@ async function updateStandaloneQuizLifecycle(id: string, tutorId: string, operat
   return toKaptenQuiz(saved);
 }
 function studentAvailabilityWhere(now = new Date()) { return { status: ContentStatus.published, AND: [{ OR: [{ opensAt: null }, { opensAt: { lte: now } }] }, { OR: [{ closesAt: null }, { closesAt: { gt: now } }] }] } satisfies Prisma.StandaloneQuizWhereInput; }
-async function getAvailableStandaloneQuiz(subjectCode: string, slug: string, now = new Date()) { return prisma.standaloneQuiz.findFirst({ where: { ...studentAvailabilityWhere(now), slug, subtest: { code: subjectCode } }, include: quizInclude }); }
+async function getAvailableStandaloneQuiz(subjectCode: string, slug: string, now = new Date()) {
+  return findStandaloneQuizForRuntime(prisma, { ...studentAvailabilityWhere(now), slug, subtest: { code: subjectCode } });
+}
 class QuizAttemptValidationError extends Error {}
 
 const terminalStandaloneQuizAttemptStatuses = ["submitted", "auto_submitted", "expired", "abandoned", "scored"] as const;
@@ -1233,6 +2374,15 @@ type AttemptFormSnapshot = {
 
 type QuizRecord = Prisma.StandaloneQuizGetPayload<{ include: typeof quizInclude }>;
 type QuizItemRecord = QuizRecord["items"][number];
+
+async function resolveStandaloneQuizForAttempt(
+  client: QuizReadClient,
+  quiz: QuizRecord,
+  preferredVersionId: string | null | undefined,
+) {
+  if (!isStandaloneQuizVersioningCutoverEnabled() || !preferredVersionId) return quiz;
+  return await findStandaloneQuizForRuntime(client, { id: quiz.id }, preferredVersionId) ?? quiz;
+}
 
 function toQuizAttemptPolicy(quiz: { attemptsAllowed: number | null; correctAnswerVisibility: QuizCorrectAnswerVisibility; formBehavior: QuizFormBehavior; retryDelaySeconds: number | null; reviewTiming: QuizReviewTiming; scorePolicy: QuizScorePolicy }): QuizAttemptPolicy {
   return {
@@ -1448,17 +2598,28 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
     // creating the first participation so concurrent Start calls cannot both
     // observe the same next attempt number or stale availability policy.
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${identity.id}::uuid FOR UPDATE`;
-    const quizRecord = await tx.standaloneQuiz.findUnique({ where: { id: identity.id }, include: quizInclude });
-    if (!quizRecord) return null;
+    const versionedQuizRecord = isStandaloneQuizVersioningCutoverEnabled()
+      ? await tx.standaloneQuiz.findUnique({ where: { id: identity.id }, include: versionedQuizInclude })
+      : null;
+    const loadedQuizRecord = versionedQuizRecord
+      ? (activeVersionFor(versionedQuizRecord) ? projectStandaloneQuizVersion(versionedQuizRecord, activeVersionFor(versionedQuizRecord)!) : versionedQuizRecord as unknown as StableQuizRecord)
+      : await tx.standaloneQuiz.findUnique({ where: { id: identity.id }, include: quizInclude });
+    if (!loadedQuizRecord) return null;
 
     // Replay an already accepted command before checking the current open
     // window. The request key identifies the original command, so a retry
     // after the window closes must not allocate a new attempt or lose the
     // original attempt ID.
     const existingParticipation = await tx.standaloneQuizParticipation.findUnique({
-      where: { quizId_studentId: { quizId: quizRecord.id, studentId } },
-      select: { id: true },
+      where: { quizId_studentId: { quizId: loadedQuizRecord.id, studentId } },
+      select: { id: true, quizVersionId: true },
     });
+    const pinnedVersion = versionedQuizRecord && existingParticipation?.quizVersionId
+      ? versionedQuizRecord.versions.find((version) => version.id === existingParticipation.quizVersionId) ?? null
+      : null;
+    const quizRecord = pinnedVersion && versionedQuizRecord
+      ? projectStandaloneQuizVersion(versionedQuizRecord, pinnedVersion)
+      : loadedQuizRecord;
     if (existingParticipation) {
       await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${existingParticipation.id}::uuid FOR UPDATE`;
       const replayedAttempt = await tx.standaloneQuizAttempt.findUnique({
@@ -1472,14 +2633,18 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
     }
 
     const checkNow = requestedNow ?? new Date();
-    const quiz = await tx.standaloneQuiz.findFirst({ where: { ...studentAvailabilityWhere(checkNow), id: identity.id }, include: quizInclude });
+    const quiz = await findStandaloneQuizForRuntime(tx, { ...studentAvailabilityWhere(checkNow), id: identity.id }, pinnedVersion?.id);
     if (!quiz) throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
 
     const participation = await tx.standaloneQuizParticipation.upsert({
       where: { quizId_studentId: { quizId: quiz.id, studentId } },
-      create: { policySnapshot: toQuizAttemptPolicy(quiz) as unknown as Prisma.InputJsonObject, quizId: quiz.id, studentId },
-      update: {},
-      select: { id: true, policySnapshot: true },
+      create: { policySnapshot: toQuizAttemptPolicy(quiz) as unknown as Prisma.InputJsonObject, quizId: quiz.id, quizVersionId: versionedQuizRecord ? pinnedVersion?.id ?? activeVersionFor(versionedQuizRecord)?.id ?? null : undefined, studentId },
+      update: {
+        quizVersionId: versionedQuizRecord
+          ? existingParticipation?.quizVersionId ?? activeVersionFor(versionedQuizRecord)?.id ?? null
+          : undefined,
+      },
+      select: { id: true, policySnapshot: true, quizVersionId: true },
     });
     await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${participation.id}::uuid FOR UPDATE`;
     const participationPolicy = policyFromAttemptSnapshot(participation.policySnapshot, toQuizAttemptPolicy(quiz));
@@ -1566,7 +2731,12 @@ async function getStandaloneQuizAttempt(subjectCode: string, slug: string, stude
   });
   if (!attempt) return null;
   if (attempt.status !== "in_progress" && !isReviewableStandaloneQuizAttemptStatus(attempt.status)) return null;
-  const quiz = buildAttemptQuiz(attempt.participation.quiz, attempt);
+  const versionedQuiz = await resolveStandaloneQuizForAttempt(
+    prisma,
+    attempt.participation.quiz,
+    attempt.participation.quizVersionId,
+  );
+  const quiz = buildAttemptQuiz(versionedQuiz, attempt);
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
   return { attempt, attemptId: attempt.id, attemptNo: attempt.attemptNo, policy, quiz: { ...quiz, ...policy } };
 }
@@ -1577,7 +2747,7 @@ async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, s
     await tx.$queryRaw`SELECT id FROM standalone_quiz_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
     const attempt = await tx.standaloneQuizAttempt.findFirst({
       where: { id: attemptId, participation: { studentId } },
-      select: { formSnapshot: true, id: true, participation: { select: { quizId: true } }, status: true },
+      select: { formSnapshot: true, id: true, participation: { select: { quizId: true, quizVersionId: true } }, status: true },
     });
     if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan atau sudah ditutup.");
     if (attempt.status !== "in_progress") throw new QuizAttemptValidationError("Quiz ini sudah dikirim dan jawabannya tidak dapat diubah.");
@@ -1586,9 +2756,12 @@ async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, s
     const snapshotItem = snapshot?.items.find((item) => item.id === quizItemId);
     const item = await tx.standaloneQuizItem.findFirst({
       where: { id: quizItemId, quizId: attempt.participation.quizId },
-      select: { options: { select: { id: true } }, questionType: true },
+      select: { options: { select: { id: true } }, questionType: true, quizVersionId: true },
     });
     if (!item) throw new QuizAttemptValidationError("Soal quiz tidak ditemukan.");
+    if (attempt.participation.quizVersionId && item.quizVersionId !== attempt.participation.quizVersionId) {
+      throw new QuizAttemptValidationError("Soal quiz tidak termasuk versi sesi ini.");
+    }
     const mode = snapshotItem?.questionType ?? answerModeForQuestionType(item.questionType) ?? "single_choice";
     const availableOptionIds = snapshotItem?.options.map((option) => option.id) ?? item.options.map((option) => option.id);
     const validation = validateSelectedOptionIds(mode, requestedOptionIds, availableOptionIds);
@@ -1621,7 +2794,7 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
       where: { id: attemptId, participation: { studentId } },
       include: {
         answers: true,
-        participation: { include: { quiz: { select: { closesAt: true, items: { select: { id: true } }, reviewTiming: true } } } },
+        participation: { include: { quiz: { select: { closesAt: true, id: true, items: { select: { id: true } }, reviewTiming: true } } } },
       },
     });
     if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan atau sudah ditutup.");
@@ -1629,13 +2802,28 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
 
     const submittedAt = new Date();
     const snapshot = parseAttemptFormSnapshot(attempt.formSnapshot);
-    const totalQuestions = snapshot?.items.length ?? attempt.participation.quiz.items.length;
+    let fallbackQuestionCount = attempt.participation.quiz.items.length;
+    let quizClosesAt = attempt.participation.quiz.closesAt;
+    let quizReviewTiming = attempt.participation.quiz.reviewTiming;
+    if (isStandaloneQuizVersioningCutoverEnabled()) {
+      const versionedQuiz = await findStandaloneQuizForRuntime(
+        tx,
+        { id: attempt.participation.quiz.id },
+        attempt.participation.quizVersionId,
+      );
+      if (versionedQuiz) {
+        fallbackQuestionCount = versionedQuiz.items.length;
+        quizClosesAt = versionedQuiz.closesAt;
+        quizReviewTiming = versionedQuiz.reviewTiming;
+      }
+    }
+    const totalQuestions = snapshot?.items.length ?? fallbackQuestionCount;
     const policy = policyFromAttemptSnapshot(attempt.policySnapshot, {
       attemptsAllowed: null,
       correctAnswerVisibility: "show",
       formBehavior: "same",
       retryDelaySeconds: null,
-      reviewTiming: attempt.participation.quiz.reviewTiming,
+      reviewTiming: quizReviewTiming,
       scorePolicy: "latest",
     });
 
@@ -1710,11 +2898,11 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
     let releaseState: AssessmentResultReleaseState = AssessmentResultReleaseState.hidden;
     let releaseAt: Date | null = null;
     if (policy.reviewTiming === "immediate") releaseState = AssessmentResultReleaseState.released;
-    else if (policy.reviewTiming === "after_close" && attempt.participation.quiz.closesAt) {
-      if (attempt.participation.quiz.closesAt <= submittedAt) releaseState = AssessmentResultReleaseState.released;
+    else if (policy.reviewTiming === "after_close" && quizClosesAt) {
+      if (quizClosesAt <= submittedAt) releaseState = AssessmentResultReleaseState.released;
       else {
         releaseState = AssessmentResultReleaseState.scheduled;
-        releaseAt = attempt.participation.quiz.closesAt;
+        releaseAt = quizClosesAt;
       }
     }
     await tx.standaloneQuizAttempt.update({
@@ -1783,7 +2971,12 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
   if (!attempt) return null;
   const reviewEligible = isReviewableStandaloneQuizAttemptStatus(attempt.status);
   if (!reviewEligible) return null;
-  const quiz = buildAttemptQuiz(attempt.participation.quiz, attempt);
+  const versionedQuiz = await resolveStandaloneQuizForAttempt(
+    prisma,
+    attempt.participation.quiz,
+    attempt.participation.quizVersionId,
+  );
+  const quiz = buildAttemptQuiz(versionedQuiz, attempt);
   const totalQuestions = quiz.items.length;
   const selectedOptionIdsByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, storedAnswerSelectionIds(answer) ?? []]));
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
@@ -1849,7 +3042,9 @@ async function getStandaloneQuizAttemptStatuses(studentId: string, quizIds: stri
     select: { attempts: { orderBy: { attemptNo: "desc" }, select: { attemptNo: true, id: true, status: true, submittedAt: true } }, policySnapshot: true, quizId: true },
   });
 }
-async function getAvailableStandaloneQuizCatalogue(now = new Date()) { return prisma.standaloneQuiz.findMany({ where: studentAvailabilityWhere(now), include: quizInclude, orderBy: { updatedAt: "desc" } }); }
+async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
+  return findManyStandaloneQuizzesForRuntime(prisma, studentAvailabilityWhere(now), { updatedAt: "desc" });
+}
 
 export { acceptStandaloneQuizQuestionUpdate, attachStandaloneQuizAssembly, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, detachStandaloneQuizAssembly, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizResults, getMentorStandaloneQuizSubmission, getMentorStandaloneQuizzes, getStandaloneQuizAttempt, getStandaloneQuizAttemptId, getStandaloneQuizAttemptStatuses, getStandaloneQuizResult, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, importStandaloneQuizBankQuestions, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus, saveStandaloneQuiz, saveStandaloneQuizAnswer, startStandaloneQuiz, studentAvailabilityWhere, submitStandaloneQuiz, terminalStandaloneQuizAttemptStatuses, transitionStandaloneQuizSourceMode, updateStandaloneQuizLifecycle, QuizAttemptValidationError, QuizValidationError };
 export type { AcceptStandaloneQuizQuestionUpdateInput, SaveStandaloneQuizInput, StandaloneQuizAssemblySummary, TransitionStandaloneQuizSourceModeInput };

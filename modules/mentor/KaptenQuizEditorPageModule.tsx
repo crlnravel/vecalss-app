@@ -16,7 +16,7 @@ import {
   Trash2,
   X,
 } from "@/lib/icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -841,24 +841,29 @@ function useQuizEditorPersistence({
   setSavedQuiz: (quiz: KaptenQuiz | null) => void;
   setHasUnsavedChanges: (value: boolean) => void;
 }) {
+  const publishRequestIdRef = useRef<string | null>(null);
   const saveQuiz = useCallback(async () => {
     if (isSaving || editorDisabled) return;
     setIsSaving(true);
     setSaveError(null);
     try {
+      const shouldPublish = savedQuiz?.status === "published";
+      if (shouldPublish && !publishRequestIdRef.current) publishRequestIdRef.current = crypto.randomUUID();
       const result = await saveStandaloneQuizAction({
         attemptsAllowed: form.attemptsAllowed,
         closesAt: form.closesAt,
         correctAnswerVisibility: form.correctAnswerVisibility,
         description: form.description,
+        expectedDraftRevision: savedQuiz?.draftRevision,
         formBehavior: form.formBehavior,
         id: savedQuiz?.id ?? quizId,
         opensAt: form.opensAt,
+        publishRequestId: shouldPublish ? publishRequestIdRef.current : null,
         questions: mode === "create" ? [] : cloneForSave(form.questions),
         retryDelaySeconds: form.retryDelaySeconds,
         reviewTiming: form.reviewTiming,
         scorePolicy: form.scorePolicy,
-        status: savedQuiz?.status === "published" ? "published" : "draft",
+        status: shouldPublish ? "published" : "draft",
         subjectCode: form.subjectCode,
         title: form.title,
       });
@@ -867,6 +872,7 @@ function useQuizEditorPersistence({
         return;
       }
       setSavedQuiz(result.quiz);
+      publishRequestIdRef.current = null;
       setHasUnsavedChanges(false);
       setSaveError(null);
       showToast("Perubahan Kuis tersimpan.", { variant: "success" });
@@ -1065,7 +1071,7 @@ function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
 
   return (
     <>
-      <QuestionBankPickerDialog key={`${state.questionBankPickerOpen ? "open" : "closed"}-${state.savedQuiz?.sourceBankId ?? "none"}`} currentQuestions={state.form.questions} disabled={state.editorDisabled} onImported={state.replaceImportedQuestions} onOpenChange={state.setQuestionBankPickerOpen} open={state.questionBankPickerOpen} quizId={state.savedQuiz?.id} sourceBankId={state.savedQuiz?.sourceBankId} subjectCode={state.form.subjectCode} />
+      <QuestionBankPickerDialog expectedDraftRevision={state.savedQuiz?.draftRevision} key={`${state.questionBankPickerOpen ? "open" : "closed"}-${state.savedQuiz?.sourceBankId ?? "none"}`} currentQuestions={state.form.questions} disabled={state.editorDisabled} onImported={state.replaceImportedQuestions} onOpenChange={state.setQuestionBankPickerOpen} open={state.questionBankPickerOpen} quizId={state.savedQuiz?.id} sourceBankId={state.savedQuiz?.sourceBankId} subjectCode={state.form.subjectCode} />
       <MediaPickerDialog onOpenChange={(open) => { if (!open) state.setMediaPickerTarget(null); }} onSelect={(asset) => state.choiceActions.selectMediaAsset(asset, state.mediaPickerTarget)} open={Boolean(state.mediaPickerTarget)} selectedAssetId={selectedAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
       <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingDeleteId(null); }} open={Boolean(state.pendingDeleteId)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (state.pendingDeleteId) state.questionActions.removeQuestion(state.pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog onOpenChange={(open) => { if (!open) state.setPendingExitRoute(null); }} open={Boolean(state.pendingExitRoute)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle><AlertDialogDescription>Perubahan Kuis yang belum disimpan akan hilang.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => state.setPendingExitRoute(null)}>Tetap di editor</AlertDialogCancel><AlertDialogAction onClick={() => { const route = state.pendingExitRoute; state.setPendingExitRoute(null); if (route) state.router.push(route); }} variant="destructive">Keluar tanpa menyimpan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

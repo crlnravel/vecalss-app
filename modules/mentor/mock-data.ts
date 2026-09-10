@@ -43,8 +43,13 @@ type KaptenQuiz = KaptenResource & {
     versionNo: number;
   } | null;
   attemptsAllowed?: number | null;
+  activeVersionId?: string;
+  activeVersionNo?: number;
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
+  draftRevision?: number | null;
+  draftVersionId?: string;
   formBehavior?: QuizFormBehavior;
+  hasUnpublishedChanges?: boolean;
   questionCount: number;
   retryDelaySeconds?: number | null;
   reviewTiming?: QuizReviewTiming;
@@ -52,6 +57,8 @@ type KaptenQuiz = KaptenResource & {
   sourceBank: string;
   sourceBankId?: string;
   sourceMode?: "local" | "bank" | "assembly";
+  versionId?: string;
+  versionNo?: number | null;
 };
 
 type KaptenQuestionBank = KaptenResource & {
