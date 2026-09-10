@@ -131,6 +131,7 @@
     "test:kuis-assembly-binding": "tsx scripts/test-kuis-assembly-binding.ts",
     "test:kuis-ui-first-workspace": "tsx scripts/test-kuis-ui-first-workspace.ts",
     "test:kuis-versioning": "tsx scripts/test-kuis-versioning.ts",
+    "test:assessment-answer-contract": "tsx scripts/test-assessment-answer-contract.ts",
     "test:random-assembly-release": "tsx scripts/test-random-assembly-release.ts",
     "test:cat-pool-release": "tsx scripts/test-cat-pool-release.ts",
     "test:tryout-direct-question-picks": "tsx scripts/test-tryout-direct-question-picks.ts",
