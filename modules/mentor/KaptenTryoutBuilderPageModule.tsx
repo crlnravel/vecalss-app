@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -802,15 +804,29 @@ function TryoutSourceQuestionList({
   onQuestionPageChange,
   onQuestionSearchChange,
   onToggleQuestion,
+  onUpdateSection,
   selectedSourceQuestionIdsSet,
   sourceQuestionLoading,
   sourceQuestionPage,
   sourceQuestionSearch,
   sourceQuestionTotal,
   saving,
-}: Pick<TryoutSectionsTabProps, "activeBrowseBank" | "activeDirectQuestions" | "activeSection" | "activeSourceQuestions" | "browseBankId" | "draft" | "onQuestionPageChange" | "onQuestionSearchChange" | "onToggleQuestion" | "selectedSourceQuestionIdsSet" | "sourceQuestionLoading" | "sourceQuestionPage" | "sourceQuestionSearch" | "sourceQuestionTotal" | "saving"> & { onPreviewQuestion: (question: SourceQuestion) => void }) {
+}: Pick<TryoutSectionsTabProps, "activeBrowseBank" | "activeDirectQuestions" | "activeSection" | "activeSourceQuestions" | "browseBankId" | "draft" | "onQuestionPageChange" | "onQuestionSearchChange" | "onToggleQuestion" | "onUpdateSection" | "selectedSourceQuestionIdsSet" | "sourceQuestionLoading" | "sourceQuestionPage" | "sourceQuestionSearch" | "sourceQuestionTotal" | "saving"> & { onPreviewQuestion: (question: SourceQuestion) => void }) {
   const sourceQuestionPageCount = Math.max(1, Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE));
   const selectedCount = activeDirectQuestions.length;
+  const moveSelectedQuestion = (index: number, direction: "up" | "down") => {
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= activeDirectQuestions.length || draft.locked || saving) return;
+    const nextQuestions = [...activeDirectQuestions];
+    const [moved] = nextQuestions.splice(index, 1);
+    if (!moved) return;
+    nextQuestions.splice(nextIndex, 0, moved);
+    onUpdateSection({ directQuestions: nextQuestions });
+  };
+  const removeSelectedQuestion = (sourceQuestionId: string) => {
+    if (draft.locked || saving) return;
+    onUpdateSection({ directQuestions: activeDirectQuestions.filter((question) => question.sourceQuestionId !== sourceQuestionId) });
+  };
 
   return (
     <ReferenceSurface className="min-w-0 p-5">
@@ -821,6 +837,28 @@ function TryoutSourceQuestionList({
         </div>
         <MentorBadge size="compact" tone={selectedCount ? "category" : "neutral"}>{selectedCount} dipilih</MentorBadge>
       </div>
+      {selectedCount ? (
+        <section aria-labelledby={`selected-questions-${activeSection.subtest}`} className="grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-secondary-900" id={`selected-questions-${activeSection.subtest}`}>Urutan soal di Section</h4>
+            <span className="text-xs text-secondary-500">Gunakan tombol naik/turun untuk mengatur urutan.</span>
+          </div>
+          <ol aria-label={`Urutan soal Section ${activeSection.subtest}`} className="grid gap-2">
+            {activeDirectQuestions.map((question, index) => (
+              <li className="flex min-w-0 items-center gap-2 rounded-xl border border-primary-100 bg-white px-3 py-2" key={question.sourceQuestionId}>
+                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-800">{index + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-secondary-800" title={question.prompt}>{question.prompt || "Soal tanpa pertanyaan"}</span>
+                {question.questionType === "multiple_choice" ? <MentorBadge size="compact" tone="attention">Beberapa jawaban</MentorBadge> : null}
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={draft.locked || saving || index === 0} onClick={() => moveSelectedQuestion(index, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button>
+                  <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={draft.locked || saving || index === selectedCount - 1} onClick={() => moveSelectedQuestion(index, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button>
+                  <Button aria-label={`Hapus soal ${index + 1} dari Section`} disabled={draft.locked || saving} onClick={() => removeSelectedQuestion(question.sourceQuestionId)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
       <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving || !browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
       {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
       {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => <TryoutSourceQuestionCard activeDirectQuestions={activeDirectQuestions} locked={draft.locked} onPreviewQuestion={onPreviewQuestion} onToggleQuestion={onToggleQuestion} question={question} selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet} key={question.id} saving={saving} />)}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
