@@ -1546,39 +1546,78 @@ function sleep(milliseconds: number) {
   return new Promise<void>((resolveSleep) => setTimeout(resolveSleep, milliseconds));
 }
 
-async function waitForChildExit(child: ChildProcess, timeoutMilliseconds: number) {
+const childErrors = new WeakMap<ChildProcess, Error>();
+
+function watchChildErrors(child: ChildProcess, label: string) {
+  child.on("error", (error) => {
+    childErrors.set(
+      child,
+      new Error(`BP06 ${label} child failed to spawn: ${safeDiagnosticText(error instanceof Error ? error.message : String(error))}`),
+    );
+  });
+}
+
+async function waitForChildExit(child: ChildProcess, timeoutMilliseconds: number, label = "owned") {
+  const existingError = childErrors.get(child);
+  if (existingError) throw existingError;
   if (child.exitCode !== null) return;
-  await new Promise<void>((resolveExit) => {
-    const timer = setTimeout(() => {
-      child.removeListener("exit", onExit);
-      resolveExit();
-    }, timeoutMilliseconds);
-    const onExit = () => {
+  await new Promise<void>((resolveExit, rejectExit) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      resolveExit();
+      child.removeListener("exit", onExit);
+      child.removeListener("error", onError);
+      if (error) rejectExit(error);
+      else resolveExit();
+    };
+    const timer = setTimeout(() => finish(), timeoutMilliseconds);
+    const onExit = () => finish();
+    const onError = (error: unknown) => {
+      const normalized = childErrors.get(child)
+        ?? new Error(`BP06 ${label} child failed: ${safeDiagnosticText(error instanceof Error ? error.message : String(error))}`);
+      finish(normalized);
     };
     child.once("exit", onExit);
+    child.once("error", onError);
   });
 }
 
 async function stopOwnedChild(child: ChildProcess | null, label: string) {
   if (!child || child.exitCode !== null) return;
+  const spawnError = childErrors.get(child);
+  if (spawnError) {
+    console.error(spawnError.message);
+    return;
+  }
   child.kill("SIGTERM");
-  await waitForChildExit(child, 8_000);
+  try {
+    await waitForChildExit(child, 8_000, label);
+  } catch (error) {
+    console.error(`BP06 ${label} exit observation failed: ${safeDiagnosticText(error instanceof Error ? error.message : String(error))}`);
+    return;
+  }
   if (child.exitCode === null) {
     console.error(`BP06 ${label} did not stop after SIGTERM; sending SIGKILL to the owned child`);
     child.kill("SIGKILL");
-    await waitForChildExit(child, 3_000);
+    await waitForChildExit(child, 3_000, label).catch((error) => {
+      console.error(`BP06 ${label} did not report exit after SIGKILL: ${safeDiagnosticText(error instanceof Error ? error.message : String(error))}`);
+    });
   }
 }
 
-function captureChildOutput(child: ChildProcess) {
+function captureChildOutput(child: ChildProcess, diagnosticLines: string[] = []) {
   const lines: string[] = [];
   const capture = (chunk: Buffer) => {
     for (const line of chunk.toString().split(/\r?\n/u)) {
       if (!line) continue;
       lines.push(line);
       if (lines.length > 80) lines.shift();
+      if (/BP06_BROWSER_(?:CASE_DIAGNOSTIC|DIAGNOSTIC_ERROR|DIAGNOSTIC)\b/u.test(line)) {
+        diagnosticLines.push(line);
+        if (diagnosticLines.length > 32) diagnosticLines.shift();
+      }
     }
   };
   child.stdout?.on("data", capture);
@@ -1601,9 +1640,9 @@ function safeDiagnosticTail(lines: string[], limit = 12) {
     .join(" | ");
 }
 
-function safeBrowserCaseDiagnostics(lines: string[], limit = 12) {
+function safeBrowserCaseDiagnostics(lines: string[], limit = 24) {
   return lines
-    .filter((line) => /BP06_BROWSER_(?:CASE_DIAGNOSTIC|DIAGNOSTIC_ERROR)\b/u.test(line))
+    .filter((line) => /BP06_BROWSER_(?:CASE_DIAGNOSTIC|DIAGNOSTIC_ERROR|DIAGNOSTIC)\b/u.test(line))
     .slice(-limit)
     .map((line) => safeDiagnosticText(line, 5_000));
 }
@@ -1624,6 +1663,8 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
     status: number | null;
   } = { status: null };
   while (Date.now() < deadline) {
+    const spawnError = childErrors.get(child);
+    if (spawnError) throw spawnError;
     if (child.exitCode !== null) {
       throw new Error(`Next child exited before readiness (code ${child.exitCode}). Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
     }
@@ -1642,21 +1683,26 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
         markers,
         status: response.status,
       };
-      if (response.status !== 200) {
-        throw new Error(`login readiness returned HTTP ${response.status}; expected 200 HTML. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
-      }
       // The host probe proves the server-rendered login shell. The interactive
       // client boundary owns the form controls, so their DOM presence is
       // asserted by the browser case after hydration rather than by this raw
       // response probe.
-      if (String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html") && markers.heading) return;
+      if (
+        response.status === 200
+        && String(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html")
+        && markers.heading
+      ) return;
+      lastProbe = {
+        ...lastProbe,
+        error: `transient login readiness response did not satisfy HTTP 200 HTML + heading (status=${response.status})`,
+      };
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("login readiness returned HTTP")) throw error;
       lastProbe = {
         ...lastProbe,
         error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
       };
-      // The listener is not ready yet; bounded polling is intentional.
+      // The listener or dev compilation may still be starting; bounded polling
+      // intentionally retries transient connection and non-200 responses.
     }
     await sleep(500);
   }
@@ -1747,6 +1793,44 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   const outcomes = new Map();
   let task = null;
   let opened = false;
+  let taskCleanupError = null;
+
+  const destinationPaths = { beranda: "/", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
+
+  function pageInfoUrl(info) {
+    return info && typeof info.url === "string" ? info.url : null;
+  }
+
+  function pageInfoDialog(info) {
+    return info && typeof info === "object" && info.dialog ? info.dialog : null;
+  }
+
+  function routeDefaults(path) {
+    const pathname = new URL(baseUrl + path).pathname;
+    if (pathname === "/login") {
+      return { requiredSelectors: ["form", "#login-email", "#login-password"], requiredText: ["Masuk ke Vecalss"] };
+    }
+    if (pathname === "/admin/student-preview" || pathname.startsWith("/admin/student-preview/")) {
+      return { requiredSelectors: [], requiredText: ["Student preview"] };
+    }
+    if (pathname === "/admin/student-banners") {
+      return { requiredSelectors: [], requiredText: ["Banner maker"] };
+    }
+    const routeMarker = { "/courses": "Materi", "/dashboard": "Beranda", "/quiz": "Kuis", "/tryout": "Tryout" }[pathname];
+    return { requiredSelectors: [], requiredText: routeMarker ? [routeMarker] : [] };
+  }
+
+  function routeOptions(path, options = {}) {
+    const expectedPath = options.expectedPath || path;
+    const defaults = routeDefaults(expectedPath);
+    return {
+      expectedPath,
+      exactSearch: options.exactSearch !== false,
+      requiredSelectors: options.requiredSelectors || defaults.requiredSelectors,
+      requiredText: options.requiredText || defaults.requiredText,
+      timeoutMs: options.timeoutMs || 30_000,
+    };
+  }
 
   function errorText(error) {
     return error instanceof Error ? error.message : String(error);
@@ -1772,11 +1856,13 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       cliLog("BP06_BROWSER_PASS " + name + (detail ? " " + JSON.stringify(detail) : ""));
       return true;
     } catch (error) {
-      await captureCaseDiagnostics(name, error);
       const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
       failed.push({ name, message });
       outcomes.set(name, "failed");
       cliLog("BP06_BROWSER_FAIL " + name + " " + message);
+      // Persist the original assertion before any browser/CDP diagnostic work.
+      // Each probe is independently bounded and cannot replace this failure.
+      await captureCaseDiagnostics(name, error);
       return false;
     }
   }
@@ -1784,7 +1870,13 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   async function screenshot(name) {
     const info = await pageInfo();
     await captureScreenshot();
-    cliLog("BP06_BROWSER_SCREENSHOT " + JSON.stringify({ name, url: info.url, width: info.w, height: info.h }));
+    cliLog("BP06_BROWSER_SCREENSHOT " + JSON.stringify({
+      name,
+      dialog: pageInfoDialog(info) ? safeDiagnostic(JSON.stringify(pageInfoDialog(info)), 600) : null,
+      url: safePageUrl(pageInfoUrl(info), true),
+      width: info?.w,
+      height: info?.h,
+    }));
   }
 
   async function requestTransition(operation) {
@@ -1812,7 +1904,84 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     fail("supervisor transition " + operation + " timed out");
   }
 
-  async function go(path) {
+  async function boundedProbe(label, operation, timeoutMilliseconds = 900) {
+    let timer;
+    const result = await Promise.race([
+      Promise.resolve()
+        .then(operation)
+        .then((value) => ({ label, ok: true, value }))
+        .catch((error) => ({ error: safeDiagnostic(error), label, ok: false })),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve({ error: label + " timed out", label, ok: false, timedOut: true }), timeoutMilliseconds);
+      }),
+    ]);
+    clearTimeout(timer);
+    return result;
+  }
+
+  function routeMatches(actualValue, expectedValue, exactSearch) {
+    if (!actualValue) return false;
+    try {
+      const actual = new URL(String(actualValue), baseUrl);
+      const expected = new URL(baseUrl + expectedValue);
+      return actual.origin === expected.origin
+        && actual.pathname === expected.pathname
+        && (!exactSearch || actual.search === expected.search);
+    } catch {
+      return false;
+    }
+  }
+
+  async function observeRoute(requiredText, requiredSelectors) {
+    const infoProbe = await boundedProbe("pageInfo", () => pageInfo());
+    const info = infoProbe.ok ? infoProbe.value : null;
+    const snapshotProbe = await boundedProbe("snapshotText", () => snapshotText(), 1_200);
+    const snapshot = snapshotProbe.ok ? String(snapshotProbe.value ?? "") : "";
+    const selectorProbe = requiredSelectors.length === 0
+      ? { label: "route-markers", ok: true, value: { readyState: null, selectors: {} } }
+      : await boundedProbe(
+        "route-markers",
+        () => js("(() => { const selectors = " + JSON.stringify(requiredSelectors) + "; return { readyState: document.readyState, selectors: Object.fromEntries(selectors.map((selector) => [selector, Boolean(document.querySelector(selector))])) }; })()"),
+      );
+    const selectors = selectorProbe.ok && selectorProbe.value?.selectors && typeof selectorProbe.value.selectors === "object" ? selectorProbe.value.selectors : {};
+    return {
+      dialog: pageInfoDialog(info),
+      info,
+      infoError: infoProbe.ok ? null : infoProbe.error,
+      readyState: selectorProbe.ok ? selectorProbe.value?.readyState : selectorProbe.error,
+      selectors,
+      snapshot,
+      snapshotError: snapshotProbe.ok ? null : snapshotProbe.error,
+    };
+  }
+
+  async function waitForRoute(path, options = {}) {
+    const config = routeOptions(path, options);
+    const deadline = Date.now() + config.timeoutMs;
+    let last = null;
+    while (Date.now() < deadline) {
+      const observation = await observeRoute(config.requiredText, config.requiredSelectors);
+      const missingText = config.requiredText.filter((marker) => !observation.snapshot.includes(marker));
+      const missingSelectors = config.requiredSelectors.filter((selector) => observation.selectors[selector] !== true);
+      const exactRoute = routeMatches(pageInfoUrl(observation.info), config.expectedPath, config.exactSearch);
+      last = {
+        dialog: observation.dialog ? safeDiagnostic(JSON.stringify(observation.dialog), 600) : null,
+        exactRoute,
+        infoError: observation.infoError,
+        missingSelectors,
+        missingText,
+        readyState: observation.readyState,
+        snapshotError: observation.snapshotError,
+        snapshotSample: safeDiagnostic(observation.snapshot, 1_200),
+        url: safePageUrl(pageInfoUrl(observation.info), true),
+      };
+      if (exactRoute && !observation.dialog && missingText.length === 0 && missingSelectors.length === 0) return observation.info;
+      await wait(0.25);
+    }
+    fail("route readiness failed: " + JSON.stringify({ expectedPath: config.expectedPath, exactSearch: config.exactSearch, last }));
+  }
+
+  async function go(path, options = {}) {
     const url = baseUrl + path;
     if (!opened) {
       await openOrReuseTab(url, { wait: true, timeout: 30 });
@@ -1820,23 +1989,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     } else {
       await gotoAndWait(url, { timeout: 30 });
     }
-    await wait(1);
-    return pageInfo();
+    return waitForRoute(path, options);
   }
 
   async function text() {
     return String(await snapshotText());
-  }
-
-  async function waitForLoginForm() {
-    const deadline = Date.now() + 30_000;
-    let markers = { email: false, form: false, password: false };
-    while (Date.now() < deadline) {
-      markers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) }))()");
-      if (markers.form && markers.email && markers.password) return markers;
-      await wait(0.25);
-    }
-    fail("login form controls did not mount in the browser DOM within 30s: " + JSON.stringify(markers));
   }
 
   function safeDiagnostic(value, limit = 1200) {
@@ -1858,74 +2015,55 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       .slice(0, limit);
   }
 
-  function safePageUrl(value) {
+  function safePageUrl(value, includeQuery = false) {
     if (!value) return null;
     try {
       const parsed = new URL(String(value), baseUrl);
-      return parsed.origin + parsed.pathname;
+      const safeSearch = parsed.search.replaceAll(/([?&](?:token|password|secret|credential|cookie|authorization|database(?:_url)?|email)=)[^&]*/giu, "$1[redacted]");
+      return parsed.origin + parsed.pathname + (includeQuery ? safeSearch : "");
     } catch {
       return safeDiagnostic(value, 300);
     }
   }
 
+  async function diagnosticProbe(label, operation, timeoutMilliseconds = 750) {
+    const result = await boundedProbe(label, operation, timeoutMilliseconds);
+    if (result.ok) return result.value;
+    return { error: result.error || label + " failed", timedOut: result.timedOut === true };
+  }
+
   async function captureCaseDiagnostics(name, error) {
     try {
-      let info = null;
-      try {
-        info = await pageInfo();
-      } catch {
-        // Preserve the original case failure while recording what is available.
-      }
-
-      let dom = null;
-      try {
-        dom = await js("(() => { const nodes = Array.from(document.querySelectorAll('[role=alert], [data-error]')); const active = document.activeElement; return { readyState: document.readyState, href: location.href, title: document.title, bodyTextLength: (document.body?.innerText || '').length, errorCount: nodes.length, errorText: nodes.map((node) => node.textContent || '').join(' | ').slice(0, 600), activeElement: active ? { tag: active.tagName, id: active.id || null, ariaLabel: active.getAttribute('aria-label') } : null }; })()");
-      } catch (domError) {
-        dom = { error: safeDiagnostic(domError) };
-      }
-
-      let http = null;
-      try {
-        http = await js("(async () => { const response = await fetch(location.href, { cache: 'no-store', redirect: 'manual' }); return { status: response.status, contentType: response.headers.get('content-type'), location: response.headers.get('location') }; })()");
-      } catch (httpError) {
-        http = { error: safeDiagnostic(httpError) };
-      }
-
-      let events = null;
-      try {
-        const rawEvents = await drainEvents();
-        const list = Array.isArray(rawEvents) ? rawEvents : [];
-        events = list.slice(-20).map((event) => ({
+      const info = await diagnosticProbe("pageInfo", () => pageInfo());
+      const dom = await diagnosticProbe("dom", () => js("(() => { const nodes = Array.from(document.querySelectorAll('[role=alert], [data-error]')); const active = document.activeElement; return { readyState: document.readyState, href: location.href, title: document.title, bodyTextLength: (document.body?.innerText || '').length, errorCount: nodes.length, errorText: nodes.map((node) => node.textContent || '').join(' | ').slice(0, 600), activeElement: active ? { tag: active.tagName, id: active.id || null, ariaLabel: active.getAttribute('aria-label') } : null }; })()"));
+      const snapshot = await diagnosticProbe("snapshotText", () => snapshotText(), 1_000);
+      const http = await diagnosticProbe("http", () => js("(async () => { const response = await fetch(location.href, { cache: 'no-store', redirect: 'manual' }); return { status: response.status, contentType: response.headers.get('content-type'), location: response.headers.get('location') }; })()"));
+      const rawEvents = await diagnosticProbe("drainEvents", () => drainEvents());
+      const events = rawEvents && !rawEvents.error && Array.isArray(rawEvents)
+        ? rawEvents.slice(-20).map((event) => ({
           type: safeDiagnostic(event?.type, 80),
           method: safeDiagnostic(event?.method ?? event?.request?.method, 20),
           status: typeof event?.status === "number" ? event.status : typeof event?.response?.status === "number" ? event.response.status : null,
-          url: safePageUrl(event?.url ?? event?.request?.url ?? event?.response?.url),
+          url: safePageUrl(event?.url ?? event?.request?.url ?? event?.response?.url, true),
           error: safeDiagnostic(event?.error, 300),
-        }));
-      } catch (eventError) {
-        events = { error: safeDiagnostic(eventError) };
-      }
-
-      let screenshotCaptured = false;
-      try {
-        await captureScreenshot();
-        screenshotCaptured = true;
-      } catch {
-        // Screenshot availability is diagnostic only and must not mask the assertion.
-      }
+        }))
+        : rawEvents;
+      const screenshotResult = await diagnosticProbe("captureScreenshot", () => captureScreenshot(), 1_000);
+      const screenshotCaptured = !screenshotResult?.error;
 
       cliLog("BP06_BROWSER_CASE_DIAGNOSTIC " + JSON.stringify({
         check: name,
         error: safeDiagnostic(error),
         page: info && {
-          url: safePageUrl(info.url),
+          url: safePageUrl(pageInfoUrl(info), true),
           title: safeDiagnostic(info.title),
           width: info.w,
           height: info.h,
         },
+        dialog: pageInfoDialog(info) ? safeDiagnostic(JSON.stringify(pageInfoDialog(info)), 600) : null,
         dom: dom && {
           readyState: safeDiagnostic(dom.readyState),
-          href: safePageUrl(dom.href),
+          href: safePageUrl(dom.href, true),
           title: safeDiagnostic(dom.title),
           bodyTextLength: dom.bodyTextLength,
           errorCount: dom.errorCount,
@@ -1939,9 +2077,10 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         http: http && {
           status: http.status,
           contentType: safeDiagnostic(http.contentType),
-          location: safePageUrl(http.location),
+          location: safePageUrl(http.location, true),
           error: safeDiagnostic(http.error),
         },
+        snapshot: safeDiagnostic(snapshot?.error ? snapshot.error : snapshot, 2_000),
         events,
         console: "ego-browser exposes no console-history helper; DOM error nodes and bounded drainEvents output recorded",
         screenshotCaptured,
@@ -1950,60 +2089,6 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     } catch (diagnosticError) {
       cliLog("BP06_BROWSER_DIAGNOSTIC_ERROR " + name + " " + safeDiagnostic(diagnosticError));
     }
-  }
-
-  async function captureLoginDiagnostics(navigationInfo, snapshot, error) {
-    let info = navigationInfo;
-    try {
-      info = await pageInfo();
-    } catch {
-      // Preserve the original navigation failure while recording what is available.
-    }
-    let dom = null;
-    try {
-      dom = await js("(() => ({ readyState: document.readyState, href: location.href, title: document.title, bodyText: (document.body?.innerText || '').slice(0, 1200), errorText: Array.from(document.querySelectorAll('[role=alert], [data-error]')).map((node) => node.textContent || '').join(' | ').slice(0, 600), formMarkers: { form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) } }))()");
-    } catch (domError) {
-      dom = { error: safeDiagnostic(domError) };
-    }
-    let http = null;
-    try {
-      http = await js("(async () => { const response = await fetch(" + JSON.stringify(baseUrl + "/login") + ", { cache: 'no-store', redirect: 'manual' }); return { status: response.status, contentType: response.headers.get('content-type'), location: response.headers.get('location') }; })()");
-    } catch (httpError) {
-      http = { error: safeDiagnostic(httpError) };
-    }
-    let screenshotCaptured = false;
-    try {
-      await captureScreenshot();
-      screenshotCaptured = true;
-    } catch {
-      // Screenshot availability is diagnostic only and must not mask the assertion.
-    }
-    cliLog("BP06_BROWSER_DIAGNOSTIC " + JSON.stringify({
-      check: "login-page-real-route",
-      error: safeDiagnostic(error),
-      page: info && {
-        url: safeDiagnostic(info.url),
-        title: safeDiagnostic(info.title),
-        width: info.w,
-        height: info.h,
-      },
-      dom: dom && {
-        readyState: safeDiagnostic(dom.readyState),
-        href: safeDiagnostic(dom.href),
-        title: safeDiagnostic(dom.title),
-        bodyText: safeDiagnostic(dom.bodyText),
-        errorText: safeDiagnostic(dom.errorText || dom.error),
-        formMarkers: dom.formMarkers,
-      },
-      http: http && {
-        status: http.status,
-        contentType: safeDiagnostic(http.contentType),
-        location: safeDiagnostic(http.location),
-        error: safeDiagnostic(http.error),
-      },
-      snapshot: safeDiagnostic(snapshot),
-      screenshotCaptured,
-    }));
   }
 
   function revisionFromDraftLink(link) {
@@ -2019,9 +2104,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     await fillInput("#login-email", email);
     await fillInput("#login-password", password);
     await click("button[type=submit]");
-    await wait(3);
-    const info = await pageInfo();
-    if (!String(info.url).includes(expectedPath)) fail("login redirect was " + info.url);
+    const info = await waitForRoute(expectedPath, { exactSearch: false });
+    if (!pageInfoUrl(info)) fail("login redirect did not expose a normal page URL");
     return info;
   }
 
@@ -2029,10 +2113,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     await click('button[aria-label="Menu akun"]');
     await click('[role="menuitem"]:has-text("Keluar")');
     await click('[role="alertdialog"] button[type="submit"]');
-    await wait(3);
-    const info = await pageInfo();
-    if (!String(info.url).includes("/login")) fail("logout did not return to /login: " + info.url);
-    if (expectedNotice && !String(info.url).includes(expectedNotice)) fail("logout notice missing: " + info.url);
+    const info = await waitForRoute("/login", { exactSearch: false });
+    if (expectedNotice && !String(pageInfoUrl(info)).includes(expectedNotice)) fail("logout notice missing: " + pageInfoUrl(info));
   }
 
   async function cookieNames() {
@@ -2089,49 +2171,61 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     if (!body.includes("Draf banner tujuan tersimpan.")) fail("draft save confirmation was not rendered");
   }
 
+  async function runDestinationAssertions(name, action) {
+    const details = [];
+    const failures = [];
+    for (const destination of Object.keys(destinationPaths)) {
+      try {
+        const detail = await action(destination);
+        details.push({ destination, ...(detail || {}) });
+        cliLog("BP06_BROWSER_DESTINATION_PASS " + name + " " + destination + (detail ? " " + JSON.stringify(detail) : ""));
+      } catch (error) {
+        const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
+        failures.push({ destination, message });
+        cliLog("BP06_BROWSER_DESTINATION_FAIL " + name + " " + destination + " " + message);
+        await captureCaseDiagnostics(name + ":" + destination, error);
+      }
+    }
+    if (failures.length > 0) fail(name + " destination failures: " + JSON.stringify(failures));
+    return details;
+  }
+
   try {
     task = await useOrCreateTaskSpace("BP06 isolated browser verification");
 
     await check("login-page-real-route", async () => {
-      let info = null;
-      let body = "";
-      try {
-        info = await go("/login");
-        body = await text();
-        if (!String(info.url).includes("/login") || !body.includes("Masuk ke Vecalss")) fail("login page did not render");
-        const formMarkers = await waitForLoginForm();
-        return { formMarkers, url: info.url };
-      } catch (error) {
-        await captureLoginDiagnostics(info, body, error);
-        throw error;
-      }
+      const info = await go("/login");
+      const formMarkers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) }))()");
+      return { formMarkers, url: pageInfoUrl(info) };
     });
 
     await check("admin-login-cookie-and-redirect", async () => {
       const info = await login(credentials.adminEmail, credentials.adminPassword, "/admin");
       const names = await cookieNames();
       if (!names.includes("vecalss_session")) fail("Admin login did not issue the expected session cookie");
-      return { url: info.url };
+      return { url: safePageUrl(pageInfoUrl(info), true) };
     }, ["login-page-real-route"]);
 
     await check("admin-preview-published-and-draft-four-destinations", async () => {
-      const details = [];
-      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
-        const suffix = destination === "beranda"
-          ? ""
-          : destination === "materi"
-            ? "/courses"
-            : destination === "kuis"
-              ? "/quiz"
-              : "/tryout";
-        const publishedInfo = await go("/admin/student-preview" + suffix);
+      const details = await runDestinationAssertions("admin-preview", async (destination) => {
+        const suffix = destinationPaths[destination];
+        const publishedPath = "/admin/student-preview" + suffix;
+        const publishedInfo = await go(publishedPath, { requiredText: ["Student preview", "BP06", "published"] });
         const publishedBody = await text();
-        if (!String(publishedInfo.url).includes("/admin/student-preview") || !publishedBody.includes("Student preview")) fail("published preview failed for " + destination);
-        const draftInfo = await go("/admin/student-preview" + suffix + "?bannerSource=draft&revision=" + drafts[destination]);
+        if (!routeMatches(pageInfoUrl(publishedInfo), publishedPath, true) || !publishedBody.includes("BP06") || !publishedBody.includes("published")) {
+          fail("published preview source marker or exact route was missing");
+        }
+        const draftPath = publishedPath + "?bannerSource=draft&revision=" + drafts[destination];
+        const draftInfo = await go(draftPath, { requiredText: ["Student preview", "BP06", "draft"] });
         const draftBody = await text();
-        if (!String(draftInfo.url).includes("bannerSource=draft") || !String(draftInfo.url).includes(drafts[destination]) || !draftBody.includes("Student preview")) fail("draft preview failed for " + destination);
-        details.push(destination);
-      }
+        if (!routeMatches(pageInfoUrl(draftInfo), draftPath, true) || !draftBody.includes("BP06") || !draftBody.includes("draft")) {
+          fail("draft preview source marker or exact route was missing");
+        }
+        return {
+          draft: safePageUrl(pageInfoUrl(draftInfo), true),
+          published: safePageUrl(pageInfoUrl(publishedInfo), true),
+        };
+      });
       return { destinations: details };
     }, ["admin-login-cookie-and-redirect"]);
 
@@ -2146,15 +2240,21 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     }, ["admin-preview-published-and-draft-four-destinations"]);
 
     await check("admin-editor-four-destinations-controls-headings", async () => {
-      const details = [];
-      for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
-        await go("/admin/student-banners?destination=" + destination);
+      const details = await runDestinationAssertions("admin-editor", async (destination) => {
+        const path = "/admin/student-banners?destination=" + destination;
+        const info = await go(path, {
+          requiredSelectors: [
+            'button[aria-label="Tambahkan teks"]',
+            'button[aria-label^="Simpan draf"]',
+            'button[aria-label^="Terbitkan"]',
+          ],
+          requiredText: ["Banner maker", labels[destination], "Layer", "Edit banner", "BP06"],
+        });
         const body = await text();
-        if (!body.includes("Banner maker") || !body.includes(labels[destination]) || !body.includes("Layer") || !body.includes("Edit banner")) fail("editor headings missing for " + destination);
         const controls = await js("(() => ({ addText: Boolean(document.querySelector('button[aria-label=\"Tambahkan teks\"]')), save: Boolean(document.querySelector('button[aria-label^=\"Simpan draf\"]')), publish: Boolean(document.querySelector('button[aria-label^=\"Terbitkan\"]')) }))()");
-        if (!controls.addText || !controls.save || !controls.publish) fail("editor controls missing for " + destination);
-        details.push(destination);
-      }
+        if (!routeMatches(pageInfoUrl(info), path, true) || !body.includes(labels[destination]) || !controls.addText || !controls.save || !controls.publish) fail("editor exact route, headings, or controls were missing");
+        return { controls, url: safePageUrl(pageInfoUrl(info), true) };
+      });
       return { destinations: details };
     }, ["admin-login-cookie-and-redirect"]);
 
@@ -2180,14 +2280,13 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-destination-switch\"]')))");
       if (!dialog) fail("dirty destination switch dialog did not open");
       await click('[data-testid="banner-destination-switch"] button:has-text("Batal")');
-      const afterCancel = await pageInfo();
-      if (!String(afterCancel.url).includes("destination=materi")) fail("dirty switch cancel left the current destination");
+      const afterCancel = await waitForRoute("/admin/student-banners?destination=materi");
+      if (!routeMatches(pageInfoUrl(afterCancel), "/admin/student-banners?destination=materi", true)) fail("dirty switch cancel left the current destination");
       await click("#banner-destination");
       await click('[role="option"]:has-text("Kuis")');
       await click('[data-testid="banner-destination-switch"] button:has-text("Buang dan beralih")');
-      await wait(2);
-      const afterDiscard = await pageInfo();
-      if (!String(afterDiscard.url).includes("destination=kuis")) fail("dirty switch discard did not navigate");
+      const afterDiscard = await waitForRoute("/admin/student-banners?destination=kuis");
+      if (!routeMatches(pageInfoUrl(afterDiscard), "/admin/student-banners?destination=kuis", true)) fail("dirty switch discard did not navigate");
       return { cancel: true, discard: true };
     }, ["admin-editor-four-destinations-controls-headings"]);
 
@@ -2353,7 +2452,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       const info = await login(credentials.voyagerEmail, credentials.voyagerPassword, "/dashboard");
       const names = await cookieNames();
       if (!names.includes("vecalss_session")) fail("Voyager login did not issue the expected session cookie");
-      return { url: info.url };
+      return { url: safePageUrl(pageInfoUrl(info), true) };
     }, ["admin-logout-real-session"]);
 
     await check("voyager-dashboard-courses-quiz-tryout", async () => {
@@ -2361,8 +2460,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
         const info = await go(routes[destination]);
         const body = await text();
-        if (String(info.url).includes("/login") || body.includes("Application error")) fail("Voyager route failed for " + destination);
-        details.push({ destination, url: info.url });
+        if (!pageInfoUrl(info) || pageInfoUrl(info).includes("/login") || body.includes("Application error")) fail("Voyager route failed for " + destination);
+        details.push({ destination, url: safePageUrl(pageInfoUrl(info), true) });
       }
       return { routes: details };
     }, ["voyager-login-cookie-and-redirect"]);
@@ -2406,25 +2505,39 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     await check("logout-protected-route-denial-all-four", async () => {
       const denied = [];
       for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
-        const info = await go("/admin/student-banners?destination=" + destination);
-        if (!String(info.url).includes("/login")) fail("logged-out protected route was not denied for " + destination);
-        denied.push({ destination, url: info.url });
+        const info = await go("/admin/student-banners?destination=" + destination, { exactSearch: false, expectedPath: "/login" });
+        if (!pageInfoUrl(info) || !pageInfoUrl(info).includes("/login")) fail("logged-out protected route was not denied for " + destination);
+        denied.push({ destination, url: safePageUrl(pageInfoUrl(info), true) });
       }
       for (const destination of ["beranda", "materi", "kuis", "tryout"]) {
-        const info = await go(routes[destination]);
-        if (!String(info.url).includes("/login")) fail("logged-out Voyager route was not denied for " + destination);
-        denied.push({ destination, surface: "voyager", url: info.url });
+        const info = await go(routes[destination], { exactSearch: false, expectedPath: "/login" });
+        if (!pageInfoUrl(info) || !pageInfoUrl(info).includes("/login")) fail("logged-out Voyager route was not denied for " + destination);
+        denied.push({ destination, surface: "voyager", url: safePageUrl(pageInfoUrl(info), true) });
       }
       return { denied };
     }, ["voyager-logout-real-session"]);
+  } catch (error) {
+    const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
+    failed.push({ name: "browser-script-fatal", message });
+    cliLog("BP06_BROWSER_FATAL " + message);
+    throw error;
   } finally {
     if (task) {
-      await completeTaskSpace(task.id, { keep: false });
+      try {
+        const result = await completeTaskSpace(task.id, { keep: false });
+        if (!result || result.done !== true) {
+          throw new Error("browser task-space completion did not return done=true");
+        }
+      } catch (error) {
+        taskCleanupError = errorText(error).replaceAll(/password|credential/giu, "redacted");
+        failed.push({ name: "browser-task-space-cleanup", message: taskCleanupError });
+        outcomes.set("browser-task-space-cleanup", "failed");
+        cliLog("BP06_BROWSER_CLEANUP_ERROR " + taskCleanupError);
+      }
     }
+    cliLog("BP06_BROWSER_SUMMARY " + JSON.stringify({ cleanupError: taskCleanupError, failed, notRun, passed, skipped }));
+    if (failed.length > 0 || notRun.length > 0 || skipped.length > 0 || taskCleanupError) process.exitCode = 1;
   }
-
-  cliLog("BP06_BROWSER_SUMMARY " + JSON.stringify({ failed, notRun, passed, skipped }));
-  if (failed.length > 0 || notRun.length > 0 || skipped.length > 0) process.exitCode = 1;
 })().catch((error) => {
   cliLog("BP06_BROWSER_FATAL " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
@@ -2433,24 +2546,30 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 }
 
 async function runBrowserSupervisor() {
-  await setup();
-  const state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
-  const privatePaths = await assertBrowserPrivatePaths(state);
-  const fixtureEnv = parseDotenv(await readFile(state.envFile, "utf8"));
-  const { NODE_OPTIONS: _nodeOptions, ...inheritedEnv } = process.env;
-  const childEnv = {
-    ...inheritedEnv,
-    ...fixtureEnv,
-    NEXT_TELEMETRY_DISABLED: "1",
-  };
-  const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
+  let state: FixtureState | null = null;
+  let privatePaths: BrowserPrivatePaths | null = null;
   let nextChild: ChildProcess | null = null;
   let browserChild: ChildProcess | null = null;
   let nextOutput: string[] = [];
   let browserOutput: string[] = [];
+  const browserDiagnosticLines: string[] = [];
   let browserDone = false;
   let transitionPromise: Promise<number> | null = null;
+  let stage = "setup";
   try {
+    await setup();
+    stage = "fixture-preflight";
+    state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
+    privatePaths = await assertBrowserPrivatePaths(state);
+    if (!state || !privatePaths) throw new Error("BP06 fixture preflight did not produce state and private paths");
+    const fixtureEnv = parseDotenv(await readFile(state.envFile, "utf8"));
+    const { NODE_OPTIONS: _nodeOptions, ...inheritedEnv } = process.env;
+    const childEnv = {
+      ...inheritedEnv,
+      ...fixtureEnv,
+      NEXT_TELEMETRY_DISABLED: "1",
+    };
+    const nextBin = join(state.mirrorRoot, "node_modules", "next", "dist", "bin", "next");
     // Next 16 defaults to Turbopack, which rejects this fixture's deliberately
     // isolated mirror when its only dependency link resolves outside the
     // mirror root. Webpack is an officially supported dev-only selector and
@@ -2458,13 +2577,16 @@ async function runBrowserSupervisor() {
     // turbopack.root or changing production next.config.
     const nextArgs = [nextBin, "dev", "--webpack", "--hostname", "127.0.0.1", "--port", String(PORT)];
     console.log(`BP06 supervised Next child launch: ${process.execPath} ${nextArgs.slice(1).join(" ")}`);
+    stage = "next-launch";
     nextChild = spawn(process.execPath, nextArgs, {
       cwd: state.mirrorRoot,
       env: childEnv,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    watchChildErrors(nextChild, "Next");
     nextOutput = captureChildOutput(nextChild);
+    stage = "next-readiness";
     await waitForNextReady(nextChild, nextOutput);
     console.log(`BP06 supervised Next child ready on ${routeUrl(PORT, "/")}`);
     // Keep the embedded evaluator explicitly in test mode; never inherit the
@@ -2474,16 +2596,20 @@ async function runBrowserSupervisor() {
       const value = inheritedEnv[key];
       if (value !== undefined) browserEnv[key] = value;
     }
+    stage = "browser-launch";
     browserChild = spawn("ego-browser", ["nodejs"], {
       cwd: state.mirrorRoot,
       env: browserEnv,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    browserOutput = captureChildOutput(browserChild);
+    watchChildErrors(browserChild, "ego-browser");
+    browserOutput = captureChildOutput(browserChild, browserDiagnosticLines);
+    stage = "browser-run";
     transitionPromise = superviseBrowserTransitions(state, () => browserDone);
+    if (!privatePaths) throw new Error("BP06 browser private paths were not prepared before launch");
     browserChild.stdin?.end(browserVerificationScript(privatePaths));
-    await waitForChildExit(browserChild, 180_000);
+    await waitForChildExit(browserChild, 180_000, "ego-browser");
     browserDone = true;
     const transitionCount = await transitionPromise;
     transitionPromise = null;
@@ -2497,16 +2623,28 @@ async function runBrowserSupervisor() {
       throw new Error(`ego-browser verification exited cleanly without completing all supervisor transitions (${transitionCount}/3).`);
     }
   } catch (error) {
-    try {
-      await writeBrowserDiagnosticArtifact(state, {
-        browserCaseDiagnostics: safeBrowserCaseDiagnostics(browserOutput),
-        browserTail: safeDiagnosticTail(browserOutput, 20),
-        error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
-        nextTail: safeDiagnosticTail(nextOutput, 20),
-        stage: browserChild ? "browser-supervisor" : "next-readiness",
-      });
-    } catch (diagnosticError) {
-      console.error(`BP06 diagnostic artifact write failed: ${safeDiagnosticText(diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError))}`);
+    let diagnosticState = state;
+    if (!diagnosticState) {
+      try {
+        diagnosticState = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
+      } catch {
+        diagnosticState = null;
+      }
+    }
+    if (diagnosticState) {
+      try {
+        await writeBrowserDiagnosticArtifact(diagnosticState, {
+          browserCaseDiagnostics: safeBrowserCaseDiagnostics(browserDiagnosticLines),
+          browserTail: safeDiagnosticTail(browserOutput, 20),
+          error: safeDiagnosticText(error instanceof Error ? error.message : String(error)),
+          nextTail: safeDiagnosticTail(nextOutput, 20),
+          stage,
+        });
+      } catch (diagnosticError) {
+        console.error(`BP06 diagnostic artifact write failed: ${safeDiagnosticText(diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError))}`);
+      }
+    } else {
+      console.error(`BP06 ${stage} failed before a readable fixture state was available: ${safeDiagnosticText(error instanceof Error ? error.message : String(error))}`);
     }
     throw error;
   } finally {
