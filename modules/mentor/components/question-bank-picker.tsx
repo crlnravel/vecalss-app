@@ -311,7 +311,7 @@ function QuestionBankPickerDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[calc(100svh-1rem)] max-w-5xl gap-5 p-4 sm:p-6" pending={importing}>
+      <DialogContent className="max-h-[calc(100svh-1rem)] max-w-5xl gap-5 p-4 sm:max-w-5xl sm:p-6" pending={importing}>
         <DialogHeader>
           <DialogTitle>Tambah soal dari Bank Soal</DialogTitle>
           <DialogDescription>Pilih revisi Ready yang dapat digunakan ulang di Kuis {subjectCode}. Pilihan dan pratinjau tetap tersimpan saat Anda berpindah halaman.</DialogDescription>
