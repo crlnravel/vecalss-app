@@ -232,7 +232,7 @@ async function main() {
     assert.ok(resumedItems.every((item) => (item.options ?? []).every((option) => !("isCorrect" in option))), "resumed CAT content must remain answer-key redacted");
 
     await assert.rejects(save(ids.itemAId, ids.optionA2Id), /Jawaban CAT yang sudah tersimpan tidak dapat diubah/u, "a conflicting retry must not overwrite the persisted CAT answer");
-    await assert.rejects(save(ids.itemCId, randomUUID()), /Pilihan jawaban tidak termasuk/u, "malformed option ids must be rejected before the answer transition");
+    await assert.rejects(save(ids.itemCId, randomUUID()), /Pilihan jawaban tidak tersedia untuk soal ini\./u, "malformed option ids must be rejected before the answer transition");
     await assert.rejects(save(ids.itemAId, ids.optionA1Id, randomUUID()), /Attempt Tryout tidak ditemukan/u, "an unauthorized student cannot replay an answer");
 
     await prisma.tryoutAnswer.deleteMany({ where: { attemptId: ids.attemptId } });

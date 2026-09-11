@@ -101,7 +101,7 @@ assert.match(attemptRepository, /decision === "conflict"/u, "changed CAT retries
 assert.match(attemptRepository, /TryoutAttemptTestRunStatus\.sealed/u, "sealed final-answer retries must be explicit");
 assert.match(attemptRepository, /await synchronizeAttempt\(tx, attemptId, now, studentId\)/u, "answer transitions must remain inside the existing attempt lock boundary");
 assert.match(attemptRepository, /where: \{ id: attemptId, studentId \}/u, "attempt ownership must stay server-authoritative");
-assert.match(attemptRepository, /Pilihan jawaban tidak termasuk/u, "malformed option ids must remain rejected");
+assert.match(attemptRepository, /validateSelectedOptionIds\(answerMode, selectedOptionIds/u, "malformed option ids must remain rejected");
 
 // CBT keeps its existing mutable-answer behavior; the CAT-only retry logic
 // must not replace the generic upsert branch.
