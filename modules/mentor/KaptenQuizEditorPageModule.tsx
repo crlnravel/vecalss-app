@@ -958,7 +958,24 @@ function useQuizEditorState({
         return;
       }
       const updatedQuestion = result.questions.find((candidate) => candidate.id === question.id);
-      if (updatedQuestion) setForm((current) => ({ ...current, questions: current.questions.map((candidate) => candidate.id === question.id ? asEditorQuestion(updatedQuestion) : candidate) }));
+      const versionedUpdatedQuestion = updatedQuestion
+        ?? result.questions.find((candidate) => candidate.sourceQuestionId === question.sourceQuestionId && candidate.sourceQuestionRevisionId === sourceUpdate.sourceQuestionRevisionId);
+      if (versionedUpdatedQuestion) {
+        const persistedBySourceQuestionId = new Map(
+          result.questions
+            .filter((candidate) => candidate.sourceQuestionId)
+            .map((candidate) => [candidate.sourceQuestionId, candidate]),
+        );
+        setForm((current) => ({
+          ...current,
+          questions: current.questions.map((candidate) => {
+            if (candidate.id === question.id) return asEditorQuestion(versionedUpdatedQuestion);
+            const persisted = candidate.sourceQuestionId ? persistedBySourceQuestionId.get(candidate.sourceQuestionId) : undefined;
+            return persisted ? { ...candidate, id: persisted.id } : candidate;
+          }),
+        }));
+        setActiveQuestionId((current) => current === question.id ? versionedUpdatedQuestion.id : current);
+      }
       setSavedQuiz(result.quiz);
       setHasUnsavedChanges(hadUnsavedChanges);
       setSaveError(null);

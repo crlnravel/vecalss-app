@@ -28,5 +28,7 @@ assert.match(editor, /Terima ke draf/);
 assert.match(editor, /Saat ini di Kuis/);
 assert.match(editor, /Revisi \$\{update\.revisionNo\} di Bank Soal/);
 assert.match(editor, /acceptStandaloneQuizQuestionUpdateAction/);
+assert.match(editor, /candidate\.sourceQuestionId === question\.sourceQuestionId/);
+assert.match(editor, /setActiveQuestionId\(\(current\) => current === question\.id/);
 
 console.log("Quiz question update review contract passed.");
