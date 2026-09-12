@@ -13,6 +13,22 @@
 
 BEGIN;
 
+DO $$
+DECLARE
+  acknowledgement text := current_setting('cbt.cutover_ack', true);
+  snapshot_id text := current_setting('cbt.cutover_snapshot_id', true);
+  target_database text := current_setting('cbt.cutover_database', true);
+BEGIN
+  -- Prisma deploy does not know whether an operator has a recoverable
+  -- snapshot. Require explicit session settings so an accidental deploy
+  -- cannot start this deletion.
+  IF acknowledgement IS DISTINCT FROM 'REMOVE_CAT'
+     OR snapshot_id IS NULL OR length(trim(snapshot_id)) = 0
+     OR target_database IS NULL OR target_database <> current_database() THEN
+    RAISE EXCEPTION 'CBT cutover requires cbt.cutover_ack=REMOVE_CAT, cbt.cutover_snapshot_id, and cbt.cutover_database=current_database()';
+  END IF;
+END $$;
+
 CREATE TEMP TABLE _cbt_cat_tryouts ON COMMIT DROP AS
 SELECT DISTINCT section.tryout_id
   FROM tryout_sections AS section
@@ -98,8 +114,13 @@ BEGIN
               WHERE quiz.assembly_package_version_id = version.id
            )
         OR EXISTS (
-             SELECT 1 FROM standalone_quiz_versions AS quiz_version
+        SELECT 1 FROM standalone_quiz_versions AS quiz_version
               WHERE quiz_version.assembly_package_version_id = version.id
+           )
+        OR EXISTS (
+             SELECT 1 FROM assessment_releases AS release
+              WHERE release.assembly_package_version_id = version.id
+                AND release.id NOT IN (SELECT id FROM _cbt_cat_releases)
            )
   ) THEN
     RAISE EXCEPTION 'CBT cutover refused: a CAT package version is shared with a non-CAT assessment';
@@ -116,6 +137,26 @@ BEGIN
     RAISE EXCEPTION 'CBT cutover refused: a CAT package is referenced outside the CAT Tryout set';
   END IF;
 END $$;
+
+-- Published package versions and AssessmentReleases are normally immutable.
+-- This acknowledged destructive cutover is the one exception: remove only
+-- the triggers while the transaction is open, then restore them before the
+-- commit. A failure rolls the trigger changes back with the transaction.
+DROP TRIGGER IF EXISTS assessment_releases_append_only ON assessment_releases;
+DROP TRIGGER IF EXISTS reusable_question_package_versions_ready_immutable
+  ON reusable_question_package_versions;
+DROP TRIGGER IF EXISTS reusable_question_package_version_items_ready_immutable
+  ON reusable_question_package_version_items;
+DROP TRIGGER IF EXISTS reusable_question_package_version_item_options_ready_immutable
+  ON reusable_question_package_version_item_options;
+DROP TRIGGER IF EXISTS reusable_question_package_version_bank_scopes_ready_immutable
+  ON reusable_question_package_version_bank_scopes;
+DROP TRIGGER IF EXISTS reusable_question_package_version_folder_scopes_ready_immutable
+  ON reusable_question_package_version_folder_scopes;
+DROP TRIGGER IF EXISTS reusable_question_package_version_category_scopes_ready_immutable
+  ON reusable_question_package_version_category_scopes;
+DROP TRIGGER IF EXISTS reusable_question_package_version_rules_ready_immutable
+  ON reusable_question_package_version_rules;
 
 -- Preview restart rows hold Restrict references to CAT delivery rows.
 DELETE FROM admin_preview_tryout_restarts AS restart
@@ -193,6 +234,33 @@ DELETE FROM reusable_question_packages AS pkg
          SELECT 1 FROM reusable_question_package_versions AS version
           WHERE version.package_id = pkg.id
        );
+
+CREATE TRIGGER assessment_releases_append_only
+BEFORE UPDATE OR DELETE ON assessment_releases
+FOR EACH ROW
+EXECUTE FUNCTION protect_assessment_release_append_only();
+
+CREATE TRIGGER reusable_question_package_versions_ready_immutable
+  BEFORE UPDATE OR DELETE ON reusable_question_package_versions
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_items_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_items
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_item_options_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_item_options
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_bank_scopes_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_bank_scopes
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_folder_scopes_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_folder_scopes
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_category_scopes_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_category_scopes
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
+CREATE TRIGGER reusable_question_package_version_rules_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_rules
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
 
 DO $$
 BEGIN
