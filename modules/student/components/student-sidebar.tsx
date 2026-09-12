@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   ListChecks,
   UserRound,
+  Video,
 } from "@/lib/icons";
 
 import {
@@ -42,6 +43,7 @@ type StudentNavigationItem = {
 const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Beranda" },
   { href: "/courses", icon: BookOpen, label: "Materi" },
+  { href: "/videos", icon: Video, label: "Video" },
   { href: "/quiz", icon: ListChecks, label: "Kuis" },
   { href: "/tryout", icon: Gauge, label: "Tryout" },
   { href: "/vera-ai", icon: Bot, label: "Vera AI" },

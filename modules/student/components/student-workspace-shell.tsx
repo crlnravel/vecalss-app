@@ -29,6 +29,7 @@ import { StudentSidebar } from "@/modules/student/components/student-sidebar";
 const studentRootHrefByLabel: Record<string, string> = {
   Beranda: "/dashboard",
   Materi: "/courses",
+  Video: "/videos",
   Kuis: "/quiz",
   Tryout: "/tryout",
   "Vera AI": "/vera-ai",
