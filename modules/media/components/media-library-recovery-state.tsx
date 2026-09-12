@@ -79,12 +79,13 @@ function MediaLibraryRecoveryState({
   onUpload?: () => void;
 }) {
   const { Icon, description, isFiltered, isStorageUnavailable, title } = getRecoveryCopy(kind, mediaLabel, errorMessage, Boolean(onUpload));
+  const isPlainEmpty = kind === "empty";
   const mediaName = mediaLabel.toLowerCase();
 
   return (
     <section
       aria-label={title}
-      className={cn("flex min-h-[16rem] flex-col items-center justify-center rounded-3xl border border-dashed border-primary-200 bg-primary-50/25 px-5 py-10 text-center", className)}
+      className={cn("flex min-h-[16rem] flex-col items-center justify-center px-5 py-10 text-center", !isPlainEmpty && "rounded-3xl border border-dashed border-primary-200 bg-primary-50/25", className)}
       role={kind === "error" ? "alert" : "status"}
     >
       <div className={cn("mb-4 flex size-12 items-center justify-center rounded-2xl", kind === "error" ? "bg-student-status-danger-bg text-student-status-danger-fg" : isStorageUnavailable ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-primary-50 text-primary-700")}>

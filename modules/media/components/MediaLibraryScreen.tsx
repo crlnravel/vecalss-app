@@ -711,13 +711,13 @@ function MediaLibraryReferenceBreadcrumbs({ props }: { props: MediaLibraryScreen
   if (!props.isReference || !referenceBreadcrumbs.length) return null;
 
   return (
-    <div className="-mx-5 flex flex-wrap items-center gap-3 border-b border-primary-100 px-5 py-1 md:-mx-8 md:px-8">
+    <div className="-mx-5 flex flex-wrap items-center gap-3 px-5 py-1 md:-mx-8 md:px-8">
       <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto font-heading text-sm text-secondary-500">
         {referenceBreadcrumbs.map((breadcrumb, index) => (
           <span className="flex shrink-0 items-center gap-1" key={`${breadcrumb.id ?? "root"}-${breadcrumb.name}`}>
             {index === referenceBreadcrumbs.length - 1
-              ? <span aria-current="page" className="min-h-11 rounded-lg px-1.5 py-1 font-semibold text-secondary-900">{breadcrumb.name}</span>
-              : <button className="min-h-11 rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" onClick={() => props.navigateToFolder(breadcrumb.id)} type="button">{breadcrumb.name}</button>}
+              ? <span aria-current="page" className="inline-flex min-h-11 items-center rounded-lg px-1.5 py-1 font-semibold text-secondary-900">{breadcrumb.name}</span>
+              : <button className="inline-flex min-h-11 items-center rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" onClick={() => props.navigateToFolder(breadcrumb.id)} type="button">{breadcrumb.name}</button>}
             {index < referenceBreadcrumbs.length - 1 ? <ChevronRight aria-hidden="true" className="size-3.5 text-secondary-300" /> : null}
           </span>
         ))}
