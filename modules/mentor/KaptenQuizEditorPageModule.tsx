@@ -288,7 +288,7 @@ function QuestionInventory({
       aria-labelledby="quiz-inventory-title"
       className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl border border-primary-100 bg-white p-3 md:p-4"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col items-start gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-secondary-900" id="quiz-inventory-title">
             Inventori soal
