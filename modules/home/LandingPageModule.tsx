@@ -54,7 +54,7 @@ const loopItems: LoopItem[] = [
 
 const pathwayToneClasses = {
   deep: "bg-voyage-forest text-white border-white/12",
-  emerald: "bg-voyage-leaf text-white border-white/12",
+  emerald: "bg-voyage-deep-hover text-white border-white/12",
   paper: "bg-voyage-canvas text-voyage-deep border-voyage-deep/10",
   soft: "bg-voyage-sea-glass text-voyage-deep border-voyage-deep/10",
 } as const;

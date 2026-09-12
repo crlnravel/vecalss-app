@@ -42,7 +42,7 @@ export function AccordionList({
             <summary
               className={cn(
                 "flex cursor-pointer list-none items-center justify-between gap-6 text-left",
-                "outline-none [&::-webkit-details-marker]:hidden",
+                "outline-none focus-visible:ring-4 focus-visible:ring-voyage-deep/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white [&::-webkit-details-marker]:hidden",
               )}
             >
               <div className="flex items-center gap-3 text-[var(--voyage-deep)] md:gap-4">
@@ -69,7 +69,7 @@ export function AccordionList({
             >
               <div className="overflow-hidden">
                 <div className="mt-4 h-px w-full bg-[var(--voyage-deep)]/10" />
-                <p className="pt-4 text-ui-base text-[var(--voyage-deep)]/70">
+                <p className="pt-4 text-ui-base text-voyage-ink">
                   {item.answer}
                 </p>
               </div>

@@ -48,19 +48,19 @@ function HomeFooter() {
                 VECALSS
               </span>
             </Link>
-            <p className="mt-5 max-w-[30ch] text-sm leading-7 text-white/76 md:text-base">
+            <p className="mt-5 max-w-[30ch] text-sm leading-7 text-voyage-sea-glass md:text-base">
               Ekosistem belajar untuk Voyager yang ingin mempersiapkan diri
               menuju PTN dengan lebih terarah.
             </p>
           </div>
 
           <nav aria-label="Quick links" className="grid gap-3 text-sm font-medium">
-            <p className="kicker-label mb-2 text-white/52">Quick Links</p>
+            <p className="kicker-label mb-2 text-voyage-sea-glass">Quick Links</p>
             {quickLinks.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="inline-flex min-h-11 items-center text-white/72 transition-colors hover:text-white"
+                className="inline-flex min-h-11 items-center text-voyage-sea-glass transition-colors hover:text-white"
               >
                 {item.label}
               </Link>
@@ -68,7 +68,7 @@ function HomeFooter() {
           </nav>
 
           <nav aria-label="Social media" className="grid gap-3 text-sm font-medium">
-            <p className="kicker-label mb-2 text-white/52">Social Media</p>
+            <p className="kicker-label mb-2 text-voyage-sea-glass">Social Media</p>
             {contactLinks.map((item) => {
               const Icon = item.icon;
 
@@ -76,7 +76,7 @@ function HomeFooter() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="inline-flex min-h-11 items-center gap-3 text-white/72 transition-colors hover:text-white"
+                  className="inline-flex min-h-11 items-center gap-3 text-voyage-sea-glass transition-colors hover:text-white"
                 >
                   <Icon className="size-4" />
                   {item.label}
@@ -86,7 +86,7 @@ function HomeFooter() {
           </nav>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-white/12 pt-6 text-sm text-white/58 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 border-t border-white/12 pt-6 text-sm text-voyage-sea-glass md:flex-row md:items-center md:justify-between">
           <p>
             &copy;&nbsp;2026 Vecalss Learning Academy. Seluruh hak cipta
             dilindungi.

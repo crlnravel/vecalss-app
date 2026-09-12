@@ -98,7 +98,7 @@ function MentorCards({ members }: MentorCardsProps) {
                     </p>
                     <div className="mt-4 flex items-start justify-between gap-6">
                       <div>
-                        <DialogTitle className="text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
+                        <DialogTitle className="text-5xl font-semibold leading-[0.98] tracking-[-0.04em] text-[var(--voyage-deep)] md:text-6xl">
                           {member.name}
                         </DialogTitle>
                         <DialogDescription className="mt-3 text-lg font-semibold text-voyage-ink">
