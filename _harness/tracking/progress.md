@@ -1002,3 +1002,22 @@ production seed. The current next slice is AS-07 realtime/polling hardening
 under `artifacts/tickets/as07-realtime-hardening`: authoritative
 disconnect/reconcile writers, deadline-expiry synchronization, and bounded
 Live refresh/polling. AS-08 remains closed.
+
+## Versioned Kuis editor handoff (2026-09-12)
+
+- [x] Updated `QuestionSourceUpdateNotice` and its accept callback so draft and
+  published Kuis records can review and accept Bank Soal revisions; archived
+  records remain read-only.
+- [x] Published Kuis copy now explains that acceptance writes the next draft
+  while the active release keeps its current immutable snapshot until lazy
+  activation. Legacy Duplicate wording remains only in the
+  `KUIS_VERSIONING_CUTOVER=disabled` repository fallback.
+- [x] Updated the Kuis detail preview to render all `correctChoiceIds`, with
+  the historic single `correctChoiceId` fallback preserved.
+- [x] Committed the isolated UI/test unit as `d8ed50b`.
+- [x] Guarded focused ESLint (editor and contract test), strict TypeScript,
+  `test:quiz-question-updates`, and scoped diff checks pass.
+- [ ] Repository-wide `pnpm verify` / `./init.sh` remains blocked by the
+  unrelated unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
+  `react/jsx-key` error; no Tryout/CAT or other agent-owned files were changed
+  for this handoff.

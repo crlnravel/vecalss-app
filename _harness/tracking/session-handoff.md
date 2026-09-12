@@ -1171,3 +1171,26 @@
 
 - Start the deferred durable Kuis assembly binding implementation and keep
   the protected admin-preview files untouched.
+
+## Current handoff — Versioned Kuis editor (2026-09-12)
+
+- Objective: keep the Kapten Kuis editor aligned with the default lazy
+  snapshot runtime when a reusable Bank Soal question receives a revision.
+- Completed in `d8ed50b` (`Allow versioned Kuis edits from published editor`):
+  `KaptenQuizEditorPageModule.tsx` now permits source-review acceptance for
+  draft and published Kuis records and blocks only archived records; published
+  copy explains that the revision lands in the next draft while the active
+  snapshot remains unchanged. `KaptenQuizDetailPageModule.tsx` renders all
+  `correctChoiceIds` with a legacy single-answer fallback. The focused
+  `scripts/test-quiz-question-updates.ts` contract covers these guards and
+  tolerates multiline callback formatting.
+- Verification: guarded focused ESLint, strict TypeScript,
+  `test:quiz-question-updates`, and scoped `git diff --check` pass. The full
+  guarded `pnpm verify` and `./init.sh` lint phase stop on the unrelated
+  unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
+  `react/jsx-key` error; this handoff did not alter that file.
+- Ownership: the three files above are committed and handed off. Broad dirty
+  Question Bank, Tryout, CAT, schema, harness, and other mentor files remain
+  outside this unit and must not be reset or staged with it.
+- Next step: fix the Tryout workspace header key in its owning workstream,
+  then rerun the repository-wide verify gate before a release claim.

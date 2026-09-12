@@ -246,7 +246,7 @@
       "description": "Align the Kuis editor inventory, issue markers, add control, preview switch, and primary editor actions with the Bank Soal workspace language",
       "dependencies": ["feat-017", "feat-021"],
       "status": "complete",
-      "evidence": "4eaae2a; pnpm test:kuis-ui-first-workspace and focused TypeScript/ESLint/diff-check evidence pass; browser QA remains a separately gated follow-up."
+      "evidence": "4eaae2a + d8ed50b; Kuis editor reference parity plus versioned Bank Soal revision acceptance for draft/published records, archived lockout, and multi-answer detail preview. Guarded test:kuis-ui-first-workspace, test:quiz-question-updates, strict TypeScript, focused ESLint, and scoped diff-check pass; repository-wide verify remains blocked by an unrelated Tryout workspace jsx-key error, and browser QA remains a separately gated follow-up."
     },
     {
       "id": "feat-032",

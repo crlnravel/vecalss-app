@@ -508,3 +508,16 @@ and then verify the source tree before making an implementation decision.
 - Synergy with shared resource guard: Process safety remains mandatory. Any Node, package, test, build, lint, or Prisma command must still run under `_harness/resource-guard.sh run -- rtk pnpm <command>`.
 - Non-heavy shell commands (`rtk git status`, `rtk git diff`, etc.) may run `rtk` directly.
 - Escape hatch: `rtk proxy <cmd>` provides raw unfiltered output when required for low-level debugging.
+
+## Versioned Kuis editor boundary (2026-09-12)
+
+- The default Kuis runtime uses lazy snapshot activation: a published Kuis
+  remains editable, saves accumulate in the mutable next draft, and the
+  currently active snapshot remains immutable until a later student start
+  activates the changed definition.
+- Kapten source-revision acceptance therefore permits draft and published Kuis
+  records and blocks only archived records. The editor labels the action
+  `Terima ke draf` and explains that the running release keeps its snapshot.
+- The old `Jadikan draf` / `Gunakan Duplicate` rejection is a legacy fallback
+  only when `KUIS_VERSIONING_CUTOVER=disabled`; it is not part of the default
+  versioned path.
