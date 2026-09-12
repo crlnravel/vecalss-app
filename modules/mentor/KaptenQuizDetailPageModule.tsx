@@ -221,12 +221,14 @@ function QuizSettings({
   disabled,
   form,
   isSaving,
+  onMakeDraft,
   onChange,
   onSave,
 }: {
   disabled: boolean;
   form: SettingsForm;
   isSaving: boolean;
+  onMakeDraft?: () => void;
   onChange: (patch: Partial<SettingsForm>) => void;
   onSave: () => void;
 }) {
@@ -262,25 +264,59 @@ function QuizSettings({
             <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-score">Penilaian akhir</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-score" onValueChange={(value) => onChange({ scorePolicy: value as SettingsForm["scorePolicy"] })} options={[{ label: "Skor tertinggi", value: "highest" }, { label: "Percobaan terbaru", value: "latest" }, { label: "Percobaan pertama", value: "first" }, { label: "Rata-rata", value: "average" }]} placeholder="Pilih penilaian" value={form.scorePolicy} />
           </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-retry">Jeda percobaan ulang (detik)</FieldLabel>
-          <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-retry" min={0} onChange={(event) => { const value = event.target.value.trim(); const parsed = Number(value); onChange({ retryDelaySeconds: value === "" || !Number.isFinite(parsed) ? null : Math.max(0, Math.floor(parsed)) }); }} type="number" value={form.retryDelaySeconds ?? ""} />
-          </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-behavior">Susunan soal di percobaan ulang</FieldLabel>
-          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-behavior" onValueChange={(value) => onChange({ formBehavior: value as SettingsForm["formBehavior"] })} options={[{ label: "Pertahankan soal dan urutan", value: "same" }, { label: "Acak soal setiap percobaan", value: "fresh_randomized" }]} placeholder="Pilih susunan soal" value={form.formBehavior} />
-          </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-review">Waktu review</FieldLabel>
-          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-review" onValueChange={(value) => onChange({ reviewTiming: value as SettingsForm["reviewTiming"] })} options={[{ label: "Langsung setelah kirim", value: "immediate" }, { label: "Setelah Kuis ditutup", value: "after_close" }, { label: "Tidak tersedia", value: "never" }]} placeholder="Pilih waktu review" value={form.reviewTiming} />
-          </Field>
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-visibility">Jawaban benar</FieldLabel>
-          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-visibility" onValueChange={(value) => onChange({ correctAnswerVisibility: value as SettingsForm["correctAnswerVisibility"] })} options={[{ label: "Tampilkan", value: "show" }, { label: "Sembunyikan", value: "hide" }]} placeholder="Pilih visibilitas" value={form.correctAnswerVisibility} />
-          </Field>
         </div>
         {scheduleError ? <p className="mt-4 text-sm font-medium text-student-status-danger-fg" role="alert">{scheduleError}</p> : null}
       </ReferenceSurface>
+
+      <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7" data-quiz-settings-card="question-order">
+        <div>
+          <h2 className="text-lg font-semibold text-secondary-900">Susunan soal di percobaan ulang</h2>
+        </div>
+        <div className="mt-5">
+          <Field>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-behavior">Pilihan susunan soal</FieldLabel>
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-behavior" onValueChange={(value) => onChange({ formBehavior: value as SettingsForm["formBehavior"] })} options={[{ label: "Pertahankan soal dan urutan", value: "same" }, { label: "Acak soal setiap percobaan", value: "fresh_randomized" }]} placeholder="Pilih susunan soal" value={form.formBehavior} />
+          </Field>
+        </div>
+      </ReferenceSurface>
+
+      <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7" data-quiz-settings-card="review">
+        <div>
+          <h2 className="text-lg font-semibold text-secondary-900">Ulas pembahasan</h2>
+        </div>
+        <div className="mt-5">
+          <Field>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-review">Kapan siswa dapat mengulas</FieldLabel>
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-review" onValueChange={(value) => onChange({ reviewTiming: value as SettingsForm["reviewTiming"] })} options={[{ label: "Langsung setelah kirim", value: "immediate" }, { label: "Setelah Kuis ditutup", value: "after_close" }, { label: "Tidak tersedia", value: "never" }]} placeholder="Pilih waktu review" value={form.reviewTiming} />
+          </Field>
+        </div>
+      </ReferenceSurface>
+
+      <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7" data-quiz-settings-card="answer-visibility">
+        <div>
+          <h2 className="text-lg font-semibold text-secondary-900">Jawaban benar</h2>
+        </div>
+        <div className="mt-5">
+          <Field>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-visibility">Tampilkan jawaban benar</FieldLabel>
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-visibility" onValueChange={(value) => onChange({ correctAnswerVisibility: value as SettingsForm["correctAnswerVisibility"] })} options={[{ label: "Tampilkan", value: "show" }, { label: "Sembunyikan", value: "hide" }]} placeholder="Pilih visibilitas" value={form.correctAnswerVisibility} />
+          </Field>
+        </div>
+      </ReferenceSurface>
+
+      {onMakeDraft ? (
+        <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7" data-quiz-settings-card="lifecycle">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Status Kuis</h2>
+            </div>
+            <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={onMakeDraft} type="button" variant="reference">
+              <FilePenLine />Jadikan draf
+            </Button>
+          </div>
+        </ReferenceSurface>
+      ) : null}
+
       <Button aria-busy={isSaving} className="w-full" disabled={disabled || isSaving || Boolean(scheduleError)} onClick={onSave} type="button" variant="reference">
         {isSaving ? "Menyimpan…" : "Simpan perubahan"}
       </Button>
@@ -367,7 +403,7 @@ function KaptenQuizDetailPageModule({
         <div className="flex min-w-0 items-start justify-between gap-3">
           <Button aria-label={backLabel} className="mt-1 shrink-0" nativeButton={false} render={<Link href={subjectHref} />} size="icon" title={backLabel} type="button" variant="ghost"><ChevronLeft /></Button>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            {quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal />Terbitkan</Button> : quiz.status === "published" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("draft")} type="button" variant="reference"><FilePenLine />Jadikan draf</Button> : null}
+            {quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal />Terbitkan</Button> : null}
             <Button nativeButton={false} render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />} type="button" variant="brand"><FilePenLine />Edit soal</Button>
           </div>
         </div>
@@ -378,7 +414,7 @@ function KaptenQuizDetailPageModule({
           <FullWidthLineTabsList aria-label="Bagian detail Kuis"><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="preview">Soal</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="hasil">Hasil</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger></FullWidthLineTabsList>
           <TabsContent className="m-0" value="preview"><QuizPreview quizId={quiz.id} questions={questions} subjectCode={quiz.subjectCode ?? "PU"} /></TabsContent>
           <TabsContent className="m-0" value="hasil"><KaptenQuizResultsContent result={initialResults} /></TabsContent>
-          <TabsContent className="m-0" value="pengaturan"><QuizSettings disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} onSave={() => void saveSettings()} /></TabsContent>
+          <TabsContent className="m-0" value="pengaturan"><QuizSettings disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} onMakeDraft={quiz.status === "published" ? () => void saveSettings("draft") : undefined} onSave={() => void saveSettings()} /></TabsContent>
         </Tabs>
       </div>
     </MentorWorkspaceShell>

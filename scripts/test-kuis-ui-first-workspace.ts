@@ -86,6 +86,12 @@ assert.doesNotMatch(detail, /Metadata ini hanya berlaku untuk Kuis mandiri ini|P
 assert.match(detail, /Susunan soal di percobaan ulang/u, "retry behavior must use clearer language");
 assert.match(detail, /Pertahankan soal dan urutan/u, "retry choices must explain the stable form");
 assert.match(detail, /Acak soal setiap percobaan/u, "retry choices must explain randomization");
+assert.doesNotMatch(detail, /Jeda percobaan ulang|quiz-settings-retry/u, "retry delay must not be exposed in Kuis settings");
+assert.match(detail, /data-quiz-settings-card="question-order"[\s\S]*Susunan soal di percobaan ulang/u, "retry order must have its own settings card");
+assert.match(detail, /data-quiz-settings-card="review"[\s\S]*Ulas pembahasan/u, "review timing must have its own settings card");
+assert.match(detail, /data-quiz-settings-card="answer-visibility"[\s\S]*Jawaban benar/u, "answer visibility must have its own settings card");
+assert.match(detail, /data-quiz-settings-card="lifecycle"[\s\S]*Jadikan draf/u, "draft lifecycle action must have its own settings card");
+assert.doesNotMatch(detail, /quiz\.status === "published" \? <Button[\s\S]*Jadikan draf/u, "draft lifecycle action must leave the page header");
 assert.match(detail, /className="w-full"[^>]*disabled=\{disabled \|\| isSaving/u, "settings save action must span the page width at the bottom");
 assert.match(detail, /Perubahan Kuis tersimpan/u, "settings save must provide a success action toast");
 assert.match(detail, /showToast\(result\.message, \{ variant: "error" \}\)/u, "save failures must provide an error action toast");
