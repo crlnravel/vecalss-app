@@ -122,6 +122,12 @@ function questionBankHref({ categories = [], folder = ROOT_FOLDER, page = 1, pur
   return `/mentor/quiz/question-bank${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
+function questionBankCreateHref({ folder = ROOT_FOLDER, purpose = "quiz" }: { folder?: FolderSelection; purpose?: QuestionBankPurpose } = {}) {
+  const params = new URLSearchParams({ purpose });
+  if (folder !== ROOT_FOLDER) params.set("folder", folder === null ? "unfiled" : folder);
+  return `/mentor/quiz/question-bank/create?${params.toString()}`;
+}
+
 function flattenFolders(nodes: FolderNode[], depth = 0): Array<{ depth: number; folder: FolderNode }> {
   return nodes.flatMap((folder) => [
     ...(folder.id === null ? [] : [{ depth, folder }]),
@@ -1432,7 +1438,7 @@ function QuestionBankCataloguePageContent({ initialPurpose, initialSearch, initi
           <>
             <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
             <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
-            <Button aria-label="Tambah Soal" render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" title="Tambah Soal" type="button" variant="brand"><Plus />Tambah Soal</Button>
+            <Button aria-label="Tambah Soal" render={<Link href={questionBankCreateHref({ folder: selectedFolder, purpose: initialPurpose })} />} size="sm" title="Tambah Soal" type="button" variant="brand"><Plus />Tambah Soal</Button>
           </>
         )}
         title="Bank Soal"
@@ -1461,7 +1467,7 @@ function QuestionBankCataloguePageContent({ initialPurpose, initialSearch, initi
           caption="Daftar folder dan bank soal"
           clearFiltersHref={clearFiltersHref}
           columns={catalogueColumns}
-          emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank/create?purpose=${initialPurpose}`} />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
+          emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href={questionBankCreateHref({ folder: selectedFolder, purpose: initialPurpose })} />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
           filterPanel={<QuestionBankCatalogueFilterPanel categories={categories} navigateCatalogue={navigateCatalogue} resetPage={resetPage} selectedCategories={selectedCategories} selectedSubjects={selectedSubjects} setSelectedCategories={setSelectedCategories} setSelectedSubjects={setSelectedSubjects} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
           filters={activeFilters}
           getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}

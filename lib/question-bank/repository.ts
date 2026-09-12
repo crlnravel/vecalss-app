@@ -48,6 +48,8 @@ import { assertQuestionBankPurpose, isQuestionBankPurpose, questionBankPurposeLa
 
 const SUBJECT_CODES = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 const TEMPORARY_QUESTION_ID_PATTERN = /^(?:pu|ppu|pbm|pk|lbi|lbe|pm)-question-\d+$/i;
+const QUESTION_BANK_FOLDER_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type BankChoiceInput = { id: string; mediaAssetId?: string; text: string };
 type BankQuestionInput = {
@@ -65,6 +67,7 @@ type BankQuestionInput = {
 };
 type SaveBankInput = {
   description: string;
+  folderId?: string | null;
   id?: string;
   purpose: QuestionBankPurpose;
   questions: BankQuestionInput[];
@@ -403,6 +406,14 @@ function validate(input: SaveBankInput) {
     }
   }
   return subjectCodes;
+}
+
+function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
+  if (folderId === undefined || folderId === null) return null;
+  if (typeof folderId !== "string" || !QUESTION_BANK_FOLDER_UUID_PATTERN.test(folderId)) {
+    throw new QuestionBankError("Folder Bank Soal tidak valid.", { code: "invalid_input" });
+  }
+  return folderId;
 }
 
 async function getFolderRows(client: typeof prisma | Prisma.TransactionClient = prisma): Promise<FolderRow[]> {
@@ -1003,6 +1014,7 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
 
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
+  const folderId = normalizeQuestionBankFolderId(input.folderId);
   return prisma.$transaction(async (tx) => {
     let bankId = input.id;
     let status: ContentStatus = ContentStatus.draft;
@@ -1037,10 +1049,20 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
     if (!bankId) {
+      if (folderId) {
+        const folder = await tx.questionBankFolder.findUnique({ where: { id: folderId }, select: { purpose: true } });
+        if (!folder || folder.purpose !== input.purpose) {
+          throw new QuestionBankError("Folder Bank Soal tidak ditemukan untuk tujuan yang dipilih.", {
+            code: "invalid_input",
+            details: { folderId, purpose: input.purpose },
+          });
+        }
+      }
       const created = await tx.questionBank.create({
         data: {
           code: codeFromTitle(input.title),
           description: input.description.trim() || null,
+          folderId,
           name: input.title.trim(),
           purpose: input.purpose,
           createdByUserId: actorId,

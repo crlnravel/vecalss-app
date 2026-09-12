@@ -136,6 +136,7 @@ type QuestionBankEditorState = {
 type LocalQuestionBankState = {
   categoryIds: string[];
   description: string;
+  folderId: string | null;
   purpose: "quiz" | "tryout";
   questions: BankQuestion[];
   subjectCode: string;
@@ -1138,6 +1139,7 @@ function QuestionBankCategoryPicker({
 type QuestionBankBuilderFormState = {
   categoryIds: string[];
   description: string;
+  folderId: string | null;
   purpose: "quiz" | "tryout";
   questions: BankQuestion[];
   subjectCode: string;
@@ -1445,7 +1447,15 @@ function useQuestionBankPersistence({
   async function saveDraft() {
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
-      const result = await saveQuestionBankAction({ description: builderState.description, id: bankIdRef.current, purpose: builderState.purpose, questions: builderState.questions, revision: revisionRef.current, title: builderState.title });
+      const result = await saveQuestionBankAction({
+        description: builderState.description,
+        folderId: mode === "create" ? builderState.folderId : undefined,
+        id: bankIdRef.current,
+        purpose: builderState.purpose,
+        questions: builderState.questions,
+        revision: revisionRef.current,
+        title: builderState.title,
+      });
       if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
       revisionRef.current = result.result.bank.revision;
       bankIdRef.current = result.result.bank.id;
@@ -1454,6 +1464,7 @@ function useQuestionBankPersistence({
       const contentState = {
         categoryIds: desiredCategoryIds,
         description: savedBank.description,
+        folderId: savedBank.folderId ?? null,
         purpose: savedBank.purpose,
         questions: result.result.questions,
         subjectCode: builderState.subjectCode,
@@ -1844,12 +1855,21 @@ function getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, in
   bankId?: string;
   initialActiveQuestionId?: string;
   initialBank: KaptenQuestionBank | null;
+  initialFolderId?: string | null;
   initialQuestions: BankQuestion[];
   initialReadiness: QuestionBankReadiness | null;
   mode: "create" | "edit";
   purpose: "quiz" | "tryout";
 }) {
-  const initialBuilderState: LocalQuestionBankState = { categoryIds: initialBank?.categoryIds ?? [], description: initialBank?.description ?? "", purpose: initialBank?.purpose ?? purpose, questions: initialQuestions, subjectCode: initialBank?.subjectCode ?? "PU", title: initialBank?.title ?? "" };
+  const initialBuilderState: LocalQuestionBankState = {
+    categoryIds: initialBank?.categoryIds ?? [],
+    description: initialBank?.description ?? "",
+    folderId: initialBank?.folderId ?? initialFolderId ?? null,
+    purpose: initialBank?.purpose ?? purpose,
+    questions: initialQuestions,
+    subjectCode: initialBank?.subjectCode ?? "PU",
+    title: initialBank?.title ?? "",
+  };
   const initialQuestion = (initialActiveQuestionId ? initialBuilderState.questions.find((question) => question.id === initialActiveQuestionId) : null) ?? initialBuilderState.questions[0] ?? null;
   const fallbackQuestionDraft = emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", initialBank?.subjectCode ?? "PU");
   const initialEditorState: QuestionBankEditorState = { activeQuestionId: initialQuestion?.id ?? null, confirmationRequest: null, hasSubmittedPreview: false, hasUnsavedChanges: mode === "create" && hasQuestionBankDraftContent(initialBuilderState), isSaving: false, lifecycleError: null, lifecycleStatus: initialBank?.status ?? "draft", mediaPickerTarget: null, pendingRouteReplacement: null, previewChoiceId: null, previewChoiceIds: [], questionDraft: initialQuestion ? toQuestionDraft(initialQuestion) : fallbackQuestionDraft, questionEditorTab: "edit", readinessAnnouncement: "", serverReadiness: mode === "edit" ? initialReadiness : null };
@@ -1908,6 +1928,7 @@ function useQuestionBankBuilderState({
   bankId,
   initialActiveQuestionId,
   initialBank = null,
+  initialFolderId = null,
   initialQuestions = [],
   initialReadiness = null,
   mode,
@@ -1916,13 +1937,14 @@ function useQuestionBankBuilderState({
   bankId?: string;
   initialActiveQuestionId?: string;
   initialBank?: KaptenQuestionBank | null;
+  initialFolderId?: string | null;
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
   purpose?: "quiz" | "tryout";
 }) {
   const router = useRouter();
-  const { fallbackQuestionDraft, initialBuilderState, initialEditorState } = getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, initialBank, initialQuestions, initialReadiness, mode, purpose });
+  const { fallbackQuestionDraft, initialBuilderState, initialEditorState } = getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, initialBank, initialFolderId, initialQuestions, initialReadiness, mode, purpose });
   const [localBuilderState, setLocalBuilderState] = useState(() => initialBuilderState);
   const [editorState, dispatch] = useReducer(questionBankEditorReducer, initialEditorState);
   const updateEditor = useCallback((patch: Partial<QuestionBankEditorState>) => dispatch({ patch, type: "patch" }), []);
@@ -1968,6 +1990,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialActiveQuestionId,
   initialCategories = [],
   initialBank = null,
+  initialFolderId = null,
   initialQuestions = [],
   initialReadiness = null,
   mode,
@@ -1978,6 +2001,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialActiveQuestionId?: string;
   initialCategories?: QuestionBankCategoryOption[];
   initialBank?: KaptenQuestionBank | null;
+  initialFolderId?: string | null;
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
@@ -2000,6 +2024,7 @@ function KaptenQuestionBankBuilderPageModule({
     bankId,
     initialActiveQuestionId,
     initialBank,
+    initialFolderId,
     initialQuestions,
     initialReadiness,
     mode,
