@@ -256,7 +256,6 @@ const TRYOUT = {
 
 const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
 const TRYOUT_CBT_SCORING_VERSION = "cbt-frozen-item-points-v1";
-const TRYOUT_CAT_SCORING_VERSION = "2pl-map-v1";
 
 function roundInternalScore(value) {
   return Math.round(Math.min(100, Math.max(0, value)) * 100) / 100;
@@ -881,10 +880,9 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
     await client.query("DELETE FROM tryout_items WHERE tryout_id = $1", [tryoutId]);
     await client.query("DELETE FROM tryout_sections WHERE tryout_id = $1", [tryoutId]);
     for (const [subjectIndex, subject] of SUBJECTS.entries()) {
-      const isCat = ["PU", "PK", "PM"].includes(subject.code);
-      // Keep the reusable package fixtures available for the package catalogue,
-      // but seed the canonical Tryout as direct snapshots. The current Kapten
-      // authoring boundary intentionally refuses legacy package bindings.
+      // The canonical demonstration is CBT-only. Keep reusable package
+      // fixtures available for the package catalogue, but materialize the
+      // Tryout as direct fixed-point snapshots for every subtest.
       const sectionResult = await client.query(
         `INSERT INTO tryout_sections (
            tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count,
@@ -897,13 +895,13 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
           subtestIds.get(subject.code),
           subject.label,
           subjectIndex + 1,
-          isCat ? 900 : 720,
+          720,
           null,
           `Baca setiap pertanyaan dengan cermat. Pilih satu jawaban yang paling tepat untuk bagian ${subject.label}.`,
-          isCat ? "cat" : "cbt",
-          JSON.stringify({ method: isCat ? "two_pl" : "sum_item_points", wrongAnswerPoints: 0 }),
-          isCat ? 2 : null,
-          isCat ? "2pl-canonical-v1" : null,
+          "cbt",
+          JSON.stringify({ correctAnswerPoints: 1, method: "fixed_points", unansweredPoints: 0, wrongAnswerPoints: 0 }),
+          null,
+          null,
         ],
       );
       const versionItems = await client.query(
@@ -1088,7 +1086,7 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
   }
   const payload = buildAssessmentReleasePayload({
     aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION,
-    catVersion: TRYOUT_CAT_SCORING_VERSION,
+    catVersion: null,
     cbtVersion: TRYOUT_CBT_SCORING_VERSION,
     tryoutId,
     tryoutRevision: tryoutResult.rows[0].revision,
@@ -2118,7 +2116,8 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
     upsertQuestions(client, { bankId: quizBankId, purpose: "quiz", subtestIds, tutorId }),
     upsertQuestions(client, { bankId: tryoutBankId, purpose: "tryout", subtestIds, tutorId }),
   ]);
-  await upsertCalibrations(client, tutorId, tryoutQuestions);
+  // Fresh seeds must not create CAT calibration fixtures. Legacy CAT
+  // compatibility remains in the runtime for rows that predate the cutover.
   const versionIds = await seedReusablePackages(client, { bankId: tryoutBankId, questions: tryoutQuestions, subtestIds, tutorId });
   const [quizIds, tryoutId] = await Promise.all([
     seedQuizzes(client, { bankId: quizBankId, questions: quizQuestions, studentIds, subtestIds, tutorId }),

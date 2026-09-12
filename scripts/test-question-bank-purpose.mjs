@@ -50,12 +50,15 @@ assert.match(assemblyRepository, /assemblyVersionMatchesPurpose/u);
 assert.match(assemblyRepository, /version\.sourceBank\.purpose === expectedPurpose/u);
 assert.match(release, /bank\?\.purpose !== "tryout"/u);
 assert.match(release, /purpose: "tryout"/u);
-assert.match(release, /packageVersion\.sourceBank\.purpose !== "tryout"/u);
+assert.match(release, /version\.sourceBank\.purpose !== "tryout"/u);
 
 assert.match(seed, /code: "seed:assessment:quiz-bank:v1"/u);
 assert.match(seed, /purpose: "quiz"/u);
 assert.match(seed, /code: "seed:assessment:tryout-bank:v1"/u);
 assert.match(seed, /purpose: "tryout"/u);
-assert.match(seed, /upsertCalibrations\(client, tutorId, tryoutQuestions\)/u);
+assert.doesNotMatch(seed, /upsertCalibrations\(client, tutorId, tryoutQuestions\)/u);
+assert.match(seed, /The canonical demonstration is CBT-only/u);
+assert.match(seed, /JSON\.stringify\(\{ correctAnswerPoints: 1, method: "fixed_points", unansweredPoints: 0, wrongAnswerPoints: 0 \}\)/u);
+assert.doesNotMatch(seed, /const isCat = \["PU", "PK", "PM"\]\.includes\(subject\.code\)/u);
 
 console.log("Question-bank purpose schema and boundary contracts passed.");
