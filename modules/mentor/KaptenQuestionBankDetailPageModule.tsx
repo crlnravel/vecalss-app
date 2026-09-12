@@ -938,7 +938,7 @@ function KaptenQuestionBankDetailPageModule({
         expectedRevision: bank.revision ?? 1,
       });
       if (!result.ok) {
-        setLifecycleError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       setBank((current) => ({
@@ -955,7 +955,10 @@ function KaptenQuestionBankDetailPageModule({
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah status bank.");
+      showToast(
+        err instanceof Error ? err.message : "Gagal mengubah status bank.",
+        { variant: "error" },
+      );
     } finally {
       setIsSavingLifecycle(false);
     }
