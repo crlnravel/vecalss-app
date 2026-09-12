@@ -7,11 +7,10 @@ import {
   Clock3,
   Play,
   Search,
-  Sparkles,
   UserRound,
   Video,
 } from "@/lib/icons";
-import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
+import { ReferenceEmptyState } from "@/components/dashboard";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
@@ -22,11 +21,11 @@ import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
-import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
-type VideoFilter = "Semua" | "TPS" | "TPA";
-type VideoCategory = Exclude<VideoFilter, "Semua">;
+type VideoFilter = "Semua" | "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM";
+type VideoCategory = "TPS" | "TPA";
+type VideoSubtest = Exclude<VideoFilter, "Semua">;
 
 type VideoGalleryItem = {
   category: VideoCategory;
@@ -34,6 +33,7 @@ type VideoGalleryItem = {
   duration: string;
   id: string;
   isNew?: boolean;
+  subtest: VideoSubtest;
   subject: string;
   tags: string[];
   thumbnailEyebrow: string;
@@ -61,6 +61,7 @@ const videoItems = [
     duration: "30:00",
     id: "tps-pk-2026",
     isNew: true,
+    subtest: "PK",
     subject: "Pengetahuan Kuantitatif",
     tags: ["TPS", "PK", "SNBT 2026"],
     thumbnailEyebrow: "PEMBAHASAN",
@@ -74,6 +75,7 @@ const videoItems = [
     description: "Kenali pola soal dan strategi cepat untuk menaklukkan penalaran kuantitatif.",
     duration: "21:47",
     id: "prediksi-kuantitatif",
+    subtest: "PK",
     subject: "Pengetahuan Kuantitatif",
     tags: ["Prediksi", "Kuantitatif", "UTBK"],
     thumbnailEyebrow: "STRATEGI CEPAT",
@@ -87,6 +89,7 @@ const videoItems = [
     description: "Cara ringkas membaca persentase, diskon, dan perubahan nilai tanpa berlama-lama.",
     duration: "17:45",
     id: "diskon-persen",
+    subtest: "PK",
     subject: "Pengetahuan Kuantitatif",
     tags: ["Persen", "Diskon", "Trik"],
     thumbnailEyebrow: "CARA CEPAT",
@@ -100,6 +103,7 @@ const videoItems = [
     description: "Pahami peluang lewat contoh sederhana dan pola hitung yang mudah diingat.",
     duration: "12:20",
     id: "peluang-pk",
+    subtest: "PK",
     subject: "Pengetahuan Kuantitatif",
     tags: ["Peluang", "PK", "Latihan"],
     thumbnailEyebrow: "FONDASI",
@@ -113,6 +117,7 @@ const videoItems = [
     description: "Latihan bertahap untuk menemukan pola bilangan dan menyusun langkah paling efisien.",
     duration: "15:15",
     id: "pola-bilangan",
+    subtest: "PU",
     subject: "Penalaran Umum",
     tags: ["Pola Bilangan", "PU", "Latihan"],
     thumbnailEyebrow: "BEDAH SOAL",
@@ -127,6 +132,7 @@ const videoItems = [
     duration: "20:19",
     id: "literasi-bacaan",
     isNew: true,
+    subtest: "LBI",
     subject: "Literasi Bahasa Indonesia",
     tags: ["LBI", "Literasi", "Strategi"],
     thumbnailEyebrow: "BEDAH BACAAN",
@@ -140,6 +146,7 @@ const videoItems = [
     description: "Temukan cara menyusun fokus sebelum mulai membaca teks berbahasa Inggris.",
     duration: "18:42",
     id: "reading-comprehension",
+    subtest: "LBE",
     subject: "Literasi Bahasa Inggris",
     tags: ["LBE", "Reading", "SNBT"],
     thumbnailEyebrow: "READING HACK",
@@ -153,6 +160,7 @@ const videoItems = [
     description: "Latihan penalaran umum dengan pendekatan visual agar pola jawabannya lebih mudah terlihat.",
     duration: "14:08",
     id: "penalaran-umum",
+    subtest: "PU",
     subject: "Penalaran Umum",
     tags: ["PU", "Penalaran", "Latihan"],
     thumbnailEyebrow: "KUPAS TUNTAS",
@@ -163,7 +171,7 @@ const videoItems = [
   },
 ] satisfies readonly VideoGalleryItem[];
 
-const videoFilters: readonly VideoFilter[] = ["Semua", "TPS", "TPA"];
+const videoFilters: readonly VideoFilter[] = ["Semua", "PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"];
 
 function VideoThumbnail({ video }: { video: VideoGalleryItem }) {
   return (
@@ -229,7 +237,7 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
       <div className="flex min-h-[13.5rem] flex-1 flex-col p-5">
         <div className="flex flex-wrap items-center gap-2">
           <StudentBadge size="xs" tone="category">
-            {video.category}
+            {video.subtest}
           </StudentBadge>
           {video.isNew ? <StudentBadge size="xs" tone="attention">Baru</StudentBadge> : null}
         </div>
@@ -279,7 +287,7 @@ function VideoGalleryPageModule({
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("id-ID");
 
     return videoItems.filter((video) => {
-      const matchesFilter = activeFilter === "Semua" || video.category === activeFilter;
+      const matchesFilter = activeFilter === "Semua" || video.subtest === activeFilter;
       if (!matchesFilter) return false;
       if (!normalizedQuery) return true;
 
@@ -300,49 +308,14 @@ function VideoGalleryPageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <StudentPageHero
-          description="Temukan penjelasan singkat, strategi soal, dan pembahasan yang dipilih Kapten untuk menemani ritme belajarmu."
-          icon={Video}
-          meta={
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold text-student-status-attention-solid-fg">
-              <Video aria-hidden="true" className="size-4" />
-              {videoItems.length} video pilihan Kapten
-            </span>
-          }
-          title="Galeri Video"
-        />
-
-        <ReferenceSurface
-          as="aside"
-          className="flex items-start gap-3 border-learning-card-border p-4 md:p-5"
-          variant="inset"
-        >
-          <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-voyage-sea-glass text-voyage-deep">
-            <Sparkles aria-hidden="true" className="size-5" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-secondary-900">Koleksi dari Kapten</p>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">
-              Video YouTube di sini akan dikurasi dan diperbarui dari ruang Kapten supaya kamu selalu punya teman belajar yang relevan.
-            </p>
-          </div>
-        </ReferenceSurface>
-
         <section aria-labelledby="video-gallery-title" className="flex flex-col gap-5">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.035em] text-voyage-ink md:text-3xl" id="video-gallery-title">
-                  Video belajar
-                </h2>
-                <p aria-live="polite" className="mt-1 text-sm leading-6 text-learning-muted-ink">
-                  Menampilkan {filteredVideos.length} dari {videoItems.length} video
-                </p>
-              </div>
-            </div>
+            <h2 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.035em] text-voyage-ink md:text-3xl" id="video-gallery-title">
+              Video belajar
+            </h2>
 
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="relative min-w-0 md:w-[min(100%,22rem)]">
+            <div className="flex flex-col gap-3">
+              <div className="relative min-w-0 md:max-w-[30rem]">
                 <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
                 <Input
                   aria-label="Cari video"
@@ -354,7 +327,7 @@ function VideoGalleryPageModule({
                 />
               </div>
 
-              <div aria-label="Filter kategori video" className="flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist">
+              <div aria-label="Filter subtes video" className="flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist">
                 {videoFilters.map((filter) => {
                   const isActive = activeFilter === filter;
 
@@ -388,12 +361,12 @@ function VideoGalleryPageModule({
           ) : (
             <ReferenceEmptyState
               action={
-                <Button onClick={() => setSearchQuery("")} size="sm" variant="brandOutline">
-                  Hapus pencarian
+                <Button onClick={() => { setActiveFilter("Semua"); setSearchQuery(""); }} size="sm" variant="brandOutline">
+                  Lihat semua video
                 </Button>
               }
               className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "border-learning-card-border")}
-              description="Coba kata kunci lain atau pilih kategori Semua untuk melihat koleksi yang tersedia."
+              description="Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
               icon={Video}
               title="Video tidak ditemukan"
             />
