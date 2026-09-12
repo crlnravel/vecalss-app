@@ -67,7 +67,7 @@ function Hero() {
         <div className="absolute -right-20 top-44 size-[26rem] rounded-full border border-voyage-sea-glass/25" />
         <div className="absolute left-[9%] top-[30%] size-2 rounded-full bg-voyage-warm-sun" />
         <div className="absolute right-[31%] top-[17%] size-3 rounded-full bg-voyage-leaf" />
-        <span className="absolute -bottom-6 right-[-1rem] hidden font-display text-8xl font-black leading-none tracking-[-0.08em] text-white/[0.04] xl:block">
+        <span className="absolute -bottom-6 right-[-1rem] hidden font-display text-8xl font-black leading-none tracking-[-0.04em] text-white/[0.04] xl:block">
           ARAH
         </span>
       </div>
@@ -77,11 +77,11 @@ function Hero() {
 
         <div className="grid min-h-[calc(100svh-80px)] gap-12 py-14 lg:grid-cols-[0.9fr_0.82fr] lg:items-center lg:gap-16 lg:py-20">
           <div className="relative z-10 max-w-[720px]">
-            <h1 className="max-w-[11ch] text-balance font-display text-6xl font-extrabold leading-[0.91] tracking-[-0.055em] sm:text-7xl md:text-8xl">
+            <h1 className="max-w-[11ch] text-balance font-display text-6xl font-extrabold leading-[0.91] tracking-[-0.04em] sm:text-7xl md:text-8xl">
               Mulai dari <span className="text-voyage-warm-sun">yang kecil.</span>{" "}
               Lanjut sampai <span className="text-voyage-sea-glass">PTN.</span>
             </h1>
-            <p className="mt-8 max-w-[47ch] text-base leading-7 text-white/72 sm:text-lg sm:leading-8">
+            <p className="mt-8 max-w-[47ch] text-base leading-7 text-voyage-sea-glass sm:text-lg sm:leading-8">
               Peta belajar yang jelas, ritme yang konsisten, dan Kapten yang
               menjaga perjalananmu tetap menuju tujuan.
             </p>
@@ -96,12 +96,12 @@ function Hero() {
               </ActionButtonLink>
             </div>
 
-            <div className="mt-14 flex max-w-[31rem] items-center gap-4 border-t border-white/12 pt-5 text-sm text-white/58">
+            <div className="mt-14 flex max-w-[31rem] items-center gap-4 border-t border-white/12 pt-5 text-sm text-voyage-sea-glass">
               <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-voyage-warm-sun" />
               <p>
-                Satu jalur terhubung: Materi <span className="text-white/35">→</span>{" "}
-                Kuis <span className="text-white/35">→</span> Tryout{" "}
-                <span className="text-white/35">→</span> Kapten.
+                Satu jalur terhubung: Materi <span className="text-voyage-sea-glass">→</span>{" "}
+                Kuis <span className="text-voyage-sea-glass">→</span> Tryout{" "}
+                <span className="text-voyage-sea-glass">→</span> Kapten.
               </p>
             </div>
           </div>
@@ -117,7 +117,7 @@ function Hero() {
                 TRYOUT <ArrowRight aria-hidden="true" className="size-3.5" /> KAPTEN
               </div>
               <div className="absolute bottom-[9%] left-[10%] z-20 rounded-2xl border border-white/18 bg-voyage-deep/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs font-bold tracking-[0.18em] text-white/54">THE VECALSS WAY</p>
+                <p className="text-xs font-bold tracking-[0.18em] text-voyage-sea-glass">THE VECALSS WAY</p>
                 <p className="mt-1 text-sm font-semibold text-white">Bergerak setiap hari.</p>
               </div>
 
@@ -143,11 +143,11 @@ function Hero() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-white/12 py-5 text-sm text-white/56 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-t border-white/12 py-5 text-sm text-voyage-sea-glass sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-[32ch]">Dari fondasi sampai hari ujian, kamu tidak perlu menebak sendirian.</p>
           <div className="flex flex-wrap gap-2" aria-label="Vecalss learning loop">
             {loopItems.map((item) => (
-              <span className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-semibold text-white/70" key={item.title}>
+              <span className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-semibold text-voyage-sea-glass" key={item.title}>
                 {item.title}
               </span>
             ))}
@@ -163,7 +163,7 @@ function CampusRibbon() {
     <section className="overflow-hidden bg-voyage-warm-sun text-voyage-deep">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-8 md:px-8 md:py-10 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <div className="max-w-[28rem]">
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-voyage-deep/56">Tempat para Voyager berlabuh</p>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-voyage-warm-sun-ink">Tempat para Voyager berlabuh</p>
           <p className="mt-2 text-lg font-semibold tracking-[-0.02em]">Tujuan boleh berbeda. Arah belajarnya tetap jelas.</p>
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-start gap-7 overflow-hidden lg:justify-end lg:gap-10">
@@ -183,10 +183,10 @@ function LearningLoopSection() {
     <section className="bg-voyage-canvas px-4 py-20 md:px-8 md:py-28 lg:px-10" id="journey">
       <div className="mx-auto grid w-full max-w-[1180px] gap-14 lg:grid-cols-[0.72fr_1fr] lg:items-center lg:gap-20">
         <div>
-          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
             Belajar dengan <span className="text-voyage-forest">jalur,</span> bukan tebakan.
           </h2>
-          <p className="mt-7 max-w-[43ch] text-base leading-7 text-voyage-deep/68 md:text-lg md:leading-8">
+          <p className="mt-7 max-w-[43ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
             Vecalss merangkai aktivitas belajar menjadi satu perjalanan yang
             bisa kamu lihat, jalani, dan ulangi dengan ritme yang lebih masuk akal.
           </p>
@@ -217,11 +217,11 @@ function LearningLoopSection() {
                     <span className="grid size-12 place-items-center rounded-2xl bg-current/10">
                       <Icon aria-hidden="true" className="size-6" />
                     </span>
-                    <span className="text-sm font-bold tracking-[0.15em] opacity-55">{item.label}</span>
+                    <span className="text-sm font-bold tracking-[0.15em]">{item.label}</span>
                   </div>
                   <div>
                     <h3 className="text-2xl font-extrabold tracking-[-0.04em]">{item.title}</h3>
-                    <p className="mt-2 max-w-[24ch] text-sm leading-6 opacity-72">{item.body}</p>
+                    <p className="mt-2 max-w-[24ch] text-sm leading-6">{item.body}</p>
                   </div>
                 </article>
               );
@@ -249,28 +249,28 @@ function AboutSection() {
             width={720}
           />
           <div className="absolute bottom-6 left-6 z-20 rounded-3xl bg-voyage-deep px-5 py-4 text-white shadow-[0_24px_52px_-34px_rgba(1,76,56,0.8)]">
-            <p className="text-3xl font-extrabold leading-none tracking-[-0.05em]">15.000+</p>
-            <p className="mt-1 text-xs font-bold uppercase tracking-[0.15em] text-white/62">Voyager dalam perjalanan</p>
+            <p className="text-3xl font-extrabold leading-none tracking-[-0.04em]">15.000+</p>
+            <p className="mt-1 text-xs font-bold uppercase tracking-[0.15em] text-voyage-sea-glass">Voyager dalam perjalanan</p>
           </div>
         </div>
 
         <div>
-          <h2 className="max-w-[11ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[11ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
             Perjalanan kecil yang terasa berarti.
           </h2>
-          <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-deep/68 md:text-lg md:leading-8">
+          <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
             Vecalss tumbuh dari ruang belajar kecil menjadi ekosistem yang
             membantu Voyager menata persiapan menuju PTN dengan lebih terarah,
             konsisten, dan tidak sendirian.
           </p>
           <div className="mt-10 grid gap-6 border-t border-voyage-deep/12 pt-6 sm:grid-cols-2">
             <div>
-              <p className="text-3xl font-extrabold tracking-[-0.05em] text-voyage-deep">4 tahun</p>
-              <p className="mt-1 text-sm leading-6 text-voyage-deep/62">Menjaga ritme perjalanan belajar.</p>
+              <p className="text-3xl font-extrabold tracking-[-0.04em] text-voyage-deep">4 tahun</p>
+              <p className="mt-1 text-sm leading-6 text-voyage-ink">Menjaga ritme perjalanan belajar.</p>
             </div>
             <div>
-              <p className="text-3xl font-extrabold tracking-[-0.05em] text-voyage-deep">1 arah</p>
-              <p className="mt-1 text-sm leading-6 text-voyage-deep/62">Menuju tujuan yang kamu pilih sendiri.</p>
+              <p className="text-3xl font-extrabold tracking-[-0.04em] text-voyage-deep">1 arah</p>
+              <p className="mt-1 text-sm leading-6 text-voyage-ink">Menuju tujuan yang kamu pilih sendiri.</p>
             </div>
           </div>
         </div>
@@ -284,10 +284,10 @@ function ProgramsSection() {
     <section className="bg-voyage-deep px-4 py-20 text-white md:px-8 md:py-28 lg:px-10" id="program">
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="grid gap-8 lg:grid-cols-[0.82fr_0.5fr] lg:items-end lg:gap-16">
-          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] md:text-7xl">
             Pilih rute yang sesuai dengan musim belajarmu.
           </h2>
-          <p className="max-w-[35ch] text-base leading-7 text-white/68 md:text-lg md:leading-8">
+          <p className="max-w-[35ch] text-base leading-7 text-voyage-sea-glass md:text-lg md:leading-8">
             Empat misi untuk fase perjalanan yang berbeda — dari mulai lebih
             awal sampai pendampingan yang lebih personal.
           </p>
@@ -297,7 +297,7 @@ function ProgramsSection() {
           {pathways.map((pathway, index) => (
             <article
               className={cn(
-                "group relative min-h-[360px] overflow-hidden rounded-4xl border p-7 transition-transform duration-500 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0 md:p-9",
+                "relative min-h-[360px] overflow-hidden rounded-4xl border p-7 md:p-9",
                 pathwayToneClasses[pathway.tone],
                 index === 0 && "lg:col-span-7 lg:min-h-[450px]",
                 index === 1 && "lg:col-span-5 lg:min-h-[450px]",
@@ -307,20 +307,17 @@ function ProgramsSection() {
               key={pathway.id}
             >
               <div className="relative z-10 flex items-start justify-between gap-4">
-                <span className="rounded-full border border-current/20 px-3 py-1.5 text-xs font-bold tracking-[0.14em] opacity-72">
+                <span className="rounded-full border border-current/20 px-3 py-1.5 text-xs font-bold tracking-[0.14em]">
                   Rute {pathway.kicker}
                 </span>
-                <span aria-hidden="true" className="grid size-10 place-items-center rounded-full border border-current/20 opacity-70 transition-transform duration-500 group-hover:rotate-45">
-                  <ArrowUpRight className="size-5" />
-                </span>
               </div>
-              <h3 className="relative z-10 mt-12 max-w-[12ch] text-4xl font-extrabold leading-[0.95] tracking-[-0.05em] md:text-6xl">
+              <h3 className="relative z-10 mt-12 max-w-[12ch] text-4xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-6xl">
                 {pathway.title}
               </h3>
-              <p className="relative z-10 mt-5 max-w-[32ch] text-base leading-7 opacity-75">{pathway.summary}</p>
+              <p className="relative z-10 mt-5 max-w-[32ch] text-base leading-7">{pathway.summary}</p>
               <div className="relative z-10 mt-8 grid gap-2">
                 {pathway.details.map((detail) => (
-                  <p className="flex items-start gap-2 text-sm leading-6 opacity-72" key={detail}>
+                  <p className="flex items-start gap-2 text-sm leading-6" key={detail}>
                     <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                     <span>{detail}</span>
                   </p>
@@ -328,7 +325,7 @@ function ProgramsSection() {
               </div>
               <Image
                 alt={pathway.artAlt}
-                className="absolute -bottom-9 -right-6 z-0 h-auto w-[47%] object-contain opacity-80 transition-transform duration-700 group-hover:scale-105 md:-bottom-12 md:-right-8 md:w-[45%]"
+                className="absolute -bottom-9 -right-6 z-0 h-auto w-[47%] object-contain opacity-80 md:-bottom-12 md:-right-8 md:w-[45%]"
                 height={420}
                 sizes="(min-width: 1024px) 320px, 45vw"
                 src={pathway.art}
@@ -353,10 +350,10 @@ function PrinciplesSection() {
     <section className="bg-voyage-warm-sun px-4 py-20 text-voyage-deep md:px-8 md:py-28 lg:px-10">
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="grid gap-8 lg:grid-cols-[0.8fr_0.5fr] lg:items-end lg:gap-16">
-          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] md:text-7xl">
             Tiga kebiasaan yang membawa kapal tetap bergerak.
           </h2>
-          <p className="max-w-[35ch] text-base leading-7 text-voyage-deep/66 md:text-lg md:leading-8">
+          <p className="max-w-[35ch] text-base leading-7 text-voyage-deep md:text-lg md:leading-8">
             Hasil besar dibangun dari keputusan kecil yang terus diulang.
           </p>
         </div>
@@ -371,7 +368,7 @@ function PrinciplesSection() {
                 <Sparkles aria-hidden="true" className="size-7 opacity-20" />
               </div>
               <h3 className="mt-16 text-3xl font-extrabold tracking-[-0.04em]">{title}</h3>
-              <p className="mt-3 max-w-[28ch] text-sm leading-6 opacity-72">{body}</p>
+              <p className="mt-3 max-w-[28ch] text-sm leading-6">{body}</p>
             </article>
           ))}
         </div>
@@ -385,10 +382,10 @@ function MentorsSection() {
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="grid gap-8 lg:grid-cols-[0.82fr_0.5fr] lg:items-end lg:gap-16">
-          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
             Para Kapten yang ikut membaca arah.
           </h2>
-          <p className="max-w-[35ch] text-base leading-7 text-voyage-deep/66 md:text-lg md:leading-8">
+          <p className="max-w-[35ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
             Tutor dari UI, ITB, UGM, dan PTN unggulan lainnya yang hadir di balik setiap kelas.
           </p>
         </div>
@@ -404,10 +401,10 @@ function AlumniSection() {
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
               Tujuan yang akhirnya terasa dekat.
             </h2>
-            <p className="mt-6 max-w-[42ch] text-base leading-7 text-voyage-deep/66 md:text-lg md:leading-8">
+            <p className="mt-6 max-w-[42ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
               Tempat para Voyager berlabuh setelah menata fondasi, latihan, dan keberanian mereka.
             </p>
           </div>
@@ -450,8 +447,8 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
       </div>
       <div className="p-4">
         <h3 className="text-lg font-extrabold leading-tight tracking-[-0.03em] text-voyage-deep">{alumnus.name}</h3>
-        <p className="mt-1.5 text-sm leading-5 text-voyage-deep/64">{alumnus.university}</p>
-        {alumnus.isPlaceholder ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.15em] text-voyage-deep/42">Placeholder</p> : null}
+        <p className="mt-1.5 text-sm leading-5 text-voyage-ink">{alumnus.university}</p>
+        {alumnus.isPlaceholder ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.15em] text-voyage-deep">Placeholder</p> : null}
       </div>
     </article>
   );
@@ -464,10 +461,10 @@ function StoriesSection() {
     <section className="overflow-hidden bg-voyage-deep py-20 text-white md:py-28">
       <div className="mx-auto w-full max-w-[1180px] px-4 md:px-8 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-[0.8fr_0.5fr] lg:items-end lg:gap-16">
-          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] md:text-7xl">
+          <h2 className="max-w-[10ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] md:text-7xl">
             Cerita dari kapal yang sama.
           </h2>
-          <p className="max-w-[35ch] text-base leading-7 text-white/66 md:text-lg md:leading-8">
+          <p className="max-w-[35ch] text-base leading-7 text-voyage-sea-glass md:text-lg md:leading-8">
             Pengalaman Voyager yang menemukan arah, ritme, dan teman seperjalanan.
           </p>
         </div>
@@ -485,14 +482,14 @@ function StoriesSection() {
                     </div>
                     <div>
                       <h3 className="text-xl font-extrabold tracking-[-0.03em]">{item.name}</h3>
-                      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-voyage-deep/50">{item.outcome}</p>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-voyage-deep">{item.outcome}</p>
                     </div>
                   </div>
                   <MessageCircle aria-hidden="true" className="size-5 text-voyage-deep/25" />
                 </div>
-                <p className="mt-7 text-base leading-7 text-voyage-deep/74">&ldquo;{item.quote}&rdquo;</p>
+                <p className="mt-7 text-base leading-7 text-voyage-deep">&ldquo;{item.quote}&rdquo;</p>
               </div>
-              <p className="mt-8 border-t border-voyage-deep/10 pt-4 text-sm font-semibold text-voyage-deep/58">{item.meta}</p>
+              <p className="mt-8 border-t border-voyage-deep/10 pt-4 text-sm font-semibold text-voyage-deep">{item.meta}</p>
             </article>
           ))}
         </div>
@@ -506,21 +503,21 @@ function VeraAiSection() {
     <section className="bg-voyage-sea-glass-wash px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="mx-auto grid w-full max-w-[1180px] gap-12 lg:grid-cols-[1fr_0.72fr] lg:items-center lg:gap-20">
         <div>
-          <h2 className="max-w-[11ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[11ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
             Vera AI sedang menyiapkan kompas personalmu.
           </h2>
-          <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-deep/68 md:text-lg md:leading-8">
+          <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
             Vecalss sedang menyiapkan Vera AI untuk membantu membaca pola
             belajar dan memberi rekomendasi langkah yang lebih tepat untuk setiap Voyager.
           </p>
           <div className="mt-10 grid gap-6 border-t border-voyage-deep/12 pt-6 sm:grid-cols-2">
             <div>
               <p className="text-base font-extrabold text-voyage-deep">Peta yang personal</p>
-              <p className="mt-2 text-sm leading-6 text-voyage-deep/62">Rekomendasi belajar mengikuti ritme dan kebutuhanmu.</p>
+              <p className="mt-2 text-sm leading-6 text-voyage-ink">Rekomendasi belajar mengikuti ritme dan kebutuhanmu.</p>
             </div>
             <div>
               <p className="text-base font-extrabold text-voyage-deep">Arah yang lebih jelas</p>
-              <p className="mt-2 text-sm leading-6 text-voyage-deep/62">Setiap langkah dibuat lebih fokus dari awal sampai hari ujian.</p>
+              <p className="mt-2 text-sm leading-6 text-voyage-ink">Setiap langkah dibuat lebih fokus dari awal sampai hari ujian.</p>
             </div>
           </div>
         </div>
@@ -546,10 +543,10 @@ function QuestionsSection() {
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="mx-auto grid w-full max-w-[1180px] gap-12 lg:grid-cols-[0.56fr_1fr] lg:items-start lg:gap-20">
         <div>
-          <h2 className="max-w-[9ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] text-voyage-deep md:text-7xl">
+          <h2 className="max-w-[9ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] text-voyage-deep md:text-7xl">
             Sebelum kapal berangkat.
           </h2>
-          <p className="mt-6 max-w-[30ch] text-base leading-7 text-voyage-deep/66 md:text-lg md:leading-8">
+          <p className="mt-6 max-w-[30ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
             Jawaban singkat untuk pertanyaan yang paling sering muncul.
           </p>
           <div className="relative mt-10 aspect-square w-full max-w-[320px]">
@@ -576,10 +573,10 @@ function FinalCTA() {
       <div className="relative mx-auto grid w-full max-w-[1180px] overflow-hidden rounded-5xl bg-voyage-forest p-8 text-white md:p-12 lg:grid-cols-[1fr_300px] lg:items-center lg:p-16">
         <div aria-hidden="true" className="absolute -right-28 -top-32 size-[30rem] rounded-full border border-white/10" />
         <div className="relative z-10">
-          <h2 className="max-w-[9ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.05em] md:text-7xl">
+          <h2 className="max-w-[9ch] text-balance font-display text-5xl font-extrabold leading-[0.96] tracking-[-0.04em] md:text-7xl">
             Siap memulai misimu?
           </h2>
-          <p className="mt-6 max-w-[38ch] text-base leading-7 text-white/72 md:text-lg md:leading-8">
+          <p className="mt-6 max-w-[38ch] text-base leading-7 text-voyage-sea-glass md:text-lg md:leading-8">
             Satu langkah kecil hari ini bisa membuat perjalananmu terasa lebih jelas.
           </p>
           <ActionButtonLink className="mt-9" href="/login" variant="marketingOnDark">

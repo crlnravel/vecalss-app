@@ -55,7 +55,7 @@ function MentorCards({ members }: MentorCardsProps) {
                     <h3 className="text-3xl font-semibold leading-tight tracking-[-0.03em] text-[var(--voyage-deep)]">
                       {member.name}
                     </h3>
-                    <p className="mt-1 text-sm font-semibold text-[var(--voyage-deep)]/62">
+                    <p className="mt-1 text-sm font-semibold text-voyage-ink">
                       {member.focus}
                     </p>
                   </div>
@@ -93,7 +93,7 @@ function MentorCards({ members }: MentorCardsProps) {
 
                 <div className="p-6 md:p-8 lg:p-10">
                   <DialogHeader className="gap-0">
-                    <p className="kicker-label text-[var(--voyage-deep)]/62">
+                    <p className="kicker-label text-voyage-ink">
                       Profil Tutor 2026
                     </p>
                     <div className="mt-4 flex items-start justify-between gap-6">
@@ -101,11 +101,11 @@ function MentorCards({ members }: MentorCardsProps) {
                         <DialogTitle className="text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
                           {member.name}
                         </DialogTitle>
-                        <DialogDescription className="mt-3 text-lg font-semibold text-[var(--voyage-deep)]/70">
+                        <DialogDescription className="mt-3 text-lg font-semibold text-voyage-ink">
                           {member.fullName}
                         </DialogDescription>
                         {member.quote ? (
-                          <p className="mt-3 max-w-[36ch] text-sm font-medium italic leading-6 text-[var(--voyage-deep)]/58">
+                          <p className="mt-3 max-w-[36ch] text-sm font-medium italic leading-6 text-voyage-ink">
                             &ldquo;{member.quote}&rdquo;
                           </p>
                         ) : null}
@@ -132,13 +132,13 @@ function MentorCards({ members }: MentorCardsProps) {
                   </div>
 
                   <div className="mt-9 rounded-3xl border border-[var(--voyage-deep)]/10 bg-white/68 p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--voyage-deep)]/52">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-voyage-ink">
                       ACHIEVEMENTS
                     </p>
                     <ul className="mt-5 list-disc space-y-3 pl-5">
                       {member.profileAchievements?.map((achievement) => (
                         <li
-                          className="text-base leading-6 text-[var(--voyage-deep)]/78"
+                          className="text-base leading-6 text-voyage-ink"
                           key={achievement}
                         >
                           {achievement}
@@ -165,7 +165,7 @@ function ProfileFact({
 }) {
   return (
     <div className="rounded-2xl border border-[var(--voyage-deep)]/10 bg-white/64 p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--voyage-deep)]/45">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-voyage-ink">
         {label}
       </p>
       <p className="mt-2 text-base font-semibold leading-6 text-[var(--voyage-deep)]">
