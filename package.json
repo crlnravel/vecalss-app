@@ -141,6 +141,7 @@
     "test:tryout-direct-question-picks": "tsx scripts/test-tryout-direct-question-picks.ts",
     "test:tryout-seed-release-guards": "node scripts/test-tryout-seed-release-guards.mjs",
     "test:tryout-catalogue-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-tryout-catalogue-db.ts",
+    "test:cbt-only-schema-retirement": "node scripts/test-cbt-only-schema-retirement.mjs",
     "test:tryout-scoring": "tsx scripts/test-tryout-scoring.ts",
     "test:tryout-cbt-scoring-policy": "tsx scripts/test-tryout-cbt-scoring-policy.ts",
     "test:cbt-only-cutover-migration": "node scripts/test-cbt-only-cutover-migration.mjs",
