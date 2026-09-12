@@ -2201,7 +2201,10 @@ model StandaloneQuizParticipation {
   student  User                    @relation(fields: [studentId], references: [id])
   attempts StandaloneQuizAttempt[]
 
-  @@unique([quizId, studentId])
+  // A student may have one participation per immutable quiz snapshot. This
+  // lets a later assessment edit allocate a fresh participation/version while
+  // preserving every prior attempt's pinned snapshot.
+  @@unique([quizVersionId, studentId])
   @@index([quizVersionId, studentId])
   @@index([studentId])
   @@map("standalone_quiz_participations")

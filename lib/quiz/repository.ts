@@ -3,7 +3,7 @@ import "server-only";
 import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionBankPurpose, QuestionRevisionProvenance, QuestionRevisionStatus, QuestionType, ReusableQuestionPackageMode, StandaloneQuizAnswerFormat, StandaloneQuizVersionProvenance, StandaloneQuizVersionState } from "@/generated/prisma/client";
 import { decodeLegacyAnswerSelection, evaluateExactAnswer, validateAnswerKey, validateSelectedOptionIds, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
-import { draftRevisionMatches, isStandaloneQuizVersioningCutoverEnabled, nextStandaloneQuizVersionNo, versionedDefinitionDigest } from "@/lib/quiz/versioning-runtime";
+import { draftRevisionMatches, isStandaloneQuizVersioningCutoverEnabled, nextStandaloneQuizVersionNo, versionedAssessmentDigest, versionedDefinitionDigest } from "@/lib/quiz/versioning-runtime";
 import { resolveReadyAssemblyForKuis, type KuisAssemblyMaterialization } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
@@ -123,16 +123,22 @@ function projectStandaloneQuizVersion(record: VersionedQuizRecord, version: Vers
     assemblySeed: version.assemblySeed,
     attemptsAllowed: version.attemptsAllowed,
     correctAnswerVisibility: version.correctAnswerVisibility,
-    description: version.description,
+    // Editorial copy belongs to the stable quiz identity. It can change
+    // immediately without changing the assessment snapshot used for answers
+    // or scoring.
+    description: record.description,
     formBehavior: version.formBehavior,
     items: version.items,
-    closesAt: version.closesAt,
-    opensAt: version.opensAt,
+    // Schedule/visibility is operational state on the stable quiz identity.
+    // It must not move an in-progress attempt or activate a new assessment
+    // snapshot when a mentor only changes availability.
+    closesAt: record.closesAt,
+    opensAt: record.opensAt,
     retryDelaySeconds: version.retryDelaySeconds,
     reviewTiming: version.reviewTiming,
     scorePolicy: version.scorePolicy,
     sourceBankId: version.sourceBankId,
-    title: version.title,
+    title: record.title,
   } as unknown as StableQuizRecord;
 }
 
@@ -516,11 +522,7 @@ function toKaptenQuizVersion(
     activeVersionNo: activeVersion?.versionNo ?? undefined,
     draftRevision: draftVersion?.draftRevision ?? null,
     draftVersionId: draftVersion?.id,
-    hasUnpublishedChanges: Boolean(activeVersion && draftVersion && (
-      activeVersion.definitionDigest !== draftVersion.definitionDigest
-      || activeVersion.opensAt?.getTime() !== draftVersion.opensAt?.getTime()
-      || activeVersion.closesAt?.getTime() !== draftVersion.closesAt?.getTime()
-    )),
+    hasUnpublishedChanges: Boolean(activeVersion && draftVersion && assessmentVersionChanged(activeVersion, draftVersion)),
     versionId: version.id,
     versionNo: version.versionNo,
   } satisfies KaptenQuiz;
@@ -1037,7 +1039,11 @@ async function ensureStandaloneQuizDraftItems(
   record: VersionedQuizRecord,
   draft: VersionedQuizVersionRecord,
 ) {
-  if (draft.items.length) return draft;
+  // A draft created by the versioning bootstrap has revision 0 and no items;
+  // clone the active snapshot only in that uninitialised state. An author may
+  // intentionally save an empty draft (revision > 0), which must stay empty
+  // so lazy activation can reject it rather than silently restoring questions.
+  if (draft.items.length || (draft.draftRevision ?? 0) > 0) return draft;
   const active = activeVersionFor(record);
   if (!active?.items.length) return draft;
   await cloneStandaloneQuizVersionItems(tx, {
@@ -1083,6 +1089,20 @@ function versionedDefinitionInputFromVersion(
   };
 }
 
+function versionedAssessmentDigestFromVersion(
+  version: VersionedQuizVersionRecord,
+  questions: readonly QuizQuestionSnapshot[] = version.items.map(toSnapshot),
+) {
+  return versionedAssessmentDigest(versionedDefinitionInputFromVersion(version, questions));
+}
+
+function assessmentVersionChanged(
+  activeVersion: VersionedQuizVersionRecord,
+  draftVersion: VersionedQuizVersionRecord,
+) {
+  return versionedAssessmentDigestFromVersion(activeVersion) !== versionedAssessmentDigestFromVersion(draftVersion);
+}
+
 function versionedQuizPolicyData(input: SaveStandaloneQuizInput, policy: ReturnType<typeof normalizeQuizPolicy>) {
   return {
     attemptsAllowed: policy.attemptsAllowed === undefined ? 1 : policy.attemptsAllowed,
@@ -1122,6 +1142,11 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
     if (requestedMode !== "local" && requestedMode !== "bank") throw new QuizValidationError("Mode sumber Kuis tidak valid.");
     const active = record ? activeVersionFor(record) : null;
     const draft = record ? draftVersionFor(record) : null;
+    // A first publication still needs the existing validation gate. Once an
+    // active snapshot exists, a normal mentor save only updates the mutable
+    // draft; the next student start lazily activates it if the assessment
+    // definition actually changed.
+    const shouldPublishImmediately = input.status === "published" && !active;
     const currentVersion = draft ?? active;
     const currentMode = sourceModeForQuiz(currentVersion ?? record ?? {});
     if (record) {
@@ -1135,7 +1160,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
     }
 
     const sourceBankId = requestedMode === "bank" ? input.sourceBankId ?? currentVersion?.sourceBankId ?? record?.sourceBankId ?? null : null;
-    if (input.status === "published") {
+    if (shouldPublishImmediately) {
       validateForPublication({ ...input, assemblyVersionId: undefined, questions: input.questions }, opensAt, closesAt);
     }
 
@@ -1167,7 +1192,7 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
     if (existingDraft && !draftRevisionMatches(input.expectedDraftRevision, existingDraft.draftRevision)) {
       throw new QuizValidationError("Draf Kuis telah berubah di tab lain. Muat ulang sebelum menyimpan.");
     }
-    const shouldPublish = input.status === "published";
+    const shouldPublish = shouldPublishImmediately;
     const replayedPublication = shouldPublish && input.publishRequestId && record
       ? record.versions.find((candidate) => candidate.publishRequestId === input.publishRequestId) ?? null
       : null;
@@ -1284,7 +1309,10 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
           title: metadata.title,
         },
       });
-    } else if (!baseVersion) {
+    } else {
+      // Keep the stable row's catalogue and operational fields current while
+      // leaving the active assessment snapshot untouched. Availability changes
+      // therefore take effect immediately without creating a new snapshot.
       await tx.standaloneQuiz.update({
         where: { id: stableRecord.id },
         data: {
@@ -1294,13 +1322,11 @@ async function saveStandaloneQuizVersioned(input: SaveStandaloneQuizInput, tutor
           opensAt,
           revision: { increment: 1 },
           sourceBankId,
-          status: ContentStatus.draft,
+          status: input.status === "published" ? ContentStatus.published : ContentStatus.draft,
           subtestId: requestedSubtest.id,
           title: metadata.title,
         },
       });
-    } else {
-      await tx.standaloneQuiz.update({ where: { id: stableRecord.id }, data: { revision: { increment: 1 } } });
     }
 
     const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: stableRecord.id }, include: versionedQuizInclude });
@@ -1375,9 +1401,6 @@ async function transitionStandaloneQuizSourceModeVersioned(
       include: versionedQuizInclude,
     });
     if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
-    if (await tx.standaloneQuizParticipation.count({ where: { quizId: input.quizId } })) {
-      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
-    }
 
     const active = activeVersionFor(record);
     const current = draftVersionFor(record) ?? active;
@@ -1575,12 +1598,9 @@ async function acceptStandaloneQuizQuestionUpdateVersioned(
       include: versionedQuizInclude,
     });
     if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
-    if (record.status !== ContentStatus.draft) {
-      throw new QuizValidationError("Jadikan Kuis draf sebelum menerima revisi Bank Soal agar rilis yang sudah terbit tetap tidak berubah.");
-    }
-    if (await tx.standaloneQuizParticipation.count({ where: { quizId: input.quizId } })) {
-      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
-    }
+    // Revisions are written to the mutable draft. An active version remains
+    // immutable and is only replaced by lazy activation at the next student
+    // start, so a published quiz can be edited without duplicating it.
     const active = activeVersionFor(record);
     const draft = await ensureStandaloneQuizDraftItems(tx, record, await ensureStandaloneQuizDraft(tx, record));
     const item = draft.items.find((candidate) => candidate.id === input.quizItemId)
@@ -1796,9 +1816,6 @@ async function attachStandaloneQuizAssemblyVersioned(quizId: string, versionId: 
       include: versionedQuizInclude,
     });
     if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
-    if (await tx.standaloneQuizParticipation.count({ where: { quizId } })) {
-      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
-    }
     const materialization = await resolveReadyAssemblyForKuis(tx, versionId, record.subtestId);
     const active = activeVersionFor(record);
     const draft = await ensureStandaloneQuizDraft(tx, record);
@@ -1941,9 +1958,6 @@ async function detachStandaloneQuizAssemblyVersioned(quizId: string, tutorId: st
       include: versionedQuizInclude,
     });
     if (!record) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
-    if (await tx.standaloneQuizParticipation.count({ where: { quizId } })) {
-      throw new QuizValidationError("Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.");
-    }
     const active = activeVersionFor(record);
     const draft = await ensureStandaloneQuizDraftItems(tx, record, await ensureStandaloneQuizDraft(tx, record));
     if (draft.assemblyPackageVersionId) {
@@ -2212,6 +2226,11 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
     if (operation === "publish") {
       for (const record of records) {
         const active = activeVersionFor(record);
+        // Existing quizzes are already serving an immutable version. A bulk
+        // "publish" only makes the stable quiz available; any accumulated
+        // assessment edits still wait for the next student start to become a
+        // new snapshot.
+        if (active) continue;
         const draft = draftVersionFor(record);
         const version = draft ?? active ?? await ensureStandaloneQuizDraft(tx, record);
         let publicationQuestions = version.items.map(toSnapshot);
@@ -2243,13 +2262,10 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
         }, version.opensAt, version.closesAt, { materializedAssembly: Boolean(version.assemblyPackageVersionId) });
 
         if (version.state === StandaloneQuizVersionState.draft) {
-          if (active && active.id !== version.id) {
-            await tx.standaloneQuizVersion.update({ where: { id: active.id }, data: { state: StandaloneQuizVersionState.superseded } });
-          }
           await tx.standaloneQuizVersion.update({
             where: { id: version.id },
             data: {
-              baseVersionId: active?.id ?? version.baseVersionId,
+              baseVersionId: version.baseVersionId,
               draftRevision: null,
               publishedAt: new Date(),
               publishedByUserId: tutorId,
@@ -2266,6 +2282,13 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
             revision: { increment: 1 },
             status: ContentStatus.published,
           },
+        });
+      }
+      const alreadyVersionedIds = records.filter((record) => activeVersionFor(record)).map((record) => record.id);
+      if (alreadyVersionedIds.length) {
+        await tx.standaloneQuiz.updateMany({
+          where: { id: { in: alreadyVersionedIds }, createdByUserId: tutorId },
+          data: { revision: { increment: 1 }, status: ContentStatus.published },
         });
       }
     } else {
@@ -2607,6 +2630,134 @@ function aggregateStandaloneQuizScore(attempts: Array<{ attemptNo: number; relea
   return scoredAttempts.at(-1)?.score ?? null;
 }
 
+async function activateStandaloneQuizDraftAtStart(
+  tx: Prisma.TransactionClient,
+  record: VersionedQuizRecord,
+) {
+  const active = activeVersionFor(record);
+  let draft = draftVersionFor(record);
+  if (!draft || record.status !== ContentStatus.published) return { active, record };
+
+  draft = await ensureStandaloneQuizDraftItems(tx, record, draft);
+  if (active && !assessmentVersionChanged(active, draft)) return { active, record };
+
+  let publicationQuestions = draft.items.map(toSnapshot);
+  try {
+    if (draft.assemblyPackageVersionId) {
+      const materialization = await resolveReadyAssemblyForKuis(tx, draft.assemblyPackageVersionId, record.subtestId, {
+        expectedDefinitionDigest: draft.assemblyDefinitionDigest,
+        expectedMode: draft.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
+        seed: draft.assemblySeed,
+      });
+      assertAssemblyItemsMatch(draft.items, materialization);
+      publicationQuestions = snapshotsFromAssembly(materialization);
+    }
+
+    validateForPublication({
+      assemblyVersionId: draft.assemblyPackageVersionId ?? undefined,
+      closesAt: record.closesAt?.toISOString() ?? "",
+      description: draft.description ?? record.description ?? "",
+      id: record.id,
+      opensAt: record.opensAt?.toISOString() ?? "",
+      questions: publicationQuestions,
+      sourceBankId: draft.sourceBankId ?? undefined,
+      status: "published",
+      subjectCode: record.subtest.code,
+      title: draft.title,
+    }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(draft.assemblyPackageVersionId) });
+  } catch (error) {
+    // A bad saved draft must never invalidate the last usable assessment. Keep
+    // serving the active snapshot when one exists; a first publication has no
+    // safe fallback and should explain why it cannot start.
+    if (active && (error instanceof QuizValidationError || error instanceof AssemblyValidationError)) {
+      return { active, record };
+    }
+    if (error instanceof QuizValidationError || error instanceof AssemblyValidationError) {
+      throw new QuizAttemptValidationError(error.message);
+    }
+    throw error;
+  }
+
+  const now = new Date();
+  const nextVersionNo = nextStandaloneQuizVersionNo(record.versions.map((version) => version.versionNo));
+  const definitionDigest = versionedDefinitionDigest(versionedDefinitionInputFromVersion(draft, publicationQuestions));
+  if (active) {
+    await tx.standaloneQuizVersion.update({
+      where: { id: active.id },
+      data: { state: StandaloneQuizVersionState.superseded },
+    });
+  }
+  await tx.standaloneQuizVersion.update({
+    where: { id: draft.id },
+    data: {
+      baseVersionId: active?.id ?? draft.baseVersionId,
+      closesAt: record.closesAt,
+      definitionDigest,
+      draftRevision: null,
+      opensAt: record.opensAt,
+      publishedAt: now,
+      publishedByUserId: null,
+      publishRequestId: crypto.randomUUID(),
+      state: StandaloneQuizVersionState.active,
+      versionNo: nextVersionNo,
+    },
+  });
+  await tx.standaloneQuiz.update({
+    where: { id: record.id },
+    data: {
+      ...versionFieldsFrom({ ...draft, closesAt: record.closesAt, opensAt: record.opensAt }),
+      revision: { increment: 1 },
+      status: ContentStatus.published,
+    },
+  });
+
+  const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id: record.id }, include: versionedQuizInclude });
+  return { active: activeVersionFor(saved), record: saved };
+}
+
+async function findStandaloneQuizStartCommand(
+  tx: Prisma.TransactionClient,
+  quizId: string,
+  studentId: string,
+  requestId: string,
+) {
+  return tx.standaloneQuizStartCommand.findUnique({
+    where: { quizId_studentId_requestId: { quizId, studentId, requestId } },
+    include: {
+      attempt: {
+        include: {
+          answers: true,
+          participation: true,
+        },
+      },
+    },
+  });
+}
+
+async function linkStandaloneQuizStartCommand(
+  tx: Prisma.TransactionClient,
+  input: { attemptId: string; quizId: string; quizVersionId: string | null; requestId: string; studentId: string },
+) {
+  const existing = await tx.standaloneQuizStartCommand.findUnique({
+    where: { quizId_studentId_requestId: { quizId: input.quizId, studentId: input.studentId, requestId: input.requestId } },
+  });
+  if (existing) {
+    if (!existing.attemptId) {
+      return tx.standaloneQuizStartCommand.update({ where: { id: existing.id }, data: { attemptId: input.attemptId, quizVersionId: input.quizVersionId } });
+    }
+    return existing;
+  }
+  return tx.standaloneQuizStartCommand.create({
+    data: {
+      attemptId: input.attemptId,
+      quizId: input.quizId,
+      quizVersionId: input.quizVersionId,
+      requestId: input.requestId,
+      studentId: input.studentId,
+    },
+  });
+}
+
 async function startStandaloneQuiz(subjectCode: string, slug: string, studentId: string, requestedNow?: Date, startRequestId?: string) {
   if (startRequestId !== undefined && !isUuid(startRequestId)) throw new QuizAttemptValidationError("Permintaan mulai quiz tidak valid.");
   const effectiveStartRequestId = startRequestId ?? crypto.randomUUID();
@@ -2618,7 +2769,7 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
     // creating the first participation so concurrent Start calls cannot both
     // observe the same next attempt number or stale availability policy.
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${identity.id}::uuid FOR UPDATE`;
-    const versionedQuizRecord = isStandaloneQuizVersioningCutoverEnabled()
+    let versionedQuizRecord = isStandaloneQuizVersioningCutoverEnabled()
       ? await tx.standaloneQuiz.findUnique({ where: { id: identity.id }, include: versionedQuizInclude })
       : null;
     const loadedQuizRecord = versionedQuizRecord
@@ -2626,48 +2777,120 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
       : await tx.standaloneQuiz.findUnique({ where: { id: identity.id }, include: quizInclude });
     if (!loadedQuizRecord) return null;
 
-    // Replay an already accepted command before checking the current open
-    // window. The request key identifies the original command, so a retry
-    // after the window closes must not allocate a new attempt or lose the
-    // original attempt ID.
-    const existingParticipation = await tx.standaloneQuizParticipation.findUnique({
-      where: { quizId_studentId: { quizId: loadedQuizRecord.id, studentId } },
-      select: { id: true, quizVersionId: true },
-    });
-    const pinnedVersion = versionedQuizRecord && existingParticipation?.quizVersionId
-      ? versionedQuizRecord.versions.find((version) => version.id === existingParticipation.quizVersionId) ?? null
-      : null;
-    const quizRecord = pinnedVersion && versionedQuizRecord
-      ? projectStandaloneQuizVersion(versionedQuizRecord, pinnedVersion)
-      : loadedQuizRecord;
-    if (existingParticipation) {
-      await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${existingParticipation.id}::uuid FOR UPDATE`;
-      const replayedAttempt = await tx.standaloneQuizAttempt.findUnique({
-        where: { participationId_startRequestId: { participationId: existingParticipation.id, startRequestId: effectiveStartRequestId } },
-        include: { answers: true },
-      });
-      if (replayedAttempt) {
-        const replayedQuiz = buildAttemptQuiz(quizRecord, replayedAttempt);
-        return { attempt: replayedAttempt, policy: toQuizAttemptPolicy(replayedQuiz), quiz: replayedQuiz, state: "replayed" as const };
+    // Replay an accepted command before checking the current open window. The
+    // command is the idempotency authority even after a later lazy snapshot
+    // has become active for the same quiz.
+    const replayedCommand = await findStandaloneQuizStartCommand(tx, identity.id, studentId, effectiveStartRequestId);
+    if (replayedCommand?.attempt) {
+      const replayedQuiz = versionedQuizRecord
+        ? await findStandaloneQuizForRuntime(tx, { id: identity.id }, replayedCommand.attempt.participation.quizVersionId)
+        : loadedQuizRecord;
+      if (replayedQuiz) {
+        const replayedAttemptQuiz = buildAttemptQuiz(replayedQuiz, replayedCommand.attempt);
+        return { attempt: replayedCommand.attempt, policy: toQuizAttemptPolicy(replayedAttemptQuiz), quiz: replayedAttemptQuiz, state: "replayed" as const };
       }
     }
 
-    const checkNow = requestedNow ?? new Date();
-    const quiz = await findStandaloneQuizForRuntime(tx, { id: identity.id }, pinnedVersion?.id);
-    if (!quiz || !isStandaloneQuizAvailableAt(quiz, checkNow)) throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
+    // A student who is already in progress must resume the participation that
+    // owns that attempt. Do this before lazy activation so a mentor edit never
+    // moves an existing session to a newer snapshot.
+    const inProgressParticipation = await tx.standaloneQuizParticipation.findFirst({
+      where: {
+        quizId: identity.id,
+        studentId,
+        attempts: { some: { status: "in_progress" } },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        quizVersionId: true,
+        attempts: {
+          where: { status: "in_progress" },
+          orderBy: { attemptNo: "desc" },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    });
+    if (inProgressParticipation?.attempts[0]) {
+      await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${inProgressParticipation.id}::uuid FOR UPDATE`;
+      const resumedAttempt = await tx.standaloneQuizAttempt.findUniqueOrThrow({
+        where: { id: inProgressParticipation.attempts[0].id },
+        include: { answers: true },
+      });
+      const resumedQuiz = versionedQuizRecord
+        ? await findStandaloneQuizForRuntime(tx, { id: identity.id }, inProgressParticipation.quizVersionId)
+        : loadedQuizRecord;
+      const checkNow = requestedNow ?? new Date();
+      if (!resumedQuiz || !isStandaloneQuizAvailableAt(resumedQuiz, checkNow)) {
+        throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
+      }
+      let attempt = resumedAttempt;
+      if (!attempt.startRequestId) {
+        attempt = await tx.standaloneQuizAttempt.update({
+          where: { id: attempt.id },
+          data: { startRequestId: effectiveStartRequestId },
+          include: { answers: true },
+        });
+        await linkStandaloneQuizStartCommand(tx, {
+          attemptId: attempt.id,
+          quizId: resumedQuiz.id,
+          quizVersionId: inProgressParticipation.quizVersionId,
+          requestId: effectiveStartRequestId,
+          studentId,
+        });
+      }
+      const resumedAttemptQuiz = buildAttemptQuiz(resumedQuiz, attempt);
+      return { attempt, policy: toQuizAttemptPolicy(resumedAttemptQuiz), quiz: resumedAttemptQuiz, state: "resumed" as const };
+    }
 
-    const participation = await tx.standaloneQuizParticipation.upsert({
-      where: { quizId_studentId: { quizId: quiz.id, studentId } },
-      create: { policySnapshot: toQuizAttemptPolicy(quiz) as unknown as Prisma.InputJsonObject, quizId: quiz.id, quizVersionId: versionedQuizRecord ? pinnedVersion?.id ?? activeVersionFor(versionedQuizRecord)?.id ?? null : undefined, studentId },
-      update: {
-        quizVersionId: versionedQuizRecord
-          ? existingParticipation?.quizVersionId ?? activeVersionFor(versionedQuizRecord)?.id ?? null
-          : undefined,
+    // A new attempt is the only event that turns a changed draft into an
+    // immutable active snapshot. A title/description or schedule-only save
+    // leaves the existing active version in place.
+    const checkNow = requestedNow ?? new Date();
+    // Validate the stable availability boundary while the quiz row is still
+    // locked, before promoting a draft. A stale/direct start must not be able
+    // to supersede the live snapshot when the start itself is ineligible.
+    if (!isStandaloneQuizAvailableAt(loadedQuizRecord, checkNow)) {
+      throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
+    }
+    if (versionedQuizRecord) {
+      versionedQuizRecord = (await activateStandaloneQuizDraftAtStart(tx, versionedQuizRecord)).record;
+    }
+    const activeVersion = versionedQuizRecord ? activeVersionFor(versionedQuizRecord) : null;
+    const quiz = await findStandaloneQuizForRuntime(tx, { id: identity.id }, activeVersion?.id);
+    if (!quiz || !isStandaloneQuizAvailableAt(quiz, checkNow)) throw new QuizAttemptValidationError("Quiz belum tersedia atau sudah ditutup.");
+    if (versionedQuizRecord && !activeVersion) throw new QuizAttemptValidationError("Quiz belum siap digunakan.");
+
+    // Participations are scoped to the active immutable version. A terminal
+    // participation from an older version remains historical, while a new
+    // version receives a fresh allowance/retry counter for this student.
+    const existingParticipation = await tx.standaloneQuizParticipation.findFirst({
+      where: versionedQuizRecord && activeVersion
+        ? { quizVersionId: activeVersion.id, studentId }
+        : { quizId: quiz.id, studentId },
+      select: { id: true, policySnapshot: true, quizVersionId: true },
+    });
+    const participation = existingParticipation ?? await tx.standaloneQuizParticipation.create({
+      data: {
+        policySnapshot: toQuizAttemptPolicy(quiz) as unknown as Prisma.InputJsonObject,
+        quizId: quiz.id,
+        quizVersionId: versionedQuizRecord ? activeVersion?.id ?? null : undefined,
+        studentId,
       },
       select: { id: true, policySnapshot: true, quizVersionId: true },
     });
     await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${participation.id}::uuid FOR UPDATE`;
     const participationPolicy = policyFromAttemptSnapshot(participation.policySnapshot, toQuizAttemptPolicy(quiz));
+
+    // A legacy command row may have been recorded without its attempt link.
+    // Re-check after participation selection and complete the same idempotent
+    // response without allocating another attempt.
+    const linkedCommand = await findStandaloneQuizStartCommand(tx, identity.id, studentId, effectiveStartRequestId);
+    if (linkedCommand?.attempt) {
+      const replayedAttemptQuiz = buildAttemptQuiz(quiz, linkedCommand.attempt);
+      return { attempt: linkedCommand.attempt, policy: toQuizAttemptPolicy(replayedAttemptQuiz), quiz: replayedAttemptQuiz, state: "replayed" as const };
+    }
 
     const replayedAttempt = await tx.standaloneQuizAttempt.findUnique({
       where: { participationId_startRequestId: { participationId: participation.id, startRequestId: effectiveStartRequestId } },
@@ -2694,6 +2917,13 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
           where: { id: current.id },
           data: { startRequestId: effectiveStartRequestId },
           include: { answers: true },
+        });
+        await linkStandaloneQuizStartCommand(tx, {
+          attemptId: attempt.id,
+          quizId: quiz.id,
+          quizVersionId: participation.quizVersionId,
+          requestId: effectiveStartRequestId,
+          studentId,
         });
       }
       const resumedQuiz = buildAttemptQuiz(quiz, attempt);
@@ -2727,6 +2957,13 @@ async function startStandaloneQuiz(subjectCode: string, slug: string, studentId:
         startRequestId: effectiveStartRequestId,
       },
       include: { answers: true },
+    });
+    await linkStandaloneQuizStartCommand(tx, {
+      attemptId: attempt.id,
+      quizId: quiz.id,
+      quizVersionId: participation.quizVersionId,
+      requestId: effectiveStartRequestId,
+      studentId,
     });
     const startedQuiz = buildAttemptQuiz(quiz, attempt);
     return { attempt, policy: toQuizAttemptPolicy(startedQuiz), quiz: startedQuiz, state: "started" as const };
@@ -3055,9 +3292,34 @@ async function getStandaloneQuizAttemptId(subjectCode: string, slug: string, stu
 
 async function getStandaloneQuizAttemptStatuses(studentId: string, quizIds: string[]) {
   if (!quizIds.length) return [];
+  const activeVersions = await prisma.standaloneQuizVersion.findMany({
+    where: { quizId: { in: quizIds }, state: StandaloneQuizVersionState.active },
+    select: { id: true, quizId: true },
+  });
+  const activeVersionIds = activeVersions.map((version) => version.id);
+  const activeQuizIds = activeVersions.map((version) => version.quizId);
+  const participationVersions: Prisma.StandaloneQuizParticipationWhereInput[] = activeVersionIds.length
+    ? [{ quizVersionId: { in: activeVersionIds } }]
+    : [];
+  // A NULL-version row is only a compatibility fallback for a quiz that has
+  // no active immutable snapshot. Once a version is active, historical legacy
+  // progress must not shadow the current version's empty/new participation.
+  participationVersions.push({
+    quizVersionId: null,
+    ...(activeQuizIds.length ? { quizId: { notIn: activeQuizIds } } : {}),
+  });
   return prisma.standaloneQuizParticipation.findMany({
-    where: { quizId: { in: quizIds }, studentId },
-    select: { attempts: { orderBy: { attemptNo: "desc" }, select: { attemptNo: true, id: true, status: true, submittedAt: true } }, policySnapshot: true, quizId: true },
+    // Catalogue progress is scoped to the version currently available to the
+    // student. Historical participations remain queryable for results, but an
+    // exhausted old version must not make a newly activated version appear
+    // completed.
+    where: {
+      quizId: { in: quizIds },
+      studentId,
+      OR: participationVersions,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { attempts: { orderBy: { attemptNo: "desc" }, select: { attemptNo: true, id: true, status: true, submittedAt: true } }, policySnapshot: true, quizId: true, quizVersionId: true },
   });
 }
 async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
