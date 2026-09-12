@@ -21,6 +21,8 @@ assert.match(sql, /CAT Tryout sections remain/u, "the post-delete CAT section as
 assert.match(sql, /CAT package pools remain/u, "the post-delete CAT package assertion is required");
 assert.match(sql, /DROP TRIGGER IF EXISTS assessment_releases_append_only[\s\S]*?CREATE TRIGGER assessment_releases_append_only/u, "the destructive release deletion must restore the append-only trigger before commit");
 assert.match(sql, /DROP TRIGGER IF EXISTS reusable_question_package_versions_ready_immutable[\s\S]*?CREATE TRIGGER reusable_question_package_versions_ready_immutable/u, "the destructive package-version deletion must restore its immutability trigger before commit");
+assert.ok(sql.indexOf("cbt.cutover_ack") < sql.indexOf("DROP TRIGGER IF EXISTS assessment_releases_append_only"), "trigger suspension must follow the acknowledgement guard");
+assert.ok(sql.indexOf("CREATE TRIGGER assessment_releases_append_only") < sql.lastIndexOf("COMMIT;"), "trigger restoration must precede commit");
 assert.doesNotMatch(sql, /DROP DATABASE|TRUNCATE|CASCADE\s*;/iu, "the migration must not widen deletion beyond named rows");
 assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN|ALTER TYPE/iu, "schema-object removal is a separately reviewed follow-up after legacy readers are gone");
 
