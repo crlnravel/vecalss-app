@@ -18,15 +18,15 @@ LOCK TABLE "reusable_question_package_version_folder_scopes" IN SHARE ROW EXCLUS
 
 DO $$
 BEGIN
-  IF to_regclass('public.question_bank_folders') IS NULL
-     OR to_regclass('public.question_banks') IS NULL
-     OR to_regclass('public.reusable_question_package_version_folder_scopes') IS NULL THEN
+  IF to_regclass('question_bank_folders') IS NULL
+     OR to_regclass('question_banks') IS NULL
+     OR to_regclass('reusable_question_package_version_folder_scopes') IS NULL THEN
     RAISE EXCEPTION 'Question-bank folder purpose migration requires the existing organization tables';
   END IF;
   IF EXISTS (
     SELECT 1
       FROM information_schema.columns
-     WHERE table_schema = 'public'
+     WHERE table_schema = current_schema()
        AND table_name = 'question_bank_folders'
        AND column_name = 'purpose'
   ) THEN
@@ -43,6 +43,12 @@ ALTER TABLE "question_bank_folders"
 
 ALTER TABLE "question_bank_folders"
   ADD COLUMN "purpose" "question_bank_purpose";
+
+-- The legacy indexes are purpose-blind, so remove them before inserting the
+-- same-named Tryout clones. Purpose-aware replacements are created below in
+-- the same transaction.
+DROP INDEX IF EXISTS "question_bank_folders_root_name_ci_key";
+DROP INDEX IF EXISTS "question_bank_folders_parent_name_ci_key";
 
 -- Every existing folder gets a stable Quiz identity. The second mapping row
 -- receives a new id for the independent Tryout tree and keeps the old parent
@@ -178,9 +184,6 @@ ALTER TABLE "question_bank_folders"
 -- Prisma's model-level @@unique is needed as the target of the composite
 -- foreign keys. The case/trim expression indexes preserve the existing UX
 -- rule while adding purpose to the uniqueness scope.
-DROP INDEX IF EXISTS "question_bank_folders_root_name_ci_key";
-DROP INDEX IF EXISTS "question_bank_folders_parent_name_ci_key";
-
 CREATE UNIQUE INDEX "question_bank_folders_id_purpose_key"
   ON "question_bank_folders" ("id", "purpose");
 
