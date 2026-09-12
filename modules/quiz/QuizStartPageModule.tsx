@@ -56,8 +56,8 @@ function QuizStartPageModule({
   }
 
   return (
-    <main className="student-page-canvas mx-auto flex min-h-[70vh] w-full max-w-4xl items-center px-5 py-12">
-      <section className="w-full rounded-[2rem] border border-primary-100 bg-white p-7 shadow-[0_24px_56px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:p-10">
+    <main className="student-page-canvas flex min-h-svh w-full items-center px-5 py-12">
+      <section className="mx-auto w-full max-w-4xl p-7 sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">{subjectTitle}</p>
         <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{quiz.title}</h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-secondary-600">Kuis belum dimulai. Periksa jumlah soal dan kebijakan percobaan, lalu tekan Mulai ketika siap.</p>
@@ -85,7 +85,7 @@ function QuizStartPageModule({
 }
 
 function PolicyStat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-2xl border border-primary-100 bg-primary-50/50 px-4 py-3"><p className="text-xs font-medium text-secondary-500">{label}</p><p className="mt-1 font-semibold text-secondary-900">{value}</p></div>;
+  return <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3"><p className="text-xs font-medium text-secondary-500">{label}</p><p className="mt-1 font-semibold text-secondary-900">{value}</p></div>;
 }
 
 export { QuizStartPageModule };
