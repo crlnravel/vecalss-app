@@ -27,7 +27,10 @@ type KuisVersionedDefinitionInput = Pick<
 function isStandaloneQuizVersioningCutoverEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ) {
-  return env[KUIS_VERSIONING_CUTOVER_ENV]?.trim().toLowerCase() === "enabled";
+  // Versioned Kuis storage is now the normal runtime. Keep an explicit
+  // rollback switch for operators, but do not require every deployment to
+  // remember an opt-in environment variable before student starts are safe.
+  return env[KUIS_VERSIONING_CUTOVER_ENV]?.trim().toLowerCase() !== "disabled";
 }
 
 function versionedDefinitionInput(input: {
@@ -83,6 +86,16 @@ function versionedDefinitionDigest(input: Parameters<typeof versionedDefinitionI
   return digestKuisAssessmentDefinition(versionedDefinitionInput(input));
 }
 
+/**
+ * Digest only the fields that change the assessment a student answers or the
+ * policy used to score/review it. Title and description are intentionally
+ * blanked so editorial copy changes do not activate a new student snapshot.
+ * The full definition digest remains available for provenance and display.
+ */
+function versionedAssessmentDigest(input: Parameters<typeof versionedDefinitionInput>[0]) {
+  return versionedDefinitionDigest({ ...input, description: "", title: "" });
+}
+
 function nextStandaloneQuizVersionNo(versionNumbers: readonly (number | null | undefined)[]) {
   return Math.max(0, ...versionNumbers.filter((value): value is number => typeof value === "number" && Number.isInteger(value) && value > 0)) + 1;
 }
@@ -96,6 +109,7 @@ export {
   draftRevisionMatches,
   isStandaloneQuizVersioningCutoverEnabled,
   nextStandaloneQuizVersionNo,
+  versionedAssessmentDigest,
   versionedDefinitionDigest,
   versionedDefinitionInput,
 };

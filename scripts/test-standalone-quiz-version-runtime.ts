@@ -7,6 +7,7 @@ import {
   draftRevisionMatches,
   isStandaloneQuizVersioningCutoverEnabled,
   nextStandaloneQuizVersionNo,
+  versionedAssessmentDigest,
   versionedDefinitionDigest,
 } from "../lib/quiz/versioning-runtime";
 
@@ -52,8 +53,8 @@ assert.equal(
 );
 assert.equal(
   isStandaloneQuizVersioningCutoverEnabled({}),
-  false,
-  "the cutover must fail closed until migration and runtime verification are approved",
+  true,
+  "versioned Kuis runtime is the default; operators can explicitly disable it for rollback",
 );
 assert.equal(nextStandaloneQuizVersionNo([null, undefined, 1, 4, 2]), 5);
 assert.equal(draftRevisionMatches(undefined, 3), true);
@@ -63,6 +64,16 @@ assert.notEqual(
   versionedDefinitionDigest(definition),
   versionedDefinitionDigest({ ...definition, questions: [{ ...question, correctChoiceIds: ["A"] }] }),
   "version digests must include the full multiple-answer key",
+);
+assert.equal(
+  versionedAssessmentDigest(definition),
+  versionedAssessmentDigest({ ...definition, title: "Judul baru", description: "Deskripsi baru" }),
+  "editorial title/description changes must not activate a new student snapshot",
+);
+assert.notEqual(
+  versionedAssessmentDigest(definition),
+  versionedAssessmentDigest({ ...definition, attemptsAllowed: 2 }),
+  "assessment policy changes must activate a new student snapshot",
 );
 
 const projectRoot = resolve(import.meta.dirname, "..");
@@ -80,8 +91,17 @@ assert.match(repository, /bulkUpdateStandaloneQuizLifecycleVersioned/u);
 assert.match(repository, /resolveStandaloneQuizForAttempt/u);
 assert.match(repository, /ensureStandaloneQuizDraft/u);
 assert.match(repository, /isStandaloneQuizAvailableAt/u);
-assert.match(repository, /opensAt: version\.opensAt/u);
-assert.match(repository, /closesAt: version\.closesAt/u);
+assert.match(repository, /opensAt: record\.opensAt/u);
+assert.match(repository, /closesAt: record\.closesAt/u);
+assert.match(repository, /description: record\.description/u);
+assert.match(repository, /title: record\.title/u);
+assert.match(repository, /activateStandaloneQuizDraftAtStart/u);
+assert.match(repository, /linkStandaloneQuizStartCommand/u);
+assert.match(repository, /assessmentVersionChanged/u);
+assert.match(repository, /if \(!isStandaloneQuizAvailableAt\(loadedQuizRecord, checkNow\)\)/u);
+assert.match(repository, /standaloneQuizVersion\.findMany/u);
+assert.match(repository, /quizVersionId: \{ in: activeVersionIds \}/u);
+assert.match(repository, /quizId: \{ notIn: activeQuizIds \}/u);
 
 const actions = readFileSync(resolve(projectRoot, "modules/mentor/quiz-actions.ts"), "utf8");
 assert.match(actions, /saveStandaloneQuizAction/u);

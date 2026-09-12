@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ContentStatus, Prisma } from "@/generated/prisma/client";
+import { ContentStatus, Prisma, StandaloneQuizVersionState } from "@/generated/prisma/client";
 import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
 import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
@@ -46,12 +46,26 @@ const previewQuizSelect = {
   description: true,
   items: {
     orderBy: { sortOrder: "asc" },
+    // Keep a compatibility fallback for pre-versioned rows only. Once an
+    // active snapshot exists, toContractRecord prefers that version below.
+    where: { quizVersionId: null },
     select: previewQuizItemSelect,
   },
   opensAt: true,
   slug: true,
   subtest: { select: { code: true, name: true } },
   title: true,
+  versions: {
+    orderBy: { updatedAt: "desc" },
+    select: {
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: previewQuizItemSelect,
+      },
+    },
+    take: 1,
+    where: { state: StandaloneQuizVersionState.active },
+  },
 } satisfies Prisma.StandaloneQuizSelect;
 
 type PreviewQuizRecord = Prisma.StandaloneQuizGetPayload<{ select: typeof previewQuizSelect }>;
@@ -66,10 +80,11 @@ type AdminPreviewQuizCatalogueSurfaceRead = AdminPreviewQuizCatalogueRead & {
 };
 
 function toContractRecord(record: PreviewQuizRecord) {
+  const items = record.versions[0]?.items ?? record.items;
   return {
     closesAt: record.closesAt,
     description: record.description,
-    items: record.items.map((item) => ({
+    items: items.map((item) => ({
       options: item.options.map((option) => ({
         asset: option.asset
           ? {

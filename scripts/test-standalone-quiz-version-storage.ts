@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [schema, migration, itemScopingMigration, scheduleMigration, answerContract] = await Promise.all([
+const [schema, migration, itemScopingMigration, scheduleMigration, participationScopingMigration, answerContract] = await Promise.all([
   readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260910100000_add_standalone_quiz_version_storage/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260910160000_scope_standalone_quiz_items_to_versions/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260911100000_add_standalone_quiz_version_schedule/migration.sql", import.meta.url), "utf8"),
+  readFile(new URL("../prisma/migrations/20260913090000_scope_standalone_quiz_participations_to_versions/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../lib/question-bank/answer-contract.ts", import.meta.url), "utf8"),
 ]);
 
@@ -13,6 +14,7 @@ const versionModel = schema.match(/model StandaloneQuizVersion \{[\s\S]*?^\}/mu)
 const itemModel = schema.match(/model StandaloneQuizItem \{[\s\S]*?^\}/mu)?.[0] ?? "";
 const answerModel = schema.match(/model StandaloneQuizAnswer \{[\s\S]*?^\}/mu)?.[0] ?? "";
 const commandModel = schema.match(/model StandaloneQuizStartCommand \{[\s\S]*?^\}/mu)?.[0] ?? "";
+const participationModel = schema.match(/model StandaloneQuizParticipation \{[\s\S]*?^\}/mu)?.[0] ?? "";
 
 assert.match(schema, /enum StandaloneQuizVersionState \{[\s\S]*?draft[\s\S]*?active[\s\S]*?superseded/u);
 assert.match(schema, /enum StandaloneQuizAnswerFormat \{[\s\S]*?legacy_scalar[\s\S]*?single_option[\s\S]*?multiple_options/u);
@@ -30,6 +32,7 @@ assert.match(answerModel, /selectedOptionId\s+String\s+@map\("selected_option_id
 assert.match(answerModel, /selectedOptionIds\s+Json\?/u);
 assert.match(answerModel, /answerFormat\s+StandaloneQuizAnswerFormat/u);
 assert.match(commandModel, /@@unique\(\[quizId, studentId, requestId\]\)/u);
+assert.match(participationModel, /@@unique\(\[quizVersionId, studentId\]\)/u);
 
 assert.match(migration, /CREATE TYPE "standalone_quiz_version_state"/u);
 assert.match(migration, /CREATE TYPE "standalone_quiz_version_provenance"/u);
@@ -66,6 +69,11 @@ assert.ok(commandBackfill > commandTable, "start commands must exist before thei
 assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.doesNotMatch(itemScopingMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.doesNotMatch(scheduleMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
+assert.match(participationScopingMigration, /DROP INDEX IF EXISTS "standalone_quiz_participations_quiz_id_student_id_key"/u);
+assert.match(participationScopingMigration, /standalone_quiz_participations_quiz_id_student_id_legacy_key/u);
+assert.match(participationScopingMigration, /WHERE "quiz_version_id" IS NULL/u);
+assert.match(participationScopingMigration, /standalone_quiz_participations_quiz_version_id_student_id_key/u);
+assert.doesNotMatch(participationScopingMigration, /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/iu);
 assert.match(answerContract, /compareSelectedOptionSets/u);
 assert.match(answerContract, /decodeLegacyAnswerSelection/u);
 
