@@ -13,6 +13,8 @@ assert.match(sql, /cbt\.cutover_snapshot_id/u, "the migration must require a rec
 assert.match(sql, /cbt\.cutover_database/u, "the migration must bind the deletion to the named database");
 assert.match(sql, /CREATE TEMP TABLE _cbt_cat_attempts/u, "the migration must inventory CAT attempts");
 assert.match(sql, /CREATE TEMP TABLE _cbt_cat_package_versions/u, "the migration must inventory package-version roots");
+assert.match(sql, /package.mode::text = 'cat_pool'/u, "the migration must inventory orphaned CAT pools");
+assert.match(sql, /INSERT INTO _cbt_cat_package_versions[\s\S]*?ON CONFLICT DO NOTHING/u, "the migration must inventory every version under a CAT pool");
 assert.match(sql, /CAT package version is shared with a non-CAT assessment/u, "shared package references must fail closed");
 assert.match(sql, /CAT package is referenced outside the CAT Tryout set/u, "shared package references must fail closed");
 assert.match(sql, /CAT Tryout sections remain/u, "the post-delete CAT section assertion is required");

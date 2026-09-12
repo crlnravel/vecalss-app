@@ -86,9 +86,23 @@ SELECT DISTINCT package_version_id AS id
    AND package_version_id IS NOT NULL;
 
 CREATE TEMP TABLE _cbt_cat_packages ON COMMIT DROP AS
+SELECT package.id
+  FROM reusable_question_packages AS package
+ WHERE package.mode::text = 'cat_pool'
+UNION
 SELECT DISTINCT version.package_id AS id
   FROM reusable_question_package_versions AS version
   JOIN _cbt_cat_package_versions AS cat ON cat.id = version.id;
+
+-- A CAT pool can be orphaned from Tryout sections after a failed authoring
+-- attempt. Inventory every version below a CAT pool as well, so no CAT-only
+-- snapshot survives merely because it was never published into a section.
+CREATE UNIQUE INDEX _cbt_cat_package_versions_id_idx ON _cbt_cat_package_versions (id);
+INSERT INTO _cbt_cat_package_versions (id)
+SELECT version.id
+  FROM reusable_question_package_versions AS version
+ WHERE version.package_id IN (SELECT id FROM _cbt_cat_packages)
+ON CONFLICT DO NOTHING;
 
 DO $$
 BEGIN
