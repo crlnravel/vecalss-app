@@ -29,10 +29,10 @@ const MIRROR_PREFIX = "vecalss-bp06-browser-";
 const SCHEMA_PREFIX = "banner_bp06_browser_";
 const MIRROR_DIST_DIR = ".next-bp06-browser";
 const NEXT_ROUTE_TYPE_REFERENCES = ["./.next/types/routes.d.ts", "./.next/dev/types/routes.d.ts"] as const;
-// The embedded browser matrix currently has 52 bounded route observations
-// (including login/logout and the two stale-conflict tabs). Keep the overall
-// child deadline derived from that matrix instead of a smaller fixed window
-// that can expire before all four destinations report independently.
+// The embedded browser matrix currently has 52 bounded route/navigation
+// attempts (including login/logout and the two stale-conflict tabs). Keep the
+// overall child deadline derived from that matrix instead of a smaller fixed
+// window that can expire before all four destinations report independently.
 const BROWSER_ROUTE_READINESS_TIMEOUT_MS = 30_000;
 const BROWSER_ROUTE_ATTEMPT_BOUND = 52;
 const BROWSER_INTERACTION_SLACK_MS = 300_000;
@@ -1639,6 +1639,11 @@ function captureChildOutput(child: ChildProcess): ChildOutputCapture {
     const lineBytes = Buffer.byteLength(line, "utf8") + 1;
     if (diagnosticTruncated) return;
     if (diagnosticBytes + lineBytes > BROWSER_DIAGNOSTIC_BYTE_CAP) {
+      if (diagnosticLines.length === 0) {
+        const firstEvidence = line.slice(0, 8_192);
+        diagnosticLines.push(firstEvidence);
+        diagnosticBytes = Math.min(BROWSER_DIAGNOSTIC_BYTE_CAP, Buffer.byteLength(firstEvidence, "utf8") + 1);
+      }
       diagnosticTruncated = true;
       return;
     }
