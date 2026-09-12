@@ -7,6 +7,7 @@ import { distinctTryoutUsageCounts, summarizePackageLifecycle, type PackageLifec
 import { isImageMimeType } from "@/lib/media/domain";
 import { prisma } from "@/lib/prisma";
 import { packageReleaseTitle } from "@/lib/tryout/version-label";
+import { canonicalizeCbtScoringConfig } from "@/lib/tryout/cbt-scoring-policy";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 
 const SUBJECTS = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
@@ -279,6 +280,9 @@ function toPackageDto(record: PackageReadRecord, usageCount = 0) {
 }
 function hasArchivedPackageBinding(record: TryoutPackageBindingRecord) {
   return record.sections.some((section) => Boolean(section.packageVersionId) || section.items.some((item) => Boolean(item.packageVersionId)));
+}
+function hasLegacyCatSection(record: { sections: Array<{ testType: TryoutTestType }> }) {
+  return record.sections.some((section) => section.testType === TryoutTestType.cat);
 }
 function toTryoutDto(record: TryoutReadRecord) {
   const release = record.assessmentReleases[0] ?? null;
@@ -650,47 +654,60 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
 
 async function listTryouts(actorId: string) {
   const records = await prisma.tryoutPackage.findMany({ where: { createdByUserId: actorId }, include: tryoutInclude, orderBy: { updatedAt: "desc" } });
-  return records.flatMap((record) => hasArchivedPackageBinding(record) ? [] : [toTryoutDto(record)]);
+  return records.flatMap((record) => hasArchivedPackageBinding(record) || hasLegacyCatSection(record) ? [] : [toTryoutDto(record)]);
 }
 async function getTryoutForEdit(id: string, actorId: string) {
   const record = await prisma.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: tryoutInclude });
-  return record && !hasArchivedPackageBinding(record) ? toTryoutDto(record) : null;
+  return record && !hasArchivedPackageBinding(record) && !hasLegacyCatSection(record) ? toTryoutDto(record) : null;
 }
 function validateTryoutInput(input: SaveTryoutInput) {
   for (const section of input.sections) {
     const legacySection = section as unknown as Record<string, unknown>;
     if (legacySection.packageVersionId) throw new TryoutValidationError("Paket Soal sudah diarsipkan. Pilih soal langsung dari Bank Soal.");
+    if (section.testType === "cat") throw new TryoutValidationError("CAT sudah dinonaktifkan. Gunakan CBT dan pilih metode Poin tetap atau IRT (2PL) untuk setiap Test.");
+    try {
+      canonicalizeCbtScoringConfig(section.scoringConfig);
+    } catch (error) {
+      throw new TryoutValidationError(error instanceof Error ? error.message : "Metode penilaian CBT tidak valid.");
+    }
   }
   if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
   if (input.admissionMode !== undefined && !["open", "approval_required", "invitation_only"].includes(input.admissionMode)) throw new TryoutValidationError("Kebijakan akses Tryout tidak valid.");
   if (input.defaultResultReleasePolicy !== undefined && !["immediate", "manual", "automatic_at_end"].includes(input.defaultResultReleasePolicy)) throw new TryoutValidationError("Kebijakan rilis hasil Tryout tidak valid.");
   if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tepat tujuh Test subject.");
-  if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1 || (section.testType === "cat" && (!Number.isInteger(section.catItemCount) || section.catItemCount! < 1)))) throw new TryoutValidationError("Konfigurasi durasi atau jumlah soal CAT tidak valid.");
+  if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1)) throw new TryoutValidationError("Konfigurasi durasi Test tidak valid.");
 }
-async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], catItemCount?: number) {
-  if (!catItemCount || sources.length < catItemCount) throw new TryoutValidationError("CAT memerlukan soal langsung yang cukup untuk pool dan jumlah soal.");
-  const revisions = sources.map((source) => source.currentRevision).filter((revision): revision is NonNullable<typeof revision> => Boolean(revision));
-  if (revisions.some((revision) => answerModeForQuestionType(revision.questionType) !== "single_choice")) {
-    throw new TryoutValidationError("CAT saat ini hanya mendukung soal dengan satu jawaban benar. Gunakan Test CBT untuk soal dengan beberapa jawaban.");
-  }
-  const revisionIds = revisions.map((revision) => revision.id);
-  const calibrations = await tx.twoPlQuestionCalibration.findMany({
-    where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
-    select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
-  });
+
+async function resolveCbtScoringConfig(
+  tx: Prisma.TransactionClient,
+  value: unknown,
+  sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[],
+  requireReleaseParameters: boolean,
+) {
+  const policy = canonicalizeCbtScoringConfig(value);
+  if (policy.method !== "irt_2pl") return policy;
+  const revisionIds = sources.map((source) => source.currentRevision?.id).filter((id): id is string => Boolean(id));
+  const calibrations = revisionIds.length
+    ? await tx.twoPlQuestionCalibration.findMany({
+      where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
+      select: { difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+    })
+    : [];
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
-  if (revisions.length !== sources.length || sources.some((source) => {
+  const itemParameters = sources.map((source) => {
     const revision = source.currentRevision;
     const calibration = revision ? calibrationByRevision.get(revision.id) : undefined;
-    return !revision
-      || !calibration
-      || calibration.questionId !== source.id
-      || calibration.contentDigest !== revision.contentDigest
-      || !Number.isFinite(Number(calibration.difficulty))
-      || !Number.isFinite(Number(calibration.discrimination))
-      || Number(calibration.discrimination) <= 0
-      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
-  })) throw new TryoutValidationError("Setiap soal langsung untuk CAT harus memiliki kalibrasi 2PL kanonis yang disetujui dan cocok dengan digest revisinya.");
+    if (!revision || !calibration || calibration.questionId !== source.id || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) return null;
+    const a = Number(calibration.discrimination);
+    const b = Number(calibration.difficulty);
+    return Number.isFinite(a) && Number.isFinite(b) ? { a, b, itemId: source.id } : null;
+  });
+  if (requireReleaseParameters && (itemParameters.some((parameter) => !parameter) || itemParameters.length !== sources.length)) {
+    throw new TryoutValidationError("IRT memerlukan kalibrasi 2PL yang disetujui untuk seluruh soal sebelum Tryout diterbitkan.");
+  }
+  return itemParameters.every((parameter): parameter is NonNullable<typeof parameter> => Boolean(parameter))
+    ? { ...policy, itemParameters }
+    : policy;
 }
 async function saveTryout(input: SaveTryoutInput, actorId: string) {
   validateTryoutInput(input);
@@ -728,8 +745,8 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const directSelections = sectionInput.directQuestions ?? [];
       const directSources = directSelections.length ? await readAndValidateDirectSources(tx, directSelections, sectionInput.subtest) : [];
       if (input.status === "published" && !directSources.length) throw new TryoutValidationError("Setiap Test harus memiliki minimal satu soal langsung sebelum Tryout diterbitkan.");
-      if (input.status === "published" && sectionInput.testType === "cat") await assertCatDirectReadiness(tx, directSources, sectionInput.catItemCount);
-      const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: null, questionCount: directSources.length, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
+      const scoringConfig = await resolveCbtScoringConfig(tx, sectionInput.scoringConfig, directSources, input.status === "published");
+      const section = await tx.tryoutSection.create({ data: { catItemCount: null, catModelVersion: null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: null, questionCount: directSources.length, scoringConfig: json(scoringConfig), sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
       return { directSources, section };
     }));
     const itemEntries = sectionRecords.flatMap(({ directSources, section }) => directSources.map((source, index) => {

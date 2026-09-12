@@ -10,6 +10,7 @@ import {
   toParticipantAssessmentReleaseMetadata,
 } from "@/lib/tryout/assessment-release";
 import { materializeFrozenAnswers, normalizeCatAbility, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { canonicalizeCbtScoringConfig, scoreFixedOrderIrt } from "@/lib/tryout/cbt-scoring-policy";
 import { authoritativeCatActiveItemId, canRetrySealedCatAnswer, canWriteActiveCatAnswer, decideCatAnswer, projectCatItems } from "@/lib/tryout/cat-runtime";
 import { prisma } from "@/lib/prisma";
 import { materializeTryoutAttemptInTransaction } from "@/lib/tryout/result-repository";
@@ -247,6 +248,64 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
     });
     await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
     return failed;
+  }
+  const scoringPolicy = canonicalizeCbtScoringConfig(frozen.scoringConfig);
+  if (scoringPolicy.method === "irt_2pl") {
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const responses = scored.materializedAnswers
+      .filter((answer): answer is typeof answer & { isCorrect: boolean } => answer.isCorrect !== null)
+      .map((answer) => {
+        const item = itemById.get(answer.itemId);
+        return item?.sourceQuestionId ? { isCorrect: answer.isCorrect, itemId: item.sourceQuestionId } : null;
+      })
+      .filter((response): response is { isCorrect: boolean; itemId: string } => Boolean(response));
+    if (scoringPolicy.itemParameters.length !== items.length || items.some((item) => !item.sourceQuestionId || !scoringPolicy.itemParameters.some((parameter) => parameter.itemId === item.sourceQuestionId))) {
+      const failed = await tx.tryoutAttemptTestRun.update({
+        where: { id: run.id },
+        data: {
+          calculationReleaseable: false,
+          catFailureReason: "Kalibrasi IRT CBT tidak lengkap pada snapshot rilis.",
+          scoringProvenance: AssessmentScoringProvenance.runtime,
+          scoringReviewReason: "IRT CBT requires a frozen parameter for every item.",
+          scoringState: AssessmentScoringState.review_required,
+          sealedAt: now,
+          status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
+        },
+      });
+      await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
+      return failed;
+    }
+    const estimated = scoreFixedOrderIrt({ itemParameters: scoringPolicy.itemParameters, responses });
+    const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
+    await Promise.all(run.answers.flatMap((answer) => {
+      const materialized = materializedByItemId.get(answer.tryoutItemId);
+      if (!materialized) return [];
+      return [tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.isCorrect ? 1 : 0, scoringVersion: estimated.scoringVersion } })];
+    }));
+    const result = { ability: estimated.ability, answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: items.length, normalizedScore: estimated.normalizedScore, score: estimated.ability, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
+    const sealed = await tx.tryoutAttemptTestRun.update({
+      where: { id: run.id },
+      data: {
+        calculationInput: json({ itemParameters: scoringPolicy.itemParameters, responses, scoringConfig: scoringPolicy }),
+        calculationResult: json(result),
+        calculationReleaseable: true,
+        correctCount: scored.correctCount,
+        maxScore: items.length,
+        normalizedScore: estimated.normalizedScore,
+        rawScore: estimated.ability,
+        scaledScore: estimated.normalizedScore,
+        scoringProvenance: AssessmentScoringProvenance.runtime,
+        scoringReviewReason: null,
+        scoringState: AssessmentScoringState.scored,
+        scoringVersion: estimated.scoringVersion,
+        sealedAt: now,
+        status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
+        unansweredCount: scored.unansweredCount,
+        wrongCount: scored.wrongCount,
+      },
+    });
+    await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
+    return sealed;
   }
   const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
   await Promise.all(

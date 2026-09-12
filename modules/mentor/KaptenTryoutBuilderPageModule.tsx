@@ -57,9 +57,10 @@ import {
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { buildQuestionBankHref } from "@/lib/navigation/canonical-context";
-import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { HelpFieldLabel, OptionSet } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
+import { CBT_FIXED_POINTS_METHOD, CBT_IRT_2PL_METHOD } from "@/lib/tryout/cbt-scoring-policy";
 import { MediaAssetPreview, MediaPickerDialog } from "@/modules/media/media-library";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { KaptenTryoutAttemptsPageModule } from "@/modules/mentor/KaptenTryoutAttemptsPageModule";
@@ -256,10 +257,24 @@ function defaultSections(): TestDraft[] {
     directQuestions: [],
     durationMinutes: 30,
     instructions: "",
+    scoringConfig: {
+      correctAnswerPoints: 1,
+      method: CBT_FIXED_POINTS_METHOD,
+      unansweredPoints: 0,
+      wrongAnswerPoints: 0,
+    },
     shuffleItems: true,
     subtest,
     testType: "cbt",
   }));
+}
+
+function scoringMethodForSection(section: Pick<TestDraft, "scoringConfig">) {
+  return section.scoringConfig?.method === CBT_IRT_2PL_METHOD ? CBT_IRT_2PL_METHOD : CBT_FIXED_POINTS_METHOD;
+}
+
+function scoringLabelForSection(section: Pick<TestDraft, "scoringConfig">) {
+  return scoringMethodForSection(section) === CBT_IRT_2PL_METHOD ? "IRT (2PL)" : "Poin tetap";
 }
 
 function normalize(draft: TryoutDraft): TryoutDraft {
@@ -951,6 +966,47 @@ function TryoutSectionsTab({
                   <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
                 </div>
               </Field>
+              <ReferenceSurface as="section" aria-label="Metode penilaian CBT" className="grid gap-4 p-4" variant="inset">
+                <OptionSet
+                  label="Metode penilaian"
+                  labelTooltip="Pilih cara menghitung skor untuk Test ini. Pilihan akan dibekukan pada setiap rilis dan tidak mengubah hasil attempt lama."
+                  onValueChange={(method) => onUpdateSection({
+                    scoringConfig: method === CBT_IRT_2PL_METHOD
+                      ? {
+                        estimatorVersion: "bounded-map-v1",
+                        method: CBT_IRT_2PL_METHOD,
+                        modelVersion: "irt-2pl-cbt-v1",
+                        normalizationVersion: "logistic-0-100-v1",
+                      }
+                      : {
+                        correctAnswerPoints: 1,
+                        method: CBT_FIXED_POINTS_METHOD,
+                        unansweredPoints: 0,
+                        wrongAnswerPoints: 0,
+                      },
+                  })}
+                  options={[
+                    {
+                      description: "Akumulasi poin benar, salah, dan tidak dijawab.",
+                      label: "Poin tetap",
+                      value: CBT_FIXED_POINTS_METHOD,
+                    },
+                    {
+                      description: "Estimasi 2PL pada urutan CBT tetap dengan kalibrasi soal.",
+                      label: "IRT (2PL)",
+                      tooltip: "IRT membutuhkan kalibrasi yang disetujui untuk seluruh soal sebelum rilis.",
+                      value: CBT_IRT_2PL_METHOD,
+                    },
+                  ]}
+                  required
+                  value={scoringMethodForSection(activeSection)}
+                />
+                {activeSection.testType === "cat" ? (
+                  <p className="text-sm leading-6 text-destructive" role="alert">
+                    Test CAT lama tidak lagi dapat diterbitkan. Pilih CBT setelah data lama diarsipkan melalui migration cutover.
+                  </p>
+                ) : null}
+              </ReferenceSurface>
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
                 <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32`} disabled={saving || draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
@@ -998,7 +1054,10 @@ function TryoutReviewTab({
                   <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
                   <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
                 </div>
-                <MentorBadge className="shrink-0 font-bold" size="sm" tone="category">{section.durationMinutes} menit</MentorBadge>
+                <div className="flex shrink-0 items-center gap-2">
+                  <MentorBadge className="font-bold" size="sm" tone="category">{scoringLabelForSection(section)}</MentorBadge>
+                  <MentorBadge className="font-bold" size="sm" tone="category">{section.durationMinutes} menit</MentorBadge>
+                </div>
               </ReferenceSurface>
             ))}
           </div>

@@ -28,6 +28,7 @@ import {
   TRYOUT_CBT_SCORING_VERSION,
   TRYOUT_SCORE_AGGREGATION_VERSION,
 } from "@/lib/tryout/scoring";
+import { canonicalizeCbtScoringConfig } from "@/lib/tryout/cbt-scoring-policy";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 
 const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v1";
@@ -1438,6 +1439,16 @@ async function assertTryoutReleaseEligibility(
   if (!tryout || tryout.status !== ContentStatus.published) {
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
   }
+  if (tryout.sections.some((section) => section.testType === "cat")) {
+    throw new Error("CAT sudah dinonaktifkan. Rilis baru hanya dapat memakai CBT.");
+  }
+  for (const section of tryout.sections) {
+    try {
+      canonicalizeCbtScoringConfig(section.scoringConfig);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "Metode penilaian CBT tidak valid.");
+    }
+  }
   const scopedBanks = tryout.sections.flatMap((section) => section.packageVersion?.bankScopes ?? []);
   const selectedQuestionIdSet = new Set<string>();
   for (const section of tryout.sections) {
@@ -1604,6 +1615,9 @@ async function createOrReuseAssessmentRelease(
   if (!tryout || tryout.status !== "published") {
     throw new Error("Tryout harus diterbitkan sebelum AssessmentRelease dibuat.");
   }
+  if (tryout.sections.some((section) => section.testType === "cat" || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool)) {
+    throw new Error("CAT sudah dinonaktifkan. Rilis baru hanya dapat memakai CBT.");
+  }
   const publicationIntentKey = normalizePublicationIntentKey(options.publicationIntentKey);
   const hasArchivedPackageBinding = tryout.sections.some((section) => Boolean(section.packageVersionId) || section.items.some((item) => Boolean(item.packageVersionId)));
   if (hasArchivedPackageBinding) {
@@ -1649,6 +1663,13 @@ async function createOrReuseAssessmentRelease(
     })
   ) {
     throw new Error("AssessmentRelease memerlukan tepat tujuh Test dengan item yang siap.");
+  }
+  for (const section of resolvedTryout.sections) {
+    try {
+      canonicalizeCbtScoringConfig(section.scoringConfig, section.items.map((item) => item.sourceQuestionId ?? item.id));
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "Metode penilaian CBT belum siap untuk dirilis.");
+    }
   }
 
   const releaseTryout = await attachCatCalibrationSnapshots(tx, resolvedTryout);

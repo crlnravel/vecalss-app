@@ -142,6 +142,7 @@
     "test:tryout-seed-release-guards": "node scripts/test-tryout-seed-release-guards.mjs",
     "test:tryout-catalogue-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-tryout-catalogue-db.ts",
     "test:tryout-scoring": "tsx scripts/test-tryout-scoring.ts",
+    "test:tryout-cbt-scoring-policy": "tsx scripts/test-tryout-cbt-scoring-policy.ts",
     "test:assessment-scoring-release-invariants": "node scripts/test-assessment-scoring-release-invariants.mjs",
     "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",
     "db:verify-materi-cutover": "node scripts/verify-materi-catalogue.mjs",
