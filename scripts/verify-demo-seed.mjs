@@ -252,8 +252,43 @@ async function main() {
 
     assert.equal(
       await scalar(client, `SELECT COUNT(*)::int AS value FROM tryout_sections WHERE tryout_id = $1 AND test_type = 'cat'`, [tryoutId]),
-      3,
-      "The tryout must contain three CAT sections.",
+      0,
+      "The CBT-only demonstration Tryout must not contain CAT sections.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_sections
+                             WHERE tryout_id = $1
+                               AND test_type = 'cbt'
+                               AND scoring_config ->> 'method' = 'fixed_points'`, [tryoutId]),
+      7,
+      "Every demonstration section must use fixed-point CBT scoring.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_sections
+                             WHERE tryout_id = $1
+                               AND (cat_item_count > 0
+                                 OR cat_model_version IS NOT NULL
+                                 OR scoring_config::text ILIKE '%two_pl%'
+                                 OR scoring_config::text ILIKE '%cat%')`, [tryoutId]),
+      0,
+      "The CBT-only demonstration must not retain CAT section metadata.",
+    );
+    assert.equal(
+      await scalar(client, "SELECT COUNT(*)::int AS value FROM two_pl_question_calibrations"),
+      0,
+      "The CBT-only demonstration must not seed CAT calibration rows.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_attempt_test_runs
+                             WHERE cat_snapshot IS NOT NULL
+                                OR (cat_state IS NOT NULL AND cat_state <> 'not_applicable')
+                                OR scoring_version ILIKE '%2pl%'
+                                OR scoring_version ILIKE '%cat%'`),
+      0,
+      "The CBT-only demonstration must not retain CAT run snapshots or scoring markers (not_applicable is the CBT compatibility state).",
     );
 
     const sessions = await client.query(
