@@ -29,6 +29,10 @@ assert.match(editor, /Saat ini di Kuis/);
 assert.match(editor, /Revisi \$\{update\.revisionNo\} di Bank Soal/);
 assert.match(editor, /acceptStandaloneQuizQuestionUpdateAction/);
 assert.match(editor, /candidate\.sourceQuestionId === question\.sourceQuestionId/);
-assert.match(editor, /setActiveQuestionId\(\(current\) => current === question\.id/);
+assert.match(editor, /setActiveQuestionId\(\(current\)\s*=>\s*current === question\.id/);
+assert.match(editor, /quizStatus !== "archived"/);
+assert.match(editor, /quizStatus === "published"/);
+assert.match(editor, /savedQuiz\.status === "archived"/);
+assert.match(editor, /Revisi akan diterapkan ke draf versi berikutnya/);
 
 console.log("Quiz question update review contract passed.");
