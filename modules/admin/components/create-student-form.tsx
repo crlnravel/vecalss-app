@@ -62,6 +62,76 @@ function StudentDropdownField({
   );
 }
 
+function CreateStudentFormFields({
+  embedded,
+  email,
+  examEvents,
+  fullName,
+  handoffActive,
+  handoffMethod,
+  onHandoffMethodChange,
+  pending,
+  setEmail,
+  setFullName,
+  setTargetExamEventId,
+  state,
+  targetExamEventId,
+}: {
+  embedded: boolean;
+  email: string;
+  examEvents: Array<Pick<ExamEvent, "id" | "name">>;
+  fullName: string;
+  handoffActive: boolean;
+  handoffMethod: "invite_link" | "temporary_password";
+  onHandoffMethodChange: (value: string) => void;
+  pending: boolean;
+  setEmail: (value: string) => void;
+  setFullName: (value: string) => void;
+  setTargetExamEventId: (value: string) => void;
+  state: FormState;
+  targetExamEventId: string;
+}) {
+  const isFormComplete = fullName.trim().length > 0 && email.trim().length > 0;
+
+  return (
+    <div aria-disabled={handoffActive || undefined} className={handoffActive ? "pointer-events-none opacity-65" : undefined} inert={handoffActive || undefined}>
+      <div className={embedded ? "grid gap-5 sm:grid-cols-2" : "grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]"}>
+        <Field>
+          <FieldLabel htmlFor="student-full-name">Nama siswa</FieldLabel>
+          <FieldInput aria-describedby={state.fieldErrors?.fullName ? "student-full-name-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.fullName)} id="student-full-name" name="fullName" onChange={(event) => setFullName(event.currentTarget.value)} placeholder="Alya Ramadhani" required value={fullName} />
+          <FieldError error={state.fieldErrors?.fullName} id="student-full-name-error" />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="student-email">Email siswa</FieldLabel>
+          <FieldInput aria-describedby={state.fieldErrors?.email ? "student-email-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.email)} id="student-email" name="email" onChange={(event) => setEmail(event.currentTarget.value)} placeholder="alya@student.vecalss.id" required type="email" value={email} />
+          <FieldError error={state.fieldErrors?.email} id="student-email-error" />
+        </Field>
+        <StudentDropdownField
+          id="student-exam-goal"
+          label="Target ujian"
+          name="targetExamEventId"
+          onValueChange={setTargetExamEventId}
+          options={[{ label: "Atur nanti", value: "" }, ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id }))]}
+          value={targetExamEventId}
+        />
+        <StudentDropdownField
+          error={state.fieldErrors?.handoffMethod}
+          help="Pilih cara siswa menerima kredensial login pertamanya."
+          id="student-handoff-method"
+          label="Handoff kredensial"
+          name="handoffMethod"
+          onValueChange={onHandoffMethodChange}
+          options={[{ label: "Password sementara", value: "temporary_password" }, { label: "Link undangan (24 jam)", value: "invite_link" }]}
+          value={handoffMethod}
+        />
+      </div>
+      <div className="mt-5 flex justify-start md:justify-end">
+        <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">Buat akun siswa</SubmitButton>
+      </div>
+    </div>
+  );
+}
+
 function CreateStudentForm({
   controller,
   embedded = false,
@@ -86,7 +156,6 @@ function CreateStudentForm({
       (state.temporaryPassword || state.inviteUrl) &&
       acknowledgedHandoffId !== state.handoffId,
   );
-  const isFormComplete = fullName.trim().length > 0 && email.trim().length > 0;
 
   const handleHandoffResolved = useCallback(() => {
     if (state.handoffId) {
@@ -137,76 +206,23 @@ function CreateStudentForm({
         />
       ) : null}
 
-      <div aria-disabled={handoffActive || undefined} className={handoffActive ? "pointer-events-none opacity-65" : undefined} inert={handoffActive || undefined}>
-        <div className={embedded ? "grid gap-5 sm:grid-cols-2" : "grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]"}>
-          <Field>
-             <FieldLabel htmlFor="student-full-name">Nama siswa</FieldLabel>
-            <FieldInput
-              aria-describedby={state.fieldErrors?.fullName ? "student-full-name-error" : undefined}
-              aria-invalid={Boolean(state.fieldErrors?.fullName)}
-              id="student-full-name"
-              name="fullName"
-              onChange={(event) => setFullName(event.currentTarget.value)}
-              placeholder="Alya Ramadhani"
-              required
-              value={fullName}
-            />
-            <FieldError error={state.fieldErrors?.fullName} id="student-full-name-error" />
-          </Field>
-
-          <Field>
-             <FieldLabel htmlFor="student-email">Email siswa</FieldLabel>
-            <FieldInput
-              aria-describedby={state.fieldErrors?.email ? "student-email-error" : undefined}
-              aria-invalid={Boolean(state.fieldErrors?.email)}
-              id="student-email"
-              name="email"
-              onChange={(event) => setEmail(event.currentTarget.value)}
-              placeholder="alya@student.vecalss.id"
-              required
-              type="email"
-              value={email}
-            />
-            <FieldError error={state.fieldErrors?.email} id="student-email-error" />
-          </Field>
-
-          <StudentDropdownField
-            id="student-exam-goal"
-             label="Target ujian"
-            name="targetExamEventId"
-            onValueChange={setTargetExamEventId}
-            options={[
-               { label: "Atur nanti", value: "" },
-              ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
-            ]}
-            value={targetExamEventId}
-          />
-
-          <StudentDropdownField
-            error={state.fieldErrors?.handoffMethod}
-             help="Pilih cara siswa menerima kredensial login pertamanya."
-            id="student-handoff-method"
-             label="Handoff kredensial"
-            name="handoffMethod"
-            onValueChange={(value) => {
-              if (value === "invite_link" || value === "temporary_password") {
-                setHandoffMethod(value);
-              }
-            }}
-            options={[
-               { label: "Password sementara", value: "temporary_password" },
-               { label: "Link undangan (24 jam)", value: "invite_link" },
-            ]}
-            value={handoffMethod}
-          />
-        </div>
-
-        <div className="mt-5 flex justify-start md:justify-end">
-           <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">
-             Buat akun siswa
-          </SubmitButton>
-        </div>
-      </div>
+      <CreateStudentFormFields
+        embedded={embedded}
+        email={email}
+        examEvents={examEvents}
+        fullName={fullName}
+        handoffActive={handoffActive}
+        handoffMethod={handoffMethod}
+        onHandoffMethodChange={(value) => {
+          if (value === "invite_link" || value === "temporary_password") setHandoffMethod(value);
+        }}
+        pending={pending}
+        setEmail={setEmail}
+        setFullName={setFullName}
+        setTargetExamEventId={setTargetExamEventId}
+        state={state}
+        targetExamEventId={targetExamEventId}
+      />
     </form>
   );
 }

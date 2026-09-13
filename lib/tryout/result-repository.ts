@@ -1,12 +1,11 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutCatRunState, TryoutResultReleasePolicy } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutResultReleasePolicy } from "@/generated/prisma/client";
 import {
   assertMatchingAssessmentRelease,
   findAssessmentReleaseSectionForRun,
   toParticipantAssessmentReleaseMetadata,
 } from "@/lib/tryout/assessment-release";
-import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 import { aggregateTryoutScores, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 
@@ -41,17 +40,10 @@ function effectivePolicy(session: { resultReleasePolicy: TryoutResultReleasePoli
   return selected as ReleasePolicy;
 }
 
-function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue }) {
+function explanationsComplete(run: { contentSnapshot: Prisma.JsonValue }) {
   const content = run.contentSnapshot as { items?: Array<{ explanation?: string | null; explanationAssetId?: string | null; id: string }> };
-  const adaptive = run.catSnapshot as { selectedItemIds?: unknown } | null;
-  if (run.catSnapshot !== null && (!adaptive || !Array.isArray(adaptive.selectedItemIds))) return false;
-  const selectedItemIds = Array.isArray(adaptive?.selectedItemIds) && adaptive.selectedItemIds.every((itemId): itemId is string => typeof itemId === "string")
-    ? new Set(adaptive.selectedItemIds)
-    : null;
-  if (Array.isArray(adaptive?.selectedItemIds) && (!selectedItemIds || selectedItemIds.size !== adaptive.selectedItemIds.length || selectedItemIds.size === 0)) return false;
-  const items = selectedItemIds ? (content.items ?? []).filter((item) => selectedItemIds.has(item.id)) : content.items ?? [];
+  const items = content.items ?? [];
   return items.length > 0
-    && (!selectedItemIds || items.length === selectedItemIds.size)
     && items.every((item) => Boolean(item.explanation?.trim() || item.explanationAssetId));
 }
 
@@ -60,7 +52,6 @@ function frozenRunFields(
     assessmentReleaseDigest?: string | null;
     assessmentReleaseId?: string | null;
     assessmentReleaseNumber?: number | null;
-    catSnapshot: Prisma.JsonValue | null;
     contentSnapshot: Prisma.JsonValue;
     section: unknown;
   },
@@ -71,8 +62,6 @@ function frozenRunFields(
   const form = run.contentSnapshot as unknown as {
     durationSeconds?: number;
     items?: unknown[];
-    catItemCount?: number | null;
-    catModelVersion?: string | null;
     scoringConfig?: Prisma.JsonValue | null;
     sectionId?: string;
     sequenceNo?: number;
@@ -87,28 +76,22 @@ function frozenRunFields(
     && typeof form.title === "string"
     && Number.isFinite(form.durationSeconds)
     && form.durationSeconds! >= 0
-    && (form.testType === "cat" || form.testType === "cbt")
-    && Object.prototype.hasOwnProperty.call(form, "catItemCount")
-    && Object.prototype.hasOwnProperty.call(form, "catModelVersion")
+    && form.testType === "cbt"
     && Object.prototype.hasOwnProperty.call(form, "scoringConfig")
     && Array.isArray(form.items);
   if (requireFrozen && !complete) throw new TryoutResultValidationError("Test run terikat AssessmentRelease tetapi snapshot section/scoring belum lengkap.");
   if (requireFrozen) {
-    const snapshot = run.catSnapshot as { modelVersion?: string; parameters?: unknown[]; selectedItemIds?: unknown[]; updates?: unknown[] } | null;
-    if (form.testType === "cat" && (!form.catItemCount || form.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || !snapshot || snapshot.modelVersion !== form.catModelVersion || !Array.isArray(snapshot.parameters) || snapshot.parameters.length < form.catItemCount || !Array.isArray(snapshot.selectedItemIds) || !Array.isArray(snapshot.updates))) {
-      throw new TryoutResultValidationError("Test run CAT terikat AssessmentRelease tetapi snapshot CAT tidak lengkap.");
-    }
     return {
       durationSeconds: form.durationSeconds!,
       subtestId: form.subtestId!,
-      testType: form.testType!,
+      testType: "cbt",
       title: form.title!,
     };
   }
   return {
     durationSeconds: Number.isFinite(form.durationSeconds) ? form.durationSeconds! : legacySection.durationSeconds ?? 0,
     subtestId: form.subtestId ?? null,
-    testType: form.testType === "cat" || form.testType === "cbt" ? form.testType : legacySection.testType ?? "cbt",
+    testType: "cbt",
     title: form.title ?? legacySection.title ?? "",
   };
 }
@@ -218,7 +201,7 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   if (attempt.runs.some((run) => run.assessmentReleaseId !== attempt.assessmentReleaseId || run.assessmentReleaseNumber !== attempt.assessmentReleaseNumber || run.assessmentReleaseDigest !== attempt.assessmentReleaseDigest)) return review("Test run Tryout tidak cocok dengan AssessmentRelease attempt.");
   if (!terminalAttemptStateIsCalculable(attempt)) return review("Attempt belum berada pada state terminal yang dapat dihitung, atau telah abandoned/void.");
   if (!hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.tryout, runs: attempt.runs })) return review("Attempt tidak memiliki tepat tujuh Test kanonis untuk Tryout ini.");
-  if (attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || run.normalizedScore === null)) return review("Semua tujuh Test harus tersegel, termaterialisasi, dan tidak void sebelum hasil dapat dihitung.");
+  if (attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.normalizedScore === null)) return review("Semua tujuh Test harus tersegel dan termaterialisasi sebelum hasil dapat dihitung.");
   const scores = attempt.runs.map((run) => Number(run.normalizedScore));
   const finalScore = aggregateTryoutScores(scores);
   const hasTypedBreakdowns = hasCanonicalSevenBreakdownSet({ tryout: attempt.tryout, breakdowns: attempt.scoreBreakdowns });
@@ -279,8 +262,8 @@ async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySes
       "Rilis diblokir: attempt tidak cocok dengan AssessmentRelease sesi.",
     );
     if (attempt.runs.some((run) => run.assessmentReleaseId !== session.assessmentRelease!.id || run.assessmentReleaseNumber !== session.assessmentRelease!.releaseNumber || run.assessmentReleaseDigest !== session.assessmentRelease!.contentDigest)) throw new TryoutResultValidationError("Rilis diblokir: Test run tidak cocok dengan AssessmentRelease sesi.");
-    if (attempt.score === null || attempt.scoringState !== AssessmentScoringState.scored || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns }) || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || attempt.runs.some((run) => run.scoringState !== AssessmentScoringState.scored || run.normalizedScore === null || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !explanationsComplete(run))) {
-      throw new TryoutResultValidationError("Rilis diblokir: seluruh attempt harus selesai, terhitung valid, tidak void, dan memiliki penjelasan untuk semua item yang dikirim.");
+    if (attempt.score === null || attempt.scoringState !== AssessmentScoringState.scored || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns }) || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || attempt.runs.some((run) => run.scoringState !== AssessmentScoringState.scored || run.normalizedScore === null || !run.calculationReleaseable || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !explanationsComplete(run))) {
+      throw new TryoutResultValidationError("Rilis diblokir: seluruh attempt harus selesai, terhitung valid, dan memiliki penjelasan untuk semua item yang dikirim.");
     }
   }
   return { policy, session };
@@ -337,7 +320,7 @@ async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, n
         && terminalAttemptStateIsCalculable(attempt)
         && hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns })
         && hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs })
-        && attempt.runs.every((run) => run.assessmentReleaseId === session.assessmentRelease!.id && run.assessmentReleaseNumber === session.assessmentRelease!.releaseNumber && run.assessmentReleaseDigest === session.assessmentRelease!.contentDigest && run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && run.catState !== TryoutCatRunState.voided && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run));
+        && attempt.runs.every((run) => run.assessmentReleaseId === session.assessmentRelease!.id && run.assessmentReleaseNumber === session.assessmentRelease!.releaseNumber && run.assessmentReleaseDigest === session.assessmentRelease!.contentDigest && run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run));
       return isReleaseable ? [attempt.id] : [];
     });
     const ready = session.attempts.length > 0
@@ -421,7 +404,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       },
       tryout: { select: { title: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
       runs: {
-        include: { answers: { select: { isCorrect: true, pointsAwarded: true, selectedOptionId: true, tryoutItemId: true } }, section: { include: { subtest: true } } },
+        include: { answers: { select: { isCorrect: true, pointsAwarded: true, selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } }, section: { include: { subtest: true } } },
         orderBy: { sequenceNo: "asc" },
       },
       scoreBreakdowns: { orderBy: { subtestId: "asc" } },
@@ -490,8 +473,6 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
         || typeof releaseSection.title !== "string")) {
         throw new TryoutResultValidationError("Hasil Tryout memiliki Test run tanpa label AssessmentRelease yang beku.");
       }
-      const selectedItemIds = (run.catSnapshot as { selectedItemIds?: string[] } | null)?.selectedItemIds;
-      const selectedItemIdSet = selectedItemIds ? new Set(selectedItemIds) : null;
       const contentItems = (run.contentSnapshot as {
         items?: Array<{
           difficulty?: string;
@@ -500,6 +481,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
           id: string;
           options?: Array<{ choiceKey: string; content: string; id: string; isCorrect?: boolean }>;
           prompt: string;
+          questionType?: string | null;
         }>;
       }).items;
       const review = contentItems?.reduce<Array<{
@@ -509,14 +491,23 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
         options: Array<{ choiceKey: string; content: string; correct: boolean | undefined; id: string }>;
         prompt: string;
         selectedOptionId: string | null;
+        selectedOptionIds: string[];
+        questionType: "single_choice" | "multiple_choice";
       }>>((items, item) => {
-        if (selectedItemIdSet && !selectedItemIdSet.has(item.id)) return items;
+        const answer = run.answers.find((candidate) => candidate.tryoutItemId === item.id);
+        const selectedOptionIds = Array.isArray(answer?.selectedOptionIds)
+          ? answer.selectedOptionIds.filter((value): value is string => typeof value === "string")
+          : answer?.selectedOptionId
+            ? [answer.selectedOptionId]
+            : [];
         items.push({
           difficulty: item.difficulty ?? "medium",
           explanation: item.explanation ?? "",
           explanationAssetId: item.explanationAssetId ?? null,
           prompt: item.prompt,
-          selectedOptionId: run.answers.find((answer) => answer.tryoutItemId === item.id)?.selectedOptionId ?? null,
+          questionType: item.questionType === "multiple_choice" ? "multiple_choice" : "single_choice",
+          selectedOptionId: selectedOptionIds[0] ?? null,
+          selectedOptionIds,
           options: item.options?.map((option) => ({ choiceKey: option.choiceKey, content: option.content, correct: option.isCorrect, id: option.id })) ?? [],
         });
         return items;

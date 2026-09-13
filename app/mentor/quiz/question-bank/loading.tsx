@@ -13,7 +13,7 @@ export default function QuestionBankLoading() {
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
       <div aria-busy="true" aria-label="Memuat Bank Soal" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
-        <MentorSidebar activeLabel="Bank Soal" appearance="reference" />
+        <MentorSidebar appearance="reference" />
 
         <SidebarInset className="min-w-0 bg-voyage-canvas lg:rounded-3xl">
           <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
@@ -52,9 +52,9 @@ export default function QuestionBankLoading() {
                 <TableHeader>
                   <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
                     <TableHead className="h-11 min-w-[14rem] rounded-l-xl px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Nama</TableHead>
-                    <TableHead className="h-11 min-w-[12rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Kategori</TableHead>
+                    <TableHead className="h-11 min-w-[9rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Subject</TableHead>
+                    <TableHead className="h-11 min-w-[14rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Materi</TableHead>
                     <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Status</TableHead>
-                    <TableHead className="h-11 min-w-[5rem] rounded-r-xl px-4 py-2.5 text-right text-xs font-medium text-secondary-500 sm:px-5">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -22,6 +22,14 @@ function getForgotPasswordCopy(audience: LoginAudience) {
     };
   }
 
+  if (audience === "affiliator") {
+    return {
+      backHref: "/login",
+      description: "Minta link untuk mengatur ulang password workspace affiliator.",
+      title: "Pulihkan akses affiliator",
+    };
+  }
+
   return {
     backHref: "/login",
     description:

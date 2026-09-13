@@ -6,7 +6,6 @@ import type { SessionContext } from "@/lib/auth/types";
 type TryoutCapability =
   | "tryout.delivery.configure"
   | "tryout.delivery.open"
-  | "tryout.calibration.manage"
   | "tryout.results.manage"
   | "tryout.admission.manage"
   | "tryout.admission.register"

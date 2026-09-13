@@ -54,8 +54,8 @@ export function AiRoutingChainVisualizer({ routes }: { routes: CapabilityRouting
                 {configuredChain.fallback2 && (
                   <>
                     <ArrowRight className="size-4 text-secondary-400" />
-                    <div className="min-w-0 max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 font-medium text-amber-900">
-                      <span className="text-[10px] font-bold uppercase text-amber-700 block">Fallback 2</span>
+                    <div className="min-w-0 max-w-full rounded-xl border border-warning-200 bg-warning-50 px-3 py-2 font-medium text-warning-900">
+                      <span className="text-[10px] font-bold uppercase text-warning-700 block">Fallback 2</span>
                     <span className="break-words">{configuredChain.fallback2.label}</span>
                     </div>
                   </>
@@ -86,19 +86,19 @@ export function AiRoutingChainVisualizer({ routes }: { routes: CapabilityRouting
                 <div
                   aria-hidden="true"
                   style={{ width: `${observedLast24h.modelFallbackShare}%` }}
-                  className="bg-amber-500"
+                  className="bg-warning-500"
                   title={`Model Fallback: ${observedLast24h.modelFallbackShare}%`}
                 />
                 <div
                   aria-hidden="true"
                   style={{ width: `${observedLast24h.staticFallbackShare}%` }}
-                  className="bg-purple-500"
+                  className="bg-student-status-info-fg"
                   title={`Static Fallback: ${observedLast24h.staticFallbackShare}%`}
                 />
                 <div
                   aria-hidden="true"
                   style={{ width: `${observedLast24h.failedShare}%` }}
-                  className="bg-red-500"
+                  className="bg-student-status-danger-bg0"
                   title={`Gagal: ${observedLast24h.failedShare}%`}
                 />
               </div>
@@ -111,21 +111,21 @@ export function AiRoutingChainVisualizer({ routes }: { routes: CapabilityRouting
                   </span>
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-full bg-amber-500" />
+                  <span className="size-2.5 rounded-full bg-warning-500" />
                   <span className="text-secondary-600">
                     Selesai lewat Model Fallback: <strong className="text-secondary-950">{observedLast24h.modelFallbackShare}%</strong>
                   </span>
                 </li>
                 {observedLast24h.staticFallbackShare > 0 && (
                   <li className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-purple-500" />
+                    <span className="size-2.5 rounded-full bg-student-status-info-fg" />
                     <span className="text-secondary-600">
                       Fallback Statis: <strong className="text-secondary-950">{observedLast24h.staticFallbackShare}%</strong>
                     </span>
                   </li>
                 )}
                 <li className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-full bg-red-500" />
+                  <span className="size-2.5 rounded-full bg-student-status-danger-bg0" />
                   <span className="text-secondary-600">
                     Gagal: <strong className="text-secondary-950">{observedLast24h.failedShare}%</strong>
                   </span>

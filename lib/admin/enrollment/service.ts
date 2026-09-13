@@ -22,6 +22,7 @@ import {
   normalizeEmail,
   validatePassword,
 } from "@/lib/auth/crypto";
+import { normalizeReferralCode } from "@/lib/affiliator/contracts";
 
 const MAX_EMAIL_LENGTH = 254;
 const MAX_FULL_NAME_LENGTH = 160;
@@ -30,7 +31,7 @@ const MAX_PHONE_LENGTH = 40;
 const MAX_HEADLINE_LENGTH = 160;
 const MAX_BIO_LENGTH = 2_000;
 
-type EnrollmentRole = "student" | "tutor";
+type EnrollmentRole = "student" | "tutor" | "affiliator";
 type EnrollmentStatus = "active" | "disabled";
 
 type EnrollmentHandoffResult = {
@@ -57,6 +58,14 @@ type KaptenEnrollmentInput = {
   handoffMethod?: EnrollmentHandoffMethod;
   headline?: string | null;
   phone?: string | null;
+};
+
+type AffiliatorEnrollmentInput = {
+  actorUserId: string;
+  email: string;
+  fullName: string;
+  handoffMethod?: EnrollmentHandoffMethod;
+  referralCode: string;
 };
 
 type StudentEnrollmentUpdateInput = {
@@ -182,6 +191,17 @@ function assertHandoffMethod(method: EnrollmentHandoffMethod) {
 
 function mapPrismaEnrollmentError(error: unknown): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    const target = Array.isArray(error.meta?.target)
+      ? error.meta.target.map(String).join(",")
+      : String(error.meta?.target ?? "");
+
+    if (target.includes("referral_code")) {
+      throw new EnrollmentServiceError(
+        "invalid_field",
+        "That referral code is already assigned to another affiliator.",
+      );
+    }
+
     throw new EnrollmentServiceError(
       "duplicate_email",
       "An account with that email already exists.",
@@ -226,6 +246,39 @@ async function assertNoExistingEmail(tx: Prisma.TransactionClient, email: string
   }
 }
 
+function roleNameForEnrollmentRole(role: EnrollmentRole) {
+  switch (role) {
+    case "student":
+      return RoleName.student;
+    case "tutor":
+      return RoleName.tutor;
+    case "affiliator":
+      return RoleName.affiliator;
+  }
+}
+
+function enrollmentRoleLabel(role: EnrollmentRole) {
+  switch (role) {
+    case "student":
+      return "student";
+    case "tutor":
+      return "Kapten";
+    case "affiliator":
+      return "affiliator";
+  }
+}
+
+function enrollmentAuditPrefix(role: EnrollmentRole) {
+  switch (role) {
+    case "student":
+      return "student_enrollment";
+    case "tutor":
+      return "kapten_enrollment";
+    case "affiliator":
+      return "affiliator_enrollment";
+  }
+}
+
 async function createEnrollmentHandoffResult({
   actorUserId,
   email,
@@ -236,6 +289,7 @@ async function createEnrollmentHandoffResult({
   phone,
   headline,
   bio,
+  referralCode,
 }: {
   actorUserId: string;
   email: string;
@@ -246,6 +300,7 @@ async function createEnrollmentHandoffResult({
   phone?: string | null;
   headline?: string | null;
   bio?: string | null;
+  referralCode?: string;
 }): Promise<EnrollmentHandoffResult> {
   const rawSecret = handoffMethod === EnrollmentHandoffMethod.invite_link
     ? createOpaqueToken()
@@ -283,7 +338,7 @@ async function createEnrollmentHandoffResult({
       await tx.roleAssignment.create({
         data: {
           assignedByUserId: actorUserId,
-          role: role === "student" ? RoleName.student : RoleName.tutor,
+          role: roleNameForEnrollmentRole(role),
           userId: createdUser.id,
         },
       });
@@ -302,13 +357,28 @@ async function createEnrollmentHandoffResult({
         await tx.notificationPreference.create({
           data: { userId: createdUser.id },
         });
-      } else {
+      } else if (role === "tutor") {
         await tx.tutorProfile.create({
           data: {
             bio: bio ?? null,
             headline: headline ?? null,
             userId: createdUser.id,
           },
+        });
+      } else {
+        if (!referralCode) {
+          throw new EnrollmentServiceError("invalid_field", "Referral code is required for an affiliator.");
+        }
+
+        await tx.affiliatorProfile.create({
+          data: {
+            referralCode,
+            userId: createdUser.id,
+          },
+        });
+
+        await tx.notificationPreference.create({
+          data: { userId: createdUser.id },
         });
       }
 
@@ -326,14 +396,13 @@ async function createEnrollmentHandoffResult({
 
       await tx.auditLog.create({
         data: {
-          action: role === "student"
-            ? "student_enrollment.created"
-            : "kapten_enrollment.created",
+          action: `${enrollmentAuditPrefix(role)}.created`,
           actorUserId,
           metadata: {
             handoffId: handoff.handoffId,
             method: handoffMethod,
             role,
+            referralCode: referralCode ?? null,
             targetExamEventId: targetExamEventId ?? null,
             userId: createdUser.id,
           } as Prisma.InputJsonValue,
@@ -407,6 +476,27 @@ async function createKaptenEnrollment(input: KaptenEnrollmentInput) {
   });
 }
 
+async function createAffiliatorEnrollment(input: AffiliatorEnrollmentInput) {
+  const fullName = cleanRequired(input.fullName, "Affiliator name", MAX_FULL_NAME_LENGTH);
+  const email = cleanEmail(input.email);
+  const referralCode = normalizeReferralCode(input.referralCode);
+  if (!referralCode) {
+    invalidField("Referral code must be 3-40 characters using letters, numbers, or hyphens.");
+  }
+
+  const handoffMethod = input.handoffMethod ?? EnrollmentHandoffMethod.temporary_password;
+  assertHandoffMethod(handoffMethod);
+
+  return createEnrollmentHandoffResult({
+    actorUserId: input.actorUserId,
+    email,
+    fullName,
+    handoffMethod,
+    referralCode,
+    role: "affiliator",
+  });
+}
+
 async function assertEnrollmentRole(
   tx: Prisma.TransactionClient,
   userId: string,
@@ -418,7 +508,7 @@ async function assertEnrollmentRole(
     select: { id: true },
     where: {
       revokedAt: null,
-      role: role === "student" ? RoleName.student : RoleName.tutor,
+      role: roleNameForEnrollmentRole(role),
       userId,
     },
   });
@@ -428,7 +518,7 @@ async function assertEnrollmentRole(
       role === "student" ? "not_found" : "role_conflict",
       role === "student"
         ? "The student account could not be found."
-        : "The Kapten account could not be found.",
+        : `The ${enrollmentRoleLabel(role)} account could not be found.`,
     );
   }
 }
@@ -733,13 +823,7 @@ async function setEnrollmentStatus(input: SetEnrollmentStatusInput) {
 
     await tx.auditLog.create({
       data: {
-        action: input.role === "student"
-          ? input.nextStatus === UserStatus.disabled
-            ? "student_enrollment.deactivated"
-            : "student_enrollment.reactivated"
-          : input.nextStatus === UserStatus.disabled
-            ? "kapten_enrollment.deactivated"
-            : "kapten_enrollment.reactivated",
+        action: `${enrollmentAuditPrefix(input.role)}.${input.nextStatus === UserStatus.disabled ? "deactivated" : "reactivated"}`,
         actorUserId: input.actorUserId,
         metadata: {
           method: "admin_status_change",
@@ -791,7 +875,7 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
         roleAssignments: {
           some: {
             revokedAt: null,
-            role: input.role === "student" ? RoleName.student : RoleName.tutor,
+            role: roleNameForEnrollmentRole(input.role),
           },
         },
         softDeletedAt: null,
@@ -804,7 +888,7 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
         input.role === "student" ? "not_found" : "role_conflict",
         input.role === "student"
           ? "One or more student accounts could not be found. Refresh the directory and try again."
-          : "One or more Kapten accounts could not be found. Refresh the directory and try again.",
+          : `One or more ${enrollmentRoleLabel(input.role)} accounts could not be found. Refresh the directory and try again.`,
       );
     }
 
@@ -850,13 +934,7 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
 
     await tx.auditLog.createMany({
       data: eligibleUserIds.map((userId) => ({
-        action: input.role === "student"
-          ? input.nextStatus === UserStatus.disabled
-            ? "student_enrollment.deactivated"
-            : "student_enrollment.reactivated"
-          : input.nextStatus === UserStatus.disabled
-            ? "kapten_enrollment.deactivated"
-            : "kapten_enrollment.reactivated",
+        action: `${enrollmentAuditPrefix(input.role)}.${input.nextStatus === UserStatus.disabled ? "deactivated" : "reactivated"}`,
         actorUserId: input.actorUserId,
         metadata: {
           method: "admin_bulk_status_change",
@@ -890,6 +968,7 @@ async function setKaptenEnrollmentStatus(input: Omit<SetEnrollmentStatusInput, "
 
 export {
   EnrollmentServiceError,
+  createAffiliatorEnrollment,
   createKaptenEnrollment,
   createStudentEnrollment,
   changeStudentEnrollmentPassword,
@@ -905,6 +984,7 @@ export {
 
 export type {
   EnrollmentErrorCode,
+  AffiliatorEnrollmentInput,
   EnrollmentHandoffResult,
   EnrollmentStatusBulkResult,
   KaptenEnrollmentInput,

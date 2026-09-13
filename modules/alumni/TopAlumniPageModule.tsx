@@ -5,17 +5,17 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 function TopAlumniPageModule() {
   return (
-    <main className="overflow-x-clip bg-white text-[#014C38]">
+    <main className="overflow-x-clip bg-white text-[var(--voyage-deep)]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 md:px-8 lg:px-10">
         <MarketingHeader currentPath="/top-alumni" />
       </div>
 
       <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-16 px-4 pb-20 pt-12 md:px-8 md:gap-20 md:pt-16 lg:px-10">
         <div className="mx-auto max-w-[860px] text-center">
-          <h1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-7xl">
+          <h1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-7xl">
             Top 90 Alumni
           </h1>
-          <p className="mt-4 text-base leading-7 text-[#014C38]/68 md:text-lg">
+          <p className="mt-4 text-base leading-7 text-[var(--voyage-deep)]/68 md:text-lg">
             Tempat para voyager berlabuh!
           </p>
         </div>
@@ -32,8 +32,8 @@ function TopAlumniPageModule() {
 
 function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
   return (
-    <article className="group overflow-hidden rounded-4xl border border-[#014C38]/10 bg-white shadow-[0_26px_80px_-66px_rgba(1,76,56,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
-      <div className="relative aspect-[4/3] bg-[#014C38]/[0.04]">
+    <article className="group overflow-hidden rounded-4xl border border-[var(--voyage-deep)]/10 bg-white shadow-[0_26px_80px_-66px_color-mix(in_oklab,var(--voyage-deep)_28%,transparent)] transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18">
+      <div className="relative aspect-[4/3] bg-[var(--voyage-deep)]/[0.04]">
         <Image
           alt={`${alumnus.name} profile photo`}
           fill
@@ -54,10 +54,10 @@ function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
         ) : null}
       </div>
       <div className="p-5 md:p-6">
-        <h3 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
+        <h3 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-[var(--voyage-deep)]">
           {alumnus.name}
         </h3>
-        <p className="mt-3 text-sm leading-6 text-[#014C38]/68">
+        <p className="mt-3 text-sm leading-6 text-[var(--voyage-deep)]/68">
           {alumnus.university}
         </p>
       </div>

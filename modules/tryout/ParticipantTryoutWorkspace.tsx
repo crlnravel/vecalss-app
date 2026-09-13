@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  ArrowCounterClockwise,
   BookOpenText,
   Buildings,
-  CalendarBlank,
+  CalendarDays,
   Clock,
-  MagnifyingGlass,
-} from "@phosphor-icons/react";
+  RefreshCw,
+  Search,
+} from "@/lib/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -21,9 +21,15 @@ import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-car
 import type { SessionContext } from "@/lib/auth/types";
 import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
+import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import {
   canEnterParticipantWaitingRoom,
   formatDuration,
@@ -60,11 +66,13 @@ function TryoutCardArtwork({ bannerUrl }: { bannerUrl: string | null }) {
 
 function ParticipantTryoutWorkspace({
   banner,
+  bannerVariables,
   initialTryouts,
   notificationFeed,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
+  bannerVariables: StudentBannerVariables;
   initialTryouts: ParticipantTryout[];
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
@@ -114,48 +122,72 @@ function ParticipantTryoutWorkspace({
       breadcrumbLabel="Tryout"
       mainClassName="gap-8"
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari tryout..."
+      searchPlaceholder="Cari tryout…"
       session={session}
       showSearch={false}
     >
-      <section className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-80"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[40%] min-w-[18rem] lg:block"
-        >
-          <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
-          <Image
-            alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(0,20,14,0.36)] xl:w-[26rem]"
-            height={416}
-            sizes="(min-width: 1280px) 416px, 352px"
-            src="/brand/mascot-vecalss.png"
-            width={416}
-          />
-        </div>
-        <div className="relative max-w-3xl lg:max-w-[60%]">
-          <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
-            {banner.title}
-          </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-[#e7f5eb] sm:text-base sm:leading-7">
-            {banner.description}
-          </p>
-        </div>
+      <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-5 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
+        {banner.design ? (
+          <>
+            <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={bannerVariables} />
+            <div className="sr-only">
+              <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+              <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+            </div>
+            <div className="relative z-10 flex min-h-[18rem] items-end">
+              <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                <CalendarDays aria-hidden="true" className="size-4" />
+                {initialTryouts.length} tryout tersedia
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-voyage-sea-glass/20 sm:size-80"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 hidden w-[40%] min-w-[18rem] lg:block"
+            >
+              <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
+              <Image
+                alt=""
+                className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] xl:w-[26rem]"
+                height={416}
+                sizes="(min-width: 1280px) 416px, 352px"
+                src="/brand/mascot-vecalss-2.png"
+                width={416}
+              />
+            </div>
+            <div className="relative max-w-3xl lg:max-w-[60%]">
+              <h1 className="max-w-[15ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance sm:text-5xl">
+                {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-learning-hero-muted sm:text-base sm:leading-7">
+                {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                  <CalendarDays aria-hidden="true" className="size-4" />
+                  {initialTryouts.length} tryout tersedia
+                </span>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <section aria-label="Cari dan filter tryout" className="grid gap-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <label className="relative block w-full">
             <span className="sr-only">Cari tryout</span>
-            <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               className="h-12 rounded-2xl border-primary-100 bg-primary-50/60 pl-11 shadow-none"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari tryout..."
+              placeholder="Cari tryout…"
               value={query}
             />
           </label>
@@ -229,7 +261,7 @@ function ParticipantTryoutWorkspace({
                         </span>
                       </div>
                       <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-secondary-600">
-                        <CalendarBlank className="mt-0.5 size-4 shrink-0 text-secondary-400" />
+                        <CalendarDays className="mt-0.5 size-4 shrink-0 text-secondary-400" />
                         {formatSchedule(primarySession?.availableFrom)}
                       </p>
                     </div>
@@ -237,7 +269,7 @@ function ParticipantTryoutWorkspace({
                       <Link
                         className={buttonVariants({
                           className:
-                            "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_rgba(1,76,56,0.35)] sm:h-11",
+                            "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)] sm:h-11",
                           size: "default",
                           variant: "brand",
                         })}
@@ -266,7 +298,7 @@ function ParticipantTryoutWorkspace({
                     }}
                     variant="brandOutline"
                   >
-                    <ArrowCounterClockwise /> Reset pencarian
+                    <RefreshCw /> Reset pencarian
                   </Button>
                 ) : undefined
               }

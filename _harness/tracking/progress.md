@@ -1,5 +1,63 @@
 # Session Progress Log
 
+## Vera AI end-to-end SSE streaming (2026-09-08)
+
+- [x] Changed the development OpenRouter chat transport from buffered JSON to
+  upstream `text/event-stream`, forwarding each provider text delta through
+  Vera's existing `message.delta` SSE contract to the learner chat UI.
+- [x] Preserved final model/provider identity, finish reason, and usage evidence
+  from the terminal accounting frame before durable result settlement.
+- [x] Kept response-size/output bounds, `[DONE]` validation, heartbeat handling,
+  timeout behavior, and mid-stream failures fail-closed; partial-output faults
+  are classified as ambiguous and are not retried as safe pre-send failures.
+- [x] Applied Vera's inert plaintext transformation to Prisma-backed provisional
+  deltas before they reach the browser.
+- [x] Guarded `test:vera-openrouter-poc`,
+  `test:vera-openrouter-free-provider`, `test:vera-sprint2`, focused ESLint,
+  `git diff --check`, and full `pnpm verify` pass. Browser verification was not
+  run because route/persona/checklist permission was not requested.
+- [x] Source committed as `5d8270a`; unrelated shared-worktree UI changes were
+  preserved and excluded.
+
+## Students admin elevation and sunken-depth pass (2026-09-06)
+
+- [x] Strengthened the resting `ReferenceSurface` contract so cards visibly
+  carry a persistent outer lift; interactive surfaces still add their hover
+  and focus lift on top of that base state.
+- [x] Added an explicit `sunken` `StudentBadge` depth variant and applied it
+  to the enrollment directory and student-detail status badges without
+  changing unrelated compact badge consumers.
+- [x] Centralized student account status labels and tones, preserving active,
+  attention, danger, and neutral semantics across the directory and detail
+  views.
+- [x] Reserved a wider status-column track and mirrored it in the loading
+  skeleton so long Indonesian labels remain separated from row actions.
+- [x] Guarded focused ESLint, strict TypeScript, `git diff --check`, and full
+  `pnpm verify` pass; lint reports 0 errors and 474 existing warnings, and
+  both enrollment routes compile successfully.
+- [x] Browser verification remains permission-gated and was not run.
+
+## Vecalss palette standardization (2026-09-05)
+
+- [x] Standardized learner, assessment, mentor, admin, dashboard, portal, and
+  Vera UI color usage around the existing Vecalss palette and semantic status
+  tokens, preserving distinct information, warning, and danger meanings.
+- [x] Replaced tokenizable hardcoded colors, legacy status utility ramps, and
+  shared shadow/gradient literals in the palette series beginning with
+  `c836589`, followed by `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`, and
+  `91bbceb`.
+- [x] Regenerated theme output through the palette workflow; generated CSS,
+  markup, layout, interaction/state behavior, accessibility attributes, and
+  route context were preserved.
+- [x] Guarded targeted ESLint, repository-wide `pnpm lint`, `git diff --check`,
+  and full guarded `pnpm build` pass. Full lint reports 0 errors and 474
+  existing warnings.
+- [x] Browser verification was intentionally skipped because the harness
+  requires explicit route, role/session, and checklist permission. Remaining
+  raw values are documented boundaries: protected route-state/chart selectors,
+  persisted and active banner-maker design data, and the released Question
+  Bank builder status classes.
+
 ## Current Vera policy route wiring (2026-08-31)
 
 - [x] Wired `/admin/ai/policies` to load actor-scoped metadata through
@@ -944,3 +1002,22 @@ production seed. The current next slice is AS-07 realtime/polling hardening
 under `artifacts/tickets/as07-realtime-hardening`: authoritative
 disconnect/reconcile writers, deadline-expiry synchronization, and bounded
 Live refresh/polling. AS-08 remains closed.
+
+## Versioned Kuis editor handoff (2026-09-12)
+
+- [x] Updated `QuestionSourceUpdateNotice` and its accept callback so draft and
+  published Kuis records can review and accept Bank Soal revisions; archived
+  records remain read-only.
+- [x] Published Kuis copy now explains that acceptance writes the next draft
+  while the active release keeps its current immutable snapshot until lazy
+  activation. Legacy Duplicate wording remains only in the
+  `KUIS_VERSIONING_CUTOVER=disabled` repository fallback.
+- [x] Updated the Kuis detail preview to render all `correctChoiceIds`, with
+  the historic single `correctChoiceId` fallback preserved.
+- [x] Committed the isolated UI/test unit as `d8ed50b`.
+- [x] Guarded focused ESLint (editor and contract test), strict TypeScript,
+  `test:quiz-question-updates`, and scoped diff checks pass.
+- [ ] Repository-wide `pnpm verify` / `./init.sh` remains blocked by the
+  unrelated unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
+  `react/jsx-key` error; no Tryout/CAT or other agent-owned files were changed
+  for this handoff.

@@ -20,6 +20,25 @@ type R2Configuration = {
   secretAccessKey: string;
 };
 
+type MediaStorageTestOverrides = {
+  createUploadUrl?: (objectKey: string, mimeType: string) => Promise<{
+    expiresInSeconds: number;
+    uploadUrl: string;
+  }>;
+  headObject?: (objectKey: string) => Promise<{
+    ContentLength?: number;
+    ContentType?: string;
+    ETag?: string;
+  }>;
+  readObject?: (objectKey: string, signal?: AbortSignal) => Promise<MediaObjectStream>;
+};
+
+type MediaObjectStream = {
+  body: ReadableStream<Uint8Array>;
+  contentLength?: number;
+  contentType?: string;
+};
+
 class R2ConfigurationError extends Error {
   constructor() {
     super("Penyimpanan R2 belum dikonfigurasi.");
@@ -28,6 +47,8 @@ class R2ConfigurationError extends Error {
 }
 
 let cachedClient: S3Client | null = null;
+
+let mediaStorageTestOverrides: MediaStorageTestOverrides | null = null;
 
 const readR2Configuration = (): R2Configuration | null => {
   const accountId = process.env.R2_ACCOUNT_ID?.trim();
@@ -63,7 +84,7 @@ const getR2Client = () => {
   return { client: cachedClient, configuration };
 };
 
-const createMediaUploadUrl = async (objectKey: string, mimeType: string) => {
+const createMediaUploadUrlFromR2 = async (objectKey: string, mimeType: string) => {
   const { client, configuration } = getR2Client();
   const uploadUrl = await getSignedUrl(
     client,
@@ -119,7 +140,29 @@ const readMediaObject = async (objectKey: string) => {
   return response.Body.transformToByteArray();
 };
 
-const headMediaObject = async (objectKey: string) => {
+const readMediaObjectStreamFromR2 = async (
+  objectKey: string,
+  signal?: AbortSignal,
+): Promise<MediaObjectStream> => {
+  const { client, configuration } = getR2Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: configuration.bucketName,
+      Key: objectKey,
+    }),
+    signal ? { abortSignal: signal } : undefined,
+  );
+
+  if (!response.Body) throw new Error("Objek gambar tidak memiliki isi.");
+
+  return {
+    body: response.Body.transformToWebStream(),
+    contentLength: response.ContentLength,
+    contentType: response.ContentType,
+  };
+};
+
+const headMediaObjectFromR2 = async (objectKey: string) => {
   const { client, configuration } = getR2Client();
 
   return client.send(
@@ -130,6 +173,38 @@ const headMediaObject = async (objectKey: string) => {
   );
 };
 
+const createMediaUploadUrl = async (objectKey: string, mimeType: string) => (
+  mediaStorageTestOverrides?.createUploadUrl?.(objectKey, mimeType)
+  ?? createMediaUploadUrlFromR2(objectKey, mimeType)
+);
+
+const headMediaObject = async (objectKey: string) => (
+  mediaStorageTestOverrides?.headObject?.(objectKey)
+  ?? headMediaObjectFromR2(objectKey)
+);
+
+const readMediaObjectStream = async (objectKey: string, signal?: AbortSignal) => (
+  mediaStorageTestOverrides?.readObject?.(objectKey, signal)
+  ?? readMediaObjectStreamFromR2(objectKey, signal)
+);
+
+/**
+ * Test-only storage seam. Production behavior uses Cloudflare R2 unless a
+ * focused isolated test installs a temporary override.
+ */
+async function withMediaStorageTestOverrides<T>(
+  overrides: MediaStorageTestOverrides,
+  callback: () => Promise<T>,
+) {
+  const previousOverrides = mediaStorageTestOverrides;
+  mediaStorageTestOverrides = overrides;
+  try {
+    return await callback();
+  } finally {
+    mediaStorageTestOverrides = previousOverrides;
+  }
+}
+
 export {
   PREVIEW_URL_TTL_SECONDS,
   R2ConfigurationError,
@@ -138,5 +213,7 @@ export {
   headMediaObject,
   isR2Configured,
   readMediaObject,
+  readMediaObjectStream,
+  withMediaStorageTestOverrides,
 };
-export type { MediaPreviewUrlOptions };
+export type { MediaObjectStream, MediaPreviewUrlOptions, MediaStorageTestOverrides };

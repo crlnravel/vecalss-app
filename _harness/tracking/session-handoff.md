@@ -1,5 +1,61 @@
 # Session Handoff
 
+## Current handoff — Vera AI end-to-end SSE streaming (2026-09-08)
+
+- Objective: make Vera learner chat render the real provider response
+  progressively instead of receiving one completed answer as a single delta.
+- Completed: commit `5d8270a` sends `stream: true` to the gated development
+  OpenRouter transport, parses upstream SSE frames incrementally, forwards text
+  deltas through the existing Prisma orchestrator and route SSE response, and
+  retains final identity/finish/usage evidence for durable settlement.
+- Failure behavior: response and output limits remain enforced; missing terminal
+  markers and malformed frames fail closed; provider errors, network failures,
+  and timeouts after partial output are classified as ambiguous so they cannot
+  be retried as safe pre-acceptance failures. Provisional Prisma deltas use the
+  existing inert-plaintext sanitizer.
+- Verification: guarded `test:vera-openrouter-poc`,
+  `test:vera-openrouter-free-provider`, `test:vera-sprint2`, focused ESLint,
+  `git diff --check`, and full `pnpm verify` pass. The real OpenRouter smoke was
+  not run because it requires an explicitly enabled local key/gate. Browser QA
+  was not run because the required route, Voyager session, and checklist
+  permission was not granted.
+- Scope: five source/test files are in `5d8270a`. Unrelated dirty UI files in
+  admin, quiz, student, tryout, and the Vera page module remain unmodified and
+  uncommitted by this task.
+- Recommended next step: optionally authorize an authenticated `/vera-ai`
+  browser check as Voyager to observe incremental rendering and cancellation
+  with the locally gated OpenRouter provider.
+
+## Current handoff — Vecalss palette standardization (2026-09-05)
+
+- Objective: migrate UI color usage to the existing Vecalss token palette while
+  preserving semantic status meaning and all behavior/layout/accessibility
+  contracts.
+- Completed: learner/public, assessment, mentor/Tryout, admin, dashboard,
+  portal, media, and Vera surfaces now use palette-derived colors for the
+  scoped hardcoded colors, legacy utility ramps, shadows, gradients, and
+  annotation swatches. The two released builder files received only their
+  exact raw shadow replacements; no builder status classes or behavior were
+  changed.
+- Commits: initial token alignment in `c836589`, followed by `3b67d69`,
+  `7c57433`, `c2fe59b`, `5af4342`, and `91bbceb`.
+- Verification: guarded targeted ESLint passed with only pre-existing unused
+  variable warnings; guarded repository-wide `pnpm lint` passed with 0 errors
+  and 474 warnings; `git diff --check` passed; guarded `pnpm build` passed
+  through Prisma generation, token regeneration, TypeScript, static page
+  generation, and standalone preparation. The worktree is clean.
+- Files changed: `design-tokens/palette.mjs`, generated/global theme outputs,
+  shared UI primitives, learner/public modules, assessment modules, mentor and
+  Tryout modules, admin/AI modules, dashboard/portal/media/Vera modules, and
+  the two released builder files, as recorded by the five commits above.
+- Decisions and boundaries: `DESIGN.md` and generated theme output remain
+  protected; active banner-maker source/data, `typed-route-state.tsx`, and
+  Recharts selector literals remain unchanged. Browser verification was not
+  authorized, so no browser result is claimed.
+- Recommended next step: if visual confirmation is desired, authorize a
+  browser check with exact routes, role/session, and desktop/mobile checklist;
+  otherwise the palette migration is implementation-complete.
+
 ## Current handoff — Vera policy route wiring (2026-08-31)
 
 - Objective: connect the canonical `/admin/ai/policies` page to the backend
@@ -1115,3 +1171,26 @@
 
 - Start the deferred durable Kuis assembly binding implementation and keep
   the protected admin-preview files untouched.
+
+## Current handoff — Versioned Kuis editor (2026-09-12)
+
+- Objective: keep the Kapten Kuis editor aligned with the default lazy
+  snapshot runtime when a reusable Bank Soal question receives a revision.
+- Completed in `d8ed50b` (`Allow versioned Kuis edits from published editor`):
+  `KaptenQuizEditorPageModule.tsx` now permits source-review acceptance for
+  draft and published Kuis records and blocks only archived records; published
+  copy explains that the revision lands in the next draft while the active
+  snapshot remains unchanged. `KaptenQuizDetailPageModule.tsx` renders all
+  `correctChoiceIds` with a legacy single-answer fallback. The focused
+  `scripts/test-quiz-question-updates.ts` contract covers these guards and
+  tolerates multiline callback formatting.
+- Verification: guarded focused ESLint, strict TypeScript,
+  `test:quiz-question-updates`, and scoped `git diff --check` pass. The full
+  guarded `pnpm verify` and `./init.sh` lint phase stop on the unrelated
+  unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
+  `react/jsx-key` error; this handoff did not alter that file.
+- Ownership: the three files above are committed and handed off. Broad dirty
+  Question Bank, Tryout, CAT, schema, harness, and other mentor files remain
+  outside this unit and must not be reset or staged with it.
+- Next step: fix the Tryout workspace header key in its owning workstream,
+  then rerun the repository-wide verify gate before a release claim.

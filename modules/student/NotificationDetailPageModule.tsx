@@ -1,12 +1,13 @@
 import Link from "next/link";
 import ReactMarkdown, { type Components } from "react-markdown";
 
-import { ArrowLeft, ArrowUpRight } from "@/lib/icons";
+import { ArrowLeft, ArrowUpRight, Bell } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard";
+import { ReferenceSurface } from "@/components/dashboard";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationDetail } from "@/lib/notifications/service";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
+import { StudentPageHero } from "@/modules/student/components/student-page-hero";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 function safeMarkdownHref(value: string | undefined) {
@@ -64,7 +65,7 @@ const markdownComponents: Components = {
     );
   },
   blockquote: ({ children }) => (
-    <blockquote className="my-5 border-l-4 border-primary-200 pl-5 text-secondary-600 italic">
+    <blockquote className="my-5 rounded-2xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-secondary-700">
       {children}
     </blockquote>
   ),
@@ -123,26 +124,33 @@ function NotificationDetailPageModule({
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
     >
-      <section className="flex flex-col gap-5">
-        <ReferencePageHeader
+      <section className="flex flex-col gap-8">
+        <StudentPageHero
           actions={
             <Link
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 bg-white px-4 text-sm font-semibold text-primary-800 transition-[background-color,border-color] hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-white/20 bg-white px-4 text-sm font-semibold text-voyage-deep transition-[background-color,border-color] hover:border-white hover:bg-voyage-sea-glass focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/40"
               href="/notifications"
             >
               <ArrowLeft aria-hidden="true" className="size-4" />
               Kembali ke notifikasi
             </Link>
           }
+          description="Baca rincian pembaruan dan lanjutkan ke aktivitas terkait saat tersedia."
+          icon={Bell}
+          meta={
+            <span className="inline-flex min-h-10 items-center rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold text-student-status-attention-solid-fg">
+              {notification.time}
+            </span>
+          }
           title={notification.title}
         />
 
-        <ReferenceSurface as="article" className="px-5 py-7 sm:px-8 sm:py-9">
-          <header>
-            <p className="mt-3 text-sm text-secondary-500">{notification.time}</p>
-          </header>
-
-          <div className="mt-7 max-w-3xl text-base">
+        <ReferenceSurface
+          as="article"
+          className="border-learning-card-border px-5 py-7 sm:px-8 sm:py-9"
+          variant="tactile"
+        >
+          <div className="max-w-3xl text-base">
             <ReactMarkdown
               components={markdownComponents}
               skipHtml

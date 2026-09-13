@@ -13,6 +13,13 @@ The sections below are historical records unless a newer dated section
 supersedes them. For the current repository map, read [`docs/wiki/`](../../docs/wiki/)
 and then verify the source tree before making an implementation decision.
 
+## Pre-release database migration and legacy policy (2026-09-12)
+
+- The project is in an active pre-release phase.
+- Agents are explicitly permitted and encouraged to migrate the database forward to support new features, refactors, and architectural improvements.
+- Preserving obsolete legacy tables, backward-compatibility bridges, or legacy system state is not important or required at this stage. Prioritize clean, simplified schema models over legacy maintenance.
+- Creating manual database backups, snapshots, or dump files (e.g. `/tmp/*.dump`) before running migrations or resets is not required. Development and local data is disposable and reproducible via seed scripts (`pnpm db:seed`).
+
 ## Current repository baseline (2026-08-30)
 
 - The project wiki is now under `docs/wiki/`. Its pages cover architecture,
@@ -63,6 +70,23 @@ and then verify the source tree before making an implementation decision.
   require `_harness/resource-guard.sh`. Browser verification remains an
   explicit-permission workflow with route, role/session, and checklist stated
   before using `ego-browser`.
+
+## Vecalss palette standardization (2026-09-05)
+
+- The existing Vecalss palette is the source of truth for UI color migration:
+  component color literals and legacy status ramps should map to the existing
+  voyage, surface, and semantic status tokens rather than introduce a second
+  palette. Information, warning, and danger meanings remain distinct.
+- Token source changes belong in `design-tokens/palette.mjs` and generated
+  output is regenerated through the token command; `DESIGN.md` and generated
+  theme output remain protected from direct edits. Token-derived `color-mix()`
+  values are acceptable for scoped shadows and gradients.
+- The 2026-09-05 migration is complete in the palette series beginning at
+  `c836589` and continuing through `3b67d69`, `7c57433`, `c2fe59b`, `5af4342`,
+  and `91bbceb`. Remaining raw colors are intentional
+  ownership or library boundaries: banner-maker design data/editor, protected
+  typed-route state, Recharts selector literals, and the released Question
+  Bank builder status utilities.
 
 ## Current Vera policy route wiring (2026-08-31)
 
@@ -483,3 +507,24 @@ and then verify the source tree before making an implementation decision.
 - The former order was Kuis binding before realtime hardening. Both slices are
   now complete; the remaining separate backlog item is the invitation-picker
   UI. Do not reopen AS-08 without a new defect.
+
+## RTK CLI proxy adoption for agent token efficiency (2026-09-06)
+
+- Adopted `rtk` (Rust Token Killer) across all agents to compress and filter CLI outputs before LLM context ingestion (saving 60–90%+ context tokens).
+- Supported commands: `rtk git ...`, `rtk gh ...`, `rtk grep ...`, `rtk rg ...`, `rtk find ...`, `rtk ls ...`, `rtk read ...`, `rtk err ...`, `rtk test ...`, `rtk pnpm ...`, `rtk lint`, `rtk tsc`, `rtk prisma ...`.
+- Synergy with shared resource guard: Process safety remains mandatory. Any Node, package, test, build, lint, or Prisma command must still run under `_harness/resource-guard.sh run -- rtk pnpm <command>`.
+- Non-heavy shell commands (`rtk git status`, `rtk git diff`, etc.) may run `rtk` directly.
+- Escape hatch: `rtk proxy <cmd>` provides raw unfiltered output when required for low-level debugging.
+
+## Versioned Kuis editor boundary (2026-09-12)
+
+- The default Kuis runtime uses lazy snapshot activation: a published Kuis
+  remains editable, saves accumulate in the mutable next draft, and the
+  currently active snapshot remains immutable until a later student start
+  activates the changed definition.
+- Kapten source-revision acceptance therefore permits draft and published Kuis
+  records and blocks only archived records. The editor labels the action
+  `Terima ke draf` and explains that the running release keeps its snapshot.
+- The old `Jadikan draf` / `Gunakan Duplicate` rejection is a legacy fallback
+  only when `KUIS_VERSIONING_CUTOVER=disabled`; it is not part of the default
+  versioned path.

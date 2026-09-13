@@ -1,8 +1,8 @@
-type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
+type AssemblyMode = "fixed_set" | "random_pool" | "blueprint";
 
 type AssemblyAttachmentTarget = "kuis" | "tryout";
 
-type AssemblyAttachmentTestType = "cbt" | "cat";
+type AssemblyAttachmentTestType = "cbt";
 
 const ASSEMBLY_RESOLVER_VERSION = "seeded-fisher-yates-v1";
 
@@ -75,7 +75,6 @@ type NormalizedAssemblyDefinition = {
 type AssemblyErrorCode =
   | "archived_bank"
   | "bank_inactive"
-  | "calibration"
   | "duplicate_candidate"
   | "invalid_mode"
   | "locked"
@@ -114,7 +113,7 @@ class AssemblyValidationError extends Error {
   }
 }
 
-const ASSEMBLY_MODES: readonly AssemblyMode[] = ["fixed_set", "random_pool", "blueprint", "cat_pool"];
+const ASSEMBLY_MODES: readonly AssemblyMode[] = ["fixed_set", "random_pool", "blueprint"];
 
 function uniqueIds(values: readonly string[] | undefined, label: string) {
   const normalized = (values ?? []).flatMap((value) => {
@@ -170,7 +169,7 @@ function normalizeRule(mode: AssemblyMode, rule: AssemblyRuleInput | null | unde
   }
 
   if (mode !== "blueprint" && quotaTotal !== 0) {
-    throw new AssemblyValidationError("quota", "Pool dan CAT Pool tidak menggunakan kuota tingkat kesulitan.", {
+    throw new AssemblyValidationError("quota", "Pool tidak menggunakan kuota tingkat kesulitan.", {
       mode,
       quotaTotal,
     });
@@ -251,7 +250,7 @@ function validateAssemblyDefinitionShape(input: AssemblyDefinitionInput): Normal
 }
 
 function assemblyCompatibleWithTestType(mode: AssemblyMode, targetTestType: AssemblyAttachmentTestType) {
-  return mode === "cat_pool" ? targetTestType === "cat" : targetTestType === "cbt";
+  return targetTestType === "cbt" && ASSEMBLY_MODES.includes(mode);
 }
 
 function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatibilityInput) {
@@ -265,13 +264,6 @@ function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatib
       bankPurposes: input.bankPurposes,
       expectedPurpose,
       target: input.target,
-    });
-  }
-  if (input.target === "kuis" && input.mode === "cat_pool") {
-    throw new AssemblyValidationError("invalid_mode", "CAT Pool tidak didukung oleh Kuis.", {
-      mode: input.mode,
-      target: input.target,
-      targetTestType: input.targetTestType,
     });
   }
   if (input.target === "kuis" && input.bankIds.length !== 1) {
@@ -290,9 +282,7 @@ function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatib
   if (!assemblyCompatibleWithTestType(input.mode, input.targetTestType)) {
     throw new AssemblyValidationError(
       "invalid_mode",
-      input.mode === "cat_pool"
-        ? "CAT Pool hanya dapat dipasang pada Section bertipe CAT."
-        : "Assembly non-CAT hanya dapat dipasang pada Section bertipe CBT.",
+      "Assembly hanya dapat dipasang pada Section bertipe CBT.",
       {
         mode: input.mode,
         target: input.target,

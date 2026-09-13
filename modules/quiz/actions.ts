@@ -17,7 +17,7 @@ function message(error: unknown) {
 async function saveQuizAnswerAction(
   attemptId: string,
   quizItemId: string,
-  selectedOptionId: string,
+  selectedOptionIds: string[],
 ) {
   const session = await requireStudentSession();
   try {
@@ -26,7 +26,7 @@ async function saveQuizAnswerAction(
       result: await saveStandaloneQuizAnswer(
         attemptId,
         quizItemId,
-        selectedOptionId,
+        selectedOptionIds,
         session.user.id,
       ),
     };

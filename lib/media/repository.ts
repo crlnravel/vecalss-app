@@ -9,6 +9,12 @@ import {
   type Prisma,
 } from "@/generated/prisma/client";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
+import {
+  acquireBannerMediaMutationLock,
+  assertBannerAssetsMayBeTrashed,
+  BannerReferenceInUseError,
+  BannerReferenceSafetyUnknownError,
+} from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -44,6 +50,12 @@ class MediaServiceError extends Error {
     super(message);
     this.name = "MediaServiceError";
     this.status = status;
+  }
+}
+
+function rethrowBannerSafetyError(error: unknown): void {
+  if (error instanceof BannerReferenceInUseError || error instanceof BannerReferenceSafetyUnknownError) {
+    throw new MediaServiceError(error.message, error.status);
   }
 }
 
@@ -85,13 +97,16 @@ const validateFolderName = (value: unknown) => {
   return name;
 };
 
+type MediaDatabaseClient = Pick<Prisma.TransactionClient, "asset" | "mediaFolder">;
+
 const assertFolder = async (
   scope: MediaScope,
   folderId: string | null,
+  db: MediaDatabaseClient = prisma,
 ) => {
   if (!folderId) return null;
 
-  const folder = await prisma.mediaFolder.findFirst({
+  const folder = await db.mediaFolder.findFirst({
     where: {
       id: folderId,
       libraryScope: scopeToDatabase(scope),
@@ -104,6 +119,36 @@ const assertFolder = async (
   }
 
   return folder;
+};
+
+const readActiveFolderAncestry = async (
+  scope: MediaScope,
+  folderId: string | null,
+  db: MediaDatabaseClient,
+) => {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  let currentId = folderId;
+
+  while (currentId) {
+    if (seen.has(currentId) || seen.size >= 50) {
+      throw new MediaServiceError("Struktur folder tidak valid.", 409);
+    }
+    seen.add(currentId);
+
+    const folder = await db.mediaFolder.findFirst({
+      select: { id: true, parentId: true, trashedAt: true },
+      where: { id: currentId, libraryScope: scopeToDatabase(scope) },
+    });
+    if (!folder || folder.trashedAt !== null) {
+      throw new MediaServiceError("Folder tidak ditemukan atau sudah dihapus.", 409);
+    }
+
+    ids.push(folder.id);
+    currentId = folder.parentId;
+  }
+
+  return ids;
 };
 
 const getFolderBreadcrumbs = async (
@@ -265,64 +310,57 @@ const createMediaFolder = async ({
 }) => {
   const safeName = validateFolderName(name);
   const safeParentId = normalizeNullableId(parentId);
-  await assertFolder(scope, safeParentId);
 
-  const duplicate = await prisma.mediaFolder.findFirst({
-    select: { id: true },
-    where: {
-      libraryScope: scopeToDatabase(scope),
-      name: { equals: safeName, mode: "insensitive" },
-      parentId: safeParentId,
-      trashedAt: null,
-    },
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    await readActiveFolderAncestry(scope, safeParentId, tx);
+
+    const duplicate = await tx.mediaFolder.findFirst({
+      select: { id: true },
+      where: {
+        libraryScope: scopeToDatabase(scope),
+        name: { equals: safeName, mode: "insensitive" },
+        parentId: safeParentId,
+        trashedAt: null,
+      },
+    });
+
+    if (duplicate) {
+      throw new MediaServiceError("Nama folder sudah digunakan di lokasi ini.", 409);
+    }
+
+    const folder = await tx.mediaFolder.create({
+      data: {
+        createdByUserId,
+        libraryScope: scopeToDatabase(scope),
+        name: safeName,
+        parentId: safeParentId,
+      },
+    });
+
+    return toFolderDto(folder);
   });
-
-  if (duplicate) {
-    throw new MediaServiceError("Nama folder sudah digunakan di lokasi ini.", 409);
-  }
-
-  const folder = await prisma.mediaFolder.create({
-    data: {
-      createdByUserId,
-      libraryScope: scopeToDatabase(scope),
-      name: safeName,
-      parentId: safeParentId,
-    },
-  });
-
-  return toFolderDto(folder);
 };
 
 const assertFolderMove = async ({
+  db,
   folderId,
   parentId,
   scope,
 }: {
+  db: MediaDatabaseClient;
   folderId: string;
   parentId: string | null;
   scope: MediaScope;
 }) => {
-  await assertFolder(scope, folderId);
-  await assertFolder(scope, parentId);
+  await readActiveFolderAncestry(scope, folderId, db);
+  const destinationAncestry = await readActiveFolderAncestry(scope, parentId, db);
   if (folderId === parentId) {
     throw new MediaServiceError("Folder tidak dapat dipindahkan ke dalam dirinya sendiri.");
   }
 
-  let currentId = parentId;
-  const seen = new Set<string>();
-  while (currentId) {
-    if (currentId === folderId) {
-      throw new MediaServiceError("Folder tidak dapat dipindahkan ke turunannya.");
-    }
-    if (seen.has(currentId) || seen.size > 50) {
-      throw new MediaServiceError("Struktur folder tidak valid.", 409);
-    }
-    seen.add(currentId);
-    const folder = await prisma.mediaFolder.findUnique({
-      select: { parentId: true },
-      where: { id: currentId },
-    });
-    currentId = folder?.parentId ?? null;
+  if (destinationAncestry.includes(folderId)) {
+    throw new MediaServiceError("Folder tidak dapat dipindahkan ke turunannya.");
   }
 };
 
@@ -335,24 +373,34 @@ const renameMediaFolder = async ({
   name: unknown;
   scope: MediaScope;
 }) => {
-  const folder = await assertFolder(scope, folderId);
   const safeName = validateFolderName(name);
-  const duplicate = await prisma.mediaFolder.findFirst({
-    select: { id: true },
-    where: {
-      id: { not: folderId },
-      libraryScope: scopeToDatabase(scope),
-      name: { equals: safeName, mode: "insensitive" },
-      parentId: folder?.parentId ?? null,
-      trashedAt: null,
-    },
-  });
-  if (duplicate) throw new MediaServiceError("Nama folder sudah digunakan di lokasi ini.", 409);
 
-  return toFolderDto(await prisma.mediaFolder.update({
-    data: { name: safeName },
-    where: { id: folderId },
-  }));
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    await readActiveFolderAncestry(scope, folderId, tx);
+    const folder = await tx.mediaFolder.findUnique({
+      select: { parentId: true },
+      where: { id: folderId },
+    });
+    if (!folder) throw new MediaServiceError("Folder tidak ditemukan.", 404);
+
+    const duplicate = await tx.mediaFolder.findFirst({
+      select: { id: true },
+      where: {
+        id: { not: folderId },
+        libraryScope: scopeToDatabase(scope),
+        name: { equals: safeName, mode: "insensitive" },
+        parentId: folder.parentId,
+        trashedAt: null,
+      },
+    });
+    if (duplicate) throw new MediaServiceError("Nama folder sudah digunakan di lokasi ini.", 409);
+
+    return toFolderDto(await tx.mediaFolder.update({
+      data: { name: safeName },
+      where: { id: folderId },
+    }));
+  });
 };
 
 const moveMediaFolder = async ({
@@ -365,19 +413,22 @@ const moveMediaFolder = async ({
   scope: MediaScope;
 }) => {
   const safeParentId = normalizeNullableId(parentId);
-  await assertFolderMove({ folderId, parentId: safeParentId, scope });
-  return toFolderDto(await prisma.mediaFolder.update({
-    data: { parentId: safeParentId },
-    where: { id: folderId },
-  }));
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    await assertFolderMove({ db: tx, folderId, parentId: safeParentId, scope });
+    return toFolderDto(await tx.mediaFolder.update({
+      data: { parentId: safeParentId },
+      where: { id: folderId },
+    }));
+  });
 };
 
-const getFolderSubtreeIds = async (scope: MediaScope, rootId: string) => {
+const getFolderSubtreeIds = async (scope: MediaScope, rootId: string, db: MediaDatabaseClient) => {
   const ids = [rootId];
   let frontier = [rootId];
 
   while (frontier.length > 0) {
-    const children = await prisma.mediaFolder.findMany({
+    const children = await db.mediaFolder.findMany({
       select: { id: true },
       where: {
         libraryScope: scopeToDatabase(scope),
@@ -397,32 +448,50 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string) => {
 };
 
 const trashMediaFolder = async (scope: MediaScope, folderId: string) => {
-  await assertFolder(scope, folderId);
-  const ids = await getFolderSubtreeIds(scope, folderId);
-  const trashedAt = new Date();
+  try {
+    await prisma.$transaction(async (tx) => {
+      await acquireBannerMediaMutationLock(tx);
+      await readActiveFolderAncestry(scope, folderId, tx);
+      const ids = await getFolderSubtreeIds(scope, folderId, tx);
+      const affectedAssets = await tx.asset.findMany({
+        select: { id: true },
+        where: { folderId: { in: ids }, libraryScope: scopeToDatabase(scope) },
+      });
+      if (scope === "admin") {
+        await assertBannerAssetsMayBeTrashed(tx, affectedAssets.map(({ id }) => id));
+      }
 
-  await prisma.$transaction([
-    prisma.asset.updateMany({
-      data: { state: MediaAssetState.trashed, trashedAt },
-      where: {
-        folderId: { in: ids },
-        libraryScope: scopeToDatabase(scope),
-        state: MediaAssetState.ready,
-      },
-    }),
-    prisma.mediaFolder.updateMany({
-      data: { trashedAt },
-      where: { id: { in: ids }, libraryScope: scopeToDatabase(scope) },
-    }),
-  ]);
+      const trashedAt = new Date();
+      await tx.asset.updateMany({
+        data: { state: MediaAssetState.trashed, trashedAt },
+        where: {
+          folderId: { in: ids },
+          libraryScope: scopeToDatabase(scope),
+          state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
+          trashedAt: null,
+        },
+      });
+      const updatedFolders = await tx.mediaFolder.updateMany({
+        data: { trashedAt },
+        where: { id: { in: ids }, libraryScope: scopeToDatabase(scope), trashedAt: null },
+      });
+      if (updatedFolders.count !== ids.length) {
+        throw new MediaServiceError("Struktur folder berubah saat diproses. Coba lagi.", 409);
+      }
+    });
+  } catch (error) {
+    rethrowBannerSafetyError(error);
+    throw error;
+  }
 };
 
 const assertAsset = async (
   scope: MediaScope,
   assetId: string,
   states: MediaAssetState[] = [MediaAssetState.ready],
+  db: MediaDatabaseClient = prisma,
 ) => {
-  const asset = await prisma.asset.findFirst({
+  const asset = await db.asset.findFirst({
     where: {
       id: assetId,
       libraryScope: scopeToDatabase(scope),
@@ -442,12 +511,27 @@ const renameMediaAsset = async ({
   name: unknown;
   scope: MediaScope;
 }) => {
-  await assertAsset(scope, assetId);
   if (typeof name !== "string" || !name.trim()) {
     throw new MediaServiceError("Nama gambar tidak boleh kosong.");
   }
   const safeName = normalizeMediaFileName(name);
-  await prisma.asset.update({ data: { originalName: safeName }, where: { id: assetId } });
+
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    const asset = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
+    if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
+    await readActiveFolderAncestry(scope, asset.folderId, tx);
+    const updated = await tx.asset.updateMany({
+      data: { originalName: safeName },
+      where: {
+        id: assetId,
+        libraryScope: scopeToDatabase(scope),
+        state: MediaAssetState.ready,
+        trashedAt: null,
+      },
+    });
+    if (updated.count !== 1) throw new MediaServiceError("Gambar berubah saat diproses. Coba lagi.", 409);
+  });
 };
 
 const moveMediaAsset = async ({
@@ -459,18 +543,52 @@ const moveMediaAsset = async ({
   folderId: unknown;
   scope: MediaScope;
 }) => {
-  await assertAsset(scope, assetId);
   const safeFolderId = normalizeNullableId(folderId);
-  await assertFolder(scope, safeFolderId);
-  await prisma.asset.update({ data: { folderId: safeFolderId }, where: { id: assetId } });
+
+  return prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    const asset = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
+    if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
+    await readActiveFolderAncestry(scope, asset.folderId, tx);
+    await readActiveFolderAncestry(scope, safeFolderId, tx);
+    const updated = await tx.asset.updateMany({
+      data: { folderId: safeFolderId },
+      where: {
+        id: assetId,
+        libraryScope: scopeToDatabase(scope),
+        state: MediaAssetState.ready,
+        trashedAt: null,
+      },
+    });
+    if (updated.count !== 1) throw new MediaServiceError("Gambar berubah saat diproses. Coba lagi.", 409);
+  });
 };
 
 const trashMediaAsset = async (scope: MediaScope, assetId: string) => {
-  await assertAsset(scope, assetId);
-  await prisma.asset.update({
-    data: { state: MediaAssetState.trashed, trashedAt: new Date() },
-    where: { id: assetId },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await acquireBannerMediaMutationLock(tx);
+      const asset = await assertAsset(scope, assetId, [MediaAssetState.pending, MediaAssetState.ready], tx);
+      if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
+      await readActiveFolderAncestry(scope, asset.folderId, tx);
+      if (scope === "admin") {
+        await assertBannerAssetsMayBeTrashed(tx, [asset.id]);
+      }
+      const updated = await tx.asset.updateMany({
+        data: { state: MediaAssetState.trashed, trashedAt: new Date() },
+        where: {
+          id: asset.id,
+          libraryScope: scopeToDatabase(scope),
+          state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
+          trashedAt: null,
+        },
+      });
+      if (updated.count !== 1) throw new MediaServiceError("Gambar berubah saat diproses. Coba lagi.", 409);
+    });
+  } catch (error) {
+    rethrowBannerSafetyError(error);
+    throw error;
+  }
 };
 
 const requestMediaUpload = async ({
@@ -500,7 +618,6 @@ const requestMediaUpload = async ({
   }
 
   const safeFolderId = normalizeNullableId(folderId);
-  await assertFolder(scope, safeFolderId);
   const assetId = crypto.randomUUID();
   const objectKey = buildMediaObjectKey(scope, assetId, normalizedMimeType);
 
@@ -514,18 +631,22 @@ const requestMediaUpload = async ({
     throw error;
   }
 
-  await prisma.asset.create({
-    data: {
-      folderId: safeFolderId,
-      id: assetId,
-      libraryScope: scopeToDatabase(scope),
-      mimeType: normalizedMimeType,
-      objectKey,
-      originalName: normalizeMediaFileName(fileName),
-      sizeBytes,
-      state: MediaAssetState.pending,
-      uploadedByUserId,
-    },
+  await prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    await readActiveFolderAncestry(scope, safeFolderId, tx);
+    await tx.asset.create({
+      data: {
+        folderId: safeFolderId,
+        id: assetId,
+        libraryScope: scopeToDatabase(scope),
+        mimeType: normalizedMimeType,
+        objectKey,
+        originalName: normalizeMediaFileName(fileName),
+        sizeBytes,
+        state: MediaAssetState.pending,
+        uploadedByUserId,
+      },
+    });
   });
 
   return { assetId, ...signedUpload };
@@ -542,33 +663,118 @@ const finalizeMediaUpload = async ({
   scope: MediaScope;
   width: unknown;
 }) => {
-  const asset = await assertAsset(scope, assetId, [MediaAssetState.pending]);
+  const asset = await prisma.asset.findFirst({
+    where: {
+      id: assetId,
+      libraryScope: scopeToDatabase(scope),
+      state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
+    },
+  });
+  if (!asset) throw new MediaServiceError("Upload tidak tersedia atau sudah tidak dapat diubah.", 409);
   if (!asset.objectKey) throw new MediaServiceError("Object key gambar tidak tersedia.", 409);
 
+  const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, prisma);
+  const verifiedObjectKey = asset.objectKey;
+  const verifiedMimeType = asset.mimeType;
+  const verifiedSizeBytes = asset.sizeBytes;
+  const isPdf = isPdfMimeType(verifiedMimeType);
+  const safeWidth = !isPdf && typeof width === "number" && Number.isInteger(width) && width > 0 && width <= 50_000 ? width : null;
+  const safeHeight = !isPdf && typeof height === "number" && Number.isInteger(height) && height > 0 && height <= 50_000 ? height : null;
+
+  let head: Awaited<ReturnType<typeof headMediaObject>>;
   try {
-    const head = await headMediaObject(asset.objectKey);
-    if (head.ContentLength !== asset.sizeBytes || head.ContentType !== asset.mimeType) {
-      await prisma.asset.update({ data: { state: MediaAssetState.failed }, where: { id: asset.id } });
-      throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan upload.", 409);
+    // R2 HEAD intentionally happens before the database transaction. No
+    // storage/network operation may run while the shared mutation lock is held.
+    head = await headMediaObject(verifiedObjectKey);
+  } catch (error) {
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    throw new MediaServiceError("Upload belum dapat diverifikasi. Coba lagi.", 502);
+  }
+
+  const verifiedChecksum = head.ETag?.replaceAll('"', "") ?? null;
+  const metadataMatches = head.ContentLength === verifiedSizeBytes && head.ContentType === verifiedMimeType;
+  if (!metadataMatches) {
+    await prisma.$transaction(async (tx) => {
+      await acquireBannerMediaMutationLock(tx);
+      const ancestryStillMatches = await readActiveFolderAncestry(scope, asset.folderId, tx)
+        .then((currentAncestry) => JSON.stringify(currentAncestry) === JSON.stringify(folderAncestry))
+        .catch(() => false);
+      if (!ancestryStillMatches) return;
+
+      await tx.asset.updateMany({
+        data: { state: MediaAssetState.failed },
+        where: {
+          folderId: asset.folderId,
+          id: asset.id,
+          libraryScope: scopeToDatabase(scope),
+          mimeType: verifiedMimeType,
+          objectKey: verifiedObjectKey,
+          sizeBytes: verifiedSizeBytes,
+          state: MediaAssetState.pending,
+          trashedAt: null,
+        },
+      });
+    });
+    throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan upload.", 409);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await acquireBannerMediaMutationLock(tx);
+    const current = await tx.asset.findUnique({ where: { id: asset.id } });
+    if (!current || current.libraryScope !== scopeToDatabase(scope)) {
+      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
     }
 
-    const isPdf = isPdfMimeType(asset.mimeType);
-    const safeWidth = !isPdf && typeof width === "number" && Number.isInteger(width) && width > 0 && width <= 50_000 ? width : null;
-    const safeHeight = !isPdf && typeof height === "number" && Number.isInteger(height) && height > 0 && height <= 50_000 ? height : null;
-    await prisma.asset.update({
+    const currentAncestry = await readActiveFolderAncestry(scope, current.folderId, tx).catch(() => null);
+    const sameAncestry = currentAncestry !== null
+      && JSON.stringify(currentAncestry) === JSON.stringify(folderAncestry);
+    const sameVerifiedObject = current.objectKey === verifiedObjectKey
+      && current.mimeType === verifiedMimeType
+      && current.sizeBytes === verifiedSizeBytes
+      && current.folderId === asset.folderId
+      && sameAncestry
+      && (current.checksum === null || current.checksum === verifiedChecksum);
+
+    if (
+      current.state === MediaAssetState.ready
+      && current.trashedAt === null
+      && sameVerifiedObject
+    ) {
+      return;
+    }
+
+    if (
+      current.state !== MediaAssetState.pending
+      || current.trashedAt !== null
+      || current.objectKey !== verifiedObjectKey
+      || current.mimeType !== verifiedMimeType
+      || current.sizeBytes !== verifiedSizeBytes
+      || current.folderId !== asset.folderId
+      || !sameAncestry
+    ) {
+      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+    }
+
+    const updated = await tx.asset.updateMany({
       data: {
-        checksum: head.ETag?.replaceAll('"', "") ?? null,
+        checksum: verifiedChecksum,
         height: safeHeight,
         state: MediaAssetState.ready,
         width: safeWidth,
       },
-      where: { id: asset.id },
+      where: {
+        folderId: asset.folderId,
+        id: asset.id,
+        libraryScope: scopeToDatabase(scope),
+        mimeType: verifiedMimeType,
+        objectKey: verifiedObjectKey,
+        sizeBytes: verifiedSizeBytes,
+        state: MediaAssetState.pending,
+        trashedAt: null,
+      },
     });
-  } catch (error) {
-    if (error instanceof MediaServiceError) throw error;
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
-    throw new MediaServiceError("Upload belum dapat diverifikasi. Coba lagi.", 502);
-  }
+    if (updated.count !== 1) throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+  });
 };
 
 const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {

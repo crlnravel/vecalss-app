@@ -7,7 +7,7 @@ export default async function TryoutResultPage({ params, searchParams }: { param
   const [{ attemptId }, query] = await Promise.all([params, searchParams, requireStudentSession()]);
   const parsed = parseStudentTryoutContext(query);
   if (parsed.issues.length) {
-    return <TypedRouteState context="Pilih kembali sesi Tryout dari tautan yang masih berlaku." description={canonicalContextMessage(parsed.issues) ?? "Konteks hasil Tryout tidak tersedia."} kind="unavailable" returnHref={parsed.returnTo ?? "/tryout"} returnLabel="Kembali ke Tryout" title="Konteks hasil tidak tersedia" />;
+    return <TypedRouteState className="student-page-canvas" context="Pilih kembali sesi Tryout dari tautan yang masih berlaku." description={canonicalContextMessage(parsed.issues) ?? "Konteks hasil Tryout tidak tersedia."} kind="unavailable" returnHref={parsed.returnTo ?? "/tryout"} returnLabel="Kembali ke Tryout" title="Konteks hasil tidak tersedia" />;
   }
   return <ParticipantResultModule attemptId={attemptId} returnToHref={parsed.returnTo} sessionId={parsed.session} />;
 }

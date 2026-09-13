@@ -29,6 +29,7 @@ import { StudentSidebar } from "@/modules/student/components/student-sidebar";
 const studentRootHrefByLabel: Record<string, string> = {
   Beranda: "/dashboard",
   Materi: "/courses",
+  Video: "/videos",
   Kuis: "/quiz",
   Tryout: "/tryout",
   "Vera AI": "/vera-ai",
@@ -68,8 +69,8 @@ function StudentWorkspaceShell({
   const isRootPage = breadcrumbLabel === activeLabel;
 
   return (
-    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+    <SidebarProvider className="student-page-canvas lg:gap-2 lg:p-6">
+      <div className="flex min-h-svh w-full text-secondary-900 lg:gap-2">
         <StudentSidebar
           activeLabel={activeLabel}
           notificationBadge={
@@ -79,9 +80,9 @@ function StudentWorkspaceShell({
           }
         />
 
-        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header className="sticky top-0 z-20 border-primary-100/80 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
-            <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
+        <SidebarInset className="!bg-transparent min-h-svh min-w-0 lg:rounded-3xl">
+          <header className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] overflow-hidden border-primary-100/80 bg-[rgba(247,250,248,0.58)] shadow-[0_18px_40px_-28px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] backdrop-blur-3xl backdrop-saturate-150 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border">
+            <div className="relative z-10 flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0 lg:hidden" />
 
               <div className="hidden min-w-0 flex-1 md:block">

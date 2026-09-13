@@ -74,33 +74,27 @@ function iconClasses(kind: RouteStateKind) {
   return "bg-primary-50 text-primary-800";
 }
 
-export function TypedRouteState({
-  as = "main",
+function TypedRouteStateContent({
   children,
-  className,
   context,
   description,
   icon,
   kind,
   onRetry,
   returnHref,
-  returnLabel = "Kembali",
-  retryLabel = "Coba lagi",
+  returnLabel,
+  retryLabel,
   title,
-}: TypedRouteStateProps) {
+}: Pick<TypedRouteStateProps, "children" | "context" | "description" | "icon" | "kind" | "onRetry" | "returnHref" | "returnLabel" | "retryLabel" | "title">) {
   const Icon = icon ?? defaultIcons[kind];
-  const role: "alert" | "status" = isAlertState(kind) ? "alert" : "status";
-  const content = (
+
+  return (
     <div className="w-full max-w-xl rounded-3xl border border-voyage-soft-border bg-voyage-surface p-6 text-left shadow-[0_24px_70px_-44px_rgba(1,76,56,0.3)] sm:p-8">
       <div className={cn("flex size-12 items-center justify-center rounded-2xl", iconClasses(kind))}>
         <Icon aria-hidden="true" className={cn("size-6", kind === "loading" && "motion-safe:animate-spin")} />
       </div>
-      <h1 className="mt-5 font-heading text-2xl font-semibold leading-tight tracking-[-0.03em] text-voyage-ink sm:text-3xl">
-        {title}
-      </h1>
-      <p className="mt-3 max-w-[65ch] text-sm leading-6 text-voyage-muted-ink sm:text-base">
-        {description}
-      </p>
+      <h1 className="mt-5 font-heading text-2xl font-semibold leading-tight tracking-[-0.03em] text-voyage-ink sm:text-3xl">{title}</h1>
+      <p className="mt-3 max-w-[65ch] text-sm leading-6 text-voyage-muted-ink sm:text-base">{description}</p>
       {context ? <p className="mt-3 text-xs font-medium leading-5 text-voyage-muted-ink">{context}</p> : null}
       {children}
       {kind === "loading" ? (
@@ -127,6 +121,24 @@ export function TypedRouteState({
       ) : null}
     </div>
   );
+}
+
+export function TypedRouteState({
+  as = "main",
+  children,
+  className,
+  context,
+  description,
+  icon,
+  kind,
+  onRetry,
+  returnHref,
+  returnLabel = "Kembali",
+  retryLabel = "Coba lagi",
+  title,
+}: TypedRouteStateProps) {
+  const role: "alert" | "status" = isAlertState(kind) ? "alert" : "status";
+  const content = <TypedRouteStateContent context={context} description={description} icon={icon} kind={kind} onRetry={onRetry} returnHref={returnHref} returnLabel={returnLabel} retryLabel={retryLabel} title={title}>{children}</TypedRouteStateContent>;
 
   const containerClassName = cn(
     "grid min-h-[60svh] place-items-center bg-voyage-canvas px-4 py-10 text-voyage-ink sm:px-6",

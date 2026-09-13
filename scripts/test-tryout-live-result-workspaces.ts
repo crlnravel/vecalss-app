@@ -7,7 +7,7 @@ import {
   sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, refreshModule, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, sessionDetailRoute, sessionCreateRoute, operationsRoute, resultRepository] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, refreshModule, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, sessionDetailRoute, sessionCreateRoute, operationsRoute, resultRepository, operationsModule, sessionsListRoute] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
@@ -24,10 +24,11 @@ const [delivery, operations, workspace, live, attempts, refreshModule, results, 
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/new/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/result-repository.ts", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutOperationsModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/page.tsx", import.meta.url), "utf8"),
 ]);
 
 const baseRun = {
-  catState: "not_applicable",
   integrityEvents: 0,
   remainingSeconds: null,
   scoringState: "pending",
@@ -50,12 +51,10 @@ assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { 
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "in_progress", status: "in_progress", runs: [{ ...baseRun, remainingSeconds: 0, status: "active" }] } }).state, "needs_attention");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, disconnectStartedAt: "2026-08-23T08:00:00.000Z" } }).state, "disconnected");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, integrityEvents: 1 } }).state, "needs_attention");
-assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, runs: [{ ...baseRun, catState: "failed", catFailureReason: "CAT timeout" }] } }).state, "cat_failure");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted" } }).state, "submitted");
 assert.match(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, integrityEvents: 1 } }).reason, /tidak ada konsekuensi otomatis/iu);
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", integrityEvents: 1 } }).state, "submitted");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", scoringReviewReason: "Tinjau" , scoringState: "review_required" } }).state, "submitted");
-assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", runs: [{ ...baseRun, catState: "failed", catFailureReason: "CAT timeout" }] } }).state, "submitted");
 assert.match(delivery, /tryout\.status !== ContentStatus\.published/u, "Delivery mutations must reject draft Tryouts before ownership/session writes");
 assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted in the gated builder");
 assert.match(results, /window\.history\.replaceState[\s\S]*validSessionId/u, "stale Results session links must normalize to a safe session in the URL");
@@ -106,7 +105,7 @@ assert.equal(inconsistentRelease.scoreVisible, false);
 assert.equal(inconsistentRelease.displayScore, null);
 
 const review = deriveTryoutResultProjection({
-  attempt: { ...baseAttempt, releaseState: "released", score: null, scoringReviewReason: "Perlu cek CAT", scoringState: "review_required" },
+  attempt: { ...baseAttempt, releaseState: "released", score: null, scoringReviewReason: "Perlu cek perhitungan", scoringState: "review_required" },
   session: { rankingRule: "cohort", releaseState: "released" },
 });
 assert.equal(review.resultReadiness, "review_required");
@@ -126,23 +125,16 @@ const releasedParticipant = sanitizeTryoutWorkspaceParticipant(participantFixtur
 assert.equal(releasedParticipant.attempt?.score, "91");
 assert.equal(releasedParticipant.score.score, "91");
 
-for (const label of ["Delivery", "Policy", "Sessions", "Participants", "Operations", "Live", "Attempts", "Results", "Results & release", "Review & Publish"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
-assert.match(workspace, /value="live"/u);
-assert.match(workspace, /value="attempts"/u);
-assert.match(workspace, /value="schedule"/u);
-assert.match(workspace, /deliveryAreaFor/u);
-assert.match(workspace, /value === "operations"\) return "sessions"/u);
-assert.match(workspace, /KaptenTryoutLivePageModule/u);
-assert.match(workspace, /KaptenTryoutAttemptsPageModule/u);
-assert.match(workspace, /KaptenTryoutResultsPageModule/u);
+for (const label of ["Informasi Tryout", "Subtest Tryout", "Informasi dasar", "Terbitkan"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
+assert.match(workspace, /initialSubtest/u);
+assert.doesNotMatch(workspace, /TryoutWorkspaceTabs|TryoutDeliveryTab|TryoutReviewTab/u);
 assert.match(operations, /participantsWithAttention/u);
 assert.match(operations, /participants: participantsWithAttention/u);
 assert.match(operations, /deriveTryoutLiveProjection/u);
 assert.match(operations, /deriveTryoutResultProjection/u);
 assert.match(operations, /integrityEventTrail/u);
-assert.match(operations, /catResolutionAudits/u);
 assert.match(operations, /remainingSeconds/u);
-assert.match(operations, /\["rejected", "revoked"\]/u);
+assert.match(operations, /participant\.admission\.status === "rejected" \|\| participant\.admission\.status === "revoked"/u);
 assert.match(operations, /answer\.selectedOptionId \|\| answer\.answerText\?\.trim\(\)/u);
 assert.match(operations, /eligibleRankingAttempts/u);
 assert.match(operations, /resultReleaseReady/u);
@@ -161,7 +153,6 @@ assert.match(live, /registered/u);
 assert.match(live, /checked_in/u);
 assert.match(live, /disconnected/u);
 assert.match(live, /needs_attention/u);
-assert.match(live, /cat_failure/u);
 assert.match(live, /useTryoutOperationsRefresh/u);
 assert.doesNotMatch(live, /Pantau posisi peserta dari admission sampai terkirim/u);
 assert.doesNotMatch(live, /peserta terpantau/u);
@@ -179,7 +170,7 @@ assert.doesNotMatch(results, /<TableHead[^>]*>Aksi<\/TableHead>/u);
 assert.doesNotMatch(results, /operations\/participants\/\$\{result\.admissionId\}/u);
 assert.doesNotMatch(results, /ExternalLink/u);
 assert.match(results, /TableHeader/u);
-assert.match(results, /Belum dirilis/u);
+assert.match(results, /Belum tersedia/u);
 assert.doesNotMatch(results, /bundle hasil parsial/u);
 assert.doesNotMatch(results, /releaseBlockers/u);
 assert.doesNotMatch(results, /Rilis manual tertahan/u);
@@ -187,13 +178,20 @@ assert.doesNotMatch(results, /Buka detail sesi untuk validasi bundle lengkap/u);
 assert.doesNotMatch(results, /AssessmentReleaseNotice/u);
 assert.doesNotMatch(resultRepository, /Aturan peringkat sesi harus dipilih sebelum paket hasil dapat dirilis/u);
 assert.match(resultRepository, /const ready = session\.attempts\.length > 0/u);
-assert.match(participants, /participant\.attention/u);
+assert.match(participants, /initial\.results/u);
+assert.match(participants, /initial\.attempts/u);
+assert.match(participants, /resultFilterTabs/u);
+assert.match(participants, /scoreVisible/u);
 assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.match(attemptDetailRoute, /contentElement="div"/u);
 assert.match(participantDetailRoute, /contentElement="div"/u);
-assert.match(sessionDetailRoute, /operations\.status !== "published"/u, "session detail must not render for a draft Tryout");
-assert.match(sessionCreateRoute, /operations\.status !== "published"/u, "session creation must not render for a draft Tryout");
-assert.match(operationsRoute, /workspace=schedule&delivery=sessions/u, "legacy operations route must land on Delivery Sessions");
+assert.doesNotMatch(sessionDetailRoute, /operations\.status !== "published"/u, "draft main-session detail must remain reachable for schedule editing");
+assert.match(sessionDetailRoute, /operations\.sessions\.some\(\(item\) => item\.id === sessionId\)/u, "session detail must validate ownership before rendering");
+assert.match(sessionCreateRoute, /redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "the retired new-session route must return to the consolidated operations page");
+assert.match(operationsRoute, /parsed\.delivery === "sessions"[\s\S]*redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "legacy session context must land on the consolidated operations page");
+assert.match(operationsModule, /KaptenTryoutSessionDetailPageModule[\s\S]*embedded/u, "the operational page must embed the main-session calendar editor");
+assert.doesNotMatch(operationsModule, /operations\/sessions/u, "the operational page must not link to the retired session list");
+assert.match(sessionsListRoute, /redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "the retired session-list route must redirect to operations");
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

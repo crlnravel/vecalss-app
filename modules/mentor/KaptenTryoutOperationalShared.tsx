@@ -94,14 +94,14 @@ function AssessmentReleaseNotice({
         "mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-sm leading-6",
         release
           ? historical
-            ? "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]"
+            ? "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]"
             : "border-primary-200 bg-primary-50 text-primary-950"
-          : "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]",
+          : "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]",
       )}
       role="status"
     >
       {release ? (
-        <ShieldCheck aria-hidden="true" className={cn("mt-1 size-5 shrink-0", historical ? "text-[#a46b00]" : "text-primary-700")} />
+        <ShieldCheck aria-hidden="true" className={cn("mt-1 size-5 shrink-0", historical ? "text-[var(--voyage-warm-sun-ink)]" : "text-primary-700")} />
       ) : (
         <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0" />
       )}

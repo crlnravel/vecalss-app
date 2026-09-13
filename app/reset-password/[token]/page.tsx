@@ -17,6 +17,8 @@ export default async function ResetPasswordPage({
     ? "admin"
     : resolvedSearchParams.audience === "tutor"
       ? "tutor"
+      : resolvedSearchParams.audience === "affiliator"
+        ? "affiliator"
       : "student";
 
   return <ResetPasswordPageModule audience={audience} isValid={tokenStatus.isValid} token={token} />;

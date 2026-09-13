@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   ContentStatus,
+  StandaloneQuizVersionState,
   TryoutDeliverySessionStatus,
 } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
@@ -34,6 +35,10 @@ type DashboardQuizRecord = {
   subtest: { code: string; name: string };
   title: string;
   updatedAt: Date;
+  versions?: Array<{
+    _count: { items: number };
+    state: StandaloneQuizVersionState;
+  }>;
 };
 
 type DashboardTryoutRecord = {
@@ -66,7 +71,7 @@ type DashboardPrismaClient = {
 };
 
 const dashboardQuizSelect = {
-  _count: { select: { items: true } },
+  _count: { select: { items: { where: { quizVersionId: null } } } },
   closesAt: true,
   createdByUserId: true,
   description: true,
@@ -76,6 +81,13 @@ const dashboardQuizSelect = {
   subtest: { select: { code: true, name: true } },
   title: true,
   updatedAt: true,
+  versions: {
+    select: {
+      _count: { select: { items: true } },
+      state: true,
+    },
+    where: { state: { in: [StandaloneQuizVersionState.active, StandaloneQuizVersionState.draft] } },
+  },
 } satisfies Prisma.StandaloneQuizSelect;
 
 function dashboardTryoutSessionWhere(now: Date) {
@@ -197,6 +209,9 @@ function toMateriSource(
 function toQuizSource(record: DashboardQuizRecord): DashboardQuizSource | null {
   const updatedAt = normalizeDashboardTimestamp(record.updatedAt);
   if (!updatedAt) return null;
+  const activeVersion = record.versions?.find((version) => version.state === StandaloneQuizVersionState.active);
+  const draftVersion = record.versions?.find((version) => version.state === StandaloneQuizVersionState.draft);
+  const questionCount = activeVersion?._count.items ?? draftVersion?._count.items ?? record._count.items;
 
   return {
     closesAt: normalizeDashboardTimestamp(record.closesAt),
@@ -204,7 +219,7 @@ function toQuizSource(record: DashboardQuizRecord): DashboardQuizSource | null {
     id: record.id,
     ownerId: record.createdByUserId,
     opensAt: normalizeDashboardTimestamp(record.opensAt),
-    questionCount: record._count.items,
+    questionCount,
     status: statusFor(record.status),
     subjectCode: record.subtest.code,
     subjectName: record.subtest.name,

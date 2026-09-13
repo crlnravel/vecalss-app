@@ -37,6 +37,10 @@ type ReferenceSelectProps = {
   value: string;
 };
 
+function toInternalValue(optionValue: string) {
+  return optionValue === "" ? null : optionValue;
+}
+
 function ReferenceSelect({
   "aria-describedby": ariaDescribedby,
   "aria-label": ariaLabel,
@@ -52,8 +56,6 @@ function ReferenceSelect({
   required = false,
   value,
 }: ReferenceSelectProps) {
-  const toInternalValue = (optionValue: string) => (optionValue === "" ? null : optionValue);
-
   return (
     <SelectPrimitive.Root
       items={options.map(({ label, value: optionValue }) => ({ label, value: toInternalValue(optionValue) }))}
@@ -86,7 +88,7 @@ function ReferenceSelect({
           className="isolate z-50 outline-none"
           sideOffset={6}
         >
-          <SelectPrimitive.Popup className={cn("max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-3xl border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_rgba(23,107,77,0.5)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", classNames?.popup)}>
+          <SelectPrimitive.Popup className={cn("max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-3xl border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", classNames?.popup)}>
             <SelectPrimitive.List className="max-h-72 overflow-y-auto">
               {options.map((option) => option.disabled ? (
                 <div

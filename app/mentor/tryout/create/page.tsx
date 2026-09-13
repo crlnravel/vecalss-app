@@ -9,17 +9,15 @@ import {
   parseMentorTryoutContext,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
-import { listQuestionBankSourcePage } from "@/lib/question-bank/repository";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Buat Tryout Kapten | Vecalss LMS" };
 
 export default async function CreateTryoutPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const [session, query, sourceCatalog] = await Promise.all([
+  const [session, query] = await Promise.all([
     requireTutorSession(),
     searchParams,
-    listQuestionBankSourcePage({ page: 1, pageSize: 20, purpose: "tryout" }),
   ]);
   const parsedQuery = parseMentorTryoutContext(query);
   if (parsedQuery.issues.length) {
@@ -41,6 +39,5 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
     workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "schedule" : undefined),
   });
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
-  const initialWorkspace = parsedQuery.workspace ?? (parsedQuery.delivery ? "schedule" : "basics");
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule initialDeliveryArea={parsedQuery.delivery ?? undefined} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule /></MentorWorkspaceShell>;
 }

@@ -16,6 +16,12 @@ type StudentBannerVariables = {
   target?: string;
 };
 
+type StudentBannerVariableInput = {
+  fullName: string;
+  targetMajor?: string | null;
+  targetUniversity?: string | null;
+};
+
 const STUDENT_BANNER_DEFAULTS: StudentBannerSet = {
   beranda: {
     description: "Semangat mengejar {target} ya!",
@@ -59,11 +65,26 @@ function normalizeStudentBanners(value: unknown): StudentBannerSet {
   ) as StudentBannerSet;
 }
 
+function buildStudentBannerVariables({
+  fullName,
+  targetMajor,
+  targetUniversity,
+}: StudentBannerVariableInput): StudentBannerVariables {
+  const firstName = fullName.trim().split(/\s+/u)[0] || "Voyager";
+  const target = [targetMajor, targetUniversity]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join(" · ") || "target belajarmu";
+
+  return { firstName, target };
+}
+
 function resolveStudentBannerText(value: string, variables: StudentBannerVariables = {}) {
   return value.replace(/\{(firstName|target)\}/g, (_match, key: keyof StudentBannerVariables) => variables[key] ?? "");
 }
 
 export {
+  buildStudentBannerVariables,
   normalizeStudentBanners,
   resolveStudentBannerText,
   STUDENT_BANNERS_CONFIG_KEY,
@@ -74,5 +95,6 @@ export type {
   StudentBannerContent,
   StudentBannerKey,
   StudentBannerSet,
+  StudentBannerVariableInput,
   StudentBannerVariables,
 };

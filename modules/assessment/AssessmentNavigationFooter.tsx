@@ -19,7 +19,7 @@ function AssessmentNavigationFooter({
       )}
       data-slot="assessment-navigation-footer"
     >
-      <div className="pointer-events-auto mx-auto grid w-full max-w-[540px] grid-cols-[1fr_6rem_1fr] items-center gap-2 rounded-[1.25rem] border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
+      <div className="pointer-events-auto mx-auto grid w-full max-w-[540px] grid-cols-[1fr_6rem_1fr] items-center gap-2 rounded-[1.25rem] border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]">
         {children}
       </div>
     </div>

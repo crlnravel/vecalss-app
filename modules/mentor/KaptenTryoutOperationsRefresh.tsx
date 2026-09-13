@@ -125,7 +125,7 @@ function TryoutRefreshToolbar({
 function TryoutRefreshNotice({ message, onRetry }: { message: string | null; onRetry: () => void }) {
   if (!message) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f3d486] bg-[#fff7e5] px-4 py-3.5 text-sm leading-6 text-[#6a4a00]" role="alert">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3.5 text-sm leading-6 text-[var(--voyage-warm-sun-ink)]" role="alert">
       <span>Data mungkin tertinggal. {message}</span>
       <Button onClick={onRetry} size="sm" variant="outline">Coba lagi</Button>
     </div>

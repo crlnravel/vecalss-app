@@ -55,8 +55,9 @@ function revisionDigest({ difficulty, explanation, options, stem }: { difficulty
     .map((option) => ["", option.content, String(option.isCorrect), option.label, String(option.sortOrder)].map(hex).join(":"))
     .join(":");
   const stream = [
-    hex("question-revision-digest-v1"),
+    hex("question-revision-digest-v2"),
     hex(difficulty),
+    hex(""),
     hex(explanation),
     hex(""),
     optionStream,

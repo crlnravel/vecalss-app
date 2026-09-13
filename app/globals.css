@@ -62,8 +62,8 @@
 
 :root {
   /* Core */
-  --background: #ffffff;
-  --foreground: #10241d;
+  --background: var(--voyage-canvas);
+  --foreground: var(--voyage-ink);
 
   /* Surfaces */
   --card: var(--background);
@@ -73,33 +73,33 @@
   --popover-foreground: var(--foreground);
 
   /* Brand */
-  --primary: var(--primary-700);
-  --primary-foreground: oklch(1 0 0);
+  --primary: var(--voyage-deep);
+  --primary-foreground: var(--voyage-surface);
 
-  --secondary: var(--secondary-500);
-  --secondary-foreground: oklch(1 0 0);
+  --secondary: var(--secondary-700);
+  --secondary-foreground: var(--voyage-surface);
 
-  --accent: var(--accent-500);
-  --accent-foreground: var(--secondary-900);
+  --accent: var(--voyage-sea-glass-wash);
+  --accent-foreground: var(--voyage-deep);
 
-  --destructive: var(--danger-500);
-  --destructive-foreground: oklch(1 0 0);
+  --destructive: var(--danger-700);
+  --destructive-foreground: var(--voyage-surface);
 
   /* UI */
-  --muted: var(--primary-50);
-  --muted-foreground: var(--secondary-300);
+  --muted: var(--voyage-sea-glass-wash);
+  --muted-foreground: var(--secondary-600);
 
-  --border: var(--primary-100);
-  --input: var(--primary-100);
+  --border: var(--voyage-soft-border);
+  --input: var(--voyage-soft-border);
 
-  --ring: var(--primary-400);
+  --ring: var(--voyage-leaf);
 
   /* Charts */
-  --chart-1: var(--primary-500);
-  --chart-2: var(--secondary-500);
-  --chart-3: var(--accent-500);
+  --chart-1: var(--voyage-deep);
+  --chart-2: var(--voyage-forest);
+  --chart-3: var(--voyage-leaf);
   --chart-4: var(--warning-500);
-  --chart-5: var(--danger-500);
+  --chart-5: var(--danger-600);
 
   /* Radius */
   --radius: 0.625rem;
@@ -117,44 +117,45 @@
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  --paper: rgba(247, 250, 248, 0.94);
-  --paper-strong: rgba(238, 245, 241, 0.98);
-  --navy-glow: rgba(1, 76, 56, 0.1);
-  --gold-glow: rgba(1, 76, 56, 0.14);
-  --dashboard-sun: #f9d55b;
+  --paper: color-mix(in oklab, var(--voyage-canvas) 94%, transparent);
+  --paper-strong: color-mix(in oklab, var(--voyage-sea-glass-wash) 98%, transparent);
+  --navy-glow: color-mix(in oklab, var(--voyage-deep) 10%, transparent);
+  --gold-glow: color-mix(in oklab, var(--voyage-warm-sun) 14%, transparent);
+  --dashboard-sun: var(--voyage-warm-sun);
 }
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--secondary-900);
+  --foreground: var(--voyage-sea-glass-wash);
+  --card: var(--secondary-800);
+  --card-foreground: var(--voyage-sea-glass-wash);
+  --popover: var(--secondary-800);
+  --popover-foreground: var(--voyage-sea-glass-wash);
+  --primary: var(--voyage-sea-glass);
+  --primary-foreground: var(--secondary-900);
+  --secondary: var(--secondary-700);
+  --secondary-foreground: var(--voyage-sea-glass-wash);
+  --muted: var(--secondary-800);
+  --muted-foreground: var(--secondary-300);
+  --accent: var(--secondary-700);
+  --accent-foreground: var(--voyage-sea-glass-wash);
+  --destructive: var(--danger-400);
+  --destructive-foreground: var(--secondary-900);
+  --border: color-mix(in oklab, var(--voyage-sea-glass) 22%, transparent);
+  --input: color-mix(in oklab, var(--voyage-sea-glass) 28%, transparent);
+  --ring: var(--voyage-leaf);
+  --chart-1: var(--voyage-sea-glass);
+  --chart-2: var(--voyage-leaf);
+  --chart-3: var(--voyage-warm-sun);
+  --chart-4: var(--warning-400);
+  --chart-5: var(--danger-400);
+  --sidebar: var(--secondary-800);
+  --sidebar-foreground: var(--voyage-sea-glass-wash);
+  --sidebar-primary: var(--voyage-leaf);
+  --sidebar-primary-foreground: var(--secondary-900);
+  --sidebar-accent: var(--secondary-700);
+  --sidebar-accent-foreground: var(--voyage-sea-glass-wash);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -171,38 +172,79 @@
     @apply bg-background font-sans text-foreground;
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1, "liga" 1;
+    font-kerning: normal;
+    font-variant-numeric: proportional-nums lining-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #ffffff;
+    background: var(--background);
   }
 
   ::selection {
-    background: rgba(1, 76, 56, 0.18);
-    color: #10241d;
+    background: color-mix(in oklab, var(--voyage-deep) 18%, transparent);
+    color: var(--voyage-ink);
   }
 }
 
 @layer utilities {
+  .student-page-canvas {
+    background:
+      radial-gradient(
+        46rem 34rem at 0% 100%,
+        color-mix(in oklab, var(--voyage-deep) 24%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        54rem 30rem at 4% 0%,
+        color-mix(in oklab, var(--voyage-sea-glass) 64%, transparent),
+        transparent 68%
+      ),
+      linear-gradient(145deg,
+        color-mix(in oklab, var(--voyage-sea-glass-wash) 90%, var(--voyage-canvas)) 0%,
+        var(--voyage-canvas) 52%,
+        color-mix(in oklab, var(--voyage-sea-glass) 10%, var(--voyage-canvas)) 100%
+      );
+    background-color: var(--voyage-canvas);
+  }
+
+  .dark .student-page-canvas {
+    background:
+      radial-gradient(
+        46rem 34rem at 0% 100%,
+        color-mix(in oklab, var(--voyage-deep) 24%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        54rem 30rem at 4% 0%,
+        color-mix(in oklab, var(--voyage-sea-glass) 25%, transparent),
+        transparent 68%
+      ),
+      linear-gradient(145deg,
+        color-mix(in oklab, var(--background) 92%, var(--voyage-deep)),
+        var(--background) 58%
+      );
+    background-color: var(--background);
+  }
+
   .atlas-grid {
     background-image:
-      linear-gradient(rgba(1, 76, 56, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(1, 76, 56, 0.05) 1px, transparent 1px);
+      linear-gradient(color-mix(in oklab, var(--voyage-deep) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--voyage-deep) 5%, transparent) 1px, transparent 1px);
     background-size: 128px 128px;
   }
 
   .parchment-panel {
     background:
-      linear-gradient(180deg, rgba(247, 250, 248, 0.98), rgba(238, 245, 241, 0.96));
-    border: 1px solid rgba(1, 76, 56, 0.12);
+      linear-gradient(180deg, color-mix(in oklab, var(--voyage-canvas) 98%, transparent), color-mix(in oklab, var(--voyage-sea-glass-wash) 96%, transparent));
+    border: 1px solid color-mix(in oklab, var(--voyage-deep) 12%, transparent);
     box-shadow:
-      0 26px 80px -46px rgba(1, 76, 56, 0.24),
-      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      0 26px 80px -46px color-mix(in oklab, var(--voyage-deep) 24%, transparent),
+      inset 0 1px 0 color-mix(in oklab, var(--voyage-surface) 60%, transparent);
   }
 
   .navy-panel {
-    background: #014c38;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 28px 72px -44px rgba(1, 76, 56, 0.42);
+    background: var(--voyage-deep);
+    border: 1px solid color-mix(in oklab, var(--voyage-surface) 8%, transparent);
+    box-shadow: 0 28px 72px -44px color-mix(in oklab, var(--voyage-deep) 42%, transparent);
   }
 
   .kicker-label {
@@ -282,28 +324,28 @@
 
   .marquee-mask::before {
     left: 0;
-    background: linear-gradient(90deg, #f7faf8 0%, rgba(247, 250, 248, 0) 100%);
+    background: linear-gradient(90deg, var(--voyage-canvas) 0%, transparent 100%);
   }
 
   .marquee-mask::after {
     right: 0;
-    background: linear-gradient(270deg, #f7faf8 0%, rgba(247, 250, 248, 0) 100%);
+    background: linear-gradient(270deg, var(--voyage-canvas) 0%, transparent 100%);
   }
 
   .marquee-mask-white::before {
-    background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+    background: linear-gradient(90deg, var(--voyage-surface) 0%, transparent 100%);
   }
 
   .marquee-mask-white::after {
-    background: linear-gradient(270deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+    background: linear-gradient(270deg, var(--voyage-surface) 0%, transparent 100%);
   }
 
   .marquee-mask-dark::before {
-    background: linear-gradient(90deg, #014c38 0%, rgba(1, 76, 56, 0) 100%);
+    background: linear-gradient(90deg, var(--voyage-deep) 0%, transparent 100%);
   }
 
   .marquee-mask-dark::after {
-    background: linear-gradient(270deg, #014c38 0%, rgba(1, 76, 56, 0) 100%);
+    background: linear-gradient(270deg, var(--voyage-deep) 0%, transparent 100%);
   }
 
   .marquee-track {
@@ -323,14 +365,14 @@
   }
 
   .route-shimmer {
-    color: #5f776a;
+    color: var(--voyage-muted-ink);
     background-image: linear-gradient(
       110deg,
-      #5f776a 0%,
-      #5f776a 38%,
-      #176b4d 50%,
-      #5f776a 62%,
-      #5f776a 100%
+      var(--voyage-muted-ink) 0%,
+      var(--voyage-muted-ink) 38%,
+      var(--voyage-forest) 50%,
+      var(--voyage-muted-ink) 62%,
+      var(--voyage-muted-ink) 100%
     );
     background-position: -120% 0;
     background-size: 220% 100%;
@@ -342,6 +384,10 @@
 
   .route-orbit {
     animation: route-orbit 8s linear infinite;
+  }
+
+  .route-path-flow {
+    animation: route-dash-flow 3.6s linear infinite;
   }
 
   .ship-bob {
@@ -438,6 +484,12 @@
   }
   to {
     transform: rotate(360deg) translateY(-8px) rotate(-360deg);
+  }
+}
+
+@keyframes route-dash-flow {
+  to {
+    stroke-dashoffset: -42;
   }
 }
 
@@ -549,6 +601,11 @@
     scroll-behavior: auto !important;
   }
 
+  .route-current {
+    display: none;
+  }
+
+  .route-path-flow,
   .ship-bob,
   .route-shimmer {
     animation: none;

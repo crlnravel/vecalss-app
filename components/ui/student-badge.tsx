@@ -6,11 +6,14 @@ import { studentBadgeVariants } from "./student-badge-variants";
 type StudentBadgeProps = React.ComponentProps<"span"> &
   VariantProps<typeof studentBadgeVariants>;
 
-function StudentBadge({ className, size, tone, ...props }: StudentBadgeProps) {
+function StudentBadge({ className, depth, size, tone, ...props }: StudentBadgeProps) {
   return (
     <span
       data-slot="student-badge"
-      className={cn(studentBadgeVariants({ size, tone }), className)}
+      className={cn(
+        studentBadgeVariants({ depth, size, tone }),
+        className,
+      )}
       {...props}
     />
   );

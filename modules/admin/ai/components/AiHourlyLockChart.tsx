@@ -26,10 +26,10 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
         {earlyExhaustionAlert.status !== "normal" && (
           <div
             aria-live="polite"
-            className="flex min-w-0 items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs text-amber-900"
+            className="flex min-w-0 items-center gap-2 rounded-2xl border border-warning-200 bg-warning-50 px-3.5 py-2 text-xs text-warning-900"
             role="status"
           >
-            <AlertTriangle className="size-4 shrink-0 text-amber-700" />
+            <AlertTriangle className="size-4 shrink-0 text-warning-700" />
             <span>
               <strong>Peringatan Kuota Dini:</strong> {earlyExhaustionAlert.exhaustedBeforeNoonShare}% siswa kehabisan kuota sebelum 12:00 WIB
             </span>

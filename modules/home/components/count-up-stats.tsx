@@ -65,12 +65,12 @@ function CountUpStats({ items }: CountUpStatsProps) {
           return (
             <div
               key={item.label}
-              className="group rounded-5xl border border-[#014C38]/10 bg-[#014C38]/[0.03] p-6 text-center transition-[transform,border-color,background-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-[#014C38]/18 hover:bg-white hover:shadow-[0_26px_70px_-56px_rgba(1,76,56,0.42)] md:p-8"
+              className="group rounded-5xl border border-[var(--voyage-deep)]/10 bg-[var(--voyage-deep)]/[0.03] p-6 text-center transition-[transform,border-color,background-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18 hover:bg-white hover:shadow-[0_26px_70px_-56px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)] md:p-8"
             >
-              <p className="text-6xl font-semibold leading-none tracking-[-0.05em] text-[#014C38] md:text-7xl">
+              <p className="text-6xl font-semibold leading-none tracking-[-0.05em] text-[var(--voyage-deep)] md:text-7xl">
                 {formatValue(current, item.suffix)}
               </p>
-              <p className="mt-4 text-sm font-semibold text-[#014C38]/62 md:text-base">
+              <p className="mt-4 text-sm font-semibold text-[var(--voyage-deep)]/62 md:text-base">
                 {item.label}
               </p>
             </div>

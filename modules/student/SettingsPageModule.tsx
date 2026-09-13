@@ -3,11 +3,10 @@
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle } from "@/lib/icons";
+import { AlertCircle, Target, UserRound, type AppIcon } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
-  ReferencePageHeader,
   ReferenceSelectField,
   ReferenceSurface,
 } from "@/components/dashboard";
@@ -61,11 +60,13 @@ function getInitials(fullName: string) {
 function ProfileSection({
   children,
   description,
+  icon: Icon,
   id,
   title,
 }: {
   children: React.ReactNode;
   description?: string;
+  icon: AppIcon;
   id: string;
   title: string;
 }) {
@@ -74,9 +75,14 @@ function ProfileSection({
       className="grid gap-5 py-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8"
       id={id}
     >
-      <div>
-        <h2 className="text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900">{title}</h2>
-        {description ? <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p> : null}
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
+          <Icon aria-hidden="true" className="size-5" />
+        </span>
+        <div>
+          <h2 className="text-xl leading-tight font-extrabold tracking-[-0.025em] text-voyage-ink">{title}</h2>
+          {description ? <p className="mt-2 text-sm leading-6 text-learning-muted-ink">{description}</p> : null}
+        </div>
       </div>
       <div>{children}</div>
     </section>
@@ -164,20 +170,42 @@ function SettingsPageModule({
     >
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
-        <ReferencePageHeader
-          actions={<div className="flex flex-wrap items-center gap-2">{returnToHref ? <Button nativeButton={false} render={<Link href={returnToHref} />} size="lg" variant="ghost">Kembali</Button> : null}<SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">Simpan</SubmitButton></div>}
-          title="Profil"
-        />
+        <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Profil</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            {returnToHref ? (
+              <Button
+                nativeButton={false}
+                render={<Link href={returnToHref} />}
+                size="default"
+                variant="brandOutline"
+              >
+                Kembali
+              </Button>
+            ) : null}
+            <SubmitButton
+              className="bg-student-status-attention-solid-bg text-student-status-attention-solid-fg hover:bg-voyage-warm-sun/90"
+              pendingLabel="Menyimpan…"
+              size="default"
+              type="submit"
+              variant="brand"
+            >
+              Simpan perubahan
+            </SubmitButton>
+          </div>
+        </header>
 
         {state.message ? (
           <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
         ) : null}
 
         <ProfileSection
+          description="Pastikan nama dan foto profil tetap mudah dikenali."
+          icon={UserRound}
           id="profil"
           title="Data diri"
         >
-          <ReferenceSurface className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
+          <ReferenceSurface className="grid gap-6 border-learning-card-border p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
             <div className="grid gap-5">
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="profile-full-name">Nama lengkap</FieldLabel>
@@ -214,10 +242,12 @@ function SettingsPageModule({
         </ProfileSection>
 
         <ProfileSection
+          description="Pilih tujuan yang menjadi acuan ritme dan prioritas belajarmu."
+          icon={Target}
           id="target-belajar"
           title="Target belajar"
         >
-          <ReferenceSurface className="p-5 md:p-6">
+          <ReferenceSurface className="border-learning-card-border p-5 md:p-6">
             <div className="grid gap-5 md:grid-cols-2">
               <ReferenceSelectField
                 className="font-normal"
@@ -271,11 +301,11 @@ function SettingsPageModule({
         {hasUnsavedChanges ? (
           <div
             aria-live="polite"
-            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)] transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
             role="status"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center text-[#176b4d]">
+              <span className="grid size-10 shrink-0 place-items-center text-[var(--voyage-forest)]">
                 <AlertCircle className="size-5" strokeWidth={2.2} />
               </span>
               <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
@@ -290,7 +320,7 @@ function SettingsPageModule({
               >
                 Batal
               </Button>
-              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
+              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
                 Simpan
               </SubmitButton>
             </div>

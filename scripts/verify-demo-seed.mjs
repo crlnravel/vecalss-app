@@ -3,6 +3,18 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import pg from "pg";
 
+import { digestAssessmentReleasePayload } from "../lib/tryout/assessment-release-canonical.mjs";
+import {
+  assertSeedFreshSessionReleaseBindings,
+  assertSeedHistoricalAttemptsClosed,
+  assertSeedHistoricalRunSnapshotMatchesRelease,
+  assertSeedPhysicalSnapshotMatchesRelease,
+  assertSeedReleasePayloadIdentity,
+  assertSeedRequiredReleaseMetadata,
+  assertSeedSnapshotMatchesRelease,
+  sectionSnapshots,
+} from "../prisma/seed-assessment.mjs";
+
 const { Client } = pg;
 
 function requireDatabaseUrl() {
@@ -16,12 +28,22 @@ async function scalar(client, text, values = []) {
   return Number(result.rows[0].value);
 }
 
+function assertPinnedReleaseBinding(row, release, label) {
+  assert.equal(row.assessment_release_id, release.id, `${label} must point to its pinned AssessmentRelease.`);
+  assert.equal(Number(row.assessment_release_number), Number(release.release_number), `${label} release number must match its pinned AssessmentRelease.`);
+  assert.equal(row.assessment_release_digest, release.content_digest, `${label} release digest must match its pinned AssessmentRelease.`);
+}
+
+function parseSnapshot(value) {
+  return typeof value === "string" ? JSON.parse(value) : value;
+}
+
 async function main() {
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
   try {
     const tryoutResult = await client.query(
-      "SELECT id FROM tryout_packages WHERE code = 'seed:assessment:tryout:evaluasi-program:v1' AND status = 'published'",
+      "SELECT id, revision FROM tryout_packages WHERE code = 'seed:assessment:tryout:evaluasi-program:v1' AND status = 'published'",
     );
     assert.equal(tryoutResult.rowCount, 1, "The published demonstration tryout is missing.");
     const tryoutId = tryoutResult.rows[0].id;
@@ -102,14 +124,152 @@ async function main() {
       21,
       "Every published Tryout item must come from the Tryout-purpose bank.",
     );
+
+    const bindingState = await client.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM tryout_sections WHERE tryout_id = $1 AND package_version_id IS NOT NULL) AS package_section_count,
+         (SELECT COUNT(*)::int FROM tryout_items WHERE tryout_id = $1 AND package_version_id IS NOT NULL) AS package_item_count,
+         (SELECT COUNT(*)::int FROM tryout_sections WHERE tryout_id = $1 AND package_version_id IS NULL) AS direct_section_count,
+         (SELECT COUNT(*)::int FROM tryout_items WHERE tryout_id = $1 AND package_version_id IS NULL) AS direct_item_count,
+         (SELECT COUNT(*)::int FROM tryout_items WHERE tryout_id = $1 AND package_version_id IS NULL AND package_code = 'direct') AS direct_marked_item_count,
+         (SELECT COUNT(*)::int FROM tryout_items WHERE tryout_id = $1 AND package_version_id IS NULL AND package_code <> 'direct') AS direct_marker_mismatch_count,
+         (SELECT COUNT(*)::int FROM tryout_attempts WHERE tryout_id = $1) AS attempt_count,
+         (SELECT COUNT(*)::int
+            FROM tryout_attempts attempts
+            JOIN tryout_delivery_sessions sessions ON sessions.id = attempts.delivery_session_id
+           WHERE attempts.tryout_id = $1
+             AND sessions.status = 'closed') AS historical_attempt_count`,
+      [tryoutId],
+    );
+    const bindings = bindingState.rows[0];
+    const hasLegacyBindings = assertSeedHistoricalAttemptsClosed(bindings);
+    if (hasLegacyBindings) {
+      console.warn(`Canonical Tryout binding classification: historical-package-bound (${bindings.package_section_count} sections, ${bindings.package_item_count} items, ${bindings.attempt_count} attempts, ${bindings.historical_attempt_count} closed-session attempts). A disposable reset/reseed is required to verify the fresh direct fixture.`);
+    } else {
+      assert.equal(bindings.package_section_count, 0, "A freshly generated canonical Tryout must not retain package-bound sections.");
+      assert.equal(bindings.package_item_count, 0, "A freshly generated canonical Tryout must not retain package-bound items.");
+      assert.equal(bindings.direct_section_count, 7, "A freshly generated canonical Tryout must contain seven direct sections.");
+      assert.equal(bindings.direct_item_count, 21, "A freshly generated canonical Tryout must contain 21 direct snapshots.");
+      assert.equal(bindings.direct_marked_item_count, 21, "Every freshly generated direct Tryout item must carry the direct package marker.");
+      assert.equal(bindings.direct_marker_mismatch_count, 0, "No unbound Tryout item may carry a legacy package marker.");
+    }
+
+    const directSnapshotIssues = await scalar(
+      client,
+      `SELECT COUNT(*)::int AS value
+         FROM tryout_items items
+         LEFT JOIN questions questions ON questions.id = items.source_question_id
+         LEFT JOIN question_revisions revisions ON revisions.id = items.source_question_revision_id
+         LEFT JOIN question_banks banks ON banks.id = questions.question_bank_id
+        WHERE items.tryout_id = $1
+          AND items.package_version_id IS NULL
+          AND (
+            items.source_question_id IS NULL
+            OR items.source_question_revision_id IS NULL
+            OR items.source_content_digest IS NULL
+            OR items.source_revision_provenance IS NULL
+            OR items.source_revision_provenance = 'legacy_unknown'
+            OR revisions.id IS NULL
+            OR revisions.question_id <> items.source_question_id
+            OR revisions.status <> 'ready'
+            OR revisions.provenance <> items.source_revision_provenance
+            OR revisions.content_digest <> items.source_content_digest
+            OR questions.status <> 'published'
+            OR banks.id IS NULL
+            OR banks.purpose <> 'tryout'
+          )`,
+      [tryoutId],
+    );
+    assert.equal(directSnapshotIssues, 0, "Every direct Tryout snapshot must retain a Ready source revision, matching digest, valid provenance, and Tryout-purpose bank.");
+
+    const directOptionIssues = await scalar(
+      client,
+      `SELECT COUNT(*)::int AS value
+         FROM tryout_items items
+         JOIN question_revisions revisions ON revisions.id = items.source_question_revision_id
+        WHERE items.tryout_id = $1
+          AND items.package_version_id IS NULL
+          AND (
+            (SELECT COUNT(*) FROM tryout_item_options options WHERE options.tryout_item_id = items.id)
+              <> (SELECT COUNT(*) FROM question_revision_options options WHERE options.question_revision_id = revisions.id)
+            OR EXISTS (
+              SELECT 1
+                FROM tryout_item_options options
+                LEFT JOIN question_revision_options source_options
+                  ON source_options.id = options.source_question_revision_option_id
+               WHERE options.tryout_item_id = items.id
+                 AND (
+                   source_options.id IS NULL
+                   OR source_options.question_revision_id <> revisions.id
+                   OR source_options.label <> options.choice_key
+                   OR source_options.content <> options.content
+                   OR source_options.is_correct <> options.is_correct
+                   OR source_options.sort_order <> options.sort_order
+                   OR source_options.asset_id IS DISTINCT FROM options.asset_id
+                 )
+            )
+          )`,
+      [tryoutId],
+    );
+    assert.equal(directOptionIssues, 0, "Every direct Tryout snapshot must retain the complete source revision option set.");
+
+    const releaseResult = await client.query(
+      `SELECT id, tryout_id, release_number, content_digest, payload
+         FROM assessment_releases
+        WHERE tryout_id = $1
+        ORDER BY release_number DESC`,
+      [tryoutId],
+    );
+    assert(releaseResult.rowCount > 0, "The published demonstration Tryout must have an AssessmentRelease.");
+    const releases = releaseResult.rows.map((row) => ({
+      ...row,
+      payload: typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload,
+    }));
+    const releaseById = new Map();
+    for (const release of releases) {
+      assert.equal(release.tryout_id, tryoutId, "An AssessmentRelease must belong to the canonical Tryout.");
+      assert.equal(digestAssessmentReleasePayload(release.payload), release.content_digest, `AssessmentRelease ${release.release_number} digest must match its canonical payload.`);
+      assertSeedReleasePayloadIdentity({ id: tryoutId, revision: release.payload?.tryout?.revision }, release.payload, `release ${release.release_number}`, { requireRevision: false });
+      releaseById.set(release.id, release);
+    }
+    const release = releases[0];
+    const releasePayload = release.payload;
+    assertSeedReleasePayloadIdentity(tryoutResult.rows[0], releasePayload, "latest");
+
+    const physicalSections = await sectionSnapshots(client, tryoutId);
+    const releaseSections = releasePayload.sections ?? [];
+    assert.equal(releaseSections.length, physicalSections.length, "The latest AssessmentRelease must retain one immutable payload Section for every physical Section.");
+    for (const section of physicalSections) {
+      assertSeedPhysicalSnapshotMatchesRelease(section, releasePayload, `current section ${section.id}`);
+    }
+    if (!hasLegacyBindings) {
+      assert(
+        releaseSections.length === 7
+          && releaseSections.every((section) => section.assembly?.mode === "direct" && section.assembly?.packageVersionId === null),
+        "A freshly generated canonical Tryout release must retain direct assembly metadata for every Section.",
+      );
+    }
+
     assert.equal(
-      await scalar(client, `SELECT COUNT(*)::int AS value FROM tryout_sections WHERE tryout_id = $1 AND test_type = 'cat'`, [tryoutId]),
-      3,
-      "The tryout must contain three CAT sections.",
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_sections
+                             WHERE tryout_id = $1
+                               AND test_type = 'cbt'`, [tryoutId]),
+      7,
+      "Every demonstration section must use CBT scoring.",
+    );
+    assert.equal(
+      await scalar(client, `SELECT COUNT(*)::int AS value
+                              FROM tryout_attempt_test_runs
+                             WHERE scoring_version IS NULL
+                                OR scoring_version NOT LIKE 'cbt-%'`),
+      0,
+      "The CBT-only demonstration must not retain non-CBT scoring markers.",
     );
 
     const sessions = await client.query(
-      `SELECT id, name, status, available_from, available_until, released_at
+      `SELECT id, name, status, available_from, available_until, released_at,
+              assessment_release_id
          FROM tryout_delivery_sessions
         WHERE tryout_id = $1`,
       [tryoutId],
@@ -120,6 +280,85 @@ async function main() {
     assert(active && active.status === "active", "The current delivery session must be active.");
     assert(active.available_from <= new Date() && active.available_until > new Date(), "The current delivery session must be open now.");
     assert(historical && historical.status === "closed" && historical.released_at, "The historical session must contain released results.");
+    if (!hasLegacyBindings) {
+      assertSeedFreshSessionReleaseBindings(sessions.rows);
+    }
+
+    const historicalLegacySnapshotLabels = [];
+    const historicalUnpinnedSessionLabels = [];
+    for (const session of sessions.rows) {
+      if (!session.assessment_release_id) {
+        historicalUnpinnedSessionLabels.push(`${session.name} (${session.id})`);
+        continue;
+      }
+      const sessionRelease = releaseById.get(session.assessment_release_id);
+      assert(sessionRelease, `Session ${session.id} must reference an AssessmentRelease belonging to this Tryout.`);
+      const attempts = await client.query(
+        `SELECT id, tryout_id, delivery_session_id, assessment_release_id,
+                assessment_release_number, assessment_release_digest, content_snapshot
+           FROM tryout_attempts
+          WHERE delivery_session_id = $1
+          ORDER BY id`,
+        [session.id],
+      );
+      for (const attempt of attempts.rows) {
+        assert.equal(attempt.tryout_id, tryoutId, `Attempt ${attempt.id} must belong to the canonical Tryout.`);
+        assertPinnedReleaseBinding(attempt, sessionRelease, `Attempt ${attempt.id}`);
+        const attemptSnapshot = parseSnapshot(attempt.content_snapshot);
+        const attemptMetadataKind = assertSeedRequiredReleaseMetadata(attemptSnapshot, {
+          contentDigest: sessionRelease.content_digest,
+          id: sessionRelease.id,
+          releaseNumber: sessionRelease.release_number,
+        }, `attempt ${attempt.id}`);
+        if (attemptMetadataKind === "historical-legacy") historicalLegacySnapshotLabels.push(`attempt ${attempt.id}`);
+        assert.equal(attemptSnapshot.tryoutId, tryoutId, `Attempt ${attempt.id} snapshot must retain the canonical Tryout identity.`);
+        assert.equal(Number(attemptSnapshot.tryoutRevision), Number(sessionRelease.payload?.tryout?.revision), `Attempt ${attempt.id} snapshot must retain its pinned Tryout revision.`);
+
+        const runs = await client.query(
+          `SELECT id, attempt_id, tryout_section_id, sequence_no,
+                  assessment_release_id, assessment_release_number,
+                  assessment_release_digest, content_snapshot
+             FROM tryout_attempt_test_runs
+            WHERE attempt_id = $1
+            ORDER BY sequence_no`,
+          [attempt.id],
+        );
+        assert.equal(runs.rowCount, 7, `Attempt ${attempt.id} must retain one frozen run per section.`);
+        for (const run of runs.rows) {
+          assertPinnedReleaseBinding(run, sessionRelease, `Run ${run.id}`);
+          const runSnapshot = parseSnapshot(run.content_snapshot);
+          const runMetadataKind = assertSeedRequiredReleaseMetadata(runSnapshot, {
+            contentDigest: sessionRelease.content_digest,
+            id: sessionRelease.id,
+            releaseNumber: sessionRelease.release_number,
+          }, `run ${run.id}`);
+          if (runMetadataKind === "historical-legacy") historicalLegacySnapshotLabels.push(`run ${run.id}`);
+          const runContent = runSnapshot?.content && typeof runSnapshot.content === "object"
+            ? runSnapshot.content
+            : runSnapshot;
+          assert.equal(runContent?.sectionId, run.tryout_section_id, `Run ${run.id} snapshot must retain its physical Section identity.`);
+          assert.equal(runContent?.sequenceNo, run.sequence_no, `Run ${run.id} snapshot must retain its Section sequence.`);
+          if (hasLegacyBindings) {
+            const missingRunFields = assertSeedHistoricalRunSnapshotMatchesRelease(runSnapshot, physicalSections.find((section) => section.id === run.tryout_section_id), sessionRelease.payload, `run ${run.id}`);
+            if (missingRunFields.length) historicalLegacySnapshotLabels.push(`run ${run.id}:missing-${missingRunFields.join(",")}`);
+          } else {
+            assertSeedSnapshotMatchesRelease(runSnapshot, sessionRelease.payload, `run ${run.id}`);
+          }
+        }
+      }
+    }
+    if (historicalUnpinnedSessionLabels.length) {
+      if (!hasLegacyBindings) {
+        throw new Error("A freshly generated direct Tryout must bind every delivery session to an AssessmentRelease.");
+      }
+      console.warn(`Pinned session classification: historical-legacy nullable AssessmentRelease binding (${historicalUnpinnedSessionLabels.join(", ")}); attempts in unpinned sessions are not eligible for release snapshot verification.`);
+    }
+    if (historicalLegacySnapshotLabels.length) {
+      if (!hasLegacyBindings) {
+        throw new Error("A freshly generated direct Tryout must use the runtime AssessmentRelease snapshot metadata shape.");
+      }
+      console.warn(`Pinned snapshot classification: historical-legacy metadata shape (${historicalLegacySnapshotLabels.length} attempt/run snapshots); release identity and digest were verified after normalization.`);
+    }
 
     const admissionCounts = await client.query(
       `SELECT status, COUNT(*)::int AS count
@@ -226,6 +465,7 @@ async function main() {
       { area: "Standalone quizzes", records: 7 },
       { area: "Reusable package versions", records: 7 },
       { area: "Tryout sections", records: 7 },
+      { area: "Canonical Tryout binding", records: hasLegacyBindings ? "historical package-bound" : "fresh direct" },
       { area: "Participant states", records: 6 },
       { area: "Released attempts", records: 3 },
       { area: "Audit events", records: 6 },

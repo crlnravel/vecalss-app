@@ -52,7 +52,11 @@ export type VeraOpenRouterFreePocRequestBody = {
     data_collection: "allow";
   };
   max_tokens: number;
-  stream: false;
+  stream: true;
+};
+
+export type VeraOpenRouterFreePocDelta = {
+  text: string;
 };
 
 export type VeraOpenRouterFreePocUsage = {
@@ -85,18 +89,21 @@ export class VeraOpenRouterFreePocError extends Error {
   readonly code: VeraOpenRouterFreePocErrorCode;
   readonly status?: number;
   readonly retryable: boolean;
+  readonly ambiguousPostSend: boolean;
 
   constructor(input: {
     code: VeraOpenRouterFreePocErrorCode;
     message: string;
     status?: number;
     retryable?: boolean;
+    ambiguousPostSend?: boolean;
   }) {
     super(input.message);
     this.name = "VeraOpenRouterFreePocError";
     this.code = input.code;
     this.status = input.status;
     this.retryable = input.retryable ?? false;
+    this.ambiguousPostSend = input.ambiguousPostSend ?? false;
   }
 }
 
@@ -230,51 +237,130 @@ async function readBoundedBody(response: Response, maxBytes: number): Promise<st
   return new TextDecoder().decode(bytes);
 }
 
-function parseResult(body: string, maxOutputChars: number): VeraOpenRouterFreePocResult {
-  let parsed: unknown;
+async function readStreamingResult(
+  response: Response,
+  maxBytes: number,
+  maxOutputChars: number,
+  emit?: (delta: VeraOpenRouterFreePocDelta) => void,
+): Promise<VeraOpenRouterFreePocResult> {
+  if (!response.body) {
+    throw new VeraOpenRouterFreePocError({
+      code: "invalid_response",
+      message: "OpenRouter POC streaming response omitted its body.",
+      retryable: false,
+    });
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let buffer = "";
+  let text = "";
+  let model: string | null = null;
+  let provider: string | null = null;
+  let finishReason: string | null = null;
+  let usage: VeraOpenRouterFreePocUsage = {
+    promptTokens: null,
+    completionTokens: null,
+    totalTokens: null,
+  };
+  let doneSeen = false;
+
+  const invalidResponse = (message: string) => new VeraOpenRouterFreePocError({
+    code: "invalid_response",
+    message,
+    retryable: false,
+    ambiguousPostSend: text.length > 0,
+  });
+
+  const consumeFrame = (frame: string) => {
+    const data = frame
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).replace(/^ /u, ""))
+      .join("\n");
+    if (!data) return;
+    if (data === "[DONE]") {
+      doneSeen = true;
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data) as unknown;
+    } catch {
+      throw invalidResponse("OpenRouter POC returned an invalid SSE data frame.");
+    }
+
+    const chunk = asRecord(parsed);
+    if (!chunk) throw invalidResponse("OpenRouter POC returned a malformed SSE chunk.");
+    if (asRecord(chunk.error)) {
+      throw new VeraOpenRouterFreePocError({
+        code: "http_error",
+        message: "OpenRouter POC returned a mid-stream provider error.",
+        retryable: text.length === 0,
+        ambiguousPostSend: text.length > 0,
+      });
+    }
+
+    model = readString(chunk.model) ?? model;
+    provider = readString(chunk.provider) ?? readString(chunk.provider_name) ?? provider;
+    const choices = chunk.choices;
+    const firstChoice = Array.isArray(choices) ? asRecord(choices[0]) : null;
+    provider = readString(firstChoice?.provider) ?? provider;
+
+    const delta = asRecord(firstChoice?.delta);
+    if (delta && delta.content !== undefined && typeof delta.content !== "string") {
+      throw invalidResponse("OpenRouter POC returned a malformed text delta.");
+    }
+    if (typeof delta?.content === "string" && delta.content.length > 0) {
+      text += delta.content;
+      if (text.length > maxOutputChars) {
+        throw new VeraOpenRouterFreePocError({
+          code: "response_too_large",
+          message: "OpenRouter POC output exceeded the bounded output size.",
+          retryable: false,
+          ambiguousPostSend: true,
+        });
+      }
+      emit?.({ text: delta.content });
+    }
+
+    if (firstChoice?.finish_reason !== undefined && firstChoice.finish_reason !== null) {
+      const nextFinishReason = readString(firstChoice.finish_reason);
+      if (!nextFinishReason) throw invalidResponse("OpenRouter POC finish reason was malformed.");
+      finishReason = nextFinishReason;
+    }
+    if (chunk.usage !== undefined) usage = readUsage(chunk.usage);
+  };
+
   try {
-    parsed = JSON.parse(body) as unknown;
-  } catch {
-    throw new VeraOpenRouterFreePocError({
-      code: "invalid_response",
-      message: "OpenRouter POC returned invalid JSON.",
-      retryable: false,
-    });
+    while (!doneSeen) {
+      const next = await reader.read();
+      if (next.done) break;
+      if (!next.value) continue;
+      totalBytes += next.value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new VeraOpenRouterFreePocError({
+          code: "response_too_large",
+          message: "OpenRouter POC response exceeded the bounded response size.",
+          retryable: false,
+          ambiguousPostSend: text.length > 0,
+        });
+      }
+      buffer = `${buffer}${decoder.decode(next.value, { stream: true })}`.replace(/\r\n/gu, "\n");
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) consumeFrame(frame);
+    }
+  } finally {
+    reader.releaseLock();
   }
 
-  const response = asRecord(parsed);
-  const choices = response?.choices;
-  const firstChoice = Array.isArray(choices) ? asRecord(choices[0]) : null;
-  const message = asRecord(firstChoice?.message);
-  const text = readString(message?.content);
-  const model = readString(response?.model);
-  const provider = readString(response?.provider)
-    ?? readString(firstChoice?.provider)
-    ?? readString(response?.provider_name);
+  if (!doneSeen) throw invalidResponse("OpenRouter POC stream ended before its terminal marker.");
   if (!model || !provider || !text) {
-    throw new VeraOpenRouterFreePocError({
-      code: "invalid_response",
-      message: "OpenRouter POC response omitted required result fields.",
-      retryable: false,
-    });
-  }
-  if (text.length > maxOutputChars) {
-    throw new VeraOpenRouterFreePocError({
-      code: "response_too_large",
-      message: "OpenRouter POC output exceeded the bounded output size.",
-      retryable: false,
-    });
-  }
-
-  const finishReason = firstChoice && (firstChoice.finish_reason === null
-    ? null
-    : readString(firstChoice.finish_reason));
-  if (firstChoice && firstChoice.finish_reason !== null && finishReason === null) {
-    throw new VeraOpenRouterFreePocError({
-      code: "invalid_response",
-      message: "OpenRouter POC finish reason was malformed.",
-      retryable: false,
-    });
+    throw invalidResponse("OpenRouter POC stream omitted required result fields.");
   }
 
   return {
@@ -285,7 +371,7 @@ function parseResult(body: string, maxOutputChars: number): VeraOpenRouterFreePo
     providerIdentity: provider,
     finishReason,
     text,
-    usage: readUsage(response?.usage),
+    usage,
   };
 }
 
@@ -305,7 +391,10 @@ export class VeraOpenRouterFreePocAdapter {
     this.fetchImpl = options.fetchImpl ?? (typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : undefined);
   }
 
-  async run(task: VeraOpenRouterFreePocTask): Promise<VeraOpenRouterFreePocResult> {
+  async run(
+    task: VeraOpenRouterFreePocTask,
+    emit?: (delta: VeraOpenRouterFreePocDelta) => void,
+  ): Promise<VeraOpenRouterFreePocResult> {
     if (!this.enabled || !this.config) {
       throw new VeraOpenRouterFreePocError({
         code: "poc_disabled",
@@ -341,22 +430,24 @@ export class VeraOpenRouterFreePocAdapter {
       messages: [{ role: "user", content: task.prompt }],
       provider: { allow_fallbacks: false, data_collection: "allow" },
       max_tokens: maxOutputTokens,
-      stream: false,
+      stream: true,
     };
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    let receivedText = false;
     try {
       const response = await this.fetchImpl(`${this.config.baseUrl}${POC_ENDPOINT_PATH}`, {
         method: "POST",
         headers: {
+          Accept: "text/event-stream",
           Authorization: `Bearer ${this.config.apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
-      const responseBody = await readBoundedBody(response, this.config.maxResponseBytes);
       if (!response.ok) {
+        await readBoundedBody(response, this.config.maxResponseBytes);
         throw new VeraOpenRouterFreePocError({
           code: "http_error",
           message: "OpenRouter POC returned a non-success response.",
@@ -364,28 +455,48 @@ export class VeraOpenRouterFreePocAdapter {
           retryable: response.status >= 500 || response.status === 429,
         });
       }
-      return parseResult(responseBody, VERA_OPENROUTER_FREE_POC_MAX_OUTPUT_CHARS);
+      if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
+        throw new VeraOpenRouterFreePocError({
+          code: "invalid_response",
+          message: "OpenRouter POC did not return an SSE response.",
+          retryable: false,
+        });
+      }
+      return await readStreamingResult(
+        response,
+        this.config.maxResponseBytes,
+        VERA_OPENROUTER_FREE_POC_MAX_OUTPUT_CHARS,
+        (delta) => {
+          receivedText = true;
+          emit?.(delta);
+        },
+      );
     } catch (error) {
       if (error instanceof VeraOpenRouterFreePocError) throw error;
       if (controller.signal.aborted) {
         throw new VeraOpenRouterFreePocError({
           code: "timeout",
           message: "OpenRouter POC request timed out.",
-          retryable: true,
+          retryable: !receivedText,
+          ambiguousPostSend: receivedText,
         });
       }
       throw new VeraOpenRouterFreePocError({
         code: "network_error",
         message: "OpenRouter POC request failed.",
-        retryable: true,
+        retryable: !receivedText,
+        ambiguousPostSend: receivedText,
       });
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  async complete(task: VeraOpenRouterFreePocTask): Promise<VeraOpenRouterFreePocResult> {
-    return this.run(task);
+  async complete(
+    task: VeraOpenRouterFreePocTask,
+    emit?: (delta: VeraOpenRouterFreePocDelta) => void,
+  ): Promise<VeraOpenRouterFreePocResult> {
+    return this.run(task, emit);
   }
 }
 

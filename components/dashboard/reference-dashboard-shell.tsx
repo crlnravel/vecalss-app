@@ -349,7 +349,7 @@ function ReferenceTabletNav({
   return (
     <nav
       aria-label="Navigasi ruang kerja"
-      className="fixed bottom-4 left-1/2 z-40 hidden max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-3xl border border-primary-100 bg-white/95 p-2 shadow-[0_18px_42px_-30px_rgba(23,107,77,0.6)] backdrop-blur md:flex lg:hidden"
+      className="fixed bottom-4 left-1/2 z-40 hidden max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-3xl border border-primary-100 bg-white/95 p-2 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)] backdrop-blur md:flex lg:hidden"
     >
       {brand ? (
         <Link
@@ -383,7 +383,7 @@ function ReferenceMobileNav({
   return (
     <nav
       aria-label="Navigasi ruang kerja"
-      className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 border-t border-primary-100 bg-white/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_42px_-34px_rgba(23,107,77,0.55)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 border-t border-primary-100 bg-white/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] backdrop-blur md:hidden"
     >
       {items.map((item) => (
         <ReferenceCompactNavLink active={activeHref === item.href} item={item} key={item.href} />
@@ -468,7 +468,7 @@ function ReferenceMobileDrawer({
         aria-labelledby="reference-dashboard-mobile-nav-title"
         aria-modal="true"
         className={cn(
-          "absolute inset-x-0 bottom-0 translate-y-0 rounded-t-4xl border border-primary-100 bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_-38px_rgba(23,107,77,0.55)]",
+          "absolute inset-x-0 bottom-0 translate-y-0 rounded-t-4xl border border-primary-100 bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_-38px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]",
         )}
         onKeyDown={handleDrawerKeyDown}
         role="dialog"

@@ -61,18 +61,20 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 ### What always requires confirmation
 
 - Clarifying or changing user flows and product direction
-- Running `pnpm db:reset`, `pnpm db:seed`, or any `db:apply-*` command
-- Running destructive migrations or production migration commands
+- Destructive operations against live production environments (if any)
 - Adding a runtime dependency or replacing a major library
-- Changing established routes, public interfaces, or breaking schema changes
-- Introducing a major architectural layer
-- Cross-cutting refactors that substantially expand scope or affect routes, database contracts, dependencies, authorization, or externally visible behavior
+- Changing established public routes or major user flows
+- Introducing an unexpected architectural layer
+- Cross-cutting refactors that substantially expand scope beyond the assigned task
 - Performing browser verification or browser testing (must state routes, role, and verification checklist before launching)
 
 ### What does not require confirmation
 
 - Creating new components, modules, or files
 - Writing or updating tests
+- Forward database migrations (`prisma migrate dev`, `pnpm db:generate`) for feature development
+- Running `pnpm db:reset` and `pnpm db:seed` on local/development databases when evolving schemas
+- Removing or deprecating legacy models, obsolete columns, and legacy compatibility layers
 - Behavior-preserving refactors within the touched area
 - Fixing lint errors, import ordering, formatting
 - Reading specs and documentation
@@ -81,6 +83,22 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 
 The resource guard remains mandatory for every process-starting command in this
 list; the confirmation rule and the CPU/process rule are separate gates.
+
+## Database & legacy policy (Pre-release phase)
+
+The project is currently in an **active pre-release phase**. Agents must apply the following guidelines:
+
+1. **Database migration is fully approved:**
+   - Agents are expected and encouraged to migrate the database schema forward (`prisma migrate dev`, `pnpm db:generate`) whenever feature work or refactors require schema updates.
+2. **No legacy preservation burden:**
+   - Preserving legacy tables, obsolete schemas, deprecated columns, or historical backward-compatibility shims is **not important or required** at this stage.
+   - Do not spend effort writing complex data quarantine rules, historical compatibility adapters, or fallback columns for legacy systems that are no longer part of the target product.
+   - Move forward with clean, simplified schema models.
+3. **No database backup requirement:**
+   - Creating manual database snapshots, dump files (e.g. `/tmp/*.dump`), or point-in-time backup archives before running migrations or resets is **not required**.
+   - Data in local and development environments is treated as disposable fixture data that can be re-created via `pnpm db:seed`.
+4. **Resets and reseeds are standard:**
+   - When schema changes or migrations cause local state conflicts, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
 
 ## Protected areas
 
@@ -150,6 +168,24 @@ list; the confirmation rule and the CPU/process rule are separate gates.
   Redis or multi-instance rate-limit changes.
 - This is strict TypeScript; consult installed Next.js 16 docs rather than assuming older Next patterns
 - Use the `@/` import alias
+
+### Token efficiency and CLI proxy (RTK)
+
+- **Mandatory default:** Proxy supported CLI and shell commands through `rtk` whenever possible to filter, group, and summarize output before LLM context ingestion (saving 60–90%+ context tokens).
+- **Supported command coverage:**
+  - Git / GitHub: `rtk git status`, `rtk git diff`, `rtk git log`, `rtk git commit`, `rtk gh ...`
+  - Search & inspection: `rtk grep`, `rtk rg`, `rtk find`, `rtk ls`, `rtk tree`, `rtk read`
+  - Diagnostics / runners: `rtk err <cmd>`, `rtk test <cmd>`, `rtk summary <cmd>`, `rtk json`
+  - Node & package scripts: `rtk pnpm ...`, `rtk lint`, `rtk tsc`, `rtk prisma ...`
+- **Resource guard synergy:** RTK compresses output; it does not replace CPU and process throttling. All Node, package, script, test, build, lint, and Prisma commands must still run through `_harness/resource-guard.sh`:
+  ```bash
+  ./_harness/resource-guard.sh run -- rtk pnpm lint
+  ./_harness/resource-guard.sh run -- rtk pnpm verify
+  ./_harness/resource-guard.sh run -- rtk pnpm test:<area>
+  ./_harness/resource-guard.sh run -- rtk pnpm exec prisma <args>
+  ```
+- Non-heavy commands (e.g. `rtk git status`, `rtk git diff`, `rtk grep`, `rtk find`) do not start Node or heavy background workers and can be run with `rtk` directly without the guard.
+- **Escape hatch:** Use `rtk proxy <cmd>` when raw, uncompressed output is strictly necessary for low-level debugging or troubleshooting.
 
 ### Browser testing and verification
 

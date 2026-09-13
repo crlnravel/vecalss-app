@@ -36,12 +36,19 @@ const task: ProviderTask = {
 };
 
 function successResponse(): Response {
-  return new Response(JSON.stringify({
-    model: "resolved/free-model",
-    provider: "synthetic-provider",
-    choices: [{ message: { content: "Mulai dari satu konsep." }, finish_reason: "stop" }],
-    usage: { prompt_tokens: 9, completion_tokens: 4, total_tokens: 13 },
-  }), { status: 200, headers: { "content-type": "application/json" } });
+  return streamResponse([
+    { model: "resolved/free-model", provider: "synthetic-provider", choices: [{ delta: { content: "Mulai dari " }, finish_reason: null }] },
+    { model: "resolved/free-model", provider: "synthetic-provider", choices: [{ delta: { content: "satu konsep." }, finish_reason: null }] },
+    { model: "resolved/free-model", provider: "synthetic-provider", choices: [{ delta: { content: "" }, finish_reason: "stop" }], usage: { prompt_tokens: 9, completion_tokens: 4, total_tokens: 13 } },
+  ]);
+}
+
+function streamResponse(chunks: Record<string, unknown>[]): Response {
+  const wire = [
+    ...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`),
+    "data: [DONE]\n\n",
+  ].join("");
+  return new Response(wire, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
 await runChecks("vera-openrouter-free-provider", [
@@ -75,8 +82,10 @@ await runChecks("vera-openrouter-free-provider", [
         },
       });
       const prepared = await adapter.prepare(task);
-      const result = await adapter.run(prepared);
+      const deltas: string[] = [];
+      const result = await adapter.run(prepared, (delta) => deltas.push(delta.text));
       assert(result.kind === "text" && result.text === "Mulai dari satu konsep.", "POC response was not mapped to a text ProviderResult");
+      assert(deltas.join("") === result.text && deltas.length === 2, "POC provider did not forward upstream text deltas");
       assert(result.providerMetadata?.kind === "openrouter_free_poc", "POC result metadata is not discriminated");
       assert(result.providerMetadata?.selectedModel === "resolved/free-model", "resolved model was not mapped");
       assert(result.providerMetadata?.providerIdentity === "synthetic-provider", "resolved provider was not mapped");
@@ -89,11 +98,9 @@ await runChecks("vera-openrouter-free-provider", [
 
       const unknownUsage = new VeraOpenRouterFreePocProviderAdapter({
         env: baseEnvironment,
-        fetchImpl: async () => new Response(JSON.stringify({
-          model: "resolved/free-model",
-          provider: "synthetic-provider",
-          choices: [{ message: { content: "Jawaban tanpa telemetry." }, finish_reason: "stop" }],
-        }), { status: 200 }),
+        fetchImpl: async () => streamResponse([
+          { model: "resolved/free-model", provider: "synthetic-provider", choices: [{ delta: { content: "Jawaban tanpa telemetry." }, finish_reason: "stop" }] },
+        ]),
       });
       const unknown = await unknownUsage.run(await unknownUsage.prepare(task));
       assert(unknown.usage.tokenUsageState === "unknown" && unknown.usage.quotaUnitsConsumed === null, "missing usage was coerced to zero/known");
@@ -129,6 +136,23 @@ await runChecks("vera-openrouter-free-provider", [
           throw error;
         }
       }, "terminal POC fault was accepted");
+
+      const ambiguous = new VeraOpenRouterFreePocProviderAdapter({
+        env: baseEnvironment,
+        fetchImpl: async () => new Response([
+          `data: ${JSON.stringify({ model: "resolved/free-model", provider: "synthetic-provider", choices: [{ delta: { content: "Sebagian" }, finish_reason: null }] })}\n\n`,
+          `data: ${JSON.stringify({ error: { code: "server_error" }, choices: [{ delta: { content: "" }, finish_reason: "error" }] })}\n\n`,
+        ].join(""), { status: 200, headers: { "content-type": "text/event-stream" } }),
+      });
+      await expectReject(async () => {
+        try {
+          await ambiguous.run(await ambiguous.prepare(task));
+        } catch (error) {
+          assert(error instanceof ProviderExecutionError, "mid-stream POC fault did not map to ProviderExecutionError");
+          assert(error.ambiguousPostSend && !error.retryableBeforeAcceptance, "mid-stream POC fault was incorrectly safe to retry");
+          throw error;
+        }
+      }, "mid-stream POC fault was accepted");
     },
   },
   {

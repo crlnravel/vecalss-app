@@ -110,10 +110,6 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function canonicalPathCompare(left: string, right: string): number {
-  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
-}
-
 function migrationDigest(paths: string[], reader: (path: string) => string | null): string {
   return digest(paths.map((path) => `${path}\0${reader(path) ?? "<missing>"}`).join("\n"));
 }

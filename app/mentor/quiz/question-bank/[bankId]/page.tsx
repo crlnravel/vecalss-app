@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import {
-  getQuestionBankForEdit,
-  listQuestionBankCategories,
-} from "@/lib/question-bank/repository";
+import { getQuestionBankForEdit } from "@/lib/question-bank/repository";
 import { KaptenQuestionBankDetailPageModule } from "@/modules/mentor/KaptenQuestionBankDetailPageModule";
 
 type MentorQuestionBankPageProps = {
@@ -20,12 +17,10 @@ export default async function MentorQuestionBankDetailPage({ params }: MentorQue
   const [{ bankId }, session] = await Promise.all([params, requireTutorSession()]);
   const initial = await getQuestionBankForEdit(bankId);
   if (!initial) notFound();
-  const initialCategories = await listQuestionBankCategories(initial.bank.purpose ?? "quiz");
   return (
     <KaptenQuestionBankDetailPageModule
       bankId={bankId}
       initialBank={initial.bank}
-      initialCategories={initialCategories}
       initialQuestions={initial.questions}
       initialReadiness={initial.readiness}
       session={session}

@@ -67,7 +67,7 @@ function AiRequestClassificationCard({
 
             <div className="flex items-center justify-between rounded-xl bg-white p-2.5 border border-primary-100">
               <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-amber-500" />
+                <span className="size-2 rounded-full bg-warning-500" />
                 <span className="font-semibold text-secondary-900">Pemulihan Fallback (Graceful)</span>
               </div>
               <span className="font-mono font-bold text-secondary-950">
@@ -77,7 +77,7 @@ function AiRequestClassificationCard({
 
             <div className="flex items-center justify-between rounded-xl bg-white p-2.5 border border-primary-100">
               <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-red-500" />
+                <span className="size-2 rounded-full bg-student-status-danger-bg0" />
                 <span className="font-semibold text-secondary-900">Gagal Terminal (Execution Error)</span>
               </div>
               <span className="font-mono font-bold text-secondary-950">
@@ -156,25 +156,25 @@ function AiGracefulDegradationCard({
           <div
             style={{ width: `${breakdown.alternativeModelShare * 100}%` }}
             aria-hidden="true"
-            className="bg-amber-400"
+            className="bg-warning-400"
             title="Model alternatif"
           />
           <div
             style={{ width: `${breakdown.cachedCandidateBankShare * 100}%` }}
             aria-hidden="true"
-            className="bg-teal-500"
+            className="bg-voyage-leaf"
             title="Bank kandidat tersimpan"
           />
           <div
             style={{ width: `${breakdown.staticQuestionBankShare * 100}%` }}
             aria-hidden="true"
-            className="bg-purple-500"
+            className="bg-student-status-info-fg"
             title="Bank statis"
           />
           <div
             style={{ width: `${breakdown.unrecoverableShare * 100}%` }}
             aria-hidden="true"
-            className="bg-red-500"
+            className="bg-student-status-danger-bg0"
             title="Tidak dapat dipulihkan"
           />
         </div>
@@ -187,25 +187,25 @@ function AiGracefulDegradationCard({
             </span>
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-amber-400" />
+            <span className="size-2.5 rounded-full bg-warning-400" />
             <span className="text-secondary-600">
               Alternative Model: <strong>{(breakdown.alternativeModelShare * 100).toFixed(1)}%</strong>
             </span>
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-teal-500" />
+            <span className="size-2.5 rounded-full bg-voyage-leaf" />
             <span className="text-secondary-600">
               Cached Bank: <strong>{(breakdown.cachedCandidateBankShare * 100).toFixed(1)}%</strong>
             </span>
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-purple-500" />
+            <span className="size-2.5 rounded-full bg-student-status-info-fg" />
             <span className="text-secondary-600">
               Static Bank: <strong>{(breakdown.staticQuestionBankShare * 100).toFixed(1)}%</strong>
             </span>
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-red-500" />
+            <span className="size-2.5 rounded-full bg-student-status-danger-bg0" />
             <span className="text-secondary-600">
               Gagal: <strong>{(breakdown.unrecoverableShare * 100).toFixed(1)}%</strong>
             </span>
@@ -292,7 +292,7 @@ function AiIncidentTaxonomySection({
                   <AlertCircle
                     className={cn(
                       "size-4 shrink-0",
-                      item.severity === "warning" ? "text-amber-600" : "text-primary-700",
+                      item.severity === "warning" ? "text-warning-600" : "text-primary-700",
                     )}
                   />
                   <div>
@@ -304,7 +304,7 @@ function AiIncidentTaxonomySection({
                   className={cn(
                     "rounded-full px-2.5 py-0.5 font-bold uppercase text-[10px]",
                     item.severity === "warning"
-                      ? "bg-amber-100 text-amber-800"
+                      ? "bg-warning-100 text-warning-800"
                       : "bg-primary-100 text-primary-800",
                   )}
                 >
@@ -338,7 +338,7 @@ function AiIncidentTaxonomySection({
                   <AlertCircle
                     className={cn(
                       "size-4 shrink-0",
-                      item.severity === "warning" ? "text-amber-600" : "text-primary-700",
+                      item.severity === "warning" ? "text-warning-600" : "text-primary-700",
                     )}
                   />
                   <div>
@@ -350,7 +350,7 @@ function AiIncidentTaxonomySection({
                   className={cn(
                     "rounded-full px-2.5 py-0.5 font-bold uppercase text-[10px]",
                     item.severity === "warning"
-                      ? "bg-amber-100 text-amber-800"
+                      ? "bg-warning-100 text-warning-800"
                       : "bg-primary-100 text-primary-800",
                   )}
                 >
@@ -522,8 +522,8 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
         />
 
         {error && (
-          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-            <AlertCircle className="size-5 shrink-0 text-red-600" />
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
+            <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p className="min-w-0 flex-1">{error}</p>
             <Button disabled={isLoading} onClick={() => void loadReliability()} size="default" type="button" variant="brandOutline">
               Coba lagi

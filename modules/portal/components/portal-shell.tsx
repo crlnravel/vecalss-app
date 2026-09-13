@@ -26,6 +26,7 @@ const adminSectionLabels = {
   ai: "Vera AI",
   "ai-policy": "Policy Vera AI",
   "audit-logs": "Log audit",
+  affiliators: "Affiliator",
   "ai-usage": "Pemakaian AI",
   docs: "Dokumentasi",
   kapten: "Kapten",
@@ -39,6 +40,7 @@ const adminSectionRootHrefs = {
   ai: "/admin/ai",
   "ai-policy": "/admin/ai/policies",
   "audit-logs": "/admin/audit-logs",
+  affiliators: "/admin/affiliators",
   "ai-usage": "/admin/ai/usage",
   docs: "/admin/docs",
   kapten: "/admin/kapten",
@@ -57,7 +59,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -78,7 +80,7 @@ function PortalShell({
           <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
             <header
               aria-label="Header workspace Admin"
-              className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border"
+              className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border"
             >
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
                 <SidebarTrigger

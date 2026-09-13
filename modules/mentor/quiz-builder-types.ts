@@ -4,9 +4,26 @@ export type QuizChoice = {
   text: string;
 };
 
+export type QuizQuestionSourceUpdate = {
+  choices: QuizChoice[];
+  correctChoiceId: string;
+  correctChoiceIds: string[];
+  explanation: string;
+  explanationMediaAssetId?: string;
+  prompt: string;
+  promptMediaAssetId?: string;
+  questionType?: "single_choice" | "multiple_choice";
+  sourceContentDigest: string;
+  sourceQuestionRevisionId: string;
+  sourceRevisionProvenance?: "authored" | "legacy_provable" | "legacy_synthetic" | "legacy_unknown";
+  revisionNo: number;
+};
+
 export type QuizQuestionSnapshot = {
   choices: QuizChoice[];
   correctChoiceId: string;
+  /** Canonical answer-key set. Legacy readers continue using correctChoiceId. */
+  correctChoiceIds?: string[];
   explanation: string;
   explanationMediaAssetId?: string;
   id: string;
@@ -14,10 +31,12 @@ export type QuizQuestionSnapshot = {
   origin: "bank" | "local";
   prompt: string;
   promptMediaAssetId?: string;
+  questionType?: "single_choice" | "multiple_choice";
   sourceQuestionId?: string;
   sourceQuestionRevisionId?: string;
   sourceContentDigest?: string;
   sourceRevisionProvenance?: "authored" | "legacy_provable" | "legacy_synthetic" | "legacy_unknown";
+  sourceUpdate?: QuizQuestionSourceUpdate;
 };
 
 export type QuizScorePolicy = "highest" | "latest" | "first" | "average";

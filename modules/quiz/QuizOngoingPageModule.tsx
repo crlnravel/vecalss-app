@@ -42,8 +42,6 @@ import { saveQuizAnswerAction, submitQuizAction } from "./actions";
 
 import type { QuizAttempt, QuizAttemptNavState, QuizItem } from "./data";
 
-const REPORT_DISCLOSURE = "Tanda ini hanya tersimpan sementara di halaman ini, tidak dikirim ke staf, dan terhapus saat halaman ditutup atau dimuat ulang.";
-
 function QuizOngoingPageModule({
   attempt,
   attemptId,
@@ -61,16 +59,29 @@ function QuizOngoingPageModule({
   const [textScale, setTextScale] = useState<"compact" | "default" | "large">(
     "default",
   );
-  const [currentQuestion, setCurrentQuestion] = useState(() => attempt.currentNumber);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(
-    () => Object.fromEntries(
+  const [currentQuestion, setCurrentQuestion] = useState(
+    () => attempt.currentNumber,
+  );
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<number, string[]>
+  >(() =>
+    Object.fromEntries(
       attempt.questions.flatMap((question, index) =>
-        question.selectedOptionKey ? [[index + 1, question.selectedOptionKey]] : [],
+        question.selectedOptionKeys?.length || question.selectedOptionKey
+          ? [
+              [
+                index + 1,
+                question.selectedOptionKeys?.length
+                  ? question.selectedOptionKeys
+                  : [question.selectedOptionKey!],
+              ],
+            ]
+          : [],
       ),
     ),
   );
-  const [flaggedQuestions] = useState<number[]>(
-    () => attempt.markers.reduce<number[]>((numbers, marker) => {
+  const [flaggedQuestions] = useState<number[]>(() =>
+    attempt.markers.reduce<number[]>((numbers, marker) => {
       if (marker.state === "flagged") numbers.push(marker.number);
       return numbers;
     }, []),
@@ -82,9 +93,18 @@ function QuizOngoingPageModule({
   const [savingQuestions, setSavingQuestions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const toggleAnnotation = useCallback(() => setIsAnnotationOpen((open) => !open), []);
-  const savingQuestionSet = useMemo(() => new Set(savingQuestions), [savingQuestions]);
-  const flaggedQuestionSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions]);
+  const toggleAnnotation = useCallback(
+    () => setIsAnnotationOpen((open) => !open),
+    [],
+  );
+  const savingQuestionSet = useMemo(
+    () => new Set(savingQuestions),
+    [savingQuestions],
+  );
+  const flaggedQuestionSet = useMemo(
+    () => new Set(flaggedQuestions),
+    [flaggedQuestions],
+  );
 
   const readingTextClass =
     textScale === "large"
@@ -106,10 +126,13 @@ function QuizOngoingPageModule({
     1,
   );
 
-  const currentSelectedOptionKey = selectedAnswers[currentQuestion] ?? null;
+  const currentSelectedOptionKeys = selectedAnswers[currentQuestion] ?? [];
   const currentQuizQuestion = attempt.questions[currentQuestion - 1];
   const isCurrentQuestionReported = reportedQuestions.includes(currentQuestion);
-  const unansweredCount = Math.max(0, quiz.questionCount - Object.keys(selectedAnswers).length);
+  const unansweredCount = Math.max(
+    0,
+    quiz.questionCount - Object.keys(selectedAnswers).length,
+  );
 
   function updateTextScale(direction: "smaller" | "larger") {
     setTextScale((current) => {
@@ -142,22 +165,40 @@ function QuizOngoingPageModule({
   }
 
   async function selectAnswer(optionId: string) {
-    if (!currentQuizQuestion || savingQuestionSet.has(currentQuestion) || isSubmitting) {
+    if (
+      !currentQuizQuestion ||
+      savingQuestionSet.has(currentQuestion) ||
+      isSubmitting
+    ) {
       return;
     }
-    const previousOptionId = selectedAnswers[currentQuestion];
-    setSelectedAnswers((current) => ({
-      ...current,
-      [currentQuestion]: optionId,
-    }));
+    const previousOptionIds = selectedAnswers[currentQuestion] ?? [];
+    const nextOptionIds =
+      currentQuizQuestion.questionType === "multiple_choice"
+        ? previousOptionIds.includes(optionId)
+          ? previousOptionIds.filter((id) => id !== optionId)
+          : [...previousOptionIds, optionId]
+        : [optionId];
+    setSelectedAnswers((current) => {
+      const next = { ...current };
+      if (nextOptionIds.length) next[currentQuestion] = nextOptionIds;
+      else delete next[currentQuestion];
+      return next;
+    });
     setSavingQuestions((current) => [...current, currentQuestion]);
     setMessage(null);
-    const response = await saveQuizAnswerAction(attemptId, currentQuizQuestion.id, optionId);
-    setSavingQuestions((current) => current.filter((number) => number !== currentQuestion));
+    const response = await saveQuizAnswerAction(
+      attemptId,
+      currentQuizQuestion.id,
+      nextOptionIds,
+    );
+    setSavingQuestions((current) =>
+      current.filter((number) => number !== currentQuestion),
+    );
     if (!response.ok) {
       setSelectedAnswers((current) => {
         const next = { ...current };
-        if (previousOptionId) next[currentQuestion] = previousOptionId;
+        if (previousOptionIds.length) next[currentQuestion] = previousOptionIds;
         else delete next[currentQuestion];
         return next;
       });
@@ -167,7 +208,7 @@ function QuizOngoingPageModule({
 
   async function submitQuiz() {
     if (savingQuestions.length) {
-      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim quiz.");
+      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim kuis.");
       return;
     }
     setIsSubmitting(true);
@@ -178,10 +219,16 @@ function QuizOngoingPageModule({
         setMessage(response.message);
         return;
       }
-      router.push(`/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(response.result.attemptId)}`);
+      router.push(
+        `/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(response.result.attemptId)}`,
+      );
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage(submitError instanceof Error ? submitError.message : "Quiz belum dapat dikirim.");
+      setMessage(
+        submitError instanceof Error
+          ? submitError.message
+          : "Kuis belum dapat dikirim.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -192,7 +239,7 @@ function QuizOngoingPageModule({
       attempt={attempt}
       currentQuestion={currentQuestion}
       currentQuizQuestion={currentQuizQuestion}
-      currentSelectedOptionKey={currentSelectedOptionKey}
+      currentSelectedOptionKeys={currentSelectedOptionKeys}
       flaggedQuestionSet={flaggedQuestionSet}
       message={message}
       onExit={() => router.push(`/quiz/${subjectSlug}`)}
@@ -200,7 +247,9 @@ function QuizOngoingPageModule({
       onGoToQuestion={goToQuestion}
       onSelectAnswer={selectAnswer}
       onSubmitDialogChange={setIsSubmitDialogOpen}
-      onSubmitQuiz={() => { void submitQuiz(); }}
+      onSubmitQuiz={() => {
+        void submitQuiz();
+      }}
       onToggleReport={toggleReport}
       onToggleAnnotation={toggleAnnotation}
       onUpdateTextScale={updateTextScale}
@@ -228,7 +277,7 @@ type QuizOngoingScreenProps = {
   attempt: QuizAttempt;
   currentQuestion: number;
   currentQuizQuestion: QuizAttempt["questions"][number] | undefined;
-  currentSelectedOptionKey: string | null;
+  currentSelectedOptionKeys: string[];
   flaggedQuestionSet: Set<number>;
   message: string | null;
   onExit: () => void;
@@ -243,7 +292,7 @@ type QuizOngoingScreenProps = {
   quiz: QuizItem;
   readingTextClass: string;
   savingQuestionSet: Set<number>;
-  selectedAnswers: Record<number, string>;
+  selectedAnswers: Record<number, string[]>;
   subjectTitle: string;
   textScale: "compact" | "default" | "large";
   uiTextClass: string;
@@ -262,7 +311,7 @@ function QuizOngoingScreen({
   attempt,
   currentQuestion,
   currentQuizQuestion,
-  currentSelectedOptionKey,
+  currentSelectedOptionKeys,
   flaggedQuestionSet,
   message,
   onExit,
@@ -292,7 +341,7 @@ function QuizOngoingScreen({
         ? "active"
         : flaggedQuestionSet.has(number)
           ? "flagged"
-          : selectedAnswers[number]
+          : selectedAnswers[number]?.length
             ? "answered"
             : number <= unlockedQuestionCount + 1
               ? "empty"
@@ -308,14 +357,16 @@ function QuizOngoingScreen({
           <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16">
             <section className="min-w-0">
               <div className="flex min-h-12 items-center justify-between gap-4">
-                <span className={cn("shrink-0 font-semibold", uiTextClass)}>Soal {currentQuestion}</span>
+                <span className={cn("shrink-0 font-semibold", uiTextClass)}>
+                  Soal {currentQuestion}
+                </span>
                 <div className="flex items-center gap-2">
-                  <AssessmentUtilityPill
-                    active={viewState.reported}
-                    icon={Flag}
-                    label="Tandai untuk ditinjau"
-                    onClick={onToggleReport}
-                  />
+                  {/* <AssessmentUtilityPill */}
+                  {/*   active={viewState.reported} */}
+                  {/*   icon={Flag} */}
+                  {/*   label="Tandai untuk ditinjau" */}
+                  {/*   onClick={onToggleReport} */}
+                  {/* /> */}
                   <AssessmentIconButton
                     ariaLabel="Perkecil ukuran font"
                     icon={Minus}
@@ -328,18 +379,32 @@ function QuizOngoingScreen({
                   />
                 </div>
               </div>
-              <p className="mt-2 text-xs leading-5 text-secondary-500">{REPORT_DISCLOSURE}</p>
 
-              <div className={cn("mt-7 space-y-5 font-medium text-secondary-800", readingTextClass)}>
+              <div
+                className={cn(
+                  "mt-7 space-y-5 font-medium text-secondary-800",
+                  readingTextClass,
+                )}
+              >
                 {currentQuizQuestion?.passage.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
               </div>
               <div className="mt-8">
-                <p className={cn("font-medium text-secondary-900", readingTextClass)}>
+                <p
+                  className={cn(
+                    "font-medium text-secondary-900",
+                    readingTextClass,
+                  )}
+                >
                   {currentQuizQuestion?.prompt}
                 </p>
-                <p className={cn("mt-3 font-medium text-secondary-500", uiTextClass)}>
+                <p
+                  className={cn(
+                    "mt-3 font-medium text-secondary-900",
+                    uiTextClass,
+                  )}
+                >
                   {currentQuizQuestion?.hint}
                 </p>
               </div>
@@ -348,53 +413,107 @@ function QuizOngoingScreen({
             <section className="grid gap-4">
               {currentQuizQuestion?.options.map((option) => (
                 <AssessmentAnswerOption
-                  disabled={savingQuestionSet.has(currentQuestion) || viewState.submitting}
+                  disabled={
+                    savingQuestionSet.has(currentQuestion) ||
+                    viewState.submitting
+                  }
                   key={option.key}
                   onClick={() => void onSelectAnswer(option.id)}
                   option={option}
-                  selected={option.id === currentSelectedOptionKey}
+                  selected={currentSelectedOptionKeys.includes(option.id)}
+                  selectionMode={
+                    currentQuizQuestion?.questionType === "multiple_choice"
+                      ? "multiple"
+                      : "single"
+                  }
                   textScale={textScale}
                 />
               ))}
             </section>
           </div>
-          {message ? <p aria-live="polite" className="mt-3 text-sm font-medium text-student-status-danger-fg" role="status">{message}</p> : null}
+          {message ? (
+            <p
+              aria-live="polite"
+              className="mt-3 text-sm font-medium text-student-status-danger-fg"
+              role="status"
+            >
+              {message}
+            </p>
+          ) : null}
         </div>
       }
       dialog={
         <>
-          <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
-          <AlertDialogContent variant="danger">
-            <AlertDialogHeader>
-              <AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia>
-              <AlertDialogTitle>Keluar dari Latihan?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
-                Sayang banget kan!🥲
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Kembali</AlertDialogCancel>
-              <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
+          <AlertDialog
+            onOpenChange={onExitDialogChange}
+            open={viewState.dialogOpen}
+          >
+            <AlertDialogContent variant="danger">
+              <AlertDialogHeader>
+                <AlertDialogMedia variant="danger">
+                  <AlertTriangle />
+                </AlertDialogMedia>
+                <AlertDialogTitle>Keluar dari Latihan?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar
+                  sekarang dan kembali melanjutkan sesi ini nanti.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Kembali</AlertDialogCancel>
+                <AlertDialogAction onClick={onExit} variant="destructive">
+                  Ya, Keluar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
           </AlertDialog>
-          <AlertDialog onOpenChange={onSubmitDialogChange} open={viewState.submitDialogOpen}>
-          <AlertDialogContent pending={viewState.submitting} variant="warning">
-            <AlertDialogHeader>
-              <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
-              <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan quiz ini?"}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {unansweredCount ? (
-                  <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum mengirim quiz.</>
-                ) : "Setelah dikirim, jawabanmu akan dikunci dan hasil quiz akan disiapkan."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={viewState.submitting} variant="brandOutline">Kembali</AlertDialogCancel>
-              <AlertDialogAction disabled={viewState.submitting} onClick={onSubmitQuiz} variant="destructive">{viewState.submitting ? "Mengirim…" : "Kirim"}</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
+          <AlertDialog
+            onOpenChange={onSubmitDialogChange}
+            open={viewState.submitDialogOpen}
+          >
+            <AlertDialogContent
+              pending={viewState.submitting}
+              variant="warning"
+            >
+              <AlertDialogHeader>
+                <AlertDialogMedia variant="warning">
+                  <AlertTriangle />
+                </AlertDialogMedia>
+                <AlertDialogTitle>
+                  {unansweredCount
+                    ? "Masih ada soal yang belum terjawab"
+                    : "Selesaikan kuis ini?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {unansweredCount ? (
+                    <>
+                      Kamu masih memiliki{" "}
+                      <strong className="text-secondary-900">
+                        {unansweredCount} soal belum terjawab
+                      </strong>
+                      . Periksa kembali sebelum mengirim kuis.
+                    </>
+                  ) : (
+                    "Setelah dikirim, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  disabled={viewState.submitting}
+                  variant="brandOutline"
+                >
+                  Kembali
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={viewState.submitting}
+                  onClick={onSubmitQuiz}
+                  variant="destructive"
+                >
+                  {viewState.submitting ? "Mengirim…" : "Kirim"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
           </AlertDialog>
         </>
       }
@@ -411,50 +530,58 @@ function QuizOngoingScreen({
       }
       footer={
         <AssessmentNavigationFooter>
+          <Button
+            aria-label="Soal sebelumnya"
+            className="h-12 w-full justify-center"
+            disabled={currentQuestion === 1}
+            onClick={() => onGoToQuestion(currentQuestion - 1)}
+            size="lg"
+            variant="brandOutline"
+          >
+            <ChevronLeft />
+            <span className="sr-only">Sebelumnya</span>
+          </Button>
+          <button
+            aria-label="Coretan (sementara dinonaktifkan)"
+            className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60"
+            disabled
+            title="Coretan sementara dinonaktifkan"
+            type="button"
+          >
+            <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
+              <PenTool className="size-6" />
+            </span>
+          </button>
+          {currentQuestion === quiz.questionCount ? (
             <Button
-              aria-label="Soal sebelumnya"
+              aria-label="Selesai"
               className="h-12 w-full justify-center"
-              disabled={currentQuestion === 1}
-              onClick={() => onGoToQuestion(currentQuestion - 1)}
+              disabled={viewState.submitting || savingQuestionSet.size > 0}
+              onClick={() => onSubmitDialogChange(true)}
               size="lg"
-              variant="brandOutline"
+              variant="brand"
             >
-              <ChevronLeft />
-              <span className="sr-only">Sebelumnya</span>
+              Selesai
             </Button>
-            <button
-              aria-label="Coretan (sementara dinonaktifkan)"
-              className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60"
-              disabled
-              title="Coretan sementara dinonaktifkan"
-              type="button"
+          ) : (
+            <Button
+              aria-label="Soal selanjutnya"
+              className="h-12 w-full justify-center"
+              onClick={() => onGoToQuestion(currentQuestion + 1)}
+              size="lg"
+              variant="brand"
             >
-              <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
-                <PenTool className="size-6" />
-              </span>
-            </button>
-            {currentQuestion === quiz.questionCount ? (
-              <Button
-                aria-label="Selesai"
-                className="h-12 w-full justify-center"
-                disabled={viewState.submitting || savingQuestionSet.size > 0}
-                onClick={() => onSubmitDialogChange(true)}
-                size="lg"
-                variant="brand"
-              >
-                Selesai
-              </Button>
-            ) : (
-              <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg" variant="brand">
-                <span className="sr-only">Selanjutnya</span>
-                <ChevronRight />
-              </Button>
-            )}
+              <span className="sr-only">Selanjutnya</span>
+              <ChevronRight />
+            </Button>
+          )}
         </AssessmentNavigationFooter>
       }
       header={
         <div className="relative flex min-h-20 items-center justify-center bg-white px-12 py-2 sm:min-h-20 sm:px-16">
-          <h2 className="sr-only">{quiz.title} · {subjectTitle}</h2>
+          <h2 className="sr-only">
+            {quiz.title} · {subjectTitle}
+          </h2>
           <div className="scale-75">
             <BrandLockup />
           </div>
@@ -466,7 +593,10 @@ function QuizOngoingScreen({
         </div>
       }
       annotation={
-        <AssessmentAnnotationOverlay onClose={onToggleAnnotation} open={viewState.annotationOpen} />
+        <AssessmentAnnotationOverlay
+          onClose={onToggleAnnotation}
+          open={viewState.annotationOpen}
+        />
       }
       navigation={
         <AssessmentQuestionNavigation

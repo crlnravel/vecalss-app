@@ -42,7 +42,7 @@ function FullWidthLineTabsTrigger({
     <TabsTrigger
       className={cn(
         "!h-11 min-w-0 rounded-none px-3 py-2 text-xs font-medium text-voyage-muted-ink hover:text-voyage-ink sm:text-sm",
-        "data-active:bg-voyage-sea-glass-wash data-active:text-voyage-deep data-active:shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)] after:bg-voyage-deep",
+        "data-active:bg-voyage-sea-glass-wash data-active:text-voyage-deep data-active:shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] after:bg-voyage-deep",
         "focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45 focus-visible:outline-voyage-leaf",
         "motion-reduce:transition-none",
         className,

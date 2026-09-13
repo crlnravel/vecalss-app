@@ -6,12 +6,15 @@ import {
   buildMentorTryoutHref,
   buildMentorTryoutOperationsHref,
   canonicalContextMessage,
+  getSafeRedirectUrl,
   parseMentorTryoutAttemptContext,
   type CanonicalContextIssue,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryoutAttemptDetailPageModule";
+import { TryoutLifecycleMenu } from "@/modules/mentor/KaptenTryoutWorkspaceHeader";
+import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Detail Attempt Tryout | Vecalss LMS" };
@@ -44,7 +47,7 @@ export default async function TryoutAttemptDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published") redirect(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }));
+  if (operations.status !== "published") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
   const delivery = operations.sessions.find((candidate) => candidate.attempts.some((attempt) => attempt.id === attemptId));
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();
@@ -66,7 +69,7 @@ export default async function TryoutAttemptDetailPage({
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
-      breadcrumbLabel="Detail Attempt"
+      breadcrumbLabel="Detail"
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
@@ -74,11 +77,21 @@ export default async function TryoutAttemptDetailPage({
       showSearch={false}
       sidebarAppearance="reference"
     >
-      <KaptenTryoutAttemptDetailPageModule
-        attemptId={attemptId}
-        backHref={backHref}
+      <KaptenTryoutWorkspaceFrame
+        actions={
+          <TryoutLifecycleMenu
+            allowDuplicate={operations.status === "published"}
+            hasActiveAttempt={operations.attempts.some((candidate) => candidate.attemptState === "in_progress" || candidate.status === "in_progress")}
+            status={operations.status}
+            tryoutId={tryoutId}
+          />
+        }
+        activeTab="operations"
         initial={operations}
-      />
+        parentId={parsedQuery.parent}
+      >
+        <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} embedded initial={operations} />
+      </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );
 }

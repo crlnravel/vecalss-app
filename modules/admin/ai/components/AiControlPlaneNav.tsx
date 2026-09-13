@@ -25,22 +25,19 @@ const TABS: Array<{
   { id: "policies", label: "Policy", href: "/admin/ai/policies", icon: ShieldCheck },
 ];
 
+function resolveActiveTab(pathname: string, activeTab?: AiControlPlaneTab) {
+  if (activeTab) return activeTab;
+  if (pathname === "/admin/ai") return "overview";
+  if (pathname.startsWith("/admin/ai/usage")) return "usage";
+  if (pathname.startsWith("/admin/ai/reliability")) return "reliability";
+  if (pathname.startsWith("/admin/ai/providers")) return "providers";
+  if (pathname.startsWith("/admin/ai/policies")) return "policies";
+  return "overview";
+}
+
 export function AiControlPlaneNav({ activeTab }: { activeTab?: AiControlPlaneTab }) {
   const pathname = usePathname();
-
-  const currentTab =
-    activeTab ??
-    (pathname === "/admin/ai"
-      ? "overview"
-      : pathname.startsWith("/admin/ai/usage")
-      ? "usage"
-      : pathname.startsWith("/admin/ai/reliability")
-      ? "reliability"
-      : pathname.startsWith("/admin/ai/providers")
-      ? "providers"
-      : pathname.startsWith("/admin/ai/policies")
-      ? "policies"
-      : "overview");
+  const currentTab = resolveActiveTab(pathname, activeTab);
 
   return (
     <nav

@@ -6,7 +6,10 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 
 import { ReferenceEmptyState } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,6 +27,7 @@ import { DataTable, type DataTableColumn, type DataTableFilter } from "@/compone
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { StudentBadge } from "@/components/ui/student-badge";
 import type { UserStatus } from "@/generated/prisma/client";
 import { ChevronRight, UserRound, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
@@ -34,6 +38,7 @@ import { SubmitButton } from "@/modules/auth/components/submit-button";
 
 import { CopyValueButton } from "./copy-value-button";
 import { StudentAccountActions } from "./student-account-actions";
+import { formatStudentStatus, type StudentStatusTone } from "../student-status";
 
 type StudentPreviewHandoff = {
   expiresAt: string | null;
@@ -58,22 +63,11 @@ type StudentDirectoryItem = {
   tone: StudentStatusTone;
 };
 
-type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
-
 const studentDirectoryDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   year: "numeric",
 });
-
-function formatStatus(status: string) {
-  return {
-    active: "Aktif",
-    disabled: "Dinonaktifkan",
-    locked: "Terkunci",
-    soft_deleted: "Dihapus sementara",
-  }[status] ?? status.replaceAll("_", " ");
-}
 
 function highlightSearchMatches(text: string, query: string): ReactNode {
   const normalizedQuery = query.trim();
@@ -112,38 +106,6 @@ function highlightSearchMatches(text: string, query: string): ReactNode {
   }
 
   return parts;
-}
-
-function statusTextClassName(tone: StudentStatusTone) {
-  if (tone === "danger") {
-    return "text-student-status-danger-fg";
-  }
-
-  if (tone === "attention") {
-    return "text-student-status-attention-fg";
-  }
-
-  if (tone === "success") {
-    return "text-student-status-success-fg";
-  }
-
-  return "text-secondary-600";
-}
-
-function statusDotClassName(tone: StudentStatusTone) {
-  if (tone === "danger") {
-    return "bg-student-status-danger-fg";
-  }
-
-  if (tone === "attention") {
-    return "bg-student-status-attention-fg";
-  }
-
-  if (tone === "success") {
-    return "bg-student-status-success-fg";
-  }
-
-  return "bg-secondary-300";
 }
 
 function formatCreatedDate(value: string) {
@@ -515,7 +477,10 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(18rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
+          className={cn(
+            REFERENCE_SURFACE_CLASS_NAMES.raised,
+            "w-[min(18rem,calc(100vw-2rem))] gap-3 p-3",
+          )}
           side="left"
           sideOffset={6}
         >
@@ -537,7 +502,7 @@ function StudentFilterPanel({
                         : current.filter((selectedStatus) => selectedStatus !== status));
                     }}
                   />
-                  <span>{formatStatus(status)}</span>
+                  <span>{formatStudentStatus(status)}</span>
                   {draftStatuses.includes(status) ? <input name="status" type="hidden" value={status} /> : null}
                 </label>
               ))}
@@ -581,7 +546,10 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
+          className={cn(
+            REFERENCE_SURFACE_CLASS_NAMES.raised,
+            "w-[min(20rem,calc(100vw-2rem))] gap-3 p-3",
+          )}
           side="left"
           sideOffset={6}
         >
@@ -610,6 +578,29 @@ function StudentFilterPanel({
       </Popover>
     </fieldset>
   );
+}
+
+function buildStudentDirectoryFilters({
+  addedFrom,
+  addedTo,
+  clearDateHref,
+  clearStatusHref,
+  statusFilters,
+}: {
+  addedFrom: string | null;
+  addedTo: string | null;
+  clearDateHref: string;
+  clearStatusHref: string;
+  statusFilters: UserStatus[];
+}) {
+  const filters: DataTableFilter[] = [];
+  if (statusFilters.length) {
+    filters.push({ href: clearStatusHref, id: "status", label: "Status", value: statusFilters.map(formatStudentStatus).join(" or ") });
+  }
+  if (addedFrom || addedTo) {
+    filters.push({ href: clearDateHref, id: "added", label: "Ditambahkan", value: formatDateFilter(addedFrom, addedTo) });
+  }
+  return filters;
 }
 
 function StudentDirectoryTable({
@@ -646,25 +637,7 @@ function StudentDirectoryTable({
   const clearStatusHref = directoryHref({ addedFrom, addedTo, direction, demo, pageSize, search, sort, statuses: [] });
   const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search, sort, statuses: statusFilters });
   const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search: "", sort, statuses: [] });
-  const filters: DataTableFilter[] = [];
-
-  if (statusFilters.length) {
-    filters.push({
-      href: clearStatusHref,
-      id: "status",
-      label: "Status",
-      value: statusFilters.map(formatStatus).join(" or "),
-    });
-  }
-
-  if (addedFrom || addedTo) {
-    filters.push({
-      href: clearDateHref,
-      id: "added",
-       label: "Ditambahkan",
-      value: formatDateFilter(addedFrom, addedTo),
-    });
-  }
+  const filters = buildStudentDirectoryFilters({ addedFrom, addedTo, clearDateHref, clearStatusHref, statusFilters });
 
   const columns: DataTableColumn<StudentDirectoryItem>[] = [
     {
@@ -681,12 +654,12 @@ function StudentDirectoryTable({
           </span>
         </span>
       ),
-      headerClassName: "w-[28%]",
+      headerClassName: "w-[26%]",
       hideable: false,
       id: "student",
        label: "Siswa",
       sortKey: "student",
-      width: 28,
+      width: 26,
     },
     {
       cell: (student) => (
@@ -694,11 +667,11 @@ function StudentDirectoryTable({
           {highlightSearchMatches(student.email, search)}
         </span>
       ),
-      headerClassName: "w-[28%]",
+      headerClassName: "w-[25%]",
       id: "email",
       label: "Email",
       sortKey: "email",
-      width: 28,
+      width: 25,
     },
     {
       cell: (student) => <time dateTime={student.createdAt}>{formatCreatedDate(student.createdAt)}</time>,
@@ -711,16 +684,15 @@ function StudentDirectoryTable({
     },
     {
       cell: (student) => (
-        <span className={cn("inline-flex items-center gap-2 font-semibold capitalize", statusTextClassName(student.tone))}>
-          {student.tone !== "success" ? <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(student.tone))} /> : null}
-          {formatStatus(student.status)}
-        </span>
+        <StudentBadge depth="sunken" size="sm" tone={student.tone}>
+          {formatStudentStatus(student.status)}
+        </StudentBadge>
       ),
-      headerClassName: "w-[17%]",
+      headerClassName: "w-[22%]",
       id: "status",
       label: "Status",
       sortKey: "status",
-      width: 17,
+      width: 22,
     },
     {
       cell: (student) => {
@@ -787,7 +759,7 @@ function StudentDirectoryTable({
         getRowId={(student) => student.id}
         onRowClick={demo ? undefined : setPreviewStudent}
         rowClassName={(student) => cn(
-          focus === student.id && "bg-primary-50/70 shadow-[inset_0_0_0_2px_rgba(26,107,60,0.18)]",
+          focus === student.id && "bg-primary-50/70 shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--voyage-leaf)_18%,transparent)]",
         )}
         rowProps={(student) => ({
           "data-directory-query": dataQuery,

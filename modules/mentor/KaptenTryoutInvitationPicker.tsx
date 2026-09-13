@@ -13,6 +13,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Check, CircleAlert, LoaderCircle, Search, SendHorizontal, UserPlus } from "@/lib/icons";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { InvitationPickerStudent } from "@/lib/tryout/invitation-picker";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
 import {
@@ -181,7 +182,7 @@ function StudentSearchSection({
             Mencari peserta…
           </div>
         ) : searchState === "error" ? (
-          <Alert className="border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]" role="alert">
+          <Alert className="border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]" role="alert">
             <CircleAlert aria-hidden="true" />
             <AlertTitle>Pencarian gagal</AlertTitle>
             <AlertDescription>{searchError}</AlertDescription>
@@ -229,6 +230,46 @@ function StudentSearchSection({
   );
 }
 
+function InvitationSelectedStudent({ selectedStudent }: { selectedStudent: InvitationPickerStudent | null }) {
+  return selectedStudent ? (
+    <div className="grid min-w-0 gap-2 rounded-2xl border border-primary-100 bg-primary-50/60 p-3" role="status">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Student terpilih</p>
+          <p className="mt-1 break-words font-semibold text-secondary-900">{selectedStudent.displayName}</p>
+        </div>
+        <MentorBadge className="shrink-0" size="sm" tone={selectedStudent.admission?.status === "active" ? "success" : "attention"}>
+          {selectedStudent.admission ? admissionLabel(selectedStudent.admission.status) : "Baru"}
+        </MentorBadge>
+      </div>
+      <p className="text-xs leading-5 text-secondary-600">Pilihan sesi dan alasan audit akan dikirim bersama student ID ini.</p>
+    </div>
+  ) : (
+    <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-3 py-4 text-sm leading-6 text-secondary-600">Pilih satu student dari hasil pencarian untuk melanjutkan.</div>
+  );
+}
+
+function InvitationFeedback({ feedback }: { feedback: { message: string; tone: "error" | "success" } | null }) {
+  if (!feedback) return null;
+  const isError = feedback.tone === "error";
+  return (
+    <Alert className={isError ? "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]" : "border-primary-200 bg-primary-50 text-primary-950"} role={isError ? "alert" : "status"}>
+      {isError ? <CircleAlert aria-hidden="true" /> : <Check aria-hidden="true" />}
+      <AlertTitle>{isError ? "Undangan belum selesai" : "Undangan berhasil"}</AlertTitle>
+      <AlertDescription>{feedback.message}</AlertDescription>
+    </Alert>
+  );
+}
+
+function InvitationSubmitButton({ busy, disabled, onSubmit }: { busy: boolean; disabled: boolean; onSubmit: () => void }) {
+  return (
+    <Button className="min-h-11 w-full" disabled={busy || disabled} onClick={onSubmit} type="button" variant="reference">
+      {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : <SendHorizontal aria-hidden="true" />}
+      {busy ? "Memproses undangan…" : "Kirim undangan"}
+    </Button>
+  );
+}
+
 function InvitationDetailCard({
   availableSessions,
   busy,
@@ -256,26 +297,7 @@ function InvitationDetailCard({
         <CardTitle className="font-semibold">Detail undangan</CardTitle>
       </CardHeader>
       <CardContent className="grid min-w-0 gap-4">
-        {selectedStudent ? (
-          <div className="grid min-w-0 gap-2 rounded-2xl border border-primary-100 bg-primary-50/60 p-3" role="status">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Student terpilih</p>
-                <p className="mt-1 break-words font-semibold text-secondary-900">{selectedStudent.displayName}</p>
-              </div>
-              <MentorBadge
-                className="shrink-0"
-                size="sm"
-                tone={selectedStudent.admission?.status === "active" ? "success" : "attention"}
-              >
-                {selectedStudent.admission ? admissionLabel(selectedStudent.admission.status) : "Baru"}
-              </MentorBadge>
-            </div>
-            <p className="text-xs leading-5 text-secondary-600">Pilihan sesi dan alasan audit akan dikirim bersama student ID ini.</p>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-3 py-4 text-sm leading-6 text-secondary-600">Pilih satu student dari hasil pencarian untuk melanjutkan.</div>
-        )}
+        <InvitationSelectedStudent selectedStudent={selectedStudent} />
 
         <Field>
           <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={sessionInputId}>Sesi Tryout</FieldLabel>
@@ -315,24 +337,8 @@ function InvitationDetailCard({
           <p className="text-xs leading-5 text-secondary-500" id={`${reasonInputId}-hint`}>Catatan ini tersimpan di audit log dan wajib diisi.</p>
         </Field>
 
-        {feedback ? (
-          <Alert className={feedback.tone === "success" ? "border-primary-200 bg-primary-50 text-primary-950" : "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]"} role={feedback.tone === "error" ? "alert" : "status"}>
-            {feedback.tone === "error" ? <CircleAlert aria-hidden="true" /> : <Check aria-hidden="true" />}
-            <AlertTitle>{feedback.tone === "error" ? "Undangan belum selesai" : "Undangan berhasil"}</AlertTitle>
-            <AlertDescription>{feedback.message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <Button
-          className="min-h-11 w-full"
-          disabled={busy || !selectedStudent || !effectiveSelectedSessionId || !reason.trim()}
-          onClick={onSubmit}
-          type="button"
-          variant="reference"
-        >
-          {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : <SendHorizontal aria-hidden="true" />}
-          {busy ? "Memproses undangan…" : "Kirim undangan"}
-        </Button>
+        <InvitationFeedback feedback={feedback} />
+        <InvitationSubmitButton disabled={!selectedStudent || !effectiveSelectedSessionId || !reason.trim()} busy={busy} onSubmit={onSubmit} />
       </CardContent>
     </Card>
   );
@@ -366,7 +372,8 @@ function KaptenTryoutInvitationPicker({
   const [currentTime] = useState(() => Date.now());
 
   const availableSessions = useMemo(() => {
-    return sessions.filter((session) => selectedSessionIsAvailable(session, currentTime));
+    const mainSession = selectMainTryoutSession(sessions);
+    return mainSession && selectedSessionIsAvailable(mainSession, currentTime) ? [mainSession] : [];
   }, [currentTime, sessions]);
 
   const effectiveSelectedSessionId = availableSessions.some((session) => session.id === selectedSessionId)
@@ -472,7 +479,7 @@ function KaptenTryoutInvitationPicker({
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-secondary-900" id="tryout-invitation-picker-title">Undang peserta</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
-            Cari akun student berdasarkan nama tampilan, pilih sesi yang tersedia, lalu catat alasan audit sebelum mengirim undangan.
+            Cari akun student berdasarkan nama tampilan, gunakan sesi utama yang sedang terbuka, lalu catat alasan audit sebelum mengirim undangan.
           </p>
         </div>
       </header>

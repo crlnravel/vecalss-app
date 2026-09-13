@@ -18,6 +18,7 @@ import { AddStudentDialog } from "./components/add-student-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
 import { StudentPageSizeSelect } from "./components/student-page-size-select";
 import { StudentDirectoryTable } from "./components/student-directory-table";
+import { studentStatusTone } from "./student-status";
 
 export type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "id" | "lastLoginAt" | "mustChangePassword" | "status"> & {
   enrollmentHandoffs: Pick<EnrollmentHandoff, "expiresAt" | "method" | "status">[];
@@ -30,24 +31,6 @@ export type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "i
   }) | null;
   temporary?: boolean;
 };
-type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
-
-function statusTone(status: UserStatus): StudentStatusTone {
-  if (status === "active") {
-    return "success";
-  }
-
-  if (status === "disabled" || status === "soft_deleted") {
-    return "danger";
-  }
-
-  if (status === "locked") {
-    return "attention";
-  }
-
-  return "neutral";
-}
-
 const noticeMessages: Record<string, string> = {
   "student-deactivated": "Akses siswa dinonaktifkan dan sesi aktif telah dicabut.",
   "student-deleted": "Akun siswa dihapus.",
@@ -102,6 +85,169 @@ function withDemoQuery(query: string, demo: boolean) {
   return `${query}${query ? "&" : "?"}demo=1`;
 }
 
+function toStudentDirectoryRow(student: EnrolledStudent) {
+  const latestHandoff = student.enrollmentHandoffs[0] ?? null;
+  const profile = student.studentProfile;
+  return {
+    createdAt: student.createdAt.toISOString(),
+    email: student.email,
+    fullName: student.fullName,
+    id: student.id,
+    lastLoginAt: student.lastLoginAt?.toISOString() ?? null,
+    latestHandoff: latestHandoff
+      ? { expiresAt: latestHandoff.expiresAt?.toISOString() ?? null, method: latestHandoff.method, status: latestHandoff.status }
+      : null,
+    mustChangePassword: student.mustChangePassword,
+    onboardingStatus: profile?.onboardingStatus ?? null,
+    targetExamDate: profile?.targetExamEvent?.examDate?.toISOString() ?? null,
+    targetExamName: profile?.targetExamEvent?.name ?? null,
+    targetMajor: profile?.targetMajor?.name ?? null,
+    targetUniversity: profile?.targetUniversity?.shortName
+      ?? profile?.targetUniversity?.name
+      ?? profile?.targetMajor?.university.shortName
+      ?? profile?.targetMajor?.university.name
+      ?? null,
+    status: student.status,
+    tone: studentStatusTone(student.status),
+  };
+}
+
+function DirectoryPagination({
+  page,
+  pageCount,
+  pageHref,
+  paginationItems,
+}: {
+  page: number;
+  pageCount: number;
+  pageHref: (page: number) => string;
+  paginationItems: PaginationItem[];
+}) {
+  if (pageCount <= 1) return null;
+
+  return (
+    <nav aria-label="Halaman direktori siswa" className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} dari {pageCount}</span>
+      <div className="flex min-w-0 items-center gap-0.5">
+        {page > 1 ? <Link aria-label="Halaman direktori siswa sebelumnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
+        <ol className="flex items-center gap-0.5">
+          {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
+            <li key={item}><span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>
+          ) : (
+            <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: item === page ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800" : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800", size: "icon-sm", variant: item === page ? "brand" : "ghost" })} href={pageHref(item)}>{item}</Link></li>
+          ))}
+        </ol>
+        {page < pageCount ? <Link aria-label="Halaman direktori siswa berikutnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
+      </div>
+    </nav>
+  );
+}
+
+function EnrollmentNotices({
+  demo,
+  error,
+  notice,
+}: {
+  demo: boolean;
+  error?: string | null;
+  notice?: string | null;
+}) {
+  return (
+    <>
+      {notice ? (
+        <div id="student-directory-notice" tabIndex={-1}>
+          <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice>
+        </div>
+      ) : null}
+      {demo ? (
+        <FormNotice compact tone="neutral">
+          Data demo sementara sedang aktif. Hapus <code className="font-semibold">demo=1</code> dari URL untuk kembali ke data siswa aktif.
+        </FormNotice>
+      ) : null}
+      {error ? (
+        <FormNotice label={error === "invalid-directory-query" ? "Perlu perhatian" : undefined} tone="danger">
+          {errorMessages[error] ?? error}
+        </FormNotice>
+      ) : null}
+    </>
+  );
+}
+
+function EnrollmentDirectorySurface({
+  addedFrom,
+  addedTo,
+  backQuery,
+  demo,
+  direction,
+  directoryQuery,
+  focus,
+  isEmptyDirectory,
+  page,
+  pageCount,
+  pageHref,
+  pageSize,
+  paginationItems,
+  search,
+  sort,
+  statusFilters,
+  students,
+  total,
+  visibleEnd,
+  visibleStart,
+}: {
+  addedFrom: string | null;
+  addedTo: string | null;
+  backQuery: string;
+  demo: boolean;
+  direction: DirectorySortDirection;
+  directoryQuery: string;
+  focus?: string | null;
+  isEmptyDirectory: boolean;
+  page: number;
+  pageCount: number;
+  pageHref: (page: number) => string;
+  pageSize: DirectoryPageSize;
+  paginationItems: PaginationItem[];
+  search: string;
+  sort: DirectorySortKey | null;
+  statusFilters: UserStatus[];
+  students: EnrolledStudent[];
+  total: number;
+  visibleEnd: number;
+  visibleStart: number;
+}) {
+  return (
+    <ReferenceSurface as="section" aria-label="Direktori siswa" className="overflow-hidden">
+      <StudentDirectoryTable
+        backQuery={backQuery}
+        dataQuery={directoryQuery}
+        direction={direction}
+        focus={focus ?? null}
+        isEmptyDirectory={isEmptyDirectory}
+        key={directoryQuery}
+        search={search}
+        sort={sort}
+        addedFrom={addedFrom}
+        addedTo={addedTo}
+        demo={demo}
+        pageSize={pageSize}
+        statusFilters={statusFilters}
+        students={students.map(toStudentDirectoryRow)}
+      />
+
+      <div className="flex flex-col gap-3 border-t border-primary-100/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="text-xs tabular-nums text-secondary-600">
+            <span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}
+          </p>
+          <StudentPageSizeSelect pageSize={pageSize} query={backQuery} />
+        </div>
+        <DirectoryPagination page={page} pageCount={pageCount} pageHref={pageHref} paginationItems={paginationItems} />
+      </div>
+    </ReferenceSurface>
+  );
+}
+
 function EnrollmentPageModule({
   examEvents,
   error,
@@ -154,7 +300,7 @@ function EnrollmentPageModule({
     <PortalShell
       activeAdminSection="students"
       audience="admin"
-       description="Telusuri akun siswa dan buka salah satunya untuk mengelola akses atau handoff enrollment."
+       description="Telusuri akun siswa dan buka salah satunya untuk mengelola akses atau serah-terima pendaftaran."
       session={session}
        title="Siswa"
     >
@@ -176,119 +322,30 @@ function EnrollmentPageModule({
         <p aria-live="polite" className="sr-only" id="student-directory-announcement">
            {focus ? "Kembali ke baris siswa yang dipilih di direktori." : ""}
         </p>
-        {notice ? (
-          <div id="student-directory-notice" tabIndex={-1}>
-            <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice>
-          </div>
-        ) : null}
-        {demo ? (
-          <FormNotice compact tone="neutral">
-             Data demo sementara sedang aktif. Hapus <code className="font-semibold">demo=1</code> dari URL untuk kembali ke data siswa aktif.
-          </FormNotice>
-        ) : null}
-        {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
+        <EnrollmentNotices demo={demo} error={error} notice={notice} />
 
-           <ReferenceSurface as="section" aria-label="Direktori siswa" className="overflow-hidden">
-          <StudentDirectoryTable
-            backQuery={backQuery}
-            dataQuery={directoryQuery}
-            focus={focus ?? null}
-            isEmptyDirectory={isEmptyDirectory}
-            key={directoryQuery}
-            search={search}
-            sort={sort}
-            direction={direction}
-            addedFrom={addedFrom}
-            addedTo={addedTo}
-            demo={demo}
-            pageSize={pageSize}
-            statusFilters={statusFilters}
-            students={students.map((student) => {
-              const latestHandoff = student.enrollmentHandoffs[0] ?? null;
-              const profile = student.studentProfile;
-
-              return {
-                createdAt: student.createdAt.toISOString(),
-                email: student.email,
-                fullName: student.fullName,
-                id: student.id,
-                lastLoginAt: student.lastLoginAt?.toISOString() ?? null,
-                latestHandoff: latestHandoff
-                  ? {
-                      expiresAt: latestHandoff.expiresAt?.toISOString() ?? null,
-                      method: latestHandoff.method,
-                      status: latestHandoff.status,
-                    }
-                  : null,
-                mustChangePassword: student.mustChangePassword,
-                onboardingStatus: profile?.onboardingStatus ?? null,
-                targetExamDate: profile?.targetExamEvent?.examDate?.toISOString() ?? null,
-                targetExamName: profile?.targetExamEvent?.name ?? null,
-                targetMajor: profile?.targetMajor?.name ?? null,
-                targetUniversity: profile?.targetUniversity?.shortName
-                  ?? profile?.targetUniversity?.name
-                  ?? profile?.targetMajor?.university.shortName
-                  ?? profile?.targetMajor?.university.name
-                  ?? null,
-                status: student.status,
-                tone: statusTone(student.status),
-              };
-            })}
-          />
-
-          <div className="flex flex-col gap-3 border-t border-primary-100/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="text-xs tabular-nums text-secondary-600">
-                <span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}
-              </p>
-              <StudentPageSizeSelect pageSize={pageSize} query={backQuery} />
-            </div>
-            {pageCount > 1 ? (
-              <nav aria-label="Halaman direktori siswa" className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
-                <div className="flex min-w-0 items-center gap-0.5">
-                  {page > 1 ? (
-                    <Link aria-label="Halaman direktori siswa sebelumnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>
-                      <ChevronLeft aria-hidden="true" size={16} />
-                    </Link>
-                  ) : null}
-                  <ol className="flex items-center gap-0.5">
-                    {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
-                      <li key={item}>
-                        <span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400">
-                          <MoreHorizontal size={16} />
-                        </span>
-                        <span className="sr-only">Halaman lainnya</span>
-                      </li>
-                    ) : (
-                      <li key={item}>
-                        <Link
-                          aria-current={item === page ? "page" : undefined}
-                          aria-label={`Buka halaman ${item}`}
-                          className={buttonVariants({
-                            className: item === page
-                              ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800"
-                              : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800",
-                            size: "icon-sm",
-                            variant: item === page ? "brand" : "ghost",
-                          })}
-                          href={pageHref(item)}
-                        >
-                          {item}
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                  {page < pageCount ? (
-                    <Link aria-label="Halaman direktori siswa berikutnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}>
-                      <ChevronRight aria-hidden="true" size={16} />
-                    </Link>
-                  ) : null}
-                </div>
-              </nav>
-            ) : null}
-          </div>
-        </ReferenceSurface>
+        <EnrollmentDirectorySurface
+          addedFrom={addedFrom}
+          addedTo={addedTo}
+          backQuery={backQuery}
+          demo={demo}
+          direction={direction}
+          directoryQuery={directoryQuery}
+          focus={focus}
+          isEmptyDirectory={isEmptyDirectory}
+          page={page}
+          pageCount={pageCount}
+          pageHref={pageHref}
+          pageSize={pageSize}
+          paginationItems={paginationItems}
+          search={search}
+          sort={sort}
+          statusFilters={statusFilters}
+          students={students}
+          total={total}
+          visibleEnd={visibleEnd}
+          visibleStart={visibleStart}
+        />
       </div>
     </PortalShell>
   );

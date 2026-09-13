@@ -4,13 +4,16 @@ import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
+  acceptStandaloneQuizQuestionUpdate,
   bulkPublishStandaloneQuizzes,
   bulkUnpublishStandaloneQuizzes,
+  getMentorStandaloneQuiz,
   importStandaloneQuizBankQuestions,
   QuizValidationError,
   saveStandaloneQuiz,
   transitionStandaloneQuizSourceMode,
   updateStandaloneQuizLifecycle,
+  type AcceptStandaloneQuizQuestionUpdateInput,
   type TransitionStandaloneQuizSourceModeInput,
   type SaveStandaloneQuizInput,
 } from "@/lib/quiz/repository";
@@ -27,13 +30,35 @@ async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {
   const session = await requireTutorSession();
   try {
     const quiz = await saveStandaloneQuiz(input, session.user.id);
+    const refreshed = await getMentorStandaloneQuiz(quiz.id, session.user.id);
+    if (!refreshed)
+      throw new Error("Saved quiz could not be loaded.");
     revalidateQuizPaths();
     revalidatePath(`/mentor/quiz/${quiz.id}`);
-    return { ok: true as const, quiz };
+    return {
+      ok: true as const,
+      quiz: refreshed.quiz,
+      questions: refreshed.questions,
+    };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
     console.error("Standalone quiz mutation failed", error);
     return { message: "Quiz tidak dapat disimpan saat ini. Coba lagi.", ok: false as const };
+  }
+}
+
+async function acceptStandaloneQuizQuestionUpdateAction(input: AcceptStandaloneQuizQuestionUpdateInput) {
+  const session = await requireTutorSession();
+  try {
+    const result = await acceptStandaloneQuizQuestionUpdate(input, session.user.id);
+    revalidateQuizPaths();
+    revalidatePath(`/mentor/quiz/${input.quizId}`);
+    revalidatePath(`/mentor/quiz/${input.quizId}/editor`);
+    return { ok: true as const, ...result };
+  } catch (error) {
+    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
+    console.error("Standalone quiz question update acceptance failed", error);
+    return { message: "Revisi soal tidak dapat diterapkan saat ini. Coba lagi.", ok: false as const };
   }
 }
 
@@ -108,6 +133,7 @@ async function updateStandaloneQuizLifecycleAction(id: string, operation: "archi
 }
 
 export {
+  acceptStandaloneQuizQuestionUpdateAction,
   bulkPublishStandaloneQuizzesAction,
   bulkUnpublishStandaloneQuizzesAction,
   importStandaloneQuizBankQuestionsAction,

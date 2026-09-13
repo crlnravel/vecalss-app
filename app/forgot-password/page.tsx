@@ -10,6 +10,8 @@ export default async function ForgotPasswordPage({
     ? "admin"
     : resolvedSearchParams.audience === "tutor"
       ? "tutor"
+      : resolvedSearchParams.audience === "affiliator"
+        ? "affiliator"
       : "student";
   const defaultEmail = typeof resolvedSearchParams.email === "string"
     ? resolvedSearchParams.email

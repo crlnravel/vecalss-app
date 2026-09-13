@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { requireStudentSession } from "@/lib/auth/access";
 import { prisma } from "@/lib/prisma";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
-import { getPublishedStudentBannerContents } from "@/lib/student/banner-repository";
+import { getPublishedStudentBannerPresentation } from "@/lib/student/banner-reader";
 import { DashboardPageModule } from "@/modules/dashboard/DashboardPageModule";
 
 export default async function DashboardPage() {
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
         userId: session.user.id,
       },
     }),
-    getPublishedStudentBannerContents(),
+    getPublishedStudentBannerPresentation("beranda"),
     getStudentNotificationFeed({ userId: session.user.id }),
   ]);
 
@@ -27,5 +27,5 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  return <DashboardPageModule banner={banners.beranda} notificationFeed={notificationFeed} profile={profile} session={session} />;
+  return <DashboardPageModule banner={banners} notificationFeed={notificationFeed} profile={profile} session={session} />;
 }

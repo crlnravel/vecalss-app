@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
+import { useFormStatus } from "react-dom";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import type { FormState } from "@/modules/auth/form-state";
-import { SubmitButton } from "@/modules/auth/components/submit-button";
-import { BookOpen, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
+import { BookOpen, CircleHelp, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
 import {
   resolveStudentBannerText,
   type StudentBannerContent,
@@ -34,28 +45,28 @@ const bannerDefinitions: Array<{
   route: string;
 }> = [
   {
-    description: "Main student banner.",
+    description: "Banner utama siswa.",
     icon: House,
     key: "beranda",
     label: "Beranda",
     route: "/dashboard",
   },
   {
-    description: "Materials banner.",
+    description: "Banner materi.",
     icon: BookOpen,
     key: "materi",
     label: "Materi",
     route: "/courses",
   },
   {
-    description: "Quiz banner.",
+    description: "Banner kuis.",
     icon: ListChecks,
     key: "kuis",
     label: "Kuis",
     route: "/quiz",
   },
   {
-    description: "Tryout banner.",
+    description: "Banner tryout.",
     icon: Gauge,
     key: "tryout",
     label: "Tryout",
@@ -66,6 +77,25 @@ const bannerDefinitions: Array<{
 const previewVariables = {
   firstName: "Alya",
   target: "Kedokteran UI",
+};
+
+type BannerIntent = "publish" | "save-draft";
+
+const confirmationCopy: Record<BannerIntent, {
+  confirmLabel: string;
+  description: string;
+  title: string;
+}> = {
+  "save-draft": {
+    confirmLabel: "Simpan draf",
+    description: "Perubahan pada empat banner siswa akan disimpan sebagai draf privat. Siswa tetap melihat versi yang diterbitkan sampai kamu memilih Terbitkan.",
+    title: "Simpan draf banner?",
+  },
+  publish: {
+    confirmLabel: "Terbitkan banner",
+    description: "Draf banner siswa yang sudah disimpan akan diterbitkan untuk pengalaman siswa. Ini tidak mengubah kemajuan, akun, atau status siswa.",
+    title: "Terbitkan draf banner siswa?",
+  },
 };
 
 function toFormFields(banners: StudentBannerSet, version: string | null) {
@@ -99,6 +129,67 @@ function readBannersFromForm(form: HTMLFormElement) {
   };
 }
 
+function bannerResultToastMessage(state: FormState) {
+  if (state.status === "success") return state.published ? "Banner diterbitkan." : "Draf tersimpan.";
+  return state.message ?? "Banner tidak dapat disimpan.";
+}
+
+function handleStudentBannerSubmit(
+  event: FormEvent<HTMLFormElement>,
+  allowNextSubmitRef: { current: boolean },
+  setPendingIntent: (intent: BannerIntent) => void,
+) {
+  if (allowNextSubmitRef.current) {
+    allowNextSubmitRef.current = false;
+    return;
+  }
+
+  const submitter = (event.nativeEvent as SubmitEvent).submitter;
+  const intent = submitter instanceof HTMLButtonElement ? submitter.value : "save-draft";
+  if (intent === "save-draft" || intent === "publish") {
+    event.preventDefault();
+    setPendingIntent(intent);
+  }
+}
+
+function confirmStudentBannerIntent(
+  pendingIntent: BannerIntent | null,
+  formRef: { current: HTMLFormElement | null },
+  setPendingIntent: (intent: BannerIntent | null) => void,
+  allowNextSubmitRef: { current: boolean },
+) {
+  const form = formRef.current;
+  if (!pendingIntent || !form) return;
+
+  const submitter = form.querySelector<HTMLButtonElement>(`button[name="intent"][value="${pendingIntent}"]`);
+  setPendingIntent(null);
+  allowNextSubmitRef.current = true;
+  form.requestSubmit(submitter ?? undefined);
+}
+
+function BannerSubmitButton({
+  blocked = false,
+  children,
+  pendingLabel,
+  ...props
+}: ComponentProps<typeof Button> & {
+  blocked?: boolean;
+  pendingLabel?: string;
+}) {
+  const { pending } = useFormStatus();
+  const disabled = blocked || pending;
+
+  return (
+    <Button
+      aria-disabled={disabled}
+      disabled={disabled}
+      {...props}
+    >
+      {pending ? (pendingLabel ?? "Memproses…") : children}
+    </Button>
+  );
+}
+
 function BannerPreviewPanel({
   banners,
   onClose,
@@ -110,17 +201,17 @@ function BannerPreviewPanel({
 }) {
   return (
     <section
-      aria-label="Student banner preview"
-      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_rgba(26,72,61,0.65)]"
+      aria-label="Pratinjau banner siswa"
+      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
     >
       <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Preview</p>
-          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Student page banners</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Uses the current form text.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Pratinjau</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Banner halaman siswa</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Menggunakan teks dari formulir saat ini.</p>
         </div>
         <Button onClick={onClose} size="sm" type="button" variant="ghost">
-          Close preview
+          Tutup pratinjau
         </Button>
       </div>
 
@@ -152,6 +243,128 @@ function BannerPreviewPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function StudentBannerConfirmationDialog({
+  onClose,
+  onConfirm,
+  pendingConfirmation,
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  pendingConfirmation: { confirmLabel: string; description: string; title: string } | null;
+}) {
+  if (!pendingConfirmation) return null;
+
+  return (
+    <AlertDialog onOpenChange={(open) => { if (!open) onClose(); }} open>
+      <AlertDialogContent data-testid="student-banner-confirmation" variant="warning">
+        <AlertDialogHeader>
+          <AlertDialogMedia variant="warning"><CircleHelp /></AlertDialogMedia>
+          <AlertDialogTitle>{pendingConfirmation.title}</AlertDialogTitle>
+          <AlertDialogDescription>{pendingConfirmation.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} variant="brand">{pendingConfirmation.confirmLabel}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function StudentBannerEditorHeader({ previewHref, previewMode }: { previewHref?: string; previewMode: boolean }) {
+  if (!previewMode) return null;
+
+  return (
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Editor banner</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banner</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Pratinjau tetap hanya-baca untuk kemajuan dan akun siswa. Editor ini adalah satu-satunya cakupan perubahan konten; pengulangan Tryout adalah tindakan operasional penugasan dan sesi yang terpisah dengan konfirmasi sendiri.</p>
+      </div>
+      {previewHref ? <Button nativeButton={false} render={<Link href={previewHref} />} size="sm" variant="ghost">Tutup editor</Button> : null}
+    </header>
+  );
+}
+
+function StudentBannerSavePanel({ canPublish, hasUnpublishedChanges, onPreview }: { canPublish: boolean; hasUnpublishedChanges: boolean; onPreview: () => void }) {
+  return (
+    <>
+      <div className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between`}>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${hasUnpublishedChanges ? "bg-warning-100 text-warning-800" : "bg-primary-50 text-primary-800"}`}>{hasUnpublishedChanges ? "Draf belum diterbitkan" : "Diterbitkan"}</span>
+            <p className="text-sm font-medium text-secondary-900">{hasUnpublishedChanges ? "Siswa melihat salinan yang diterbitkan." : "Sama dengan salinan yang diterbitkan."}</p>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Simpan draf hanya mengubah draf privat. Terbitkan menerbitkan draf yang sudah tersimpan setelah konfirmasi dan pembacaan ulang; pengulangan Tryout tetap merupakan tindakan operasional penugasan dan sesi yang terpisah.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onPreview} size="lg" type="button" variant="brandOutline">Pratinjau</Button>
+          <BannerSubmitButton name="intent" pendingLabel="Menyimpan draf…" size="lg" type="submit" value="save-draft" variant="brandOutline">Simpan draf</BannerSubmitButton>
+          <BannerSubmitButton blocked={!canPublish} name="intent" pendingLabel="Menerbitkan…" size="lg" type="submit" value="publish" variant="brand">{canPublish ? "Terbitkan" : "Simpan draf sebelum menerbitkan"}</BannerSubmitButton>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function StudentBannerEditorFeedback({ canPublish, publishBlockedCopy, state }: { canPublish: boolean; publishBlockedCopy: string; state: FormState }) {
+  return (
+    <>
+      {!canPublish ? <p className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800" data-testid="student-banner-publish-gating">{publishBlockedCopy}</p> : null}
+      {state.status === "success" && state.message ? <p aria-live="polite" className="rounded-2xl border border-student-status-success-border bg-student-status-success-bg px-4 py-3 text-sm font-medium text-student-status-success-fg" data-testid="student-banner-success" role="status">{state.message}</p> : null}
+      {state.status === "error" && state.message ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg" data-testid="student-banner-error" role="alert">{state.message}</p> : null}
+    </>
+  );
+}
+
+function StudentBannerEditorForm({
+  banners,
+  canPublish,
+  currentVersion,
+  formAction,
+  formRef,
+  handlePreview,
+  handleSubmit,
+  previewMode,
+  previewHref,
+  publishBlockedCopy,
+  setDirtyVersion,
+  hasUnpublishedChanges,
+  state,
+  version,
+}: {
+  banners: StudentBannerSet;
+  canPublish: boolean;
+  currentVersion: string;
+  formAction: (payload: FormData) => void;
+  formRef: { current: HTMLFormElement | null };
+  handlePreview: () => void;
+  handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  previewMode: boolean;
+  previewHref?: string;
+  publishBlockedCopy: string;
+  setDirtyVersion: (version: string) => void;
+  hasUnpublishedChanges: boolean;
+  state: FormState;
+  version: string | null;
+}) {
+  const draftHasChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
+
+  return (
+    <>
+      <StudentBannerEditorHeader previewHref={previewHref} previewMode={previewMode} />
+      <form action={formAction} className="space-y-6" key={state.fields?.version ?? version ?? "new"} onInput={() => setDirtyVersion(currentVersion)} onSubmit={handleSubmit} ref={formRef}>
+        <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
+        <div className="grid gap-5 xl:grid-cols-2">
+          {bannerDefinitions.map((definition) => <BannerEditorCard banner={banners[definition.key]} definition={definition} key={definition.key} state={state} />)}
+        </div>
+        <StudentBannerSavePanel canPublish={canPublish} hasUnpublishedChanges={draftHasChanges} onPreview={handlePreview} />
+        <StudentBannerEditorFeedback canPublish={canPublish} publishBlockedCopy={publishBlockedCopy} state={state} />
+      </form>
+    </>
   );
 }
 
@@ -194,13 +407,13 @@ function BannerEditorCard({
               document.getElementById(`${key}-title`)?.focus();
             }}
           >
-            Heading
+            Judul
           </FieldLabel>
           <Input
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
-            aria-label="Heading"
-            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
+            aria-label="Judul"
+            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}
@@ -218,12 +431,12 @@ function BannerEditorCard({
               document.getElementById(`${key}-description`)?.focus();
             }}
           >
-            Supporting text
+            Teks pendukung
           </FieldLabel>
           <SyntaxHighlightedTextarea
             aria-describedby={descriptionError ? `${key}-description-error` : undefined}
             aria-invalid={Boolean(descriptionError)}
-            aria-label="Supporting text"
+            aria-label="Teks pendukung"
             className="min-h-36"
             defaultValue={state.fields?.[descriptionField] ?? banner.description}
             id={`${key}-description`}
@@ -261,9 +474,17 @@ function StudentBannerEditor({
     banners: StudentBannerSet;
     version: string;
   } | null>(null);
+  const [pendingIntent, setPendingIntent] = useState<BannerIntent | null>(null);
+  const [dirtyVersion, setDirtyVersion] = useState<string | null>(null);
+  const allowNextSubmitRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const draftHasChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
   const currentVersion = state.fields?.version ?? version ?? "";
+  const isInputDirty = dirtyVersion !== null && dirtyVersion === currentVersion;
+  const canPublish = draftHasChanges && !isInputDirty;
+  const publishBlockedCopy = isInputDirty
+    ? "Simpan draf sebelum menerbitkan agar versi yang dikonfirmasi sama dengan input terbaru."
+    : "Terbitkan tersedia setelah ada draf banner yang tersimpan.";
   const toastKey = JSON.stringify([
     state.status,
     currentVersion,
@@ -271,18 +492,16 @@ function StudentBannerEditor({
     state.published ?? false,
   ]);
 
-  const resultToastMessage = state.status === "success"
-    ? state.published
-      ? "Published."
-      : "Draft saved."
-    : state.message ?? "Couldn’t save.";
+  const resultToastMessage = bannerResultToastMessage(state);
   const dismissedToastKeyRef = useRef<string | null>(null);
   const setDismissedToastKey = (key: string) => {
     dismissedToastKeyRef.current = key;
   };
 
+  const hasInlineState = state.status !== "idle" && Boolean(state.message);
+
   useEffect(() => {
-    if (state.status === "idle" || dismissedToastKeyRef.current === toastKey) {
+    if (state.status === "idle" || hasInlineState || dismissedToastKeyRef.current === toastKey) {
       return;
     }
 
@@ -293,7 +512,7 @@ function StudentBannerEditor({
     } else {
       toast.error(resultToastMessage);
     }
-  }, [resultToastMessage, state.status, toastKey]);
+  }, [hasInlineState, resultToastMessage, state.status, toastKey]);
 
   function handlePreview() {
     if (formRef.current) {
@@ -301,76 +520,35 @@ function StudentBannerEditor({
     }
   }
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => handleStudentBannerSubmit(event, allowNextSubmitRef, setPendingIntent);
+  const confirmPendingIntent = () => confirmStudentBannerIntent(pendingIntent, formRef, setPendingIntent, allowNextSubmitRef);
+
+  const pendingConfirmation = pendingIntent ? confirmationCopy[pendingIntent] : null;
+
   return (
     <div className="space-y-6">
-      {previewMode ? (
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Banner editor</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banners</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Drafts stay private until published.</p>
-          </div>
-          {previewHref ? (
-            <Button
-              nativeButton={false}
-              render={<Link href={previewHref} />}
-              size="sm"
-              variant="ghost"
-            >
-              Close editor
-            </Button>
-          ) : null}
-        </header>
-      ) : null}
+      <StudentBannerConfirmationDialog onClose={() => setPendingIntent(null)} onConfirm={confirmPendingIntent} pendingConfirmation={pendingConfirmation} />
 
       {previewState?.version === currentVersion ? (
         <BannerPreviewPanel banners={previewState.banners} onClose={() => setPreviewState(null)} previewMode={previewMode} />
       ) : null}
 
-      <form
-        action={formAction}
-        className="space-y-6"
-        key={state.fields?.version ?? version ?? "new"}
-        ref={formRef}
-      >
-        <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
-
-        <div className="grid gap-5 xl:grid-cols-2">
-          {bannerDefinitions.map((definition) => (
-            <BannerEditorCard
-              banner={banners[definition.key]}
-              definition={definition}
-              key={definition.key}
-              state={state}
-            />
-          ))}
-        </div>
-
-        <div className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between`}>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draftHasChanges ? "bg-amber-100 text-amber-800" : "bg-primary-50 text-primary-800"}`}>
-                {draftHasChanges ? "Unpublished draft" : "Published"}
-              </span>
-              <p className="text-sm font-medium text-secondary-900">
-                {draftHasChanges ? "Students see the published copy." : "Matches the published copy."}
-              </p>
-            </div>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">Save a draft or publish it now.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handlePreview} size="lg" type="button" variant="brandOutline">
-              Preview
-            </Button>
-            <SubmitButton name="intent" pendingLabel="Saving draft…" size="lg" type="submit" value="save-draft" variant="brandOutline">
-              Save draft
-            </SubmitButton>
-            <SubmitButton name="intent" pendingLabel="Publishing…" size="lg" type="submit" value="publish" variant="brand">
-              Publish
-            </SubmitButton>
-          </div>
-        </div>
-      </form>
+      <StudentBannerEditorForm
+        banners={banners}
+        canPublish={canPublish}
+        currentVersion={currentVersion}
+        formAction={formAction}
+        formRef={formRef}
+        hasUnpublishedChanges={hasUnpublishedChanges}
+        handlePreview={handlePreview}
+        handleSubmit={handleSubmit}
+        previewHref={previewHref}
+        previewMode={previewMode}
+        publishBlockedCopy={publishBlockedCopy}
+        setDirtyVersion={setDirtyVersion}
+        state={state}
+        version={version}
+      />
     </div>
   );
 }

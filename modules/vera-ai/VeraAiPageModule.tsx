@@ -114,7 +114,6 @@ import {
   veraMaterialHistory,
   veraPracticeHistory,
   veraStudioTools,
-  veraToolModes,
   type VeraContextSource as VeraContextSourceSeed,
   type VeraContextTypeId,
   type VeraMaterialHistory,
@@ -368,6 +367,11 @@ const veraErrorLabels: Record<string, string> = {
   vera_unavailable: "Vera sedang tidak tersedia. Coba lagi sebentar.",
 };
 
+function formatVeraRequestErrorCode(code: string | null | undefined) {
+  if (!code) return null;
+  return veraErrorLabels[code] ?? "Terjadi kendala saat memproses permintaan.";
+}
+
 function veraErrorMessage(error: unknown) {
   const code =
     error instanceof VeraRequestError
@@ -387,7 +391,6 @@ function mapBackendConversation(conversation: VeraBackendConversation): StudySes
     sourceIds: [],
     generatedTools: [],
     messages: [],
-    provenance: { asOf: conversation.updatedAt, state: "live" },
     version: conversation.version,
     contextVersion: conversation.contextVersion,
   };
@@ -443,10 +446,6 @@ type StudySession = {
   sourceIds: string[];
   generatedTools: VeraToolId[];
   messages: VeraMessage[];
-  provenance?: {
-    asOf?: string | null;
-    state: "live" | "snapshot" | "cached" | "demo" | "unavailable";
-  };
   version?: number;
   contextVersion?: number;
 };
@@ -488,7 +487,7 @@ const initialMessages: VeraMessage[] = [
   {
     id: "ratio-next",
     role: "vera",
-    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan drill yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
+    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan latihan adaptif yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
     createdAt: "Baru saja",
   },
 ];
@@ -496,7 +495,7 @@ const initialMessages: VeraMessage[] = [
 const initialSessions: StudySession[] = [
   {
     id: "ratio-review",
-    title: "Review Rasio Hari Ini",
+    title: "Tinjauan Rasio Hari Ini",
     updatedAt: "Baru saja",
     sourceIds: ["tryout-04", "module-ratio", "personal-summary"],
     generatedTools: ["analysis", "summary"],
@@ -504,7 +503,7 @@ const initialSessions: StudySession[] = [
   },
   {
     id: "wrong-answer-review",
-    title: "Review Jawaban Salah",
+    title: "Tinjauan Jawaban Salah",
     updatedAt: "Kemarin",
     sourceIds: ["tryout-04", "quiz-pk-02"],
     generatedTools: ["review"],
@@ -512,9 +511,9 @@ const initialSessions: StudySession[] = [
       {
         id: "wrong-answer-welcome",
         role: "vera",
-        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Quiz PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
+        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Kuis PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
         createdAt: "Kemarin",
-        citations: ["Tryout SNBT 04", "Quiz PK Modul 02"],
+        citations: ["Tryout SNBT 04", "Kuis PK Modul 02"],
       },
     ],
   },
@@ -552,24 +551,6 @@ const initialSessions: StudySession[] = [
   },
 ];
 
-function createNewStudySession(): StudySession {
-  return {
-    id: `session-${Date.now()}`,
-    title: "Sesi belajar baru",
-    updatedAt: "Baru saja",
-    sourceIds: [],
-    generatedTools: [],
-    messages: [
-      {
-        id: `new-session-${Date.now()}`,
-        role: "vera",
-        body: "Sesi baru sudah siap. Tambahkan hasil latihan, materi, atau dokumen supaya aku memahami apa yang sedang ingin kamu pelajari.",
-        createdAt: "Baru saja",
-      },
-    ],
-  };
-}
-
 const emptyStudySession: StudySession = {
   id: "",
   title: "Sesi belajar baru",
@@ -582,11 +563,70 @@ const emptyStudySession: StudySession = {
 const toolRequestLabels: Record<VeraToolId, string> = {
   analysis: "Analisis kelemahanku dari konteks sesi ini.",
   route: "Susun rute belajar dari konteks sesi ini.",
-  drill: "Buat drill adaptif dari kelemahanku.",
+  drill: "Buat latihan adaptif dari kelemahanku.",
   review: "Jelaskan jawaban salah yang paling penting.",
   ptn: "Bantu susun strategi PTN dari progresku.",
   summary: "Buat ringkasan sesi belajar ini.",
 };
+
+const VERA_ARTIFACT_TYPE_LABELS: Record<string, string> = {
+  analysis: "Analisis kelemahan",
+  drill: "Latihan adaptif",
+  ptn: "Strategi PTN",
+  review: "Tinjauan jawaban",
+  route: "Rute belajar",
+  summary: "Ringkasan belajar",
+};
+
+const VERA_STATE_LABELS: Record<string, string> = {
+  active: "Aktif",
+  available: "Tersedia",
+  backend_visible: "Terlihat dari server",
+  cancelled: "Dibatalkan",
+  coarsened: "Disederhanakan",
+  consumed: "Sudah digunakan",
+  deleted: "Dihapus",
+  encrypted: "Tersandi",
+  expired: "Kedaluwarsa",
+  failed: "Gagal",
+  fallback: "Respons cadangan",
+  legacy_plaintext: "Teks lama tanpa enkripsi",
+  forward_only: "Hanya berlaku ke depan",
+  live: "Live",
+  materialized: "Disimpan",
+  pending: "Menunggu",
+  processing: "Diproses",
+  purged: "Dihapus",
+  purging: "Sedang dihapus",
+  queued: "Dalam antrean",
+  rejected: "Ditolak",
+  released: "Dirilis",
+  retired: "Dipensiunkan",
+  staged: "Disiapkan",
+  succeeded: "Berhasil",
+  suppressed: "Disembunyikan",
+  unavailable: "Tidak tersedia",
+  unchanged: "Tidak berubah",
+  visible: "Terlihat",
+};
+
+function humanizeVeraToken(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function formatVeraArtifactType(value: string) {
+  return VERA_ARTIFACT_TYPE_LABELS[value] ?? humanizeVeraToken(value);
+}
+
+function formatVeraState(value: string | null | undefined) {
+  if (!value) return "Belum tersedia";
+  return VERA_STATE_LABELS[value] ?? humanizeVeraToken(value);
+}
 
 function isToolId(value: string | null): value is VeraToolId {
   return Boolean(
@@ -599,27 +639,6 @@ function isToolId(value: string | null): value is VeraToolId {
 
 function moveItemToFront<T extends string>(items: T[], nextItem: T) {
   return [nextItem, ...items.filter((item) => item !== nextItem)];
-}
-
-function buildGeneralReply(prompt: string, sourceTitles: string[]) {
-  const sourceLine =
-    sourceTitles.length > 0
-      ? sourceTitles.join(", ")
-      : "konteks belajar di sesi ini";
-  const loweredPrompt = prompt.toLowerCase();
-
-  if (loweredPrompt.includes("rasio")) {
-    return `Dari ${sourceLine}, kesulitannya bukan di konsep perbandingan awal, tetapi saat basis hitung berubah pada langkah kedua. Coba tulis dulu apa yang dianggap 100%, baru ubah rasionya. Setelah itu kita cek satuannya bersama.`;
-  }
-
-  if (
-    loweredPrompt.includes("salah") ||
-    loweredPrompt.includes("jawaban")
-  ) {
-    return `Aku membaca ${sourceLine}. Pola kesalahan yang paling layak dibahas adalah memilih opsi yang benar secara umum tetapi tidak benar-benar didukung informasi pada soal. Kirim nomor soalnya, lalu kita bedah alasan setiap pilihan.`;
-  }
-
-  return `Aku menggunakan ${sourceLine} untuk menjawab ini. Kita bisa memecahnya menjadi satu konsep inti, satu contoh singkat, lalu satu latihan untuk memastikan caramu berpikir sudah konsisten.`;
 }
 
 type VeraAiWorkspaceProps = {
@@ -660,13 +679,11 @@ type VeraAiWorkspaceProps = {
   onToggleContext: (sourceId: string, active: boolean) => void;
   onMaterializeArtifact: () => void;
   onApplyArtifact: (target: VeraBackendArtifactTarget) => void;
-  selectedSources: VeraContextSource[];
   session: SessionContext;
   sessionSidebarCollapsed: boolean;
   sessions: StudySession[];
   usage: VeraBackendUsage | null;
   backendMode: boolean;
-  dataAsOf: string | null;
   dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
   returnToHref: string;
@@ -711,12 +728,10 @@ function VeraAiWorkspace({
   onApplyArtifact,
   progress,
   provisionalText,
-  selectedSources,
   session,
   sessionSidebarCollapsed,
   sessions,
   usage,
-  dataAsOf,
   dataState,
   workspaceTab,
   returnToHref,
@@ -724,7 +739,7 @@ function VeraAiWorkspace({
   const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
 
   return (
-    <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+    <div className="student-page-canvas vera-ai-motion min-h-svh text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar
           notificationFeed={notificationFeed}
@@ -760,7 +775,6 @@ function VeraAiWorkspace({
                 onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
                 value={workspaceTab}
               >
-                <VeraProvenanceBanner dataAsOf={dataAsOf} session={activeSession} />
                 <VeraStatusBanner
                   busy={busy}
                   error={error}
@@ -769,47 +783,49 @@ function VeraAiWorkspace({
                   onRetry={onRetry}
                   progress={progress}
                 />
-                <WorkspaceTabs onChange={onSetWorkspaceTab} />
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
-                  <ChatWorkspace
-                    activeSession={activeSession}
-                    busy={busy}
-                    className="flex"
-                    draft={draft}
-                    onDraftChange={onDraftChange}
-                    onCancel={onCancelRequest}
-                    onRenameSession={onRenameSession}
-                    onSend={onSend}
-                    provisionalText={provisionalText}
-                  />
-                </TabsContent>
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
-                  <ContextWorkspace
-                    activeSourceIds={activeSession.sourceIds}
-                    className="flex"
-                    key={`${activeSession.id}-${workspaceTab}`}
-                    onOpenAddContext={onOpenAddContext}
-                    onRemoveContexts={onRemoveContexts}
-                    onToggleContext={onToggleContext}
-                    sources={contextSources}
-                  />
-                </TabsContent>
-                <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
-                  <StudioPanel
-                    activeArtifact={activeArtifact}
-                    activeArtifactDetail={activeArtifactDetail}
-                    className="flex"
-                    generatedArtifacts={generatedArtifacts}
-                    generatedArtifactSummaries={generatedArtifactSummaries}
-                    busy={busy}
-                    onCloseArtifact={onCloseArtifact}
-                    onExpandArtifact={onExpandArtifact}
-                    onGenerateTool={onGenerateTool}
-                    onOpenArtifact={onOpenArtifact}
-                    onMaterializeArtifact={onMaterializeArtifact}
-                    onApplyArtifact={onApplyArtifact}
-                  />
-                </TabsContent>
+                <WorkspacePanel className="flex flex-1">
+                  <WorkspaceTabs onChange={onSetWorkspaceTab} />
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="chat">
+                    <ChatWorkspace
+                      activeSession={activeSession}
+                      busy={busy}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      draft={draft}
+                      onDraftChange={onDraftChange}
+                      onCancel={onCancelRequest}
+                      onRenameSession={onRenameSession}
+                      onSend={onSend}
+                      provisionalText={provisionalText}
+                    />
+                  </TabsContent>
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="context">
+                    <ContextWorkspace
+                      activeSourceIds={activeSession.sourceIds}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      key={`${activeSession.id}-${workspaceTab}`}
+                      onOpenAddContext={onOpenAddContext}
+                      onRemoveContexts={onRemoveContexts}
+                      onToggleContext={onToggleContext}
+                      sources={contextSources}
+                    />
+                  </TabsContent>
+                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="studio">
+                    <StudioPanel
+                      activeArtifact={activeArtifact}
+                      activeArtifactDetail={activeArtifactDetail}
+                      className="flex h-full rounded-none border-0 shadow-none"
+                      generatedArtifacts={generatedArtifacts}
+                      generatedArtifactSummaries={generatedArtifactSummaries}
+                      busy={busy}
+                      onCloseArtifact={onCloseArtifact}
+                      onExpandArtifact={onExpandArtifact}
+                      onGenerateTool={onGenerateTool}
+                      onOpenArtifact={onOpenArtifact}
+                      onMaterializeArtifact={onMaterializeArtifact}
+                      onApplyArtifact={onApplyArtifact}
+                    />
+                  </TabsContent>
+                </WorkspacePanel>
               </Tabs>
             </div>
           ) : (
@@ -874,324 +890,6 @@ function VeraAiWorkspace({
   );
 }
 
-function useVeraAiFallbackState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
-  const searchParams = useSearchParams();
-  const requestedArtifact = searchParams.get("artifact");
-  const requestedToolParam = searchParams.get("tool");
-  const requestedTool = isVeraToolId(requestedArtifact)
-    ? requestedArtifact
-    : isVeraToolId(requestedToolParam)
-      ? requestedToolParam
-      : null;
-
-  const [sessions, setSessions] = useState<StudySession[]>(() =>
-    requestedTool
-      ? initialSessions.map((item, index) =>
-          index === 0
-            ? {
-                ...item,
-                generatedTools: moveItemToFront(
-                  item.generatedTools,
-                  requestedTool,
-                ),
-              }
-            : item,
-        )
-      : initialSessions,
-  );
-  const [activeSessionId, setActiveSessionId] = useState(initialSessions[0].id);
-  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
-    requestedTool,
-  );
-  const [contextSources, setContextSources] = useState<VeraContextSource[]>(
-    () => {
-      const addedSourceIds = new Set(
-        initialSessions.flatMap((item) => item.sourceIds),
-      );
-
-      return veraContextSources.filter((source) =>
-        addedSourceIds.has(source.id),
-      );
-    },
-  );
-  const [fullscreenArtifactId, setFullscreenArtifactId] =
-    useState<VeraToolId | null>(null);
-  const [draft, setDraft] = useState("");
-  const [contextDialogOpen, setContextDialogOpen] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
-  const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
-    useState(true);
-
-  const activeSession =
-    sessions.find((item) => item.id === activeSessionId) ?? sessions[0];
-  const activeSourceIdSet = useMemo(
-    () => new Set(activeSession.sourceIds),
-    [activeSession.sourceIds],
-  );
-
-  const selectedSources = useMemo(
-    () =>
-      contextSources.filter((source) =>
-        activeSourceIdSet.has(source.id),
-      ),
-    [activeSourceIdSet, contextSources],
-  );
-
-  const generatedArtifacts = useMemo(
-    () =>
-      activeSession.generatedTools
-        .map((toolId) => veraStudioTools.find((tool) => tool.id === toolId))
-        .filter((tool): tool is VeraStudioTool => Boolean(tool)),
-    [activeSession.generatedTools],
-  );
-
-  const activeArtifact =
-    generatedArtifacts.find((tool) => tool.id === activeArtifactId) ?? null;
-  const fullscreenArtifact =
-    generatedArtifacts.find((tool) => tool.id === fullscreenArtifactId) ?? null;
-
-  function updateActiveSession(
-    update: (current: StudySession) => StudySession,
-  ) {
-    setSessions((current) =>
-      current.map((item) =>
-        item.id === activeSession.id ? update(item) : item,
-      ),
-    );
-  }
-
-  function handleSelectSession(nextSessionId: string) {
-    setActiveSessionId(nextSessionId);
-    setActiveArtifactId(null);
-    setDraft("");
-    setWorkspaceTab("chat");
-  }
-
-  function handleNewSession() {
-    const nextSession = createNewStudySession();
-
-    setSessions((current) => [nextSession, ...current]);
-    setActiveSessionId(nextSession.id);
-    setActiveArtifactId(null);
-    setWorkspaceTab("chat");
-  }
-
-  function handleRenameSession(nextTitle: string) {
-    const title = nextTitle.trim();
-
-    if (!title || title === activeSession.title) {
-      return;
-    }
-
-    updateActiveSession((current) => ({
-      ...current,
-      title,
-      updatedAt: "Baru saja",
-    }));
-  }
-
-  function handleSaveContext(
-    nextSourceIds: string[],
-    addedSources: VeraContextSource[] = [],
-  ) {
-    const limitedSourceIds = nextSourceIds.slice(
-      0,
-      MAX_CONTEXTS_PER_SESSION,
-    );
-
-    if (addedSources.length > 0) {
-      setContextSources((current) => {
-        const existingIds = new Set(current.map((source) => source.id));
-
-        return [
-          ...current,
-          ...addedSources.filter((source) => !existingIds.has(source.id)),
-        ];
-      });
-    }
-
-    updateActiveSession((current) => ({
-      ...current,
-      sourceIds: limitedSourceIds,
-      updatedAt: "Baru saja",
-    }));
-    setContextDialogOpen(false);
-  }
-
-  function handleRemoveContexts(sourceIds: string[]) {
-    const removedSourceIds = new Set(sourceIds);
-
-    setContextSources((current) =>
-      current.filter((source) => !removedSourceIds.has(source.id)),
-    );
-    setSessions((current) =>
-      current.map((item) => {
-        const nextSourceIds = item.sourceIds.filter(
-          (sourceId) => !removedSourceIds.has(sourceId),
-        );
-
-        return nextSourceIds.length === item.sourceIds.length
-          ? item
-          : {
-              ...item,
-              sourceIds: nextSourceIds,
-              updatedAt: "Baru saja",
-            };
-      }),
-    );
-  }
-
-  function handleToggleContext(sourceId: string, active: boolean) {
-    updateActiveSession((current) => {
-      if (!active) {
-        return {
-          ...current,
-          sourceIds: current.sourceIds.filter((id) => id !== sourceId),
-          updatedAt: "Baru saja",
-        };
-      }
-
-      if (
-        current.sourceIds.includes(sourceId) ||
-        current.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        sourceIds: [...current.sourceIds, sourceId],
-        updatedAt: "Baru saja",
-      };
-    });
-  }
-
-  function handleSend() {
-    const nextDraft = draft.trim();
-
-    if (!nextDraft) {
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-
-    updateActiveSession((current) => ({
-      ...current,
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-${Date.now()}`,
-          role: "student",
-          body: nextDraft,
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-${Date.now()}`,
-          role: "vera",
-          body: buildGeneralReply(nextDraft, citations),
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setDraft("");
-  }
-
-  function handleToolRequest(toolId: VeraToolId) {
-    const tool = veraStudioTools.find((item) => item.id === toolId);
-
-    if (!tool) {
-      return;
-    }
-
-    const citations = selectedSources.slice(0, 3).map((source) => source.title);
-    updateActiveSession((current) => ({
-      ...current,
-      generatedTools: moveItemToFront(current.generatedTools, toolId),
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `student-tool-${Date.now()}`,
-          role: "student",
-          body: toolRequestLabels[toolId],
-          createdAt: "Sekarang",
-        },
-        {
-          id: `vera-tool-${Date.now()}`,
-          role: "vera",
-          body: `${tool.outputTitle} sudah aku siapkan di Vera Studio. Hasilnya tersimpan di sesi ini, jadi kamu bisa kembali membacanya kapan saja.`,
-          createdAt: "Sekarang",
-          citations,
-        },
-      ],
-    }));
-    setActiveArtifactId(toolId);
-    setWorkspaceTab("studio");
-  }
-
-  function handleOpenArtifact(toolId: VeraToolId) {
-    setActiveArtifactId(toolId);
-    setWorkspaceTab("studio");
-  }
-
-  return {
-    activeArtifact,
-    activeArtifactDetail: null,
-    activeSession,
-    backendMode: false,
-    busy: false,
-    contextDialogOpen,
-    contextSources,
-    draft,
-    error: null,
-    fullscreenArtifact,
-    fullscreenArtifactDetail: null,
-    generatedArtifacts,
-    generatedArtifactSummaries: [],
-    notice: null,
-    notificationFeed,
-    onApplyArtifact: () => undefined,
-    onCancelRequest: () => undefined,
-    onCloseArtifact: () => setActiveArtifactId(null),
-    onCloseFullscreen: () => setFullscreenArtifactId(null),
-    onContextDialogOpenChange: setContextDialogOpen,
-    onDraftChange: setDraft,
-    onExpandArtifact: setFullscreenArtifactId,
-    onGenerateTool: handleToolRequest,
-    onMaterializeArtifact: () => undefined,
-    onNewSession: handleNewSession,
-    onOpenAddContext: () => setContextDialogOpen(true),
-    onOpenArtifact: handleOpenArtifact,
-    onRetry: () => undefined,
-    onRemoveContexts: handleRemoveContexts,
-    onRenameSession: handleRenameSession,
-    onSaveContext: handleSaveContext,
-    onSend: handleSend,
-    onSelectSession: handleSelectSession,
-    onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
-    onSetWorkspaceTab: setWorkspaceTab,
-    onToggleContext: handleToggleContext,
-    progress: null,
-    provisionalText: null,
-    selectedSources,
-    session,
-    sessionSidebarCollapsed,
-    sessions,
-    usage: null,
-    dataAsOf: null,
-    dataState: "unavailable",
-    workspaceTab,
-    returnToHref: buildStudentReturnHref(returnToHref),
-  };
-}
-
-function VeraAiPageModuleFallback({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }) {
-  const workspaceProps = useVeraAiFallbackState({ notificationFeed, returnToHref, session });
-  return <VeraAiWorkspace {...workspaceProps} />;
-}
-
 function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
@@ -1233,13 +931,12 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   );
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
-  const [draft, setDraft] = useState("");
   const [contextDialogOpen, setContextDialogOpen] = useState(false);
+  const [draft, setDraft] = useState("");
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
     useState(true);
   const [backendMode, setBackendMode] = useState(false);
-  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
   const [dataState, setDataState] = useState<VeraDataState>("loading");
   const [backendError, setBackendError] = useState<string | null>(null);
   const [backendContext, setBackendContext] =
@@ -1264,15 +961,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     sessions.find((item) => item.id === activeSessionId) ??
     sessions[0] ??
     emptyStudySession;
-  const activeSourceIdSet = useMemo(
-    () => new Set(activeSession.sourceIds),
-    [activeSession.sourceIds],
-  );
-  const selectedSources = useMemo(
-    () =>
-      contextSources.filter((source) => activeSourceIdSet.has(source.id)),
-    [activeSourceIdSet, contextSources],
-  );
   const generatedArtifacts = useMemo(
     () =>
       activeSession.generatedTools
@@ -1387,13 +1075,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         setBackendContext(null);
         setBackendArtifacts([]);
       }
-      setDataAsOf(new Date().toISOString());
       setBackendMode(true);
       setDataState("live");
     } catch (caught) {
       setBackendMode(false);
       setDataState("unavailable");
-      setDataAsOf(null);
       setSessions([]);
       setContextSources([]);
       setActiveSessionId("");
@@ -1485,7 +1171,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
   function handleSaveContext(
     nextSourceIds: string[],
-    addedSources: VeraContextSource[] = [],
   ) {
     const limitedSourceIds = nextSourceIds.slice(
       0,
@@ -2168,12 +1853,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     onToggleContext: handleToggleContext,
     progress,
     provisionalText,
-    selectedSources,
     session,
     sessionSidebarCollapsed,
     sessions,
     usage,
-    dataAsOf,
     dataState,
     workspaceTab,
     returnToHref: buildStudentReturnHref(returnToHref),
@@ -2214,7 +1897,7 @@ function VeraStatusBanner({
       className={cn(
         "mb-2 flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-xs font-medium",
         error
-          ? "border-rose-200 bg-rose-50 text-rose-700"
+          ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
           : "border-primary-100 bg-primary-50 text-primary-800",
       )}
       role={error ? "alert" : "status"}
@@ -2253,31 +1936,6 @@ const DATA_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
 });
 
-function VeraProvenanceBanner({
-  dataAsOf,
-  session,
-}: {
-  dataAsOf: string | null;
-  session: StudySession;
-}) {
-  const state = session.provenance?.state ?? "live";
-  const asOf = dataAsOf ? new Date(dataAsOf) : null;
-  const timestamp = asOf && !Number.isNaN(asOf.getTime())
-    ? DATA_TIMESTAMP_FORMATTER.format(asOf)
-    : "belum tersedia";
-
-  return (
-    <div
-      aria-label="Status sumber data Vera"
-      className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs text-secondary-600"
-      role="status"
-    >
-      <span className="font-semibold text-primary-900">Sumber data: {state}</span>
-      <span>Dimuat {timestamp} · konteks dan hasil mengikuti status server</span>
-    </div>
-  );
-}
-
 function VeraDataStatePanel({
   dataState,
   error,
@@ -2292,10 +1950,10 @@ function VeraDataStatePanel({
   return (
     <section
       aria-live={loading ? "polite" : "assertive"}
-      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-primary-100 bg-white px-6 py-12 text-center shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
       role={loading ? "status" : "alert"}
     >
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
         {loading ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <Gauge className="size-5" />}
       </span>
       <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-secondary-950">
@@ -2330,11 +1988,11 @@ function VeraTopBar({
   usage: VeraBackendUsage | null;
 }) {
   return (
-    <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
+    <header className="mx-2 mt-2 flex min-h-18 items-center gap-3 px-3 py-3 text-secondary-900 md:mx-3 md:mt-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-2.5 rounded-2xl transition-opacity motion-reduce:transition-none hover:opacity-85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
           href={returnToHref}
         >
           <Image
@@ -2346,7 +2004,7 @@ function VeraTopBar({
             width={52}
           />
           <span
-            className="hidden text-[1.45rem] leading-none tracking-[0.04em] text-primary-800 sm:inline"
+            className="hidden text-2xl leading-none tracking-[0.04em] text-primary-700 sm:inline"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
@@ -2357,7 +2015,7 @@ function VeraTopBar({
       <div className="ml-auto flex items-center gap-2">
         <Button
           aria-label="Buka sesi belajar"
-          className="rounded-full border border-primary-100 bg-white shadow-sm md:hidden"
+          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm md:hidden"
           onClick={onOpenSessionSidebar}
           size="icon"
           title="Sesi belajar"
@@ -2368,7 +2026,7 @@ function VeraTopBar({
         </Button>
         <Button
           aria-label="Ke dashboard"
-          className="rounded-full border border-primary-100 bg-white shadow-sm"
+          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm"
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon"
@@ -2376,7 +2034,7 @@ function VeraTopBar({
         >
           <House />
         </Button>
-        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
+        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 text-primary-900 shadow-sm">
           <VeraUsagePopover usage={usage} />
           <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
           <StudentAccountMenu extraItem="notifications" session={session} />
@@ -2386,27 +2044,29 @@ function VeraTopBar({
   );
 }
 
-function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
+function getVeraUsageSummary(usage: VeraBackendUsage | null) {
   const usedUnits = usage?.usedQuotaUnits ?? null;
   const limitUnits = usage?.quotaLimitUnits ?? null;
   const usagePercent = usage && limitUnits && limitUnits > 0
     ? Math.min(100, Math.round((usage.usedQuotaUnits / limitUnits) * 100))
     : null;
-  const usageState = usage
-    ? !usage.redisAvailable
-      ? "Pembatas permintaan tidak tersedia"
-      : !usage.providerAvailable
-        ? "Penyedia AI tidak tersedia"
-        : usage.quotaDebtUnits > 0
-          ? `Overrun ${usage.quotaDebtUnits} unit`
-          : usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits
-            ? "Kuota habis"
-            : usage.reservedQuotaUnits > 0
-              ? `${usage.reservedQuotaUnits} unit sedang diproses`
-              : usage.rawTokenUsageState === "unknown"
-                ? "Penggunaan token belum diketahui"
-                : "Tersedia"
-    : "Data penggunaan belum tersedia dari server.";
+  let usageState = "Data penggunaan belum tersedia dari server.";
+
+  if (usage) {
+    if (!usage.redisAvailable) usageState = "Pembatas permintaan tidak tersedia";
+    else if (!usage.providerAvailable) usageState = "Penyedia AI tidak tersedia";
+    else if (usage.quotaDebtUnits > 0) usageState = `Overrun ${usage.quotaDebtUnits} unit`;
+    else if (usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits) usageState = "Kuota habis";
+    else if (usage.reservedQuotaUnits > 0) usageState = `${usage.reservedQuotaUnits} unit sedang diproses`;
+    else if (usage.rawTokenUsageState === "unknown") usageState = "Penggunaan token belum diketahui";
+    else usageState = "Tersedia";
+  }
+
+  return { limitUnits, usagePercent, usageState, usedUnits };
+}
+
+function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
+  const { limitUnits, usagePercent, usageState, usedUnits } = getVeraUsageSummary(usage);
 
   return (
     <Popover>
@@ -2465,7 +2125,7 @@ function WorkspaceTabs({
   onChange: (value: WorkspaceTab) => void;
 }) {
   return (
-    <div className="mb-2 md:mb-3">
+    <div className="shrink-0 border-b border-learning-card-border">
       <FullWidthLineTabsList
         aria-label="Area kerja Vera"
       >
@@ -2526,7 +2186,7 @@ function SessionSidebar({
   return (
     <nav
       aria-label="Sidebar sesi Vera"
-      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
+      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
     >
       <button
         aria-label="Buka sidebar sesi"
@@ -2914,7 +2574,7 @@ function ContextWorkspace({
                 aria-label="Cari konteks belajar"
                 className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari judul, tipe, atau topik konteks..."
+                placeholder="Cari judul, tipe, atau topik konteks…"
                 value={query}
               />
             </div>
@@ -3064,7 +2724,7 @@ function ContextCard({
       className={cn(
         "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none md:gap-3",
         active
-          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
+          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
           : "border-primary-100 hover:border-primary-200 hover:bg-primary-50/20",
         activationDisabled && "opacity-65",
       )}
@@ -3176,12 +2836,14 @@ function MessageCard({
   const isStudent = message.role === "student";
   const stateNotice = [
     message.contentState && message.contentState !== "encrypted"
-      ? `Konten: ${message.contentState}`
+      ? `Konten: ${formatVeraState(message.contentState)}`
       : null,
     message.requestState && message.requestState !== "succeeded"
-      ? `Permintaan: ${message.requestState}`
+      ? `Permintaan: ${formatVeraState(message.requestState)}`
       : null,
-    message.requestErrorCode ? `Kode: ${message.requestErrorCode}` : null,
+    message.requestErrorCode
+      ? `Keterangan: ${formatVeraRequestErrorCode(message.requestErrorCode)}`
+      : null,
   ].filter(Boolean).join(" · ");
 
   if (isStudent) {
@@ -3190,12 +2852,12 @@ function MessageCard({
         align="end"
         className="max-w-[84%]"
       >
-        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
+        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
           <p>{message.body}</p>
           {stateNotice ? (
             <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
           ) : null}
-          <p className="mt-1.5 text-right text-[11px] text-white/60">
+          <p className="mt-1.5 text-right text-xs text-white/60">
             {message.createdAt}
           </p>
         </BubbleContent>
@@ -3225,7 +2887,7 @@ function MessageCard({
         {stateNotice ? (
           <p className="mt-1 text-xs text-secondary-500">{stateNotice}</p>
         ) : null}
-        <BubbleContent className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-secondary-700">
+        <BubbleContent className="mt-2 max-w-[68ch] text-base leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
         {message.citations && message.citations.length > 0 ? (
@@ -3264,7 +2926,7 @@ function ProvisionalMessageCard({ body }: { body: string }) {
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
           <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
         </div>
-        <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-[0.95rem] leading-7 text-secondary-700">
+        <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700">
           {body || "Vera sedang menyusun jawaban…"}
         </BubbleContent>
       </Bubble>
@@ -3293,13 +2955,13 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
+        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
             className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
-            placeholder="Tanyakan konsep, soal, atau langkah belajarmu..."
+            placeholder="Tanyakan konsep, soal, atau langkah belajarmu…"
             value={draft}
           />
           {busy ? (
@@ -3456,7 +3118,7 @@ function StudioPanel({
         <section className="mt-6 border-t border-primary-100 pt-5">
           <div className="flex items-center justify-between gap-2 px-1">
             <SectionLabel label="Hasil terbaru" />
-            <span className="text-[11px] text-secondary-400">
+            <span className="text-xs text-secondary-400">
               {generatedArtifacts.length} tersimpan
             </span>
           </div>
@@ -3493,7 +3155,7 @@ function StudioPanel({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="px-1 text-[11px] font-semibold tracking-[0.13em] text-secondary-500 uppercase">
+    <p className="px-1 text-xs font-semibold tracking-[0.13em] text-secondary-500 uppercase">
       {label}
     </p>
   );
@@ -3542,7 +3204,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
@@ -3557,10 +3219,10 @@ function StudioArtifactCard({
           </span>
           <span className="mt-1 block line-clamp-2 text-xs leading-5 text-secondary-500">
             {summary
-              ? `${summary.artifactType} · ${summary.lifecycleState} · hasil ${summary.resultState} · konteks ${summary.contextState} · ${relativeTime(summary.createdAt)}`
+              ? `${formatVeraArtifactType(summary.artifactType)} · ${formatVeraState(summary.lifecycleState)} · hasil ${formatVeraState(summary.resultState)} · konteks ${formatVeraState(summary.contextState)} · ${relativeTime(summary.createdAt)}`
               : tool.outputBody}
           </span>
-          <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary-700">
+          <span className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary-700">
             Buka dokumen
             <ArrowUpRight className="size-3" />
           </span>
@@ -3601,15 +3263,15 @@ function StudioArtifactDocument({
         <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
           <div>
             <dt className="font-semibold text-secondary-500">Siklus</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.lifecycle.state}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.lifecycle.state)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Hasil</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.resultState}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.resultState)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Konteks</dt>
-            <dd className="mt-1 text-secondary-800">{backendArtifact.contextState}</dd>
+            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.contextState)}</dd>
           </div>
         </dl>
       ) : null}
@@ -3627,39 +3289,6 @@ function StudioArtifactDocument({
       )}
     </article>
   );
-}
-
-function buildStudioArtifactMarkdown(
-  tool: VeraStudioTool,
-  mode: (typeof veraToolModes)[VeraToolId],
-  selectedSources: VeraContextSource[],
-) {
-  const metrics = mode.metrics
-    .map((metric) => {
-      const value =
-        metric.label === "Sumber" && metric.value.includes("konteks")
-          ? `${selectedSources.length} konteks`
-          : metric.value;
-
-      return `**${metric.label}:** ${value}`;
-    })
-    .join("  \n");
-  const highlights = mode.highlights.map((highlight) => `- ${highlight}`).join("\n");
-  const sources = selectedSources.length
-    ? selectedSources.map((source) => `- ${source.title}`).join("\n")
-    : "_Tanpa konteks terpasang_";
-
-  return [
-    `# ${tool.outputTitle}`,
-    tool.outputBody,
-    metrics,
-    "## Apa yang Vera lihat",
-    mode.description,
-    "## Temuan utama",
-    highlights,
-    "## Konteks yang digunakan",
-    sources,
-  ].join("\n\n");
 }
 
 function StudioArtifactMarkdown({
@@ -3681,7 +3310,7 @@ function StudioArtifactMarkdown({
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="mt-8 text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+      <h2 className="mt-8 text-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">
         {children}
       </h2>
     ),
@@ -3937,7 +3566,7 @@ function AddContextDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_rgba(1,76,56,0.5)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
+        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
         showCloseButton={false}
         variant="default"
       >
@@ -4008,12 +3637,12 @@ function AddContextDialog({
               konteks dipakai di sesi
             </p>
             {pendingInactiveCount > 0 ? (
-              <p className="text-[11px] text-secondary-400">
+              <p className="text-xs text-secondary-400">
                 {pendingInactiveCount} konteks baru akan ditambahkan ke
                 perpustakaan. Kamu bisa memakainya nanti dari tab Konteks.
               </p>
             ) : limitReached ? (
-              <p className="text-[11px] text-secondary-400">
+              <p className="text-xs text-secondary-400">
                 Batas 6 yang dipakai tercapai. Konteks tambahan tetap bisa
                 ditambahkan.
               </p>
@@ -4189,7 +3818,7 @@ function AddContextMaterialTab({
                 onMaterialQueryChange(event.target.value);
                 onMaterialPageChange(1);
               }}
-              placeholder="Cari materi Vecalss..."
+              placeholder="Cari materi Vecalss…"
               value={materialQuery}
             />
           </div>
@@ -4508,7 +4137,7 @@ function BackendContextOption({
       className={cn(
         "flex min-h-18 w-full items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
         selected
-          ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
+          ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
           : "border-primary-100 bg-background hover:border-primary-200 hover:bg-primary-50/40",
       )}
       onClick={onToggle}
@@ -4525,7 +4154,7 @@ function BackendContextOption({
             {source.subtitle ?? contextTypeLabels[source.type]}
           </span>
           {source.releasedAt ? (
-            <span className="block truncate text-[11px] text-secondary-400">
+            <span className="block truncate text-xs text-secondary-400">
               Dirilis {DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}
             </span>
           ) : null}
@@ -4646,7 +4275,7 @@ function ContextOption({
     <Button
       aria-pressed={selected}
       className={cn(
-        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_rgba(1,76,56,0.4)] md:min-h-24 md:gap-4 md:px-5",
+        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_color-mix(in_oklab,var(--voyage-deep)_40%,transparent)] md:min-h-24 md:gap-4 md:px-5",
         disabled && "cursor-not-allowed opacity-45",
       )}
       disabled={disabled}
@@ -4694,7 +4323,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
         className,
       )}
     >
@@ -4713,7 +4342,7 @@ function PanelHeader({
   title: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-17 items-center justify-between gap-3 border-b border-primary-100 px-4 py-3">
+    <div className="flex min-h-17 items-center justify-between gap-3 border-b border-learning-card-border bg-voyage-sea-glass-wash/55 px-4 py-3">
       <div className="flex min-w-0 items-center gap-2">
         {backAction ? (
           <Button

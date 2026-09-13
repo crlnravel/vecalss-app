@@ -7,6 +7,15 @@ import { seedAssessmentDemo } from "./seed-assessment.mjs";
 
 const { Client } = pg;
 
+function normalizeSeedReferralCode(value) {
+  const normalized = value?.trim().toUpperCase() || "";
+  if (!/^[A-Z0-9][A-Z0-9-]{2,39}$/.test(normalized)) {
+    throw new Error("SEED_AFFILIATOR_CODE must be 3-40 characters using A-Z, 0-9, or hyphens.");
+  }
+
+  return normalized;
+}
+
 const DEFAULT_ADMIN = {
   email: process.env.SEED_ADMIN_EMAIL?.trim() || "admin@vecalss.local",
   fullName: "Vecalss Admin",
@@ -29,6 +38,13 @@ const DEFAULT_TUTOR = {
   email: process.env.SEED_TUTOR_EMAIL?.trim() || "tutor@vecalss.local",
   fullName: "Nadia Prameswari",
   password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
+};
+
+const DEFAULT_AFFILIATOR = {
+  email: process.env.SEED_AFFILIATOR_EMAIL?.trim() || "affiliator@vecalss.local",
+  fullName: "Salsa Rahma",
+  password: process.env.SEED_AFFILIATOR_PASSWORD?.trim() || "Affiliator12345!",
+  referralCode: normalizeSeedReferralCode(process.env.SEED_AFFILIATOR_CODE || "SALSA2027"),
 };
 
 // This is a managed system subject, not a loginable student. Keep the UUID
@@ -426,6 +442,113 @@ async function upsertTutorProfile(client, { bio, headline, userId }) {
     `,
     [userId, headline, bio],
   );
+}
+
+async function upsertAffiliatorProfile(client, { referralCode, userId }) {
+  const normalizedReferralCode = normalizeSeedReferralCode(referralCode);
+  const result = await client.query(
+    `
+      INSERT INTO affiliator_profiles (user_id, referral_code, is_active)
+      VALUES ($1, $2, TRUE)
+      ON CONFLICT (user_id)
+      DO UPDATE
+        SET is_active = TRUE,
+            referral_code = EXCLUDED.referral_code,
+            updated_at = NOW()
+      RETURNING id
+    `,
+    [userId, normalizedReferralCode],
+  );
+
+  return result.rows[0].id;
+}
+
+async function upsertPackagePurchase(
+  client,
+  {
+    affiliatorProfileId,
+    completedAt,
+    packageCode,
+    packageName,
+    providerReference,
+    referralCodeSnapshot,
+    studentId,
+  },
+) {
+  const result = await client.query(
+    `
+      INSERT INTO package_purchases (
+        student_id,
+        package_code,
+        package_name,
+        status,
+        affiliator_profile_id,
+        referral_code_snapshot,
+        provider_reference,
+        completed_at
+      )
+      VALUES ($1, $2, $3, 'succeeded', $4, $5, $6, $7)
+      ON CONFLICT (provider_reference)
+      DO UPDATE
+        SET affiliator_profile_id = EXCLUDED.affiliator_profile_id,
+            completed_at = EXCLUDED.completed_at,
+            package_code = EXCLUDED.package_code,
+            package_name = EXCLUDED.package_name,
+            referral_code_snapshot = EXCLUDED.referral_code_snapshot,
+            status = 'succeeded',
+            updated_at = NOW()
+      RETURNING id
+    `,
+    [
+      studentId,
+      packageCode,
+      packageName,
+      affiliatorProfileId,
+      referralCodeSnapshot,
+      providerReference,
+      completedAt,
+    ],
+  );
+
+  return result.rows[0].id;
+}
+
+async function seedAffiliatorConversions(
+  client,
+  { affiliatorProfileId, primaryStudentId, referralCodeSnapshot, studentIds },
+) {
+  const normalizedReferralCode = normalizeSeedReferralCode(referralCodeSnapshot);
+  const purchases = [
+    {
+      completedAt: new Date("2026-09-10T02:15:00.000Z"),
+      packageCode: "SNBT-INTENSIF-2027",
+      packageName: "Program Intensif SNBT 2027",
+      providerReference: "seed-affiliator-purchase-001",
+      studentId: primaryStudentId,
+    },
+    {
+      completedAt: new Date("2026-09-09T07:40:00.000Z"),
+      packageCode: "SNBT-TRYOUT-01",
+      packageName: "Paket Tryout SNBT · Seri 01",
+      providerReference: "seed-affiliator-purchase-002",
+      studentId: studentIds.completed,
+    },
+    {
+      completedAt: new Date("2026-09-08T05:25:00.000Z"),
+      packageCode: "SNBT-LITERASI-2027",
+      packageName: "Paket Literasi SNBT 2027",
+      providerReference: "seed-affiliator-purchase-003",
+      studentId: studentIds.secondCompleted,
+    },
+  ];
+
+  for (const purchase of purchases) {
+    await upsertPackagePurchase(client, {
+      ...purchase,
+      affiliatorProfileId,
+      referralCodeSnapshot: normalizedReferralCode,
+    });
+  }
 }
 
 async function upsertCohort(
@@ -995,6 +1118,25 @@ async function main() {
       userId: tutorUserId,
     });
 
+    const affiliatorUserId = await upsertUser(client, {
+      email: DEFAULT_AFFILIATOR.email,
+      fullName: DEFAULT_AFFILIATOR.fullName,
+      mustChangePassword: false,
+      passwordHash: await hashPassword(DEFAULT_AFFILIATOR.password),
+      passwordUpdatedAt: new Date(),
+    });
+
+    await ensureRoleAssignment(client, {
+      assignedByUserId: adminUserId,
+      role: "affiliator",
+      userId: affiliatorUserId,
+    });
+    await ensureNotificationPreference(client, affiliatorUserId);
+    const affiliatorProfileId = await upsertAffiliatorProfile(client, {
+      referralCode: DEFAULT_AFFILIATOR.referralCode,
+      userId: affiliatorUserId,
+    });
+
     const demoPasswordHash = await hashPassword("Student12345!");
     const demoStudentEntries = await Promise.all(
       SEEDED_STUDENTS.map(async (demoStudent) => {
@@ -1024,6 +1166,13 @@ async function main() {
       }),
     );
     const demoStudentIds = Object.fromEntries(demoStudentEntries);
+
+    await seedAffiliatorConversions(client, {
+      affiliatorProfileId,
+      primaryStudentId: studentUserId,
+      referralCodeSnapshot: DEFAULT_AFFILIATOR.referralCode,
+      studentIds: demoStudentIds,
+    });
 
     const cohortId = await upsertCohort(client, {
       endDate: new Date("2027-04-30"),
@@ -1110,6 +1259,12 @@ async function main() {
         loginPath: "/login",
         password: DEFAULT_TUTOR.password,
         role: "tutor",
+      },
+      {
+        email: DEFAULT_AFFILIATOR.email,
+        loginPath: "/login",
+        password: DEFAULT_AFFILIATOR.password,
+        role: "affiliator",
       },
     ]);
   } catch (error) {

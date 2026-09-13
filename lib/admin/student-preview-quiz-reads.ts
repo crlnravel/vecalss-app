@@ -1,19 +1,22 @@
 import "server-only";
 
-import { ContentStatus, Prisma } from "@/generated/prisma/client";
-import { getAdminStudentPreviewBannerContents } from "@/lib/student/banner-repository";
+import { ContentStatus, Prisma, StandaloneQuizVersionState } from "@/generated/prisma/client";
+import { getAdminStudentPreviewBannerPresentation } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRequest } from "@/lib/student/banner-reader";
+import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
+import type { StudentBannerVariables } from "@/lib/student/banner-content";
 import { prisma } from "@/lib/prisma";
+import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import { PreviewReadBoundary } from "@/lib/admin/preview-read-boundary";
+import { getStudentBannerVariablesForUser } from "@/lib/student/banner-variables";
 import {
   ADMIN_PREVIEW_QUIZ_SUBJECTS,
   assertAdminPreviewQuizPayloadSafe,
   getAdminPreviewQuizSubjectBySlug,
-  sanitizeAdminPreviewQuizBanner,
   toAdminPreviewQuizDetail,
   toAdminPreviewQuizSummary,
   type AdminPreviewQuizDetail,
   type AdminPreviewQuizSubjectWithQuizzes,
-  type AdminPreviewQuizSummary,
 } from "@/lib/admin/student-preview-quiz-contract";
 
 const previewQuizAssetSelect = {
@@ -43,12 +46,26 @@ const previewQuizSelect = {
   description: true,
   items: {
     orderBy: { sortOrder: "asc" },
+    // Keep a compatibility fallback for pre-versioned rows only. Once an
+    // active snapshot exists, toContractRecord prefers that version below.
+    where: { quizVersionId: null },
     select: previewQuizItemSelect,
   },
   opensAt: true,
   slug: true,
   subtest: { select: { code: true, name: true } },
   title: true,
+  versions: {
+    orderBy: { updatedAt: "desc" },
+    select: {
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: previewQuizItemSelect,
+      },
+    },
+    take: 1,
+    where: { state: StandaloneQuizVersionState.active },
+  },
 } satisfies Prisma.StandaloneQuizSelect;
 
 type PreviewQuizRecord = Prisma.StandaloneQuizGetPayload<{ select: typeof previewQuizSelect }>;
@@ -58,17 +75,16 @@ type AdminPreviewQuizCatalogueRead = {
 };
 
 type AdminPreviewQuizCatalogueSurfaceRead = AdminPreviewQuizCatalogueRead & {
-  banner: {
-    description: string;
-    title: string;
-  };
+  banner: AdminStudentBannerRead;
+  bannerVariables: StudentBannerVariables;
 };
 
 function toContractRecord(record: PreviewQuizRecord) {
+  const items = record.versions[0]?.items ?? record.items;
   return {
     closesAt: record.closesAt,
     description: record.description,
-    items: record.items.map((item) => ({
+    items: items.map((item) => ({
       options: item.options.map((option) => ({
         asset: option.asset
           ? {
@@ -160,13 +176,18 @@ async function readAdminPreviewQuizDetail(subjectSlug: string, quizSlug: string)
   return detail;
 }
 
-async function readAdminPreviewQuizCatalogueSurface(): Promise<AdminPreviewQuizCatalogueSurfaceRead> {
-  const [catalogue, banners] = await Promise.all([
+async function readAdminPreviewQuizCatalogueSurface(
+  context: AdminStudentPreviewContext,
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+): Promise<AdminPreviewQuizCatalogueSurfaceRead> {
+  const [catalogue, banners, bannerVariables] = await Promise.all([
     readAdminPreviewQuizCatalogue(),
-    getAdminStudentPreviewBannerContents(),
+    getAdminStudentPreviewBannerPresentation("kuis", bannerRequest),
+    getStudentBannerVariablesForUser(context.student.id, context.student.displayName),
   ]);
   const result = {
-    banner: sanitizeAdminPreviewQuizBanner(banners.kuis),
+    banner: banners,
+    bannerVariables,
     subjects: catalogue.subjects,
   } satisfies AdminPreviewQuizCatalogueSurfaceRead;
   assertAdminPreviewQuizPayloadSafe(result.subjects);
@@ -177,8 +198,10 @@ async function getAdminPreviewQuizCatalogue() {
   return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogue());
 }
 
-async function getAdminPreviewQuizCatalogueSurface() {
-  return PreviewReadBoundary.run(async () => readAdminPreviewQuizCatalogueSurface());
+async function getAdminPreviewQuizCatalogueSurface(
+  bannerRequest: AdminStudentBannerRequest = { mode: "published" },
+) {
+  return PreviewReadBoundary.run(async (context) => readAdminPreviewQuizCatalogueSurface(context, bannerRequest));
 }
 
 async function getAdminPreviewQuizSubject(slug: string) {

@@ -14,10 +14,10 @@ import {
   assertTryoutReleaseEligibility,
   createOrReuseAssessmentRelease,
 } from "@/lib/tryout/assessment-release";
-import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { createTryoutInvitationNotification } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
+import { MAIN_TRYOUT_SESSION_NAME } from "@/lib/tryout/main-session";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
 
 class TryoutDeliveryValidationError extends Error {}
@@ -357,6 +357,16 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
     await assertTryoutOwnership(tx, input.tryoutId, actorId, allowCrossOwner);
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: input.tryoutId }, select: { id: true, publishedAt: true } });
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
+    const existingSession = await tx.tryoutDeliverySession.findFirst({
+      where: { tryoutId: input.tryoutId },
+      select: { id: true, name: true },
+    });
+    if (existingSession) {
+      throw new TryoutDeliveryValidationError("Tryout hanya memiliki satu sesi utama. Atur waktu buka dan tutup pada sesi utama yang sudah tersedia.");
+    }
+    if (name !== MAIN_TRYOUT_SESSION_NAME) {
+      throw new TryoutDeliveryValidationError("Tryout hanya menggunakan sesi utama.");
+    }
     let assessmentReleaseId: string | null = null;
     if (status === "active") {
       try {
@@ -367,8 +377,9 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
       const release = await createOrReuseAssessmentRelease(tx, input.tryoutId, actorId, tryout.publishedAt ?? new Date());
       assessmentReleaseId = release.id;
     }
-    const session = await tx.tryoutDeliverySession.create({ data: { assessmentReleaseId, availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: false, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: status as TryoutDeliverySessionStatus, tryoutId: input.tryoutId, updatedByUserId: actorId } });
-    await audit(tx, { action: "delivery_session.created", actorId, after: { availableFrom, availableUntil, fullscreenPrompt: session.fullscreenPrompt, isDefaultOpenRegistration: false, name, resultReleasePolicy, scheduledReleaseAt, status: session.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: input.tryoutId });
+    const isDefaultOpenRegistration = name === MAIN_TRYOUT_SESSION_NAME && status === "active";
+    const session = await tx.tryoutDeliverySession.create({ data: { assessmentReleaseId, availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: status as TryoutDeliverySessionStatus, tryoutId: input.tryoutId, updatedByUserId: actorId } });
+    await audit(tx, { action: "delivery_session.created", actorId, after: { availableFrom, availableUntil, fullscreenPrompt: session.fullscreenPrompt, isDefaultOpenRegistration, name, resultReleasePolicy, scheduledReleaseAt, status: session.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: input.tryoutId });
     return session;
   });
 }
@@ -419,7 +430,6 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
     } catch (error) {
       throw new TryoutDeliveryValidationError(error instanceof Error ? error.message : "Tryout belum memenuhi syarat AssessmentRelease.");
     }
-    if (session.tryout.sections.some((section) => section.testType === "cat" && section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
     const release = session.assessmentReleaseId
       ? await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } })
       : await createOrReuseAssessmentRelease(tx, session.tryoutId, actorId, session.tryout.publishedAt ?? new Date());
@@ -471,6 +481,7 @@ async function updateTryoutDeliverySessionSchedule(
         availableFrom: true,
         availableUntil: true,
         id: true,
+        name: true,
         status: true,
         tryoutId: true,
       },
@@ -481,7 +492,10 @@ async function updateTryoutDeliverySessionSchedule(
       where: { id: session.tryoutId },
       select: { status: true },
     });
-    if (!tryout || tryout.status !== ContentStatus.published) {
+    const draftMainSession = tryout?.status === ContentStatus.draft
+      && session.name === MAIN_TRYOUT_SESSION_NAME
+      && session.status === TryoutDeliverySessionStatus.draft;
+    if (!tryout || (tryout.status !== ContentStatus.published && !draftMainSession)) {
       throw new TryoutDeliveryValidationError("Delivery hanya tersedia setelah Tryout diterbitkan.");
     }
     if (session.status !== TryoutDeliverySessionStatus.draft && session.status !== TryoutDeliverySessionStatus.active) {
@@ -543,6 +557,9 @@ async function setTryoutDefaultOpenRegistrationSession(
       },
     });
     if (!session) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan setelah penguncian.");
+    if (session.name !== MAIN_TRYOUT_SESSION_NAME) {
+      throw new TryoutDeliveryValidationError("Tryout hanya menggunakan sesi utama pendaftaran.");
+    }
     if (session.status !== TryoutDeliverySessionStatus.active) {
       throw new TryoutDeliveryValidationError("Hanya sesi aktif yang dapat menjadi sesi utama pendaftaran.");
     }
@@ -1126,7 +1143,6 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
                   },
                   assessmentRelease: true,
                   integrityEvents: { orderBy: { serverSequence: "asc" } },
-                  catResolutionAudits: { orderBy: { createdAt: "desc" } },
                 },
                 orderBy: { sequenceNo: "asc" },
               },

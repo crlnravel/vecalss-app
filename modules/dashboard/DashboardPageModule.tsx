@@ -27,7 +27,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_SHADOW_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompactTabsList, CompactTabsTrigger } from "@/components/ui/compact-filter-tabs";
@@ -42,9 +45,14 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import {
   resolveStudentBannerText,
-  type StudentBannerContent,
 } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import { cn } from "@/lib/utils";
 
 type DashboardProfile = StudentProfile & {
@@ -114,7 +122,7 @@ function DashboardPageModule({
   profile,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
   notificationFeed?: StudentNotificationFeed;
   profile: DashboardProfile;
   session: SessionContext;
@@ -132,41 +140,69 @@ function DashboardPageModule({
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
       breadcrumbLabel="Beranda"
-      mainClassName="gap-8 lg:gap-9"
+      mainClassName="gap-12"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-200 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
-            <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
-            <Image
-              alt=""
-              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(1,76,56,0.18)] xl:w-[26rem]"
-              height={416}
-              sizes="(min-width: 1280px) 416px, 352px"
-              src="/brand/mascot-vecalss.png"
-              width={416}
+        {banner.design ? (
+          <Card className={cn(
+            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+          )}>
+            <StudentBannerArtwork
+              banner={banner}
+              className="absolute inset-0 size-full rounded-none"
+              variables={bannerVariables}
             />
-          </div>
-          <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
-            <div className="grid gap-10">
-              <div>
-                <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl xl:text-6xl">
-                  {resolveStudentBannerText(banner.title, bannerVariables)}
-                </CardTitle>
-                <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600 md:text-base">
-                  {resolveStudentBannerText(banner.description, bannerVariables)}
-                </CardDescription>
-              </div>
+            <div className="sr-only">
+              <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+              <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+            </div>
+            <CardHeader className="relative z-10 gap-8 px-7 py-9 md:px-11 md:py-11 xl:pr-[38%]">
               <div className="flex flex-wrap gap-3">
                 <HeroCountdownPill daysLeft={examDaysLeft} />
                 <HeroDataPill />
               </div>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card className={cn(
+            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+          )}>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
+              <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
+              <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
+              <div className="absolute right-9 top-10 size-10 rounded-full bg-voyage-warm-sun" />
+              <Image
+                alt=""
+                className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
+                height={416}
+                sizes="(min-width: 1280px) 416px, 352px"
+                src="/brand/mascot-vecalss.png"
+                width={416}
+              />
             </div>
-          </CardHeader>
-        </Card>
+            <CardHeader className="relative gap-8 px-7 py-9 md:px-11 md:py-11 xl:pr-[38%]">
+              <div className="grid gap-12">
+                <div>
+                  <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
+                    {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+                  </h1>
+                  <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-learning-hero-muted">
+                    {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <HeroCountdownPill daysLeft={examDaysLeft} />
+                  <HeroDataPill />
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
       </section>
 
       <DashboardDataNotice />
@@ -184,17 +220,17 @@ function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
     daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`;
 
   return (
-    <div className="inline-flex min-h-10 items-center gap-2.5 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
-      <CalendarCheck className="size-[18px] text-primary-700" />
-      <span className="text-base font-bold leading-none text-primary-700">{label}</span>
+    <div className="inline-flex min-h-11 items-center gap-2.5 rounded-full bg-student-status-attention-solid-bg px-4 py-2 text-student-status-attention-solid-fg">
+      <CalendarCheck aria-hidden="true" className="size-[18px]" />
+      <span className="text-base font-bold leading-none tabular-nums">{label}</span>
     </div>
   );
 }
 
 function HeroDataPill() {
   return (
-    <div className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary-200 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)]">
-      <Info aria-hidden="true" className="size-[18px] text-primary-700" />
+    <div className="inline-flex min-h-11 items-center gap-2 px-1 py-2 text-learning-hero-muted">
+      <Info aria-hidden="true" className="size-[18px]" />
       <span className="text-sm font-semibold leading-none">XP belum tersedia</span>
     </div>
   );
@@ -202,8 +238,8 @@ function HeroDataPill() {
 
 function DashboardDataNotice() {
   return (
-    <Card className="border-primary-200 bg-primary-50/70 shadow-none">
-      <CardContent className="flex items-start gap-3 px-5 py-4">
+    <Card className="border border-learning-card-border bg-voyage-surface py-0 shadow-none ring-0">
+      <CardContent className="flex items-start gap-4 px-6 py-5">
         <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
         <div>
           <p className="text-sm font-semibold text-secondary-900">Data dashboard belum tersedia</p>
@@ -218,38 +254,39 @@ function DashboardDataNotice() {
 
 function DashboardSectionHeading({ icon: Icon, title }: { icon: DashboardIcon; title: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon className="size-5 text-secondary-900" />
-      <h2 className="text-lg font-semibold tracking-tight text-secondary-900">{title}</h2>
+    <div className="flex items-center gap-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
+        <Icon aria-hidden="true" className="size-5" />
+      </span>
+      <h2 className="text-xl font-extrabold tracking-tight text-voyage-ink">{title}</h2>
     </div>
   );
 }
 
 function QuickAccessSection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={Zap} title="Akses Cepat" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
-          <Link className="group block min-w-0" href={item.href} key={item.label}>
+          <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
             <Card className={cn(
-              REFERENCE_SURFACE_CLASS_NAMES.raised,
-              REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
-              "gap-0 py-0 ring-0",
+              REFERENCE_SURFACE_CLASS_NAMES.tactile,
+              "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
             )}>
-              <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent text-primary-700">
-                  <item.icon className="size-5" />
+              <CardContent className="flex min-h-24 items-center gap-5 px-5 py-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep">
+                  <item.icon aria-hidden="true" className="size-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="truncate text-[15px] font-semibold text-secondary-900">
+                  <CardTitle className="text-base font-extrabold text-voyage-ink">
                     {item.label}
                   </CardTitle>
-                  <CardDescription className="mt-0.5 truncate text-xs text-secondary-500">
+                  <CardDescription className="mt-1 text-sm leading-5 text-learning-muted-ink">
                     {item.description}
                   </CardDescription>
                 </div>
-                <ChevronRight className="size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-700" />
+                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-voyage-deep" />
               </CardContent>
             </Card>
           </Link>
@@ -261,20 +298,20 @@ function QuickAccessSection() {
 
 function DailyMissionSection() {
   return (
-    <section className="flex flex-col gap-4" id="daily-mission">
+    <section className="flex flex-col gap-5" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
-          <CardDescription className="text-sm text-secondary-500">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+        <CardHeader className="flex flex-row items-center justify-between gap-5 px-6 pb-5 pt-6">
+          <CardDescription className="text-sm text-learning-muted-ink">
             Belum tersedia karena sumber aktivitas belum tersambung.
           </CardDescription>
-          <span className="shrink-0 text-xs font-semibold text-secondary-500">Belum dimulai</span>
+          <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">Belum dimulai</span>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 px-5 pb-5">
+        <CardContent className="flex flex-col gap-3 px-6 pb-6">
           {dailyMissionItems.map((mission) => (
             <div
               aria-disabled="true"
-              className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-secondary-50/60 px-3.5 py-2.5 text-secondary-500"
+              className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-voyage-canvas px-3.5 py-2.5 text-learning-muted-ink"
               key={mission}
             >
               <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full border border-secondary-300 bg-white text-xs">–</span>
@@ -289,7 +326,7 @@ function DailyMissionSection() {
 
 function AnalyticsSection() {
   return (
-    <section className="grid gap-4 lg:grid-cols-3" id="progress">
+    <section className="grid gap-5 lg:grid-cols-3" id="progress">
       <AccuracyCard />
       <PracticeActivityCard />
       <TryoutProgressCard />
@@ -299,12 +336,12 @@ function AnalyticsSection() {
 
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-h-[310px] gap-0 py-0 ring-0")}>
-      <CardHeader className="gap-1 px-5 pb-0 pt-5">
-        <CardTitle className="text-[15px] font-semibold text-secondary-900">{title}</CardTitle>
-        <CardDescription className="text-xs text-secondary-500">{description}</CardDescription>
+    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
+      <CardHeader className="gap-2 px-6 pb-0 pt-6">
+        <CardTitle className="text-base font-bold text-voyage-ink">{title}</CardTitle>
+        <CardDescription className="text-sm text-learning-muted-ink">{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 px-5 pb-5 pt-3">{children}</CardContent>
+      <CardContent className="flex flex-1 px-6 pb-6 pt-4">{children}</CardContent>
     </Card>
   );
 }
@@ -320,8 +357,8 @@ function PracticeActivityCard() {
 function UnavailableAnalyticsCard({ description, title }: { description: string; title: string }) {
   return (
     <AnalyticsCard description={description} title={title}>
-      <Empty className="min-h-[230px] gap-3 border-0 p-4">
-        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-secondary-500" variant="icon">
+      <Empty className="min-h-40 gap-4 border-0 p-5">
+        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-learning-muted-ink" variant="icon">
           <Info />
         </EmptyMedia>
         <EmptyHeader>
@@ -335,9 +372,9 @@ function UnavailableAnalyticsCard({ description, title }: { description: string;
 function TryoutProgressCard() {
   return (
     <AnalyticsCard description="Nilai Tryout terakhir" title="Progress Tryout">
-      <Empty className="min-h-[230px] gap-3 border-0 p-4">
+      <Empty className="min-h-40 gap-4 border-0 p-5">
         <EmptyHeader>
-          <EmptyTitle className="text-sm font-medium text-secondary-500">Belum ada data Tryout yang selesai</EmptyTitle>
+          <EmptyTitle className="text-sm font-medium text-learning-muted-ink">Belum ada data Tryout yang selesai</EmptyTitle>
         </EmptyHeader>
       </Empty>
     </AnalyticsCard>
@@ -346,10 +383,10 @@ function TryoutProgressCard() {
 
 function ChapterSkillsSection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
-        <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+        <CardContent className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
           <Tabs defaultValue="PU">
             <CompactTabsList aria-label="Pilih bab">
               {chapterTabs.map((chapter) => (
@@ -362,8 +399,8 @@ function ChapterSkillsSection() {
               ))}
             </CompactTabsList>
             {chapterTabs.map((chapter) => (
-              <TabsContent className="mt-2" key={chapter.value} value={chapter.value}>
-                <Empty className="min-h-[350px] border-0 p-5">
+              <TabsContent className="mt-4" key={chapter.value} value={chapter.value}>
+                <Empty className="min-h-[240px] gap-4 border-0 p-6">
                   <EmptyMedia className="size-14 rounded-full bg-primary-50 text-primary-500" variant="icon">
                     <BookOpen />
                   </EmptyMedia>
@@ -390,11 +427,11 @@ function ChapterSkillsSection() {
 
 function RecentActivitySection() {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
-        <CardContent className="p-4 md:p-5">
-          <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+        <CardContent className="p-5 md:p-6">
+          <Empty className="min-h-[250px] gap-4 rounded-3xl border border-dashed border-secondary-300 bg-transparent p-6">
             <EmptyMedia className="mb-1" variant="default">
               <Image alt="" className="size-16 object-contain opacity-45 grayscale" height={64} src="/brand/mascot-vecalss.png" width={64} />
             </EmptyMedia>

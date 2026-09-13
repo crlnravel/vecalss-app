@@ -187,6 +187,10 @@ export function safeReturnTo(value: string | undefined, allowedPrefixes: readonl
   return value === undefined ? undefined : normalizeInternalPath(value, allowedPrefixes) ?? null;
 }
 
+export function getSafeRedirectUrl(value: string, allowedPrefixes: readonly string[]) {
+  return normalizeInternalPath(value, allowedPrefixes) ?? allowedPrefixes[0] ?? "/";
+}
+
 export function canonicalContextMessage(issues: readonly CanonicalContextIssue[]) {
   if (!issues.length) return null;
   return issues[0]?.message ?? "Konteks halaman ini tidak tersedia. Pilih konteks lain untuk melanjutkan.";
@@ -504,6 +508,7 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     basics: "basics",
     build: "sections",
     configure_sections: "sections",
+    content: "sections",
     delivery: "schedule",
     live: "live",
     operations: "attempts",

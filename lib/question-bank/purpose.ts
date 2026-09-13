@@ -14,3 +14,7 @@ export function assertQuestionBankPurpose(value: unknown): QuestionBankPurpose {
 export function questionBankPurposeLabel(purpose: QuestionBankPurpose) {
   return purpose === "quiz" ? "Kuis" : "Tryout";
 }
+
+export function questionBankNavigationLabel(purpose: QuestionBankPurpose) {
+  return `Bank Soal ${questionBankPurposeLabel(purpose)}`;
+}

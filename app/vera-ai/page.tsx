@@ -25,7 +25,7 @@ export default async function VeraAiPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <Suspense fallback={<div className="min-h-svh bg-primary-50" />}>
+    <Suspense fallback={<div className="student-page-canvas min-h-svh" />}>
       <VeraAiPageModule notificationFeed={notificationFeed} returnToHref={context.returnTo} session={session} />
     </Suspense>
   );

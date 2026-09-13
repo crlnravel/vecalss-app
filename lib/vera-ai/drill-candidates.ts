@@ -69,14 +69,12 @@ function parseStandaloneSnapshot(value: Prisma.JsonValue | null): StandaloneForm
   return items.length === root.items.length && items.length > 0 ? items : null;
 }
 
-function parseTryoutItems(value: Prisma.JsonValue, selectedIds: Set<string> | null): TryoutFormItem[] | null {
+function parseTryoutItems(value: Prisma.JsonValue): TryoutFormItem[] | null {
   const root = record(value);
   if (!Array.isArray(root?.items)) return null;
   const items = root.items.flatMap((entry) => {
     const row = record(entry);
     const options = parseOptions(row?.options);
-    const selected = typeof row?.id === "string" && (!selectedIds || selectedIds.has(row.id));
-    if (!selected) return [];
     if (!row || typeof row.id !== "string" || typeof row.prompt !== "string" || (row.explanation !== null && typeof row.explanation !== "string")
       || typeof row.sourceQuestionId !== "string" || typeof row.sourceQuestionRevisionId !== "string" || typeof row.sourceContentDigest !== "string"
       || !(["easy", "medium", "hard"] as unknown[]).includes(row.difficulty) || !options) return [{ invalid: true } as never];
@@ -91,7 +89,7 @@ function parseTryoutItems(value: Prisma.JsonValue, selectedIds: Set<string> | nu
       difficulty: row.difficulty as "easy" | "medium" | "hard",
     }];
   });
-  if (items.some((item) => !("sourceQuestionId" in item)) || (selectedIds && items.length !== selectedIds.size)) return null;
+  if (items.some((item) => !("sourceQuestionId" in item))) return null;
   return items;
 }
 
@@ -151,13 +149,6 @@ async function standaloneCandidates(tx: Prisma.TransactionClient, studentId: str
   });
 }
 
-function selectedTryoutItemIds(catSnapshot: Prisma.JsonValue | null): Set<string> | null {
-  if (catSnapshot === null) return null;
-  const root = record(catSnapshot);
-  if (!Array.isArray(root?.selectedItemIds) || !root.selectedItemIds.every((id) => typeof id === "string")) return new Set();
-  return new Set(root.selectedItemIds as string[]);
-}
-
 async function tryoutCandidates(tx: Prisma.TransactionClient, studentId: string, attemptId: string): Promise<FrozenDrillCandidate[]> {
   const attempt = await tx.tryoutAttempt.findFirst({
     where: { id: attemptId, studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseNumber: { not: null }, assessmentReleaseDigest: { not: null } },
@@ -166,7 +157,7 @@ async function tryoutCandidates(tx: Prisma.TransactionClient, studentId: string,
   if (!attempt || !attempt.assessmentReleaseId || attempt.assessmentReleaseNumber === null || !attempt.assessmentReleaseDigest || !attempt.runs.length) return [];
   const parsed = attempt.runs.flatMap((run) => {
     if (run.assessmentReleaseId !== attempt.assessmentReleaseId || run.assessmentReleaseNumber !== attempt.assessmentReleaseNumber || run.assessmentReleaseDigest !== attempt.assessmentReleaseDigest) return [];
-    const items = parseTryoutItems(run.contentSnapshot, selectedTryoutItemIds(run.catSnapshot));
+    const items = parseTryoutItems(run.contentSnapshot);
     return items ? items.map((item) => ({ runId: run.id, item })) : [];
   });
   const itemIds = parsed.map(({ item }) => item.id);
@@ -281,8 +272,8 @@ export async function lockAndRevalidateDrillCandidates(
         correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
         explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
       } else {
-        const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId: frozen.attemptId }, orderBy: { sequenceNo: "asc" }, select: { contentSnapshot: true, catSnapshot: true } });
-        const item = runs.flatMap((run) => parseTryoutItems(run.contentSnapshot, selectedTryoutItemIds(run.catSnapshot)) ?? []).find((candidate) => candidate.id === frozen.assessmentItemId);
+        const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId: frozen.attemptId }, orderBy: { sequenceNo: "asc" }, select: { contentSnapshot: true } });
+        const item = runs.flatMap((run) => parseTryoutItems(run.contentSnapshot) ?? []).find((candidate) => candidate.id === frozen.assessmentItemId);
         correctOptionKey = item?.options.find((option) => option.isCorrect)?.key ?? null;
         explanation = frozen.explanationReleaseState === "released" ? item?.explanation ?? null : null;
       }

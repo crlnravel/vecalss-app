@@ -1,22 +1,20 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Plus } from "@/lib/icons";
+import { CalendarDays, ChevronRight } from "@/lib/icons";
 
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { OperationalPageHeader } from "@/modules/mentor/KaptenTryoutOperationalShared";
-import { KaptenTryoutSessionPrimaryAction } from "@/modules/mentor/KaptenTryoutSessionPrimaryAction";
 
 function KaptenTryoutSessionsPageModule({
   embedded = false,
@@ -27,41 +25,34 @@ function KaptenTryoutSessionsPageModule({
 }) {
   const base = `/mentor/tryout/${initial.id}/operations/sessions`;
   const Root = embedded ? "section" : "main";
-  const hasActiveSession = initial.sessions.some((session) => session.status === "active");
-  const orderedSessions = [...initial.sessions].sort((left, right) => Number(right.isDefaultOpenRegistration) - Number(left.isDefaultOpenRegistration));
-  const currentPrimarySession = orderedSessions.find((session) => session.isDefaultOpenRegistration) ?? null;
+  const mainSession = selectMainTryoutSession(initial.sessions);
+  const sessions = mainSession ? [mainSession] : [];
+  const hasActiveSession = mainSession?.status === "active";
 
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
-      {embedded ? <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Paling tidak harus terdapat satu sesi yang aktif</p> : null}</div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
+      {embedded ? <header><div><h2 className="text-xl font-semibold text-secondary-900">Sesi utama</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Sesi utama belum aktif</p> : null}</div></header> : <OperationalPageHeader
+        backHref={`/mentor/tryout/${initial.id}/operations`}
         description={initial.title}
-        title="Sesi"
-        trailing={
-          <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference">
-            <Plus data-icon="inline-start" />
-            Buat sesi
-          </Button>
-        }
+        title="Sesi utama"
       />}
 
-      {initial.sessions.length ? (
+      {sessions.length ? (
         <>
           <div className="mt-5 grid gap-3">
-            {orderedSessions.map((session) => {
+            {sessions.map((session) => {
               const sessionReady = session.status === "active" && Boolean(session.assessmentRelease);
-              const isPrimary = session.isDefaultOpenRegistration;
               return (
                 <Card
-                  className={isPrimary
-                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] ring-0"
-                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0"}
+                  className={session.isDefaultOpenRegistration
+                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)] ring-0"
+                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] ring-0"}
                   key={session.id}
                   size="sm"
                 >
                   <div className="grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_3rem] sm:items-center sm:gap-0 sm:p-0">
                     <Link
-                      className={isPrimary
+                      className={session.isDefaultOpenRegistration
                         ? "group min-w-0 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35 sm:px-5 sm:py-4"
                         : "group min-w-0 transition-colors hover:bg-secondary-50 focus-visible:bg-secondary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40 sm:px-5 sm:py-4"}
                       href={`${base}/${session.id}`}
@@ -80,22 +71,13 @@ function KaptenTryoutSessionsPageModule({
                         <StatusBadge status={session.status} />
                       </div>
                       <div className="flex shrink-0 items-center justify-end sm:pl-2 sm:pr-1">
-                        {isPrimary ? (
-                          <MentorBadge size="sm" tone="success">
-                            Sesi utama
-                          </MentorBadge>
-                        ) : (
-                          <KaptenTryoutSessionPrimaryAction
-                            currentPrimaryName={currentPrimarySession?.name}
-                            disabled={!sessionReady}
-                            sessionId={session.id}
-                            sessionName={session.name}
-                          />
-                        )}
+                        <MentorBadge size="sm" tone={sessionReady ? "success" : "attention"}>
+                          Sesi utama
+                        </MentorBadge>
                       </div>
                       <Link
                         aria-label={`Buka sesi ${session.name}`}
-                        className={isPrimary
+                        className={session.isDefaultOpenRegistration
                           ? "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
                           : "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40"}
                         href={`${base}/${session.id}`}
@@ -110,22 +92,16 @@ function KaptenTryoutSessionsPageModule({
           </div>
         </>
       ) : (
-        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <CalendarDays aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle>Belum ada sesi</EmptyTitle>
+            <EmptyTitle>Sesi utama belum tersedia</EmptyTitle>
             <EmptyDescription>
-              Buat sesi pertama untuk menetapkan jadwal dan akses peserta.
+              Sesi utama dibuat otomatis saat Tryout disimpan.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference">
-              <Plus data-icon="inline-start" />
-              Buat sesi
-            </Button>
-          </EmptyContent>
         </Empty>
       )}
     </Root>

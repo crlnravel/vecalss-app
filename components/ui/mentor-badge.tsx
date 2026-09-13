@@ -30,7 +30,7 @@ function MentorBadge({
       data-slot="mentor-badge"
       className={cn(
         studentBadgeVariants({ size: variantSize, tone }),
-        "border-0 font-medium shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]",
+        "border-0 font-medium shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
         MENTOR_BADGE_SIZE_CLASS_NAMES[size ?? "sm"],
         className,
       )}

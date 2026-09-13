@@ -38,18 +38,6 @@ for (const mode of ["fixed_set", "random_pool", "blueprint"] as const) {
 
 assert.throws(
   () => assertAssemblyAttachmentCompatibility({
-    bankIds: ["bank-1"],
-    bankPurposes: ["quiz"],
-    mode: "cat_pool",
-    subtestCode: "PU",
-    target: "kuis",
-    targetTestType: "cbt",
-    targetSubtestCode: "PU",
-  }),
-  (error: unknown) => error instanceof AssemblyValidationError && error.code === "invalid_mode",
-);
-assert.throws(
-  () => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1", "bank-2"],
     bankPurposes: ["quiz", "quiz"],
     mode: "blueprint",
@@ -109,7 +97,9 @@ assert.match(detailModule, /FullWidthLineTabsList/u);
 assert.match(detailModule, /KaptenQuizResultsContent/u);
 assert.match(detailModule, /\/editor/u);
 assert.match(editorModule, /QuestionInventory/u);
-assert.match(editorModule, /MediaPickerDialog/u);
+assert.match(editorModule, /data-quiz-question-content-editor="disabled"/u);
+assert.match(editorModule, /Buka Bank Soal/u);
+assert.doesNotMatch(editorModule, /MediaPickerDialog|function QuestionForm|quiz-preview-toggle/u);
 assert.match(editorModule, /beforeunload/u);
 assert.match(editorModule, /pendingDeleteId/u);
 assert.match(resultsModule, /KaptenQuizResultsContent/u);

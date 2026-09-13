@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_FOLDERS,
+  QUESTION_BANK_PURPOSES,
   categoryNamesForQuestionBank,
   folderKeyForQuestionBank,
   normalizeClassificationText,
 } from "../prisma/question-bank-organization-seed.mjs";
 
 assert.deepEqual(DEFAULT_FOLDERS.map(({ name }) => name), ["UTBK", "Latihan", "Bank Umum"]);
+assert.deepEqual(QUESTION_BANK_PURPOSES, ["quiz", "tryout"]);
 assert.deepEqual(DEFAULT_CATEGORIES.map(({ name }) => name), ["UTBK", "Evaluasi", "Latihan", "Campuran"]);
 assert.equal(normalizeClassificationText("  Bank Soal UTBK  "), "bank soal utbk");
 const assessmentBank = {

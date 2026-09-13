@@ -11,6 +11,10 @@ type StudentNotificationItem = {
 type StudentNotificationFeed = {
   items: StudentNotificationItem[];
   unreadCount: number;
+  page?: number;
+  pageCount?: number;
+  pageSize?: number;
+  totalCount?: number;
 };
 
 export type { StudentNotificationFeed, StudentNotificationItem };

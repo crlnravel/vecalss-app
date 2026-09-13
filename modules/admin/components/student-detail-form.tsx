@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "@/lib/icons";
@@ -61,13 +61,18 @@ function StudentDetailForm({
     }
   }, []);
 
-  function updateDirtyState(override?: FieldChangeOverride) {
+  const updateDirtyState = useCallback((override?: FieldChangeOverride) => {
     if (!formRef.current || initialValuesRef.current === null) {
       return;
     }
 
     setHasUnsavedChanges(serializeForm(formRef.current, override) !== initialValuesRef.current);
-  }
+  }, []);
+
+  const fieldChangeHandler = useMemo(
+    () => (override: FieldChangeOverride) => updateDirtyState(override),
+    [updateDirtyState],
+  );
 
   function handleFormChange() {
     updateDirtyState();
@@ -90,7 +95,7 @@ function StudentDetailForm({
   }
 
   return (
-    <StudentDetailFormFieldChangeContext.Provider value={(override) => updateDirtyState(override)}>
+    <StudentDetailFormFieldChangeContext.Provider value={fieldChangeHandler}>
       <form
         action={updateStudentEnrollmentAction}
         className="min-w-0 space-y-6"
@@ -103,7 +108,7 @@ function StudentDetailForm({
         {hasUnsavedChanges ? (
           <div
             aria-live="polite"
-            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)] transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
             role="status"
           >
             <div className="flex min-w-0 items-center gap-3">

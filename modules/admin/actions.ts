@@ -17,6 +17,7 @@ import {
   sendKelasNotification,
 } from "@/lib/notifications/service";
 import {
+  createAffiliatorEnrollment,
   changeStudentEnrollmentPassword,
   createKaptenEnrollment,
   createStudentEnrollment,
@@ -354,6 +355,81 @@ async function createKaptenEnrollmentAction(
         error instanceof Error
           ? error.message
           : "We're sorry, we couldn't create the Kapten account. Please try again.",
+      status: "error",
+    };
+  }
+}
+
+async function createAffiliatorEnrollmentAction(
+  _previousState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireAdminSession();
+  const fullName = readTextField(formData, "fullName");
+  const email = readTextField(formData, "email");
+  const referralCode = readTextField(formData, "referralCode");
+  const handoffMethod = readHandoffMethod(formData);
+  const selectedHandoffMethod = handoffMethod ?? EnrollmentHandoffMethod.temporary_password;
+  const fields = {
+    email,
+    fullName,
+    handoffMethod: selectedHandoffMethod,
+    referralCode,
+  };
+
+  if (!fullName || !email || !referralCode) {
+    return {
+      fieldErrors: {
+        ...(fullName ? {} : { fullName: "Affiliator name is required." }),
+        ...(email ? {} : { email: "Affiliator email is required." }),
+        ...(referralCode ? {} : { referralCode: "Referral code is required." }),
+      },
+      fields,
+      message: "Please fill in the affiliator's name, email, and referral code before creating the account.",
+      status: "error",
+    };
+  }
+
+  if (!handoffMethod) {
+    return {
+      fieldErrors: { handoffMethod: "Choose a valid credential handoff method." },
+      fields,
+      message: "Choose a valid credential handoff method before creating the affiliator account.",
+      status: "error",
+    };
+  }
+
+  try {
+    const result = await createAffiliatorEnrollment({
+      actorUserId: session.user.id,
+      email,
+      fullName,
+      handoffMethod,
+      referralCode,
+    });
+
+    revalidatePath("/admin/affiliators");
+    revalidatePath("/admin");
+
+    return {
+      fields: { email: "", fullName: "", handoffMethod, referralCode: "" },
+      handoffId: result.handoffId,
+      handoffMethod: result.method,
+      inviteUrl: result.inviteUrl ?? undefined,
+      message: result.method === EnrollmentHandoffMethod.invite_link
+        ? "Affiliator account created. Share this invite link promptly; it expires after 24 hours and can be used once."
+        : "Affiliator account created. Share the temporary password securely because it will not be shown again.",
+      status: "success",
+      temporaryPassword: result.temporaryPassword ?? undefined,
+      userId: result.userId,
+    };
+  } catch (error) {
+    return {
+      fields,
+      message:
+        error instanceof Error
+          ? error.message
+          : "We're sorry, we couldn't create the affiliator account. Please try again.",
       status: "error",
     };
   }
@@ -878,6 +954,7 @@ export {
   acknowledgeEnrollmentHandoffAction,
   bulkUpdateStudentEnrollmentStatusAction,
   changeStudentEnrollmentPasswordAction,
+  createAffiliatorEnrollmentAction,
   createKaptenEnrollmentAction,
   createStudentEnrollmentAction,
   deleteStudentEnrollmentAction,

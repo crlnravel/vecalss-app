@@ -39,9 +39,9 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
                       isCritical
-                        ? "bg-red-50 text-red-700 border border-red-200"
+                        ? "bg-student-status-danger-bg text-student-status-danger-fg border border-student-status-danger-border"
                         : isElevated
-                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        ? "bg-warning-50 text-warning-700 border border-warning-200"
                         : "bg-primary-50 text-primary-700 border border-primary-100",
                     )}
                   >
@@ -57,22 +57,25 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
                 </div>
               </div>
 
-              <div
-                aria-label={item.label}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={Math.max(0, Math.min(100, item.value))}
-                aria-valuetext={`${item.value}% ${item.status}`}
-                className="h-2 w-full overflow-hidden rounded-full bg-secondary-100"
-                role="meter"
-              >
-                <div
-                  style={{ width: `${item.value}%` }}
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500 motion-reduce:transition-none",
-                    isCritical ? "bg-red-600" : isElevated ? "bg-amber-500" : "bg-primary-700",
-                  )}
-                />
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary-100">
+                <meter
+                  aria-label={item.label}
+                  className="sr-only"
+                  max={100}
+                  min={0}
+                  value={Math.max(0, Math.min(100, item.value))}
+                >
+                  {`${item.value}% ${item.status}`}
+                </meter>
+                <div aria-hidden="true" className="absolute inset-0">
+                  <div
+                    style={{ width: `${item.value}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none",
+                      isCritical ? "bg-danger-600" : isElevated ? "bg-warning-500" : "bg-primary-700",
+                    )}
+                  />
+                </div>
               </div>
             </div>
           );

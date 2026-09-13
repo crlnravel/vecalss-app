@@ -28,6 +28,15 @@ function getResetPasswordCopy(audience: LoginAudience) {
     };
   }
 
+  if (audience === "affiliator") {
+    return {
+      backHref: "/login",
+      description: "Buat password baru untuk kembali melihat dashboard affiliator.",
+      requestNewLinkHref: "/forgot-password?audience=affiliator",
+      title: "Atur ulang password affiliator",
+    };
+  }
+
   return {
     backHref: "/login",
     description:

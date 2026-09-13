@@ -2,8 +2,6 @@ import Image from "next/image";
 import { ArrowRight } from "@/lib/icons";
 
 import { featuredTopAlumni, type TopAlumni } from "@/modules/alumni/data";
-import { ContactForm } from "./components/contact-form";
-import { CountUpStats } from "./components/count-up-stats";
 import { FAQ } from "./components/FAQ";
 import { MarketingHeader } from "./components/marketing-header";
 import { ActionButtonLink } from "./components/home-primitives";
@@ -13,7 +11,6 @@ import {
   campusCrewMarks,
   crewMembers,
   faqItems,
-  journeyStats,
   pathways,
   testimonials,
   voyagePrinciples,
@@ -54,7 +51,7 @@ function SectionIntro({
     <div className={`${center ? "mx-auto text-center" : ""} max-w-[760px]`}>
       <h2
         className={`text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] md:text-6xl ${
-          light ? "text-white" : "text-[#014C38]"
+          light ? "text-white" : "text-[var(--voyage-deep)]"
         }`}
       >
         {title}
@@ -63,7 +60,7 @@ function SectionIntro({
         <p
           className={`mt-5 max-w-[54ch] text-base leading-7 md:text-lg ${
             center ? "mx-auto" : ""
-          } ${light ? "text-white/78" : "text-[#014C38]/70"}`}
+          } ${light ? "text-white/78" : "text-[var(--voyage-deep)]/70"}`}
         >
           {body}
         </p>
@@ -80,10 +77,10 @@ function Hero() {
 
         <div className="grid flex-1 gap-8 py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:items-center lg:py-16">
           <div className="max-w-[720px]">
-            <h1 className="text-balance text-6xl font-semibold leading-[0.95] tracking-[-0.055em] text-[#014C38] sm:text-7xl md:text-8xl lg:text-8xl">
+            <h1 className="text-balance text-6xl font-semibold leading-[0.95] tracking-[-0.055em] text-[var(--voyage-deep)] sm:text-7xl md:text-8xl lg:text-8xl">
               Misi Belajar Konsisten Dari Dasar Sampai Mahir
             </h1>
-            <p className="mt-7 max-w-[600px] text-lg leading-8 text-[#014C38]/70 md:text-xl md:leading-8">
+            <p className="mt-7 max-w-[600px] text-lg leading-8 text-[var(--voyage-deep)]/70 md:text-xl md:leading-8">
               Peta belajar yang jelas, ritme yang konsisten, dan Kapten yang
               menjaga perjalananmu tetap menuju PTN.
             </p>
@@ -105,13 +102,13 @@ function Hero() {
           </div>
 
           <div className="relative mx-auto w-full max-w-[540px] lg:max-w-[620px]">
-            <div className="absolute inset-x-8 bottom-4 h-24 rounded-full bg-[#014C38]/12 blur-3xl" />
+            <div className="absolute inset-x-8 bottom-4 h-24 rounded-full bg-[var(--voyage-deep)]/12 blur-3xl" />
             <div className="relative aspect-square">
               <Image
                 alt="Maskot Vecalss sebagai kapten perjalanan belajar"
                 fill
                 priority
-                className="object-contain drop-shadow-[0_34px_72px_rgba(1,76,56,0.16)]"
+                className="object-contain drop-shadow-[0_34px_72px_color-mix(in_oklab,var(--voyage-deep)_16%,transparent)]"
                 sizes="(min-width: 1024px) 620px, 88vw"
                 src="/brand/mascot-vecalss.png"
               />
@@ -127,10 +124,10 @@ function LogoMarquee() {
   return (
     <section className="bg-white py-16 md:py-24">
       <div className="mx-auto mb-12 w-full max-w-[1440px] px-4 md:px-8 lg:px-10">
-        <h2 className="max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
+        <h2 className="max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
           Tempat Para Voyager Berlabuh
         </h2>
-        <p className="mt-5 max-w-[620px] text-base leading-7 text-[#014C38]/66 md:text-lg md:leading-8">
+        <p className="mt-5 max-w-[620px] text-base leading-7 text-[var(--voyage-deep)]/66 md:text-lg md:leading-8">
           Ribuan Voyager telah menuntaskan perjalanan mereka dan berlabuh di
           kampus impian di seluruh Indonesia.
         </p>
@@ -169,7 +166,7 @@ function AboutSection() {
           <Image
             alt="Variasi maskot Vecalss"
             fill
-            className="object-contain object-center drop-shadow-[0_34px_70px_rgba(1,76,56,0.14)] lg:object-left"
+            className="object-contain object-center drop-shadow-[0_34px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)] lg:object-left"
             sizes="(min-width: 2048px) 1045px, 120vw"
             src="/brand/voyage-assets/mascot-about-variation.png"
           />
@@ -188,7 +185,7 @@ function AboutSection() {
 
 function PrinciplesSection() {
   return (
-    <section className="bg-[#014C38] px-4 py-20 text-white md:px-8 md:py-28 lg:px-10">
+    <section className="bg-[var(--voyage-deep)] px-4 py-20 text-white md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
         <SectionIntro
           center
@@ -242,7 +239,7 @@ function ProgramsSection() {
           {pathways.map((pathway, index) => (
             <article
               key={pathway.id}
-              className="group relative min-h-[300px] overflow-hidden rounded-4xl border border-[#014C38]/10 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18 hover:shadow-[0_34px_90px_-74px_rgba(1,76,56,0.5)] md:p-10"
+              className="group relative min-h-[300px] overflow-hidden rounded-4xl border border-[var(--voyage-deep)]/10 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18 hover:shadow-[0_34px_90px_-74px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] md:p-10"
             >
               <div className="absolute -bottom-12 -right-10 h-48 w-48 opacity-[0.11] transition duration-300 group-hover:scale-105 md:h-64 md:w-64">
                 <Image
@@ -253,16 +250,16 @@ function ProgramsSection() {
                   src={programAssets[index]}
                 />
               </div>
-              <span className="relative text-sm font-semibold text-[#014C38]/55">
+              <span className="relative text-sm font-semibold text-[var(--voyage-deep)]/55">
                 Rute {pathway.kicker}
               </span>
-              <h3 className="relative mt-8 max-w-[13ch] text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
+              <h3 className="relative mt-8 max-w-[13ch] text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
                 {pathway.title}
               </h3>
-              <p className="relative mt-5 max-w-[34ch] text-base leading-7 text-[#014C38]/70">
+              <p className="relative mt-5 max-w-[34ch] text-base leading-7 text-[var(--voyage-deep)]/70">
                 {pathway.summary}
               </p>
-              <div className="relative mt-8 h-px w-16 bg-[#014C38]/16" />
+              <div className="relative mt-8 h-px w-16 bg-[var(--voyage-deep)]/16" />
             </article>
           ))}
         </div>
@@ -289,7 +286,7 @@ function MentorsSection() {
 
 function ResultsSection() {
   return (
-    <section className="bg-[#014C38] py-20 text-white md:py-28">
+    <section className="bg-[var(--voyage-deep)] py-20 text-white md:py-28">
       <div className="scroll-reveal mx-auto w-full max-w-[1180px] px-4 md:px-8 lg:px-10">
         <SectionIntro
           center
@@ -304,11 +301,11 @@ function ResultsSection() {
           {marqueeItems.map((item) => (
             <article
               key={`${item.name}-${item.copy}`}
-              className="mx-3 flex w-[320px] shrink-0 flex-col rounded-4xl border border-white/12 bg-white p-5 text-[#014C38] shadow-[0_26px_80px_-64px_rgba(0,0,0,0.44)] md:mx-4 md:w-[390px] md:p-6"
+              className="mx-3 flex w-[320px] shrink-0 flex-col rounded-4xl border border-white/12 bg-white p-5 text-[var(--voyage-deep)] shadow-[0_26px_80px_-64px_color-mix(in_oklab,var(--secondary-900)_44%,transparent)] md:mx-4 md:w-[390px] md:p-6"
             >
               <div className="flex items-center justify-between gap-5">
                 <div className="flex items-center gap-4">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#014C38]/[0.04] md:size-16">
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[var(--voyage-deep)]/[0.04] md:size-16">
                     <Image
                       alt={item.avatarAlt}
                       fill
@@ -321,7 +318,7 @@ function ResultsSection() {
                     <h3 className="text-2xl font-semibold tracking-[-0.03em]">
                       {item.name}
                     </h3>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#014C38]/48">
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--voyage-deep)]/48">
                       {item.meta}
                     </p>
                   </div>
@@ -338,7 +335,7 @@ function ResultsSection() {
                   </div>
                 ) : null}
               </div>
-              <p className="mt-7 text-base leading-7 text-[#014C38]/72 md:text-lg md:leading-8">
+              <p className="mt-7 text-base leading-7 text-[var(--voyage-deep)]/72 md:text-lg md:leading-8">
                 &ldquo;{item.quote}&rdquo;
               </p>
             </article>
@@ -351,7 +348,7 @@ function ResultsSection() {
 
 function TopAlumniSection() {
   return (
-    <section className="bg-[#F7FBF4] px-4 py-20 md:px-8 md:py-28 lg:px-10">
+    <section className="bg-[var(--voyage-canvas)] px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
         <div className="grid gap-8 lg:grid-cols-[0.4fr_0.6fr] lg:items-end">
           <SectionIntro
@@ -383,8 +380,8 @@ function TopAlumniSection() {
 
 function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
   return (
-    <article className="group overflow-hidden rounded-2xl border border-[#014C38]/10 bg-white shadow-[0_18px_44px_-42px_rgba(1,76,56,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
-      <div className="relative aspect-[4/5] bg-[#014C38]/[0.04]">
+    <article className="group overflow-hidden rounded-2xl border border-[var(--voyage-deep)]/10 bg-white shadow-[0_18px_44px_-42px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18">
+      <div className="relative aspect-[4/5] bg-[var(--voyage-deep)]/[0.04]">
         <Image
           alt={`${alumnus.name} profile photo`}
           fill
@@ -405,14 +402,14 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
         ) : null}
       </div>
       <div className="p-3.5 md:p-4">
-        <h3 className="text-base font-semibold leading-tight tracking-[-0.03em] text-[#014C38] md:text-lg">
+        <h3 className="text-base font-semibold leading-tight tracking-[-0.03em] text-[var(--voyage-deep)] md:text-lg">
           {alumnus.name}
         </h3>
-        <p className="mt-1.5 text-xs leading-4 text-[#014C38]/68 md:text-sm md:leading-5">
+        <p className="mt-1.5 text-xs leading-4 text-[var(--voyage-deep)]/68 md:text-sm md:leading-5">
           {alumnus.university}
         </p>
         {alumnus.isPlaceholder ? (
-          <p className="mt-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#014C38]/42">
+          <p className="mt-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--voyage-deep)]/42">
             Placeholder
           </p>
         ) : null}
@@ -431,11 +428,11 @@ function QuestionsSection() {
             body="Jawaban singkat sebelum kamu mulai berlayar."
           />
           <div className="relative mx-auto aspect-square w-full max-w-[260px] lg:mx-0 lg:max-w-[320px]">
-            <div className="absolute inset-6 rounded-full bg-[#014C38]/10 blur-3xl" />
+            <div className="absolute inset-6 rounded-full bg-[var(--voyage-deep)]/10 blur-3xl" />
             <Image
               alt="Maskot Vecalss menemani bagian FAQ"
               fill
-              className="relative object-contain drop-shadow-[0_30px_70px_rgba(1,76,56,0.14)]"
+              className="relative object-contain drop-shadow-[0_30px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)]"
               sizes="(min-width: 1024px) 320px, 260px"
               src="/brand/mascot-vecalss.png"
             />
@@ -449,7 +446,7 @@ function QuestionsSection() {
 
 function VeraAiSection() {
   return (
-    <section className="bg-[#F7FBF4] px-4 py-20 md:px-8 md:py-28 lg:px-10">
+    <section className="bg-[var(--voyage-canvas)] px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-12 lg:grid-cols-[1fr_0.72fr] lg:items-center">
         <div>
           <SectionIntro
@@ -457,19 +454,19 @@ function VeraAiSection() {
             body="Vecalss sedang menyiapkan Vera AI sebagai kompas personal untuk menganalisis pola belajar, membaca area yang perlu diperkuat, dan memberi rekomendasi langkah yang lebih tepat untuk setiap Voyager."
           />
           <div className="mt-9 grid gap-3 sm:grid-cols-2">
-            <div className="border-l border-[#014C38]/18 py-1 pl-5">
-              <p className="text-sm font-semibold text-[#014C38]">
+            <div className="border-l border-[var(--voyage-deep)]/18 py-1 pl-5">
+              <p className="text-sm font-semibold text-[var(--voyage-deep)]">
                 Peta yang personal
               </p>
-              <p className="mt-2 text-sm leading-6 text-[#014C38]/64">
+              <p className="mt-2 text-sm leading-6 text-[var(--voyage-deep)]/64">
                 Rekomendasi belajar disesuaikan dengan ritme dan kebutuhanmu.
               </p>
             </div>
-            <div className="border-l border-[#014C38]/18 py-1 pl-5">
-              <p className="text-sm font-semibold text-[#014C38]">
+            <div className="border-l border-[var(--voyage-deep)]/18 py-1 pl-5">
+              <p className="text-sm font-semibold text-[var(--voyage-deep)]">
                 Arah yang lebih jelas
               </p>
-              <p className="mt-2 text-sm leading-6 text-[#014C38]/64">
+              <p className="mt-2 text-sm leading-6 text-[var(--voyage-deep)]/64">
                 Setiap langkah dibuat lebih fokus dari awal sampai hari ujian.
               </p>
             </div>
@@ -477,11 +474,11 @@ function VeraAiSection() {
         </div>
 
         <div className="relative mx-auto aspect-square w-full max-w-[360px]">
-          <div className="absolute inset-8 rounded-full bg-[#014C38]/10 blur-3xl" />
+          <div className="absolute inset-8 rounded-full bg-[var(--voyage-deep)]/10 blur-3xl" />
           <Image
             alt="Teropong sebagai simbol kompas cerdas Vera AI"
             fill
-            className="relative object-contain drop-shadow-[0_34px_70px_rgba(1,76,56,0.14)]"
+            className="relative object-contain drop-shadow-[0_34px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)]"
             sizes="360px"
             src="/brand/voyage-assets/teropong.png"
           />
@@ -491,32 +488,10 @@ function VeraAiSection() {
   );
 }
 
-function BriefingSection() {
-  return (
-    <section
-      id="briefing"
-      className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10"
-    >
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.42fr_1fr] lg:items-start">
-        <div className="lg:pt-8">
-          <SectionIntro
-            title="Ceritakan titik berangkatmu."
-            body="Tim Vecalss akan membantu membaca kebutuhanmu, memilih rute belajar yang paling masuk akal, dan menjelaskan langkah awal tanpa membuat prosesnya terasa rumit."
-          />
-          <p className="mt-8 max-w-[34ch] text-sm leading-7 text-[#014C38]/58">
-            Balasan akan diarahkan ke kontak yang kamu tuliskan di form.
-          </p>
-        </div>
-        <ContactForm />
-      </div>
-    </section>
-  );
-}
-
 function FinalCTA() {
   return (
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-5xl bg-[#014C38] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
+      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-5xl bg-[var(--voyage-deep)] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
         <div>
           <h2 className="text-5xl font-semibold leading-tight tracking-[-0.05em] md:text-7xl">
             Siap Memulai Misimu?
@@ -548,9 +523,8 @@ function FinalCTA() {
 
 function HomePageModule() {
   return (
-    <main className="overflow-x-clip bg-white text-[#014C38]">
+    <main className="overflow-x-clip bg-white text-[var(--voyage-deep)]">
       <Hero />
-      {/* <CountUpStats items={journeyStats} /> */}
       <LogoMarquee />
       <AboutSection />
       <PrinciplesSection />
@@ -560,7 +534,6 @@ function HomePageModule() {
       <ResultsSection />
       <QuestionsSection />
       <VeraAiSection />
-      {/* <BriefingSection /> */}
       <FinalCTA />
       <HomeFooter />
     </main>

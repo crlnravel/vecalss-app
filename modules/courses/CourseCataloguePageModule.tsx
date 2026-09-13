@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import {
   Brain,
   BookOpen,
@@ -18,7 +20,13 @@ import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
+import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
@@ -43,12 +51,14 @@ const courseCategoryLabel = "TPA";
 
 function CourseCataloguePageModule({
   banner,
+  bannerVariables,
   courses,
   notificationFeed,
   progress,
   session,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
+  bannerVariables: StudentBannerVariables;
   courses: Course[];
   notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
@@ -63,19 +73,43 @@ function CourseCataloguePageModule({
       session={session}
     >
       <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_58%,#2f8a5d_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_rgba(1,76,56,0.7)] md:px-10 md:py-9">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-72"
-          />
-          <div className="relative max-w-2xl">
-            <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
-              {banner.title}
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-[#e7f5eb] md:text-base">
-              {banner.description}
-            </p>
-          </div>
+        <header className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:px-10 md:py-10">
+          {banner.design ? (
+            <>
+              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={bannerVariables} />
+              <div className="sr-only">
+                <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+                <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-6 hidden w-52 lg:block xl:right-10"
+              >
+                <div className="absolute right-0 top-7 size-44 rounded-full border border-voyage-sea-glass/40" />
+                <div className="absolute right-4 top-11 size-36 rounded-full bg-voyage-sea-glass" />
+                <div className="absolute right-1 top-7 size-8 rounded-full bg-voyage-warm-sun" />
+                <Image
+                  alt=""
+                  className="absolute right-[-2rem] bottom-0 h-auto w-72 max-w-none object-contain"
+                  height={162}
+                  sizes="288px"
+                  src="/brand/voyage-assets/perahu.png"
+                  width={288}
+                />
+              </div>
+              <div className="relative lg:pr-60">
+                <h1 className="font-display text-4xl leading-tight font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
+                  {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+                </h1>
+                <p className="mt-4 max-w-xl text-base leading-7 text-learning-hero-muted">
+                  {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+                </p>
+              </div>
+            </>
+          )}
         </header>
 
         {courses.length > 0 ? (
@@ -85,12 +119,13 @@ function CourseCataloguePageModule({
           >
             <div className="flex items-center gap-4 px-1">
               <h2
-                className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[#173c2d] md:text-xl"
+                className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)] md:text-xl"
                 id="course-list-title"
               >
                 Subtes
               </h2>
-              <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+              <span className="grid min-w-9 place-items-center rounded-xl bg-voyage-sea-glass px-2 py-1.5 text-sm font-bold tabular-nums text-voyage-deep">{courses.length}<span className="sr-only"> subtes tersedia</span></span>
+              <span aria-hidden="true" className="h-px flex-1 bg-learning-card-border" />
             </div>
 
             <div className="flex flex-col gap-4">
@@ -141,46 +176,55 @@ function CourseRowCard({
   });
   const Icon = courseIcons[course.icon];
   return (
-    <StudentCatalogueCard href={`/courses/${course.slug}`} variant="materi">
-      <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
-        <Icon className="size-7 md:size-9" strokeWidth={2.2} />
+    <StudentCatalogueCard
+      className="border-learning-card-border bg-voyage-surface bg-none hover:border-voyage-forest focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+      href={`/courses/${course.slug}`}
+      variant="materi"
+    >
+      <span className="relative grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-learning-hero-bg text-learning-hero-fg md:size-20 md:rounded-[1.6rem]">
+        <Icon aria-hidden="true" className="size-7 md:size-9" strokeWidth={2.2} />
+        {state.completionPercentage === 100 ? (
+          <span className="absolute -right-2 -bottom-2 grid size-7 place-items-center rounded-full bg-student-status-attention-solid-bg text-student-status-attention-solid-fg ring-4 ring-voyage-surface">
+            <CheckCircle2 aria-hidden="true" className="size-5" />
+          </span>
+        ) : null}
       </span>
 
       <div className="mt-4 min-w-0 md:mt-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+          <span className="text-xs font-extrabold tracking-[0.14em] text-learning-muted-ink uppercase">
             {courseCategoryLabel}
           </span>
-          <span className="size-1 rounded-full bg-[#9dcab0]" />
-          <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+          <span className="size-1 rounded-full bg-[var(--primary-300)]" />
+          <span className="text-xs font-extrabold tracking-[0.14em] text-learning-muted-ink uppercase">
             {course.code}
           </span>
         </div>
-        <h2 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance md:text-2xl">
+        <h3 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance text-voyage-ink md:text-2xl">
           {course.description}
-        </h2>
+        </h3>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[#5f776a] sm:text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-learning-muted-ink">
           <span className="inline-flex items-center gap-1.5">
-            <BookOpen className="size-4" /> {course.lessons.length} unit
+            <BookOpen aria-hidden="true" className="size-4" /> {course.lessons.length} unit
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <CheckCircle2 className="size-4" /> {state.completionPercentage}%
+          <span className="inline-flex items-center gap-1.5 font-bold tabular-nums text-voyage-deep">
+            <CheckCircle2 aria-hidden="true" className="size-4" /> {state.completionPercentage}% selesai
           </span>
         </div>
 
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e2ece5]">
+        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-learning-progress-track">
           <div
             aria-hidden="true"
-            className="h-full rounded-full bg-[linear-gradient(90deg,#176b4d_0%,#41997d_100%)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            className="h-full rounded-full bg-learning-progress-fill transition-[width] duration-500 ease-out motion-reduce:transition-none"
             style={{ width: `${state.completionPercentage}%` }}
           />
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end border-t border-[#e2ece5] pt-4 md:mt-0 md:border-t-0 md:pt-0">
-        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
-          <ChevronRight className="size-5" strokeWidth={2.6} />
+      <div className="mt-4 flex items-center justify-end border-t border-learning-card-border pt-4 md:mt-0 md:border-t-0 md:pt-0">
+        <span className="grid size-11 place-items-center rounded-full bg-voyage-sea-glass text-voyage-deep transition-colors group-hover:bg-voyage-deep group-hover:text-voyage-surface group-focus-visible:bg-voyage-deep group-focus-visible:text-voyage-surface motion-reduce:transition-none">
+          <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2.6} />
         </span>
       </div>
     </StudentCatalogueCard>

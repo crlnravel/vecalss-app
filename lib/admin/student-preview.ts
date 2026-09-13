@@ -6,6 +6,7 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 import { createAdminStudentPreviewSurfaceContext } from "@/lib/student/surface-context";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
@@ -27,6 +28,15 @@ class AdminStudentPreviewUnavailableError extends Error {
     super(message);
     this.name = "AdminStudentPreviewUnavailableError";
     this.code = code;
+  }
+}
+
+function assertAdminStudentPreviewEnabled() {
+  if (!isAdminStudentPreviewEnabled()) {
+    throw new AdminStudentPreviewUnavailableError(
+      "feature_disabled",
+      "Student preview is currently unavailable.",
+    );
   }
 }
 
@@ -111,14 +121,14 @@ async function requireAdminStudentPreviewSubject() {
   if (fixtures.length === 0) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_missing",
-      "The managed student preview fixture is not configured.",
+      "Fixture siswa preview terkelola belum dikonfigurasi. Minta pemilik operasi menyiapkan fixture sebelum membuka Preview.",
     );
   }
 
   if (fixtures.length !== 1) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_ambiguous",
-      "The managed student preview fixture is ambiguous and has been disabled until repaired.",
+      "Fixture siswa preview terkelola berjumlah lebih dari satu, sehingga Preview dinonaktifkan sampai sumbernya diperbaiki.",
     );
   }
 
@@ -126,7 +136,7 @@ async function requireAdminStudentPreviewSubject() {
   if (!subject) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_invalid",
-      "The managed student preview fixture is inactive or missing its student role/profile.",
+      "Fixture siswa preview terkelola tidak aktif atau tidak memiliki role/profile siswa yang diperlukan.",
     );
   }
 
@@ -148,6 +158,18 @@ function createAdminStudentPreviewContext({
       id: subject.id,
     },
   });
+}
+
+/**
+ * Route-safe managed-preview capability boundary. Unlike the page helper in
+ * `lib/auth/access`, this accepts an already resolved read-only session and
+ * never redirects. The fixed fixture is still resolved from Prisma, so a
+ * feature flag plus an arbitrary Admin role can never authorize this route.
+ */
+async function requireAdminStudentPreviewRouteContext(session: SessionContext) {
+  assertAdminStudentPreviewEnabled();
+  const subject = await requireAdminStudentPreviewSubject();
+  return createAdminStudentPreviewContext({ session, subject });
 }
 
 /**
@@ -184,11 +206,13 @@ export {
   ADMIN_STUDENT_PREVIEW_PURPOSE,
   AdminStudentPreviewUnavailableError,
   allowManagedPreviewFixtureRepair,
+  assertAdminStudentPreviewEnabled,
   assertUserIsNotManagedPreviewFixture,
   createAdminStudentPreviewContext,
   isAdminStudentPreviewUnavailableError,
   isManagedPreviewPurpose,
   requireAdminStudentPreviewSubject,
+  requireAdminStudentPreviewRouteContext,
   resolveAdminStudentPreviewSubject,
 };
 

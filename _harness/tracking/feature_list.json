@@ -246,7 +246,7 @@
       "description": "Align the Kuis editor inventory, issue markers, add control, preview switch, and primary editor actions with the Bank Soal workspace language",
       "dependencies": ["feat-017", "feat-021"],
       "status": "complete",
-      "evidence": "4eaae2a; pnpm test:kuis-ui-first-workspace and focused TypeScript/ESLint/diff-check evidence pass; browser QA remains a separately gated follow-up."
+      "evidence": "4eaae2a + d8ed50b; Kuis editor reference parity plus versioned Bank Soal revision acceptance for draft/published records, archived lockout, and multi-answer detail preview. Guarded test:kuis-ui-first-workspace, test:quiz-question-updates, strict TypeScript, focused ESLint, and scoped diff-check pass; repository-wide verify remains blocked by an unrelated Tryout workspace jsx-key error, and browser QA remains a separately gated follow-up."
     },
     {
       "id": "feat-032",
@@ -263,6 +263,22 @@
       "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
       "status": "complete",
       "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, follow-up queue, stale-handoff labeling, and Vera tracker boundary recorded without staging unrelated product changes."
+    },
+    {
+      "id": "feat-034",
+      "name": "Vecalss Palette Standardization",
+      "description": "Migrate UI color usage to the existing Vecalss palette and semantic status tokens while preserving visual meaning, behavior, layout, and accessibility contracts",
+      "dependencies": ["feat-030"],
+      "status": "complete",
+      "evidence": "c836589, 3b67d69, 7c57433, c2fe59b, 5af4342, and 91bbceb; learner/public, assessment, mentor/Tryout, admin, dashboard, portal, media, and Vera surfaces tokenized; guarded targeted ESLint, repository-wide pnpm lint (0 errors; 474 warnings), git diff --check, and full pnpm build pass. Browser verification was not run because explicit permission was not granted; protected and active-owner color boundaries remain documented."
+    },
+    {
+      "id": "feat-035",
+      "name": "Vera AI End-to-End SSE Streaming",
+      "description": "Stream real OpenRouter provider deltas through Vera's existing request SSE channel while preserving durable validation, accounting, and failure semantics",
+      "dependencies": ["feat-022"],
+      "status": "complete",
+      "evidence": "5d8270a; upstream OpenRouter SSE parsing and incremental message.delta forwarding, final usage/model/provider evidence, bounded malformed and partial-failure handling, and inert provisional Prisma deltas. Guarded test:vera-openrouter-poc, test:vera-openrouter-free-provider, test:vera-sprint2, focused ESLint, git diff --check, and full pnpm verify pass. Real-provider and browser smoke checks remain explicitly gated."
     }
   ]
 }

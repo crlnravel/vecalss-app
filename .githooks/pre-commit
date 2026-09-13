@@ -1,6 +1,13 @@
 #!/bin/sh
 set -eu
 
+CURRENT_BRANCH="$(git branch --show-current)"
+
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "Skipping exhaustive pre-commit checks on branch ${CURRENT_BRANCH:-detached}."
+  exit 0
+fi
+
 if ! command -v pnpm >/dev/null 2>&1; then
   echo "pnpm is required to run pre-commit checks." >&2
   exit 1

@@ -16,7 +16,13 @@ import {
 
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import type { StudentBannerContent } from "@/lib/student/banner-content";
+import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
+  type StudentBannerPresentation,
+} from "@/lib/student/banner-presentation";
+import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
+import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
@@ -36,11 +42,13 @@ const subjectGroupOrder = ["TPS", "TPA"] as const;
 
 function QuizCataloguePageModule({
   banner,
+  bannerVariables,
   notificationFeed,
   session,
   subjects,
 }: {
-  banner: StudentBannerContent;
+  banner: StudentBannerPresentation;
+  bannerVariables: StudentBannerVariables;
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   subjects: QuizSubject[];
@@ -57,42 +65,66 @@ function QuizCataloguePageModule({
       activeLabel="Kuis"
       breadcrumbLabel="Kuis"
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari subjek kuis atau topik latihan..."
+      searchPlaceholder="Cari subjek kuis atau topik latihan…"
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-10">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 px-6 py-8 text-white shadow-[0_28px_72px_-44px_rgba(1,76,56,0.75)] md:min-h-[18rem] md:px-10 md:py-10">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-white/10"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-primary-400/20 blur-3xl"
-          />
-          <div className="relative z-10 max-w-[42rem]">
-            <h1 className="text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
-              {banner.title}
-            </h1>
-            <p className="mt-5 max-w-[48ch] text-sm leading-7 text-primary-100 md:text-base">
-              {banner.description}
-            </p>
-          </div>
+        <section className="relative isolate overflow-hidden rounded-[2rem] bg-learning-hero-bg px-6 py-8 text-learning-hero-fg shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:min-h-[18rem] md:px-10 md:py-10">
+          {banner.design ? (
+            <>
+              <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={bannerVariables} />
+              <div className="sr-only">
+                <h1>{getStudentBannerHeading(banner, bannerVariables)}</h1>
+                <p>{getStudentBannerDescription(banner, bannerVariables)}</p>
+              </div>
+              <div className="relative z-10 flex min-h-[18rem] items-end">
+                <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                  <ListChecks aria-hidden="true" className="size-4" />
+                  {subjects.length} subtes tersedia
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-32 -right-20 size-80 rounded-full border-[18px] border-voyage-sea-glass/20"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-voyage-forest/55 blur-3xl"
+              />
+              <div className="relative z-10 max-w-[42rem]">
+                <h1 className="font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
+                  {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+                </h1>
+                <p className="mt-4 max-w-[48ch] text-sm leading-7 text-learning-hero-muted md:text-base">
+                  {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-student-status-attention-solid-bg px-4 text-sm font-bold tabular-nums text-student-status-attention-solid-fg">
+                    <ListChecks aria-hidden="true" className="size-4" />
+                    {subjects.length} subtes tersedia
+                  </span>
+                </div>
+              </div>
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-[-1rem] bottom-[-1.25rem] hidden w-[18rem] sm:block md:right-0 md:w-[19rem]"
-          >
-            <Image
-              alt=""
-              className="h-auto w-full object-contain drop-shadow-[0_30px_48px_rgba(1,76,56,0.35)]"
-              height={464}
-              priority
-              sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
-              src="/brand/mascot-vecalss.png"
-              width={464}
-            />
-          </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-[-1rem] bottom-[-1.25rem] hidden w-[18rem] sm:block md:right-0 md:w-[19rem]"
+              >
+                <Image
+                  alt=""
+                  className="h-auto w-full object-contain drop-shadow-[0_30px_48px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)]"
+                  height={464}
+                  priority
+                  sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
+                  src="/brand/mascot-vecalss.png"
+                  width={464}
+                />
+              </div>
+            </>
+          )}
         </section>
 
         <div className="flex flex-col gap-10">
@@ -109,7 +141,7 @@ function QuizCataloguePageModule({
                 >
                   Subjek {group.code}
                 </h2>
-                <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
+                <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -136,10 +168,10 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
       variant="kuis"
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:size-20 md:rounded-[1.6rem]">
           <Icon className="size-7 md:size-9" strokeWidth={2.2} />
         </span>
-        <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">
+        <span className="rounded-full bg-voyage-sea-glass px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-voyage-deep shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]">
           {subject.code}
         </span>
       </div>
@@ -164,7 +196,7 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
             {stats.totalQuestions} soal
           </span>
         </div>
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
           <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>

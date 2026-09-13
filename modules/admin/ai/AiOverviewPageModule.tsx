@@ -90,10 +90,10 @@ export function AiOverviewPageModule({
         {error && (
           <div
             aria-live="assertive"
-            className="mt-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            className="mt-6 flex items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
             role="alert"
           >
-            <AlertCircle className="size-5 shrink-0 text-red-600" />
+            <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p>{error}</p>
           </div>
         )}

@@ -34,20 +34,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { MentorBadge } from "@/components/ui/mentor-badge";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
-import { questionBankPurposeLabel } from "@/lib/question-bank/purpose";
+import {
+  questionBankNavigationLabel,
+  questionBankPurposeLabel,
+} from "@/lib/question-bank/purpose";
 import {
   getQuestionBankReadinessFromDrafts,
   type QuestionBankReadiness,
@@ -56,17 +57,14 @@ import {
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import type { BankQuestion, KaptenQuestionBank } from "@/modules/mentor/mock-data";
+import type {
+  BankQuestion,
+  KaptenQuestionBank,
+} from "@/modules/mentor/mock-data";
 import {
   saveQuestionBankAction,
-  setQuestionBankCategoriesAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
-
-type QuestionBankCategoryOption = {
-  id: string;
-  name: string;
-};
 
 type ConfirmationRequest = {
   actionVariant?: "brand" | "destructive";
@@ -77,23 +75,181 @@ type ConfirmationRequest = {
   title: string;
 };
 
-function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  const tone = status === "published"
-    ? "success"
-    : status === "archived"
-      ? "neutral"
-      : status === "scheduled"
-        ? "info"
-        : "attention";
-  const label = status === "published"
-    ? "Terbit"
-    : status === "archived"
-      ? "Diarsipkan"
-      : status === "scheduled"
-        ? "Terjadwal"
-        : "Draf";
+const QUESTION_BANK_METADATA_PILL_CLASS_NAME =
+  "min-h-7 px-3 py-1.5 text-xs font-medium";
 
-  return <MentorBadge size="sm" tone={tone}>{label}</MentorBadge>;
+function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
+  const tone =
+    status === "published"
+      ? "success"
+      : status === "archived"
+        ? "neutral"
+        : status === "scheduled"
+          ? "info"
+          : "attention";
+  const label =
+    status === "published"
+      ? "Terbit"
+      : status === "archived"
+        ? "Diarsipkan"
+        : status === "scheduled"
+          ? "Terjadwal"
+          : "Draf";
+
+  return (
+    <MentorBadge
+      className={QUESTION_BANK_METADATA_PILL_CLASS_NAME}
+      size="sm"
+      tone={tone}
+    >
+      {label}
+    </MentorBadge>
+  );
+}
+
+function QuestionBankArchiveAction({
+  bank,
+  isSavingLifecycle,
+  requestArchive,
+}: {
+  bank: KaptenQuestionBank;
+  isSavingLifecycle: boolean;
+  requestArchive: () => void;
+}) {
+  if (bank.status === "archived" || bank.status === "scheduled") return null;
+
+  return (
+    <></>
+    /*
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-busy={isSavingLifecycle}
+              aria-label="Arsipkan bank soal"
+              disabled={isSavingLifecycle}
+              onClick={requestArchive}
+              size="icon-sm"
+              type="button"
+              variant="dangerOutline"
+            />
+          }
+        >
+          <Archive />
+        </TooltipTrigger>
+        <TooltipContent>Arsipkan bank soal</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+    */
+  );
+}
+
+function QuestionBankStatusAction({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  publishDisabledReason,
+  requestLifecycleChange,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (
+    operation: "publish" | "unpublish" | "archive" | "restore",
+  ) => Promise<void>;
+  isSavingLifecycle: boolean;
+  publishDisabledReason?: string;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
+}) {
+  if (bank.status === "archived") {
+    return (
+      <Button
+        aria-busy={isSavingLifecycle}
+        disabled={isSavingLifecycle}
+        onClick={() => void handleLifecycle("restore")}
+        size="sm"
+        type="button"
+        variant="brandOutline"
+      >
+        <Upload />
+        {isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}
+      </Button>
+    );
+  }
+  if (bank.status === "published") {
+    return (
+      <Button
+        aria-busy={isSavingLifecycle}
+        data-question-bank-lifecycle-action="unpublish"
+        disabled={isSavingLifecycle}
+        onClick={() => requestLifecycleChange("unpublish")}
+        size="sm"
+        type="button"
+        variant="brandOutline"
+      >
+        <FilePenLine />
+        {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
+      </Button>
+    );
+  }
+  if (bank.status !== "draft") return null;
+
+  return (
+    <Button
+      aria-busy={isSavingLifecycle}
+      aria-describedby={
+        publishDisabledReason ? "publish-disabled-reason" : undefined
+      }
+      data-question-bank-lifecycle-action="publish"
+      disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
+      onClick={() => requestLifecycleChange("publish")}
+      size="sm"
+      type="button"
+      variant="brand"
+    >
+      <Upload />
+      {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
+    </Button>
+  );
+}
+
+function QuestionBankLifecycleActions({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  publishDisabledReason,
+  requestArchive,
+  requestLifecycleChange,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (
+    operation: "publish" | "unpublish" | "archive" | "restore",
+  ) => Promise<void>;
+  isSavingLifecycle: boolean;
+  publishDisabledReason?: string;
+  requestArchive: () => void;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <QuestionBankArchiveAction
+        bank={bank}
+        isSavingLifecycle={isSavingLifecycle}
+        requestArchive={requestArchive}
+      />
+      <QuestionBankStatusAction
+        bank={bank}
+        handleLifecycle={handleLifecycle}
+        isSavingLifecycle={isSavingLifecycle}
+        publishDisabledReason={publishDisabledReason}
+        requestLifecycleChange={requestLifecycleChange}
+      />
+      {publishDisabledReason ? (
+        <p className="sr-only" id="publish-disabled-reason">
+          {publishDisabledReason}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function QuestionBankDetailHeaderBar({
@@ -105,97 +261,43 @@ function QuestionBankDetailHeaderBar({
   requestLifecycleChange,
 }: {
   bank: KaptenQuestionBank;
-  handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
+  handleLifecycle: (
+    operation: "publish" | "unpublish" | "archive" | "restore",
+  ) => Promise<void>;
   isSavingLifecycle: boolean;
   publishDisabledReason?: string;
   requestArchive: () => void;
   requestLifecycleChange: (operation: "publish" | "unpublish") => void;
 }) {
+  const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <Button
-          aria-label="Kembali ke Bank Soal"
+          aria-label={`Kembali ke ${navigationLabel}`}
           nativeButton={false}
-          render={<Link href={`/mentor/quiz/question-bank?purpose=${bank.purpose ?? "quiz"}`} />}
+          render={
+            <Link
+              href={`/mentor/quiz/question-bank?purpose=${bank.purpose ?? "quiz"}`}
+            />
+          }
           size="icon-sm"
-          title="Kembali ke Bank Soal"
+          title={`Kembali ke ${navigationLabel}`}
           variant="ghost"
         >
           <ChevronLeft />
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {bank.status !== "archived" && bank.status !== "scheduled" ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-busy={isSavingLifecycle}
-                    aria-label="Arsipkan bank soal"
-                    disabled={isSavingLifecycle}
-                    onClick={requestArchive}
-                    size="icon-sm"
-                    type="button"
-                    variant="dangerOutline"
-                  />
-                }
-              >
-                <Archive />
-              </TooltipTrigger>
-              <TooltipContent>Arsipkan bank soal</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
-
-        {bank.status === "archived" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            disabled={isSavingLifecycle}
-            onClick={() => void handleLifecycle("restore")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}
-          </Button>
-        ) : bank.status === "published" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            data-question-bank-lifecycle-action="unpublish"
-            disabled={isSavingLifecycle}
-            onClick={() => requestLifecycleChange("unpublish")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <FilePenLine />
-            {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
-          </Button>
-        ) : bank.status === "draft" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-            data-question-bank-lifecycle-action="publish"
-            disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
-            onClick={() => requestLifecycleChange("publish")}
-            size="sm"
-            type="button"
-            variant="brand"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
-          </Button>
-        ) : null}
-        {publishDisabledReason ? (
-          <p className="sr-only" id="publish-disabled-reason">
-            {publishDisabledReason}
-          </p>
-        ) : null}
-      </div>
+      <QuestionBankLifecycleActions
+        bank={bank}
+        handleLifecycle={handleLifecycle}
+        isSavingLifecycle={isSavingLifecycle}
+        publishDisabledReason={publishDisabledReason}
+        requestArchive={requestArchive}
+        requestLifecycleChange={requestLifecycleChange}
+      />
     </div>
   );
 }
@@ -209,35 +311,31 @@ type QuestionBankMetadataFormState = {
 };
 
 function QuestionBankMetadataCard({
-  assignedCategories,
   bank,
-  categories,
   descriptionInput,
   folderLabel,
   formState,
-  handleCategoriesChange,
   handleSaveDescription,
   handleSaveTitle,
   setDescriptionInput,
   setIsEditingDescription,
   setIsEditingTitle,
   setTitleInput,
+  materiCoverage,
   subjectCoverage,
   titleInput,
 }: {
-  assignedCategories: QuestionBankCategoryOption[];
   bank: KaptenQuestionBank;
-  categories: QuestionBankCategoryOption[];
   descriptionInput: string;
   folderLabel: string;
   formState: QuestionBankMetadataFormState;
-  handleCategoriesChange: (nextCategoryIds: string[]) => Promise<void>;
   handleSaveDescription: () => Promise<void>;
   handleSaveTitle: () => Promise<void>;
   setDescriptionInput: (value: string) => void;
   setIsEditingDescription: (value: boolean) => void;
   setIsEditingTitle: (value: boolean) => void;
   setTitleInput: (value: string) => void;
+  materiCoverage: string[];
   subjectCoverage: string[];
   titleInput: string;
 }) {
@@ -256,7 +354,10 @@ function QuestionBankMetadataCard({
             <div className="mt-3 flex max-w-2xl items-center gap-2">
               <Input
                 autoFocus
-                className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "text-2xl font-semibold md:text-3xl")}
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.input,
+                  "text-2xl font-semibold md:text-3xl",
+                )}
                 disabled={isSavingTitle}
                 id="edit-bank-title-input"
                 onChange={(e) => setTitleInput(e.target.value)}
@@ -321,8 +422,12 @@ function QuestionBankMetadataCard({
 
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <StatusPill status={bank.status} />
-            <MentorBadge size="sm" tone="category">
-              Digunakan untuk {questionBankPurposeLabel(bank.purpose ?? "quiz")}
+            <MentorBadge
+              className={QUESTION_BANK_METADATA_PILL_CLASS_NAME}
+              size="sm"
+              tone="category"
+            >
+              {questionBankPurposeLabel(bank.purpose ?? "quiz")}
             </MentorBadge>
           </div>
         </div>
@@ -330,7 +435,9 @@ function QuestionBankMetadataCard({
         <div className="space-y-5">
           <div>
             <div className="flex items-center justify-start gap-1.5">
-              <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
+              <span className="text-xs font-semibold text-secondary-500">
+                Deskripsi
+              </span>
               {!isEditingDescription && !isMetadataLocked ? (
                 <Button
                   aria-label="Ubah deskripsi bank"
@@ -353,7 +460,10 @@ function QuestionBankMetadataCard({
               <div className="mt-2 max-w-3xl space-y-2">
                 <FieldTextarea
                   autoFocus
-                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[90px] text-sm")}
+                  className={cn(
+                    REFERENCE_CONTROL_CLASS_NAMES.input,
+                    "min-h-[90px] text-sm",
+                  )}
                   disabled={isSavingDescription}
                   onChange={(e) => setDescriptionInput(e.target.value)}
                   placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
@@ -391,7 +501,8 @@ function QuestionBankMetadataCard({
                   bank.description
                 ) : (
                   <span className="italic text-secondary-400">
-                    Belum ada deskripsi untuk bank soal ini. Klik ikon pensil untuk menambahkan.
+                    Belum ada deskripsi untuk bank soal ini. Klik ikon pensil
+                    untuk menambahkan.
                   </span>
                 )}
               </p>
@@ -399,7 +510,9 @@ function QuestionBankMetadataCard({
           </div>
 
           <div>
-            <span className="text-xs font-semibold text-secondary-500">Folder</span>
+            <span className="text-xs font-semibold text-secondary-500">
+              Folder
+            </span>
             <div className="mt-1.5 flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-900">
                 <Folder className="size-4 text-primary-700" />
@@ -409,7 +522,9 @@ function QuestionBankMetadataCard({
           </div>
 
           <div>
-            <span className="text-xs font-semibold text-secondary-500">Subjek</span>
+            <span className="text-xs font-semibold text-secondary-500">
+              Subjek
+            </span>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {subjectCoverage.length > 0 ? (
                 subjectCoverage.map((code) => (
@@ -418,63 +533,28 @@ function QuestionBankMetadataCard({
                   </MentorBadge>
                 ))
               ) : (
-                <span className="text-xs text-secondary-400">Belum ada subjek</span>
+                <span className="text-xs text-secondary-400">
+                  Belum ada subjek
+                </span>
               )}
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-start gap-1.5">
-              <span className="text-xs font-semibold text-secondary-500">Kategori</span>
-              {!isMetadataLocked ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        aria-label="Kelola kategori"
-                        className="size-6 text-secondary-400 hover:text-secondary-900"
-                        size="icon-sm"
-                        title="Kelola kategori"
-                        type="button"
-                        variant="ghost"
-                      />
-                    }
-                  >
-                    <Pencil className="size-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56">
-                    <DropdownMenuLabel>Pilih Kategori</DropdownMenuLabel>
-                    {categories.map((category) => {
-                      const categoryIds = bank.categoryIds ?? [];
-                      const checked = categoryIds.includes(category.id);
-                      return (
-                        <DropdownMenuCheckboxItem
-                          checked={checked}
-                          key={category.id}
-                          onCheckedChange={(nextChecked) => {
-                            const nextIds = nextChecked
-                              ? [...categoryIds, category.id]
-                              : categoryIds.filter((id) => id !== category.id);
-                            void handleCategoriesChange(nextIds);
-                          }}
-                        >
-                          {category.name}
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
+            <span className="text-xs font-semibold text-secondary-500">
+              Materi
+            </span>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {assignedCategories.length > 0 ? (
-                assignedCategories.map((cat) => (
-                  <MentorBadge key={cat.id} size="xs" tone="category">
-                    {cat.name}
+              {materiCoverage.length > 0 ? (
+                materiCoverage.map((materi) => (
+                  <MentorBadge key={materi} size="xs" tone="category">
+                    {materi}
                   </MentorBadge>
                 ))
               ) : (
-                <span className="text-xs text-secondary-400">Tanpa kategori</span>
+                <span className="text-xs text-secondary-400">
+                  Belum ada Materi
+                </span>
               )}
             </div>
           </div>
@@ -500,7 +580,7 @@ function QuestionBankQuestionCard({
       className={cn(
         "rounded-xl border p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5",
         hasIssues
-          ? "border-amber-300 bg-amber-50/60 hover:border-amber-400"
+          ? "border-warning-300 bg-warning-50/60 hover:border-warning-400"
           : "border-primary-100 bg-white hover:border-primary-200",
       )}
       key={question.id}
@@ -520,13 +600,31 @@ function QuestionBankQuestionCard({
 
         <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-xs font-semibold text-secondary-500">Subjek</span>
+            <span className="shrink-0 text-xs font-semibold text-secondary-500">
+              Subjek
+            </span>
             <MentorBadge size="xs" tone="category">
               {question.subjectCode}
             </MentorBadge>
           </div>
+          {question.materi ? (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-xs font-semibold text-secondary-500">
+                Materi
+              </span>
+              <MentorBadge
+                className="max-w-[min(20rem,60vw)] truncate"
+                size="xs"
+                tone="category"
+              >
+                {question.materi}
+              </MentorBadge>
+            </div>
+          ) : null}
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-xs font-semibold text-secondary-500">Kesulitan</span>
+            <span className="shrink-0 text-xs font-semibold text-secondary-500">
+              Kesulitan
+            </span>
             <MentorBadge
               size="xs"
               tone={
@@ -551,7 +649,9 @@ function QuestionBankQuestionCard({
         <div>
           <p className="text-sm font-medium leading-6 text-secondary-900">
             {question.prompt || (
-              <span className="italic text-secondary-400">Pertanyaan belum diisi…</span>
+              <span className="italic text-secondary-400">
+                Pertanyaan belum diisi…
+              </span>
             )}
           </p>
           {question.promptMediaAssetId ? (
@@ -590,7 +690,13 @@ function QuestionBankQuestionCard({
                   {choiceLabel}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>
+                  <p className="leading-5">
+                    {choice.text || (
+                      <span className="italic text-secondary-400">
+                        Opsi kosong
+                      </span>
+                    )}
+                  </p>
                   {choice.mediaAssetId ? (
                     <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
                       <MediaAssetPreview
@@ -638,16 +744,23 @@ function QuestionBankQuestionsSection({
   readiness: QuestionBankReadiness;
 }) {
   const editorLocked = bank.status !== "draft";
-  const editorLockReason = bank.status === "archived"
-    ? "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu."
-    : "Untuk mengedit kembali, jadikan Bank Soal draf terlebih dahulu.";
+  const editorLockReason =
+    bank.status === "archived"
+      ? "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu."
+      : "Untuk mengedit kembali, jadikan Bank Soal draf terlebih dahulu.";
   const editorButton = (
     <Button
       aria-label="Buka Editor"
       className="w-full shadow-sm sm:w-auto"
       disabled={editorLocked}
       nativeButton={editorLocked}
-      render={editorLocked ? undefined : <Link href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`} />}
+      render={
+        editorLocked ? undefined : (
+          <Link
+            href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`}
+          />
+        )
+      }
       size="default"
       type="button"
       variant="brand"
@@ -673,27 +786,38 @@ function QuestionBankQuestionsSection({
         {editorLocked ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex w-full sm:w-auto" />}>
+              <TooltipTrigger
+                render={<span className="inline-flex w-full sm:w-auto" />}
+              >
                 {editorButton}
               </TooltipTrigger>
               <TooltipContent>{editorLockReason}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        ) : editorButton}
+        ) : (
+          editorButton
+        )}
       </div>
 
       {questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center">
           <LibraryBig className="size-12 text-primary-300" />
-          <h3 className="mt-4 font-semibold text-secondary-900">Belum ada soal dalam bank ini</h3>
+          <h3 className="mt-4 font-semibold text-secondary-900">
+            Belum ada soal dalam bank ini
+          </h3>
           <p className="mt-1 text-sm text-secondary-600">
-            Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan.
+            Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan
+            pembahasan.
           </p>
           {bank.status === "draft" ? (
             <Button
               className="mt-6"
               nativeButton={false}
-              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`} />}
+              render={
+                <Link
+                  href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`}
+                />
+              }
               variant="brand"
             >
               <Plus />
@@ -745,12 +869,12 @@ function QuestionBankArchiveConfirmationDialog({
             <CircleHelp />
           </AlertDialogMedia>
           <AlertDialogTitle>{confirmationRequest?.title}</AlertDialogTitle>
-          <AlertDialogDescription>{confirmationRequest?.description}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {confirmationRequest?.description}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>
-            Batal
-          </AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>Batal</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => confirmationRequest?.onConfirm()}
             variant={actionVariant}
@@ -766,14 +890,12 @@ function QuestionBankArchiveConfirmationDialog({
 function KaptenQuestionBankDetailPageModule({
   bankId,
   initialBank,
-  initialCategories = [],
   initialQuestions = [],
   initialReadiness = null,
   session,
 }: {
   bankId: string;
   initialBank: KaptenQuestionBank;
-  initialCategories?: QuestionBankCategoryOption[];
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   session: SessionContext;
@@ -781,27 +903,31 @@ function KaptenQuestionBankDetailPageModule({
   const router = useRouter();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
   const [questions] = useState<BankQuestion[]>(initialQuestions);
-  const [categories] = useState<QuestionBankCategoryOption[]>(initialCategories);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(bank.title);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionInput, setDescriptionInput] = useState(bank.description ?? "");
+  const [descriptionInput, setDescriptionInput] = useState(
+    bank.description ?? "",
+  );
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const [isSavingLifecycle, setIsSavingLifecycle] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
-  const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null);
+  const [confirmationRequest, setConfirmationRequest] =
+    useState<ConfirmationRequest | null>(null);
 
-  const readiness = initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
-  const isMetadataLocked = bank.status === "archived" || bank.status === "scheduled";
+  const readiness =
+    initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
+  const isMetadataLocked =
+    bank.status === "archived" || bank.status === "scheduled";
 
-  const folderLabel = questionBankFolderLabel(bank.folderId ?? null, bank.folder?.name ?? "Folder tidak ditemukan");
-  const bankCategoryIdSet = new Set(bank.categoryIds ?? []);
-  const assignedCategories = categories.filter((category) => bankCategoryIdSet.has(category.id));
-
+  const folderLabel = questionBankFolderLabel(
+    bank.folderId ?? null,
+    bank.folder?.name ?? "Folder tidak ditemukan",
+  );
   const subjectCoverage = [
     ...new Set(
       questions
@@ -809,6 +935,15 @@ function KaptenQuestionBankDetailPageModule({
         .filter((code): code is string => Boolean(code)),
     ),
   ];
+  const materiCoverage = [
+    ...new Set(
+      questions
+        .map((question) => question.materi?.trim())
+        .filter((materi): materi is string => Boolean(materi)),
+    ),
+  ].sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" }),
+  );
 
   async function handleSaveTitle() {
     const trimmed = titleInput.trim();
@@ -841,7 +976,9 @@ function KaptenQuestionBankDetailPageModule({
       showToast("Judul Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah judul bank soal.");
+      setLifecycleError(
+        err instanceof Error ? err.message : "Gagal mengubah judul bank soal.",
+      );
     } finally {
       setIsSavingTitle(false);
     }
@@ -878,46 +1015,31 @@ function KaptenQuestionBankDetailPageModule({
       showToast("Deskripsi Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah deskripsi bank soal.");
+      setLifecycleError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengubah deskripsi bank soal.",
+      );
     } finally {
       setIsSavingDescription(false);
     }
   }
 
-  async function handleCategoriesChange(nextCategoryIds: string[]) {
-    if (isMetadataLocked) return;
-    setLifecycleError(null);
-    try {
-      const result = await setQuestionBankCategoriesAction(bank.id, nextCategoryIds, {
-        expectedRevision: bank.revision,
-        expectedUpdatedAt: bank.updatedAt,
-      });
-      if (!result.ok) {
-        setLifecycleError(result.message);
-        return;
-      }
-      setBank((current) => ({
-        ...current,
-        categoryIds: nextCategoryIds,
-        revision: result.result.revision,
-        updatedAt: result.result.updatedAt,
-      }));
-      showToast("Kategori Bank Soal diperbarui.", { variant: "success" });
-      router.refresh();
-    } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal memperbarui kategori.");
-    }
-  }
-
-  async function handleLifecycle(operation: "publish" | "unpublish" | "archive" | "restore") {
+  async function handleLifecycle(
+    operation: "publish" | "unpublish" | "archive" | "restore",
+  ) {
     setIsSavingLifecycle(true);
     setLifecycleError(null);
     try {
-      const result = await updateQuestionBankLifecycleAction(bank.id, operation, {
-        expectedRevision: bank.revision ?? 1,
-      });
+      const result = await updateQuestionBankLifecycleAction(
+        bank.id,
+        operation,
+        {
+          expectedRevision: bank.revision ?? 1,
+        },
+      );
       if (!result.ok) {
-        setLifecycleError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       setBank((current) => ({
@@ -934,7 +1056,10 @@ function KaptenQuestionBankDetailPageModule({
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah status bank.");
+      showToast(
+        err instanceof Error ? err.message : "Gagal mengubah status bank.",
+        { variant: "error" },
+      );
     } finally {
       setIsSavingLifecycle(false);
     }
@@ -961,7 +1086,7 @@ function KaptenQuestionBankDetailPageModule({
       confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
       description: isPublishing
         ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
-        : "Bank Soal ini dapat dikembalikan menjadi draf meskipun sudah digunakan dalam Tryout. Tryout yang sudah dibuat tidak akan terpengaruh. Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru hingga diterbitkan kembali.",
+        : "Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru. Tryout yang sudah ada tidak akan terpengaruh.",
       dialogVariant: "warning",
       onConfirm: () => {
         setConfirmationRequest(null);
@@ -975,12 +1100,13 @@ function KaptenQuestionBankDetailPageModule({
     questions.length === 0
       ? "Tambahkan minimal satu soal sebelum diterbitkan"
       : readiness.incompleteCount > 0
-      ? `${readiness.incompleteCount} soal perlu diperbaiki sebelum diterbitkan`
-      : undefined;
+        ? `${readiness.incompleteCount} soal perlu diperbaiki sebelum diterbitkan`
+        : undefined;
+  const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
 
   return (
     <MentorWorkspaceShell
-      activeLabel="Bank Soal"
+      activeLabel={navigationLabel}
       breadcrumbLabel={bank.title || "Detail Bank Soal"}
       contentElement="div"
       mainClassName="max-w-[1400px] gap-7"
@@ -1006,9 +1132,7 @@ function KaptenQuestionBankDetailPageModule({
         ) : null}
 
         <QuestionBankMetadataCard
-          assignedCategories={assignedCategories}
           bank={bank}
-          categories={categories}
           descriptionInput={descriptionInput}
           folderLabel={folderLabel}
           formState={{
@@ -1018,13 +1142,13 @@ function KaptenQuestionBankDetailPageModule({
             isSavingDescription,
             isSavingTitle,
           }}
-          handleCategoriesChange={handleCategoriesChange}
           handleSaveDescription={handleSaveDescription}
           handleSaveTitle={handleSaveTitle}
           setDescriptionInput={setDescriptionInput}
           setIsEditingDescription={setIsEditingDescription}
           setIsEditingTitle={setIsEditingTitle}
           setTitleInput={setTitleInput}
+          materiCoverage={materiCoverage}
           subjectCoverage={subjectCoverage}
           titleInput={titleInput}
         />

@@ -21,6 +21,7 @@ type KuisDefinitionQuestion = {
   id: string;
   choices: readonly KuisDefinitionChoice[];
   correctChoiceId: string;
+  correctChoiceIds?: readonly string[];
   explanation: string;
   explanationAssetId?: string | null;
   explanationMediaAssetId?: string | null;
@@ -28,6 +29,7 @@ type KuisDefinitionQuestion = {
   prompt: string;
   promptAssetId?: string | null;
   promptMediaAssetId?: string | null;
+  questionType?: "single_choice" | "multiple_choice" | null;
   sourceContentDigest?: string | null;
   sourceQuestionId?: string | null;
   sourceQuestionRevisionId?: string | null;
@@ -51,6 +53,7 @@ type KuisAssessmentDefinition = {
   attemptsAllowed: number | null;
   correctAnswerVisibility: KuisCorrectAnswerVisibility;
   description: string;
+  durationSeconds: number | null;
   formBehavior: KuisFormBehavior;
   questions: readonly KuisDefinitionQuestion[];
   retryDelaySeconds: number | null;
@@ -75,6 +78,7 @@ type KuisAssessmentDefinitionInput = {
   attemptsAllowed?: number | null;
   correctAnswerVisibility?: KuisCorrectAnswerVisibility;
   description: string;
+  durationSeconds?: number | null;
   formBehavior?: KuisFormBehavior;
   questions: readonly KuisDefinitionQuestion[];
   retryDelaySeconds?: number | null;
@@ -125,6 +129,7 @@ function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput)
     attemptsAllowed: input.attemptsAllowed === undefined ? 1 : input.attemptsAllowed,
     correctAnswerVisibility: input.correctAnswerVisibility ?? "show",
     description: input.description,
+    durationSeconds: input.durationSeconds ?? null,
     formBehavior: input.formBehavior ?? "same",
     questions: input.questions.map((question) => ({
       choices: question.choices.map((choice) => ({
@@ -133,12 +138,14 @@ function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput)
         text: choice.text,
       })),
       correctChoiceId: question.correctChoiceId,
+      correctChoiceIds: question.correctChoiceIds?.length ? [...question.correctChoiceIds] : undefined,
       explanation: question.explanation,
       explanationMediaAssetId: nullableText(question.explanationMediaAssetId ?? question.explanationAssetId),
       id: question.id,
       origin: question.origin,
       prompt: question.prompt,
       promptMediaAssetId: nullableText(question.promptMediaAssetId ?? question.promptAssetId),
+      questionType: question.questionType ?? null,
       sourceContentDigest: nullableText(question.sourceContentDigest),
       sourceQuestionId: nullableText(question.sourceQuestionId),
       sourceQuestionRevisionId: nullableText(question.sourceQuestionRevisionId),
@@ -181,23 +188,39 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
     attemptsAllowed: definition.attemptsAllowed,
     correctAnswerVisibility: definition.correctAnswerVisibility,
     description: definition.description,
+    // Keep the null/default case compatible with definitions written before
+    // Kuis duration was introduced; a configured duration remains versioned.
+    durationSeconds: definition.durationSeconds ?? undefined,
     formBehavior: definition.formBehavior,
-    questions: definition.questions.map((question) => ({
-      choices: question.choices.map((choice) => ({
-        mediaAssetId: choice.mediaAssetId ?? null,
-        text: choice.text,
-      })),
-      correctChoiceIndex: question.choices.findIndex((choice) => choice.id === question.correctChoiceId),
-      explanation: question.explanation,
-      explanationMediaAssetId: question.explanationMediaAssetId ?? null,
-      origin: question.origin,
-      prompt: question.prompt,
-      promptMediaAssetId: question.promptMediaAssetId ?? null,
-      sourceContentDigest: question.sourceContentDigest ?? null,
-      sourceQuestionId: question.sourceQuestionId ?? null,
-      sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? null,
-      sourceRevisionProvenance: question.sourceRevisionProvenance ?? null,
-    })),
+    questions: definition.questions.map((question) => {
+      const correctChoiceIds = question.correctChoiceIds?.length
+        ? question.correctChoiceIds
+        : [question.correctChoiceId];
+      const isMultipleAnswer = question.questionType === "multiple_choice" || correctChoiceIds.length > 1;
+      return {
+        choices: question.choices.map((choice) => ({
+          mediaAssetId: choice.mediaAssetId ?? null,
+          text: choice.text,
+        })),
+        correctChoiceIndex: isMultipleAnswer ? undefined : question.choices.findIndex((choice) => choice.id === question.correctChoiceId),
+        correctChoiceIndices: isMultipleAnswer
+          ? question.choices
+            .map((choice, index) => ({ choice, index }))
+            .filter(({ choice }) => correctChoiceIds.includes(choice.id))
+            .map(({ index }) => index)
+          : undefined,
+        explanation: question.explanation,
+        explanationMediaAssetId: question.explanationMediaAssetId ?? null,
+        origin: question.origin,
+        prompt: question.prompt,
+        promptMediaAssetId: question.promptMediaAssetId ?? null,
+        questionType: isMultipleAnswer ? "multiple_choice" : undefined,
+        sourceContentDigest: question.sourceContentDigest ?? null,
+        sourceQuestionId: question.sourceQuestionId ?? null,
+        sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? null,
+        sourceRevisionProvenance: question.sourceRevisionProvenance ?? null,
+      };
+    }),
     retryDelaySeconds: definition.retryDelaySeconds,
     reviewTiming: definition.reviewTiming,
     scorePolicy: definition.scorePolicy,

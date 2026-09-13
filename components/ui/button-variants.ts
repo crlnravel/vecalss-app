@@ -13,19 +13,19 @@ const buttonVariants = cva(
         marketingOutline:
           "rounded-full border-voyage-deep/20 bg-white text-voyage-deep hover:border-voyage-deep/35 hover:bg-voyage-sea-glass-wash focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45",
         marketingOnDark:
-          "rounded-full border-white bg-white text-voyage-deep hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45",
+          "rounded-full border-white bg-white text-voyage-deep hover:bg-voyage-surface/90 focus-visible:border-white focus-visible:ring-white/45",
         onboarding:
           "rounded-full border-voyage-warm-sun bg-voyage-warm-sun text-voyage-warm-sun-ink hover:bg-voyage-warm-sun/85 focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45",
         learning:
-          "rounded-2xl border-voyage-forest bg-voyage-forest text-white shadow-[0_4px_0_#0f563b] hover:bg-voyage-leaf focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
+          "rounded-2xl border-voyage-forest bg-voyage-forest text-white shadow-[0_4px_0_var(--voyage-deep-hover)] hover:bg-voyage-leaf focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
         learningComplete:
           "rounded-2xl border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg hover:bg-student-status-success-bg/80 focus-visible:border-student-status-success-border focus-visible:ring-student-status-success-border/45",
         learningAttention:
-          "rounded-xl border-voyage-warm-sun bg-voyage-warm-sun text-voyage-warm-sun-ink shadow-[0_4px_0_#d9ad32] hover:bg-voyage-warm-sun/85 focus-visible:border-voyage-warm-sun focus-visible:ring-voyage-warm-sun/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
+          "rounded-xl border-voyage-warm-sun bg-voyage-warm-sun text-voyage-warm-sun-ink shadow-[0_4px_0_var(--warning-300)] hover:bg-voyage-warm-sun/85 focus-visible:border-voyage-warm-sun focus-visible:ring-voyage-warm-sun/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
         brandOutline:
           "border-voyage-soft-border bg-voyage-surface text-voyage-ink hover:border-voyage-sea-glass hover:bg-voyage-sea-glass-wash focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/35",
         reference:
-          "border-primary-100 bg-voyage-surface text-voyage-ink shadow-[0_14px_30px_-24px_rgba(23,107,77,0.55),inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-primary-200 hover:bg-voyage-surface hover:shadow-[0_20px_40px_-26px_rgba(23,107,77,0.55),inset_0_1px_0_rgba(255,255,255,0.85)] focus-visible:border-primary-500 focus-visible:ring-primary-700/20",
+          "border-primary-100 bg-voyage-surface text-voyage-ink shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent),inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_85%,transparent)] hover:border-primary-200 hover:bg-voyage-surface hover:shadow-[0_20px_40px_-26px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent),inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_85%,transparent)] focus-visible:border-primary-500 focus-visible:ring-primary-700/20",
         context:
           "border-primary-100 bg-white text-secondary-950 hover:border-primary-300 hover:bg-primary-50/40 focus-visible:border-primary-500 focus-visible:ring-primary-500/20",
         contextSelected:
@@ -37,7 +37,7 @@ const buttonVariants = cva(
         dangerOutline:
           "border-student-status-danger-border bg-white text-student-status-danger-fg hover:bg-student-status-danger-bg focus-visible:border-student-status-danger-border focus-visible:ring-student-status-danger-border/35",
         inverseOutline:
-          "border-white/20 bg-transparent text-white hover:bg-white/10 focus-visible:border-white/35 focus-visible:ring-white/15",
+          "border-white/20 bg-transparent text-white hover:bg-voyage-surface/10 focus-visible:border-white/35 focus-visible:ring-white/15",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-transparent dark:hover:bg-input/30",
         secondary:

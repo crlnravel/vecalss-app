@@ -15,7 +15,10 @@ import {
 import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
+import type {
+  DataTableColumn,
+  DataTableFilter,
+} from "@/components/ui/data-table";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   ContextMenuContent,
@@ -120,11 +123,16 @@ function sortLessons(
     archived: 3,
   };
   const sorted = [...lessons].sort((left, right) => {
-    const comparison = sort === "title"
-      ? left.title.localeCompare(right.title, "id", { sensitivity: "base" })
-      : statusOrder[left.status] - statusOrder[right.status];
+    const comparison =
+      sort === "title"
+        ? left.title.localeCompare(right.title, "id", { sensitivity: "base" })
+        : statusOrder[left.status] - statusOrder[right.status];
 
-    return comparison || left.position - right.position || left.code.localeCompare(right.code);
+    return (
+      comparison ||
+      left.position - right.position ||
+      left.code.localeCompare(right.code)
+    );
   });
 
   return direction === "desc" ? sorted.reverse() : sorted;
@@ -184,7 +192,7 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
     >
       <div className="flex items-start gap-4">
         <MentorBadge
-          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]"
+          className="bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]"
           size="sm"
           tone="category"
         >
@@ -215,18 +223,15 @@ function KaptenMateriPageModule({
       sidebarAppearance="reference"
     >
       <div className="space-y-8">
-        <ReferencePageHeader
-          description="Kelola bacaan dan video pendamping siswa berdasarkan subject."
-          title="Materi"
-        />
+        <ReferencePageHeader title="Materi" />
 
         {subjects.length ? (
-          <section aria-label="Daftar subject Materi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <section
+            aria-label="Daftar subject Materi"
+            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          >
             {subjects.map((subject) => (
-              <SubjectCard
-                key={subject.slug}
-                subject={subject}
-              />
+              <SubjectCard key={subject.slug} subject={subject} />
             ))}
           </section>
         ) : (
@@ -263,20 +268,26 @@ function KaptenMateriSubjectPageModule({
   subject: KaptenMateriSubjectView;
 }) {
   const router = useRouter();
-  const [state, dispatch] = useReducer(materiCatalogueReducer, undefined, () => ({
-    bulkError: null,
-    bulkNotice: null,
-    isBulkPending: false,
-    lessons: catalogue
-      .filter((lesson) => lesson.subjectSlug === subject.slug)
-      .sort((a, b) => a.position - b.position || a.code.localeCompare(b.code)),
-    page: initialPage,
-    query: initialQuery,
-    sort: initialSort,
-    sortDirection: initialSortDirection,
-    statusFilter: initialStatusFilter,
-    tableVersion: 0,
-  }));
+  const [state, dispatch] = useReducer(
+    materiCatalogueReducer,
+    undefined,
+    () => ({
+      bulkError: null,
+      bulkNotice: null,
+      isBulkPending: false,
+      lessons: catalogue
+        .filter((lesson) => lesson.subjectSlug === subject.slug)
+        .sort(
+          (a, b) => a.position - b.position || a.code.localeCompare(b.code),
+        ),
+      page: initialPage,
+      query: initialQuery,
+      sort: initialSort,
+      sortDirection: initialSortDirection,
+      statusFilter: initialStatusFilter,
+      tableVersion: 0,
+    }),
+  );
   const {
     isBulkPending,
     lessons,
@@ -295,13 +306,15 @@ function KaptenMateriSubjectPageModule({
   });
 
   function navigateCatalogue(next: MateriCatalogueQuery = {}) {
-    router.push(buildMateriSubjectHref(subject.slug, {
-      direction: next.direction ?? sortDirection,
-      page: next.page ?? 1,
-      q: next.q ?? query,
-      sort: next.sort ?? sort,
-      status: next.status ?? statusFilter,
-    }));
+    router.push(
+      buildMateriSubjectHref(subject.slug, {
+        direction: next.direction ?? sortDirection,
+        page: next.page ?? 1,
+        q: next.q ?? query,
+        sort: next.sort ?? sort,
+        status: next.status ?? statusFilter,
+      }),
+    );
   }
 
   function filterVisibleLessons(value: string) {
@@ -316,7 +329,9 @@ function KaptenMateriSubjectPageModule({
             lesson.hasOptionalVideo ? "video opsional" : "tanpa video",
             lesson.status,
             lesson.readiness === "incomplete" ? "belum siap" : "",
-        ].some((candidate) => candidate.toLocaleLowerCase().includes(normalizedValue))) &&
+          ].some((candidate) =>
+            candidate.toLocaleLowerCase().includes(normalizedValue),
+          )) &&
         (!statusFilter || lesson.status === statusFilter),
     );
   }
@@ -340,9 +355,12 @@ function KaptenMateriSubjectPageModule({
     dispatch({ error: null, type: "bulkErrorChanged" });
     try {
       if (action === "publish" || action === "unpublish") {
-        const result = action === "publish"
-          ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code])
-          : await bulkUnpublishMateriLessonsAction(subject.slug, [lesson.code]);
+        const result =
+          action === "publish"
+            ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code])
+            : await bulkUnpublishMateriLessonsAction(subject.slug, [
+                lesson.code,
+              ]);
         if (!result.ok) {
           dispatch({ error: result.message, type: "bulkErrorChanged" });
           return;
@@ -350,22 +368,29 @@ function KaptenMateriSubjectPageModule({
         dispatch({
           lessons: lessons.map((item) =>
             item.code === lesson.code
-              ? { ...item, lifecycleStatus: result.status, status: result.status }
+              ? {
+                  ...item,
+                  lifecycleStatus: result.status,
+                  status: result.status,
+                }
               : item,
           ),
           type: "lessonsChanged",
         });
         dispatch({ notice: result.message, type: "bulkNoticeChanged" });
       } else {
-        const result = action === "archive"
-          ? await archiveMateriLessonAction(lesson.code)
-          : await returnMateriLessonToDraftAction(lesson.code);
+        const result =
+          action === "archive"
+            ? await archiveMateriLessonAction(lesson.code)
+            : await returnMateriLessonToDraftAction(lesson.code);
         if (!result.ok) {
           dispatch({ error: result.message, type: "bulkErrorChanged" });
           return;
         }
         dispatch({
-          lessons: lessons.map((item) => item.code === lesson.code ? result.lesson : item),
+          lessons: lessons.map((item) =>
+            item.code === lesson.code ? result.lesson : item,
+          ),
           type: "lessonsChanged",
         });
         dispatch({ notice: result.message, type: "bulkNoticeChanged" });
@@ -374,9 +399,10 @@ function KaptenMateriSubjectPageModule({
       router.refresh();
     } catch (error) {
       dispatch({
-        error: error instanceof Error
-          ? error.message
-          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
         type: "bulkErrorChanged",
       });
     } finally {
@@ -387,7 +413,9 @@ function KaptenMateriSubjectPageModule({
   return (
     <MateriSubjectCatalogueScreen
       actions={{
-        onApplyLessonAction: (lesson, action) => { void applyLessonAction(lesson, action); },
+        onApplyLessonAction: (lesson, action) => {
+          void applyLessonAction(lesson, action);
+        },
         onStatusFilterChange: (value) => navigateCatalogue({ status: value }),
       }}
       data={{
@@ -405,7 +433,10 @@ function KaptenMateriSubjectPageModule({
 }
 
 type MateriSubjectCatalogueActions = {
-  onApplyLessonAction: (lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
+  onApplyLessonAction: (
+    lesson: KaptenMateriView,
+    action: "archive" | "delete" | "publish" | "restore" | "unpublish",
+  ) => void;
   onStatusFilterChange: (value: string) => void;
 };
 
@@ -427,7 +458,9 @@ function MateriSubjectCatalogueFilterPanel({
 
   return (
     <div className="space-y-3 p-1">
-      <p className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "px-2")}>Filter lesson</p>
+      <p className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "px-2")}>
+        Filter lesson
+      </p>
       <div className="space-y-1.5">
         <label
           className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
@@ -439,7 +472,9 @@ function MateriSubjectCatalogueFilterPanel({
           ariaLabel="Filter status"
           className={REFERENCE_CONTROL_CLASS_NAMES.select}
           id="materi-subject-status-filter"
-          onValueChange={(value) => onStatusFilterChange(value === allFilterOptionValue ? "" : value)}
+          onValueChange={(value) =>
+            onStatusFilterChange(value === allFilterOptionValue ? "" : value)
+          }
           options={[
             { label: "Semua status", value: allFilterOptionValue },
             { label: "Draf", value: "draft" },
@@ -512,30 +547,41 @@ function MateriSubjectCatalogueScreen({
     statusFilter,
     tableVersion,
   } = state;
-  const {
-    pageCount,
-    pagedLessons,
-    rowNumberOffset,
-    visiblePage,
-  } = data;
+  const { pageCount, pagedLessons, rowNumberOffset, visiblePage } = data;
 
-  const buildHref = (next: MateriCatalogueQuery = {}) => buildMateriSubjectHref(subject.slug, {
-    direction: next.direction ?? sortDirection,
-    page: next.page ?? 1,
-    q: next.q ?? query,
-    sort: next.sort ?? sort,
-    status: next.status ?? statusFilter,
+  const buildHref = (next: MateriCatalogueQuery = {}) =>
+    buildMateriSubjectHref(subject.slug, {
+      direction: next.direction ?? sortDirection,
+      page: next.page ?? 1,
+      q: next.q ?? query,
+      sort: next.sort ?? sort,
+      status: next.status ?? statusFilter,
+    });
+  const clearFiltersHref = buildMateriSubjectHref(subject.slug, {
+    sort,
+    direction: sortDirection,
   });
-  const clearFiltersHref = buildMateriSubjectHref(subject.slug, { sort, direction: sortDirection });
   const hasActiveFilters = Boolean(query || statusFilter);
   const activeFilters: DataTableFilter[] = [
-    ...(statusFilter ? [{ id: "status", label: "Status", value: statusLabel(statusFilter as KaptenMateriView["status"]), href: buildHref({ status: "" }) }] : []),
+    ...(statusFilter
+      ? [
+          {
+            id: "status",
+            label: "Status",
+            value: statusLabel(statusFilter as KaptenMateriView["status"]),
+            href: buildHref({ status: "" }),
+          },
+        ]
+      : []),
   ];
 
   const columns: DataTableColumn<KaptenMateriView>[] = [
     {
       cell: (lesson) => (
-        <span className="block min-w-0 max-w-full truncate font-semibold text-secondary-900" title={lesson.title}>
+        <span
+          className="block min-w-0 max-w-full truncate font-semibold text-secondary-900"
+          title={lesson.title}
+        >
           {lesson.title}
         </span>
       ),
@@ -547,7 +593,13 @@ function MateriSubjectCatalogueScreen({
       width: 68,
     },
     {
-      cell: (lesson) => <ReferenceStatusBadge appearance="mentor" size="sm" status={lesson.status} />,
+      cell: (lesson) => (
+        <ReferenceStatusBadge
+          appearance="mentor"
+          size="sm"
+          status={lesson.status}
+        />
+      ),
       headerClassName: "min-w-[8rem]",
       id: "status",
       label: "Status",
@@ -559,29 +611,40 @@ function MateriSubjectCatalogueScreen({
   const materiRowContextMenu = (lesson: KaptenMateriView) => (
     <ContextMenuContent className="w-52">
       <ContextMenuGroup>
-        <ContextMenuItem onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}>
+        <ContextMenuItem
+          onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}
+        >
           <Eye />
           Preview
         </ContextMenuItem>
         {lesson.status === "draft" ? (
-          <ContextMenuItem disabled={lesson.readiness !== "ready"} onClick={() => actions.onApplyLessonAction(lesson, "publish")}>
+          <ContextMenuItem
+            disabled={lesson.readiness !== "ready"}
+            onClick={() => actions.onApplyLessonAction(lesson, "publish")}
+          >
             <Upload />
             Terbitkan
           </ContextMenuItem>
         ) : null}
         {lesson.status === "published" ? (
-          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}>
+          <ContextMenuItem
+            onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}
+          >
             <FilePenLine />
             Batalkan terbit
           </ContextMenuItem>
         ) : null}
         {lesson.status !== "archived" ? (
-          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "archive")}>
+          <ContextMenuItem
+            onClick={() => actions.onApplyLessonAction(lesson, "archive")}
+          >
             <Archive />
             Arsipkan
           </ContextMenuItem>
         ) : (
-          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "restore")}>
+          <ContextMenuItem
+            onClick={() => actions.onApplyLessonAction(lesson, "restore")}
+          >
             <Upload />
             Pulihkan
           </ContextMenuItem>
@@ -595,8 +658,10 @@ function MateriSubjectCatalogueScreen({
     </ContextMenuContent>
   );
 
-  const previousHref = visiblePage > 1 ? buildHref({ page: visiblePage - 1 }) : undefined;
-  const nextHref = visiblePage < pageCount ? buildHref({ page: visiblePage + 1 }) : undefined;
+  const previousHref =
+    visiblePage > 1 ? buildHref({ page: visiblePage - 1 }) : undefined;
+  const nextHref =
+    visiblePage < pageCount ? buildHref({ page: visiblePage + 1 }) : undefined;
 
   return (
     <MentorWorkspaceShell
@@ -651,7 +716,7 @@ function MateriSubjectCatalogueScreen({
           <ReferenceSurface
             aria-live="assertive"
             as="div"
-            className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            className="border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
             role="alert"
             variant="inset"
           >
@@ -679,7 +744,9 @@ function MateriSubjectCatalogueScreen({
             filters={activeFilters}
             getRowId={(lesson) => lesson.code}
             key={tableVersion}
-            onRowClick={(lesson) => router.push(buildEditorHref(lesson, returnTo))}
+            onRowClick={(lesson) =>
+              router.push(buildEditorHref(lesson, returnTo))
+            }
             rowContextMenu={materiRowContextMenu}
             rowNumberOffset={rowNumberOffset}
             rows={pagedLessons}
@@ -699,15 +766,19 @@ function MateriSubjectCatalogueScreen({
             showRowNumbers
             sort={{
               direction: sortDirection,
-              href: (nextSortKey, nextDirection) => buildHref({
-                direction: nextDirection,
-                page: 1,
-                sort: (nextSortKey ?? "") as MateriSortKey,
-              }),
+              href: (nextSortKey, nextDirection) =>
+                buildHref({
+                  direction: nextDirection,
+                  page: 1,
+                  sort: (nextSortKey ?? "") as MateriSortKey,
+                }),
               key: sort || null,
             }}
             tableClassName="min-w-[760px]"
-            wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
+            wrapperClassName={cn(
+              REFERENCE_SURFACE_CLASS_NAMES.raised,
+              "min-w-0",
+            )}
           />
           <PaginationLinks
             nextHref={nextHref}
@@ -717,7 +788,6 @@ function MateriSubjectCatalogueScreen({
           />
         </section>
       </div>
-
     </MentorWorkspaceShell>
   );
 }

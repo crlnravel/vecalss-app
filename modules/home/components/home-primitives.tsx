@@ -24,7 +24,8 @@ type ActionButtonLinkProps = Omit<React.ComponentProps<typeof Link>, "className"
     | "inverseOutline"
     | "marketing"
     | "marketingOnDark"
-    | "marketingOutline";
+    | "marketingOutline"
+    | "onboarding";
 };
 
 function ActionButtonLink({

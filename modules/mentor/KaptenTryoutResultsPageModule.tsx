@@ -1,18 +1,18 @@
 "use client";
 
 import { CircleAlert } from "@/lib/icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
-import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 
 function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(selectedSessionId ?? initial.sessions[0]?.id ?? null);
-  const validSessionId = useMemo(() => initial.sessions.some((session) => session.id === activeSessionId) ? activeSessionId : initial.sessions[0]?.id ?? null, [activeSessionId, initial.sessions]);
-  const activeSession = initial.sessions.find((session) => session.id === validSessionId) ?? null;
+  const mainSession = selectMainTryoutSession(initial.sessions);
+  const [activeSessionId] = useState<string | null>(mainSession?.id ?? null);
+  const validSessionId = mainSession && activeSessionId === mainSession.id ? activeSessionId : mainSession?.id ?? null;
+  const activeSession = mainSession && mainSession.id === validSessionId ? mainSession : null;
   const visibleSessions = activeSession ? [activeSession] : [];
 
   useEffect(() => {
@@ -23,37 +23,13 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }, [selectedSessionId, validSessionId]);
 
-  const selectSession = (sessionId: string) => {
-    setActiveSessionId(sessionId);
-    const url = new URL(window.location.href);
-    url.searchParams.set("workspace", "results");
-    url.searchParams.set("session", sessionId);
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  };
-
   return (
     <section className="grid min-w-0 w-full grid-cols-1 gap-6" aria-labelledby="tryout-results-title">
       <header className="flex items-center gap-3">
         <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
       </header>
 
-      {initial.sessions.length ? <div className="grid min-w-0 w-full max-w-md gap-2">
-        <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="results-session">Sesi yang ditampilkan</label>
-        <div className="min-w-0 w-full max-w-full">
-          <ReferenceSelect
-            aria-label="Sesi yang ditampilkan"
-            className="w-full"
-            id="results-session"
-            onValueChange={selectSession}
-            options={initial.sessions.map((session) => ({
-              label: `${session.name} · ${session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}`,
-              value: session.id,
-            }))}
-            value={validSessionId ?? ""}
-          />
-        </div>
-        {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[#8a5e00]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
-      </div> : null}
+      {activeSession ? <p className="text-sm text-secondary-600">{activeSession.name} · {formatTryoutDateTime(activeSession.availableFrom)} WIB — {formatTryoutDateTime(activeSession.availableUntil)} WIB</p> : null}
 
       <div className="grid gap-5">
         {visibleSessions.length ? visibleSessions.map((session) => {
@@ -67,7 +43,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                 </div>
               </div>
 
-              <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+              <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
                 <Table className="min-w-[520px]">
                   <caption className="sr-only">Hasil peserta untuk {session.name}</caption>
                   <TableHeader className="bg-primary-50/60 [&_tr]:border-0">
@@ -81,7 +57,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                       <TableRow className="border-0 hover:bg-primary-50/45" key={result.attemptId}>
                         <TableCell className="max-w-[16rem] whitespace-normal px-4 py-3.5 align-top sm:px-5">
                           <p className="font-medium text-secondary-900">{result.participant}</p>
-                          {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#6a4a00]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
+                          {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[var(--voyage-warm-sun-ink)]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
                         </TableCell>
                         <TableCell className="px-4 py-3.5 align-top sm:px-5">{result.scoreVisible && result.displayScore !== null ? <span className="font-semibold tabular-nums text-secondary-900">{Number(result.displayScore).toFixed(2)}</span> : <span className="text-sm text-secondary-500">Belum tersedia</span>}</TableCell>
                       </TableRow>
@@ -91,7 +67,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
               </div>
             </section>
           );
-        }) : <div className="grid min-h-40 place-items-center rounded-4xl border border-solid border-primary-100 bg-white px-5 py-10 text-center text-sm text-secondary-500 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">Belum ada sesi delivery untuk menampilkan hasil.</div>}
+        }) : <div className="grid min-h-40 place-items-center rounded-4xl border border-solid border-primary-100 bg-white px-5 py-10 text-center text-sm text-secondary-500 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">Belum ada sesi delivery untuk menampilkan hasil.</div>}
       </div>
     </section>
   );

@@ -2,7 +2,7 @@
 
 import { Download, Expand, ExternalLink, FileText, LoaderCircle, Minimize2, RefreshCw } from "@/lib/icons";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -28,7 +28,7 @@ const StudentPdfDocument = dynamic(
   () => import("./StudentPdfDocument").then((module) => module.StudentPdfDocument),
   {
     loading: () => (
-      <div className="flex min-h-[22rem] items-center justify-center px-6 text-center text-sm font-semibold text-[#285641]">
+      <div className="flex min-h-[22rem] items-center justify-center px-6 text-center text-sm font-semibold text-[var(--voyage-muted-ink)]">
         Menyiapkan halaman PDF…
       </div>
     ),
@@ -36,41 +36,57 @@ const StudentPdfDocument = dynamic(
   },
 );
 
-type DeliveryPayload = {
-  documentUrl?: unknown;
-  downloadUrl?: unknown;
-  sourceKind?: unknown;
-};
-
-function isHttpDocumentUrl(value: unknown): value is string {
-  if (typeof value !== "string" || !value.trim()) return false;
+async function toggleDocumentFullscreen(preview: HTMLDivElement | null, fullscreenAvailable: boolean, onError: () => void) {
+  if (!preview || !fullscreenAvailable) return;
 
   try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
+    if (globalThis.document.fullscreenElement === preview) {
+      await globalThis.document.exitFullscreen();
+      return;
+    }
+    if (globalThis.document.fullscreenElement) await globalThis.document.exitFullscreen();
+    await preview.requestFullscreen();
   } catch {
-    return false;
+    onError();
   }
 }
 
-function StudentPdfPreview({
-  actions,
-  className,
-  completionAction,
+function withDeliveryMode(value: string, mode: "download" | "pdf") {
+  const separator = value.includes("?") ? "&" : "?";
+  return `${value}${separator}${mode}=${mode === "download" ? "1" : "pdf"}`;
+}
+
+function getDocumentPreviewState({
+  failedKey,
+  isHosted,
+  requestKey,
+  resolvedKey,
+  resolvedUrl,
+  shouldResolveDelivery,
+}: {
+  failedKey: string | null;
+  isHosted: boolean;
+  requestKey: string;
+  resolvedKey: string | null;
+  resolvedUrl: string | null;
+  shouldResolveDelivery: boolean;
+}): DocumentPreviewState {
+  if (!shouldResolveDelivery) return isHosted ? "ready" : "unavailable";
+  if (failedKey === requestKey) return "unavailable";
+  return resolvedKey === requestKey && resolvedUrl ? "ready" : "loading";
+}
+
+function getStudentPdfPreviewModel({
   document,
   documentDeliveryUrl,
-  title,
-}: StudentPdfPreviewProps) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
-  const [resolvedDownloadUrl, setResolvedDownloadUrl] = useState<string | null>(null);
-  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
-  const [failedKey, setFailedKey] = useState<string | null>(null);
-  const [requestVersion, setRequestVersion] = useState(0);
-  const [renderedKey, setRenderedKey] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
-
+  failedKey,
+  requestVersion,
+}: {
+  document: MateriDocument | null;
+  documentDeliveryUrl?: string;
+  failedKey: string | null;
+  requestVersion: number;
+}) {
   const documentName = document?.originalName?.trim() || "Dokumen Materi";
   const isManaged = document?.sourceKind === "managed" && Boolean(document.managedAssetId);
   const hostedUrl = document?.url?.trim() || "";
@@ -80,80 +96,37 @@ function StudentPdfPreview({
     ? "Dokumen PDF managed belum dapat dibuka. Coba muat ulang halaman atau gunakan jalur kembali ke Materi."
     : "Dokumen PDF belum tersedia untuk dibaca. Kembali ke Materi untuk memilih unit lain.";
   const requestKey = `${documentDeliveryUrl ?? ""}:${hostedUrl}:${document?.managedAssetId ?? ""}:${requestVersion}`;
-  const state: DocumentPreviewState = !shouldResolveDelivery && isHosted
-    ? "ready"
-    : !shouldResolveDelivery
-      ? "unavailable"
-      : failedKey === requestKey
-        ? "unavailable"
-        : resolvedKey === requestKey && resolvedUrl
-          ? "ready"
-          : "loading";
-  const previewUrl = shouldResolveDelivery ? resolvedUrl : hostedUrl;
+  const previewUrl = shouldResolveDelivery && documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "pdf") : hostedUrl;
+  const state = getDocumentPreviewState({ failedKey, isHosted, requestKey, resolvedKey: shouldResolveDelivery ? requestKey : null, resolvedUrl: previewUrl, shouldResolveDelivery });
   const downloadUrl = shouldResolveDelivery
-    ? resolvedDownloadUrl ?? getDownloadUrl(previewUrl)
+    ? documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "download") : null
     : getDownloadUrl(hostedUrl);
-  const documentActionsReady = state === "ready" && Boolean(previewUrl);
-  const completionReady = documentActionsReady && renderedKey === requestKey;
 
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
+  return {
+    completionReady: state === "ready" && Boolean(previewUrl),
+    documentActionsReady: state === "ready" && Boolean(previewUrl),
+    documentName,
+    downloadUrl,
+    isManaged,
+    previewUrl,
+    requestKey,
+    state,
+    unavailableMessage,
+  };
+}
 
-    if (!shouldResolveDelivery) {
-      return () => {
-        cancelled = true;
-        controller.abort();
-      };
-    }
-
-    if (!documentDeliveryUrl) {
-      return () => {
-        cancelled = true;
-        controller.abort();
-      };
-    }
-
-    void fetch(documentDeliveryUrl, {
-      cache: "no-store",
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Materi PDF tidak tersedia.");
-        }
-        const payload = await response.json().catch(() => null) as DeliveryPayload | null;
-        if (
-          !payload
-          || (payload.sourceKind !== "managed" && payload.sourceKind !== "hosted")
-          || payload.sourceKind !== document?.sourceKind
-          || !isHttpDocumentUrl(payload.documentUrl)
-          || (payload.downloadUrl !== undefined && !isHttpDocumentUrl(payload.downloadUrl))
-        ) {
-          throw new Error("Materi PDF tidak tersedia.");
-        }
-        return {
-          downloadUrl: typeof payload.downloadUrl === "string" ? payload.downloadUrl : null,
-          documentUrl: payload.documentUrl,
-        };
-      })
-      .then(({ documentUrl, downloadUrl: nextDownloadUrl }) => {
-        if (cancelled) return;
-        setResolvedUrl(documentUrl);
-        setResolvedDownloadUrl(nextDownloadUrl);
-        setResolvedKey(requestKey);
-      })
-      .catch((error: unknown) => {
-        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
-        setFailedKey(requestKey);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [document?.sourceKind, documentDeliveryUrl, hostedUrl, isHosted, isManaged, requestKey, shouldResolveDelivery]);
+function useStudentPdfPreviewController({
+  document,
+  documentDeliveryUrl,
+  title,
+}: Pick<StudentPdfPreviewProps, "document" | "documentDeliveryUrl" | "title">) {
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [requestVersion, setRequestVersion] = useState(0);
+  const [renderedKey, setRenderedKey] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const model = getStudentPdfPreviewModel({ document, documentDeliveryUrl, failedKey, requestVersion });
 
   useEffect(() => {
     if (typeof globalThis.document === "undefined") return;
@@ -170,28 +143,149 @@ function StudentPdfPreview({
   }, []);
 
   const handleToggleFullscreen = async () => {
-    const preview = previewRef.current;
-    if (!preview || !fullscreenAvailable) return;
-
-    try {
-      if (globalThis.document.fullscreenElement === preview) {
-        await globalThis.document.exitFullscreen();
-        return;
-      }
-
-      if (globalThis.document.fullscreenElement) {
-        await globalThis.document.exitFullscreen();
-      }
-      await preview.requestFullscreen();
-    } catch {
-      setIsFullscreen(false);
-    }
+    await toggleDocumentFullscreen(previewRef.current, fullscreenAvailable, () => setIsFullscreen(false));
   };
 
-  const previewTitle = useMemo(
-    () => `Preview PDF: ${title.trim() || documentName}`,
-    [documentName, title],
+  return {
+    ...model,
+    completionReady: model.completionReady && renderedKey === model.requestKey,
+    failedKey,
+    fullscreenAvailable,
+    handleToggleFullscreen,
+    isFullscreen,
+    onPreviewError: () => { setFailedKey(model.requestKey); setRenderedKey(null); },
+    onPreviewReady: () => setRenderedKey(model.requestKey),
+    onRetry: () => setRequestVersion((version) => version + 1),
+    previewRef,
+    previewTitle: `Preview PDF: ${title.trim() || model.documentName}`,
+  };
+}
+
+function StudentPdfPreviewCanvas({
+  fullscreen,
+  isManaged,
+  onError,
+  onReady,
+  onRetry,
+  previewTitle,
+  previewUrl,
+  requestKey,
+  state,
+  unavailableMessage,
+}: {
+  fullscreen: boolean;
+  isManaged: boolean;
+  onError: () => void;
+  onReady: () => void;
+  onRetry: () => void;
+  previewTitle: string;
+  previewUrl: string | null;
+  requestKey: string;
+  state: DocumentPreviewState;
+  unavailableMessage: string;
+}) {
+  if (state === "loading") {
+    return <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[var(--voyage-muted-ink)] md:min-h-[34rem]"><LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[var(--voyage-leaf)] motion-reduce:animate-none" /><p className="font-semibold text-[var(--voyage-muted-ink)]">Menyiapkan PDF untuk dibaca…</p></div>;
+  }
+
+  if (state === "ready" && previewUrl) {
+    return <StudentPdfDocument file={previewUrl} fullscreen={fullscreen} key={requestKey} onError={onError} onReady={onReady} title={previewTitle} />;
+  }
+
+  return (
+    <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[var(--voyage-muted-ink)] md:min-h-[34rem]">
+      <FileText aria-hidden="true" className="size-9 text-[var(--voyage-muted-ink)]" />
+      <p className="font-semibold text-[var(--voyage-muted-ink)]">PDF belum dapat ditampilkan.</p>
+      <p className="max-w-[48ch] leading-6">{unavailableMessage}</p>
+      {isManaged ? <Button className="mt-1" onClick={onRetry} size="default" variant="brandOutline"><RefreshCw className="size-4" />Coba lagi</Button> : null}
+    </div>
   );
+}
+
+function StudentPdfPreviewActions({
+  actions,
+  completionAction,
+  completionReady,
+  documentActionsReady,
+  documentName,
+  downloadUrl,
+  fullscreenAvailable,
+  handleToggleFullscreen,
+  isFullscreen,
+  previewUrl,
+}: {
+  actions?: ReactNode;
+  completionAction?: ReactNode;
+  completionReady: boolean;
+  documentActionsReady: boolean;
+  documentName: string;
+  downloadUrl: string | null;
+  fullscreenAvailable: boolean;
+  handleToggleFullscreen: () => void;
+  isFullscreen: boolean;
+  previewUrl: string | null;
+}) {
+  if (!documentActionsReady) return null;
+
+  return (
+    <div className="flex items-center gap-2" role="group">
+      {completionReady ? completionAction : null}
+      <div aria-label="Aksi dokumen PDF" className="flex shrink-0 items-center gap-1" role="group">
+        <Tooltip>
+          <TooltipTrigger render={<Button aria-label="Buka PDF" nativeButton={false} render={<a aria-label="Buka PDF" href={previewUrl ?? ""} rel="noreferrer" target="_blank" />} size="icon-lg" title="Buka PDF" variant="brandOutline" />}>
+            <ExternalLink aria-hidden="true" className="size-5" />
+          </TooltipTrigger>
+          <TooltipContent>Buka PDF</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger render={<Button aria-label="Download PDF" nativeButton={false} render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Download PDF" variant="brandOutline" />}>
+            <Download aria-hidden="true" className="size-5" />
+          </TooltipTrigger>
+          <TooltipContent>Download PDF</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="brandOutline" />}>
+            {isFullscreen ? <Minimize2 aria-hidden="true" className="size-5" /> : <Expand aria-hidden="true" className="size-5" />}
+          </TooltipTrigger>
+          <TooltipContent>{isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}</TooltipContent>
+        </Tooltip>
+        {actions}
+      </div>
+    </div>
+  );
+}
+
+function StudentPdfPreviewFooterMessage({ state }: { state: DocumentPreviewState }) {
+  return <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">{state === "ready" ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas." : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}</p>;
+}
+
+function StudentPdfPreview({
+  actions,
+  className,
+  completionAction,
+  document,
+  documentDeliveryUrl,
+  title,
+}: StudentPdfPreviewProps) {
+  const {
+    completionReady,
+    documentActionsReady,
+    documentName,
+    downloadUrl,
+    fullscreenAvailable,
+    handleToggleFullscreen,
+    isFullscreen,
+    isManaged,
+    onPreviewError,
+    onPreviewReady,
+    onRetry,
+    previewRef,
+    previewTitle,
+    previewUrl,
+    requestKey,
+    state,
+    unavailableMessage,
+  } = useStudentPdfPreviewController({ document, documentDeliveryUrl, title });
 
   return (
     <div
@@ -199,126 +293,21 @@ function StudentPdfPreview({
       className={cn(
         "flex w-full flex-col gap-4 p-4",
         className,
-        isFullscreen && "h-screen min-h-0 bg-[#f7faf8]",
+        isFullscreen && "h-screen min-h-0 bg-[var(--voyage-canvas)]",
       )}
     >
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border border-[#d9e5de] bg-white",
-          isFullscreen && "min-h-0 flex-1 rounded-none border-0 bg-[#f7faf8]",
+          "relative overflow-hidden rounded-2xl border border-[var(--voyage-soft-border)] bg-white",
+          isFullscreen && "min-h-0 flex-1 rounded-none border-0 bg-[var(--voyage-canvas)]",
         )}
       >
-        {state === "loading" ? (
-          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
-            <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[#2f8a5d] motion-reduce:animate-none" />
-            <p className="font-semibold text-[#285641]">Menyiapkan PDF untuk dibaca…</p>
-          </div>
-        ) : state === "ready" && previewUrl ? (
-          <StudentPdfDocument
-            file={previewUrl}
-            fullscreen={isFullscreen}
-            key={requestKey}
-            onError={() => setRenderedKey(null)}
-            onReady={() => setRenderedKey(requestKey)}
-            title={previewTitle}
-          />
-        ) : (
-          <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
-            <FileText aria-hidden="true" className="size-9 text-[#9ab4a4]" />
-            <p className="font-semibold text-[#285641]">PDF belum dapat ditampilkan.</p>
-            <p className="max-w-[48ch] leading-6">{unavailableMessage}</p>
-            {isManaged ? (
-              <Button
-                className="mt-1"
-                onClick={() => setRequestVersion((version) => version + 1)}
-                size="default"
-                variant="brandOutline"
-              >
-                <RefreshCw className="size-4" />
-                Coba lagi
-              </Button>
-            ) : null}
-          </div>
-        )}
+        <StudentPdfPreviewCanvas fullscreen={isFullscreen} isManaged={isManaged} onError={onPreviewError} onReady={onPreviewReady} onRetry={onRetry} previewTitle={previewTitle} previewUrl={previewUrl} requestKey={requestKey} state={state} unavailableMessage={unavailableMessage} />
       </div>
 
-      {documentActionsReady && (completionAction || actions || documentActionsReady) ? (
-        <div className="flex items-center gap-2" role="group">
-          {completionReady ? completionAction : null}
-          {actions || documentActionsReady ? (
-            <div aria-label={state === "ready" ? "Aksi dokumen PDF" : "Aksi bacaan"} className="flex shrink-0 items-center gap-1" role="group">
-              {documentActionsReady ? (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={(
-                        <Button
-                          aria-label="Buka PDF"
-                          nativeButton={false}
-                          render={<a aria-label="Buka PDF" href={previewUrl ?? ""} rel="noreferrer" target="_blank" />}
-                          size="icon-lg"
-                          title="Buka PDF"
-                          variant="brandOutline"
-                        />
-                      )}
-                    >
-                      <ExternalLink aria-hidden="true" className="size-5" />
-                    </TooltipTrigger>
-                    <TooltipContent>Buka PDF</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={(
-                        <Button
-                          aria-label="Download PDF"
-                          nativeButton={false}
-                          render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />}
-                          size="icon-lg"
-                          title="Download PDF"
-                          variant="brandOutline"
-                        />
-                      )}
-                    >
-                      <Download aria-hidden="true" className="size-5" />
-                    </TooltipTrigger>
-                    <TooltipContent>Download PDF</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={(
-                        <Button
-                          aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
-                          disabled={!fullscreenAvailable}
-                          onClick={handleToggleFullscreen}
-                          size="icon-lg"
-                          title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
-                          variant="brandOutline"
-                        />
-                      )}
-                    >
-                      {isFullscreen ? (
-                        <Minimize2 aria-hidden="true" className="size-5" />
-                      ) : (
-                        <Expand aria-hidden="true" className="size-5" />
-                      )}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
-                    </TooltipContent>
-                  </Tooltip>
-                </>
-              ) : null}
-              {actions}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <StudentPdfPreviewActions actions={actions} completionAction={completionAction} completionReady={completionReady} documentActionsReady={documentActionsReady} documentName={documentName} downloadUrl={downloadUrl} fullscreenAvailable={fullscreenAvailable} handleToggleFullscreen={handleToggleFullscreen} isFullscreen={isFullscreen} previewUrl={previewUrl} />
 
-      <p className="text-left text-xs leading-5 text-[#718077]">
-        {state === "ready"
-          ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas."
-          : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}
-      </p>
+      <StudentPdfPreviewFooterMessage state={state} />
     </div>
   );
 }

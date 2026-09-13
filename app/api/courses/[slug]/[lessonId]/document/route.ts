@@ -65,15 +65,20 @@ export async function GET(
       studentId: session.user.id,
     });
 
-    return Response.json(
-      { ...document, document },
-      {
+    const wantsDownload = url.searchParams.get("download") === "1";
+    if (url.searchParams.get("format") === "pdf" || wantsDownload) {
+      const documentUrl = wantsDownload ? document.downloadUrl ?? document.documentUrl : document.documentUrl;
+      return new Response(null, {
         headers: {
           "Cache-Control": "private, no-store",
+          Location: documentUrl,
           Vary: "Cookie",
         },
-      },
-    );
+        status: 302,
+      });
+    }
+
+    return Response.json({ ...document, document }, { headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } });
   } catch (error) {
     return errorResponse(error);
   }

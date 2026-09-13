@@ -37,6 +37,20 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     return false;
   }
 
+  const answerMode = value.questionType === undefined ? "single_choice" : value.questionType;
+  const rawCorrectChoiceIds = value.correctChoiceIds;
+  const correctChoiceIds: string[] | null = rawCorrectChoiceIds === undefined
+    ? [typeof value.correctChoiceId === "string" ? value.correctChoiceId : ""]
+    : Array.isArray(rawCorrectChoiceIds) && rawCorrectChoiceIds.every((id): id is string => typeof id === "string")
+      ? rawCorrectChoiceIds
+      : null;
+  const choiceIds = new Set(value.choices.filter(isQuestionChoice).map((choice) => choice.id));
+  const validCorrectChoiceIds = Boolean(correctChoiceIds
+    && correctChoiceIds.length > 0
+    && new Set(correctChoiceIds).size === correctChoiceIds.length
+    && correctChoiceIds.every((id) => choiceIds.has(id))
+    && (answerMode === "multiple_choice" || (answerMode === "single_choice" && correctChoiceIds.length === 1)));
+
   return (
     typeof value.bankId === "string"
     && value.bankId.trim().length > 0
@@ -45,6 +59,7 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && typeof value.prompt === "string"
     && (value.promptMediaAssetId === undefined || (typeof value.promptMediaAssetId === "string" && value.promptMediaAssetId.trim().length > 0))
     && typeof value.correctChoiceId === "string"
+    && (answerMode === "single_choice" || answerMode === "multiple_choice")
     && typeof value.explanation === "string"
     && (value.explanationMediaAssetId === undefined || (typeof value.explanationMediaAssetId === "string" && value.explanationMediaAssetId.trim().length > 0))
     && ["easy", "medium", "hard"].includes(value.difficulty as string)
@@ -53,7 +68,7 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && value.choices.length <= 5
     && value.choices.every(isQuestionChoice)
     && new Set(value.choices.map((choice) => choice.id)).size === value.choices.length
-    && value.choices.filter((choice) => choice.id === value.correctChoiceId).length === 1
+    && validCorrectChoiceIds
     && value.tags.every((tag) => typeof tag === "string")
   );
 }
@@ -301,12 +316,17 @@ function updateQuestionBankLifecycle(
 }
 
 function isReadyBankQuestion(question: BankQuestion) {
+  const correctChoiceIds = question.correctChoiceIds ?? [question.correctChoiceId];
+  const answerMode = question.questionType ?? "single_choice";
   return (
     question.prompt.trim().length > 0
     && question.choices.length >= 2
     && question.choices.length <= 5
     && question.choices.every((choice) => choice.text.trim().length > 0)
-    && question.choices.some((choice) => choice.id === question.correctChoiceId)
+    && correctChoiceIds.length > 0
+    && new Set(correctChoiceIds).size === correctChoiceIds.length
+    && correctChoiceIds.every((id) => question.choices.some((choice) => choice.id === id))
+    && (answerMode === "multiple_choice" || (answerMode === "single_choice" && correctChoiceIds.length === 1))
   );
 }
 

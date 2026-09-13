@@ -41,7 +41,9 @@ const mentorRootHrefByLabel: Record<string, string> = {
   Dashboard: "/mentor/dashboard",
   Materi: "/mentor/materi",
   Kuis: "/mentor/quiz",
-  "Bank Soal": "/mentor/quiz/question-bank",
+  "Bank Soal": "/mentor/quiz/question-bank?purpose=quiz",
+  "Bank Soal Kuis": "/mentor/quiz/question-bank?purpose=quiz",
+  "Bank Soal Tryout": "/mentor/quiz/question-bank?purpose=tryout",
   Tryout: "/mentor/tryout",
   Media: "/mentor/media",
   Pengaturan: "/mentor/settings",
@@ -61,7 +63,7 @@ function MentorNavigationConfirmDialog({
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent
-        className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
+        className="gap-5 border-danger-100 bg-white p-6 sm:max-w-lg"
         variant="danger"
       >
         <AlertDialogHeader>
@@ -280,8 +282,8 @@ function MentorWorkspaceHeader({
       className={cn(
         "sticky top-0 z-20 backdrop-blur-xl",
         sidebarAppearance === "reference"
-          ? "bg-voyage-canvas/90 lg:top-6 lg:rounded-3xl lg:border"
-          : "border-b border-primary-100/80 bg-[#f7faf8]/90",
+          ? "mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border"
+          : "border-b border-primary-100/80 bg-[var(--voyage-canvas)]/90",
       )}
     >
       <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
@@ -398,7 +400,7 @@ function MentorWorkspaceShell({
             "flex min-h-svh w-full text-secondary-900",
             sidebarAppearance === "reference"
               ? "bg-voyage-canvas lg:gap-2"
-              : "bg-[#f7faf8]",
+              : "bg-[var(--voyage-canvas)]",
           )}
         >
           <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />

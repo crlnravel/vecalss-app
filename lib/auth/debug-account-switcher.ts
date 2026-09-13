@@ -64,11 +64,12 @@ function mapDebugAccount(user: {
   };
 }
 
-const ROLE_ORDER: RoleName[] = [RoleName.admin, RoleName.tutor, RoleName.student];
+const ROLE_ORDER: RoleName[] = [RoleName.admin, RoleName.affiliator, RoleName.tutor, RoleName.student];
 const MAX_ACCOUNTS_PER_ROLE = 2;
 
 const SEED_PRIORITY_EMAILS = [
   "admin@vecalss.local",
+  "affiliator@vecalss.local",
   "tutor@vecalss.local",
   "student@vecalss.local",
   "newstudent@vecalss.local",

@@ -42,7 +42,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
       </header>
       <TryoutRefreshNotice message={refreshMessage} onRetry={retryRefresh} />
 
-      <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+      <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
         <Table className="min-w-[680px]">
           <caption className="sr-only">Daftar attempt peserta yang tercatat</caption>
           <TableHeader className="[&_tr]:border-0">
@@ -63,7 +63,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
               const questionCount = attempt.runs.reduce((total, run) => total + run.questionCount, 0);
               const sealedRuns = attempt.runs.filter((run) => run.status === "sealed" || run.status === "expired").length;
               const status = live
-                ? live.state === "cat_failure" ? "Butuh tindakan" : liveStateLabels[live.state]
+                ? liveStateLabels[live.state]
                 : participantAttemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
               return (
                 <TableRow className="border-0 hover:bg-primary-50/45" key={attempt.id}>

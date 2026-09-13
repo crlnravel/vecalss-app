@@ -17,6 +17,7 @@ export default function CoursesError({
 
   return (
     <TypedRouteState
+      className="student-page-canvas"
       description="Materi belum dapat dimuat. Coba lagi sebentar; progres belajarmu tetap tersimpan."
       kind="error"
       onRetry={reset}
