@@ -555,6 +555,7 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
 
 async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, tutorId }) {
   const quizIds = new Map();
+  const quizVersionIds = new Map();
   await client.query(
     `UPDATE standalone_quizzes
         SET slug = 'arsip-latihan-penalaran-umum-v1',
@@ -588,6 +589,67 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     );
     const quizId = quizResult.rows[0].id;
     quizIds.set(subject.code, quizId);
+    const quizVersionResult = await client.query(
+      `INSERT INTO standalone_quiz_versions (
+         quiz_id, state, version_no, title, description,
+         attempts_allowed, score_policy, retry_delay_seconds,
+         form_behavior, review_timing, correct_answer_visibility,
+         source_bank_id, assembly_mode, assembly_package_version_id,
+         assembly_definition_digest, assembly_seed, published_at,
+         published_by_user_id, provenance, opens_at, closes_at,
+         duration_seconds
+       )
+       SELECT id,
+              'active'::standalone_quiz_version_state,
+              1,
+              title,
+              description,
+              attempts_allowed,
+              score_policy,
+              retry_delay_seconds,
+              form_behavior,
+              review_timing,
+              correct_answer_visibility,
+              source_bank_id,
+              assembly_mode,
+              assembly_package_version_id,
+              assembly_definition_digest,
+              assembly_seed,
+              NOW(),
+              created_by_user_id,
+              'runtime'::standalone_quiz_version_provenance,
+              opens_at,
+              closes_at,
+              duration_seconds
+         FROM standalone_quizzes
+        WHERE id = $1
+       ON CONFLICT (quiz_id, version_no) DO UPDATE
+         SET state = EXCLUDED.state,
+             title = EXCLUDED.title,
+             description = EXCLUDED.description,
+             attempts_allowed = EXCLUDED.attempts_allowed,
+             score_policy = EXCLUDED.score_policy,
+             retry_delay_seconds = EXCLUDED.retry_delay_seconds,
+             form_behavior = EXCLUDED.form_behavior,
+             review_timing = EXCLUDED.review_timing,
+             correct_answer_visibility = EXCLUDED.correct_answer_visibility,
+             source_bank_id = EXCLUDED.source_bank_id,
+             assembly_mode = EXCLUDED.assembly_mode,
+             assembly_package_version_id = EXCLUDED.assembly_package_version_id,
+             assembly_definition_digest = EXCLUDED.assembly_definition_digest,
+             assembly_seed = EXCLUDED.assembly_seed,
+             published_at = EXCLUDED.published_at,
+             published_by_user_id = EXCLUDED.published_by_user_id,
+             provenance = EXCLUDED.provenance,
+             opens_at = EXCLUDED.opens_at,
+             closes_at = EXCLUDED.closes_at,
+             duration_seconds = EXCLUDED.duration_seconds,
+             updated_at = NOW()
+       RETURNING id`,
+      [quizId],
+    );
+    const quizVersionId = quizVersionResult.rows[0].id;
+    quizVersionIds.set(subject.code, quizVersionId);
     const attempts = await client.query(
       `SELECT COUNT(*)::int AS count
          FROM standalone_quiz_attempts attempts
@@ -596,16 +658,16 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
       [quizId],
     );
     if (attempts.rows[0].count === 0) {
-      await client.query("DELETE FROM standalone_quiz_items WHERE quiz_id = $1", [quizId]);
+      await client.query("DELETE FROM standalone_quiz_items WHERE quiz_id = $1 AND quiz_version_id = $2", [quizId, quizVersionId]);
       for (const [index, question] of subjectQuestions.entries()) {
         const itemResult = await client.query(
           `INSERT INTO standalone_quiz_items (
-             quiz_id, sort_order, prompt, explanation, difficulty, subtest_id,
+             quiz_id, quiz_version_id, sort_order, prompt, explanation, difficulty, subtest_id,
              source_question_id, source_question_revision_id, source_content_digest,
              source_revision_provenance, idempotency_key
-           ) VALUES ($1, $2, $3, $4, $5::difficulty_level, $6, $7, $8, $9, 'authored', $10)
+           ) VALUES ($1, $2, $3, $4, $5, $6::difficulty_level, $7, $8, $9, $10, 'authored', $11)
            RETURNING id`,
-          [quizId, index + 1, question.stem, question.explanation, question.difficulty, question.subtestId, question.id, question.revisionId, question.contentDigest, `seed:demo:quiz-item:${subject.code.toLowerCase()}:${index + 1}`],
+          [quizId, quizVersionId, index + 1, question.stem, question.explanation, question.difficulty, question.subtestId, question.id, question.revisionId, question.contentDigest, `seed:demo:quiz-item:${subject.code.toLowerCase()}:${index + 1}`],
         );
         for (const [optionIndex, content] of question.options.entries()) {
           await client.query(
@@ -627,12 +689,13 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
   ];
   for (const fixture of quizAttempts) {
     const quizId = quizIds.get(fixture.subjectCode);
+    const quizVersionId = quizVersionIds.get(fixture.subjectCode);
     const existing = await client.query(
       `SELECT attempts.id
          FROM standalone_quiz_attempts attempts
          JOIN standalone_quiz_participations participations ON participations.id = attempts.participation_id
-        WHERE participations.quiz_id = $1 AND participations.student_id = $2`,
-      [quizId, fixture.studentId],
+        WHERE participations.quiz_version_id = $1 AND participations.student_id = $2`,
+      [quizVersionId, fixture.studentId],
     );
     if (existing.rowCount) continue;
     const itemResult = await client.query(
@@ -640,25 +703,25 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
               (SELECT id FROM standalone_quiz_item_options WHERE quiz_item_id = items.id AND is_correct = TRUE LIMIT 1) AS correct_option_id,
               (SELECT id FROM standalone_quiz_item_options WHERE quiz_item_id = items.id AND is_correct = FALSE ORDER BY sort_order LIMIT 1) AS wrong_option_id
          FROM standalone_quiz_items items
-        WHERE items.quiz_id = $1
+        WHERE items.quiz_id = $1 AND items.quiz_version_id = $2
         ORDER BY items.sort_order`,
-      [quizId],
+      [quizId, quizVersionId],
     );
     const correctCount = fixture.correctPattern.filter(Boolean).length;
     const score = Math.round((correctCount / itemResult.rowCount) * 100);
     const participationResult = await client.query(
-      `INSERT INTO standalone_quiz_participations (quiz_id, student_id, policy_snapshot)
-       VALUES ($1, $2, (SELECT jsonb_build_object(
+      `INSERT INTO standalone_quiz_participations (quiz_id, quiz_version_id, student_id, policy_snapshot)
+       VALUES ($1, $2, $3, (SELECT jsonb_build_object(
          'attemptsAllowed', attempts_allowed,
          'correctAnswerVisibility', correct_answer_visibility,
          'formBehavior', form_behavior,
          'retryDelaySeconds', retry_delay_seconds,
          'reviewTiming', review_timing,
          'scorePolicy', score_policy
-       ) FROM standalone_quizzes WHERE id = $3))
-       ON CONFLICT (quiz_id, student_id) DO UPDATE SET updated_at = NOW()
+       ) FROM standalone_quizzes WHERE id = $1))
+       ON CONFLICT (quiz_version_id, student_id) DO UPDATE SET updated_at = NOW()
        RETURNING id`,
-      [quizId, fixture.studentId, quizId],
+      [quizId, quizVersionId, fixture.studentId],
     );
     const attemptResult = await client.query(
       `INSERT INTO standalone_quiz_attempts (
@@ -684,7 +747,7 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
          COALESCE((
            SELECT jsonb_agg(items.id ORDER BY items.sort_order)
              FROM standalone_quiz_items items
-            WHERE items.quiz_id = $5
+            WHERE items.quiz_id = $5 AND items.quiz_version_id = $6
          ), '[]'::jsonb),
          COALESCE((
            SELECT jsonb_build_object(
@@ -711,12 +774,12 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
              ) ORDER BY items.sort_order)
            )
              FROM standalone_quiz_items items
-            WHERE items.quiz_id = $5
+            WHERE items.quiz_id = $5 AND items.quiz_version_id = $6
          ), '{"version":1,"items":[]}'::jsonb),
          $2,
-         (SELECT COUNT(*)::int FROM standalone_quiz_items WHERE quiz_id = $5) - $2,
+         (SELECT COUNT(*)::int FROM standalone_quiz_items WHERE quiz_id = $5 AND quiz_version_id = $6) - $2,
          0,
-         (SELECT COUNT(*)::numeric FROM standalone_quiz_items WHERE quiz_id = $5),
+         (SELECT COUNT(*)::numeric FROM standalone_quiz_items WHERE quiz_id = $5 AND quiz_version_id = $6),
          $2,
          $3,
          'kuis-frozen-form-v1',
@@ -727,7 +790,7 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
          NOW() - ($4::int * INTERVAL '1 day')
        )
        RETURNING id`,
-      [participationResult.rows[0].id, correctCount, score, fixture.submittedDaysAgo, quizId],
+      [participationResult.rows[0].id, correctCount, score, fixture.submittedDaysAgo, quizId, quizVersionId],
     );
     for (const [index, item] of itemResult.rows.entries()) {
       await client.query(
@@ -1805,7 +1868,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
        'submitted'::assessment_attempt_state,
        'scored'::assessment_scoring_state,
        'released'::assessment_result_release_state,
-       $12, $13, $14,
+       $12, $13, $14::varchar(128),
        NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days',
        $6, $7, 0, $8, $5, $5, $5,
        'normalized-test-mean-v1', 'runtime'::assessment_scoring_provenance,
@@ -1838,7 +1901,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
          $1, $2, $3, 'sealed', NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days',
          NOW() - INTERVAL '8 days', $4::jsonb, $5::jsonb, $6::jsonb, $7,
          'scored'::assessment_scoring_state, $7,
-         $16, $17, $18,
+         $14, $15, $16::varchar(128),
          'runtime'::assessment_scoring_provenance,
          $8, $9, $10, $11, $12, $13, $13,
          TRUE
