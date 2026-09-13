@@ -14,5 +14,5 @@ export default async function MentorQuestionBankSubjectPage({ params }: MentorQu
   if (!subject) notFound();
   // Subject-owned Bank URLs are retained only as a navigation alias. Bank
   // coverage is now derived from question classifications.
-  redirect(`/mentor/quiz/question-bank?subtest=${encodeURIComponent(subject.code)}`);
+  redirect(`/mentor/quiz/question-bank?purpose=quiz&subtest=${encodeURIComponent(subject.code)}`);
 }

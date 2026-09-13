@@ -41,16 +41,14 @@ assert.match(repository, /!selection\.sourceContentDigest[\s\S]*?selection\.sour
 assert.match(repository, /FOR SHARE OF q, b/u, "direct source reads must share-lock Question and Bank rows");
 assert.match(repository, /packageCode: "direct"/u, "direct snapshots must not require a saved package");
 assert.match(repository, /questionCount: directSources\.length/u, "direct selections must determine the Section question count");
-assert.match(repository, /sourceQuestionRevision: \{ select: \{ calibrations/u, "direct readback must expose CAT calibration readiness");
 assert.match(repository, /Paket Soal sudah diarsipkan/u, "legacy package bindings must be rejected at the save boundary");
 assert.doesNotMatch(repository, /sectionInput\.packageVersionId/u, "Tryout authoring must not resolve package versions");
 assert.match(assessmentRelease, /if \(section\.packageVersionId\)\s*\{[\s\S]*?section\.packageVersion\?\.status/u, "release eligibility must retain the published package branch for historical releases");
 assert.match(assessmentRelease, /item\.packageVersionId !== null[\s\S]*?item\.sourceRevisionProvenance === QuestionRevisionProvenance\.legacy_unknown/u, "release eligibility must validate direct snapshot provenance");
-assert.match(assessmentRelease, /section\.packageVersionId \? section\.packageVersion\?\.items \?\? \[\] : section\.items/u, "direct CAT release eligibility must inspect physical direct items");
-assert.match(assessmentRelease, /hasUnsupportedDirectCatItem[\s\S]*?questionType === QuestionType\.multiple_choice/u, "direct CAT releases must reject multiple-answer items");
+assert.match(assessmentRelease, /section\.packageVersionId \? section\.packageVersion\?\.items \?\? \[\] : section\.items/u, "release eligibility must inspect physical direct items");
+assert.doesNotMatch(assessmentRelease, /CAT|cat_pool|hasUnsupportedDirectCatItem/u, "release eligibility must remain CBT-only");
 
-assert.match(sourceRepository, /catReady\?: boolean/u, "source question DTOs must expose CAT readiness for authoring review");
-assert.match(sourceRepository, /CANONICAL_2PL_MODEL_VERSION/u, "CAT readiness must use the canonical calibration profile");
+assert.doesNotMatch(sourceRepository, /catReady|CANONICAL_2PL_MODEL_VERSION|calibrat/u, "source question DTOs must not expose retired CAT readiness");
 assert.match(createRoute, /listQuestionBankSourcePage/u, "create route must seed the direct source catalogue");
 assert.match(editRoute, /listQuestionBankSourcePage/u, "edit route must seed the direct source catalogue");
 assert.doesNotMatch(catalogue, /section\.packageVersionId/u, "Tryout catalogue must not expose package readiness");

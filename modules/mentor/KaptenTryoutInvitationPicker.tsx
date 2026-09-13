@@ -13,6 +13,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Check, CircleAlert, LoaderCircle, Search, SendHorizontal, UserPlus } from "@/lib/icons";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { InvitationPickerStudent } from "@/lib/tryout/invitation-picker";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
 import {
@@ -371,7 +372,8 @@ function KaptenTryoutInvitationPicker({
   const [currentTime] = useState(() => Date.now());
 
   const availableSessions = useMemo(() => {
-    return sessions.filter((session) => selectedSessionIsAvailable(session, currentTime));
+    const mainSession = selectMainTryoutSession(sessions);
+    return mainSession && selectedSessionIsAvailable(mainSession, currentTime) ? [mainSession] : [];
   }, [currentTime, sessions]);
 
   const effectiveSelectedSessionId = availableSessions.some((session) => session.id === selectedSessionId)
@@ -477,7 +479,7 @@ function KaptenTryoutInvitationPicker({
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-secondary-900" id="tryout-invitation-picker-title">Undang peserta</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
-            Cari akun student berdasarkan nama tampilan, pilih sesi yang tersedia, lalu catat alasan audit sebelum mengirim undangan.
+            Cari akun student berdasarkan nama tampilan, gunakan sesi utama yang sedang terbuka, lalu catat alasan audit sebelum mengirim undangan.
           </p>
         </div>
       </header>

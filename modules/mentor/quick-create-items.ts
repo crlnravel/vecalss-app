@@ -20,10 +20,10 @@ const quickCreateItems = [
     label: "Tryout",
   },
   {
-    description: "Soal yang dapat dipakai ulang untuk kuis dan tryout",
-    href: "/mentor/quiz/question-bank/create",
+    description: "Soal yang dapat dipakai ulang untuk Kuis",
+    href: "/mentor/quiz/question-bank/create?purpose=quiz",
     icon: FileQuestion,
-    label: "Bank Soal",
+    label: "Bank Soal Kuis",
   },
 ];
 

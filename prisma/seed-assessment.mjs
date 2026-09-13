@@ -12,10 +12,11 @@ import { seedQuestionBankOrganization } from "./question-bank-organization-seed.
 
 const { Client } = pg;
 
-function revisionDigest({ difficulty, explanation, options, stem }) {
+function revisionDigest({ difficulty, explanation, materi, options, stem }) {
   const parts = [
-    "question-revision-digest-v1",
+    "question-revision-digest-v2",
     difficulty,
+    materi ?? "",
     explanation ?? "",
     "",
     ...options.flatMap((option) => [
@@ -265,13 +266,6 @@ function normalizeSeedCbtScore(score, maxScore) {
   return roundInternalScore((score / maxScore) * 100);
 }
 
-function normalizeSeedCatAbility(ability) {
-  const probability = ability >= 0
-    ? 1 / (1 + Math.exp(-ability))
-    : Math.exp(ability) / (1 + Math.exp(ability));
-  return roundInternalScore(probability * 100);
-}
-
 function aggregateSeedTryoutScores(scores) {
   return roundInternalScore(scores.reduce((total, score) => total + score, 0) / scores.length);
 }
@@ -336,20 +330,21 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
     const questionCode = question.code.replace("seed:demo:question:", `seed:demo:${purpose}:question:`);
     const questionResult = await client.query(
       `INSERT INTO questions (
-         code, question_bank_id, subtest_id, stem, question_type, difficulty,
+         code, question_bank_id, subtest_id, materi, stem, question_type, difficulty,
          explanation, status, source, revision, current_revision_id,
          created_by_user_id, updated_by_user_id
        )
-       VALUES ($1, $2, $3, $4, 'single_choice', $5::difficulty_level, $6, 'published', 'Tim Akademik Vecalss', 1, gen_random_uuid(), $7, $7)
+       VALUES ($1, $2, $3, $4, $5, 'single_choice', $6::difficulty_level, $7, 'published', 'Tim Akademik Vecalss', 1, gen_random_uuid(), $8, $8)
        ON CONFLICT (code) DO UPDATE
          SET question_bank_id = EXCLUDED.question_bank_id,
              subtest_id = EXCLUDED.subtest_id,
+             materi = EXCLUDED.materi,
              status = 'published',
              source = EXCLUDED.source,
              updated_by_user_id = EXCLUDED.updated_by_user_id,
              updated_at = NOW()
        RETURNING id, current_revision_id, revision`,
-      [questionCode, bankId, subtestIds.get(question.subjectCode), question.stem, question.difficulty, question.explanation, tutorId],
+      [questionCode, bankId, subtestIds.get(question.subjectCode), question.materi ?? null, question.stem, question.difficulty, question.explanation, tutorId],
     );
     const questionId = questionResult.rows[0].id;
     const currentRevisionId = questionResult.rows[0].current_revision_id;
@@ -375,7 +370,7 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
       }
     }
     const options = question.options.map((content, sortOrder) => ({ content, isCorrect: sortOrder === question.correctIndex, label: String.fromCharCode(65 + sortOrder), sortOrder }));
-    const contentDigest = revisionDigest({ difficulty: question.difficulty, explanation: question.explanation, options, stem: question.stem });
+    const contentDigest = revisionDigest({ difficulty: question.difficulty, explanation: question.explanation, materi: question.materi, options, stem: question.stem });
     const currentRevision = await client.query(
       `SELECT id, revision_no, content_digest
          FROM question_revisions
@@ -390,10 +385,10 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
       await client.query(
         `INSERT INTO question_revisions (
            id, question_id, revision_no, status, provenance, stem, question_type,
-           difficulty, explanation, content_digest, created_by_user_id,
+           difficulty, materi, explanation, content_digest, created_by_user_id,
            updated_by_user_id, ready_at
-         ) VALUES ($1, $2, $3, 'draft', 'authored', $4, 'single_choice', $5::difficulty_level, $6, $7, $8, $8, NULL)`,
-        [revisionId, questionId, revisionNo, question.stem, question.difficulty, question.explanation, contentDigest, tutorId],
+         ) VALUES ($1, $2, $3, 'draft', 'authored', $4, 'single_choice', $5::difficulty_level, $6, $7, $8, $9, $9, NULL)`,
+        [revisionId, questionId, revisionNo, question.stem, question.difficulty, question.materi ?? null, question.explanation, contentDigest, tutorId],
       );
       for (const option of options) {
         await client.query(
@@ -416,12 +411,13 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
                 revision = $2,
                 stem = $3,
                 difficulty = $4::difficulty_level,
-                explanation = $5,
+                materi = $5,
+                explanation = $6,
                 status = 'published',
-                updated_by_user_id = $6,
+                updated_by_user_id = $7,
                 updated_at = NOW()
-          WHERE id = $7`,
-        [revisionId, revisionNo, question.stem, question.difficulty, question.explanation, tutorId, questionId],
+          WHERE id = $8`,
+        [revisionId, revisionNo, question.stem, question.difficulty, question.materi ?? null, question.explanation, tutorId, questionId],
       );
     }
     const revisionOptionResult = await client.query(
@@ -441,27 +437,6 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
     seeded.push({ ...question, code: questionCode, contentDigest, id: questionId, optionIds: existingOptionResult.rows.map((row, index) => optionIds[index] ?? row.id), revisionId, revisionOptionIds: revisionOptionResult.rows.map((row) => row.id), subtestId: subtestIds.get(question.subjectCode) });
   }
   return seeded;
-}
-
-async function upsertCalibrations(client, tutorId, questions) {
-  const difficultyByLevel = { easy: -0.8, medium: 0, hard: 0.9 };
-  for (const [index, question] of questions.entries()) {
-    await client.query(
-      `INSERT INTO two_pl_question_calibrations (
-         question_id, question_revision_id, content_digest, model_version, discrimination, difficulty, approval_state,
-         recorded_by_user_id, approved_by_user_id, approved_at, audit_reason
-       )
-       VALUES ($1, $2, $3, '2pl-canonical-v1', $4, $5, 'approved', $6, $6, NOW(), $7)
-       ON CONFLICT (question_revision_id, model_version) DO UPDATE
-         SET discrimination = EXCLUDED.discrimination,
-             difficulty = EXCLUDED.difficulty,
-             approval_state = 'approved',
-             approved_by_user_id = EXCLUDED.approved_by_user_id,
-             approved_at = NOW(),
-             audit_reason = EXCLUDED.audit_reason`,
-      [question.id, question.revisionId, question.contentDigest, (1.05 + (index % 4) * 0.12).toFixed(2), difficultyByLevel[question.difficulty], tutorId, "Parameter latihan disetujui untuk demonstrasi alur CAT dan tidak digunakan sebagai acuan psikometrik produksi."],
-    );
-  }
 }
 
 async function seedReusablePackages(client, { bankId, questions, subtestIds, tutorId }) {
@@ -886,9 +861,8 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
       const sectionResult = await client.query(
         `INSERT INTO tryout_sections (
            tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count,
-           package_version_id, instructions, test_type, scoring_config, shuffle_items,
-           cat_item_count, cat_model_version
-         ) VALUES ($1, $2, $3, $4, $5, 3, $6, $7, $8::tryout_test_type, $9::jsonb, FALSE, $10, $11)
+           package_version_id, instructions, test_type, scoring_config, shuffle_items
+         ) VALUES ($1, $2, $3, $4, $5, 3, $6, $7, $8::tryout_test_type, $9::jsonb, FALSE)
          RETURNING id`,
         [
           tryoutId,
@@ -900,8 +874,6 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
           `Baca setiap pertanyaan dengan cermat. Pilih satu jawaban yang paling tepat untuk bagian ${subject.label}.`,
           "cbt",
           JSON.stringify({ correctAnswerPoints: 1, method: "fixed_points", unansweredPoints: 0, wrongAnswerPoints: 0 }),
-          null,
-          null,
         ],
       );
       const versionItems = await client.query(
@@ -961,8 +933,7 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
   if (!tryoutResult.rowCount) throw new Error("The assessment seed requires a published Tryout before creating its release.");
 
   const sectionResult = await client.query(
-    `SELECT section.id, section.cat_item_count, section.cat_model_version,
-            section.duration_seconds, section.instructions,
+    `SELECT section.id, section.duration_seconds, section.instructions,
             section.package_version_id, section.scoring_config,
             section.sequence_no, section.shuffle_items, section.subtest_id,
             section.test_type, section.title, subtest.code AS subtest_code,
@@ -1024,8 +995,6 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
       });
     }
     sections.push({
-      catItemCount: section.cat_item_count,
-      catModelVersion: section.cat_model_version,
       durationSeconds: section.duration_seconds,
       id: section.id,
       instructions: section.instructions,
@@ -1042,51 +1011,8 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
     });
   }
   if (sections.length !== 7 || sections.some((section) => section.items.length === 0)) throw new Error("The assessment seed expects seven populated Tryout sections.");
-  const catItems = sections.flatMap((section) => section.testType === "cat" ? section.items : []);
-  if (catItems.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || !item.sourceRevisionProvenance || item.sourceRevisionProvenance === "legacy_unknown")) {
-    throw new Error("The assessment seed requires complete CAT source provenance.");
-  }
-  const catRevisionIds = [...new Set(catItems.flatMap((item) => item.sourceQuestionRevisionId ? [item.sourceQuestionRevisionId] : []))];
-  if (catRevisionIds.length) {
-    const [revisionResult, calibrationResult] = await Promise.all([
-      client.query(
-        `SELECT id, question_id, content_digest
-           FROM question_revisions
-          WHERE id = ANY($1::uuid[])
-            AND status = 'ready'`,
-        [catRevisionIds],
-      ),
-      client.query(
-        `SELECT id, content_digest, difficulty::text, discrimination::text,
-                question_id, question_revision_id, source_revision_provenance
-           FROM two_pl_question_calibrations
-          WHERE approval_state = 'approved'
-            AND model_version = '2pl-canonical-v1'
-            AND question_revision_id = ANY($1::uuid[])`,
-        [catRevisionIds],
-      ),
-    ]);
-    const revisionById = new Map(revisionResult.rows.map((revision) => [revision.id, revision]));
-    const calibrationByRevision = new Map(calibrationResult.rows.map((calibration) => [calibration.question_revision_id, calibration]));
-    if (revisionResult.rowCount !== catRevisionIds.length || calibrationResult.rowCount !== catRevisionIds.length) throw new Error("The assessment seed requires every CAT QuestionRevision to remain ready with an approved canonical 2PL calibration.");
-    for (const item of catItems) {
-      const revision = revisionById.get(item.sourceQuestionRevisionId);
-      const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId);
-      if (!revision || !calibration || revision.question_id !== item.sourceQuestionId || revision.content_digest !== item.sourceContentDigest || calibration.question_id !== item.sourceQuestionId || calibration.content_digest !== item.sourceContentDigest || calibration.source_revision_provenance === "legacy_unknown" || !Number.isFinite(Number(calibration.difficulty)) || !Number.isFinite(Number(calibration.discrimination)) || Number(calibration.discrimination) <= 0) {
-        throw new Error("The assessment seed requires an approved canonical 2PL calibration matching each CAT source revision digest.");
-      }
-      item.catCalibration = {
-        calibrationDigest: calibration.content_digest,
-        calibrationId: calibration.id,
-        difficulty: Number(calibration.difficulty),
-        discrimination: Number(calibration.discrimination),
-        sourceRevisionProvenance: calibration.source_revision_provenance,
-      };
-    }
-  }
   const payload = buildAssessmentReleasePayload({
     aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION,
-    catVersion: null,
     cbtVersion: TRYOUT_CBT_SCORING_VERSION,
     tryoutId,
     tryoutRevision: tryoutResult.rows[0].revision,
@@ -1193,8 +1119,7 @@ async function upsertAssignment(client, { admissionId, assignedDaysAgo = 0, deli
 
 async function sectionSnapshots(client, tryoutId) {
   const sections = await client.query(
-    `SELECT section.cat_item_count, section.cat_model_version, section.id,
-            section.package_version_id, section.subtest_id, section.sequence_no,
+    `SELECT section.id, section.package_version_id, section.subtest_id, section.sequence_no,
             section.duration_seconds, section.instructions, section.scoring_config,
             section.shuffle_items, section.test_type, section.title,
             subtest.code AS subtest_code, subtest.name AS subtest_name
@@ -1249,8 +1174,6 @@ async function sectionSnapshots(client, tryoutId) {
     snapshots.push({
       ...section,
       content: {
-        catItemCount: section.cat_item_count,
-        catModelVersion: section.cat_model_version,
         durationSeconds: section.duration_seconds,
         instructions: section.instructions,
         items: snapshotItems,
@@ -1324,8 +1247,6 @@ function isRecord(value) {
 }
 
 const SEED_SECTION_SNAPSHOT_REQUIRED_FIELDS = [
-  "catItemCount",
-  "catModelVersion",
   "durationSeconds",
   "instructions",
   "items",
@@ -1575,10 +1496,8 @@ function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label
     || releaseSection.durationSeconds !== sectionSnapshot.durationSeconds
     || releaseSection.instructions !== sectionSnapshot.instructions
     || releaseSection.title !== sectionSnapshot.title
-    || releaseSection.cat?.itemCount !== sectionSnapshot.catItemCount
-    || releaseSection.cat?.modelVersion !== sectionSnapshot.catModelVersion
     || releaseSection.scoring?.testType !== sectionSnapshot.testType
-    || releaseSection.scoring?.modelVersion !== (sectionSnapshot.testType === "cat" ? sectionSnapshot.catModelVersion : TRYOUT_CBT_SCORING_VERSION)
+    || releaseSection.scoring?.modelVersion !== TRYOUT_CBT_SCORING_VERSION
     || releaseSection.randomization?.shuffleItems !== Boolean(sectionSnapshot.shuffleItems)
     || canonicalAssessmentReleaseJson(releaseSection.scoring?.config ?? null) !== canonicalAssessmentReleaseJson(sectionSnapshot.scoringConfig ?? null)) {
     throw new Error(`The assessment seed could not prove the immutable section bridge for ${label}.`);
@@ -1688,38 +1607,6 @@ function assertSeedFrozenRunComplete(run, section, releasePayload, label) {
     || typeof run.calculation_releaseable !== "boolean") {
     throw new Error(`The assessment seed found incomplete frozen scoring fields for ${label}.`);
   }
-  if (section.test_type !== "cat") return;
-  const cat = isRecord(run.cat_snapshot) ? run.cat_snapshot : null;
-  const releaseSection = (releasePayload?.sections ?? []).find((candidate) => candidate.physicalId === section.id);
-  const expectedParameters = releaseSection?.cat?.parameters;
-  if (!cat
-    || cat.modelVersion !== releaseSection?.cat?.modelVersion
-    || !Number.isFinite(Number(cat.currentAbility))
-    || !Number.isFinite(Number(cat.initialAbility))
-    || !Array.isArray(cat.parameters)
-    || !Array.isArray(expectedParameters)
-    || cat.parameters.length !== expectedParameters.length
-    || !Array.isArray(cat.selectedItemIds)
-    || !Array.isArray(cat.updates)) {
-    throw new Error(`The assessment seed found an incomplete frozen CAT snapshot for ${label}.`);
-  }
-  const releaseItemById = new Map((releaseSection?.items ?? []).map((item) => [item.id, item]));
-  for (const parameter of cat.parameters) {
-    const expected = expectedParameters.find((candidate) => {
-      if (candidate.itemId === parameter.itemId) return true;
-      return releaseItemById.get(candidate.itemId)?.physicalId === parameter.itemId;
-    });
-    if (!expected
-      || expected.calibrationDigest !== parameter.calibrationDigest
-      || Number(expected.difficulty) !== Number(parameter.difficulty)
-      || Number(expected.discrimination) !== Number(parameter.discrimination)
-      || expected.sourceContentDigest !== parameter.sourceContentDigest
-      || expected.sourceQuestionId !== parameter.sourceQuestionId
-      || expected.sourceQuestionRevisionId !== parameter.sourceQuestionRevisionId
-      || expected.sourceRevisionProvenance !== parameter.sourceRevisionProvenance) {
-      throw new Error(`The assessment seed found CAT parameter drift for ${label}.`);
-    }
-  }
 }
 
 function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessmentRelease) {
@@ -1773,30 +1660,6 @@ function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessme
   return { ...nextSnapshot, assessmentRelease: seedExistingReleaseSnapshotMetadata(snapshot, assessmentRelease) };
 }
 
-function seedCatSnapshot(section, releasePayload, selectedItemIds) {
-  const releaseSection = (releasePayload?.sections ?? []).find((candidate) =>
-    candidate.physicalId && candidate.physicalId === section.id,
-  );
-  const releaseParameters = releaseSection?.cat?.parameters ?? [];
-  const releaseItems = releaseSection?.items ?? [];
-  if (!releaseSection?.cat?.modelVersion || releaseSection.cat.modelVersion !== "2pl-canonical-v1" || releaseParameters.length !== section.content.items.length) {
-    throw new Error("The assessment seed requires a complete frozen CAT parameter snapshot.");
-  }
-  const parameters = releaseParameters.map((parameter) => {
-    const releaseItem = releaseItems.find((item) => item.id === parameter.itemId);
-    if (!releaseItem?.physicalId) throw new Error("The assessment seed could not bridge a CAT release item to its physical snapshot row.");
-    return { ...parameter, itemId: releaseItem.physicalId };
-  });
-  return {
-    currentAbility: 0,
-    initialAbility: 0,
-    modelVersion: releaseSection.cat.modelVersion,
-    parameters,
-    selectedItemIds,
-    updates: [],
-  };
-}
-
 function completeSeedContentSnapshot(contentSnapshot, section, assessmentRelease) {
   const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
   const nested = isRecord(snapshot.content) ? snapshot.content : null;
@@ -1840,7 +1703,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     assertSeedReleaseMetadataCompatible(existing.rows[0].content_snapshot, assessmentRelease, "attempt");
     const existingRuns = await client.query(
       `SELECT id, assessment_release_id, assessment_release_number,
-              assessment_release_digest, cat_snapshot, content_snapshot,
+              assessment_release_digest, content_snapshot,
               sequence_no, tryout_section_id, scoring_state, scoring_version,
               scoring_provenance, calculation_input, calculation_result,
               calculation_version, calculation_releaseable
@@ -1898,15 +1761,11 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     for (const run of existingRuns.rows) {
       const section = existingSectionById.get(run.tryout_section_id);
       const contentSnapshot = completeSeedContentSnapshot(mergeReleaseMediaIntoSnapshot(run.content_snapshot, releasePayload, assessmentRelease), section, assessmentRelease);
-      const catSnapshot = section.test_type === "cat"
-        ? seedCatSnapshot(section, releasePayload, Array.isArray(run.cat_snapshot?.selectedItemIds) ? run.cat_snapshot.selectedItemIds : section.content.items.slice(0, 2).map((item) => item.id))
-        : null;
       await client.query(
         `UPDATE tryout_attempt_test_runs
-            SET content_snapshot = $2::jsonb,
-                cat_snapshot = $3::jsonb
+            SET content_snapshot = $2::jsonb
           WHERE id = $1`,
-        [run.id, JSON.stringify(contentSnapshot), catSnapshot ? JSON.stringify(catSnapshot) : null],
+        [run.id, JSON.stringify(contentSnapshot)],
       );
     }
     await normalizeSeededAttemptTiming(client, existing.rows[0].id);
@@ -1919,22 +1778,17 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
   }
   const normalizedScores = sections.map((section, sectionIndex) => {
     const score = scorePattern[sectionIndex];
-    if (section.test_type === "cat") {
-      const correctCount = Math.min(2, Math.max(0, score));
-      return normalizeSeedCatAbility(correctCount === 2 ? 0.72 : -0.15);
-    }
     const maxScore = section.content.items.reduce((total, item) => total + Number(item.points), 0);
     return normalizeSeedCbtScore(score, maxScore);
   });
   const finalScore = aggregateSeedTryoutScores(normalizedScores);
   const aggregateCounts = sections.reduce((totals, section, sectionIndex) => {
     const score = scorePattern[sectionIndex];
-    const isCat = section.test_type === "cat";
-    const deliveredCount = isCat ? 2 : section.content.items.length;
-    const correctCount = isCat ? Math.min(2, Math.max(0, score)) : score;
+    const deliveredCount = section.content.items.length;
+    const correctCount = score;
     totals.correctCount += correctCount;
     totals.wrongCount += deliveredCount - correctCount;
-    totals.rawScore += isCat ? (correctCount === 2 ? 0.72 : -0.15) : score;
+    totals.rawScore += score;
     return totals;
   }, { correctCount: 0, rawScore: 0, wrongCount: 0 });
   const attemptResult = await client.query(
@@ -1963,21 +1817,14 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
   const attemptId = attemptResult.rows[0].id;
   for (const [sectionIndex, section] of sections.entries()) {
     const score = scorePattern[sectionIndex];
-    const isCat = section.test_type === "cat";
-    const selectedItemIds = isCat ? section.content.items.slice(0, 2).map((item) => item.id) : [];
-    const correctCount = isCat ? Math.min(2, Math.max(0, score)) : score;
-    const wrongCount = (isCat ? 2 : section.content.items.length) - correctCount;
-    const ability = isCat ? (correctCount === 2 ? 0.72 : -0.15) : null;
+    const correctCount = score;
+    const wrongCount = section.content.items.length - correctCount;
     const normalizedScore = normalizedScores[sectionIndex];
-    const maxScore = isCat ? null : section.content.items.reduce((total, item) => total + Number(item.points), 0);
-    const rawScore = isCat ? ability : score;
-    const scoringVersion = isCat ? "2pl-map-v1" : "cbt-frozen-item-points-v1";
-    const calculationInput = isCat
-      ? { modelVersion: "2pl-canonical-v1", selectedItemIds, updates: [] }
-      : { totalItems: section.content.items.length };
-    const calculationResult = isCat
-      ? { ability, answeredCount: 2, deliveredCount: 2, normalizedScore, score: ability, unansweredCount: 0 }
-      : { answeredCount: section.content.items.length, correctCount, maxScore: section.content.items.reduce((total, item) => total + Number(item.points), 0), normalizedScore, score, unansweredCount: 0, wrongCount };
+    const maxScore = section.content.items.reduce((total, item) => total + Number(item.points), 0);
+    const rawScore = score;
+    const scoringVersion = "cbt-frozen-item-points-v1";
+    const calculationInput = { totalItems: section.content.items.length };
+    const calculationResult = { answeredCount: section.content.items.length, correctCount, maxScore, normalizedScore, score, unansweredCount: 0, wrongCount };
     const runResult = await client.query(
       `INSERT INTO tryout_attempt_test_runs (
          attempt_id, tryout_section_id, sequence_no, status, server_started_at,
@@ -1986,7 +1833,6 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
          assessment_release_id, assessment_release_number, assessment_release_digest,
          scoring_provenance, correct_count, wrong_count, unanswered_count,
          raw_score, max_score, scaled_score, normalized_score,
-         cat_state, cat_snapshot,
          calculation_releaseable
        ) VALUES (
          $1, $2, $3, 'sealed', NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days',
@@ -1995,7 +1841,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
          $16, $17, $18,
          'runtime'::assessment_scoring_provenance,
          $8, $9, $10, $11, $12, $13, $13,
-         $14::tryout_cat_run_state, $15::jsonb, TRUE
+         TRUE
        ) RETURNING id`,
       [
         attemptId,
@@ -2011,14 +1857,12 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         rawScore,
         maxScore,
         normalizedScore,
-        isCat ? "ready" : "not_applicable",
-        isCat ? JSON.stringify(seedCatSnapshot(section, releasePayload, selectedItemIds)) : null,
         assessmentRelease.id,
         assessmentRelease.releaseNumber,
         assessmentRelease.contentDigest,
       ],
     );
-    const answerableItems = isCat ? section.content.items.slice(0, 2) : section.content.items;
+    const answerableItems = section.content.items;
     for (const [itemIndex, item] of answerableItems.entries()) {
       const chooseCorrect = itemIndex < correctCount;
       const selected = item.options.find((option) => option.isCorrect === chooseCorrect) ?? item.options[0];
@@ -2035,7 +1879,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
          attempt_id, subtest_id, correct_count, wrong_count, unanswered_count, raw_score, scaled_score,
          normalized_score, scoring_version, scoring_provenance
        ) VALUES ($1, $2, $3::int, $4::int, 0, $5::numeric, $6::numeric, $6::numeric, $7, 'runtime'::assessment_scoring_provenance)`,
-      [attemptId, section.subtest_id, correctCount, wrongCount, isCat ? ability : score, normalizedScore, scoringVersion],
+      [attemptId, section.subtest_id, correctCount, wrongCount, score, normalizedScore, scoringVersion],
     );
     if (sectionIndex === 0) {
       await client.query(
@@ -2116,8 +1960,7 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
     upsertQuestions(client, { bankId: quizBankId, purpose: "quiz", subtestIds, tutorId }),
     upsertQuestions(client, { bankId: tryoutBankId, purpose: "tryout", subtestIds, tutorId }),
   ]);
-  // Fresh seeds must not create CAT calibration fixtures. Legacy CAT
-  // compatibility remains in the runtime for rows that predate the cutover.
+  // Fresh seeds create only the supported CBT assessment graph.
   const versionIds = await seedReusablePackages(client, { bankId: tryoutBankId, questions: tryoutQuestions, subtestIds, tutorId });
   const [quizIds, tryoutId] = await Promise.all([
     seedQuizzes(client, { bankId: quizBankId, questions: quizQuestions, studentIds, subtestIds, tutorId }),

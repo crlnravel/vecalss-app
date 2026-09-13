@@ -11,7 +11,6 @@ import {
   ReusableQuestionPackageMode,
   TryoutDeliverySessionStatus,
 } from "@/generated/prisma/client";
-import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import {
   buildAssessmentReleasePayload as buildCanonicalAssessmentReleasePayload,
   canonicalAssessmentReleaseJson,
@@ -24,7 +23,6 @@ import {
   resolvePoolCandidates,
 } from "@/lib/tryout/assembly-validation";
 import {
-  TRYOUT_CAT_SCORING_VERSION,
   TRYOUT_CBT_SCORING_VERSION,
   TRYOUT_SCORE_AGGREGATION_VERSION,
 } from "@/lib/tryout/scoring";
@@ -33,24 +31,6 @@ import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/
 
 const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v1";
 const LOGICAL_ASSESSMENT_REVISION_VERSION = 1;
-const CAT_POOL_RELEASE_RESOLVER_VERSION = "cat-pool-release-pin-v1";
-
-type CatCalibrationSnapshot = {
-  calibrationDigest: string;
-  calibrationId: string;
-  difficulty: number;
-  discrimination: number;
-  sourceRevisionProvenance: string;
-};
-
-type CatPoolCalibrationMetadata = CatCalibrationSnapshot & {
-  approvalState: string;
-  modelVersion: string;
-  sourceContentDigest: string;
-  sourceQuestionId: string;
-  sourceQuestionRevisionId: string;
-};
-
 const releaseTryoutInclude = {
   assessmentReleases: {
     orderBy: { releaseNumber: "desc" as const },
@@ -69,7 +49,7 @@ const releaseTryoutInclude = {
             orderBy: { categoryId: "asc" as const },
           },
           folderScopes: {
-            include: { folder: { select: { id: true, name: true } } },
+            include: { folder: { select: { id: true, name: true, purpose: true } } },
             orderBy: { folderId: "asc" as const },
           },
           items: {
@@ -104,8 +84,7 @@ type ReleaseTryoutRecord = Prisma.TryoutPackageGetPayload<{
 type AssessmentReleaseAssemblyMetadata = {
   availability: Prisma.InputJsonValue;
   candidateCount: number;
-  catCalibration?: CatPoolCalibrationMetadata[];
-  mode: "blueprint" | "cat_pool" | "random_pool";
+  mode: "blueprint" | "random_pool";
   packageId: string;
   packageVersionId: string;
   publicationIntentKey?: string;
@@ -165,18 +144,6 @@ const releaseSourceInclude = {
 } satisfies Prisma.QuestionInclude;
 
 type ReleaseSourceRecord = Prisma.QuestionGetPayload<{ include: typeof releaseSourceInclude }>;
-
-type CatCalibrationRecord = {
-  approvalState: string;
-  calibrationDigest: string;
-  calibrationId: string;
-  difficulty: number;
-  discrimination: number;
-  modelVersion: string;
-  questionId: string;
-  questionRevisionId: string;
-  sourceRevisionProvenance: QuestionRevisionProvenance;
-};
 
 type ReleaseSnapshot = {
   difficulty: ReleaseTryoutRecord["sections"][number]["items"][number]["difficulty"];
@@ -315,20 +282,14 @@ function buildAssessmentReleasePayload(
 ) {
   return buildCanonicalAssessmentReleasePayload({
     aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION,
-    catVersion: TRYOUT_CAT_SCORING_VERSION,
     cbtVersion: TRYOUT_CBT_SCORING_VERSION,
     logicalRevisionVersion: LOGICAL_ASSESSMENT_REVISION_VERSION,
     schemaVersion: ASSESSMENT_RELEASE_SCHEMA_VERSION,
     sections: tryout.sections.map((section) => ({
-      catItemCount: section.catItemCount,
-      catModelVersion: section.catModelVersion,
       durationSeconds: section.durationSeconds,
       id: section.id,
       instructions: section.instructions,
       items: section.items.map((item) => ({
-        ...(item as typeof item & { catCalibration?: CatCalibrationSnapshot }).catCalibration
-          ? { catCalibration: (item as typeof item & { catCalibration?: CatCalibrationSnapshot }).catCalibration }
-          : {},
         difficulty: item.difficulty,
         explanation: item.explanation,
         explanationAssetId: item.explanationAssetId,
@@ -467,7 +428,7 @@ function sourceReadinessIssues(
     }));
   }
   if (revision.difficulty !== "easy" && revision.difficulty !== "medium" && revision.difficulty !== "hard") {
-    blockers.push(resolutionBlocker("mode_incompatible", "Soal kandidat Adaptive hanya dapat dipakai oleh CAT Pool.", {
+    blockers.push(resolutionBlocker("mode_incompatible", "Soal kandidat memiliki tingkat kesulitan yang belum didukung.", {
       difficulty: revision.difficulty,
       sourceQuestionId: source.id,
     }));
@@ -488,12 +449,9 @@ function sourceReadinessIssues(
     || revision.options.length > 5
     || !answerMode
     || !answerKey?.ok
-    || (!allowMultipleChoice && answerMode === "multiple_choice")
     || revision.options.some((option) => !option.content.trim())
   ) {
-    blockers.push(resolutionBlocker("options", !allowMultipleChoice && answerMode === "multiple_choice"
-      ? "Soal kandidat CAT harus memiliki tepat satu jawaban benar."
-      : "Soal kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
+    blockers.push(resolutionBlocker("options", "Soal kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: revision.options.length,
       sourceQuestionId: source.id,
     }));
@@ -605,69 +563,6 @@ type ReleaseAssemblyVersionRecord = Prisma.ReusableQuestionPackageVersionGetPayl
   };
 }>;
 
-function catCalibrationIssues(
-  source: ReleaseSourceRecord | undefined,
-  item: ReleaseAssemblyVersionRecord["items"][number],
-  calibration: CatCalibrationRecord | undefined,
-) {
-  const revision = source?.currentRevision;
-  if (revision?.questionType === QuestionType.multiple_choice) {
-    return [resolutionBlocker("mode_incompatible", "Kandidat CAT hanya boleh memakai soal dengan satu jawaban benar.", {
-      sourceQuestionId: item.sourceQuestionId,
-      sourceQuestionRevisionId: item.sourceQuestionRevisionId,
-    })];
-  }
-  if (!calibration) {
-    return [resolutionBlocker("calibration", "Kandidat CAT tidak memiliki kalibrasi 2PL kanonis yang dapat dipakai.", {
-      approvalState: "missing",
-      modelVersion: CANONICAL_2PL_MODEL_VERSION,
-      sourceQuestionId: item.sourceQuestionId,
-      sourceQuestionRevisionId: item.sourceQuestionRevisionId,
-    })];
-  }
-  const calibrationMatches = calibration.approvalState === "approved"
-    && calibration.modelVersion === CANONICAL_2PL_MODEL_VERSION
-    && calibration.questionId === item.sourceQuestionId
-    && calibration.questionRevisionId === item.sourceQuestionRevisionId
-    && calibration.calibrationDigest === item.sourceContentDigest
-    && calibration.sourceRevisionProvenance === item.sourceRevisionProvenance
-    && calibration.sourceRevisionProvenance === revision?.provenance
-    && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown
-    && Number.isFinite(calibration.discrimination)
-    && calibration.discrimination > 0
-    && Number.isFinite(calibration.difficulty);
-  if (calibrationMatches) return [];
-  return [resolutionBlocker("calibration", "Kalibrasi CAT harus approved, kanonis, dan cocok dengan QuestionRevision, digest, serta provenance kandidat.", {
-    approvalState: calibration.approvalState,
-    calibrationDigest: calibration.calibrationDigest,
-    calibrationQuestionId: calibration.questionId,
-    calibrationQuestionRevisionId: calibration.questionRevisionId,
-    calibrationSourceRevisionProvenance: calibration.sourceRevisionProvenance,
-    modelVersion: calibration.modelVersion,
-    sourceContentDigest: item.sourceContentDigest,
-    sourceQuestionId: item.sourceQuestionId,
-    sourceQuestionRevisionId: item.sourceQuestionRevisionId,
-  })];
-}
-
-function catCalibrationMetadata(
-  item: ReleaseAssemblyVersionRecord["items"][number],
-  calibration: CatCalibrationRecord,
-): CatPoolCalibrationMetadata {
-  return {
-    approvalState: calibration.approvalState,
-    calibrationDigest: calibration.calibrationDigest,
-    calibrationId: calibration.calibrationId,
-    difficulty: calibration.difficulty,
-    discrimination: calibration.discrimination,
-    modelVersion: calibration.modelVersion,
-    sourceContentDigest: item.sourceContentDigest!,
-    sourceQuestionId: item.sourceQuestionId,
-    sourceQuestionRevisionId: item.sourceQuestionRevisionId!,
-    sourceRevisionProvenance: calibration.sourceRevisionProvenance,
-  };
-}
-
 async function lockReadyAssemblyVersions(tx: Prisma.TransactionClient, versionIds: readonly string[]) {
   const ids = [...new Set(versionIds)].sort();
   if (!ids.length) return;
@@ -735,56 +630,6 @@ async function lockAndReadReleaseSources(
   return tx.question.findMany({ where: { id: { in: ids } }, include: releaseSourceInclude });
 }
 
-async function lockAndReadCatCalibrations(
-  tx: Prisma.TransactionClient,
-  questionRevisionIds: readonly string[],
-) {
-  const ids = [...new Set(questionRevisionIds)].filter(Boolean).sort();
-  if (!ids.length) return new Map<string, CatCalibrationRecord>();
-  // Calibration rows are locked only after the aggregate, Ready assembly
-  // revision, and source rows.  This keeps publication races deterministic and
-  // makes a revocation either serialize before validation or block this release.
-  await tx.$queryRaw`
-    SELECT id
-      FROM two_pl_question_calibrations
-     WHERE question_revision_id IN (${Prisma.join(ids)})
-     ORDER BY question_revision_id, id
-     FOR SHARE
-  `;
-  const rows = await tx.twoPlQuestionCalibration.findMany({
-    where: { questionRevisionId: { in: ids } },
-    select: {
-      approvalState: true,
-      contentDigest: true,
-      difficulty: true,
-      discrimination: true,
-      id: true,
-      modelVersion: true,
-      questionId: true,
-      questionRevisionId: true,
-      sourceRevisionProvenance: true,
-    },
-    orderBy: [{ questionRevisionId: "asc" }, { id: "asc" }],
-  });
-  return new Map(rows.flatMap((row) => {
-    if (row.modelVersion !== CANONICAL_2PL_MODEL_VERSION) return [];
-    return [[
-      row.questionRevisionId,
-      {
-        approvalState: row.approvalState,
-        calibrationDigest: row.contentDigest,
-        calibrationId: row.id,
-        difficulty: Number(row.difficulty),
-        discrimination: Number(row.discrimination),
-        modelVersion: row.modelVersion,
-        questionId: row.questionId,
-        questionRevisionId: row.questionRevisionId,
-        sourceRevisionProvenance: row.sourceRevisionProvenance,
-      } satisfies CatCalibrationRecord,
-    ] as const];
-  }));
-}
-
 function releaseSeed(tryoutId: string, publicationIntentKey?: string) {
   if (!publicationIntentKey) return randomBytes(16).toString("hex");
   return createHash("sha256")
@@ -816,7 +661,7 @@ function latestReleaseMatchesIntent(
   const randomSections = payload.sections?.filter((section) =>
     section.assembly?.mode === ReusableQuestionPackageMode.random_pool
     || section.assembly?.mode === ReusableQuestionPackageMode.blueprint
-    || section.assembly?.mode === ReusableQuestionPackageMode.cat_pool,
+
   ) ?? [];
   if (!randomSections.length) return true;
   // Delivery/open/retake callers predate publication intents and pass no key.
@@ -836,7 +681,7 @@ async function resolveAndMaterializeAssemblies(
   const assemblySections = tryout.sections.filter((section) =>
     section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
     || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint
-    || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool,
+
   );
   if (!assemblySections.length) {
     return {
@@ -864,7 +709,7 @@ async function resolveAndMaterializeAssemblies(
         orderBy: { categoryId: "asc" },
       },
       folderScopes: {
-        include: { folder: { select: { id: true, name: true } } },
+        include: { folder: { select: { id: true, name: true, purpose: true } } },
         orderBy: { folderId: "asc" },
       },
       items: {
@@ -891,6 +736,7 @@ async function resolveAndMaterializeAssemblies(
   }
   const wrongPurposeBanks: Array<{ bankId: string; purpose: string; versionId: string }> = [];
   const wrongPurposeSourceBanks: Array<{ bankId: string; purpose: string; versionId: string }> = [];
+  const wrongPurposeFolders: Array<{ folderId: string; purpose: string; versionId: string }> = [];
   for (const version of versions) {
     for (const scope of version.bankScopes) {
       if (scope.questionBank.purpose !== "tryout") {
@@ -900,12 +746,18 @@ async function resolveAndMaterializeAssemblies(
     if (version.sourceBank.purpose !== "tryout") {
       wrongPurposeSourceBanks.push({ bankId: version.sourceBank.id, purpose: version.sourceBank.purpose, versionId: version.id });
     }
+    for (const scope of version.folderScopes) {
+      if (scope.folder.purpose !== "tryout") {
+        wrongPurposeFolders.push({ folderId: scope.folderId, purpose: scope.folder.purpose, versionId: version.id });
+      }
+    }
   }
   wrongPurposeBanks.push(...wrongPurposeSourceBanks);
-  if (wrongPurposeBanks.length) {
+  if (wrongPurposeBanks.length || wrongPurposeFolders.length) {
     resolutionError("scope", "Tryout hanya dapat mematerialisasi assembly dari Bank Soal tujuan Tryout.", {
       expectedPurpose: "tryout",
       wrongPurposeBanks,
+      wrongPurposeFolders,
     });
   }
 
@@ -920,7 +772,7 @@ async function resolveAndMaterializeAssemblies(
       || version.mode !== section.packageVersion?.mode
       || version.subtestId !== section.subtestId
       || !version.subtest?.isActive
-      || (version.mode === ReusableQuestionPackageMode.cat_pool ? section.testType !== "cat" : section.testType !== "cbt")) {
+      || section.testType !== "cbt") {
       resolutionError("mode_incompatible", "Versi Ready assembly tidak kompatibel dengan tipe Test ini.", {
         mode: version.mode,
         packageStatus: version.package.status,
@@ -934,19 +786,7 @@ async function resolveAndMaterializeAssemblies(
     if (!version.rule || requestedCount < 1) {
       resolutionError("quota", "Assembly tidak memiliki jumlah soal rilis yang valid.", { sectionId: section.id, versionId: version.id });
     }
-    if (version.mode === ReusableQuestionPackageMode.cat_pool
-      && (!section.catItemCount
-        || section.catItemCount !== requestedCount
-        || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION)) {
-      resolutionError("mode_incompatible", "CAT Pool harus memakai jumlah delivered item dan profil 2PL kanonis yang sama dengan versi Ready.", {
-        catItemCount: section.catItemCount,
-        catModelVersion: section.catModelVersion,
-        requestedCount,
-        sectionId: section.id,
-      });
-    }
-    if (version.mode === ReusableQuestionPackageMode.random_pool
-      || version.mode === ReusableQuestionPackageMode.cat_pool) {
+    if (version.mode === ReusableQuestionPackageMode.random_pool) {
       sourceIds.push(...version.items.map((item) => item.sourceQuestionId));
     } else {
       if (version.items.length) {
@@ -975,17 +815,6 @@ async function resolveAndMaterializeAssemblies(
   // candidate report because they are compared against this reread map.
   const sources = await lockAndReadReleaseSources(tx, sourceIds);
   const sourceById = new Map(sources.map((source) => [source.id, source]));
-  const catRevisionIds = versions.flatMap((version) => {
-    if (version.mode !== ReusableQuestionPackageMode.cat_pool) return [];
-    return version.items.flatMap((item) => {
-      const currentRevId = sourceById.get(item.sourceQuestionId)?.currentRevision?.id;
-      const ids: string[] = [];
-      if (item.sourceQuestionRevisionId) ids.push(item.sourceQuestionRevisionId);
-      if (currentRevId) ids.push(currentRevId);
-      return ids;
-    });
-  });
-  const catCalibrations = await lockAndReadCatCalibrations(tx, catRevisionIds);
   const seed = releaseSeed(tryout.id, publicationIntentKey);
   const resolutions: AssemblySectionResolution[] = [];
 
@@ -1068,78 +897,6 @@ async function resolveAndMaterializeAssemblies(
         resolvedSourceIds: snapshots.map((snapshot) => snapshot.sourceQuestionId),
         resolverVersion: ASSEMBLY_RESOLVER_VERSION,
         seed,
-      };
-      resolutions.push({ metadata, sectionId: section.id, snapshots });
-      continue;
-    }
-
-    if (version.mode === ReusableQuestionPackageMode.cat_pool) {
-      const blockers: AssessmentReleaseResolutionBlocker[] = [];
-      const invalidSourceIds: string[] = [];
-      const deliveredCount = section.catItemCount ?? rule.requestedCount;
-      for (const item of version.items) {
-        const itemBlockers = [
-          ...sourceReadinessIssues(sourceById.get(item.sourceQuestionId), version.subtestId!, bankIds, {
-            sourceContentDigest: item.sourceContentDigest ?? "",
-            sourceQuestionId: item.sourceQuestionId,
-            sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
-            sourceRevisionProvenance: item.sourceRevisionProvenance,
-          }, false),
-          ...catCalibrationIssues(
-            sourceById.get(item.sourceQuestionId),
-            item,
-            item.sourceQuestionRevisionId ? catCalibrations.get(item.sourceQuestionRevisionId) : undefined,
-          ),
-        ];
-        if (itemBlockers.length) {
-          invalidSourceIds.push(item.sourceQuestionId);
-          blockers.push(...itemBlockers.map((blocker) => ({
-            ...blocker,
-            details: { ...blocker.details, sourceQuestionId: item.sourceQuestionId },
-          })));
-        }
-      }
-      if (version.items.length < deliveredCount) {
-        blockers.push(resolutionBlocker("shortage", "Kandidat CAT tidak mencukupi jumlah delivered item.", {
-          availableCount: version.items.length,
-          requestedCount: deliveredCount,
-        }));
-      }
-      if (blockers.length) {
-        resolutionError(blockers[0].code, "Publish diblokir karena kandidat CAT atau kalibrasinya tidak lagi siap.", {
-          candidateCount: version.items.length,
-          invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
-          requestedCount: deliveredCount,
-        }, blockers);
-      }
-      const snapshots = version.items.map(snapshotFromVersionItem);
-      const catCalibration = version.items.map((item) => catCalibrationMetadata(
-        item,
-        catCalibrations.get(item.sourceQuestionRevisionId!)!,
-      ));
-      const scopeSummary = {
-        bankIds,
-        candidateCount: version.items.length,
-        subtestId: version.subtestId,
-      };
-      const metadata: AssessmentReleaseAssemblyMetadata = {
-        availability: {
-          candidateCount: version.items.length,
-          eligibleCandidateCount: version.items.length,
-          invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
-          modelVersion: CANONICAL_2PL_MODEL_VERSION,
-        },
-        candidateCount: version.items.length,
-        catCalibration,
-        mode: "cat_pool",
-        packageId: version.packageId,
-        packageVersionId: version.id,
-        ...(publicationIntentKey ? { publicationIntentKey } : {}),
-        requestedCount: deliveredCount,
-        resolvedRevisionDigests: snapshots.map((snapshot) => snapshot.sourceContentDigest),
-        resolvedSourceIds: snapshots.map((snapshot) => snapshot.sourceQuestionId),
-        resolverVersion: CAT_POOL_RELEASE_RESOLVER_VERSION,
-        scopeSummary,
       };
       resolutions.push({ metadata, sectionId: section.id, snapshots });
       continue;
@@ -1310,77 +1067,11 @@ async function resolveAndMaterializeAssemblies(
   };
 }
 
-async function attachCatCalibrationSnapshots(
-  tx: Prisma.TransactionClient,
-  tryout: ReleaseTryoutRecord,
-) {
-  const catItems = tryout.sections.flatMap((section) => section.testType === "cat" ? section.items : []);
-  if (catItems.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
-    throw new Error("AssessmentRelease CAT memerlukan provenance QuestionRevision dan digest sumber yang lengkap.");
-  }
-  const revisionIds = [...new Set(
-    catItems.map((item) => item.sourceQuestionRevisionId).filter((id): id is string => Boolean(id)),
-  )];
-  if (!revisionIds.length) return tryout;
-  const calibrations = await tx.twoPlQuestionCalibration.findMany({
-    where: {
-      approvalState: "approved",
-      modelVersion: CANONICAL_2PL_MODEL_VERSION,
-      questionRevisionId: { in: revisionIds },
-    },
-    select: {
-      contentDigest: true,
-      difficulty: true,
-      discrimination: true,
-      id: true,
-      questionId: true,
-      questionRevisionId: true,
-      sourceRevisionProvenance: true,
-    },
-  });
-  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
-  return {
-    ...tryout,
-    sections: tryout.sections.map((section) => {
-      if (section.testType !== "cat") return section;
-      return {
-        ...section,
-        items: section.items.map((item) => {
-          const calibration = item.sourceQuestionRevisionId
-            ? calibrationByRevision.get(item.sourceQuestionRevisionId)
-            : undefined;
-          const discrimination = calibration ? Number(calibration.discrimination) : Number.NaN;
-          const difficulty = calibration ? Number(calibration.difficulty) : Number.NaN;
-          if (!calibration
-            || calibration.questionId !== item.sourceQuestionId
-            || calibration.contentDigest !== item.sourceContentDigest
-            || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown
-            || !Number.isFinite(discrimination)
-            || discrimination <= 0
-            || !Number.isFinite(difficulty)) {
-            throw new Error("AssessmentRelease CAT memerlukan kalibrasi 2PL kanonis yang disetujui dan cocok dengan digest sumber.");
-          }
-          return {
-            ...item,
-            catCalibration: {
-              calibrationDigest: calibration.contentDigest,
-              calibrationId: calibration.id,
-              difficulty,
-              discrimination,
-              sourceRevisionProvenance: calibration.sourceRevisionProvenance,
-            } satisfies CatCalibrationSnapshot,
-          };
-        }),
-      };
-    }),
-  } as ReleaseTryoutRecord;
-}
-
 /**
  * One release-eligibility gate is shared by ordinary session open, retakes,
  * and admin preview restarts.  It deliberately checks mutable source
  * readiness only while creating/pinning a new release; attempt start later
- * consumes the release-owned CAT parameters and does not re-query live rows.
+ * consumes the release-owned CBT snapshot and does not re-query live rows.
  */
 async function assertTryoutReleaseEligibility(
   tx: Prisma.TransactionClient,
@@ -1439,9 +1130,6 @@ async function assertTryoutReleaseEligibility(
   if (!tryout || tryout.status !== ContentStatus.published) {
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
   }
-  if (tryout.sections.some((section) => section.testType === "cat")) {
-    throw new Error("CAT sudah dinonaktifkan. Rilis baru hanya dapat memakai CBT.");
-  }
   for (const section of tryout.sections) {
     try {
       canonicalizeCbtScoringConfig(section.scoringConfig);
@@ -1494,21 +1182,11 @@ async function assertTryoutReleaseEligibility(
     if (latestArchivedReleasePayload?.tryout?.revision === tryout.revision) return tryout;
     throw new Error("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuka rilis baru.");
   }
-  const hasUnsupportedDirectCatItem = tryout.sections.some((section) =>
-    section.testType === "cat"
-    && section.items.some((item) => item.questionType === QuestionType.multiple_choice),
-  );
-  if (hasUnsupportedDirectCatItem) {
-    throw new Error("CAT hanya dapat memakai soal dengan satu jawaban benar. Ubah soal menjadi Single Answer sebelum membuka Tryout.");
-  }
   if (tryout.sections.length !== 7 || tryout.sections.some((section) => {
     if (section.packageVersionId) {
       const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
-        || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint
-        || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool;
-      const modeMatchesTestType = section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool
-        ? section.testType === "cat"
-        : section.testType === "cbt";
+        || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint;
+      const modeMatchesTestType = section.testType === "cbt";
       return section.packageVersion?.status !== ContentStatus.published
         || section.packageVersion.subtestId !== section.subtestId
         || (section.packageVersion.mode !== ReusableQuestionPackageMode.blueprint && !section.packageVersion.items.length)
@@ -1536,63 +1214,6 @@ async function assertTryoutReleaseEligibility(
   })) {
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
   }
-  const hasCatPool = tryout.sections.some((section) => section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool);
-  const hasUnpinnedCat = tryout.sections.some((section) =>
-    section.testType === "cat" && section.packageVersion?.mode !== ReusableQuestionPackageMode.cat_pool,
-  );
-  const latestReleasePayload = tryout.assessmentReleases[0]?.payload as {
-    sections?: Array<{ assembly?: { mode?: unknown } }>;
-    tryout?: { revision?: unknown };
-  } | undefined;
-  if (hasCatPool
-    && !hasUnpinnedCat
-    && latestReleasePayload?.tryout?.revision === tryout.revision
-    && latestReleasePayload.sections?.some((section) => section.assembly?.mode === ReusableQuestionPackageMode.cat_pool)) {
-    // Existing CAT Pool releases are immutable. A calibration revocation or
-    // source edit must not prevent a participant from opening a session that
-    // is already bound to this release; new publication attempts re-enter the
-    // locked resolver below after the Tryout revision or intent changes.
-    return tryout;
-  }
-  const catItems = tryout.sections.flatMap((section) => {
-    if (section.testType !== "cat" || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool) return [];
-    const items: Array<{
-      packageVersionId: string | null;
-      questionType?: QuestionType;
-      sourceContentDigest: string | null;
-      sourceQuestionId: string | null;
-      sourceQuestionRevisionId: string | null;
-      sourceRevisionProvenance: QuestionRevisionProvenance | null;
-      subtestId: string;
-    }> = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
-    if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
-      throw new Error("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-    }
-    return items;
-  });
-  const revisionIds = [...new Set(catItems.map((item) => item.sourceQuestionRevisionId).filter((id): id is string => Boolean(id)))];
-  if (!revisionIds.length) return tryout;
-  const [revisions, calibrations] = await Promise.all([
-    tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
-  ]);
-  const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
-  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
-  if (revisions.length !== revisionIds.length || calibrations.length !== revisionIds.length || catItems.some((item) => {
-    const revision = revisionById.get(item.sourceQuestionRevisionId!);
-    const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
-    return !revision || !calibration
-      || revision.questionId !== item.sourceQuestionId
-      || revision.contentDigest !== item.sourceContentDigest
-      || calibration.questionId !== item.sourceQuestionId
-      || calibration.contentDigest !== item.sourceContentDigest
-      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown
-      || !Number.isFinite(Number(calibration.difficulty))
-      || !Number.isFinite(Number(calibration.discrimination))
-      || Number(calibration.discrimination) <= 0;
-  })) {
-    throw new Error("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
-  }
   return tryout;
 }
 
@@ -1615,9 +1236,6 @@ async function createOrReuseAssessmentRelease(
   if (!tryout || tryout.status !== "published") {
     throw new Error("Tryout harus diterbitkan sebelum AssessmentRelease dibuat.");
   }
-  if (tryout.sections.some((section) => section.testType === "cat" || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool)) {
-    throw new Error("CAT sudah dinonaktifkan. Rilis baru hanya dapat memakai CBT.");
-  }
   const publicationIntentKey = normalizePublicationIntentKey(options.publicationIntentKey);
   const hasArchivedPackageBinding = tryout.sections.some((section) => Boolean(section.packageVersionId) || section.items.some((item) => Boolean(item.packageVersionId)));
   if (hasArchivedPackageBinding) {
@@ -1630,7 +1248,7 @@ async function createOrReuseAssessmentRelease(
   const hasSeededAssembly = tryout.sections.some((section) =>
     section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
     || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint
-    || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool,
+
   );
   if (hasSeededAssembly && latestReleaseMatchesIntent(tryout, publicationIntentKey)) {
     const latest = tryout.assessmentReleases[0];
@@ -1658,8 +1276,7 @@ async function createOrReuseAssessmentRelease(
       const mode = section.packageVersion?.mode;
       return section.items.length === 0
         && mode !== ReusableQuestionPackageMode.random_pool
-        && mode !== ReusableQuestionPackageMode.blueprint
-        && mode !== ReusableQuestionPackageMode.cat_pool;
+        && mode !== ReusableQuestionPackageMode.blueprint;
     })
   ) {
     throw new Error("AssessmentRelease memerlukan tepat tujuh Test dengan item yang siap.");
@@ -1672,8 +1289,7 @@ async function createOrReuseAssessmentRelease(
     }
   }
 
-  const releaseTryout = await attachCatCalibrationSnapshots(tx, resolvedTryout);
-  const payload = buildAssessmentReleasePayload(releaseTryout, resolved.assemblyBySection);
+  const payload = buildAssessmentReleasePayload(resolvedTryout, resolved.assemblyBySection);
   // Compute the canonical bytes here as an explicit invariant. The digest
   // helper calls the same canonicalizer, while this value is useful in tests
   // and makes the runtime/seed contract visible at the call site.
@@ -1700,7 +1316,6 @@ async function createOrReuseAssessmentRelease(
     data: {
       ...(assembly ? {
         assemblyCandidateCount: assembly.candidateCount,
-        assemblyCatCalibration: assembly.catCalibration,
         assemblyMode: assembly.mode as ReusableQuestionPackageMode,
         assemblyPackageId: assembly.packageId,
         assemblyPackageVersionId: assembly.packageVersionId,
@@ -1759,7 +1374,6 @@ function assertMatchingAssessmentRelease(
 
 export {
   ASSESSMENT_RELEASE_SCHEMA_VERSION,
-  CAT_POOL_RELEASE_RESOLVER_VERSION,
   AssessmentReleaseResolutionError,
   assertMatchingAssessmentRelease,
   buildAssessmentReleasePayload,

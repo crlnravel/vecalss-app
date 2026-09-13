@@ -9,7 +9,7 @@ const liveWorkspace = workspace.slice(workspace.indexOf("function KaptenTryoutBu
 assert.match(workspace, /Pilih langsung/u, "workspace should expose the direct source path");
 assert.match(workspace, /<Checkbox/u, "direct source selection should use a checklist");
 assert.match(workspace, /toggleDirectQuestion/u, "checking a question should update the active Section");
-for (const label of ["Pool Soal", "Blueprint", "CAT Pool", "Pasang sumber", "Sample sumber", "Lihat sample sumber &amp; kesiapan"]) {
+for (const label of ["Pool Soal", "Blueprint", "Pasang sumber", "Sample sumber", "Lihat sample sumber &amp; kesiapan"]) {
   assert.doesNotMatch(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `workspace should not expose ${label}`);
 }
 

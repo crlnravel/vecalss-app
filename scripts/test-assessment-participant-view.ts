@@ -140,9 +140,11 @@ assert.match(operations, /participants: toParticipantViews\(participantInputs\)/
 assert.match(operations, /safeParticipantIdentity\(admission\.student\)/);
 assert.doesNotMatch(operations, /student\.email/);
 assert.match(actions, /selectedSessionId\?: string \| null/);
-assert.match(participants, /participant\.session/);
-assert.match(participants, /participant\.attempt/);
-assert.match(participants, /participant\.score/);
+assert.match(participants, /initial\.results/u);
+assert.match(participants, /initial\.attempts/u);
+assert.match(participants, /CompactFilterTabs/u);
+assert.match(participants, /scoreVisible/u);
+assert.match(participants, /buildMentorTryoutAttemptHref/u);
 assert.match(detail, /Sesi saat menyetujui/);
 assert.match(detail, /Penugasan sesi/);
 assert.match(detail, /riwayat attempt tetap dipertahankan/);

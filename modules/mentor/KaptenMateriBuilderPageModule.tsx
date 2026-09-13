@@ -30,11 +30,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Field,
-  FieldInput,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { MATERI_DOCUMENT_MIME_TYPE } from "@/lib/materi/contract";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -72,7 +68,10 @@ type MateriEditorState = {
 
 type MateriEditorAction = { type: "patch"; patch: Partial<MateriEditorState> };
 
-function materiEditorReducer(state: MateriEditorState, action: MateriEditorAction): MateriEditorState {
+function materiEditorReducer(
+  state: MateriEditorState,
+  action: MateriEditorAction,
+): MateriEditorState {
   return action.type === "patch" ? { ...state, ...action.patch } : state;
 }
 
@@ -88,11 +87,15 @@ function getInitialState(
   if (initialMateri) {
     const document = initialMateri.document;
     return {
-      documentAssetId: document?.sourceKind === "managed" ? document.managedAssetId ?? "" : "",
+      documentAssetId:
+        document?.sourceKind === "managed"
+          ? (document.managedAssetId ?? "")
+          : "",
       documentMimeType: document?.mimeType ?? "",
       documentName: document?.originalName ?? "",
       documentSource: document?.sourceKind ?? "managed",
-      documentUrl: document?.sourceKind === "hosted" ? document.url ?? "" : "",
+      documentUrl:
+        document?.sourceKind === "hosted" ? (document.url ?? "") : "",
       subjectSlug: initialMateri.subjectSlug,
       title: initialMateri.title,
       videoDuration: initialMateri.duration,
@@ -128,11 +131,13 @@ function mapActionErrors(
   if (!fieldErrors) return {};
 
   return {
-    documentAssetId: fieldErrors.managedAssetId
-      ?? (source === "managed" ? fieldErrors.document : undefined),
+    documentAssetId:
+      fieldErrors.managedAssetId ??
+      (source === "managed" ? fieldErrors.document : undefined),
     documentMimeType: fieldErrors.documentMimeType,
-    documentUrl: fieldErrors.documentUrl
-      ?? (source === "hosted" ? fieldErrors.document : undefined),
+    documentUrl:
+      fieldErrors.documentUrl ??
+      (source === "hosted" ? fieldErrors.document : undefined),
     subjectSlug: fieldErrors.subjectSlug,
     title: fieldErrors.title,
     videoDuration: fieldErrors.videoDuration ?? fieldErrors.duration,
@@ -179,25 +184,49 @@ function MateriBuilderHeader({
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Button>
       <ReferencePageHeader
-        actions={(
+        actions={
           <>
-            <Button aria-label="Preview materi" onClick={() => onPreviewChange(true)} size="icon" title="Preview materi" type="button" variant="reference">
+            <Button
+              aria-label="Preview materi"
+              onClick={() => onPreviewChange(true)}
+              size="icon"
+              title="Preview materi"
+              type="button"
+              variant="reference"
+            >
               <Eye />
             </Button>
-            <Button disabled={isSaving || isArchived} onClick={onSave} type="button" variant="brand">
+            <Button
+              disabled={isSaving || isArchived}
+              onClick={onSave}
+              type="button"
+              variant="brand"
+            >
               <Save />
               {isSaving ? "Menyimpan..." : "Simpan"}
             </Button>
           </>
-        )}
+        }
         className="min-w-0 flex-1"
-        description={(
+        description={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>{mode === "create" ? "Susun bacaan PDF dan video pendamping untuk materi ini." : "Kelola bacaan dan video pendamping materi ini."}</span>
-            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
+            <span>
+              {mode === "create"
+                ? "Susun bacaan PDF dan video pendamping untuk materi ini."
+                : "Kelola bacaan dan video pendamping materi ini."}
+            </span>
+            <ReferenceStatusBadge
+              appearance="mentor"
+              size="xs"
+              status={status}
+            />
           </span>
-        )}
-        title={mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"}
+        }
+        title={
+          mode === "create"
+            ? "Buat Materi"
+            : builderState.title || "Edit Materi"
+        }
       />
     </div>
   );
@@ -214,7 +243,9 @@ function MateriUnsavedChangesBar({
   onReset: () => void;
   onSave: () => void;
 }) {
-  return (
+  return true ? (
+    <></>
+  ) : (
     <ReferenceSurface
       aria-live="polite"
       className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 p-3 pl-4 transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
@@ -224,7 +255,9 @@ function MateriUnsavedChangesBar({
         <span className="grid size-10 shrink-0 place-items-center text-primary-800">
           <AlertCircle className="size-5" strokeWidth={2.2} />
         </span>
-        <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
+        <p className="text-sm font-medium leading-5 text-secondary-800">
+          Ada perubahan yang belum disimpan.
+        </p>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
         <Button
@@ -251,25 +284,62 @@ function MateriUnsavedChangesBar({
   );
 }
 
-
-function MateriBuilderPreview({ builderState, onPreviewChange, selectedSubjectName, status }: { builderState: MateriBuilderState; onPreviewChange: (open: boolean) => void; selectedSubjectName: string; status: KaptenMateriView["status"] }) {
+function MateriBuilderPreview({
+  builderState,
+  onPreviewChange,
+  selectedSubjectName,
+  status,
+}: {
+  builderState: MateriBuilderState;
+  onPreviewChange: (open: boolean) => void;
+  selectedSubjectName: string;
+  status: KaptenMateriView["status"];
+}) {
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-secondary-900">Pratinjau materi</p>
+          <p className="text-sm font-semibold text-secondary-900">
+            Pratinjau materi
+          </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="min-w-0 max-w-[42ch] truncate text-xs text-secondary-500">{builderState.title || "Materi tanpa judul"}</p>
-            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
+            <p className="min-w-0 max-w-[42ch] truncate text-xs text-secondary-500">
+              {builderState.title || "Materi tanpa judul"}
+            </p>
+            <ReferenceStatusBadge
+              appearance="mentor"
+              size="xs"
+              status={status}
+            />
           </div>
         </div>
-        <Button onClick={() => onPreviewChange(false)} type="button" variant="reference"><ChevronLeft />Kembali ke editor</Button>
+        <Button
+          onClick={() => onPreviewChange(false)}
+          type="button"
+          variant="reference"
+        >
+          <ChevronLeft />
+          Kembali ke editor
+        </Button>
       </div>
-      <ReferenceSurface as="section" aria-live="polite" className="max-w-4xl p-5 sm:p-7">
+      <ReferenceSurface
+        as="section"
+        aria-live="polite"
+        className="max-w-4xl p-5 sm:p-7"
+      >
         <MateriLessonPresentation
           document={toPreviewDocument(builderState)}
           duration={builderState.videoDuration.trim() || undefined}
-          managedDocumentPreview={builderState.documentAssetId ? <MediaAssetPreview alt={builderState.documentName.trim() || "Dokumen Materi"} assetId={builderState.documentAssetId} className="min-h-[16rem] rounded-none bg-voyage-canvas md:min-h-[24rem]" showDownloadControls /> : undefined}
+          managedDocumentPreview={
+            builderState.documentAssetId ? (
+              <MediaAssetPreview
+                alt={builderState.documentName.trim() || "Dokumen Materi"}
+                assetId={builderState.documentAssetId}
+                className="min-h-[16rem] rounded-none bg-voyage-canvas md:min-h-[24rem]"
+                showDownloadControls
+              />
+            ) : undefined
+          }
           showDuration
           showSectionLabel={false}
           subject={selectedSubjectName}
@@ -281,30 +351,117 @@ function MateriBuilderPreview({ builderState, onPreviewChange, selectedSubjectNa
   );
 }
 
-function MateriBasicsSection({ builderState, errors, isArchived, onFieldChange, subjects }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; subjects: KaptenMateriSubjectView[] }) {
-  const selectedSubjectOption = subjects.find((subject) => subject.slug === builderState.subjectSlug);
+function MateriBasicsSection({
+  builderState,
+  errors,
+  isArchived,
+  onFieldChange,
+  subjects,
+}: {
+  builderState: MateriBuilderState;
+  errors: MateriBuilderErrors;
+  isArchived: boolean;
+  onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
+  subjects: KaptenMateriSubjectView[];
+}) {
+  const selectedSubjectOption = subjects.find(
+    (subject) => subject.slug === builderState.subjectSlug,
+  );
   return (
-    <ReferenceSurface as="section" aria-labelledby="materi-details-title" className="grid gap-5 p-5 sm:p-7">
-      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-details-title">Materi</h2></div>
+    <ReferenceSurface
+      as="section"
+      aria-labelledby="materi-details-title"
+      className="grid gap-5 p-5 sm:p-7"
+    >
+      <div>
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="materi-details-title"
+        >
+          Materi
+        </h2>
+      </div>
       <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
         <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-subject">Subject</FieldLabel>
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="materi-subject"
+          >
+            Subject
+          </FieldLabel>
           <DropdownMenu>
-            <DropdownMenuTrigger aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined} aria-invalid={Boolean(errors.subjectSlug)} aria-label="Subject" disabled={isArchived} id="materi-subject" render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "h-12", errors.subjectSlug && "border-student-status-danger-border")} variant="reference" />}>
-              <span className="truncate">{selectedSubjectOption ? selectedSubjectOption.code + " · " + selectedSubjectOption.name : "Pilih subject"}</span>
-              <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
+            <DropdownMenuTrigger
+              aria-describedby={
+                errors.subjectSlug ? "materi-subject-error" : undefined
+              }
+              aria-invalid={Boolean(errors.subjectSlug)}
+              aria-label="Subject"
+              disabled={isArchived}
+              id="materi-subject"
+              render={
+                <Button
+                  className={cn(
+                    REFERENCE_CONTROL_CLASS_NAMES.select,
+                    "h-12",
+                    errors.subjectSlug && "border-student-status-danger-border",
+                  )}
+                  variant="reference"
+                />
+              }
+            >
+              <span className="truncate">
+                {selectedSubjectOption
+                  ? selectedSubjectOption.code +
+                    " · " +
+                    selectedSubjectOption.name
+                  : "Pilih subject"}
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 shrink-0 text-secondary-500"
+              />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-(--anchor-width)">
-              <DropdownMenuRadioGroup onValueChange={(value) => onFieldChange("subjectSlug", value)} value={builderState.subjectSlug}>
-                {subjects.map((subject) => <DropdownMenuRadioItem closeOnClick key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</DropdownMenuRadioItem>)}
+            <DropdownMenuContent
+              align="start"
+              className="min-w-(--anchor-width)"
+            >
+              <DropdownMenuRadioGroup
+                onValueChange={(value) => onFieldChange("subjectSlug", value)}
+                value={builderState.subjectSlug}
+              >
+                {subjects.map((subject) => (
+                  <DropdownMenuRadioItem
+                    closeOnClick
+                    key={subject.slug}
+                    value={subject.slug}
+                  >
+                    {subject.code} · {subject.name}
+                  </DropdownMenuRadioItem>
+                ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
           <FieldError error={errors.subjectSlug} id="materi-subject-error" />
         </Field>
         <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-title">Judul materi</FieldLabel>
-          <FieldInput aria-describedby={errors.title ? "materi-title-error" : undefined} aria-invalid={Boolean(errors.title)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 text-base font-semibold")} disabled={isArchived} id="materi-title" onChange={(event) => onFieldChange("title", event.target.value)} value={builderState.title} />
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="materi-title"
+          >
+            Judul materi
+          </FieldLabel>
+          <FieldInput
+            aria-describedby={errors.title ? "materi-title-error" : undefined}
+            aria-invalid={Boolean(errors.title)}
+            className={cn(
+              REFERENCE_CONTROL_CLASS_NAMES.input,
+              "h-12 text-base font-semibold",
+            )}
+            disabled={isArchived}
+            id="materi-title"
+            onChange={(event) => onFieldChange("title", event.target.value)}
+            value={builderState.title}
+          />
           <FieldError error={errors.title} id="materi-title-error" />
         </Field>
       </div>
@@ -312,55 +469,215 @@ function MateriBasicsSection({ builderState, errors, isArchived, onFieldChange, 
   );
 }
 
-function MateriDocumentSection({ builderState, errors, isArchived, onOpenPicker, selectedDocumentName }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onOpenPicker: () => void; selectedDocumentName: string }) {
+function MateriDocumentSection({
+  builderState,
+  errors,
+  isArchived,
+  onOpenPicker,
+  selectedDocumentName,
+}: {
+  builderState: MateriBuilderState;
+  errors: MateriBuilderErrors;
+  isArchived: boolean;
+  onOpenPicker: () => void;
+  selectedDocumentName: string;
+}) {
   const hasDocumentName = Boolean(builderState.documentName.trim());
   return (
-    <ReferenceSurface as="section" aria-labelledby="materi-document-title" className="grid gap-5 p-5 sm:p-7">
-      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-document-title">Bacaan PDF</h2></div>
+    <ReferenceSurface
+      as="section"
+      aria-labelledby="materi-document-title"
+      className="grid gap-5 p-5 sm:p-7"
+    >
+      <div>
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="materi-document-title"
+        >
+          Bacaan PDF
+        </h2>
+      </div>
       <ReferenceSurface className="space-y-4 p-4 sm:p-5" variant="inset">
-        <div className={cn("flex flex-wrap justify-between gap-4", hasDocumentName ? "items-center" : "items-start")}>
-          <div className={cn("flex min-w-0 gap-3", hasDocumentName ? "items-center" : "items-start")}>
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-primary-800 ring-1 ring-primary-100"><FileText className="size-5" /></span>
+        <div
+          className={cn(
+            "flex flex-wrap justify-between gap-4",
+            hasDocumentName ? "items-center" : "items-start",
+          )}
+        >
+          <div
+            className={cn(
+              "flex min-w-0 gap-3",
+              hasDocumentName ? "items-center" : "items-start",
+            )}
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-primary-800 ring-1 ring-primary-100">
+              <FileText className="size-5" />
+            </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-secondary-900">{hasDocumentName ? selectedDocumentName : "Belum ada PDF dipilih"}</p>
-              {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Pilih PDF dari pustaka media untuk melanjutkan.</p> : null}
+              <p className="truncate text-sm font-bold text-secondary-900">
+                {hasDocumentName
+                  ? selectedDocumentName
+                  : "Belum ada PDF dipilih"}
+              </p>
+              {!hasDocumentName ? (
+                <p className="mt-1 text-xs leading-5 text-secondary-500">
+                  Pilih PDF dari pustaka media untuk melanjutkan.
+                </p>
+              ) : null}
             </div>
           </div>
-          <Button aria-describedby={errors.documentAssetId || errors.documentMimeType ? "materi-document-error" : undefined} aria-invalid={Boolean(errors.documentAssetId || errors.documentMimeType)} disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="reference">{builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}</Button>
+          <Button
+            aria-describedby={
+              errors.documentAssetId || errors.documentMimeType
+                ? "materi-document-error"
+                : undefined
+            }
+            aria-invalid={Boolean(
+              errors.documentAssetId || errors.documentMimeType,
+            )}
+            disabled={isArchived}
+            onClick={onOpenPicker}
+            size="sm"
+            type="button"
+            variant="reference"
+          >
+            {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
+          </Button>
         </div>
-        <FieldError error={errors.documentAssetId || errors.documentMimeType} id="materi-document-error" />
+        <FieldError
+          error={errors.documentAssetId || errors.documentMimeType}
+          id="materi-document-error"
+        />
       </ReferenceSurface>
     </ReferenceSurface>
   );
 }
 
-function MateriVideoSection({ builderState, errors, isArchived, onFieldChange, readiness }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; readiness: "ready" | "incomplete" }) {
+function MateriVideoSection({
+  builderState,
+  errors,
+  isArchived,
+  onFieldChange,
+  readiness,
+}: {
+  builderState: MateriBuilderState;
+  errors: MateriBuilderErrors;
+  isArchived: boolean;
+  onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
+  readiness: "ready" | "incomplete";
+}) {
   return (
-    <ReferenceSurface as="section" aria-labelledby="materi-video-title" className="grid gap-5 p-5 sm:p-7">
-      <div><h2 className="text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="materi-video-title">Video pendamping (opsional)</h2></div>
+    <ReferenceSurface
+      as="section"
+      aria-labelledby="materi-video-title"
+      className="grid gap-5 p-5 sm:p-7"
+    >
+      <div>
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="materi-video-title"
+        >
+          Video pendamping (opsional)
+        </h2>
+      </div>
       <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
         <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-url">URL video</FieldLabel>
-          <FieldInput aria-describedby={errors.videoUrl ? "materi-video-url-error" : undefined} aria-invalid={Boolean(errors.videoUrl)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")} disabled={isArchived} id="materi-video-url" onChange={(event) => onFieldChange("videoUrl", event.target.value)} placeholder="https://youtube.com/..." type="url" value={builderState.videoUrl} />
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="materi-video-url"
+          >
+            URL video
+          </FieldLabel>
+          <FieldInput
+            aria-describedby={
+              errors.videoUrl ? "materi-video-url-error" : undefined
+            }
+            aria-invalid={Boolean(errors.videoUrl)}
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")}
+            disabled={isArchived}
+            id="materi-video-url"
+            onChange={(event) => onFieldChange("videoUrl", event.target.value)}
+            placeholder="https://youtube.com/..."
+            type="url"
+            value={builderState.videoUrl}
+          />
           <FieldError error={errors.videoUrl} id="materi-video-url-error" />
         </Field>
-        <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-duration">Durasi video</FieldLabel>
-          <FieldInput aria-describedby={errors.videoDuration ? "materi-video-duration-error" : undefined} aria-invalid={Boolean(errors.videoDuration)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")} disabled={isArchived} id="materi-video-duration" onChange={(event) => onFieldChange("videoDuration", event.target.value)} placeholder="08:30" value={builderState.videoDuration} />
-          <FieldError error={errors.videoDuration} id="materi-video-duration-error" />
-        </Field>
+        {/* <Field> */}
+        {/*   <FieldLabel */}
+        {/*     className={REFERENCE_FIELD_LABEL_CLASS_NAME} */}
+        {/*     htmlFor="materi-video-duration" */}
+        {/*   > */}
+        {/*     Durasi video */}
+        {/*   </FieldLabel> */}
+        {/*   <FieldInput */}
+        {/*     aria-describedby={ */}
+        {/*       errors.videoDuration ? "materi-video-duration-error" : undefined */}
+        {/*     } */}
+        {/*     aria-invalid={Boolean(errors.videoDuration)} */}
+        {/*     className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12")} */}
+        {/*     disabled={isArchived} */}
+        {/*     id="materi-video-duration" */}
+        {/*     onChange={(event) => */}
+        {/*       onFieldChange("videoDuration", event.target.value) */}
+        {/*     } */}
+        {/*     placeholder="08:30" */}
+        {/*     value={builderState.videoDuration} */}
+        {/*   /> */}
+        {/*   <FieldError */}
+        {/*     error={errors.videoDuration} */}
+        {/*     id="materi-video-duration-error" */}
+        {/*   /> */}
+        {/* </Field> */}
       </div>
-      {readiness === "incomplete" ? <ReferenceSurface className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">Lengkapi subject, judul, dan PDF. Video pendamping hanya perlu diisi jika URL dan durasinya lengkap.</ReferenceSurface> : null}
     </ReferenceSurface>
   );
 }
 
-function MateriBuilderForm({ builderState, errors, isArchived, onFieldChange, onOpenPicker, onSave, readiness, selectedDocumentName, subjects }: { builderState: MateriBuilderState; errors: MateriBuilderErrors; isArchived: boolean; onFieldChange: (field: keyof MateriBuilderState, value: string) => void; onOpenPicker: () => void; onSave: () => void; readiness: "ready" | "incomplete"; selectedDocumentName: string; subjects: KaptenMateriSubjectView[] }) {
+function MateriBuilderForm({
+  builderState,
+  errors,
+  isArchived,
+  onFieldChange,
+  onOpenPicker,
+  onSave,
+  readiness,
+  selectedDocumentName,
+  subjects,
+}: {
+  builderState: MateriBuilderState;
+  errors: MateriBuilderErrors;
+  isArchived: boolean;
+  onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
+  onOpenPicker: () => void;
+  onSave: () => void;
+  readiness: "ready" | "incomplete";
+  selectedDocumentName: string;
+  subjects: KaptenMateriSubjectView[];
+}) {
   return (
     <form action={onSave} className="space-y-5" noValidate>
-      <MateriBasicsSection builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} subjects={subjects} />
-      <MateriDocumentSection builderState={builderState} errors={errors} isArchived={isArchived} onOpenPicker={onOpenPicker} selectedDocumentName={selectedDocumentName} />
-      <MateriVideoSection builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} readiness={readiness} />
+      <MateriBasicsSection
+        builderState={builderState}
+        errors={errors}
+        isArchived={isArchived}
+        onFieldChange={onFieldChange}
+        subjects={subjects}
+      />
+      <MateriDocumentSection
+        builderState={builderState}
+        errors={errors}
+        isArchived={isArchived}
+        onOpenPicker={onOpenPicker}
+        selectedDocumentName={selectedDocumentName}
+      />
+      <MateriVideoSection
+        builderState={builderState}
+        errors={errors}
+        isArchived={isArchived}
+        onFieldChange={onFieldChange}
+        readiness={readiness}
+      />
     </form>
   );
 }
@@ -394,21 +711,49 @@ function MateriBuilderEditor({
   status: KaptenMateriView["status"];
   subjects: KaptenMateriSubjectView[];
 }) {
-  return isPreviewOpen
-    ? <MateriBuilderPreview builderState={builderState} onPreviewChange={onPreviewChange} selectedSubjectName={selectedSubjectName} status={status} />
-    : <MateriBuilderForm builderState={builderState} errors={errors} isArchived={isArchived} onFieldChange={onFieldChange} onOpenPicker={onOpenPicker} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} subjects={subjects} />;
+  return isPreviewOpen ? (
+    <MateriBuilderPreview
+      builderState={builderState}
+      onPreviewChange={onPreviewChange}
+      selectedSubjectName={selectedSubjectName}
+      status={status}
+    />
+  ) : (
+    <MateriBuilderForm
+      builderState={builderState}
+      errors={errors}
+      isArchived={isArchived}
+      onFieldChange={onFieldChange}
+      onOpenPicker={onOpenPicker}
+      onSave={onSave}
+      readiness={readiness}
+      selectedDocumentName={selectedDocumentName}
+      subjects={subjects}
+    />
+  );
 }
-function useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router }: { hasUnsavedChanges: boolean; pendingRouteReplacement: string | null; router: ReturnType<typeof useRouter> }) {
+function useMateriNavigationGuards({
+  hasUnsavedChanges,
+  pendingRouteReplacement,
+  router,
+}: {
+  hasUnsavedChanges: boolean;
+  pendingRouteReplacement: string | null;
+  router: ReturnType<typeof useRouter>;
+}) {
   useEffect(() => {
     if (!hasUnsavedChanges) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    const handleBeforeUnload = (event: BeforeUnloadEvent) =>
+      event.preventDefault();
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (!pendingRouteReplacement || hasUnsavedChanges) return;
-    const frame = window.requestAnimationFrame(() => router.replace(pendingRouteReplacement));
+    const frame = window.requestAnimationFrame(() =>
+      router.replace(pendingRouteReplacement),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 }
@@ -456,19 +801,28 @@ function KaptenMateriBuilderPageModule({
     saveError,
     savedMateri,
   } = editorState;
-  const updateEditor = (patch: Partial<MateriEditorState>) => dispatch({ patch, type: "patch" });
+  const updateEditor = (patch: Partial<MateriEditorState>) =>
+    dispatch({ patch, type: "patch" });
 
   const selectedSubject = getSubject(subjects, builderState.subjectSlug);
-  const parentHref = returnTo
-    ?? (initialMateri ? `/mentor/materi/subject/${initialMateri.subjectSlug}` : "/mentor/materi");
+  const parentHref =
+    returnTo ??
+    (initialMateri
+      ? `/mentor/materi/subject/${initialMateri.subjectSlug}`
+      : "/mentor/materi");
   const materiStatus = savedMateri?.status ?? "draft";
   const isArchived = materiStatus === "archived";
-  const readiness = Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
-    ? "ready"
-    : "incomplete";
+  const readiness =
+    Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
+      ? "ready"
+      : "incomplete";
   const selectedDocumentName = builderState.documentName.trim();
 
-  useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
+  useMateriNavigationGuards({
+    hasUnsavedChanges,
+    pendingRouteReplacement,
+    router,
+  });
 
   function markChanged(nextErrors?: MateriBuilderErrors) {
     updateEditor({
@@ -485,10 +839,12 @@ function KaptenMateriBuilderPageModule({
 
   function selectManagedDocument(asset: MediaAssetDto) {
     if (asset.mimeType.trim().toLowerCase() !== MATERI_DOCUMENT_MIME_TYPE) {
-      updateEditor({ errors: {
-        ...errors,
-        documentMimeType: "Dokumen Materi harus berformat PDF.",
-      } });
+      updateEditor({
+        errors: {
+          ...errors,
+          documentMimeType: "Dokumen Materi harus berformat PDF.",
+        },
+      });
       return;
     }
 
@@ -515,13 +871,20 @@ function KaptenMateriBuilderPageModule({
 
   async function saveLesson() {
     if (isArchived) {
-      updateEditor({ saveError: "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit." });
+      updateEditor({
+        saveError:
+          "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit.",
+      });
       return;
     }
 
     const nextErrors = validateMateriBuilderState(builderState, subjects);
     if (Object.keys(nextErrors).length) {
-      updateEditor({ errors: nextErrors, hasUnsavedChanges: true, saveError: "Lengkapi field yang ditandai sebelum menyimpan materi." });
+      updateEditor({
+        errors: nextErrors,
+        hasUnsavedChanges: true,
+        saveError: "Lengkapi field yang ditandai sebelum menyimpan materi.",
+      });
       return;
     }
 
@@ -537,7 +900,10 @@ function KaptenMateriBuilderPageModule({
       });
       if (!result.ok) {
         updateEditor({
-          errors: mapActionErrors(result.fieldErrors, builderState.documentSource),
+          errors: mapActionErrors(
+            result.fieldErrors,
+            builderState.documentSource,
+          ),
           hasUnsavedChanges: true,
           saveError: result.message,
         });
@@ -552,13 +918,21 @@ function KaptenMateriBuilderPageModule({
       });
       toast.success(result.message);
       if (!materiId && !initialMateri) {
-        updateEditor({ pendingRouteReplacement: returnTo
-          ? `${result.lesson.href}?${new URLSearchParams({ returnTo })}`
-          : result.lesson.href });
+        updateEditor({
+          pendingRouteReplacement: returnTo
+            ? `${result.lesson.href}?${new URLSearchParams({ returnTo })}`
+            : result.lesson.href,
+        });
       }
       router.refresh();
     } catch (error) {
-      updateEditor({ hasUnsavedChanges: true, saveError: error instanceof Error ? error.message : "Materi tidak dapat disimpan. Coba lagi." });
+      updateEditor({
+        hasUnsavedChanges: true,
+        saveError:
+          error instanceof Error
+            ? error.message
+            : "Materi tidak dapat disimpan. Coba lagi.",
+      });
     } finally {
       updateEditor({ isSaving: false });
     }
@@ -588,7 +962,11 @@ function KaptenMateriBuilderPageModule({
         />
 
         {!isPreviewOpen && saveError ? (
-          <ReferenceSurface className="flex items-start gap-2 px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert" variant="inset">
+          <ReferenceSurface
+            className="flex items-start gap-2 px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
+            role="alert"
+            variant="inset"
+          >
             <AlertCircle className="mt-1 size-4 shrink-0" />
             {saveError}
           </ReferenceSurface>
@@ -627,7 +1005,6 @@ function KaptenMateriBuilderPageModule({
           onSave={() => void saveLesson()}
         />
       ) : null}
-
     </MentorWorkspaceShell>
   );
 }

@@ -15,6 +15,7 @@ type KuisVersionedDefinitionInput = Pick<
   | "attemptsAllowed"
   | "correctAnswerVisibility"
   | "description"
+  | "durationSeconds"
   | "formBehavior"
   | "questions"
   | "retryDelaySeconds"
@@ -41,6 +42,7 @@ function versionedDefinitionInput(input: {
   attemptsAllowed?: number | null;
   correctAnswerVisibility?: KuisVersionedDefinitionInput["correctAnswerVisibility"];
   description: string;
+  durationSeconds?: number | null;
   formBehavior?: KuisVersionedDefinitionInput["formBehavior"];
   questions: readonly QuizQuestionSnapshot[];
   retryDelaySeconds?: number | null;
@@ -57,6 +59,7 @@ function versionedDefinitionInput(input: {
     attemptsAllowed: input.attemptsAllowed,
     correctAnswerVisibility: input.correctAnswerVisibility,
     description: input.description,
+    durationSeconds: input.durationSeconds,
     formBehavior: input.formBehavior,
     questions: input.questions.map((question) => ({
       choices: question.choices,

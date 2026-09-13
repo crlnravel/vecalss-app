@@ -51,7 +51,7 @@ import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar-utils";
 
 type StudentAccountMenuItem = "notifications";
-type AccountMenuAudience = "admin" | "student" | "tutor";
+type AccountMenuAudience = "admin" | "student" | "tutor" | "affiliator";
 type DebugAccount = {
   email: string;
   fullName: string;
@@ -72,6 +72,7 @@ type DebugSwitchAccountResponse = {
 };
 
 const debugRoleLabels: Record<string, string> = {
+  affiliator: "Affiliator",
   admin: "Admin",
   student: "Siswa",
   tutor: "Kapten",
@@ -165,11 +166,13 @@ function DebugAccountSwitcherDialog({
 function AccountLogoutDialog({
   audience,
   isAdmin,
+  isAffiliator,
   isLogoutDialogOpen,
   isTutor,
   setIsLogoutDialogOpen,
 }: {
   audience: AccountMenuAudience;
+  isAffiliator: boolean;
   isAdmin: boolean;
   isLogoutDialogOpen: boolean;
   isTutor: boolean;
@@ -182,7 +185,7 @@ function AccountLogoutDialog({
           <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
           <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
           <AlertDialogDescription>
-            Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
+            Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : isAffiliator ? "melihat konversi" : "belajar"} di dashboard.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={logoutAction}>
@@ -217,6 +220,7 @@ function StudentAccountMenu({
   const [switchingAccountId, setSwitchingAccountId] = useState<string | null>(null);
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
+  const isAffiliator = audience === "affiliator";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
   const settingsHref = "/mentor/settings";
   const selectedAccount = debugAccounts?.find((account) => account.id === selectedAccountId) ?? null;
@@ -332,7 +336,16 @@ function StudentAccountMenu({
                 Dashboard
               </DropdownMenuItem>
             ) : null}
-            {!isAdmin && !isTutor ? (
+            {isAffiliator ? (
+              <DropdownMenuItem
+                className={studentAccountMenuItemClassName}
+                render={<Link href="/affiliator/dashboard" />}
+              >
+                <LayoutDashboard />
+                Dashboard
+              </DropdownMenuItem>
+            ) : null}
+            {!isAdmin && !isTutor && !isAffiliator ? (
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}
                 render={<Link href={profileHref} />}
@@ -399,6 +412,7 @@ function StudentAccountMenu({
 
       <AccountLogoutDialog
         audience={audience}
+        isAffiliator={isAffiliator}
         isAdmin={isAdmin}
         isLogoutDialogOpen={isLogoutDialogOpen}
         isTutor={isTutor}

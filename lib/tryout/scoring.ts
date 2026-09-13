@@ -10,7 +10,6 @@ import { decodeLegacyAnswerSelection, evaluateExactAnswer, type QuestionAnswerMo
 
 export const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
 export const TRYOUT_CBT_SCORING_VERSION = "cbt-frozen-item-points-v1";
-export const TRYOUT_CAT_SCORING_VERSION = "2pl-map-v1";
 export const TRYOUT_TEST_COUNT = 7;
 export const TRYOUT_SCORE_MIN = 0;
 export const TRYOUT_SCORE_MAX = 100;
@@ -61,37 +60,14 @@ function normalizeCbtScore(score: number, maxScore: number) {
 }
 
 /**
- * Map a 2PL ability estimate (theta) to a bounded internal index.
- *
- * The logistic curve is centered at theta=0 (50), remains monotonic, and is
- * intentionally described as an internal index rather than an SNBT scale.
- */
-function normalizeCatAbility(ability: number) {
-  if (!Number.isFinite(ability)) throw new Error("CAT ability requires a finite estimate.");
-  const probability = ability >= 0
-    ? 1 / (1 + Math.exp(-ability))
-    : Math.exp(ability) / (1 + Math.exp(ability));
-  return roundScore(probability * TRYOUT_SCORE_MAX);
-}
-
-/**
  * Read a sealed run's normalized score, with a safe fallback for runs sealed
  * before normalized-test-mean-v1 started recording normalizedScore.
  */
-function normalizeRunScore(result: unknown, testType: string, catSnapshot?: unknown) {
+function normalizeRunScore(result: unknown) {
   const value = asRecord(result);
   if (!value) return null;
   const stored = asFiniteNumber(value.normalizedScore);
   if (stored !== null) return roundScore(stored);
-
-  if (testType === "cat") {
-    const snapshot = asRecord(catSnapshot);
-    const ability = asFiniteNumber(value.ability)
-      ?? asFiniteNumber(value.currentAbility)
-      ?? asFiniteNumber(snapshot?.currentAbility)
-      ?? asFiniteNumber(value.score);
-    return ability === null ? null : normalizeCatAbility(ability);
-  }
 
   const score = asFiniteNumber(value.score);
   const maxScore = asFiniteNumber(value.maxScore);
@@ -124,10 +100,9 @@ function aggregateTryoutScores(scores: readonly number[]) {
 function materializeFrozenAnswers(
   items: readonly FrozenScoreItem[],
   answers: readonly FrozenSelectedAnswer[],
-  selectedItemIds: readonly string[] | null = null,
+  _selectedItemIds?: readonly string[] | null,
 ) {
-  const selected = selectedItemIds ? new Set(selectedItemIds) : null;
-  const deliveredItems = items.filter((item) => !selected || selected.has(item.id));
+  const deliveredItems = items;
   const itemById = new Map(deliveredItems.map((item) => [item.id, item]));
   const answerByItem = new Map<string, FrozenSelectedAnswer>();
   let invalid = false;
@@ -196,5 +171,5 @@ function materializeFrozenAnswers(
   };
 }
 
-export { aggregateTryoutScores, materializeFrozenAnswers, normalizeCatAbility, normalizeCbtScore, normalizeRunScore };
+export { aggregateTryoutScores, materializeFrozenAnswers, normalizeCbtScore, normalizeRunScore };
 export type { FrozenScoreItem, FrozenSelectedAnswer, MaterializedFrozenAnswer };

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calculator, ChevronLeft, RotateCcw, ShieldAlert } from "@/lib/icons";
+import { Calculator, ChevronLeft, ShieldAlert } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -11,16 +11,6 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,13 +29,7 @@ import {
   AssessmentReleaseNotice,
   OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
-import {
-  calculateTryoutAttemptAction,
-  reconcileTryoutDisconnectAction,
-  retryCatTestRunAction,
-  startTryoutDisconnectAction,
-  voidCatTestRunAction,
-} from "@/modules/mentor/tryout-actions";
+import { calculateTryoutAttemptAction, reconcileTryoutDisconnectAction, startTryoutDisconnectAction } from "@/modules/mentor/tryout-actions";
 
 const timestampFormatter = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "medium",
@@ -61,21 +45,19 @@ function formatTimestamp(value: string | null) {
 type AttemptRecord = TryoutOperationsView["sessions"][number]["attempts"][number];
 type AttemptRun = AttemptRecord["runs"][number];
 
-function AttemptRunCard({ auditReason, busy, onRetry, onVoid, run }: { auditReason: string; busy: string | null; onRetry: (runId: string) => void; onVoid: (runId: string) => void; run: AttemptRun }) {
-  const canAct = run.catState !== "not_applicable" && run.catState !== "voided";
+function AttemptRunCard({ run }: { run: AttemptRun }) {
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")} size="sm">
-      <CardHeader><CardTitle className="font-semibold">Test {run.sequenceNo}</CardTitle><CardDescription>CAT {run.catState} · {run.integrityEvents} sinyal integritas</CardDescription><CardAction><StatusBadge status={run.status} /></CardAction></CardHeader>
-      {canAct ? <CardContent className="flex flex-wrap gap-2"><>{run.catState === "failed" ? <Button disabled={!auditReason.trim() || Boolean(busy)} onClick={() => onRetry(run.id)} size="sm" variant="brandOutline"><RotateCcw data-icon="inline-start" />{busy === `retry-${run.id}` ? "Memproses…" : "Coba lagi CAT"}</Button> : null}<Button disabled={!auditReason.trim() || Boolean(busy)} onClick={() => onVoid(run.id)} size="sm" variant="destructive"><ShieldAlert data-icon="inline-start" />Void CAT</Button></></CardContent> : null}
+      <CardHeader><CardTitle className="font-semibold">Test {run.sequenceNo}</CardTitle><CardDescription>CBT · {run.integrityEvents} sinyal integritas</CardDescription><CardAction><StatusBadge status={run.status} /></CardAction></CardHeader>
     </Card>
   );
 }
 
-function AttemptRunsSection({ attempt, auditReason, busy, onRetry, onVoid }: { attempt: AttemptRecord; auditReason: string; busy: string | null; onRetry: (runId: string) => void; onVoid: (runId: string) => void }) {
+function AttemptRunsSection({ attempt }: { attempt: AttemptRecord }) {
   return (
     <section aria-labelledby="attempt-runs-title" className="grid content-start gap-3">
       <div className="flex items-center justify-between gap-3"><h2 id="attempt-runs-title" className="text-xl font-semibold">Tujuh Test</h2><span className="text-sm font-medium text-secondary-700">Indeks internal 0–100 {attempt.score !== null ? Number(attempt.score).toFixed(2) : "belum dihitung"}</span></div>
-      {attempt.runs.map((run) => <AttemptRunCard auditReason={auditReason} busy={busy} key={run.id} onRetry={onRetry} onVoid={onVoid} run={run} />)}
+      {attempt.runs.map((run) => <AttemptRunCard key={run.id} run={run} />)}
     </section>
   );
 }
@@ -96,19 +78,15 @@ function AttemptActionPanel({ activeRun, attempt, auditReason, busy, onAuditReas
   );
 }
 
-function AttemptVoidDialog({ busy, onConfirm, onOpenChange, open }: { busy: string | null; onConfirm: () => void; onOpenChange: (open: boolean) => void; open: boolean }) {
-  return (
-    <AlertDialog onOpenChange={onOpenChange} open={open}><AlertDialogContent variant="danger"><AlertDialogHeader><AlertDialogTitle>Void run CAT?</AlertDialogTitle><AlertDialogDescription>Run dikeluarkan dari perhitungan dan dapat memblokir rilis hasil.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={Boolean(busy)}>Batal</AlertDialogCancel><AlertDialogAction disabled={Boolean(busy)} onClick={(event) => { event.preventDefault(); onConfirm(); }} variant="destructive">{busy ? "Memproses…" : "Void CAT"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  );
-}
-
 function KaptenTryoutAttemptDetailPageModule({
   backHref,
   attemptId,
+  embedded = false,
   initial,
 }: {
   attemptId: string;
   backHref?: string;
+  embedded?: boolean;
   initial: TryoutOperationsView;
 }) {
   const router = useRouter();
@@ -118,7 +96,6 @@ function KaptenTryoutAttemptDetailPageModule({
   const attempt = delivery.attempts.find((item) => item.id === attemptId)!;
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const [auditReason, setAuditReason] = useState("");
-  const [voidRunId, setVoidRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -142,23 +119,6 @@ function KaptenTryoutAttemptDetailPageModule({
     );
   };
 
-  const handleRetry = async (runId: string) => {
-    if (!auditReason.trim()) return;
-    setBusy(`retry-${runId}`);
-    report(
-      "Run CAT berhasil disiapkan ulang.",
-      await retryCatTestRunAction(runId, auditReason),
-    );
-  };
-
-  const handleVoid = async () => {
-    if (!voidRunId || !auditReason.trim()) return;
-    setBusy(`void-${voidRunId}`);
-    const result = await voidCatTestRunAction(voidRunId, auditReason);
-    setVoidRunId(null);
-    report("Run CAT berhasil di-void.", result);
-  };
-
   const handleDisconnectStart = async () => {
     if (!activeRun || !auditReason.trim()) return;
     setBusy("disconnect-start");
@@ -178,15 +138,14 @@ function KaptenTryoutAttemptDetailPageModule({
   };
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "schedule" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" description={delivery.name} title={attempt.student} /></div>
+    <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
+      {embedded ? null : <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "schedule" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" description={delivery.name} title={attempt.student} /></div>}
       <OperationNotice message={notice} />
       <AssessmentReleaseNotice label="Konten attempt" release={attempt.assessmentRelease} />
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
-        <AttemptRunsSection attempt={attempt} auditReason={auditReason} busy={busy} onRetry={(runId) => void handleRetry(runId)} onVoid={setVoidRunId} />
+        <AttemptRunsSection attempt={attempt} />
         <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onCalculate={() => void handleCalculate()} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />
       </div>
-      <AttemptVoidDialog busy={busy} onConfirm={() => void handleVoid()} onOpenChange={(open) => { if (!open && !busy) setVoidRunId(null); }} open={Boolean(voidRunId)} />
     </div>
   );
 }

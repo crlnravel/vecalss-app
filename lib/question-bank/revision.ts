@@ -14,6 +14,7 @@ type QuestionRevisionDigestInput = {
   difficulty: string;
   explanation?: string | null;
   explanationAssetId?: string | null;
+  materi?: string | null;
   options: readonly QuestionRevisionDigestOption[];
   prompt: string;
   promptAssetId?: string | null;
@@ -26,8 +27,9 @@ function digestPart(value: string) {
 
 function questionRevisionContentDigest(input: QuestionRevisionDigestInput) {
   const parts = [
-    "question-revision-digest-v1",
+    "question-revision-digest-v2",
     input.difficulty,
+    input.materi ?? "",
     input.explanation ?? "",
     input.explanationAssetId ?? "",
     ...[...input.options]

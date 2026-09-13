@@ -41,7 +41,7 @@ function withFieldError(
 
 function readAudience(formData: FormData): LoginAudience {
   const value = formData.get("audience");
-  if (value === "admin" || value === "tutor") {
+  if (value === "admin" || value === "tutor" || value === "affiliator") {
     return value;
   }
 

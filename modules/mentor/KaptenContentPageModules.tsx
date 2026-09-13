@@ -98,7 +98,7 @@ function KaptenQuestionBankPageModule({
   const [displayBanks, setDisplayBanks] = useState(() =>
     questionBanks.map((bank) => ({
       ...bank,
-      href: `/mentor/quiz/question-bank/${bank.id}`,
+      href: `/mentor/quiz/question-bank/${bank.id}?purpose=quiz`,
     })),
   );
 
@@ -107,7 +107,7 @@ function KaptenQuestionBankPageModule({
       setDisplayBanks(
         getQuestionBankCatalog().map(({ bank }) => ({
           ...bank,
-          href: `/mentor/quiz/question-bank/${bank.id}`,
+          href: `/mentor/quiz/question-bank/${bank.id}?purpose=quiz`,
         })),
       );
     };
@@ -123,19 +123,19 @@ function KaptenQuestionBankPageModule({
 
   return (
     <MentorWorkspaceShell
-      activeLabel="Bank Soal"
-      breadcrumbLabel="Bank Soal"
+      activeLabel="Bank Soal Kuis"
+      breadcrumbLabel="Bank Soal Kuis"
       searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..."
       session={session}
     >
       <PageIntro
         action={
           <CreateButton
-            href="/mentor/quiz/question-bank/create"
+            href="/mentor/quiz/question-bank/create?purpose=quiz"
             label="Buat Bank Soal"
           />
         }
-        title="Bank Soal"
+        title="Bank Soal Kuis"
       />
 
       <section className="space-y-4">

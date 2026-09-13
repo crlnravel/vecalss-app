@@ -42,14 +42,19 @@ const kaptenMainNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/materi", icon: BookOpenText, label: "Materi" },
   { href: "/mentor/quiz", icon: ListChecks, label: "Kuis" },
   {
-    href: "/mentor/quiz/question-bank",
+    href: "/mentor/quiz/question-bank?purpose=quiz",
     icon: LibraryBig,
-    label: "Bank Soal",
+    label: "Bank Soal Kuis",
   },
 ];
 
 const kaptenTryoutNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/tryout", icon: Gauge, label: "Tryout" },
+  {
+    href: "/mentor/quiz/question-bank?purpose=tryout",
+    icon: LibraryBig,
+    label: "Bank Soal Tryout",
+  },
 ];
 
 const kaptenUtilityNavigation: KaptenNavigationItem[] = [
@@ -63,7 +68,7 @@ function NavigationGroup({
   items,
   label,
 }: {
-  activeLabel: string;
+  activeLabel?: string;
   appearance: MentorSidebarAppearance;
   items: KaptenNavigationItem[];
   label: string;
@@ -147,7 +152,7 @@ function MentorSidebar({
   activeLabel,
   appearance = "default",
 }: {
-  activeLabel: string;
+  activeLabel?: string;
   appearance?: MentorSidebarAppearance;
 }) {
   const { isMobile, state } = useSidebar();

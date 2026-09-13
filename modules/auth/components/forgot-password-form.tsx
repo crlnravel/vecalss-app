@@ -51,6 +51,8 @@ function ForgotPasswordForm({
               ? "admin@vecalss.id"
               : audience === "tutor"
                 ? "kapten@vecalss.id"
+                : audience === "affiliator"
+                  ? "affiliator@vecalss.id"
                 : "student@vecalss.id"
           }
           required

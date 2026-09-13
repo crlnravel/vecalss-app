@@ -7,6 +7,7 @@ import {
   acceptStandaloneQuizQuestionUpdate,
   bulkPublishStandaloneQuizzes,
   bulkUnpublishStandaloneQuizzes,
+  getMentorStandaloneQuiz,
   importStandaloneQuizBankQuestions,
   QuizValidationError,
   saveStandaloneQuiz,
@@ -29,9 +30,16 @@ async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {
   const session = await requireTutorSession();
   try {
     const quiz = await saveStandaloneQuiz(input, session.user.id);
+    const refreshed = await getMentorStandaloneQuiz(quiz.id, session.user.id);
+    if (!refreshed)
+      throw new Error("Saved quiz could not be loaded.");
     revalidateQuizPaths();
     revalidatePath(`/mentor/quiz/${quiz.id}`);
-    return { ok: true as const, quiz };
+    return {
+      ok: true as const,
+      quiz: refreshed.quiz,
+      questions: refreshed.questions,
+    };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
     console.error("Standalone quiz mutation failed", error);

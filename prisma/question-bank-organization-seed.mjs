@@ -4,6 +4,8 @@ const DEFAULT_FOLDERS = [
   { key: "umum", name: "Bank Umum" },
 ];
 
+const QUESTION_BANK_PURPOSES = ["quiz", "tryout"];
+
 const DEFAULT_CATEGORIES = [
   { name: "UTBK", keywords: ["utbk", "snbt", "tka"] },
   { name: "Evaluasi", keywords: ["evaluasi", "ujian", "simulasi"] },
@@ -37,23 +39,24 @@ function categoryNamesForQuestionBank(bank) {
   return matched.length ? matched : ["Campuran"];
 }
 
-async function ensureFolder(client, { name, parentId = null, tutorId }) {
+async function ensureFolder(client, { name, parentId = null, purpose, tutorId }) {
   const existing = await client.query(
     `SELECT id
        FROM question_bank_folders
       WHERE LOWER(BTRIM(name)) = LOWER(BTRIM($1))
         AND parent_id IS NOT DISTINCT FROM $2::uuid
+        AND purpose = $3::question_bank_purpose
       ORDER BY created_at ASC, id ASC
       LIMIT 1`,
-    [name, parentId],
+    [name, parentId, purpose],
   );
   if (existing.rowCount) return { created: false, id: existing.rows[0].id };
 
   const inserted = await client.query(
-    `INSERT INTO question_bank_folders (name, parent_id, created_by_user_id, updated_by_user_id)
-     VALUES ($1, $2, $3, $3)
+    `INSERT INTO question_bank_folders (name, parent_id, purpose, created_by_user_id, updated_by_user_id)
+     VALUES ($1, $2, $3::question_bank_purpose, $4, $4)
      RETURNING id`,
-    [name, parentId, tutorId],
+    [name, parentId, purpose, tutorId],
   );
   return { created: true, id: inserted.rows[0].id };
 }
@@ -82,10 +85,12 @@ async function seedQuestionBankOrganization(client, { tutorId }) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended('vecalss.question-bank-organization-seed-v1', 0))");
   const folders = new Map();
   let foldersCreated = 0;
-  for (const folder of DEFAULT_FOLDERS) {
-    const result = await ensureFolder(client, { ...folder, tutorId });
-    folders.set(folder.key, result.id);
-    if (result.created) foldersCreated += 1;
+  for (const purpose of QUESTION_BANK_PURPOSES) {
+    for (const folder of DEFAULT_FOLDERS) {
+      const result = await ensureFolder(client, { ...folder, purpose, tutorId });
+      folders.set(`${purpose}:${folder.key}`, result.id);
+      if (result.created) foldersCreated += 1;
+    }
   }
 
   const categories = new Map();
@@ -97,7 +102,7 @@ async function seedQuestionBankOrganization(client, { tutorId }) {
   }
 
   const unfiled = await client.query(
-    `SELECT id, code, name, description
+    `SELECT id, code, name, description, purpose
        FROM question_banks
       WHERE folder_id IS NULL
       ORDER BY created_at ASC, id ASC
@@ -112,7 +117,7 @@ async function seedQuestionBankOrganization(client, { tutorId }) {
               updated_at = NOW()
         WHERE id = $1
           AND folder_id IS NULL`,
-      [bank.id, folders.get(folderKeyForQuestionBank(bank)), tutorId],
+      [bank.id, folders.get(`${bank.purpose}:${folderKeyForQuestionBank(bank)}`), tutorId],
     );
     banksMoved += 1;
   }
@@ -142,6 +147,7 @@ async function seedQuestionBankOrganization(client, { tutorId }) {
 export {
   DEFAULT_CATEGORIES,
   DEFAULT_FOLDERS,
+  QUESTION_BANK_PURPOSES,
   categoryNamesForQuestionBank,
   classificationText,
   folderKeyForQuestionBank,

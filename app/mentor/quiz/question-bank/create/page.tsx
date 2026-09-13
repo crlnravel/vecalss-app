@@ -9,7 +9,7 @@ import {
   type NavigationQueryValue,
   type QuestionBankPurpose,
 } from "@/lib/navigation/canonical-context";
-import { listQuestionBankCategories } from "@/lib/question-bank/repository";
+import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
@@ -37,8 +37,9 @@ export default async function CreateMentorQuestionBankPage({ searchParams }: { s
     issues.push({ code: "unsupported", field: "folder", message: "Folder Bank Soal tidak tersedia.", value: requestedFolder });
   }
   if (issues.length) {
+    const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
     return (
-      <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Buat Bank Soal" searchPlaceholder="Cari bank soal..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={`Buat ${navigationLabel}`} searchPlaceholder="Cari bank soal..." session={session} showSearch={false} sidebarAppearance="reference">
         <section aria-labelledby="question-bank-create-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="question-bank-create-context-unavailable">Konteks pembuatan Bank Soal tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
@@ -48,8 +49,7 @@ export default async function CreateMentorQuestionBankPage({ searchParams }: { s
     );
   }
   const purpose = (requestedPurpose as QuestionBankPurpose | undefined) ?? "quiz";
-  const initialCategories = await listQuestionBankCategories(purpose);
   const initialFolderId = requestedFolder && requestedFolder !== "root" && requestedFolder !== "unfiled" ? requestedFolder : null;
 
-  return <KaptenQuestionBankBuilderPageModule initialCategories={initialCategories} initialFolderId={initialFolderId} mode="create" purpose={purpose} session={session} />;
+  return <KaptenQuestionBankBuilderPageModule initialFolderId={initialFolderId} mode="create" purpose={purpose} session={session} />;
 }

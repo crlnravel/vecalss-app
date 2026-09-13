@@ -39,18 +39,26 @@ function getFirstName(fullName: string) {
 
 function formatDashboardTimestamp(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : dashboardTimestampFormatter.format(date);
+  return Number.isNaN(date.getTime())
+    ? value
+    : dashboardTimestampFormatter.format(date);
 }
 
 function getResourceSummary(resource: DashboardResource) {
   const typeLabel = contentTypeMeta[resource.resourceType].label;
-  const context = resource.subjectName ? `${resource.subjectName} · ${typeLabel}` : typeLabel;
+  const context = resource.subjectName
+    ? `${resource.subjectName} · ${typeLabel}`
+    : typeLabel;
   const description = resource.description.trim();
 
-  return description ? `${context} · ${description}` : `${context} · ${resource.primaryMetric}`;
+  return description
+    ? `${context} · ${description}`
+    : `${context} · ${resource.primaryMetric}`;
 }
 
-function toDashboardActivities(resources: readonly DashboardResource[]): ReferenceActivity[] {
+function toDashboardActivities(
+  resources: readonly DashboardResource[],
+): ReferenceActivity[] {
   return resources.slice(0, 6).map((resource) => ({
     icon: contentTypeMeta[resource.resourceType].icon,
     id: `${resource.kind}:${resource.id}`,
@@ -116,11 +124,17 @@ function MentorDashboardPageModule({
     [serverProjection, storedDrafts],
   );
   const recentResources = useMemo(
-    () => [...dashboard.recentMateri, ...dashboard.recentKuis].sort(compareDashboardResourcesByUpdatedAt),
+    () =>
+      [...dashboard.recentMateri, ...dashboard.recentKuis].sort(
+        compareDashboardResourcesByUpdatedAt,
+      ),
     [dashboard.recentKuis, dashboard.recentMateri],
   );
   const scheduledResources = useMemo(
-    () => [...dashboard.scheduledKuis, ...dashboard.scheduledTryout].sort(compareDashboardResourcesBySchedule),
+    () =>
+      [...dashboard.scheduledKuis, ...dashboard.scheduledTryout].sort(
+        compareDashboardResourcesBySchedule,
+      ),
     [dashboard.scheduledKuis, dashboard.scheduledTryout],
   );
   const recentActivities = useMemo(
@@ -140,8 +154,7 @@ function MentorDashboardPageModule({
     >
       <ReferencePageHeader
         actions={<QuickCreateMenu label="Buat konten" />}
-        description="Lanjutkan pekerjaan yang terakhir dibuka, atau siapkan rilis berikutnya."
-        title={`Selamat bekerja, ${firstName}.`}
+        title={`Selamat datang, ${firstName}!`}
       />
 
       <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
@@ -169,7 +182,10 @@ function MentorDashboardPageModule({
           {scheduledResources.length > 0 ? (
             <div className="space-y-3">
               {scheduledResources.slice(0, 4).map((resource) => (
-                <DashboardResourceTask key={`${resource.kind}:${resource.id}`} resource={resource} />
+                <DashboardResourceTask
+                  key={`${resource.kind}:${resource.id}`}
+                  resource={resource}
+                />
               ))}
             </div>
           ) : (

@@ -78,6 +78,11 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Never bypass `_harness/resource-guard.sh` for process-heavy or Node-starting commands when using RTK.
 - Use `rtk proxy <command>` only when raw unfiltered output is strictly necessary for debugging.
 
+### Database migration and legacy systems policy (Pre-release phase)
+
+- **Active pre-release phase:** The project is in active pre-release development. Local and development database data is ephemeral and disposable.
+- **Database migration is encouraged:** Agents are fully permitted to evolve the schema and apply database migrations (`prisma migrate dev`, `pnpm db:generate`, `pnpm db:reset`, `pnpm db:seed`) as needed to support feature development.
+- **No legacy preservation or backup requirement:** Creating pre-migration database dumps/backups or preserving legacy tables, obsolete schemas, and backward-compatibility bridges is **not important or required** at this stage. Prioritize clean, modern schemas and moving forward over legacy compatibility.
 
 ### Design and UI policy
 

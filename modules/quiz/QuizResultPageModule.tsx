@@ -23,11 +23,10 @@ import {
 } from "@/modules/assessment/AssessmentWorkspace";
 import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentReviewAnswerOption";
 import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
+import { compareSelectedOptionSets } from "@/lib/question-bank/answer-contract";
 import { cn } from "@/lib/utils";
 
 import { startQuizAction } from "./actions";
-
-const REPORT_DISCLOSURE = "Tanda ini hanya tersimpan sementara di halaman ini, tidak dikirim ke staf, dan terhapus saat halaman ditutup atau dimuat ulang.";
 
 type QuizResult = {
   aggregateScore: number | null;
@@ -42,6 +41,8 @@ type QuizResult = {
     options: Array<{ correct: boolean; id: string; key: string; text: string }>;
     prompt: string;
     selectedOptionId: string | null;
+    selectedOptionIds?: string[];
+    questionType?: "single_choice" | "multiple_choice";
   }>;
   policy: {
     attemptsAllowed: number | null;
@@ -60,37 +61,317 @@ type QuizResult = {
 
 type QuizResultQuestion = QuizResult["questions"][number];
 
+function selectedOptionIdsForQuestion(question: QuizResultQuestion) {
+  return question.selectedOptionIds?.length
+    ? question.selectedOptionIds
+    : question.selectedOptionId
+      ? [question.selectedOptionId]
+      : [];
+}
+
+function isQuestionCorrect(question: QuizResultQuestion) {
+  const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const correctOptionIds = question.options
+    .filter((option) => option.correct)
+    .map((option) => option.id);
+  return (
+    selectedOptionIds.length > 0 &&
+    compareSelectedOptionSets(selectedOptionIds, correctOptionIds).ok &&
+    compareSelectedOptionSets(selectedOptionIds, correctOptionIds).equal
+  );
+}
+
+function optionSummary(options: QuizResultQuestion["options"]) {
+  return options.length
+    ? options.map((option) => `${option.key}. ${option.text}`).join(", ")
+    : "Tidak dijawab";
+}
+
 function buildQuizResultMarkers(result: QuizResult, currentQuestion: number) {
   return result.questions.map((reviewQuestion, index) => {
-    const answer = reviewQuestion.options.find((option) => option.id === reviewQuestion.selectedOptionId);
-    const outcome = !answer ? "unanswered" : !result.correctnessAvailable ? undefined : answer.correct ? "correct" : "incorrect";
-    const state = index + 1 === currentQuestion ? "current" : !answer ? "unanswered" : !result.correctnessAvailable ? "neutral" : answer.correct ? "correct" : "incorrect";
-    return { id: reviewQuestion.id, number: index + 1, outcome, state } as const;
+    const selectedOptionIds = selectedOptionIdsForQuestion(reviewQuestion);
+    const hasAnswer = selectedOptionIds.length > 0;
+    const correct =
+      result.correctnessAvailable && isQuestionCorrect(reviewQuestion);
+    const outcome = !hasAnswer
+      ? "unanswered"
+      : !result.correctnessAvailable
+        ? undefined
+        : correct
+          ? "correct"
+          : "incorrect";
+    const state =
+      index + 1 === currentQuestion
+        ? "current"
+        : !hasAnswer
+          ? "unanswered"
+          : !result.correctnessAvailable
+            ? "neutral"
+            : correct
+              ? "correct"
+              : "incorrect";
+    return {
+      id: reviewQuestion.id,
+      number: index + 1,
+      outcome,
+      state,
+    } as const;
   });
 }
 
 function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
-  return <main className="mx-auto max-w-3xl px-5 py-14"><h1 className="text-3xl font-semibold text-secondary-900">Kuis belum dikirim</h1><p className="mt-3 text-secondary-600">Kembali ke kuis untuk menyelesaikan dan mengirim jawabanmu.</p><BackButton className="mt-6" href={`/quiz/${subjectSlug}`} label="Kembali ke daftar kuis" variant="brand"><ArrowLeft /></BackButton></main>;
+  return (
+    <main className="mx-auto max-w-3xl px-5 py-14">
+      <h1 className="text-3xl font-semibold text-secondary-900">
+        Kuis belum dikirim
+      </h1>
+      <p className="mt-3 text-secondary-600">
+        Kembali ke kuis untuk menyelesaikan dan mengirim jawabanmu.
+      </p>
+      <BackButton
+        className="mt-6"
+        href={`/quiz/${subjectSlug}`}
+        label="Kembali ke daftar kuis"
+        variant="brand"
+      >
+        <ArrowLeft />
+      </BackButton>
+    </main>
+  );
 }
 
-function QuizResultHeaderActions({ canRestart, isAttemptLimitReached, isRestarting, onRestart }: { canRestart: boolean; isAttemptLimitReached: boolean; isRestarting: boolean; onRestart: () => void }) {
-  return <><>{canRestart && !isAttemptLimitReached ? <Button aria-label="Ulangi kuis" aria-busy={isRestarting} className="inline-flex" disabled={isRestarting} onClick={onRestart} variant="brandOutline"><RefreshCw /><span className="hidden sm:inline">{isRestarting ? "Memulai…" : "Ulangi"}</span></Button> : null}</><Button aria-label="Kembali ke menu kuis" className="hidden sm:inline-flex" nativeButton={false} render={<Link href="/quiz" />} title="Kembali ke menu kuis" variant="brand"><House />Menu</Button></>;
+function QuizResultHeaderActions({
+  canRestart,
+  isAttemptLimitReached,
+  isRestarting,
+  onRestart,
+}: {
+  canRestart: boolean;
+  isAttemptLimitReached: boolean;
+  isRestarting: boolean;
+  onRestart: () => void;
+}) {
+  return (
+    <>
+      <>
+        {canRestart && !isAttemptLimitReached ? (
+          <Button
+            aria-label="Ulangi kuis"
+            aria-busy={isRestarting}
+            className="inline-flex"
+            disabled={isRestarting}
+            onClick={onRestart}
+            variant="brandOutline"
+          >
+            <RefreshCw />
+            <span className="hidden sm:inline">
+              {isRestarting ? "Memulai…" : "Ulangi"}
+            </span>
+          </Button>
+        ) : null}
+      </>
+      <Button
+        aria-label="Kembali ke menu kuis"
+        className="hidden sm:inline-flex"
+        nativeButton={false}
+        render={<Link href="/quiz" />}
+        title="Kembali ke menu kuis"
+        variant="brand"
+      >
+        <House />
+        Menu
+      </Button>
+    </>
+  );
 }
 
-function QuizResultSummary({ result, labelClassName }: { result: QuizResult; labelClassName: string }) {
-  return <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1"><AssessmentResultStat label="Benar" labelClassName={labelClassName} value={`${result.correctCount ?? 0}`} /><AssessmentResultStat label="Dijawab" labelClassName={labelClassName} value={<>{result.answeredCount}<span className="text-xs font-semibold text-secondary-500">/{result.totalQuestions}</span></>} /></div>;
+function QuizResultSummary({
+  result,
+  labelClassName,
+}: {
+  result: QuizResult;
+  labelClassName: string;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
+      <AssessmentResultStat
+        label="Benar"
+        labelClassName={labelClassName}
+        value={`${result.correctCount ?? 0}`}
+      />
+      <AssessmentResultStat
+        label="Dijawab"
+        labelClassName={labelClassName}
+        value={
+          <>
+            {result.answeredCount}
+            <span className="text-xs font-semibold text-secondary-500">
+              /{result.totalQuestions}
+            </span>
+          </>
+        }
+      />
+    </div>
+  );
 }
 
-function QuizResultExplanation({ correctOption, question, result, selectedOption, explanationTextClass }: { correctOption?: QuizResultQuestion["options"][number]; explanationTextClass: string; question: QuizResultQuestion; result: QuizResult; selectedOption?: QuizResultQuestion["options"][number] }) {
-  return <section aria-label="Pembahasan" className="mt-7 rounded-3xl border border-student-status-success-border bg-student-status-success-bg/70 p-5 sm:p-6"><h2 className="font-semibold text-student-status-success-fg">Pembahasan</h2><div className={cn("mt-2 text-secondary-700", explanationTextClass)}>{question.explanation || "Pembahasan untuk soal ini belum tersedia."}</div><div className="mt-4 grid gap-3 border-t border-student-status-success-border pt-4 text-sm sm:grid-cols-2"><div><p className="font-semibold text-secondary-500">Jawabanmu</p><p className="mt-1 font-semibold text-secondary-900">{selectedOption ? `${selectedOption.key}. ${selectedOption.text}` : "Tidak dijawab"}</p></div><div><p className="font-semibold text-secondary-500">Jawaban benar</p><p className="mt-1 font-semibold text-secondary-900">{result.reviewAvailable && result.policy.correctAnswerVisibility === "show" && correctOption ? `${correctOption.key}. ${correctOption.text}` : "Belum dibuka"}</p></div></div></section>;
+function QuizResultExplanation({
+  correctOptions,
+  question,
+  result,
+  selectedOptions,
+  explanationTextClass,
+}: {
+  correctOptions: QuizResultQuestion["options"];
+  explanationTextClass: string;
+  question: QuizResultQuestion;
+  result: QuizResult;
+  selectedOptions: QuizResultQuestion["options"];
+}) {
+  return (
+    <section
+      aria-label="Pembahasan"
+      className="mt-7 rounded-3xl border border-student-status-success-border bg-student-status-success-bg/70 p-5 sm:p-6"
+    >
+      <h2 className="font-semibold text-student-status-success-fg">
+        Pembahasan
+      </h2>
+      <div className={cn("mt-2 text-secondary-700", explanationTextClass)}>
+        {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
+      </div>
+      <div className="mt-4 grid gap-3 border-t border-student-status-success-border pt-4 text-sm sm:grid-cols-2">
+        <div>
+          <p className="font-semibold text-secondary-500">Jawabanmu</p>
+          <p className="mt-1 font-semibold text-secondary-900">
+            {optionSummary(selectedOptions)}
+          </p>
+        </div>
+        <div>
+          <p className="font-semibold text-secondary-500">Jawaban benar</p>
+          <p className="mt-1 font-semibold text-secondary-900">
+            {result.reviewAvailable &&
+            result.policy.correctAnswerVisibility === "show"
+              ? optionSummary(correctOptions)
+              : "Belum dibuka"}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function QuizResultQuestionCard({ currentQuestion, explanationTextClass, isCorrect, onNext, onPrevious, onToggleReport, question, reported, result, readingTextClass, selectedOption }: { currentQuestion: number; explanationTextClass: string; isCorrect: boolean; onNext: () => void; onPrevious: () => void; onToggleReport: () => void; question: QuizResultQuestion; reported: boolean; result: QuizResult; readingTextClass: string; selectedOption?: QuizResultQuestion["options"][number] }) {
-  const correctOption = question.options.find((option) => option.correct);
-  const badgeTone = !result.correctnessAvailable ? "neutral" : isCorrect ? "success" : "danger";
-  const badgeIcon = result.correctnessAvailable ? (isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />) : null;
-  const badgeLabel = result.correctnessAvailable ? (isCorrect ? "Benar" : selectedOption ? "Salah" : "Tidak dijawab") : selectedOption ? "Jawaban tersimpan" : "Tidak dijawab";
-  return <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5"><div className="min-w-0"><p className="text-lg font-semibold text-secondary-900">Soal #{currentQuestion}</p></div><div className="flex items-center gap-2"><AssessmentUtilityPill active={reported} icon={Flag} label="Tandai untuk ditinjau" onClick={onToggleReport} /><StudentBadge size="md" tone={badgeTone}>{badgeIcon}{badgeLabel}</StudentBadge></div></div><p className="mt-2 text-xs leading-5 text-secondary-500">{REPORT_DISCLOSURE}</p><div className={cn("mt-6 font-medium text-secondary-900", readingTextClass)}><p>{question.prompt}</p></div><div className="mt-7 grid gap-3">{question.options.map((option) => <AssessmentReviewAnswerOption correctnessAvailable={result.correctnessAvailable} correct={option.correct} key={option.id} label={option.key} selected={option.id === question.selectedOptionId} text={option.text} textClassName={readingTextClass} />)}</div><QuizResultExplanation correctOption={correctOption} explanationTextClass={explanationTextClass} question={question} result={result} selectedOption={selectedOption} /><div className="mt-7 flex items-center justify-between gap-3 pt-5 print:hidden"><Button disabled={currentQuestion === 1} onClick={onPrevious} variant="brandOutline"><ArrowLeft /><span className="hidden sm:inline">Sebelumnya</span></Button>{currentQuestion < result.totalQuestions ? <Button onClick={onNext} variant="brand"><span className="hidden sm:inline">Selanjutnya</span><ArrowRight /></Button> : null}</div></article>;
+function QuizResultQuestionCard({
+  currentQuestion,
+  explanationTextClass,
+  isCorrect,
+  onNext,
+  onPrevious,
+  onToggleReport,
+  question,
+  reported,
+  result,
+  readingTextClass,
+  selectedOptions,
+}: {
+  currentQuestion: number;
+  explanationTextClass: string;
+  isCorrect: boolean;
+  onNext: () => void;
+  onPrevious: () => void;
+  onToggleReport: () => void;
+  question: QuizResultQuestion;
+  reported: boolean;
+  result: QuizResult;
+  readingTextClass: string;
+  selectedOptions: QuizResultQuestion["options"];
+}) {
+  const correctOptions = question.options.filter((option) => option.correct);
+  const badgeTone = !result.correctnessAvailable
+    ? "neutral"
+    : isCorrect
+      ? "success"
+      : "danger";
+  const badgeIcon = result.correctnessAvailable ? (
+    isCorrect ? (
+      <CheckCircle2 className="size-4" />
+    ) : (
+      <CircleX className="size-4" />
+    )
+  ) : null;
+  const badgeLabel = result.correctnessAvailable
+    ? isCorrect
+      ? "Benar"
+      : selectedOptions.length
+        ? "Salah"
+        : "Tidak dijawab"
+    : selectedOptions.length
+      ? "Jawaban tersimpan"
+      : "Tidak dijawab";
+  const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  return (
+    <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
+        <div className="min-w-0">
+          <p className="text-lg font-semibold text-secondary-900">
+            Soal #{currentQuestion}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* <AssessmentUtilityPill */}
+          {/*   active={reported} */}
+          {/*   icon={Flag} */}
+          {/*   label="Tandai untuk ditinjau" */}
+          {/*   onClick={onToggleReport} */}
+          {/* /> */}
+          <StudentBadge size="md" tone={badgeTone}>
+            {badgeIcon}
+            {badgeLabel}
+          </StudentBadge>
+        </div>
+      </div>
+      <div
+        className={cn("mt-6 font-medium text-secondary-900", readingTextClass)}
+      >
+        <p>{question.prompt}</p>
+      </div>
+      <div className="mt-7 grid gap-3">
+        {question.options.map((option) => (
+          <AssessmentReviewAnswerOption
+            correctnessAvailable={result.correctnessAvailable}
+            correct={option.correct}
+            key={option.id}
+            label={option.key}
+            selected={selectedOptionIds.includes(option.id)}
+            text={option.text}
+            textClassName={readingTextClass}
+          />
+        ))}
+      </div>
+      <QuizResultExplanation
+        correctOptions={correctOptions}
+        explanationTextClass={explanationTextClass}
+        question={question}
+        result={result}
+        selectedOptions={selectedOptions}
+      />
+      <div className="mt-7 flex items-center justify-between gap-3 pt-5 print:hidden">
+        <Button
+          disabled={currentQuestion === 1}
+          onClick={onPrevious}
+          variant="brandOutline"
+        >
+          <ArrowLeft />
+          <span className="hidden sm:inline">Sebelumnya</span>
+        </Button>
+        {currentQuestion < result.totalQuestions ? (
+          <Button onClick={onNext} variant="brand">
+            <span className="hidden sm:inline">Selanjutnya</span>
+            <ArrowRight />
+          </Button>
+        ) : null}
+      </div>
+    </article>
+  );
 }
 
 function QuizResultPageModule({
@@ -110,15 +391,19 @@ function QuizResultPageModule({
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<string | null>(null);
-  const isAttemptLimitReached = restartMessage?.startsWith("Batas percobaan quiz ini sudah tercapai") ?? false;
+  const isAttemptLimitReached =
+    restartMessage?.startsWith("Batas percobaan quiz ini sudah tercapai") ??
+    false;
   const resultStatLabelClassName = "font-bold tracking-[0.14em] uppercase";
   const readingTextClass = "text-lg leading-[1.85]";
   const explanationTextClass = "text-base leading-7";
 
   function toggleReport() {
-    setReportedQuestions((current) => current.includes(currentQuestion)
-      ? current.filter((number) => number !== currentQuestion)
-      : [...current, currentQuestion]);
+    setReportedQuestions((current) =>
+      current.includes(currentQuestion)
+        ? current.filter((number) => number !== currentQuestion)
+        : [...current, currentQuestion],
+    );
   }
 
   async function restartQuiz() {
@@ -135,25 +420,42 @@ function QuizResultPageModule({
         return;
       }
 
-      router.replace(`/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`);
+      router.replace(
+        `/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`,
+      );
     } catch (error) {
-      setRestartMessage(error instanceof Error ? error.message : "Kuis belum dapat dimulai kembali.");
+      setRestartMessage(
+        error instanceof Error
+          ? error.message
+          : "Kuis belum dapat dimulai kembali.",
+      );
     } finally {
       setIsRestarting(false);
     }
   }
 
-  if (!result.isSubmitted) return <QuizNotSubmitted subjectSlug={subjectSlug} />;
+  if (!result.isSubmitted)
+    return <QuizNotSubmitted subjectSlug={subjectSlug} />;
 
   const question = result.questions[currentQuestion - 1];
   if (!question) return null;
-  const selectedOption = question.options.find((option) => option.id === question.selectedOptionId);
-  const isCorrect = result.correctnessAvailable && (selectedOption?.correct ?? false);
+  const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const selectedOptions = question.options.filter((option) =>
+    selectedOptionIds.includes(option.id),
+  );
+  const isCorrect = result.correctnessAvailable && isQuestionCorrect(question);
   const markers = buildQuizResultMarkers(result, currentQuestion);
 
   return (
     <AssessmentResultWorkspace
-      headerActions={<QuizResultHeaderActions canRestart={result.canRestart} isAttemptLimitReached={isAttemptLimitReached} isRestarting={isRestarting} onRestart={() => void restartQuiz()} />}
+      headerActions={
+        <QuizResultHeaderActions
+          canRestart={result.canRestart}
+          isAttemptLimitReached={isAttemptLimitReached}
+          isRestarting={isRestarting}
+          onRestart={() => void restartQuiz()}
+        />
+      }
       navigation={
         <AssessmentResultNavigation
           compact
@@ -166,10 +468,37 @@ function QuizResultPageModule({
       score={result.aggregateScore ?? result.score ?? 0}
       scoreLabel="Skor Akhir"
       smoothHeaderDivider
-      summary={<QuizResultSummary labelClassName={resultStatLabelClassName} result={result} />}
+      summary={
+        <QuizResultSummary
+          labelClassName={resultStatLabelClassName}
+          result={result}
+        />
+      }
       title={result.title}
     >
-      <div>{restartMessage ? <p className="mb-5 text-sm font-medium text-student-status-danger-fg" role="alert">{restartMessage}</p> : null}<QuizResultQuestionCard currentQuestion={currentQuestion} explanationTextClass={explanationTextClass} isCorrect={isCorrect} onNext={() => setCurrentQuestion((number) => number + 1)} onPrevious={() => setCurrentQuestion((number) => number - 1)} onToggleReport={toggleReport} question={question} reported={reportedQuestions.includes(currentQuestion)} result={result} readingTextClass={readingTextClass} selectedOption={selectedOption} /></div>
+      <div>
+        {restartMessage ? (
+          <p
+            className="mb-5 text-sm font-medium text-student-status-danger-fg"
+            role="alert"
+          >
+            {restartMessage}
+          </p>
+        ) : null}
+        <QuizResultQuestionCard
+          currentQuestion={currentQuestion}
+          explanationTextClass={explanationTextClass}
+          isCorrect={isCorrect}
+          onNext={() => setCurrentQuestion((number) => number + 1)}
+          onPrevious={() => setCurrentQuestion((number) => number - 1)}
+          onToggleReport={toggleReport}
+          question={question}
+          reported={reportedQuestions.includes(currentQuestion)}
+          result={result}
+          readingTextClass={readingTextClass}
+          selectedOptions={selectedOptions}
+        />
+      </div>
     </AssessmentResultWorkspace>
   );
 }

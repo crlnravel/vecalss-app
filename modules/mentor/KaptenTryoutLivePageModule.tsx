@@ -23,7 +23,6 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
     summary[state] = scopedLive.filter((item) => item.state === state).length;
     return summary;
   }, {
-    cat_failure: 0,
     checked_in: 0,
     disconnected: 0,
     in_progress: 0,

@@ -26,6 +26,7 @@ const adminSectionLabels = {
   ai: "Vera AI",
   "ai-policy": "Policy Vera AI",
   "audit-logs": "Log audit",
+  affiliators: "Affiliator",
   "ai-usage": "Pemakaian AI",
   docs: "Dokumentasi",
   kapten: "Kapten",
@@ -39,6 +40,7 @@ const adminSectionRootHrefs = {
   ai: "/admin/ai",
   "ai-policy": "/admin/ai/policies",
   "audit-logs": "/admin/audit-logs",
+  affiliators: "/admin/affiliators",
   "ai-usage": "/admin/ai/usage",
   docs: "/admin/docs",
   kapten: "/admin/kapten",
@@ -57,7 +59,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;

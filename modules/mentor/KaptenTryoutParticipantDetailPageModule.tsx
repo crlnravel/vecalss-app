@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
@@ -335,28 +336,31 @@ function ParticipantConfirmationDialog({
 
 function KaptenTryoutParticipantDetailPageModule({
   admissionId,
+  embedded = false,
   initial,
 }: {
   admissionId: string;
+  embedded?: boolean;
   initial: TryoutOperationsView;
 }) {
   const router = useRouter();
   const admission = initial.admissions.find((item) => item.id === admissionId)!;
   const participant = initial.participants.find((item) => item.admissionId === admissionId)!;
+  const mainSession = selectMainTryoutSession(initial.sessions);
   const [auditReason, setAuditReason] = useState("");
-  const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [selectedSessionId, setSelectedSessionId] = useState(mainSession?.id ?? "");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const activeSessions = initial.sessions.filter(
-    (session) =>
-      session.status === "active" &&
-      !admission.assignments.some(
-        (assignment) =>
-          assignment.deliverySessionId === session.id &&
-          assignment.status === "active",
-      ),
-  );
+  const activeSessions = mainSession
+    && mainSession.status === "active"
+    && !admission.assignments.some(
+      (assignment) =>
+        assignment.deliverySessionId === mainSession.id &&
+        assignment.status === "active",
+    )
+    ? [mainSession]
+    : [];
 
   const report = (message: string, result: { ok: boolean; message?: string }) => {
     setBusy(false);
@@ -408,13 +412,13 @@ function KaptenTryoutParticipantDetailPageModule({
   };
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 items-start gap-3">
+    <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
+      {embedded ? null : <div className="flex min-w-0 items-start gap-3">
         <Button
           aria-label="Kembali ke daftar peserta Tryout"
           className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
           nativeButton={false}
-          render={<Link href={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=participants`} />}
+          render={<Link href={`/mentor/tryout/${initial.id}/operations/participants`} />}
           size="icon"
           title="Kembali ke daftar peserta Tryout"
           variant="ghost"
@@ -427,7 +431,7 @@ function KaptenTryoutParticipantDetailPageModule({
           description={initial.title}
           title={admission.student}
         />
-      </div>
+      </div>}
       <OperationNotice message={notice} />
 
       <ParticipantSummaryCard participant={participant} />

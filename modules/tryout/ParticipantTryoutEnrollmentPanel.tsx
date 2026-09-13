@@ -393,7 +393,7 @@ function ParticipantTryoutEnrollmentPanel({
               alt=""
               className="h-32 w-32 object-contain"
               height={256}
-              src="/brand/mascot-vecalss.png"
+              src="/brand/mascot-vecalss-2.png"
               width={256}
             />
           </div>

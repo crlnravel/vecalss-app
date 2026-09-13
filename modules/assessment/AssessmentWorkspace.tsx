@@ -670,12 +670,14 @@ function AssessmentAnswerOption({
   onClick,
   option,
   selected,
+  selectionMode = "single",
   textScale = "default",
 }: {
   disabled?: boolean;
   onClick: () => void;
   option: { id: string; key: string; text: ReactNode };
   selected: boolean;
+  selectionMode?: "single" | "multiple";
   textScale?: "compact" | "default" | "large";
 }) {
   const optionScaleClass = textScale === "large"
@@ -691,6 +693,8 @@ function AssessmentAnswerOption({
 
   return (
     <button
+      aria-checked={selectionMode === "multiple" ? selected : undefined}
+      role={selectionMode === "multiple" ? "checkbox" : undefined}
       className={cn(
         "group flex w-full items-center gap-2.5 rounded-[1.25rem] border bg-white text-left shadow-none transition-all duration-200 motion-reduce:transition-none hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
         optionScaleClass,
@@ -703,6 +707,7 @@ function AssessmentAnswerOption({
       <span
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+          selectionMode === "multiple" && "rounded-md",
           selected
             ? "border-primary-700 bg-primary-700 text-white"
             : "border-secondary-200 bg-secondary-50 text-secondary-500 group-hover:border-primary-300 group-hover:bg-white",

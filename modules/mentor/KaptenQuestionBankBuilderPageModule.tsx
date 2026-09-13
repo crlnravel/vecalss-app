@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   AlertTriangle,
-  Check,
   ChevronDown,
   ChevronLeft,
   CircleHelp,
@@ -24,7 +23,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent,
 } from "react";
 
 import {
@@ -54,7 +52,6 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { showToast } from "@/components/ui/toast";
 import {
   DropdownMenu,
@@ -70,6 +67,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
+import { questionBankMateriOptions } from "@/lib/question-bank/materi";
 import { compareSelectedOptionSets } from "@/lib/question-bank/answer-contract";
 import type { MediaAssetDto } from "@/lib/media/types";
 import {
@@ -144,28 +142,32 @@ type LocalQuestionBankState = {
 };
 
 function hasQuestionBankDraftContent(
-  state: Pick<LocalQuestionBankState, "categoryIds" | "description" | "questions" | "title">,
+  state: Pick<
+    LocalQuestionBankState,
+    "categoryIds" | "description" | "questions" | "title"
+  >,
 ) {
   return Boolean(
-    state.title.trim()
-      || state.description.trim()
-      || state.categoryIds.length
-      || state.questions.length,
+    state.title.trim() ||
+    state.description.trim() ||
+    state.categoryIds.length ||
+    state.questions.length,
   );
 }
-
-type QuestionBankCategoryOption = {
-  id: string;
-  name: string;
-};
 
 type QuestionBankCategoryPatch = {
   categoryIds?: string[];
 };
 
-type QuestionBankEditorAction = { type: "patch"; patch: Partial<QuestionBankEditorState> };
+type QuestionBankEditorAction = {
+  type: "patch";
+  patch: Partial<QuestionBankEditorState>;
+};
 
-function questionBankEditorReducer(state: QuestionBankEditorState, action: QuestionBankEditorAction): QuestionBankEditorState {
+function questionBankEditorReducer(
+  state: QuestionBankEditorState,
+  action: QuestionBankEditorAction,
+): QuestionBankEditorState {
   return action.type === "patch" ? { ...state, ...action.patch } : state;
 }
 
@@ -213,7 +215,13 @@ function QuestionMediaAttachment({
           <ImagePlus data-icon="inline-start" />
           Ganti
         </Button>
-        <Button disabled={disabled} onClick={onRemove} size="sm" type="button" variant="ghost">
+        <Button
+          disabled={disabled}
+          onClick={onRemove}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
           <X data-icon="inline-start" />
           Lepas
         </Button>
@@ -233,6 +241,7 @@ const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
   difficulty: "medium",
   explanation: "",
   id: "",
+  materi: "",
   prompt: "",
   questionType: "single_choice",
   subjectCode,
@@ -243,12 +252,19 @@ function questionTypeFor(question: Pick<BankQuestion, "questionType">) {
   return question.questionType ?? "single_choice";
 }
 
-function correctChoiceIdsFor(question: Pick<BankQuestion, "correctChoiceId" | "correctChoiceIds">) {
-  const ids = question.correctChoiceIds ?? (question.correctChoiceId ? [question.correctChoiceId] : []);
+function correctChoiceIdsFor(
+  question: Pick<BankQuestion, "correctChoiceId" | "correctChoiceIds">,
+) {
+  const ids =
+    question.correctChoiceIds ??
+    (question.correctChoiceId ? [question.correctChoiceId] : []);
   return [...new Set(ids)];
 }
 
-function withCorrectChoiceIds(question: BankQuestion, correctChoiceIds: readonly string[]): BankQuestion {
+function withCorrectChoiceIds(
+  question: BankQuestion,
+  correctChoiceIds: readonly string[],
+): BankQuestion {
   const ids = [...new Set(correctChoiceIds)];
   return {
     ...question,
@@ -271,12 +287,19 @@ function isReady(question: BankQuestion) {
 }
 
 function readinessIssueKey(issue: QuestionReadinessIssue) {
-  return [issue.questionId, issue.code, issue.field, issue.choiceId ?? "", issue.mediaTarget ?? ""].join(":");
+  return [
+    issue.questionId,
+    issue.code,
+    issue.field,
+    issue.choiceId ?? "",
+    issue.mediaTarget ?? "",
+  ].join(":");
 }
 
 function readinessFieldLabel(issue: QuestionReadinessIssue) {
   if (issue.field === "prompt") return "pertanyaan";
-  if (issue.field === "choice") return issue.choiceId ? "teks opsi" : "jumlah opsi";
+  if (issue.field === "choice")
+    return issue.choiceId ? "teks opsi" : "jumlah opsi";
   if (issue.field === "correctChoice") return "jawaban benar";
   if (issue.field === "media") {
     if (issue.choiceId) return "media opsi";
@@ -313,7 +336,9 @@ function mergeQuestionBankReadiness(
     );
     return [...localIssues, ...serverIssues];
   });
-  const incompleteQuestionIds = new Set(issues.map((issue) => issue.questionId));
+  const incompleteQuestionIds = new Set(
+    issues.map((issue) => issue.questionId),
+  );
   const totalCount = questions.length;
   const incompleteCount = incompleteQuestionIds.size;
   return {
@@ -330,33 +355,57 @@ function pruneServerReadinessForDraftChange(
   nextQuestions: readonly BankQuestion[],
 ) {
   if (!readiness) return null;
-  const previousById = new Map(previousQuestions.map((question) => [question.id, question]));
-  const nextById = new Map(nextQuestions.map((question) => [question.id, question]));
+  const previousById = new Map(
+    previousQuestions.map((question) => [question.id, question]),
+  );
+  const nextById = new Map(
+    nextQuestions.map((question) => [question.id, question]),
+  );
   const issues = readiness.issues.filter((issue) => {
     const previous = previousById.get(issue.questionId);
     const next = nextById.get(issue.questionId);
     if (!next) return false;
     if (!previous) return true;
     if (issue.field === "prompt") return previous.prompt === next.prompt;
-    if (issue.field === "subtest") return previous.subjectCode === next.subjectCode;
+    if (issue.field === "subtest")
+      return previous.subjectCode === next.subjectCode;
     if (issue.field === "correctChoice") {
-      return questionTypeFor(previous) === questionTypeFor(next)
-        && JSON.stringify(correctChoiceIdsFor(previous)) === JSON.stringify(correctChoiceIdsFor(next));
+      return (
+        questionTypeFor(previous) === questionTypeFor(next) &&
+        JSON.stringify(correctChoiceIdsFor(previous)) ===
+          JSON.stringify(correctChoiceIdsFor(next))
+      );
     }
     if (issue.field === "choice") {
       if (previous.choices.length !== next.choices.length) return false;
       if (!issue.choiceId) return true;
-      return previous.choices.find((choice) => choice.id === issue.choiceId)?.text === next.choices.find((choice) => choice.id === issue.choiceId)?.text;
+      return (
+        previous.choices.find((choice) => choice.id === issue.choiceId)
+          ?.text ===
+        next.choices.find((choice) => choice.id === issue.choiceId)?.text
+      );
     }
     if (issue.choiceId) {
-      return previous.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId === next.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId;
+      return (
+        previous.choices.find((choice) => choice.id === issue.choiceId)
+          ?.mediaAssetId ===
+        next.choices.find((choice) => choice.id === issue.choiceId)
+          ?.mediaAssetId
+      );
     }
-    if (issue.mediaTarget === "prompt") return previous.promptMediaAssetId === next.promptMediaAssetId;
-    if (issue.mediaTarget === "explanation") return previous.explanationMediaAssetId === next.explanationMediaAssetId;
-    return previous.promptMediaAssetId === next.promptMediaAssetId && previous.explanationMediaAssetId === next.explanationMediaAssetId;
+    if (issue.mediaTarget === "prompt")
+      return previous.promptMediaAssetId === next.promptMediaAssetId;
+    if (issue.mediaTarget === "explanation")
+      return previous.explanationMediaAssetId === next.explanationMediaAssetId;
+    return (
+      previous.promptMediaAssetId === next.promptMediaAssetId &&
+      previous.explanationMediaAssetId === next.explanationMediaAssetId
+    );
   });
   if (!issues.length) return null;
-  const incompleteQuestionIds = new Set(issues.map((issue) => issue.questionId));
+  const incompleteQuestionIds = new Set(
+    issues.map((issue) => issue.questionId),
+  );
   return {
     ...readiness,
     incompleteCount: incompleteQuestionIds.size,
@@ -383,10 +432,28 @@ function describedBy(...ids: Array<string | undefined>) {
   return presentIds.length ? presentIds.join(" ") : undefined;
 }
 
-
-function getQuestionBankEditorIssueState(readinessIssues: QuestionReadinessIssue[]) {
-  const hasIssue = (field: QuestionReadinessIssue["field"], choiceId?: string, mediaTarget?: QuestionReadinessMediaTarget) => readinessIssues.some((issue) => issue.field === field && issue.choiceId === choiceId && (field !== "media" || issue.mediaTarget === mediaTarget || (mediaTarget !== "prompt" && mediaTarget !== "explanation" && issue.mediaTarget === undefined)));
-  const hasMediaIssue = (choiceId?: string, mediaTarget?: QuestionReadinessMediaTarget) => hasIssue("media", choiceId, mediaTarget);
+function getQuestionBankEditorIssueState(
+  readinessIssues: QuestionReadinessIssue[],
+) {
+  const hasIssue = (
+    field: QuestionReadinessIssue["field"],
+    choiceId?: string,
+    mediaTarget?: QuestionReadinessMediaTarget,
+  ) =>
+    readinessIssues.some(
+      (issue) =>
+        issue.field === field &&
+        issue.choiceId === choiceId &&
+        (field !== "media" ||
+          issue.mediaTarget === mediaTarget ||
+          (mediaTarget !== "prompt" &&
+            mediaTarget !== "explanation" &&
+            issue.mediaTarget === undefined)),
+    );
+  const hasMediaIssue = (
+    choiceId?: string,
+    mediaTarget?: QuestionReadinessMediaTarget,
+  ) => hasIssue("media", choiceId, mediaTarget);
   return {
     hasChoiceCountIssue: hasIssue("choice"),
     hasCorrectChoiceIssue: hasIssue("correctChoice"),
@@ -396,7 +463,9 @@ function getQuestionBankEditorIssueState(readinessIssues: QuestionReadinessIssue
     hasSubtestIssue: hasIssue("subtest"),
     hasIssue,
     hasMediaIssue,
-    readinessHint: readinessIssues.length ? "Perbaiki " + readinessIssues.map(readinessFieldLabel).join(", ") + "." : undefined,
+    readinessHint: readinessIssues.length
+      ? "Perbaiki " + readinessIssues.map(readinessFieldLabel).join(", ") + "."
+      : undefined,
   };
 }
 
@@ -419,15 +488,81 @@ function QuestionPromptField({
   return (
     <Field>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-prompt">Pertanyaan</FieldLabel>
-        <Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasPromptMediaIssue ? "question-prompt-media-error" : undefined)} aria-invalid={hasPromptMediaIssue} data-question-anchor="media" data-question-field="media" data-question-field-key="prompt" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-prompt" onClick={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} size="sm" type="button" variant="ghost">
-          <ImagePlus data-icon="inline-start" />{questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="question-prompt"
+        >
+          Pertanyaan
+        </FieldLabel>
+        <Button
+          aria-describedby={describedBy(
+            readinessHint ? "question-readiness-hint" : undefined,
+            hasPromptMediaIssue ? "question-prompt-media-error" : undefined,
+          )}
+          aria-invalid={hasPromptMediaIssue}
+          data-question-anchor="media"
+          data-question-field="media"
+          data-question-field-key="prompt"
+          disabled={!activeQuestionId || isQuestionContentLocked}
+          id="question-media-prompt"
+          onClick={() =>
+            onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })
+          }
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <ImagePlus data-icon="inline-start" />
+          {questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
         </Button>
       </div>
-      <FieldTextarea aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasPromptIssue ? "question-prompt-error" : undefined)} aria-invalid={hasPromptIssue} className={REFERENCE_CONTROL_CLASS_NAMES.input} data-question-anchor="prompt" data-question-field="prompt" disabled={isQuestionContentLocked} id="question-prompt" onChange={(event) => onUpdate({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
-      {hasPromptIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id="question-prompt-error">Isi pertanyaan sebelum menerbitkan.</p> : null}
-      {questionDraft.promptMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.promptMediaAssetId} disabled={isQuestionContentLocked} field="prompt" label="Gambar pertanyaan" onRemove={() => onUpdate({ ...questionDraft, promptMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} /> : null}
-      {hasPromptMediaIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id="question-prompt-media-error">Gambar pertanyaan belum siap. Pilih gambar lain atau hapus lampirannya.</p> : null}
+      <FieldTextarea
+        aria-describedby={describedBy(
+          readinessHint ? "question-readiness-hint" : undefined,
+          hasPromptIssue ? "question-prompt-error" : undefined,
+        )}
+        aria-invalid={hasPromptIssue}
+        className={REFERENCE_CONTROL_CLASS_NAMES.input}
+        data-question-anchor="prompt"
+        data-question-field="prompt"
+        disabled={isQuestionContentLocked}
+        id="question-prompt"
+        onChange={(event) =>
+          onUpdate({ ...questionDraft, prompt: event.target.value })
+        }
+        value={questionDraft.prompt}
+      />
+      {hasPromptIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id="question-prompt-error"
+        >
+          Isi pertanyaan sebelum menerbitkan.
+        </p>
+      ) : null}
+      {questionDraft.promptMediaAssetId ? (
+        <QuestionMediaAttachment
+          assetId={questionDraft.promptMediaAssetId}
+          disabled={isQuestionContentLocked}
+          field="prompt"
+          label="Gambar pertanyaan"
+          onRemove={() =>
+            onUpdate({ ...questionDraft, promptMediaAssetId: undefined })
+          }
+          onReplace={() =>
+            onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })
+          }
+        />
+      ) : null}
+      {hasPromptMediaIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id="question-prompt-media-error"
+        >
+          Gambar pertanyaan belum siap. Pilih gambar lain atau hapus
+          lampirannya.
+        </p>
+      ) : null}
     </Field>
   );
 }
@@ -442,13 +577,35 @@ function QuestionAnswerModeField({
   questionDraft: BankQuestion;
 }) {
   const questionType = questionTypeFor(questionDraft);
-  const modeLabel = questionType === "multiple_choice" ? "Beberapa jawaban" : "Satu jawaban";
+  const modeLabel =
+    questionType === "multiple_choice"
+      ? "Pilihan Ganda Kompleks"
+      : "Pilihan Ganda";
   return (
     <Field>
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-answer-mode">Mode jawaban</FieldLabel>
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="question-answer-mode"
+      >
+        Tipe soal
+      </FieldLabel>
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby="question-answer-mode-hint" className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")} data-question-anchor="correctChoice" data-question-field="correctChoice" id="question-answer-mode" type="button" variant="reference" />}>
-          <span>{modeLabel}</span><ChevronDown className="text-secondary-400" />
+        <DropdownMenuTrigger
+          disabled={isQuestionContentLocked}
+          render={
+            <Button
+              aria-describedby="question-answer-mode-hint"
+              className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
+              data-question-anchor="correctChoice"
+              data-question-field="correctChoice"
+              id="question-answer-mode"
+              type="button"
+              variant="reference"
+            />
+          }
+        >
+          <span>{modeLabel}</span>
+          <ChevronDown className="text-secondary-400" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-(--anchor-width)">
           <DropdownMenuLabel>Pilih mode jawaban</DropdownMenuLabel>
@@ -457,18 +614,38 @@ function QuestionAnswerModeField({
               onValueChange={(value) => {
                 const nextType = value as "single_choice" | "multiple_choice";
                 const ids = correctChoiceIdsFor(questionDraft);
-                onUpdate(withCorrectChoiceIds({ ...questionDraft, questionType: nextType }, nextType === "multiple_choice" ? ids : ids.slice(0, 1)));
+                onUpdate(
+                  withCorrectChoiceIds(
+                    { ...questionDraft, questionType: nextType },
+                    nextType === "multiple_choice" ? ids : ids.slice(0, 1),
+                  ),
+                );
               }}
               value={questionType}
             >
-              <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="single_choice">Satu jawaban</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="multiple_choice">Beberapa jawaban</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                value="single_choice"
+              >
+                Pilihan Ganda
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                value="multiple_choice"
+              >
+                Pilihan Ganda Kompleks
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <p className="text-xs leading-5 text-secondary-500" id="question-answer-mode-hint">
-        {questionType === "multiple_choice" ? "Pilih semua opsi yang benar." : "Pilih satu opsi yang benar."}
+      <p
+        className="text-xs leading-5 text-secondary-500"
+        id="question-answer-mode-hint"
+      >
+        {questionType === "multiple_choice"
+          ? "Pilih semua opsi yang benar."
+          : "Pilih satu opsi yang benar."}
       </p>
     </Field>
   );
@@ -502,25 +679,125 @@ function QuestionChoiceControls({
   questionDraft: BankQuestion;
   readinessHint: string | undefined;
 }) {
-  const { hasChoiceCountIssue, hasChoiceMediaIssue, hasChoiceTextIssue, hasCorrectChoiceIssue } = issueState;
+  const {
+    hasChoiceCountIssue,
+    hasChoiceMediaIssue,
+    hasChoiceTextIssue,
+    hasCorrectChoiceIssue,
+  } = issueState;
   const inputId = "bank-choice-" + choice.id;
   const choiceLabelText = "Gambar opsi " + choiceLabel;
   const multipleAnswer = questionTypeFor(questionDraft) === "multiple_choice";
   const selectedCorrectChoiceIds = correctChoiceIdsFor(questionDraft);
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-label={(multipleAnswer ? "Tandai benar opsi " : "Jawaban benar opsi ") + (Number(choiceLabel.charCodeAt(0)) - 64)} checked={selectedCorrectChoiceIds.includes(choice.id)} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={"bank-correct-choice-" + choice.id} name={multipleAnswer ? undefined : "bank-correct-choice"} onChange={() => {
-        const nextIds = multipleAnswer
-          ? selectedCorrectChoiceIds.includes(choice.id)
-            ? selectedCorrectChoiceIds.filter((id) => id !== choice.id)
-            : [...selectedCorrectChoiceIds, choice.id]
-          : [choice.id];
-        onUpdate(withCorrectChoiceIds(questionDraft, nextIds));
-      }} type={multipleAnswer ? "checkbox" : "radio"} />
-      <label className="text-sm font-semibold text-primary-800" htmlFor={"bank-correct-choice-" + choice.id}>{choiceLabel}</label>
-      <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceCountIssue ? "question-choice-count-error" : undefined, hasChoiceTextIssue ? "question-choice-" + choice.id + "-error" : undefined)} aria-invalid={hasChoiceTextIssue} aria-label={"Opsi " + (Number(choiceLabel.charCodeAt(0)) - 64)} className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-w-0 flex-1 bg-transparent py-2")} data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={"Opsi " + choiceLabel} value={choice.text} />
-      <Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceMediaIssue ? "question-choice-" + choice.id + "-media-error" : undefined)} aria-invalid={hasChoiceMediaIssue} aria-label={(choice.mediaAssetId ? "Ganti" : "Tambah") + " gambar opsi " + choiceLabel} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={"choice:" + choice.id} disabled={!activeQuestionId || isQuestionContentLocked} id={"question-media-choice-" + choice.id} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: choiceLabelText })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
-      <Button aria-label={"Hapus opsi " + choiceLabel} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => onRemoveChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+      <input
+        aria-describedby={describedBy(
+          readinessHint ? "question-readiness-hint" : undefined,
+          hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined,
+        )}
+        aria-label={
+          (multipleAnswer ? "Tandai benar opsi " : "Jawaban benar opsi ") +
+          (Number(choiceLabel.charCodeAt(0)) - 64)
+        }
+        checked={selectedCorrectChoiceIds.includes(choice.id)}
+        className="size-4 accent-primary-700"
+        data-question-anchor="correctChoice"
+        data-question-choice-id={choice.id}
+        data-question-field="correctChoice"
+        disabled={isQuestionContentLocked}
+        id={"bank-correct-choice-" + choice.id}
+        name={multipleAnswer ? undefined : "bank-correct-choice"}
+        onChange={() => {
+          const nextIds = multipleAnswer
+            ? selectedCorrectChoiceIds.includes(choice.id)
+              ? selectedCorrectChoiceIds.filter((id) => id !== choice.id)
+              : [...selectedCorrectChoiceIds, choice.id]
+            : [choice.id];
+          onUpdate(withCorrectChoiceIds(questionDraft, nextIds));
+        }}
+        type={multipleAnswer ? "checkbox" : "radio"}
+      />
+      <label
+        className="text-sm font-semibold text-primary-800"
+        htmlFor={"bank-correct-choice-" + choice.id}
+      >
+        {choiceLabel}
+      </label>
+      <input
+        aria-describedby={describedBy(
+          readinessHint ? "question-readiness-hint" : undefined,
+          hasChoiceCountIssue ? "question-choice-count-error" : undefined,
+          hasChoiceTextIssue
+            ? "question-choice-" + choice.id + "-error"
+            : undefined,
+        )}
+        aria-invalid={hasChoiceTextIssue}
+        aria-label={"Opsi " + (Number(choiceLabel.charCodeAt(0)) - 64)}
+        className={cn(
+          REFERENCE_CONTROL_CLASS_NAMES.input,
+          "min-w-0 flex-1 bg-transparent py-2",
+        )}
+        data-question-anchor="choice"
+        data-question-choice-id={choice.id}
+        data-question-field="choice"
+        disabled={isQuestionContentLocked}
+        id={inputId}
+        onChange={(event) =>
+          onUpdate({
+            ...questionDraft,
+            choices: questionDraft.choices.map((item) =>
+              item.id === choice.id
+                ? { ...item, text: event.target.value }
+                : item,
+            ),
+          })
+        }
+        placeholder={"Opsi " + choiceLabel}
+        value={choice.text}
+      />
+      <Button
+        aria-describedby={describedBy(
+          readinessHint ? "question-readiness-hint" : undefined,
+          hasChoiceMediaIssue
+            ? "question-choice-" + choice.id + "-media-error"
+            : undefined,
+        )}
+        aria-invalid={hasChoiceMediaIssue}
+        aria-label={
+          (choice.mediaAssetId ? "Ganti" : "Tambah") +
+          " gambar opsi " +
+          choiceLabel
+        }
+        data-question-anchor="media"
+        data-question-choice-id={choice.id}
+        data-question-field="media"
+        data-question-field-key={"choice:" + choice.id}
+        disabled={!activeQuestionId || isQuestionContentLocked}
+        id={"question-media-choice-" + choice.id}
+        onClick={() =>
+          onOpenMedia({
+            choiceId: choice.id,
+            kind: "choice",
+            label: choiceLabelText,
+          })
+        }
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <ImagePlus />
+      </Button>
+      <Button
+        aria-label={"Hapus opsi " + choiceLabel}
+        disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked}
+        onClick={() => onRemoveChoice(choice.id)}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <Trash2 />
+      </Button>
     </div>
   );
 }
@@ -545,9 +822,38 @@ function QuestionChoiceFeedback({
   const choiceLabelText = "Gambar opsi " + choiceLabel;
   return (
     <>
-      {hasChoiceTextIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id={"question-choice-" + choice.id + "-error"}>Isi teks opsi ini.</p> : null}
-      {hasChoiceMediaIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id={"question-choice-" + choice.id + "-media-error"}>Gambar opsi belum siap. Pilih gambar lain atau hapus lampirannya.</p> : null}
-      {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} disabled={isQuestionContentLocked} field={"choice-" + choice.id} label={choiceLabelText} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: choiceLabelText })} /> : null}
+      {hasChoiceTextIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id={"question-choice-" + choice.id + "-error"}
+        >
+          Isi teks opsi ini.
+        </p>
+      ) : null}
+      {hasChoiceMediaIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id={"question-choice-" + choice.id + "-media-error"}
+        >
+          Gambar opsi belum siap. Pilih gambar lain atau hapus lampirannya.
+        </p>
+      ) : null}
+      {choice.mediaAssetId ? (
+        <QuestionMediaAttachment
+          assetId={choice.mediaAssetId}
+          disabled={isQuestionContentLocked}
+          field={"choice-" + choice.id}
+          label={choiceLabelText}
+          onRemove={() => onRemoveChoiceMedia(choice.id)}
+          onReplace={() =>
+            onOpenMedia({
+              choiceId: choice.id,
+              kind: "choice",
+              label: choiceLabelText,
+            })
+          }
+        />
+      ) : null}
     </>
   );
 }
@@ -572,8 +878,15 @@ function QuestionChoiceRow({
   choice: BankQuestion["choices"][number];
   hasChoiceCountIssue: boolean;
   hasCorrectChoiceIssue: boolean;
-  hasIssue: (field: QuestionReadinessIssue["field"], choiceId?: string, mediaTarget?: QuestionReadinessMediaTarget) => boolean;
-  hasMediaIssue: (choiceId?: string, mediaTarget?: QuestionReadinessMediaTarget) => boolean;
+  hasIssue: (
+    field: QuestionReadinessIssue["field"],
+    choiceId?: string,
+    mediaTarget?: QuestionReadinessMediaTarget,
+  ) => boolean;
+  hasMediaIssue: (
+    choiceId?: string,
+    mediaTarget?: QuestionReadinessMediaTarget,
+  ) => boolean;
   index: number;
   isQuestionContentLocked: boolean;
   onOpenMedia: (target: MediaPickerTarget) => void;
@@ -587,9 +900,40 @@ function QuestionChoiceRow({
   const hasChoiceTextIssue = hasIssue("choice", choice.id);
   const hasChoiceMediaIssue = hasMediaIssue(choice.id);
   return (
-    <div className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "min-w-0 flex-col items-stretch gap-3 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50", (hasChoiceTextIssue || hasChoiceMediaIssue) && "border-student-status-danger-border bg-student-status-danger-bg/40")}>
-      <QuestionChoiceControls activeQuestionId={activeQuestionId} choice={choice} choiceLabel={choiceLabel} issueState={{ hasChoiceCountIssue, hasChoiceMediaIssue, hasChoiceTextIssue, hasCorrectChoiceIssue }} isQuestionContentLocked={isQuestionContentLocked} onOpenMedia={onOpenMedia} onRemoveChoice={onRemoveChoice} onUpdate={onUpdate} questionDraft={questionDraft} readinessHint={readinessHint} />
-      <QuestionChoiceFeedback choice={choice} choiceLabel={choiceLabel} hasChoiceMediaIssue={hasChoiceMediaIssue} hasChoiceTextIssue={hasChoiceTextIssue} isQuestionContentLocked={isQuestionContentLocked} onOpenMedia={onOpenMedia} onRemoveChoiceMedia={onRemoveChoiceMedia} />
+    <div
+      className={cn(
+        REFERENCE_CONTROL_CLASS_NAMES.choice,
+        "min-w-0 flex-col items-stretch gap-3 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50",
+        (hasChoiceTextIssue || hasChoiceMediaIssue) &&
+          "border-student-status-danger-border bg-student-status-danger-bg/40",
+      )}
+    >
+      <QuestionChoiceControls
+        activeQuestionId={activeQuestionId}
+        choice={choice}
+        choiceLabel={choiceLabel}
+        issueState={{
+          hasChoiceCountIssue,
+          hasChoiceMediaIssue,
+          hasChoiceTextIssue,
+          hasCorrectChoiceIssue,
+        }}
+        isQuestionContentLocked={isQuestionContentLocked}
+        onOpenMedia={onOpenMedia}
+        onRemoveChoice={onRemoveChoice}
+        onUpdate={onUpdate}
+        questionDraft={questionDraft}
+        readinessHint={readinessHint}
+      />
+      <QuestionChoiceFeedback
+        choice={choice}
+        choiceLabel={choiceLabel}
+        hasChoiceMediaIssue={hasChoiceMediaIssue}
+        hasChoiceTextIssue={hasChoiceTextIssue}
+        isQuestionContentLocked={isQuestionContentLocked}
+        onOpenMedia={onOpenMedia}
+        onRemoveChoiceMedia={onRemoveChoiceMedia}
+      />
     </div>
   );
 }
@@ -615,66 +959,416 @@ function QuestionChoicesField({
   onUpdate: (question: BankQuestion) => void;
   questionDraft: BankQuestion;
 }) {
-  const { hasChoiceCountIssue, hasCorrectChoiceIssue, hasIssue, hasMediaIssue, readinessHint } = issueState;
+  const {
+    hasChoiceCountIssue,
+    hasCorrectChoiceIssue,
+    hasIssue,
+    hasMediaIssue,
+    readinessHint,
+  } = issueState;
   return (
     <>
-      <fieldset aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceCountIssue ? "question-choice-count-error" : undefined)} aria-invalid={hasChoiceCountIssue} className="grid gap-3 border-0 p-0 sm:grid-cols-2">
-        <legend className="sr-only" id="question-choices-label">Pilihan jawaban</legend>
-        <fieldset aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-invalid={hasCorrectChoiceIssue} className="contents">
+      <fieldset
+        aria-describedby={describedBy(
+          readinessHint ? "question-readiness-hint" : undefined,
+          hasChoiceCountIssue ? "question-choice-count-error" : undefined,
+        )}
+        aria-invalid={hasChoiceCountIssue}
+        className="grid gap-3 border-0 p-0 sm:grid-cols-2"
+      >
+        <legend className="sr-only" id="question-choices-label">
+          Pilihan jawaban
+        </legend>
+        <fieldset
+          aria-describedby={describedBy(
+            readinessHint ? "question-readiness-hint" : undefined,
+            hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined,
+          )}
+          aria-invalid={hasCorrectChoiceIssue}
+          className="contents"
+        >
           <legend className="sr-only">Tentukan jawaban benar</legend>
-          {questionDraft.choices.map((choice, index) => <QuestionChoiceRow activeQuestionId={activeQuestionId} choice={choice} hasChoiceCountIssue={hasChoiceCountIssue} hasCorrectChoiceIssue={hasCorrectChoiceIssue} hasIssue={hasIssue} hasMediaIssue={hasMediaIssue} index={index} isQuestionContentLocked={isQuestionContentLocked} onOpenMedia={onOpenMedia} onRemoveChoice={onRemoveChoice} onRemoveChoiceMedia={onRemoveChoiceMedia} onUpdate={onUpdate} questionDraft={questionDraft} readinessHint={readinessHint} key={choice.id} />)}
+          {questionDraft.choices.map((choice, index) => (
+            <QuestionChoiceRow
+              activeQuestionId={activeQuestionId}
+              choice={choice}
+              hasChoiceCountIssue={hasChoiceCountIssue}
+              hasCorrectChoiceIssue={hasCorrectChoiceIssue}
+              hasIssue={hasIssue}
+              hasMediaIssue={hasMediaIssue}
+              index={index}
+              isQuestionContentLocked={isQuestionContentLocked}
+              onOpenMedia={onOpenMedia}
+              onRemoveChoice={onRemoveChoice}
+              onRemoveChoiceMedia={onRemoveChoiceMedia}
+              onUpdate={onUpdate}
+              questionDraft={questionDraft}
+              readinessHint={readinessHint}
+              key={choice.id}
+            />
+          ))}
         </fieldset>
       </fieldset>
-      {hasChoiceCountIssue ? <p className="-mt-1 text-sm font-medium text-student-status-danger-fg" id="question-choice-count-error">Jumlah opsi harus antara 2 dan 5.</p> : null}
-      {hasCorrectChoiceIssue ? <p className="-mt-1 text-sm font-medium text-student-status-danger-fg" id="question-correct-choice-error">{questionTypeFor(questionDraft) === "multiple_choice" ? "Pilih minimal satu jawaban benar." : "Pilih tepat satu jawaban benar."}</p> : null}
-      <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={onAddChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
+      {hasChoiceCountIssue ? (
+        <p
+          className="-mt-1 text-sm font-medium text-student-status-danger-fg"
+          id="question-choice-count-error"
+        >
+          Jumlah opsi harus antara 2 dan 5.
+        </p>
+      ) : null}
+      {hasCorrectChoiceIssue ? (
+        <p
+          className="-mt-1 text-sm font-medium text-student-status-danger-fg"
+          id="question-correct-choice-error"
+        >
+          {questionTypeFor(questionDraft) === "multiple_choice"
+            ? "Pilih minimal satu jawaban benar."
+            : "Pilih tepat satu jawaban benar."}
+        </p>
+      ) : null}
+      <div className="flex justify-end">
+        <Button
+          disabled={
+            questionDraft.choices.length >= 5 || isQuestionContentLocked
+          }
+          onClick={onAddChoice}
+          size="sm"
+          type="button"
+          variant="brandOutline"
+        >
+          <Plus />
+          Tambah opsi
+        </Button>
+      </div>
     </>
   );
 }
 
-function QuestionSubtestField({ isQuestionContentLocked, issueState, onUpdate, questionDraft }: { isQuestionContentLocked: boolean; issueState: ReturnType<typeof getQuestionBankEditorIssueState>; onUpdate: (question: BankQuestion) => void; questionDraft: BankQuestion }) {
+function QuestionSubtestField({
+  isQuestionContentLocked,
+  issueState,
+  onUpdate,
+  questionDraft,
+}: {
+  isQuestionContentLocked: boolean;
+  issueState: ReturnType<typeof getQuestionBankEditorIssueState>;
+  onUpdate: (question: BankQuestion) => void;
+  questionDraft: BankQuestion;
+}) {
   const { hasSubtestIssue, readinessHint } = issueState;
-  const selectedSubject = kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode);
+  const selectedSubject = kaptenSubjects.find(
+    (subject) => subject.code === questionDraft.subjectCode,
+  );
   return (
     <Field>
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-subtest">Subtest</FieldLabel>
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="question-subtest"
+      >
+        Subtest
+      </FieldLabel>
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={describedBy(hasSubtestIssue ? "question-subtest-error" : undefined, readinessHint ? "question-readiness-hint" : undefined)} aria-invalid={hasSubtestIssue} className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")} data-question-anchor="subtest" data-question-field="subtest" id="question-subtest" type="button" variant="reference" />}>
-          <span className="truncate">{selectedSubject?.name ? questionDraft.subjectCode + " - " + selectedSubject.name : "Pilih Subtest"}</span><ChevronDown className="size-4 text-secondary-400" />
+        <DropdownMenuTrigger
+          disabled={isQuestionContentLocked}
+          render={
+            <Button
+              aria-describedby={describedBy(
+                hasSubtestIssue ? "question-subtest-error" : undefined,
+                readinessHint ? "question-readiness-hint" : undefined,
+              )}
+              aria-invalid={hasSubtestIssue}
+              className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
+              data-question-anchor="subtest"
+              data-question-field="subtest"
+              id="question-subtest"
+              type="button"
+              variant="reference"
+            />
+          }
+        >
+          <span className="truncate">
+            {selectedSubject?.name
+              ? questionDraft.subjectCode + " - " + selectedSubject.name
+              : "Pilih Subtest"}
+          </span>
+          <ChevronDown className="size-4 text-secondary-400" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuRadioGroup
+              onValueChange={(value) => {
+                const currentMateri = questionDraft.materi ?? "";
+                const nextMateri = questionBankMateriOptions(value).includes(
+                  currentMateri,
+                )
+                  ? currentMateri
+                  : "";
+                onUpdate({
+                  ...questionDraft,
+                  materi: nextMateri,
+                  subjectCode: value,
+                });
+              }}
+              value={questionDraft.subjectCode}
+            >
+              {kaptenSubjects.map((subject) => (
+                <DropdownMenuRadioItem
+                  className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                  key={subject.code}
+                  value={subject.code}
+                >
+                  {subject.code} - {subject.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
       </DropdownMenu>
-      {hasSubtestIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id="question-subtest-error">Pilih Subtest sebelum menerbitkan.</p> : null}
+      {hasSubtestIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id="question-subtest-error"
+        >
+          Pilih Subtest sebelum menerbitkan.
+        </p>
+      ) : null}
     </Field>
   );
 }
 
-function QuestionDifficultyField({ isQuestionContentLocked, onUpdate, questionDraft }: { isQuestionContentLocked: boolean; onUpdate: (question: BankQuestion) => void; questionDraft: BankQuestion }) {
-  const difficultyLabel = questionDraft.difficulty === "easy" ? "Mudah" : questionDraft.difficulty === "hard" ? "Sulit" : "Sedang";
+function QuestionMateriField({
+  isQuestionContentLocked,
+  onUpdate,
+  questionDraft,
+}: {
+  isQuestionContentLocked: boolean;
+  onUpdate: (question: BankQuestion) => void;
+  questionDraft: BankQuestion;
+}) {
+  const options = questionBankMateriOptions(questionDraft.subjectCode);
+  const selectedMateri = questionDraft.materi ?? "";
+  const hasOptions = options.length > 0;
   return (
     <Field>
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel>
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="question-materi"
+      >
+        Materi
+      </FieldLabel>
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")} id="question-difficulty" type="button" variant="reference" />}>
-          <span>{difficultyLabel}</span><ChevronDown className="text-secondary-400" />
+        <DropdownMenuTrigger
+          disabled={isQuestionContentLocked || !hasOptions}
+          render={
+            <Button
+              className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
+              data-question-anchor="materi"
+              data-question-field="materi"
+              id="question-materi"
+              type="button"
+              variant="reference"
+            />
+          }
+        >
+          <span className="truncate">
+            {selectedMateri ||
+              (hasOptions ? "Pilih Materi" : "Pilih Subtest terlebih dahulu")}
+          </span>
+          <ChevronDown className="size-4 text-secondary-400" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, difficulty: value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="easy">Mudah</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="medium">Sedang</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="hard">Sulit</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuLabel>
+            {hasOptions ? "Pilih Materi" : "Pilih Subtest terlebih dahulu"}
+          </DropdownMenuLabel>
+          {hasOptions ? (
+            <DropdownMenuGroup>
+              <DropdownMenuRadioGroup
+                onValueChange={(value) =>
+                  onUpdate({ ...questionDraft, materi: value })
+                }
+                value={selectedMateri}
+              >
+                {options.map((option) => (
+                  <DropdownMenuRadioItem
+                    className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                    key={option}
+                    value={option}
+                  >
+                    {option}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          ) : null}
+        </DropdownMenuContent>
       </DropdownMenu>
     </Field>
   );
 }
 
-function QuestionExplanationField({ activeQuestionId, isQuestionContentLocked, issueState, onOpenMedia, onUpdate, questionDraft }: { activeQuestionId: string | null; isQuestionContentLocked: boolean; issueState: ReturnType<typeof getQuestionBankEditorIssueState>; onOpenMedia: (target: MediaPickerTarget) => void; onUpdate: (question: BankQuestion) => void; questionDraft: BankQuestion }) {
+function QuestionDifficultyField({
+  isQuestionContentLocked,
+  onUpdate,
+  questionDraft,
+}: {
+  isQuestionContentLocked: boolean;
+  onUpdate: (question: BankQuestion) => void;
+  questionDraft: BankQuestion;
+}) {
+  const difficultyLabel =
+    questionDraft.difficulty === "easy"
+      ? "Mudah"
+      : questionDraft.difficulty === "hard"
+        ? "Sulit"
+        : "Sedang";
+  return (
+    <Field>
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="question-difficulty"
+      >
+        Tingkat kesulitan
+      </FieldLabel>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={isQuestionContentLocked}
+          render={
+            <Button
+              className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
+              id="question-difficulty"
+              type="button"
+              variant="reference"
+            />
+          }
+        >
+          <span>{difficultyLabel}</span>
+          <ChevronDown className="text-secondary-400" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuRadioGroup
+              onValueChange={(value) =>
+                onUpdate({
+                  ...questionDraft,
+                  difficulty: value as BankQuestion["difficulty"],
+                })
+              }
+              value={questionDraft.difficulty}
+            >
+              <DropdownMenuRadioItem
+                className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                value="easy"
+              >
+                Mudah
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                value="medium"
+              >
+                Sedang
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900"
+                value="hard"
+              >
+                Sulit
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </Field>
+  );
+}
+
+function QuestionExplanationField({
+  activeQuestionId,
+  isQuestionContentLocked,
+  issueState,
+  onOpenMedia,
+  onUpdate,
+  questionDraft,
+}: {
+  activeQuestionId: string | null;
+  isQuestionContentLocked: boolean;
+  issueState: ReturnType<typeof getQuestionBankEditorIssueState>;
+  onOpenMedia: (target: MediaPickerTarget) => void;
+  onUpdate: (question: BankQuestion) => void;
+  questionDraft: BankQuestion;
+}) {
   const { hasExplanationMediaIssue, readinessHint } = issueState;
   return (
     <Field>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
-        <Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasExplanationMediaIssue ? "question-explanation-media-error" : undefined)} aria-invalid={hasExplanationMediaIssue} data-question-anchor="media" data-question-field="media" data-question-field-key="explanation" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-explanation" onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="question-explanation"
+        >
+          Penjelasan{" "}
+          <span className="font-normal text-secondary-400">(opsional)</span>
+        </FieldLabel>
+        <Button
+          aria-describedby={describedBy(
+            readinessHint ? "question-readiness-hint" : undefined,
+            hasExplanationMediaIssue
+              ? "question-explanation-media-error"
+              : undefined,
+          )}
+          aria-invalid={hasExplanationMediaIssue}
+          data-question-anchor="media"
+          data-question-field="media"
+          data-question-field-key="explanation"
+          disabled={!activeQuestionId || isQuestionContentLocked}
+          id="question-media-explanation"
+          onClick={() =>
+            onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })
+          }
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <ImagePlus data-icon="inline-start" />
+          {questionDraft.explanationMediaAssetId
+            ? "Ganti gambar"
+            : "Tambah gambar"}
+        </Button>
       </div>
-      <FieldTextarea className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />
-      {questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} field="explanation" label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}
-      {hasExplanationMediaIssue ? <p className="text-sm font-medium text-student-status-danger-fg" id="question-explanation-media-error" role="alert">Gambar penjelasan belum siap. Pilih gambar lain atau hapus lampirannya.</p> : null}
+      <FieldTextarea
+        className={REFERENCE_CONTROL_CLASS_NAMES.input}
+        disabled={isQuestionContentLocked}
+        id="question-explanation"
+        onChange={(event) =>
+          onUpdate({ ...questionDraft, explanation: event.target.value })
+        }
+        value={questionDraft.explanation}
+      />
+      {questionDraft.explanationMediaAssetId ? (
+        <QuestionMediaAttachment
+          assetId={questionDraft.explanationMediaAssetId}
+          disabled={isQuestionContentLocked}
+          field="explanation"
+          label="Gambar penjelasan"
+          onRemove={() =>
+            onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })
+          }
+          onReplace={() =>
+            onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })
+          }
+        />
+      ) : null}
+      {hasExplanationMediaIssue ? (
+        <p
+          className="text-sm font-medium text-student-status-danger-fg"
+          id="question-explanation-media-error"
+          role="alert"
+        >
+          Gambar penjelasan belum siap. Pilih gambar lain atau hapus
+          lampirannya.
+        </p>
+      ) : null}
     </Field>
   );
 }
@@ -703,39 +1397,202 @@ function QuestionBankEditorForm({
   const issueState = getQuestionBankEditorIssueState(readinessIssues);
   return (
     <ReferenceSurface as="div" className="grid min-w-0 gap-6 p-5 md:p-6">
-      <QuestionPromptField activeQuestionId={activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onOpenMedia={onOpenMedia} onUpdate={onUpdate} questionDraft={questionDraft} />
-      <QuestionAnswerModeField isQuestionContentLocked={isQuestionContentLocked} onUpdate={onUpdate} questionDraft={questionDraft} />
-      <QuestionChoicesField activeQuestionId={activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onAddChoice={onAddChoice} onOpenMedia={onOpenMedia} onRemoveChoice={onRemoveChoice} onRemoveChoiceMedia={onRemoveChoiceMedia} onUpdate={onUpdate} questionDraft={questionDraft} />
+      <QuestionPromptField
+        activeQuestionId={activeQuestionId}
+        isQuestionContentLocked={isQuestionContentLocked}
+        issueState={issueState}
+        onOpenMedia={onOpenMedia}
+        onUpdate={onUpdate}
+        questionDraft={questionDraft}
+      />
+      <QuestionAnswerModeField
+        isQuestionContentLocked={isQuestionContentLocked}
+        onUpdate={onUpdate}
+        questionDraft={questionDraft}
+      />
+      <QuestionChoicesField
+        activeQuestionId={activeQuestionId}
+        isQuestionContentLocked={isQuestionContentLocked}
+        issueState={issueState}
+        onAddChoice={onAddChoice}
+        onOpenMedia={onOpenMedia}
+        onRemoveChoice={onRemoveChoice}
+        onRemoveChoiceMedia={onRemoveChoiceMedia}
+        onUpdate={onUpdate}
+        questionDraft={questionDraft}
+      />
       <div className="grid gap-5 sm:grid-cols-2">
-        <QuestionSubtestField isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onUpdate={onUpdate} questionDraft={questionDraft} />
-        <QuestionDifficultyField isQuestionContentLocked={isQuestionContentLocked} onUpdate={onUpdate} questionDraft={questionDraft} />
+        <div className="grid gap-5">
+          <QuestionSubtestField
+            isQuestionContentLocked={isQuestionContentLocked}
+            issueState={issueState}
+            onUpdate={onUpdate}
+            questionDraft={questionDraft}
+          />
+          <QuestionMateriField
+            isQuestionContentLocked={isQuestionContentLocked}
+            onUpdate={onUpdate}
+            questionDraft={questionDraft}
+          />
+        </div>
+        <QuestionDifficultyField
+          isQuestionContentLocked={isQuestionContentLocked}
+          onUpdate={onUpdate}
+          questionDraft={questionDraft}
+        />
       </div>
-      <QuestionExplanationField activeQuestionId={activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} issueState={issueState} onOpenMedia={onOpenMedia} onUpdate={onUpdate} questionDraft={questionDraft} />
-      {issueState.readinessHint ? <p className="sr-only" id="question-readiness-hint">{issueState.readinessHint}</p> : null}
+      <QuestionExplanationField
+        activeQuestionId={activeQuestionId}
+        isQuestionContentLocked={isQuestionContentLocked}
+        issueState={issueState}
+        onOpenMedia={onOpenMedia}
+        onUpdate={onUpdate}
+        questionDraft={questionDraft}
+      />
+      {issueState.readinessHint ? (
+        <p className="sr-only" id="question-readiness-hint">
+          {issueState.readinessHint}
+        </p>
+      ) : null}
     </ReferenceSurface>
   );
 }
-function QuestionBankPreview({ hasSubmittedPreview, onChoiceChange, onSubmit, previewChoiceId, previewChoiceIds, questionDraft }: { hasSubmittedPreview: boolean; onChoiceChange: (choiceId: string) => void; onSubmit: () => void; previewChoiceId: string | null; previewChoiceIds: string[]; questionDraft: BankQuestion }) {
+function QuestionBankPreview({
+  hasSubmittedPreview,
+  onChoiceChange,
+  onSubmit,
+  previewChoiceId,
+  previewChoiceIds,
+  questionDraft,
+}: {
+  hasSubmittedPreview: boolean;
+  onChoiceChange: (choiceId: string) => void;
+  onSubmit: () => void;
+  previewChoiceId: string | null;
+  previewChoiceIds: string[];
+  questionDraft: BankQuestion;
+}) {
   const multipleAnswer = questionTypeFor(questionDraft) === "multiple_choice";
   const correctChoiceIds = correctChoiceIdsFor(questionDraft);
-  const answerComparison = compareSelectedOptionSets(previewChoiceIds, correctChoiceIds);
+  const answerComparison = compareSelectedOptionSets(
+    previewChoiceIds,
+    correctChoiceIds,
+  );
   const isCorrect = answerComparison.ok && answerComparison.equal;
-  return <ReferenceSurface as="section" className="min-w-0 p-5 md:p-6">
-    {questionDraft.promptMediaAssetId ? <MediaAssetPreview alt="Gambar pertanyaan" assetId={questionDraft.promptMediaAssetId} className="mb-5" /> : null}
-    <p className="text-xl leading-8 font-normal text-secondary-900">{questionDraft.prompt || "Pertanyaan akan tampil di sini."}</p>
-    {multipleAnswer ? (
-      <div className="mt-6 grid gap-3">
-        {questionDraft.choices.map((choice, index) => {
-          const choiceLabel = String.fromCharCode(65 + index);
-          const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`;
-          return <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "cursor-pointer text-sm text-secondary-700 transition-colors")} htmlFor={choiceId} key={choice.id}><input aria-label={`Pilih opsi ${choiceLabel}`} checked={previewChoiceIds.includes(choice.id)} className="size-4 accent-primary-700" id={choiceId} onChange={() => onChoiceChange(choice.id)} type="checkbox" /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} className="max-h-44" assetId={choice.mediaAssetId} /> : null}</span></label>;
-        })}
+  return (
+    <ReferenceSurface as="section" className="min-w-0 p-5 md:p-6">
+      {questionDraft.promptMediaAssetId ? (
+        <MediaAssetPreview
+          alt="Gambar pertanyaan"
+          assetId={questionDraft.promptMediaAssetId}
+          className="mb-5"
+        />
+      ) : null}
+      <p className="text-xl leading-8 font-normal text-secondary-900">
+        {questionDraft.prompt || "Pertanyaan akan tampil di sini."}
+      </p>
+      {multipleAnswer ? (
+        <div className="mt-6 grid gap-3">
+          {questionDraft.choices.map((choice, index) => {
+            const choiceLabel = String.fromCharCode(65 + index);
+            const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`;
+            return (
+              <label
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.choice,
+                  "cursor-pointer text-sm text-secondary-700 transition-colors",
+                )}
+                htmlFor={choiceId}
+                key={choice.id}
+              >
+                <input
+                  aria-label={`Pilih opsi ${choiceLabel}`}
+                  checked={previewChoiceIds.includes(choice.id)}
+                  className="size-4 accent-primary-700"
+                  id={choiceId}
+                  onChange={() => onChoiceChange(choice.id)}
+                  type="checkbox"
+                />
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
+                  {choiceLabel}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-3">
+                  <span>{choice.text || `Opsi ${choiceLabel}`}</span>
+                  {choice.mediaAssetId ? (
+                    <MediaAssetPreview
+                      alt={`Gambar opsi ${choiceLabel}`}
+                      className="max-h-44"
+                      assetId={choice.mediaAssetId}
+                    />
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      ) : (
+        <RadioGroup
+          key={questionDraft.id}
+          className="mt-6"
+          onValueChange={onChoiceChange}
+          value={previewChoiceId ?? undefined}
+        >
+          {questionDraft.choices.map((choice, index) => {
+            const choiceLabel = String.fromCharCode(65 + index);
+            const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`;
+            return (
+              <label
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.choice,
+                  "cursor-pointer text-sm text-secondary-700 transition-colors",
+                )}
+                htmlFor={choiceId}
+                key={choice.id}
+              >
+                <RadioGroupItem id={choiceId} value={choice.id} />
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
+                  {choiceLabel}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-3">
+                  <span>{choice.text || `Opsi ${choiceLabel}`}</span>
+                  {choice.mediaAssetId ? (
+                    <MediaAssetPreview
+                      alt={`Gambar opsi ${choiceLabel}`}
+                      className="max-h-44"
+                      assetId={choice.mediaAssetId}
+                    />
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </RadioGroup>
+      )}
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-primary-100 pt-5">
+        <Button
+          disabled={!previewChoiceIds.length}
+          onClick={onSubmit}
+          type="button"
+          variant="brand"
+        >
+          Kirim jawaban
+        </Button>
+        {hasSubmittedPreview ? (
+          <p
+            aria-live="polite"
+            className={cn(
+              "rounded-2xl px-3 py-2 text-sm font-medium",
+              isCorrect
+                ? "bg-primary-50 text-primary-800"
+                : "bg-red-50 text-red-800",
+            )}
+          >
+            {isCorrect ? "Jawaban benar." : "Belum tepat. Coba lagi."}
+          </p>
+        ) : null}
       </div>
-    ) : (
-      <RadioGroup key={questionDraft.id} className="mt-6" onValueChange={onChoiceChange} value={previewChoiceId ?? undefined}>{questionDraft.choices.map((choice, index) => { const choiceLabel = String.fromCharCode(65 + index); const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`; return <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "cursor-pointer text-sm text-secondary-700 transition-colors")} htmlFor={choiceId} key={choice.id}><RadioGroupItem id={choiceId} value={choice.id} /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} className="max-h-44" assetId={choice.mediaAssetId} /> : null}</span></label>; })}</RadioGroup>
-    )}
-    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-primary-100 pt-5"><Button disabled={!previewChoiceIds.length} onClick={onSubmit} type="button" variant="brand">Kirim jawaban</Button>{hasSubmittedPreview ? <p aria-live="polite" className={cn("rounded-2xl px-3 py-2 text-sm font-medium", isCorrect ? "bg-primary-50 text-primary-800" : "bg-red-50 text-red-800")}>{isCorrect ? "Jawaban benar." : "Belum tepat. Coba lagi."}</p> : null}</div>
-  </ReferenceSurface>;
+    </ReferenceSurface>
+  );
 }
 
 function QuestionBankInventory({
@@ -769,7 +1626,9 @@ function QuestionBankInventory({
   function focusQuestion(questionId: string) {
     onOpenQuestion(questionId);
     window.requestAnimationFrame(() => {
-      questionRowRefs.current[questionId]?.querySelector<HTMLButtonElement>("button")?.focus();
+      questionRowRefs.current[questionId]
+        ?.querySelector<HTMLButtonElement>("button")
+        ?.focus();
     });
   }
 
@@ -777,19 +1636,23 @@ function QuestionBankInventory({
     event: KeyboardEvent<HTMLButtonElement>,
     questionId: string,
   ) {
-    if (![
-      "ArrowDown",
-      "ArrowLeft",
-      "ArrowRight",
-      "ArrowUp",
-      "End",
-      "Home",
-    ].includes(event.key)) {
+    if (
+      ![
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "End",
+        "Home",
+      ].includes(event.key)
+    ) {
       return;
     }
 
     event.preventDefault();
-    const currentIndex = visibleQuestions.findIndex((question) => question.id === questionId);
+    const currentIndex = visibleQuestions.findIndex(
+      (question) => question.id === questionId,
+    );
     if (currentIndex < 0 || visibleQuestions.length === 0) return;
 
     const nextIndex =
@@ -813,12 +1676,12 @@ function QuestionBankInventory({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-secondary-900" id="question-bank-inventory-title">
-            Inventori soal
+          <h2
+            className="text-lg font-semibold text-secondary-900"
+            id="question-bank-inventory-title"
+          >
+            Inventori soal ({builderState.questions.length})
           </h2>
-          <p className="mt-1 text-xs text-secondary-500">
-            {builderState.questions.length} soal{incompleteCount > 0 ? ` · ${incompleteCount} perlu diperbaiki` : ""}
-          </p>
         </div>
         <Button
           aria-label="Tambah soal"
@@ -831,77 +1694,100 @@ function QuestionBankInventory({
           <Plus />
         </Button>
       </div>
-      <nav aria-label="Navigasi soal" className="mt-3 flex min-h-0 flex-1 flex-col">
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" id="question-bank-inventory-list">
+      <nav
+        aria-label="Navigasi soal"
+        className="mt-3 flex min-h-0 flex-1 flex-col"
+      >
+        <div
+          className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1"
+          id="question-bank-inventory-list"
+        >
           <ul aria-label="Daftar soal" className="flex flex-col gap-1.5">
-            {visibleQuestions.length > 0 ? visibleQuestions.map((question) => {
-              const questionNumber = builderState.questions.findIndex((item) => item.id === question.id) + 1;
-              const ready = isQuestionReady(question.id) && isReady(question);
-              const isActive = activeQuestionId === question.id;
-              const issueCount = readiness.issues.filter((issue) => issue.questionId === question.id).length;
-              const hasIssues = !ready;
-              return (
-                <li
-                  className={cn(
-                    "group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors",
-                    isActive
-                      ? "border-primary-200 bg-primary-50"
-                      : hasIssues
-                        ? "border-amber-300 bg-amber-50/70 hover:border-amber-400 hover:bg-amber-50"
-                      : "hover:border-primary-100 hover:bg-primary-50/60",
-                  )}
-                  key={question.id}
-                  ref={(element) => {
-                    questionRowRefs.current[question.id] = element;
-                  }}
-                >
-                  <button
-                    aria-current={isActive ? "true" : undefined}
-                    aria-label={`Soal ${questionNumber}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
-                    className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                    onClick={() => onOpenQuestion(question.id)}
-                    onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
-                    tabIndex={question.id === focusableQuestionId ? 0 : -1}
-                    type="button"
+            {visibleQuestions.length > 0 ? (
+              visibleQuestions.map((question) => {
+                const questionNumber =
+                  builderState.questions.findIndex(
+                    (item) => item.id === question.id,
+                  ) + 1;
+                const ready = isQuestionReady(question.id) && isReady(question);
+                const isActive = activeQuestionId === question.id;
+                const issueCount = readiness.issues.filter(
+                  (issue) => issue.questionId === question.id,
+                ).length;
+                const hasIssues = !ready;
+                return (
+                  <li
+                    className={cn(
+                      "group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors",
+                      isActive
+                        ? "border-primary-200 bg-primary-50"
+                        : hasIssues
+                          ? "border-amber-300 bg-amber-50/70 hover:border-amber-400 hover:bg-amber-50"
+                          : "hover:border-primary-100 hover:bg-primary-50/60",
+                    )}
+                    key={question.id}
+                    ref={(element) => {
+                      questionRowRefs.current[question.id] = element;
+                    }}
                   >
-                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900">
-                      <span className="min-w-0 flex-1 truncate">
-                        {questionNumber}. {question.prompt || "Soal tanpa pertanyaan"}
+                    <button
+                      aria-current={isActive ? "true" : undefined}
+                      aria-label={`Soal ${questionNumber}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
+                      className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                      onClick={() => onOpenQuestion(question.id)}
+                      onKeyDown={(event) =>
+                        handleQuestionKeyDown(event, question.id)
+                      }
+                      tabIndex={question.id === focusableQuestionId ? 0 : -1}
+                      type="button"
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900">
+                        <span className="min-w-0 flex-1 truncate">
+                          {questionNumber}.{" "}
+                          {question.prompt || "Soal tanpa pertanyaan"}
+                        </span>
                       </span>
-                    </span>
-                    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                      <MentorBadge size="xs" tone="category">{question.subjectCode}</MentorBadge>
-                      {hasIssues ? (
-                        <MentorBadge
-                          aria-label={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
-                          className="size-7 justify-center !px-0 !py-0"
-                          role="img"
-                          size="xs"
-                          title={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
-                          tone="attention"
-                        >
-                          <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+                      <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                        <MentorBadge size="xs" tone="category">
+                          {question.subjectCode}
                         </MentorBadge>
-                      ) : null}
-                    </span>
-                  </button>
-                  <Button
-                    aria-label={`Hapus soal ${questionNumber}`}
-                    disabled={isDisabled}
-                    onClick={() => onRemoveQuestion(question.id)}
-                    onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
-                    size="icon-sm"
-                    tabIndex={isActive ? 0 : -1}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </li>
-              );
-            }) : (
+                        {hasIssues ? (
+                          <MentorBadge
+                            aria-label={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
+                            className="size-7 justify-center !px-0 !py-0"
+                            role="img"
+                            size="xs"
+                            title={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
+                            tone="attention"
+                          >
+                            <AlertTriangle
+                              aria-hidden="true"
+                              className="size-3.5 shrink-0"
+                            />
+                          </MentorBadge>
+                        ) : null}
+                      </span>
+                    </button>
+                    <Button
+                      aria-label={`Hapus soal ${questionNumber}`}
+                      disabled={isDisabled}
+                      onClick={() => onRemoveQuestion(question.id)}
+                      onKeyDown={(event) =>
+                        handleQuestionKeyDown(event, question.id)
+                      }
+                      size="icon-sm"
+                      tabIndex={isActive ? 0 : -1}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </li>
+                );
+              })
+            ) : (
               <li className="px-2 py-4 text-sm leading-6 text-secondary-500">
-                Belum ada soal. Tambahkan soal pertama dan pilih Subtest-nya.
+                Belum ada soal.
               </li>
             )}
           </ul>
@@ -929,7 +1815,8 @@ function QuestionBankMobileInventory({
   const activeIndex = builderState.questions.findIndex(
     (question) => question.id === activeQuestionId,
   );
-  const activeQuestion = builderState.questions[activeIndex] ?? builderState.questions[0];
+  const activeQuestion =
+    builderState.questions[activeIndex] ?? builderState.questions[0];
   const incompleteCount = readiness.incompleteCount;
 
   return (
@@ -940,7 +1827,10 @@ function QuestionBankMobileInventory({
             aria-label="Pilih soal yang sedang diedit"
             render={
               <Button
-                className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "min-w-0 flex-1")}
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.select,
+                  "min-w-0 flex-1",
+                )}
                 disabled={builderState.questions.length === 0}
                 type="button"
                 variant="reference"
@@ -993,146 +1883,8 @@ function QuestionBankMobileInventory({
       </div>
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
         <span>{builderState.questions.length} soal di bank</span>
-        {incompleteCount > 0 ? <span className="font-semibold text-amber-900">{incompleteCount} perlu diperbaiki</span> : null}
       </div>
     </div>
-  );
-}
-
-function QuestionBankCategoryPicker({
-  categories,
-  disabled,
-  selectedCategoryIds,
-  onChange,
-}: {
-  categories: QuestionBankCategoryOption[];
-  disabled: boolean;
-  onChange: (categoryIds: string[]) => void;
-  selectedCategoryIds: string[];
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const selectedIdSet = new Set(selectedCategoryIds);
-  const selectedCategories = categories.filter((category) => selectedIdSet.has(category.id));
-  const normalizedSearch = search.trim().toLocaleLowerCase();
-  const filteredCategories = categories.filter((category) =>
-    category.name.toLocaleLowerCase().includes(normalizedSearch),
-  );
-
-  function closePicker(nextOpen: boolean) {
-    setIsOpen(nextOpen);
-    if (!nextOpen) setSearch("");
-  }
-
-  function toggleCategory(categoryId: string) {
-    onChange(
-      selectedIdSet.has(categoryId)
-        ? selectedCategoryIds.filter((id) => id !== categoryId)
-        : [...selectedCategoryIds, categoryId],
-    );
-    setSearch("");
-  }
-
-  function removeCategory(categoryId: string, event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    onChange(selectedCategoryIds.filter((id) => id !== categoryId));
-  }
-
-  return (
-    <Field>
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-categories">Kategori</FieldLabel>
-      <Popover onOpenChange={closePicker} open={isOpen}>
-        <PopoverTrigger
-          disabled={disabled}
-          nativeButton={false}
-          render={<div className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "flex min-h-11 cursor-text flex-wrap items-center gap-2 px-3 py-2")} />}
-        >
-          {selectedCategories.map((category) => (
-            <span
-              className="inline-flex max-w-full items-center gap-1 rounded-lg bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-800"
-              key={category.id}
-            >
-              <span className="max-w-48 truncate">{category.name}</span>
-              <button
-                aria-label={`Hapus kategori ${category.name}`}
-                className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-secondary-500 outline-none hover:bg-secondary-200 hover:text-secondary-900 focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                disabled={disabled}
-                onClick={(event) => removeCategory(category.id, event)}
-                type="button"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
-          ))}
-          <input
-            aria-autocomplete="list"
-            aria-controls="bank-category-options"
-            aria-expanded={isOpen}
-            aria-haspopup="listbox"
-            className="min-w-[8rem] flex-1 bg-transparent py-1 text-sm text-secondary-900 outline-none placeholder:text-secondary-400"
-            disabled={disabled}
-            id="bank-categories"
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setIsOpen(true);
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setIsOpen(false);
-              } else if (event.key === "Backspace" && !search && selectedCategoryIds.length) {
-                onChange(selectedCategoryIds.slice(0, -1));
-              } else if (event.key === "Enter" && filteredCategories[0]) {
-                event.preventDefault();
-                toggleCategory(filteredCategories[0].id);
-              } else if (event.key === "ArrowDown") {
-                setIsOpen(true);
-              }
-            }}
-            placeholder={selectedCategories.length ? "Tambah kategori" : "Pilih kategori"}
-            role="combobox"
-            value={search}
-          />
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[min(30rem,calc(100vw-2rem))] gap-2 p-2"
-          id="bank-category-options"
-        >
-          <p className="px-2 py-1 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">
-            Tambah kategori
-          </p>
-          <div className="grid max-h-60 gap-1 overflow-y-auto" role="listbox" aria-label="Pilihan kategori">
-            {filteredCategories.length ? filteredCategories.map((category) => {
-              const selected = selectedIdSet.has(category.id);
-              return (
-                <button
-                  aria-selected={selected}
-                  className="flex min-h-11 items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left text-sm font-medium text-secondary-900 outline-none hover:bg-primary-50 hover:text-primary-900 focus-visible:bg-primary-50 focus-visible:text-primary-900"
-                  key={category.id}
-                  onClick={() => toggleCategory(category.id)}
-                  role="option"
-                  type="button"
-                >
-                  <span className="truncate">{category.name}</span>
-                  {selected ? <Check aria-hidden="true" className="size-4 shrink-0 text-primary-700" /> : null}
-                </button>
-              );
-            }) : (
-              <p className="px-3 py-3 text-sm text-secondary-500">
-                {categories.length ? "Tidak ada kategori yang cocok." : "Belum ada kategori bersama."}
-              </p>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </Field>
   );
 }
 
@@ -1190,93 +1942,293 @@ type QuestionBankBuilderActions = {
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
   updateCategories: (patch: QuestionBankCategoryPatch) => void;
-  updateLifecycle: (operation: "archive" | "publish" | "unpublish" | "restore") => void;
+  updateLifecycle: (
+    operation: "archive" | "publish" | "unpublish" | "restore",
+  ) => void;
 };
 
-function QuestionBankEditorTitle({ builderState, mode, onFocusIssue, state }: { builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; onFocusIssue: () => void; state: QuestionBankBuilderViewState }) {
-  const title = mode === "create" ? "Buat Bank Soal " + (builderState.purpose === "quiz" ? "Kuis" : "Tryout") : builderState.title;
+function QuestionBankEditorTitle({
+  builderState,
+  mode,
+  onFocusIssue,
+  state,
+}: {
+  builderState: QuestionBankBuilderFormState;
+  mode: "create" | "edit";
+  onFocusIssue: () => void;
+  state: QuestionBankBuilderViewState;
+}) {
+  const title = mode === "create" ? "Buat Bank Soal Baru" : builderState.title;
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
-      <Button nativeButton={false} render={<Link href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`} />} aria-label={`Kembali ke ${navigationLabel}`} size="icon-sm" title={`Kembali ke ${navigationLabel}`} variant="ghost"><ChevronLeft /></Button>
+      <Button
+        nativeButton={false}
+        render={
+          <Link
+            href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
+          />
+        }
+        aria-label={`Kembali ke ${navigationLabel}`}
+        size="icon-sm"
+        title={`Kembali ke ${navigationLabel}`}
+        variant="ghost"
+      >
+        <ChevronLeft />
+      </Button>
       <div className="mt-5 flex flex-col gap-x-3 gap-y-2">
-        <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{title}</h1><MentorBadge size="xs" tone="category">{builderState.purpose === "quiz" ? "Kuis" : "Tryout"}</MentorBadge></div>
-        {state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}
-        {state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={onFocusIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
+            {title}
+          </h1>
+          <MentorBadge size="xs" tone="category">
+            {builderState.purpose === "quiz" ? "Kuis" : "Tryout"}
+          </MentorBadge>
+        </div>
+        {state.readiness.incompleteCount > 0 ? (
+          <Button
+            aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
+            className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+            onClick={onFocusIssue}
+            type="button"
+            variant="ghost"
+          >
+            <AlertTriangle data-icon="inline-start" />
+            Lihat masalah{" "}
+            <span className="font-normal">
+              ({state.readiness.incompleteCount})
+            </span>
+          </Button>
+        ) : null}
       </div>
     </div>
   );
 }
 
-
-function getQuestionBankPublishDisabledReason(builderState: QuestionBankBuilderFormState, state: QuestionBankBuilderViewState) {
+function getQuestionBankPublishDisabledReason(
+  builderState: QuestionBankBuilderFormState,
+  state: QuestionBankBuilderViewState,
+) {
   if (state.hasUnsavedChanges) return "Simpan dulu untuk menerbitkan";
-  if (builderState.questions.length === 0) return "Tambahkan minimal satu soal sebelum menerbitkan";
-  if (state.readiness.incompleteCount > 0) return state.readiness.incompleteCount + " soal belum lengkap";
+  if (builderState.questions.length === 0)
+    return "Tambahkan minimal satu soal sebelum menerbitkan";
+  if (state.readiness.incompleteCount > 0)
+    return state.readiness.incompleteCount + " soal belum lengkap";
   return undefined;
 }
 
-function QuestionBankSaveAction({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
-  const saveLabel = mode === "create" ? "Buat bank soal" : "Simpan perubahan";
+function QuestionBankSaveAction({
+  actions,
+  builderState,
+  mode,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  mode: "create" | "edit";
+  state: QuestionBankBuilderViewState;
+}) {
+  const saveLabel = mode === "create" ? "Buat" : "Simpan perubahan";
   const titleMissing = mode === "create" && !builderState.title.trim();
-  return <Button aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>;
+  return (
+    <Button
+      aria-label={saveLabel}
+      disabled={state.isSaving || state.isMetadataLocked || titleMissing}
+      onClick={actions.saveDraft}
+      size="sm"
+      title={mode === "create" ? undefined : saveLabel}
+      type="button"
+      variant={state.hasUnsavedChanges ? "brand" : "reference"}
+    >
+      <Save />
+      {mode === "create" ? saveLabel : "Simpan"}
+    </Button>
+  );
 }
 
-function QuestionBankLifecycleMenu({ actions, mode, state }: { actions: QuestionBankBuilderActions; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+function QuestionBankLifecycleMenu({
+  actions,
+  mode,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  mode: "create" | "edit";
+  state: QuestionBankBuilderViewState;
+}) {
   if (mode !== "edit" || !state.isDraftLifecycle) return null;
-  return <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || state.hasUnsavedChanges} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Aksi destruktif Bank Soal"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <Ellipsis />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            disabled={state.isSaving || state.hasUnsavedChanges}
+            onClick={actions.requestArchive}
+            variant="destructive"
+          >
+            <Archive />
+            Arsipkan
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
-function QuestionBankPublishAction({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+function QuestionBankPublishAction({
+  actions,
+  builderState,
+  mode,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  mode: "create" | "edit";
+  state: QuestionBankBuilderViewState;
+}) {
   if (mode !== "edit" || !state.isDraftLifecycle) return null;
-  const disabledReason = getQuestionBankPublishDisabledReason(builderState, state);
-  return <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={disabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || Boolean(disabledReason)} id="question-bank-lifecycle-publish" onClick={() => actions.requestLifecycleChange("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{disabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{disabledReason}</p> : null}</>;
+  const disabledReason = getQuestionBankPublishDisabledReason(
+    builderState,
+    state,
+  );
+  return (
+    <>
+      <Button
+        aria-busy={state.isSaving}
+        data-question-bank-lifecycle-action="publish"
+        aria-describedby={
+          disabledReason ? "publish-disabled-reason" : undefined
+        }
+        disabled={state.isSaving || Boolean(disabledReason)}
+        id="question-bank-lifecycle-publish"
+        onClick={() => actions.requestLifecycleChange("publish")}
+        type="button"
+        variant="brandOutline"
+      >
+        {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
+      </Button>
+      {disabledReason ? (
+        <p className="text-xs text-secondary-600" id="publish-disabled-reason">
+          {disabledReason}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
-function QuestionBankHeaderActions({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
-  return <div className="flex flex-wrap items-center gap-2"><QuestionBankSaveAction actions={actions} builderState={builderState} mode={mode} state={state} /><QuestionBankLifecycleMenu actions={actions} mode={mode} state={state} /><QuestionBankPublishAction actions={actions} builderState={builderState} mode={mode} state={state} /></div>;
+function QuestionBankHeaderActions({
+  actions,
+  builderState,
+  mode,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  mode: "create" | "edit";
+  state: QuestionBankBuilderViewState;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <QuestionBankSaveAction
+        actions={actions}
+        builderState={builderState}
+        mode={mode}
+        state={state}
+      />
+      <QuestionBankLifecycleMenu actions={actions} mode={mode} state={state} />
+      <QuestionBankPublishAction
+        actions={actions}
+        builderState={builderState}
+        mode={mode}
+        state={state}
+      />
+    </div>
+  );
 }
 
-function QuestionBankEditorHeader({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+function QuestionBankEditorHeader({
+  actions,
+  builderState,
+  mode,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  mode: "create" | "edit";
+  state: QuestionBankBuilderViewState;
+}) {
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <QuestionBankEditorTitle builderState={builderState} mode={mode} onFocusIssue={actions.focusFirstIssue} state={state} />
-      <QuestionBankHeaderActions actions={actions} builderState={builderState} mode={mode} state={state} />
+      <QuestionBankEditorTitle
+        builderState={builderState}
+        mode={mode}
+        onFocusIssue={actions.focusFirstIssue}
+        state={state}
+      />
+      <QuestionBankHeaderActions
+        actions={actions}
+        builderState={builderState}
+        mode={mode}
+        state={state}
+      />
     </section>
   );
 }
-function QuestionBankMetadataForm({ actions, builderState, categories, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; state: QuestionBankBuilderViewState }) {
+function QuestionBankMetadataForm({
+  actions,
+  builderState,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  state: QuestionBankBuilderViewState;
+}) {
   return (
     <ReferenceSurface as="section" className="grid max-w-4xl gap-5 p-5 md:p-7">
       <Field>
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-title">Judul bank</FieldLabel>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="bank-title"
+        >
+          Judul bank
+        </FieldLabel>
         <FieldInput
           aria-required="true"
           className={REFERENCE_CONTROL_CLASS_NAMES.input}
           disabled={state.isMetadataLocked}
           id="bank-title"
-          onChange={(event) => actions.updateMetadata("title", event.target.value)}
+          onChange={(event) =>
+            actions.updateMetadata("title", event.target.value)
+          }
           required
           value={builderState.title}
         />
       </Field>
       <Field>
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-purpose">Digunakan untuk</FieldLabel>
-        <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled id="bank-purpose" value={builderState.purpose === "quiz" ? "Kuis" : "Tryout"} />
-      </Field>
-      <QuestionBankCategoryPicker
-        categories={categories}
-        disabled={state.isMetadataLocked}
-        onChange={(categoryIds) => actions.updateCategories({ categoryIds })}
-        selectedCategoryIds={builderState.categoryIds}
-      />
-      <Field>
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-description">Deskripsi</FieldLabel>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="bank-description"
+        >
+          Deskripsi
+        </FieldLabel>
         <FieldTextarea
           className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
           disabled={state.isMetadataLocked}
           id="bank-description"
-          onChange={(event) => actions.updateMetadata("description", event.target.value)}
+          onChange={(event) =>
+            actions.updateMetadata("description", event.target.value)
+          }
           value={builderState.description}
         />
       </Field>
@@ -1284,34 +2236,66 @@ function QuestionBankMetadataForm({ actions, builderState, categories, state }: 
   );
 }
 
-
 type QuestionBankBuilderScreenProps = {
   actions: QuestionBankBuilderActions;
   bankId?: string;
   builderState: QuestionBankBuilderFormState;
-  categories: QuestionBankCategoryOption[];
   mode: "create" | "edit";
   session: SessionContext;
   state: QuestionBankBuilderViewState;
   workspaceRef: { current: HTMLDivElement | null };
 };
 
-function QuestionBankBuilderDialogs({ actions, confirmation, mediaPickerTarget, selectedMediaAssetId }: { actions: QuestionBankBuilderActions; confirmation: ConfirmationRequest | null; mediaPickerTarget: MediaPickerTarget | null; selectedMediaAssetId: string | undefined }) {
+function QuestionBankBuilderDialogs({
+  actions,
+  confirmation,
+  mediaPickerTarget,
+  selectedMediaAssetId,
+}: {
+  actions: QuestionBankBuilderActions;
+  confirmation: ConfirmationRequest | null;
+  mediaPickerTarget: MediaPickerTarget | null;
+  selectedMediaAssetId: string | undefined;
+}) {
   const dialogVariant = confirmation?.dialogVariant ?? "danger";
   const actionVariant = confirmation?.actionVariant ?? "destructive";
   return (
     <>
-      <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(mediaPickerTarget)} selectedAssetId={selectedMediaAssetId} title={mediaPickerTarget?.label ?? "Pilih gambar"} />
-      <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(confirmation)}>
+      <MediaPickerDialog
+        onOpenChange={(open) => {
+          if (!open) actions.onCloseMedia();
+        }}
+        onSelect={actions.onSelectMedia}
+        open={Boolean(mediaPickerTarget)}
+        selectedAssetId={selectedMediaAssetId}
+        title={mediaPickerTarget?.label ?? "Pilih gambar"}
+      />
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) actions.closeConfirmation();
+        }}
+        open={Boolean(confirmation)}
+      >
         <AlertDialogContent size="sm" variant={dialogVariant}>
           <AlertDialogHeader>
-            <AlertDialogMedia variant={dialogVariant}><CircleHelp /></AlertDialogMedia>
+            <AlertDialogMedia variant={dialogVariant}>
+              <CircleHelp />
+            </AlertDialogMedia>
             <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {confirmation?.description}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={actions.confirmPendingAction} variant={actionVariant}>{confirmation?.confirmLabel}</AlertDialogAction>
+            <AlertDialogCancel onClick={actions.closeConfirmation}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={actions.confirmPendingAction}
+              variant={actionVariant}
+            >
+              {confirmation?.confirmLabel}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1321,106 +2305,391 @@ function QuestionBankBuilderDialogs({ actions, confirmation, mediaPickerTarget, 
 
 function QuestionBankLifecycleError({ message }: { message: string | null }) {
   if (!message) return null;
-  return <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{message}</p>;
+  return (
+    <p
+      aria-live="assertive"
+      className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      role="alert"
+    >
+      {message}
+    </p>
+  );
 }
 
-function QuestionBankEditWorkspaceHeader({ actions, builderState, detailHref, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; detailHref: string; state: QuestionBankBuilderViewState }) {
+function QuestionBankEditWorkspaceHeader({
+  actions,
+  builderState,
+  detailHref,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  detailHref: string;
+  state: QuestionBankBuilderViewState;
+}) {
   return (
     <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
       <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        <Button aria-label="Kembali ke detail bank soal" onClick={() => actions.requestExit(detailHref)} size="icon-sm" title="Kembali ke detail bank soal" variant="ghost"><ChevronLeft /></Button>
+        <Button
+          aria-label="Kembali ke detail bank soal"
+          onClick={() => actions.requestExit(detailHref)}
+          size="icon-sm"
+          title="Kembali ke detail bank soal"
+          variant="ghost"
+        >
+          <ChevronLeft />
+        </Button>
         <div className="flex min-w-0 items-center gap-2.5">
-          <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{builderState.title || "Bank Soal"}</h1>
-          {state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}
+          <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">
+            {builderState.title || "Bank Soal"}
+          </h1>
+          {state.hasUnsavedChanges ? (
+            <MentorBadge size="xs" tone="attention">
+              Belum disimpan
+            </MentorBadge>
+          ) : null}
         </div>
-        {state.readiness.incompleteCount > 0 ? <Button aria-label={"Lihat " + state.readiness.incompleteCount + " masalah kesiapan"} className="hidden h-7 px-2 text-xs font-semibold text-amber-900 underline-offset-4 hover:underline lg:flex" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}
+        {state.readiness.incompleteCount > 0 ? (
+          <Button
+            aria-label={
+              "Lihat " + state.readiness.incompleteCount + " masalah kesiapan"
+            }
+            className="hidden h-7 px-2 text-xs font-semibold text-amber-900 underline-offset-4 hover:underline lg:flex"
+            onClick={actions.focusFirstIssue}
+            type="button"
+            variant="ghost"
+          >
+            <AlertTriangle data-icon="inline-start" />
+            Lihat masalah{" "}
+            <span className="font-normal">
+              ({state.readiness.incompleteCount})
+            </span>
+          </Button>
+        ) : null}
       </div>
       <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
-        <Button aria-label="Simpan" disabled={state.isSaving || state.isMetadataLocked} onClick={actions.saveDraft} size="sm" title="Simpan perubahan" type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{state.isSaving ? "Menyimpan…" : "Simpan"}</Button>
+        <Button
+          aria-label="Simpan"
+          disabled={state.isSaving || state.isMetadataLocked}
+          onClick={actions.saveDraft}
+          size="sm"
+          title="Simpan perubahan"
+          type="button"
+          variant={state.hasUnsavedChanges ? "brand" : "reference"}
+        >
+          <Save />
+          {state.isSaving ? "Menyimpan…" : "Simpan"}
+        </Button>
       </div>
     </header>
   );
 }
 
-function QuestionBankQuestionContent({ actions, builderState, isQuestionContentLocked, questionIssues, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; isQuestionContentLocked: boolean; questionIssues: QuestionReadinessIssue[]; state: QuestionBankBuilderViewState }) {
+function QuestionBankQuestionContent({
+  actions,
+  builderState,
+  isQuestionContentLocked,
+  questionIssues,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  isQuestionContentLocked: boolean;
+  questionIssues: QuestionReadinessIssue[];
+  state: QuestionBankBuilderViewState;
+}) {
   if (!builderState.questions.length) {
-    return <ReferenceSurface className="min-h-72" variant="inset"><ReferenceEmptyState action={<Button disabled={isQuestionContentLocked} onClick={actions.addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal pertama</Button>} description="Bank soal dapat disimpan tanpa soal. Tambahkan soal kapan saja sebelum diterbitkan." icon={LibraryBig} title="Belum ada soal" /></ReferenceSurface>;
+    return (
+      <ReferenceSurface className="min-h-72" variant="inset">
+        <ReferenceEmptyState
+          action={
+            <Button
+              disabled={isQuestionContentLocked}
+              onClick={actions.addQuestion}
+              size="sm"
+              type="button"
+              variant="brand"
+            >
+              <Plus />
+              Tambah soal pertama
+            </Button>
+          }
+          description="Ayo tulis soal pertama!"
+          icon={LibraryBig}
+          title="Belum ada soal"
+        />
+      </ReferenceSurface>
+    );
   }
 
   return (
     <>
-      {questionIssues.length ? <p aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950" role="status"><AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>Soal ini memiliki {questionIssues.length} masalah. Perbaiki bidang yang ditandai sebelum menerbitkan.</span></p> : null}
-      {state.questionEditorTab === "preview" ? <QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} previewChoiceIds={state.previewChoiceIds} questionDraft={state.questionDraft} /> : <QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} readinessIssues={questionIssues} />}
+      {questionIssues.length ? (
+        <p
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950"
+          role="status"
+        >
+          <AlertTriangle
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0"
+          />
+          <span>Soal ini memiliki {questionIssues.length} masalah.</span>
+        </p>
+      ) : null}
+      {state.questionEditorTab === "preview" ? (
+        <QuestionBankPreview
+          hasSubmittedPreview={state.hasSubmittedPreview}
+          onChoiceChange={actions.onChoiceChange}
+          onSubmit={actions.onSubmitPreview}
+          previewChoiceId={state.previewChoiceId}
+          previewChoiceIds={state.previewChoiceIds}
+          questionDraft={state.questionDraft}
+        />
+      ) : (
+        <QuestionBankEditorForm
+          activeQuestionId={state.activeQuestionId}
+          isQuestionContentLocked={isQuestionContentLocked}
+          onAddChoice={actions.addChoice}
+          onOpenMedia={actions.onOpenMedia}
+          onRemoveChoice={actions.onRemoveChoice}
+          onRemoveChoiceMedia={actions.onRemoveChoiceMedia}
+          onUpdate={actions.onUpdateDraft}
+          questionDraft={state.questionDraft}
+          readinessIssues={questionIssues}
+        />
+      )}
     </>
   );
 }
 
-function QuestionBankEditQuestionWorkspace({ actions, builderState, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
-  const questionIssues = state.readiness.issues.filter((issue) => issue.questionId === state.activeQuestionId);
+function QuestionBankEditQuestionWorkspace({
+  actions,
+  builderState,
+  state,
+  workspaceRef,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  state: QuestionBankBuilderViewState;
+  workspaceRef: { current: HTMLDivElement | null };
+}) {
+  const questionIssues = state.readiness.issues.filter(
+    (issue) => issue.questionId === state.activeQuestionId,
+  );
   return (
-    <main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8" data-question-workspace="current" id="question-bank-question-workspace" ref={workspaceRef}>
+    <main
+      className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"
+      data-question-workspace="current"
+      id="question-bank-question-workspace"
+      ref={workspaceRef}
+    >
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-secondary-900" id="question-bank-question-workspace-title">Edit soal</h2>
-          <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="question-bank-preview-toggle">Toggle preview<Switch checked={state.questionEditorTab === "preview"} id="question-bank-preview-toggle" onCheckedChange={(checked) => actions.onEditorTabChange(checked ? "preview" : "edit")} /></label>
+          <h2
+            className="text-xl font-bold text-secondary-900"
+            id="question-bank-question-workspace-title"
+          >
+            Edit soal
+          </h2>
+          <label
+            className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700"
+            htmlFor="question-bank-preview-toggle"
+          >
+            Preview
+            <Switch
+              checked={state.questionEditorTab === "preview"}
+              id="question-bank-preview-toggle"
+              onCheckedChange={(checked) =>
+                actions.onEditorTabChange(checked ? "preview" : "edit")
+              }
+            />
+          </label>
         </div>
-        <QuestionBankQuestionContent actions={actions} builderState={builderState} isQuestionContentLocked={state.isQuestionContentLocked} questionIssues={questionIssues} state={state} />
+        <QuestionBankQuestionContent
+          actions={actions}
+          builderState={builderState}
+          isQuestionContentLocked={state.isQuestionContentLocked}
+          questionIssues={questionIssues}
+          state={state}
+        />
       </div>
     </main>
   );
 }
 
-function QuestionBankCreateWorkspace({ actions, builderState, categories, session, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; session: SessionContext; state: QuestionBankBuilderViewState }) {
+function QuestionBankCreateWorkspace({
+  actions,
+  builderState,
+  session,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  session: SessionContext;
+  state: QuestionBankBuilderViewState;
+}) {
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
 
   return (
-    <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={`Buat ${navigationLabel}`} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges} sidebarAppearance="reference">
-      <QuestionBankEditorHeader actions={actions} builderState={builderState} mode="create" state={state} />
-      <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
+    <MentorWorkspaceShell
+      activeLabel={navigationLabel}
+      breadcrumbLabel={`Buat ${navigationLabel}`}
+      contentElement="div"
+      mainClassName="max-w-[1500px] gap-7"
+      onNavigateAway={() => !state.hasUnsavedChanges}
+      searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..."
+      session={session}
+      showSearch={false}
+      shouldGuardNavigation={state.hasUnsavedChanges}
+      sidebarAppearance="reference"
+    >
+      <QuestionBankEditorHeader
+        actions={actions}
+        builderState={builderState}
+        mode="create"
+        state={state}
+      />
+      <p aria-live="polite" className="sr-only" role="status">
+        {state.readinessAnnouncement}
+      </p>
       <QuestionBankLifecycleError message={state.lifecycleError} />
-      <QuestionBankMetadataForm actions={actions} builderState={builderState} categories={categories} state={state} />
-      <QuestionBankBuilderDialogs actions={actions} confirmation={state.confirmationRequest} mediaPickerTarget={state.mediaPickerTarget} selectedMediaAssetId={state.selectedMediaAssetId} />
+      <QuestionBankMetadataForm
+        actions={actions}
+        builderState={builderState}
+        state={state}
+      />
+      <QuestionBankBuilderDialogs
+        actions={actions}
+        confirmation={state.confirmationRequest}
+        mediaPickerTarget={state.mediaPickerTarget}
+        selectedMediaAssetId={state.selectedMediaAssetId}
+      />
     </MentorWorkspaceShell>
   );
 }
 
-function QuestionBankEditWorkspace({ actions, bankId, builderState, state, workspaceRef }: { actions: QuestionBankBuilderActions; bankId?: string; builderState: QuestionBankBuilderFormState; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
+function QuestionBankEditWorkspace({
+  actions,
+  bankId,
+  builderState,
+  state,
+  workspaceRef,
+}: {
+  actions: QuestionBankBuilderActions;
+  bankId?: string;
+  builderState: QuestionBankBuilderFormState;
+  state: QuestionBankBuilderViewState;
+  workspaceRef: { current: HTMLDivElement | null };
+}) {
   const targetBankId = bankId ?? builderState.title;
-  const detailHref = "/mentor/quiz/question-bank/" + targetBankId + "?purpose=" + builderState.purpose;
+  const detailHref =
+    "/mentor/quiz/question-bank/" +
+    targetBankId +
+    "?purpose=" +
+    builderState.purpose;
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas">
-      <QuestionBankEditWorkspaceHeader actions={actions} builderState={builderState} detailHref={detailHref} state={state} />
-      <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
+      <QuestionBankEditWorkspaceHeader
+        actions={actions}
+        builderState={builderState}
+        detailHref={detailHref}
+        state={state}
+      />
+      <p aria-live="polite" className="sr-only" role="status">
+        {state.readinessAnnouncement}
+      </p>
       <QuestionBankLifecycleError message={state.lifecycleError} />
-      <QuestionBankMobileInventory activeQuestionId={state.activeQuestionId} builderState={builderState} isDisabled={state.isQuestionContentLocked} onAddQuestion={actions.addQuestion} onOpenQuestion={actions.onOpenQuestion} readiness={state.readiness} />
+      <QuestionBankMobileInventory
+        activeQuestionId={state.activeQuestionId}
+        builderState={builderState}
+        isDisabled={state.isQuestionContentLocked}
+        onAddQuestion={actions.addQuestion}
+        onOpenQuestion={actions.onOpenQuestion}
+        readiness={state.readiness}
+      />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="hidden w-72 shrink-0 overflow-hidden border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
-          <QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} isDisabled={state.isQuestionContentLocked} onAddQuestion={actions.addQuestion} onOpenQuestion={actions.onOpenQuestion} onRemoveQuestion={actions.onRemoveQuestion} questionRowRefs={state.questionRowRefs} readiness={state.readiness} />
+          <QuestionBankInventory
+            activeQuestionId={state.activeQuestionId}
+            builderState={builderState}
+            isDisabled={state.isQuestionContentLocked}
+            onAddQuestion={actions.addQuestion}
+            onOpenQuestion={actions.onOpenQuestion}
+            onRemoveQuestion={actions.onRemoveQuestion}
+            questionRowRefs={state.questionRowRefs}
+            readiness={state.readiness}
+          />
         </div>
-        <QuestionBankEditQuestionWorkspace actions={actions} builderState={builderState} state={state} workspaceRef={workspaceRef} />
+        <QuestionBankEditQuestionWorkspace
+          actions={actions}
+          builderState={builderState}
+          state={state}
+          workspaceRef={workspaceRef}
+        />
       </div>
-      <QuestionBankBuilderDialogs actions={actions} confirmation={state.confirmationRequest} mediaPickerTarget={state.mediaPickerTarget} selectedMediaAssetId={state.selectedMediaAssetId} />
+      <QuestionBankBuilderDialogs
+        actions={actions}
+        confirmation={state.confirmationRequest}
+        mediaPickerTarget={state.mediaPickerTarget}
+        selectedMediaAssetId={state.selectedMediaAssetId}
+      />
     </div>
   );
 }
 
-function QuestionBankBuilderScreen({ actions, bankId, builderState, categories, mode, session, state, workspaceRef }: QuestionBankBuilderScreenProps) {
+function QuestionBankBuilderScreen({
+  actions,
+  bankId,
+  builderState,
+  mode,
+  session,
+  state,
+  workspaceRef,
+}: QuestionBankBuilderScreenProps) {
   if (mode === "create") {
-    return <QuestionBankCreateWorkspace actions={actions} builderState={builderState} categories={categories} session={session} state={state} />;
+    return (
+      <QuestionBankCreateWorkspace
+        actions={actions}
+        builderState={builderState}
+        session={session}
+        state={state}
+      />
+    );
   }
-  return <QuestionBankEditWorkspace actions={actions} bankId={bankId} builderState={builderState} state={state} workspaceRef={workspaceRef} />;
+  return (
+    <QuestionBankEditWorkspace
+      actions={actions}
+      bankId={bankId}
+      builderState={builderState}
+      state={state}
+      workspaceRef={workspaceRef}
+    />
+  );
 }
-function useQuestionBankNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router }: { hasUnsavedChanges: boolean; pendingRouteReplacement: string | null; router: ReturnType<typeof useRouter> }) {
+function useQuestionBankNavigationGuards({
+  hasUnsavedChanges,
+  pendingRouteReplacement,
+  router,
+}: {
+  hasUnsavedChanges: boolean;
+  pendingRouteReplacement: string | null;
+  router: ReturnType<typeof useRouter>;
+}) {
   useEffect(() => {
     if (!hasUnsavedChanges) return;
-    function handleBeforeUnload(event: BeforeUnloadEvent) { event.preventDefault(); }
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (!pendingRouteReplacement || hasUnsavedChanges) return;
-    const frame = window.requestAnimationFrame(() => router.replace(pendingRouteReplacement));
+    const frame = window.requestAnimationFrame(() =>
+      router.replace(pendingRouteReplacement),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 }
@@ -1456,7 +2725,11 @@ function useQuestionBankPersistence({
         revision: revisionRef.current,
         title: builderState.title,
       });
-      if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
+      if (!result.ok) {
+        if (result.readiness) setServerReadiness(result.readiness);
+        updateEditor({ lifecycleError: result.message });
+        return;
+      }
       revisionRef.current = result.result.bank.revision;
       bankIdRef.current = result.result.bank.id;
       const savedBank = result.result.bank;
@@ -1470,46 +2743,85 @@ function useQuestionBankPersistence({
         subjectCode: builderState.subjectCode,
         title: savedBank.title,
       };
-      const organizationVersion = { expectedRevision: savedBank.revision, expectedUpdatedAt: savedBank.updatedAt };
+      const organizationVersion = {
+        expectedRevision: savedBank.revision,
+        expectedUpdatedAt: savedBank.updatedAt,
+      };
 
       if (!sameStringSet(savedBank.categoryIds, desiredCategoryIds)) {
-        const categoryResult = await setQuestionBankCategoriesAction(savedBank.id, desiredCategoryIds, organizationVersion);
+        const categoryResult = await setQuestionBankCategoriesAction(
+          savedBank.id,
+          desiredCategoryIds,
+          organizationVersion,
+        );
         if (!categoryResult.ok) {
           setLocalBuilderState(contentState);
-          updateEditor({ lifecycleError: categoryResult.message, hasUnsavedChanges: true });
+          updateEditor({
+            lifecycleError: categoryResult.message,
+            hasUnsavedChanges: true,
+          });
           return;
         }
       }
 
       setLocalBuilderState(contentState);
       setServerReadiness(result.result.readiness);
-      updateEditor({ hasUnsavedChanges: false, lifecycleStatus: result.result.bank.status });
-      showToast(mode === "create" ? "Bank Soal dibuat." : "Perubahan Bank Soal tersimpan.", { variant: "success" });
-      if (mode === "create") updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}` });
+      updateEditor({
+        hasUnsavedChanges: false,
+        lifecycleStatus: result.result.bank.status,
+      });
+      showToast(
+        mode === "create"
+          ? "Bank Soal dibuat."
+          : "Perubahan Bank Soal tersimpan.",
+        { variant: "success" },
+      );
+      if (mode === "create")
+        updateEditor({
+          pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}`,
+        });
     } catch (saveError) {
-      updateEditor({ lifecycleError: saveError instanceof Error ? saveError.message : "Bank Soal belum dapat disimpan." });
+      updateEditor({
+        lifecycleError:
+          saveError instanceof Error
+            ? saveError.message
+            : "Bank Soal belum dapat disimpan.",
+      });
     } finally {
       updateEditor({ isSaving: false });
     }
   }
 
-  async function updateLifecycle(operation: "archive" | "publish" | "unpublish" | "restore") {
+  async function updateLifecycle(
+    operation: "archive" | "publish" | "unpublish" | "restore",
+  ) {
     const id = bankIdRef.current;
     if (!id) return;
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
-      const result = await updateQuestionBankLifecycleAction(id, operation, { expectedRevision: revisionRef.current ?? 1 });
-      if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
+      const result = await updateQuestionBankLifecycleAction(id, operation, {
+        expectedRevision: revisionRef.current ?? 1,
+      });
+      if (!result.ok) {
+        if (result.readiness) setServerReadiness(result.readiness);
+        updateEditor({ lifecycleError: result.message });
+        return;
+      }
       revisionRef.current = result.result.revision;
       if (operation === "publish") setServerReadiness(null);
-      updateEditor({ hasUnsavedChanges: false, lifecycleError: null, lifecycleStatus: result.result.status });
-      const lifecycleMessage = operation === "publish"
-        ? "Bank Soal diterbitkan."
-        : operation === "unpublish"
-          ? "Bank Soal dijadikan draf."
-          : operation === "archive"
-            ? "Bank Soal diarsipkan."
-            : "Bank Soal dipulihkan.";
+      updateEditor({
+        hasUnsavedChanges: false,
+        lifecycleError: null,
+        lifecycleStatus: result.result.status,
+      });
+      const lifecycleMessage =
+        operation === "publish"
+          ? "Bank Soal diterbitkan."
+          : operation === "unpublish"
+            ? "Bank Soal dijadikan draf."
+            : operation === "archive"
+              ? "Bank Soal diarsipkan."
+              : "Bank Soal dipulihkan.";
       showToast(lifecycleMessage, { variant: "success" });
       if (operation === "publish" || operation === "archive") {
         onBankNoLongerEditable(result.result.id);
@@ -1522,7 +2834,10 @@ function useQuestionBankPersistence({
   return { saveDraft, updateLifecycle };
 }
 
-function getQuestionNumber(questions: readonly BankQuestion[], questionId: string) {
+function getQuestionNumber(
+  questions: readonly BankQuestion[],
+  questionId: string,
+) {
   const index = questions.findIndex((question) => question.id === questionId);
   return index < 0 ? 0 : index + 1;
 }
@@ -1562,117 +2877,266 @@ function useQuestionBankDraftActions({
   setLocalBuilderState: (state: LocalQuestionBankState) => void;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
 }) {
-  const markChanged = useCallback((nextState: LocalQuestionBankState) => {
-    setLocalBuilderState(nextState);
-    updateEditor({
-      hasUnsavedChanges: markChangedMode === "create" ? hasQuestionBankDraftContent(nextState) : true,
-      serverReadiness: pruneServerReadinessForDraftChange(serverReadiness, builderState.questions, nextState.questions),
-    });
-  }, [builderState.questions, markChangedMode, serverReadiness, setLocalBuilderState, updateEditor]);
+  const markChanged = useCallback(
+    (nextState: LocalQuestionBankState) => {
+      setLocalBuilderState(nextState);
+      updateEditor({
+        hasUnsavedChanges:
+          markChangedMode === "create"
+            ? hasQuestionBankDraftContent(nextState)
+            : true,
+        serverReadiness: pruneServerReadinessForDraftChange(
+          serverReadiness,
+          builderState.questions,
+          nextState.questions,
+        ),
+      });
+    },
+    [
+      builderState.questions,
+      markChangedMode,
+      serverReadiness,
+      setLocalBuilderState,
+      updateEditor,
+    ],
+  );
 
-  const updateMetadata = useCallback((field: "title" | "description", value: string) => {
-    if (isMetadataLocked) return;
-    markChanged({ ...builderState, [field]: value });
-  }, [builderState, isMetadataLocked, markChanged]);
+  const updateMetadata = useCallback(
+    (field: "title" | "description", value: string) => {
+      if (isMetadataLocked) return;
+      markChanged({ ...builderState, [field]: value });
+    },
+    [builderState, isMetadataLocked, markChanged],
+  );
 
-  const updateCategories = useCallback((patch: QuestionBankCategoryPatch) => {
-    if (isMetadataLocked) return;
-    markChanged({ ...builderState, ...(patch.categoryIds ? { categoryIds: [...new Set(patch.categoryIds)] } : {}) });
-  }, [builderState, isMetadataLocked, markChanged]);
+  const updateCategories = useCallback(
+    (patch: QuestionBankCategoryPatch) => {
+      if (isMetadataLocked) return;
+      markChanged({
+        ...builderState,
+        ...(patch.categoryIds
+          ? { categoryIds: [...new Set(patch.categoryIds)] }
+          : {}),
+      });
+    },
+    [builderState, isMetadataLocked, markChanged],
+  );
 
-  const openQuestion = useCallback((questionId: string) => {
-    const question = builderState.questions.find((item) => item.id === questionId);
-    if (!question) return;
-    const issueCount = readiness.issues.filter((issue) => issue.questionId === question.id).length;
-    updateEditor({
-      activeQuestionId: question.id,
-      hasSubmittedPreview: false,
-      previewChoiceId: null,
-      previewChoiceIds: [],
-      questionDraft: toQuestionDraft(question),
-      readinessAnnouncement: issueCount ? `Soal ${getQuestionNumber(builderState.questions, question.id)} dipilih. Ada ${issueCount} masalah yang perlu diperbaiki.` : "",
-    });
-  }, [builderState.questions, readiness.issues, updateEditor]);
+  const openQuestion = useCallback(
+    (questionId: string) => {
+      const question = builderState.questions.find(
+        (item) => item.id === questionId,
+      );
+      if (!question) return;
+      const issueCount = readiness.issues.filter(
+        (issue) => issue.questionId === question.id,
+      ).length;
+      updateEditor({
+        activeQuestionId: question.id,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: toQuestionDraft(question),
+        readinessAnnouncement: issueCount
+          ? `Soal ${getQuestionNumber(builderState.questions, question.id)} dipilih. Ada ${issueCount} masalah yang perlu diperbaiki.`
+          : "",
+      });
+    },
+    [builderState.questions, readiness.issues, updateEditor],
+  );
 
-  const updateQuestionDraft = useCallback((nextQuestion: BankQuestion) => {
-    if (isQuestionContentLocked) return;
-    updateEditor({ questionDraft: nextQuestion });
-    if (!activeQuestionId) return;
-    markChanged({ ...builderState, questions: builderState.questions.map((question) => question.id === activeQuestionId ? nextQuestion : question) });
-  }, [activeQuestionId, builderState, isQuestionContentLocked, markChanged, updateEditor]);
+  const updateQuestionDraft = useCallback(
+    (nextQuestion: BankQuestion) => {
+      if (isQuestionContentLocked) return;
+      updateEditor({ questionDraft: nextQuestion });
+      if (!activeQuestionId) return;
+      markChanged({
+        ...builderState,
+        questions: builderState.questions.map((question) =>
+          question.id === activeQuestionId ? nextQuestion : question,
+        ),
+      });
+    },
+    [
+      activeQuestionId,
+      builderState,
+      isQuestionContentLocked,
+      markChanged,
+      updateEditor,
+    ],
+  );
 
-  const selectMediaAsset = useCallback((asset: MediaAssetDto) => {
-    if (!mediaPickerTarget || !activeQuestionId) return;
-    if (mediaPickerTarget.kind === "prompt") {
-      updateQuestionDraft({ ...questionDraft, promptMediaAssetId: asset.id });
-      return;
-    }
-    if (mediaPickerTarget.kind === "explanation") {
-      updateQuestionDraft({ ...questionDraft, explanationMediaAssetId: asset.id });
-      return;
-    }
-    updateQuestionDraft({ ...questionDraft, choices: questionDraft.choices.map((choice) => choice.id === mediaPickerTarget.choiceId ? { ...choice, mediaAssetId: asset.id } : choice) });
-  }, [activeQuestionId, mediaPickerTarget, questionDraft, updateQuestionDraft]);
+  const selectMediaAsset = useCallback(
+    (asset: MediaAssetDto) => {
+      if (!mediaPickerTarget || !activeQuestionId) return;
+      if (mediaPickerTarget.kind === "prompt") {
+        updateQuestionDraft({ ...questionDraft, promptMediaAssetId: asset.id });
+        return;
+      }
+      if (mediaPickerTarget.kind === "explanation") {
+        updateQuestionDraft({
+          ...questionDraft,
+          explanationMediaAssetId: asset.id,
+        });
+        return;
+      }
+      updateQuestionDraft({
+        ...questionDraft,
+        choices: questionDraft.choices.map((choice) =>
+          choice.id === mediaPickerTarget.choiceId
+            ? { ...choice, mediaAssetId: asset.id }
+            : choice,
+        ),
+      });
+    },
+    [activeQuestionId, mediaPickerTarget, questionDraft, updateQuestionDraft],
+  );
 
-  const removeChoiceMedia = useCallback((choiceId: string) => {
-    if (!activeQuestionId) return;
-    const question = builderState.questions.find((item) => item.id === activeQuestionId);
-    if (!question) return;
-    updateQuestionDraft({ ...question, choices: question.choices.map((choice) => choice.id === choiceId ? { ...choice, mediaAssetId: undefined } : choice) });
-  }, [activeQuestionId, builderState.questions, updateQuestionDraft]);
+  const removeChoiceMedia = useCallback(
+    (choiceId: string) => {
+      if (!activeQuestionId) return;
+      const question = builderState.questions.find(
+        (item) => item.id === activeQuestionId,
+      );
+      if (!question) return;
+      updateQuestionDraft({
+        ...question,
+        choices: question.choices.map((choice) =>
+          choice.id === choiceId
+            ? { ...choice, mediaAssetId: undefined }
+            : choice,
+        ),
+      });
+    },
+    [activeQuestionId, builderState.questions, updateQuestionDraft],
+  );
 
   const addChoice = useCallback(() => {
     if (isQuestionContentLocked || builderState.questions.length === 0) return;
-    const question = builderState.questions.find((item) => item.id === activeQuestionId);
+    const question = builderState.questions.find(
+      (item) => item.id === activeQuestionId,
+    );
     if (!question || question.choices.length >= 5) return;
     const id = String.fromCharCode(97 + question.choices.length);
-    updateQuestionDraft({ ...question, choices: [...question.choices, { id, text: "" }] });
-  }, [activeQuestionId, builderState.questions, isQuestionContentLocked, updateQuestionDraft]);
+    updateQuestionDraft({
+      ...question,
+      choices: [...question.choices, { id, text: "" }],
+    });
+  }, [
+    activeQuestionId,
+    builderState.questions,
+    isQuestionContentLocked,
+    updateQuestionDraft,
+  ]);
 
-  const removeChoice = useCallback((choiceId: string) => {
-    if (isQuestionContentLocked) return;
-    const question = builderState.questions.find((item) => item.id === activeQuestionId);
-    if (!question || question.choices.length <= 2) return;
-    const choices = question.choices.filter((choice) => choice.id !== choiceId);
-    const correctChoiceIds = correctChoiceIdsFor(question).filter((id) => id !== choiceId);
-    const nextCorrectChoiceIds = correctChoiceIds.length ? correctChoiceIds : [choices[0]?.id ?? "a"];
-    updateQuestionDraft(withCorrectChoiceIds({ ...question, choices }, nextCorrectChoiceIds));
-  }, [activeQuestionId, builderState.questions, isQuestionContentLocked, updateQuestionDraft]);
+  const removeChoice = useCallback(
+    (choiceId: string) => {
+      if (isQuestionContentLocked) return;
+      const question = builderState.questions.find(
+        (item) => item.id === activeQuestionId,
+      );
+      if (!question || question.choices.length <= 2) return;
+      const choices = question.choices.filter(
+        (choice) => choice.id !== choiceId,
+      );
+      const correctChoiceIds = correctChoiceIdsFor(question).filter(
+        (id) => id !== choiceId,
+      );
+      const nextCorrectChoiceIds = correctChoiceIds.length
+        ? correctChoiceIds
+        : [choices[0]?.id ?? "a"];
+      updateQuestionDraft(
+        withCorrectChoiceIds({ ...question, choices }, nextCorrectChoiceIds),
+      );
+    },
+    [
+      activeQuestionId,
+      builderState.questions,
+      isQuestionContentLocked,
+      updateQuestionDraft,
+    ],
+  );
 
   const addQuestion = useCallback(() => {
     if (isQuestionContentLocked) return;
-    const subjectCode = activeQuestion?.subjectCode ?? builderState.questions.at(-1)?.subjectCode ?? "PU";
+    const subjectCode =
+      activeQuestion?.subjectCode ??
+      builderState.questions.at(-1)?.subjectCode ??
+      "PU";
     const id = createQuestionId(subjectCode);
-    const nextQuestion = { ...emptyQuestion(bankId ?? initialBank?.id ?? id, subjectCode), id };
-    markChanged({ ...builderState, questions: [...builderState.questions, nextQuestion] });
+    const nextQuestion = {
+      ...emptyQuestion(bankId ?? initialBank?.id ?? id, subjectCode),
+      id,
+    };
+    markChanged({
+      ...builderState,
+      questions: [...builderState.questions, nextQuestion],
+    });
     updateEditor({
       activeQuestionId: id,
       hasSubmittedPreview: false,
       previewChoiceId: null,
       previewChoiceIds: [],
       questionDraft: nextQuestion,
-      readinessAnnouncement: "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menerbitkan.",
+      readinessAnnouncement:
+        "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menerbitkan.",
     });
-  }, [activeQuestion?.subjectCode, bankId, builderState, initialBank?.id, isQuestionContentLocked, markChanged, updateEditor]);
+  }, [
+    activeQuestion?.subjectCode,
+    bankId,
+    builderState,
+    initialBank?.id,
+    isQuestionContentLocked,
+    markChanged,
+    updateEditor,
+  ]);
 
-  const removeQuestion = useCallback((id: string) => {
-    if (isQuestionContentLocked) return;
-    const questions = builderState.questions.filter((question) => question.id !== id);
-    if (questions.length === builderState.questions.length) return;
-    const nextActiveQuestion = questions[0] ?? null;
-    questionFocusAfterDeleteRef.current = nextActiveQuestion?.id ?? null;
-    markChanged({ ...builderState, questions });
-    updateEditor({
-      activeQuestionId: nextActiveQuestion?.id ?? null,
-      hasSubmittedPreview: false,
-      previewChoiceId: null,
-      previewChoiceIds: [],
-      questionDraft: nextActiveQuestion ? toQuestionDraft(nextActiveQuestion) : fallbackQuestion,
-      readinessAnnouncement: nextActiveQuestion ? "Soal dihapus." : "Soal terakhir dihapus. Bank soal tetap dapat disimpan tanpa soal.",
-    });
-  }, [builderState, fallbackQuestion, isQuestionContentLocked, markChanged, questionFocusAfterDeleteRef, updateEditor]);
+  const removeQuestion = useCallback(
+    (id: string) => {
+      if (isQuestionContentLocked) return;
+      const questions = builderState.questions.filter(
+        (question) => question.id !== id,
+      );
+      if (questions.length === builderState.questions.length) return;
+      const nextActiveQuestion = questions[0] ?? null;
+      questionFocusAfterDeleteRef.current = nextActiveQuestion?.id ?? null;
+      markChanged({ ...builderState, questions });
+      updateEditor({
+        activeQuestionId: nextActiveQuestion?.id ?? null,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: nextActiveQuestion
+          ? toQuestionDraft(nextActiveQuestion)
+          : fallbackQuestion,
+        readinessAnnouncement: nextActiveQuestion
+          ? "Soal dihapus."
+          : "Soal terakhir dihapus. Bank soal tetap dapat disimpan tanpa soal.",
+      });
+    },
+    [
+      builderState,
+      fallbackQuestion,
+      isQuestionContentLocked,
+      markChanged,
+      questionFocusAfterDeleteRef,
+      updateEditor,
+    ],
+  );
 
-  return { addChoice, addQuestion, markChanged, openQuestion, removeChoice, removeChoiceMedia, removeQuestion, selectMediaAsset, updateCategories, updateMetadata, updateQuestionDraft };
+  return {
+    addChoice,
+    addQuestion,
+    markChanged,
+    openQuestion,
+    removeChoice,
+    removeChoiceMedia,
+    removeQuestion,
+    selectMediaAsset,
+    updateCategories,
+    updateMetadata,
+    updateQuestionDraft,
+  };
 }
 
 function useQuestionBankIssueNavigation({
@@ -1700,64 +3164,142 @@ function useQuestionBankIssueNavigation({
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
   workspaceRef: { current: HTMLDivElement | null };
 }) {
-  const focusTarget = useCallback((issue: QuestionReadinessIssue, question: BankQuestion) => {
-    const workspace = workspaceRef.current;
-    const anchors = workspace ? Array.from(workspace.querySelectorAll<HTMLElement>("[data-question-anchor]")) : [];
-    let target: HTMLElement | undefined;
-    if (issue.field === "prompt") {
-      target = anchors.find((element) => element.dataset.questionAnchor === "prompt");
-    } else if (issue.field === "choice") {
-      target = anchors.find((element) => element.dataset.questionAnchor === "choice" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
-    } else if (issue.field === "correctChoice") {
-      target = anchors.find((element) => element.dataset.questionAnchor === "correctChoice");
-    } else if (issue.field === "subtest") {
-      target = anchors.find((element) => element.dataset.questionAnchor === "subtest");
-    } else {
-      const mediaIssues = readiness.issues.filter((item) => item.questionId === issue.questionId && item.field === "media" && !item.choiceId);
-      const mediaIssueIndex = mediaIssues.findIndex((item) => readinessIssueKey(item) === readinessIssueKey(issue));
-      const mediaKey = issue.mediaTarget ?? (!question.promptMediaAssetId && question.explanationMediaAssetId ? "explanation" : mediaIssueIndex > 0 ? "explanation" : "prompt");
-      target = anchors.find((element) => element.dataset.questionAnchor === "media" && element.dataset.questionFieldKey === mediaKey && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
-      target ??= anchors.find((element) => element.dataset.questionAnchor === "media" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
-    }
-    if (!target || target.hasAttribute("disabled")) {
-      const lifecycleAction = lifecycleStatus === "published" ? "unpublish" : lifecycleStatus === "archived" ? "restore" : null;
-      const lifecycleTarget = lifecycleAction ? document.querySelector<HTMLButtonElement>(`[data-question-bank-lifecycle-action="${lifecycleAction}"]`) : null;
-      if (!lifecycleTarget || lifecycleTarget.disabled) return false;
-      lifecycleTarget.focus({ preventScroll: true });
-      return "handoff" as const;
-    }
-    target.focus({ preventScroll: true });
-    return "exact" as const;
-  }, [lifecycleStatus, readiness.issues, workspaceRef]);
+  const focusTarget = useCallback(
+    (issue: QuestionReadinessIssue, question: BankQuestion) => {
+      const workspace = workspaceRef.current;
+      const anchors = workspace
+        ? Array.from(
+            workspace.querySelectorAll<HTMLElement>("[data-question-anchor]"),
+          )
+        : [];
+      let target: HTMLElement | undefined;
+      if (issue.field === "prompt") {
+        target = anchors.find(
+          (element) => element.dataset.questionAnchor === "prompt",
+        );
+      } else if (issue.field === "choice") {
+        target = anchors.find(
+          (element) =>
+            element.dataset.questionAnchor === "choice" &&
+            (!issue.choiceId ||
+              element.dataset.questionChoiceId === issue.choiceId),
+        );
+      } else if (issue.field === "correctChoice") {
+        target = anchors.find(
+          (element) => element.dataset.questionAnchor === "correctChoice",
+        );
+      } else if (issue.field === "subtest") {
+        target = anchors.find(
+          (element) => element.dataset.questionAnchor === "subtest",
+        );
+      } else {
+        const mediaIssues = readiness.issues.filter(
+          (item) =>
+            item.questionId === issue.questionId &&
+            item.field === "media" &&
+            !item.choiceId,
+        );
+        const mediaIssueIndex = mediaIssues.findIndex(
+          (item) => readinessIssueKey(item) === readinessIssueKey(issue),
+        );
+        const mediaKey =
+          issue.mediaTarget ??
+          (!question.promptMediaAssetId && question.explanationMediaAssetId
+            ? "explanation"
+            : mediaIssueIndex > 0
+              ? "explanation"
+              : "prompt");
+        target = anchors.find(
+          (element) =>
+            element.dataset.questionAnchor === "media" &&
+            element.dataset.questionFieldKey === mediaKey &&
+            (!issue.choiceId ||
+              element.dataset.questionChoiceId === issue.choiceId),
+        );
+        target ??= anchors.find(
+          (element) =>
+            element.dataset.questionAnchor === "media" &&
+            (!issue.choiceId ||
+              element.dataset.questionChoiceId === issue.choiceId),
+        );
+      }
+      if (!target || target.hasAttribute("disabled")) {
+        const lifecycleAction =
+          lifecycleStatus === "published"
+            ? "unpublish"
+            : lifecycleStatus === "archived"
+              ? "restore"
+              : null;
+        const lifecycleTarget = lifecycleAction
+          ? document.querySelector<HTMLButtonElement>(
+              `[data-question-bank-lifecycle-action="${lifecycleAction}"]`,
+            )
+          : null;
+        if (!lifecycleTarget || lifecycleTarget.disabled) return false;
+        lifecycleTarget.focus({ preventScroll: true });
+        return "handoff" as const;
+      }
+      target.focus({ preventScroll: true });
+      return "exact" as const;
+    },
+    [lifecycleStatus, readiness.issues, workspaceRef],
+  );
 
-  const announceIssue = useCallback((issue: QuestionReadinessIssue, issueIndex: number, totalIssues: number) => {
-    updateEditor({ readinessAnnouncement: `Masalah ${issueIndex + 1} dari ${totalIssues}: Soal ${getQuestionNumber(builderState.questions, issue.questionId)}, ${readinessFieldLabel(issue)}.` });
-  }, [builderState.questions, updateEditor]);
+  const announceIssue = useCallback(
+    (
+      issue: QuestionReadinessIssue,
+      issueIndex: number,
+      totalIssues: number,
+    ) => {
+      updateEditor({
+        readinessAnnouncement: `Masalah ${issueIndex + 1} dari ${totalIssues}: Soal ${getQuestionNumber(builderState.questions, issue.questionId)}, ${readinessFieldLabel(issue)}.`,
+      });
+    },
+    [builderState.questions, updateEditor],
+  );
 
-  const openQuestion = useCallback((questionId: string) => {
-    const question = builderState.questions.find((item) => item.id === questionId);
-    if (!question) return;
-    updateEditor({ activeQuestionId: question.id, hasSubmittedPreview: false, previewChoiceId: null, previewChoiceIds: [], questionDraft: toQuestionDraft(question), readinessAnnouncement: "" });
-  }, [builderState.questions, updateEditor]);
+  const openQuestion = useCallback(
+    (questionId: string) => {
+      const question = builderState.questions.find(
+        (item) => item.id === questionId,
+      );
+      if (!question) return;
+      updateEditor({
+        activeQuestionId: question.id,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: toQuestionDraft(question),
+        readinessAnnouncement: "",
+      });
+    },
+    [builderState.questions, updateEditor],
+  );
 
-  const focusIssueAt = useCallback((index: number) => {
-    const issue = readiness.issues[index];
-    if (!issue) return;
-    pendingIssueFocusRef.current = issue;
-    openQuestion(issue.questionId);
-    announceIssue(issue, index, readiness.issues.length);
-  }, [announceIssue, openQuestion, pendingIssueFocusRef, readiness.issues]);
+  const focusIssueAt = useCallback(
+    (index: number) => {
+      const issue = readiness.issues[index];
+      if (!issue) return;
+      pendingIssueFocusRef.current = issue;
+      openQuestion(issue.questionId);
+      announceIssue(issue, index, readiness.issues.length);
+    },
+    [announceIssue, openQuestion, pendingIssueFocusRef, readiness.issues],
+  );
 
   const focusFirstIssue = useCallback(() => {
     if (!readiness.issues.length) {
-      updateEditor({ readinessAnnouncement: "Tidak ada masalah yang perlu diperbaiki." });
+      updateEditor({
+        readinessAnnouncement: "Tidak ada masalah yang perlu diperbaiki.",
+      });
       return;
     }
     focusIssueAt(0);
   }, [focusIssueAt, readiness.issues.length, updateEditor]);
 
   useEffect(() => {
-    const activeQuestionChanged = previousActiveQuestionIdRef.current !== activeQuestionId;
+    const activeQuestionChanged =
+      previousActiveQuestionIdRef.current !== activeQuestionId;
     previousActiveQuestionIdRef.current = activeQuestionId;
     if (!activeQuestionId) return;
     const row = questionRowRefs.current[activeQuestionId];
@@ -1765,38 +3307,90 @@ function useQuestionBankIssueNavigation({
     const questionFocusAfterDelete = questionFocusAfterDeleteRef.current;
     if (questionFocusAfterDelete === activeQuestionId) {
       window.requestAnimationFrame(() => {
-        questionRowRefs.current[questionFocusAfterDelete]?.querySelector<HTMLButtonElement>("button")?.focus();
-        if (questionFocusAfterDeleteRef.current === questionFocusAfterDelete) questionFocusAfterDeleteRef.current = null;
+        questionRowRefs.current[questionFocusAfterDelete]
+          ?.querySelector<HTMLButtonElement>("button")
+          ?.focus();
+        if (questionFocusAfterDeleteRef.current === questionFocusAfterDelete)
+          questionFocusAfterDeleteRef.current = null;
       });
     } else if (questionFocusAfterDelete) {
       questionFocusAfterDeleteRef.current = null;
     }
-    if (activeQuestionChanged && typeof window !== "undefined" && window.innerWidth < 1280) {
-      const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      workspaceRef.current?.scrollIntoView?.({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+    if (
+      activeQuestionChanged &&
+      typeof window !== "undefined" &&
+      window.innerWidth < 1280
+    ) {
+      const prefersReducedMotion = window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      workspaceRef.current?.scrollIntoView?.({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
     }
-  }, [activeQuestionId, builderState.questions.length, previousActiveQuestionIdRef, questionFocusAfterDeleteRef, questionRowRefs, workspaceRef]);
+  }, [
+    activeQuestionId,
+    builderState.questions.length,
+    previousActiveQuestionIdRef,
+    questionFocusAfterDeleteRef,
+    questionRowRefs,
+    workspaceRef,
+  ]);
 
   useEffect(() => {
     const pendingIssue = pendingIssueFocusRef.current;
-    if (!pendingIssue || pendingIssue.questionId !== activeQuestionId || !activeQuestion) return;
+    if (
+      !pendingIssue ||
+      pendingIssue.questionId !== activeQuestionId ||
+      !activeQuestion
+    )
+      return;
     const frame = window.requestAnimationFrame(() => {
-      questionRowRefs.current[pendingIssue.questionId]?.scrollIntoView?.({ block: "nearest" });
-      workspaceRef.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      questionRowRefs.current[pendingIssue.questionId]?.scrollIntoView?.({
+        block: "nearest",
+      });
+      workspaceRef.current?.scrollIntoView?.({
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")
+          .matches
+          ? "auto"
+          : "smooth",
+        block: "start",
+      });
       window.requestAnimationFrame(() => {
         if (pendingIssueFocusRef.current !== pendingIssue) return;
         const focusResult = focusTarget(pendingIssue, activeQuestion);
         if (focusResult === "handoff") {
-          const lifecycleAction = lifecycleStatus === "published" ? "Jadikan draf" : lifecycleStatus === "archived" ? "Pulihkan bank" : "buka kunci lifecycle";
-          updateEditor({ readinessAnnouncement: `Soal ${getQuestionNumber(builderState.questions, pendingIssue.questionId)} memiliki masalah ${readinessFieldLabel(pendingIssue)} yang terkunci. Pilih ${lifecycleAction} untuk membuka perbaikan.` });
+          const lifecycleAction =
+            lifecycleStatus === "published"
+              ? "Jadikan draf"
+              : lifecycleStatus === "archived"
+                ? "Pulihkan bank"
+                : "buka kunci lifecycle";
+          updateEditor({
+            readinessAnnouncement: `Soal ${getQuestionNumber(builderState.questions, pendingIssue.questionId)} memiliki masalah ${readinessFieldLabel(pendingIssue)} yang terkunci. Pilih ${lifecycleAction} untuk membuka perbaikan.`,
+          });
         } else if (!focusResult) {
-          updateEditor({ readinessAnnouncement: `Masalah ${readinessFieldLabel(pendingIssue)} pada Soal ${getQuestionNumber(builderState.questions, pendingIssue.questionId)} belum dapat difokuskan.` });
+          updateEditor({
+            readinessAnnouncement: `Masalah ${readinessFieldLabel(pendingIssue)} pada Soal ${getQuestionNumber(builderState.questions, pendingIssue.questionId)} belum dapat difokuskan.`,
+          });
         }
         pendingIssueFocusRef.current = null;
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeQuestion, activeQuestionId, builderState.questions, focusTarget, lifecycleStatus, pendingIssueFocusRef, questionRowRefs, readiness.issues, updateEditor, workspaceRef]);
+  }, [
+    activeQuestion,
+    activeQuestionId,
+    builderState.questions,
+    focusTarget,
+    lifecycleStatus,
+    pendingIssueFocusRef,
+    questionRowRefs,
+    readiness.issues,
+    updateEditor,
+    workspaceRef,
+  ]);
 
   return { focusFirstIssue };
 }
@@ -1816,42 +3410,118 @@ function useQuestionBankLifecycleActions({
   removeQuestion: (id: string) => void;
   router: ReturnType<typeof useRouter>;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
-  updateLifecycle: (operation: "archive" | "publish" | "unpublish" | "restore") => void;
+  updateLifecycle: (
+    operation: "archive" | "publish" | "unpublish" | "restore",
+  ) => void;
 }) {
-  const closeConfirmation = useCallback(() => updateEditor({ confirmationRequest: null }), [updateEditor]);
-  const requestExit = useCallback((route: string) => {
-    if (!hasUnsavedChanges) {
-      router.push(route);
-      return;
-    }
-    updateEditor({ confirmationRequest: { confirmLabel: "Keluar tanpa menyimpan", description: "Perubahan Bank Soal yang belum disimpan akan hilang.", onConfirm: () => router.push(route), title: "Keluar tanpa menyimpan?" } });
-  }, [hasUnsavedChanges, router, updateEditor]);
+  const closeConfirmation = useCallback(
+    () => updateEditor({ confirmationRequest: null }),
+    [updateEditor],
+  );
+  const requestExit = useCallback(
+    (route: string) => {
+      if (!hasUnsavedChanges) {
+        router.push(route);
+        return;
+      }
+      updateEditor({
+        confirmationRequest: {
+          confirmLabel: "Keluar tanpa menyimpan",
+          description: "Perubahan Bank Soal yang belum disimpan akan hilang.",
+          onConfirm: () => router.push(route),
+          title: "Keluar tanpa menyimpan?",
+        },
+      });
+    },
+    [hasUnsavedChanges, router, updateEditor],
+  );
   const confirmPendingAction = useCallback(() => {
     const pendingRequest = confirmationRequest;
     closeConfirmation();
     pendingRequest?.onConfirm();
   }, [closeConfirmation, confirmationRequest]);
-  const requestQuestionRemoval = useCallback((id: string) => {
-    const questionNumber = builderState.questions.findIndex((item) => item.id === id) + 1;
-    if (questionNumber < 1) return;
-    updateEditor({ confirmationRequest: { confirmLabel: "Hapus soal", description: `Soal nomor ${questionNumber} akan dihapus dari Bank Soal dan tidak dapat dikembalikan.`, onConfirm: () => removeQuestion(id), title: `Hapus soal nomor ${questionNumber}?` } });
-  }, [builderState.questions, removeQuestion, updateEditor]);
-  const requestLifecycleChange = useCallback((operation: "publish" | "unpublish") => {
-    const isPublishing = operation === "publish";
-    updateEditor({ confirmationRequest: { actionVariant: "brand", confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf", description: isPublishing ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru." : "Bank Soal ini dapat dikembalikan menjadi draf meski sudah dipakai Tryout. Tryout yang sudah dibuat tetap menggunakan snapshot soal; Bank Soal tidak akan tersedia sebagai sumber baru sampai diterbitkan kembali.", dialogVariant: "warning", onConfirm: () => updateLifecycle(operation), title: isPublishing ? "Terbitkan Bank Soal?" : "Jadikan Bank Soal draf?" } });
-  }, [updateEditor, updateLifecycle]);
-  const requestArchive = useCallback(() => updateEditor({ confirmationRequest: { confirmLabel: "Arsipkan", description: "Bank Soal ini akan dipindahkan ke arsip dan tidak dapat dipakai untuk authoring sampai dipulihkan.", onConfirm: () => updateLifecycle("archive"), title: "Arsipkan Bank Soal?" } }), [updateEditor, updateLifecycle]);
-  return { closeConfirmation, confirmPendingAction, requestArchive, requestExit, requestLifecycleChange, requestQuestionRemoval };
+  const requestQuestionRemoval = useCallback(
+    (id: string) => {
+      const questionNumber =
+        builderState.questions.findIndex((item) => item.id === id) + 1;
+      if (questionNumber < 1) return;
+      updateEditor({
+        confirmationRequest: {
+          confirmLabel: "Hapus soal",
+          description: `Soal nomor ${questionNumber} akan dihapus dari Bank Soal dan tidak dapat dikembalikan.`,
+          onConfirm: () => removeQuestion(id),
+          title: `Hapus soal nomor ${questionNumber}?`,
+        },
+      });
+    },
+    [builderState.questions, removeQuestion, updateEditor],
+  );
+  const requestLifecycleChange = useCallback(
+    (operation: "publish" | "unpublish") => {
+      const isPublishing = operation === "publish";
+      updateEditor({
+        confirmationRequest: {
+          actionVariant: "brand",
+          confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
+          description: isPublishing
+            ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
+            : "Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru. Tryout yang sudah ada tidak akan terpengaruh.",
+          dialogVariant: "warning",
+          onConfirm: () => updateLifecycle(operation),
+          title: isPublishing
+            ? "Terbitkan Bank Soal?"
+            : "Jadikan Bank Soal draf?",
+        },
+      });
+    },
+    [updateEditor, updateLifecycle],
+  );
+  const requestArchive = useCallback(
+    () =>
+      updateEditor({
+        confirmationRequest: {
+          confirmLabel: "Arsipkan",
+          description:
+            "Bank Soal ini akan dipindahkan ke arsip dan tidak dapat dipakai untuk authoring sampai dipulihkan.",
+          onConfirm: () => updateLifecycle("archive"),
+          title: "Arsipkan Bank Soal?",
+        },
+      }),
+    [updateEditor, updateLifecycle],
+  );
+  return {
+    closeConfirmation,
+    confirmPendingAction,
+    requestArchive,
+    requestExit,
+    requestLifecycleChange,
+    requestQuestionRemoval,
+  };
 }
 
-function getSelectedQuestionMediaAssetId(target: MediaPickerTarget | null, questionDraft: BankQuestion) {
+function getSelectedQuestionMediaAssetId(
+  target: MediaPickerTarget | null,
+  questionDraft: BankQuestion,
+) {
   if (target?.kind === "prompt") return questionDraft.promptMediaAssetId;
-  if (target?.kind === "explanation") return questionDraft.explanationMediaAssetId;
-  if (target?.kind === "choice") return questionDraft.choices.find((choice) => choice.id === target.choiceId)?.mediaAssetId;
+  if (target?.kind === "explanation")
+    return questionDraft.explanationMediaAssetId;
+  if (target?.kind === "choice")
+    return questionDraft.choices.find((choice) => choice.id === target.choiceId)
+      ?.mediaAssetId;
   return undefined;
 }
 
-function getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, initialBank, initialQuestions, initialReadiness, mode, purpose }: {
+function getQuestionBankBuilderInitialData({
+  bankId,
+  initialActiveQuestionId,
+  initialBank,
+  initialFolderId,
+  initialQuestions,
+  initialReadiness,
+  mode,
+  purpose,
+}: {
   bankId?: string;
   initialActiveQuestionId?: string;
   initialBank: KaptenQuestionBank | null;
@@ -1870,24 +3540,91 @@ function getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, in
     subjectCode: initialBank?.subjectCode ?? "PU",
     title: initialBank?.title ?? "",
   };
-  const initialQuestion = (initialActiveQuestionId ? initialBuilderState.questions.find((question) => question.id === initialActiveQuestionId) : null) ?? initialBuilderState.questions[0] ?? null;
-  const fallbackQuestionDraft = emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", initialBank?.subjectCode ?? "PU");
-  const initialEditorState: QuestionBankEditorState = { activeQuestionId: initialQuestion?.id ?? null, confirmationRequest: null, hasSubmittedPreview: false, hasUnsavedChanges: mode === "create" && hasQuestionBankDraftContent(initialBuilderState), isSaving: false, lifecycleError: null, lifecycleStatus: initialBank?.status ?? "draft", mediaPickerTarget: null, pendingRouteReplacement: null, previewChoiceId: null, previewChoiceIds: [], questionDraft: initialQuestion ? toQuestionDraft(initialQuestion) : fallbackQuestionDraft, questionEditorTab: "edit", readinessAnnouncement: "", serverReadiness: mode === "edit" ? initialReadiness : null };
+  const initialQuestion =
+    (initialActiveQuestionId
+      ? initialBuilderState.questions.find(
+          (question) => question.id === initialActiveQuestionId,
+        )
+      : null) ??
+    initialBuilderState.questions[0] ??
+    null;
+  const fallbackQuestionDraft = emptyQuestion(
+    bankId ?? initialBank?.id ?? "question-bank-draft",
+    initialBank?.subjectCode ?? "PU",
+  );
+  const initialEditorState: QuestionBankEditorState = {
+    activeQuestionId: initialQuestion?.id ?? null,
+    confirmationRequest: null,
+    hasSubmittedPreview: false,
+    hasUnsavedChanges:
+      mode === "create" && hasQuestionBankDraftContent(initialBuilderState),
+    isSaving: false,
+    lifecycleError: null,
+    lifecycleStatus: initialBank?.status ?? "draft",
+    mediaPickerTarget: null,
+    pendingRouteReplacement: null,
+    previewChoiceId: null,
+    previewChoiceIds: [],
+    questionDraft: initialQuestion
+      ? toQuestionDraft(initialQuestion)
+      : fallbackQuestionDraft,
+    questionEditorTab: "edit",
+    readinessAnnouncement: "",
+    serverReadiness: mode === "edit" ? initialReadiness : null,
+  };
   return { fallbackQuestionDraft, initialBuilderState, initialEditorState };
 }
 
-function getQuestionBankBuilderDerivedState({ builderState, editorState }: { builderState: LocalQuestionBankState; editorState: QuestionBankEditorState }) {
-  const activeQuestion = editorState.activeQuestionId ? builderState.questions.find((question) => question.id === editorState.activeQuestionId) ?? null : null;
-  const isMetadataLocked = editorState.lifecycleStatus === "archived" || editorState.lifecycleStatus === "scheduled";
+function getQuestionBankBuilderDerivedState({
+  builderState,
+  editorState,
+}: {
+  builderState: LocalQuestionBankState;
+  editorState: QuestionBankEditorState;
+}) {
+  const activeQuestion = editorState.activeQuestionId
+    ? (builderState.questions.find(
+        (question) => question.id === editorState.activeQuestionId,
+      ) ?? null)
+    : null;
+  const isMetadataLocked =
+    editorState.lifecycleStatus === "archived" ||
+    editorState.lifecycleStatus === "scheduled";
   const isQuestionContentLocked = editorState.lifecycleStatus !== "draft";
   const isDraftLifecycle = editorState.lifecycleStatus === "draft";
-  const localReadiness = getQuestionBankReadinessFromDrafts(builderState.questions);
-  const readiness = mergeQuestionBankReadiness(builderState.questions, localReadiness, editorState.serverReadiness);
-  const selectedMediaAssetId = getSelectedQuestionMediaAssetId(editorState.mediaPickerTarget, editorState.questionDraft);
-  return { activeQuestion, isDraftLifecycle, isMetadataLocked, isQuestionContentLocked, readiness, selectedMediaAssetId };
+  const localReadiness = getQuestionBankReadinessFromDrafts(
+    builderState.questions,
+  );
+  const readiness = mergeQuestionBankReadiness(
+    builderState.questions,
+    localReadiness,
+    editorState.serverReadiness,
+  );
+  const selectedMediaAssetId = getSelectedQuestionMediaAssetId(
+    editorState.mediaPickerTarget,
+    editorState.questionDraft,
+  );
+  return {
+    activeQuestion,
+    isDraftLifecycle,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    readiness,
+    selectedMediaAssetId,
+  };
 }
 
-function createQuestionBankBuilderActions({ draftActions, focusFirstIssue, lifecycleActions, onChoiceChange, onCloseMedia, onEditorTabChange, onOpenMedia, onSubmitPreview, persistence }: {
+function createQuestionBankBuilderActions({
+  draftActions,
+  focusFirstIssue,
+  lifecycleActions,
+  onChoiceChange,
+  onCloseMedia,
+  onEditorTabChange,
+  onOpenMedia,
+  onSubmitPreview,
+  persistence,
+}: {
   draftActions: ReturnType<typeof useQuestionBankDraftActions>;
   focusFirstIssue: () => void;
   lifecycleActions: ReturnType<typeof useQuestionBankLifecycleActions>;
@@ -1944,32 +3681,130 @@ function useQuestionBankBuilderState({
   purpose?: "quiz" | "tryout";
 }) {
   const router = useRouter();
-  const { fallbackQuestionDraft, initialBuilderState, initialEditorState } = getQuestionBankBuilderInitialData({ bankId, initialActiveQuestionId, initialBank, initialFolderId, initialQuestions, initialReadiness, mode, purpose });
-  const [localBuilderState, setLocalBuilderState] = useState(() => initialBuilderState);
-  const [editorState, dispatch] = useReducer(questionBankEditorReducer, initialEditorState);
-  const updateEditor = useCallback((patch: Partial<QuestionBankEditorState>) => dispatch({ patch, type: "patch" }), []);
+  const { fallbackQuestionDraft, initialBuilderState, initialEditorState } =
+    getQuestionBankBuilderInitialData({
+      bankId,
+      initialActiveQuestionId,
+      initialBank,
+      initialFolderId,
+      initialQuestions,
+      initialReadiness,
+      mode,
+      purpose,
+    });
+  const [localBuilderState, setLocalBuilderState] = useState(
+    () => initialBuilderState,
+  );
+  const [editorState, dispatch] = useReducer(
+    questionBankEditorReducer,
+    initialEditorState,
+  );
+  const updateEditor = useCallback(
+    (patch: Partial<QuestionBankEditorState>) =>
+      dispatch({ patch, type: "patch" }),
+    [],
+  );
   const revisionRef = useRef(initialBank?.revision);
   const bankIdRef = useRef(initialBank?.id ?? bankId);
   const questionRowRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const workspaceRef = useRef<HTMLDivElement | null>(null);
-  const previousActiveQuestionIdRef = useRef<string | null>(editorState.activeQuestionId);
+  const previousActiveQuestionIdRef = useRef<string | null>(
+    editorState.activeQuestionId,
+  );
   const questionFocusAfterDeleteRef = useRef<string | null>(null);
   const pendingIssueFocusRef = useRef<QuestionReadinessIssue | null>(null);
   const builderState = localBuilderState;
-  const { activeQuestion, isDraftLifecycle, isMetadataLocked, isQuestionContentLocked, readiness, selectedMediaAssetId } = getQuestionBankBuilderDerivedState({ builderState, editorState });
-  const draftActions = useQuestionBankDraftActions({ activeQuestion, activeQuestionId: editorState.activeQuestionId, bankId, builderState, fallbackQuestion: fallbackQuestionDraft, initialBank, isMetadataLocked, isQuestionContentLocked, markChangedMode: mode, mediaPickerTarget: editorState.mediaPickerTarget, questionDraft: editorState.questionDraft, questionFocusAfterDeleteRef, readiness, serverReadiness: editorState.serverReadiness, setLocalBuilderState, updateEditor });
-  const issueNavigation = useQuestionBankIssueNavigation({ activeQuestion, activeQuestionId: editorState.activeQuestionId, builderState, lifecycleStatus: editorState.lifecycleStatus, pendingIssueFocusRef, previousActiveQuestionIdRef, questionFocusAfterDeleteRef, questionRowRefs, readiness, updateEditor, workspaceRef });
-  useQuestionBankNavigationGuards({ hasUnsavedChanges: editorState.hasUnsavedChanges, pendingRouteReplacement: editorState.pendingRouteReplacement, router });
-  const persistence = useQuestionBankPersistence({ bankIdRef, builderState, mode, onBankNoLongerEditable: (id) => updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}` }), revisionRef, setServerReadiness: (nextReadiness) => updateEditor({ serverReadiness: nextReadiness }), setLocalBuilderState, updateEditor });
-  const lifecycleActions = useQuestionBankLifecycleActions({ builderState, confirmationRequest: editorState.confirmationRequest, hasUnsavedChanges: editorState.hasUnsavedChanges, removeQuestion: draftActions.removeQuestion, router, updateEditor, updateLifecycle: persistence.updateLifecycle });
-  const actions = createQuestionBankBuilderActions({ draftActions, focusFirstIssue: issueNavigation.focusFirstIssue, lifecycleActions, onChoiceChange: (value) => {
-    const nextIds = questionTypeFor(editorState.questionDraft) === "multiple_choice"
-      ? editorState.previewChoiceIds.includes(value)
-        ? editorState.previewChoiceIds.filter((id) => id !== value)
-        : [...editorState.previewChoiceIds, value]
-      : [value];
-    updateEditor({ hasSubmittedPreview: false, previewChoiceId: nextIds[0] ?? null, previewChoiceIds: nextIds });
-  }, onCloseMedia: () => updateEditor({ mediaPickerTarget: null }), onEditorTabChange: (value) => updateEditor({ questionEditorTab: value as "edit" | "preview" }), onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }), onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }), persistence });
+  const {
+    activeQuestion,
+    isDraftLifecycle,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    readiness,
+    selectedMediaAssetId,
+  } = getQuestionBankBuilderDerivedState({ builderState, editorState });
+  const draftActions = useQuestionBankDraftActions({
+    activeQuestion,
+    activeQuestionId: editorState.activeQuestionId,
+    bankId,
+    builderState,
+    fallbackQuestion: fallbackQuestionDraft,
+    initialBank,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    markChangedMode: mode,
+    mediaPickerTarget: editorState.mediaPickerTarget,
+    questionDraft: editorState.questionDraft,
+    questionFocusAfterDeleteRef,
+    readiness,
+    serverReadiness: editorState.serverReadiness,
+    setLocalBuilderState,
+    updateEditor,
+  });
+  const issueNavigation = useQuestionBankIssueNavigation({
+    activeQuestion,
+    activeQuestionId: editorState.activeQuestionId,
+    builderState,
+    lifecycleStatus: editorState.lifecycleStatus,
+    pendingIssueFocusRef,
+    previousActiveQuestionIdRef,
+    questionFocusAfterDeleteRef,
+    questionRowRefs,
+    readiness,
+    updateEditor,
+    workspaceRef,
+  });
+  useQuestionBankNavigationGuards({
+    hasUnsavedChanges: editorState.hasUnsavedChanges,
+    pendingRouteReplacement: editorState.pendingRouteReplacement,
+    router,
+  });
+  const persistence = useQuestionBankPersistence({
+    bankIdRef,
+    builderState,
+    mode,
+    onBankNoLongerEditable: (id) =>
+      updateEditor({
+        pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}`,
+      }),
+    revisionRef,
+    setServerReadiness: (nextReadiness) =>
+      updateEditor({ serverReadiness: nextReadiness }),
+    setLocalBuilderState,
+    updateEditor,
+  });
+  const lifecycleActions = useQuestionBankLifecycleActions({
+    builderState,
+    confirmationRequest: editorState.confirmationRequest,
+    hasUnsavedChanges: editorState.hasUnsavedChanges,
+    removeQuestion: draftActions.removeQuestion,
+    router,
+    updateEditor,
+    updateLifecycle: persistence.updateLifecycle,
+  });
+  const actions = createQuestionBankBuilderActions({
+    draftActions,
+    focusFirstIssue: issueNavigation.focusFirstIssue,
+    lifecycleActions,
+    onChoiceChange: (value) => {
+      const nextIds =
+        questionTypeFor(editorState.questionDraft) === "multiple_choice"
+          ? editorState.previewChoiceIds.includes(value)
+            ? editorState.previewChoiceIds.filter((id) => id !== value)
+            : [...editorState.previewChoiceIds, value]
+          : [value];
+      updateEditor({
+        hasSubmittedPreview: false,
+        previewChoiceId: nextIds[0] ?? null,
+        previewChoiceIds: nextIds,
+      });
+    },
+    onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
+    onEditorTabChange: (value) =>
+      updateEditor({ questionEditorTab: value as "edit" | "preview" }),
+    onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
+    onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
+    persistence,
+  });
   return {
     actions,
     bankIdValue: bankId ?? initialBank?.id,
@@ -1988,7 +3823,6 @@ function useQuestionBankBuilderState({
 function KaptenQuestionBankBuilderPageModule({
   bankId,
   initialActiveQuestionId,
-  initialCategories = [],
   initialBank = null,
   initialFolderId = null,
   initialQuestions = [],
@@ -1999,7 +3833,6 @@ function KaptenQuestionBankBuilderPageModule({
 }: {
   bankId?: string;
   initialActiveQuestionId?: string;
-  initialCategories?: QuestionBankCategoryOption[];
   initialBank?: KaptenQuestionBank | null;
   initialFolderId?: string | null;
   initialQuestions?: BankQuestion[];
@@ -2036,7 +3869,6 @@ function KaptenQuestionBankBuilderPageModule({
       actions={actions}
       bankId={bankIdValue}
       builderState={builderState}
-      categories={initialCategories}
       mode={mode}
       session={session}
       state={{

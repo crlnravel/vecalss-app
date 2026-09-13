@@ -53,7 +53,7 @@ Route to the minimum files needed for each task type. Read this file first to de
 ## Schema / database change
 
 1. Read `prisma/schema.prisma` for the current model
-2. Read `_harness/rules.md` § Protected areas (migration history rules)
+2. Read `_harness/rules.md` § Database & legacy policy (Pre-release phase) and § Protected areas
 3. Read `_harness/workflow.md` § Prisma migration procedure
 4. Read the relevant `lib/` domain code for affected services
 5. Read `Vecalss LMS Specifications.md` if the change affects a use case contract

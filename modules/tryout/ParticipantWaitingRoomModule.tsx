@@ -31,7 +31,7 @@ import { formatSchedule } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils
 const rules = [
   { description: "Gunakan koneksi yang stabil. Jawaban tersimpan otomatis dan status penyimpanan akan terlihat selama ujian.", icon: WifiHigh, title: "Koneksi stabil" },
   { description: "Timer server terus berjalan saat halaman dimuat ulang, ditutup, atau perangkat berpindah aplikasi.", icon: RefreshCw, title: "Waktu terus berjalan" },
-  { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama. Pada CAT, jawaban terkunci setelah dikirim.", icon: Compass, title: "Ikuti format soal" },
+  { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama dan meninjau jawaban sebelum mengumpulkan.", icon: Compass, title: "Ikuti format soal" },
   { description: "Perpindahan tab, hilang fokus, dan keluar dari layar penuh dicatat sebagai peringatan tanpa penalti skor otomatis.", icon: Eye, title: "Aktivitas layar dicatat" },
 ];
 

@@ -1,15 +1,24 @@
 import "server-only";
 
-import { ContentStatus, Prisma, QuestionBankPurpose } from "@/generated/prisma/client";
+import {
+  ContentStatus,
+  Prisma,
+  QuestionBankPurpose,
+} from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
 
 import { questionBankFolderLabel } from "./labels";
-import { assertQuestionBankPurpose } from "./purpose";
+import {
+  assertQuestionBankPurpose,
+  questionBankNavigationLabel,
+  questionBankPurposeLabel,
+} from "./purpose";
 
 const MAX_FOLDER_DEPTH = 512;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type QuestionBankErrorCode =
   | "archived_locked"
@@ -66,6 +75,7 @@ type QuestionBankFolderDto = {
   id: string | null;
   name: string;
   parentId: string | null;
+  purpose: QuestionBankPurpose;
   updatedAt: string;
 };
 
@@ -86,6 +96,7 @@ type FolderRow = {
   id: string;
   name: string;
   parentId: string | null;
+  purpose: QuestionBankPurpose;
   updatedAt: Date;
 };
 
@@ -97,18 +108,22 @@ function assertUuid(value: string, label: string) {
 
 function normalizeName(value: string, label: string, maxLength: number) {
   const normalized = value.trim();
-  if (!normalized) throw new QuestionBankOrganizationError(`${label} wajib diisi.`);
+  if (!normalized)
+    throw new QuestionBankOrganizationError(`${label} wajib diisi.`);
   if (normalized.length > maxLength) {
     throw new QuestionBankOrganizationError(`${label} terlalu panjang.`);
   }
   return normalized;
 }
 
-function normalizeExpectedUpdatedAt(options?: OrganizationMutationOptions | Date | string) {
+function normalizeExpectedUpdatedAt(
+  options?: OrganizationMutationOptions | Date | string,
+) {
   if (options === undefined) return undefined;
-  const value = options instanceof Date || typeof options === "string"
-    ? options
-    : options.expectedUpdatedAt;
+  const value =
+    options instanceof Date || typeof options === "string"
+      ? options
+      : options.expectedUpdatedAt;
   if (value === undefined) return undefined;
   const parsed = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -119,7 +134,9 @@ function normalizeExpectedUpdatedAt(options?: OrganizationMutationOptions | Date
 
 function assertExpectedUpdatedAt(actual: Date, expected: Date | undefined) {
   if (expected && actual.getTime() !== expected.getTime()) {
-    throw new QuestionBankOrganizationError("Metadata telah diperbarui. Muat ulang lalu coba lagi.");
+    throw new QuestionBankOrganizationError(
+      "Metadata telah diperbarui. Muat ulang lalu coba lagi.",
+    );
   }
 }
 
@@ -130,14 +147,21 @@ function assertExpectedBankVersion(
   const expectedUpdatedAt = normalizeExpectedUpdatedAt(options);
   const expectedRevision = options?.expectedRevision;
   if (expectedUpdatedAt === undefined && expectedRevision === undefined) {
-    throw new QuestionBankOrganizationError("Versi Bank Soal wajib dikirim. Muat ulang lalu coba lagi.");
+    throw new QuestionBankOrganizationError(
+      "Versi Bank Soal wajib dikirim. Muat ulang lalu coba lagi.",
+    );
   }
-  if (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision < 1)) {
+  if (
+    expectedRevision !== undefined &&
+    (!Number.isInteger(expectedRevision) || expectedRevision < 1)
+  ) {
     throw new QuestionBankOrganizationError("Versi Bank Soal tidak valid.");
   }
   assertExpectedUpdatedAt(bank.updatedAt, expectedUpdatedAt);
   if (expectedRevision !== undefined && bank.revision !== expectedRevision) {
-    throw new QuestionBankOrganizationError("Bank Soal telah diperbarui. Muat ulang lalu coba lagi.");
+    throw new QuestionBankOrganizationError(
+      "Bank Soal telah diperbarui. Muat ulang lalu coba lagi.",
+    );
   }
 }
 
@@ -151,22 +175,31 @@ function assertBankMutationSupported(status: ContentStatus) {
 }
 
 function isUniqueViolation(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }
 
 function rethrowOrganizationError(error: unknown): never {
   if (error instanceof QuestionBankOrganizationError) throw error;
   if (isUniqueViolation(error)) {
-    throw new QuestionBankOrganizationError("Nama sudah digunakan pada tingkat yang sama.");
+    throw new QuestionBankOrganizationError("Nama sudah digunakan");
   }
   throw error;
 }
 
 async function lockAllFolders(tx: Prisma.TransactionClient) {
-  await tx.$queryRaw`SELECT id FROM question_bank_folders ORDER BY id FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM question_bank_folders ORDER BY purpose, id FOR UPDATE`;
   return tx.questionBankFolder.findMany({
-    orderBy: { id: "asc" },
-    select: { id: true, name: true, parentId: true, updatedAt: true },
+    orderBy: [{ purpose: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      purpose: true,
+      updatedAt: true,
+    },
   });
 }
 
@@ -180,8 +213,23 @@ async function lockBanks(tx: Prisma.TransactionClient, ids: string[]) {
   await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ANY(${orderedIds}::uuid[]) ORDER BY id FOR UPDATE`;
 }
 
-function folderPathFromRows(folderId: string | null, rows: readonly FolderRow[]): QuestionBankFolderBreadcrumb[] {
-  if (folderId === null) return [{ id: null, name: questionBankFolderLabel(folderId) }];
+function folderPathFromRows(
+  folderId: string | null,
+  rows: readonly FolderRow[],
+  purpose?: QuestionBankPurpose,
+): QuestionBankFolderBreadcrumb[] {
+  const normalizedPurpose =
+    purpose === undefined ? undefined : assertQuestionBankPurpose(purpose);
+  if (folderId === null) {
+    return [
+      {
+        id: null,
+        name: normalizedPurpose
+          ? questionBankNavigationLabel(normalizedPurpose)
+          : questionBankFolderLabel(folderId),
+      },
+    ];
+  }
 
   const byId = new Map(rows.map((row) => [row.id, row]));
   const path: QuestionBankFolderBreadcrumb[] = [];
@@ -194,7 +242,13 @@ function folderPathFromRows(folderId: string | null, rows: readonly FolderRow[])
     }
     visited.add(currentId);
     const row = byId.get(currentId);
-    if (!row) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+    if (!row)
+      throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+    if (normalizedPurpose && row.purpose !== normalizedPurpose) {
+      throw new QuestionBankOrganizationError(
+        `Folder tidak termasuk pohon Bank Soal ${questionBankPurposeLabel(normalizedPurpose)}.`,
+      );
+    }
     path.unshift({ id: row.id, name: row.name });
     currentId = row.parentId;
   }
@@ -202,7 +256,10 @@ function folderPathFromRows(folderId: string | null, rows: readonly FolderRow[])
   return path;
 }
 
-function folderDepth(folderId: string | null, rows: readonly FolderRow[]): number {
+function folderDepth(
+  folderId: string | null,
+  rows: readonly FolderRow[],
+): number {
   if (!folderId) return 0;
   const byId = new Map(rows.map((row) => [row.id, row]));
   const visited = new Set<string>();
@@ -210,18 +267,24 @@ function folderDepth(folderId: string | null, rows: readonly FolderRow[]): numbe
   let currentId: string | null = folderId;
   while (currentId) {
     if (visited.has(currentId) || depth >= MAX_FOLDER_DEPTH) {
-      throw new QuestionBankOrganizationError("Struktur folder terlalu dalam atau tidak valid.");
+      throw new QuestionBankOrganizationError(
+        "Struktur folder terlalu dalam atau tidak valid.",
+      );
     }
     visited.add(currentId);
     const row = byId.get(currentId);
-    if (!row) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+    if (!row)
+      throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
     depth += 1;
     currentId = row.parentId;
   }
   return depth;
 }
 
-function folderSubtreeHeight(folderId: string, rows: readonly FolderRow[]): number {
+function folderSubtreeHeight(
+  folderId: string,
+  rows: readonly FolderRow[],
+): number {
   const childrenByParent = new Map<string, string[]>();
   for (const row of rows) {
     if (!row.parentId) continue;
@@ -231,9 +294,13 @@ function folderSubtreeHeight(folderId: string, rows: readonly FolderRow[]): numb
   }
   const visiting = new Set<string>();
   function visit(id: string): number {
-    if (visiting.has(id)) throw new QuestionBankOrganizationError("Struktur folder tidak valid.");
+    if (visiting.has(id))
+      throw new QuestionBankOrganizationError("Struktur folder tidak valid.");
     visiting.add(id);
-    const height = Math.max(0, ...(childrenByParent.get(id) ?? []).map((childId) => visit(childId) + 1));
+    const height = Math.max(
+      0,
+      ...(childrenByParent.get(id) ?? []).map((childId) => visit(childId) + 1),
+    );
     visiting.delete(id);
     return height;
   }
@@ -246,6 +313,7 @@ function folderDto(row: {
   id: string;
   name: string;
   parentId: string | null;
+  purpose: QuestionBankPurpose;
   updatedAt: Date;
 }): QuestionBankFolderDto {
   return {
@@ -254,17 +322,28 @@ function folderDto(row: {
     id: row.id,
     name: row.name,
     parentId: row.parentId,
+    purpose: row.purpose,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-function compareNames(a: { name: string; id: string | null }, b: { name: string; id: string | null }) {
-  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || (a.id ?? "").localeCompare(b.id ?? "");
+function compareNames(
+  a: { name: string; id: string | null },
+  b: { name: string; id: string | null },
+) {
+  return (
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
+    (a.id ?? "").localeCompare(b.id ?? "")
+  );
 }
 
 function buildQuestionBankFolderTree(
   folders: readonly QuestionBankFolderDto[],
-  options: { includeUnfiled?: boolean; unfiledBankCount?: number } = {},
+  options: {
+    includeUnfiled?: boolean;
+    purpose?: QuestionBankPurpose;
+    unfiledBankCount?: number;
+  } = {},
 ) {
   const nodes = new Map<string, QuestionBankFolderDto>();
   for (const folder of folders) {
@@ -291,8 +370,11 @@ function buildQuestionBankFolderTree(
       children: [],
       createdAt: "",
       id: null,
-      name: questionBankFolderLabel(null),
+      name: options.purpose
+        ? questionBankNavigationLabel(options.purpose)
+        : questionBankFolderLabel(null),
       parentId: null,
+      purpose: options.purpose ?? "quiz",
       updatedAt: "",
     });
   }
@@ -303,7 +385,15 @@ async function listQuestionBankFolders(purpose: QuestionBankPurpose) {
   const normalizedPurpose = assertQuestionBankPurpose(purpose);
   const [rows, counts] = await Promise.all([
     prisma.questionBankFolder.findMany({
-      select: { createdAt: true, id: true, name: true, parentId: true, updatedAt: true },
+      select: {
+        createdAt: true,
+        id: true,
+        name: true,
+        parentId: true,
+        purpose: true,
+        updatedAt: true,
+      },
+      where: { purpose: normalizedPurpose },
       orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
     prisma.questionBank.groupBy({
@@ -312,49 +402,89 @@ async function listQuestionBankFolders(purpose: QuestionBankPurpose) {
       _count: { _all: true },
     }),
   ]);
-  const countByFolderId = new Map(counts.flatMap((row) => row.folderId ? [[row.folderId, row._count._all] as const] : []));
-  return rows.map((row) => folderDto({
-    ...row,
-    _count: { banks: countByFolderId.get(row.id) ?? 0 },
-  }));
+  const countByFolderId = new Map(
+    counts.flatMap((row) =>
+      row.folderId ? [[row.folderId, row._count._all] as const] : [],
+    ),
+  );
+  return rows.map((row) =>
+    folderDto({
+      ...row,
+      _count: { banks: countByFolderId.get(row.id) ?? 0 },
+    }),
+  );
 }
 
 async function listQuestionBankFolderTree(purpose: QuestionBankPurpose) {
   const normalizedPurpose = assertQuestionBankPurpose(purpose);
   const [folders, unfiledBankCount] = await Promise.all([
     listQuestionBankFolders(normalizedPurpose),
-    prisma.questionBank.count({ where: { folderId: null, purpose: normalizedPurpose } }),
+    prisma.questionBank.count({
+      where: { folderId: null, purpose: normalizedPurpose },
+    }),
   ]);
-  return buildQuestionBankFolderTree(folders, { includeUnfiled: true, unfiledBankCount });
+  return buildQuestionBankFolderTree(folders, {
+    includeUnfiled: true,
+    purpose: normalizedPurpose,
+    unfiledBankCount,
+  });
 }
 
-async function getQuestionBankFolderPath(folderId: string | null) {
+async function getQuestionBankFolderPath(
+  folderId: string | null,
+  purpose: QuestionBankPurpose,
+) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   if (folderId !== null) assertUuid(folderId, "Folder");
   const rows = await prisma.questionBankFolder.findMany({
-    select: { id: true, name: true, parentId: true, updatedAt: true },
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      purpose: true,
+      updatedAt: true,
+    },
+    where: { purpose: normalizedPurpose },
   });
-  return folderPathFromRows(folderId, rows);
+  return folderPathFromRows(folderId, rows, normalizedPurpose);
 }
 
 async function createQuestionBankFolder(
-  input: { name: string; parentId?: string | null },
+  input: {
+    name: string;
+    parentId?: string | null;
+    purpose: QuestionBankPurpose;
+  },
   actorId: string,
 ) {
+  const normalizedPurpose = assertQuestionBankPurpose(input.purpose);
   const name = normalizeName(input.name, "Nama folder", 160);
   const parentId = input.parentId ?? null;
   if (parentId) assertUuid(parentId, "Folder induk");
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const folders = await lockAllFolders(tx);
+      const folders = (await lockAllFolders(tx)).filter(
+        (folder) => folder.purpose === normalizedPurpose,
+      );
       if (parentId && !folders.some((folder) => folder.id === parentId)) {
-        throw new QuestionBankOrganizationError("Folder induk tidak ditemukan.");
+        throw new QuestionBankOrganizationError(
+          "Folder induk tidak ditemukan.",
+        );
       }
       if (folderDepth(parentId, folders) + 1 > MAX_FOLDER_DEPTH) {
-        throw new QuestionBankOrganizationError("Struktur folder terlalu dalam.");
+        throw new QuestionBankOrganizationError(
+          "Struktur folder terlalu dalam.",
+        );
       }
       const created = await tx.questionBankFolder.create({
-        data: { createdByUserId: actorId, name, parentId, updatedByUserId: actorId },
+        data: {
+          createdByUserId: actorId,
+          name,
+          parentId,
+          purpose: normalizedPurpose,
+          updatedByUserId: actorId,
+        },
         include: { _count: { select: { banks: true } } },
       });
       return folderDto(created);
@@ -368,17 +498,22 @@ async function renameQuestionBankFolder(
   id: string,
   nameInput: string,
   actorId: string,
+  purpose: QuestionBankPurpose,
   options?: OrganizationMutationOptions | Date | string,
 ) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   assertUuid(id, "Folder");
   const name = normalizeName(nameInput, "Nama folder", 160);
   const expectedUpdatedAt = normalizeExpectedUpdatedAt(options);
 
   try {
     return await prisma.$transaction(async (tx) => {
-      await lockAllFolders(tx);
-      const current = await tx.questionBankFolder.findUnique({ where: { id } });
-      if (!current) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+      const folders = (await lockAllFolders(tx)).filter(
+        (folder) => folder.purpose === normalizedPurpose,
+      );
+      const current = folders.find((folder) => folder.id === id);
+      if (!current)
+        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
       const updated = await tx.questionBankFolder.update({
         where: { id },
@@ -396,36 +531,56 @@ async function moveQuestionBankFolder(
   id: string,
   parentId: string | null,
   actorId: string,
+  purpose: QuestionBankPurpose,
   options?: OrganizationMutationOptions | Date | string,
 ) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   assertUuid(id, "Folder");
   if (parentId) assertUuid(parentId, "Folder induk");
   const expectedUpdatedAt = normalizeExpectedUpdatedAt(options);
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const folders = await lockAllFolders(tx);
+      const folders = (await lockAllFolders(tx)).filter(
+        (folder) => folder.purpose === normalizedPurpose,
+      );
       const current = folders.find((folder) => folder.id === id);
-      if (!current) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+      if (!current)
+        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       if (parentId && !folders.some((folder) => folder.id === parentId)) {
-        throw new QuestionBankOrganizationError("Folder induk tidak ditemukan.");
+        throw new QuestionBankOrganizationError(
+          "Folder induk tidak ditemukan.",
+        );
       }
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
-      if (parentId === id) throw new QuestionBankOrganizationError("Folder tidak dapat dipindahkan ke dirinya sendiri.");
+      if (parentId === id)
+        throw new QuestionBankOrganizationError(
+          "Folder tidak dapat dipindahkan ke dirinya sendiri.",
+        );
 
       const byId = new Map(folders.map((folder) => [folder.id, folder]));
       const visited = new Set<string>();
       let ancestor = parentId;
       while (ancestor) {
         if (visited.has(ancestor) || visited.size >= MAX_FOLDER_DEPTH) {
-          throw new QuestionBankOrganizationError("Struktur folder terlalu dalam atau tidak valid.");
+          throw new QuestionBankOrganizationError(
+            "Struktur folder terlalu dalam atau tidak valid.",
+          );
         }
         visited.add(ancestor);
-        if (ancestor === id) throw new QuestionBankOrganizationError("Folder tidak dapat dipindahkan ke turunannya sendiri.");
+        if (ancestor === id)
+          throw new QuestionBankOrganizationError(
+            "Folder tidak dapat dipindahkan ke turunannya sendiri.",
+          );
         ancestor = byId.get(ancestor)?.parentId ?? null;
       }
-      if (folderDepth(parentId, folders) + folderSubtreeHeight(id, folders) > MAX_FOLDER_DEPTH) {
-        throw new QuestionBankOrganizationError("Struktur folder terlalu dalam.");
+      if (
+        folderDepth(parentId, folders) + folderSubtreeHeight(id, folders) >
+        MAX_FOLDER_DEPTH
+      ) {
+        throw new QuestionBankOrganizationError(
+          "Struktur folder terlalu dalam.",
+        );
       }
 
       const updated = await tx.questionBankFolder.update({
@@ -443,38 +598,51 @@ async function moveQuestionBankFolder(
 async function removeQuestionBankFolder(
   id: string,
   actorId: string,
+  purpose: QuestionBankPurpose,
   options?: OrganizationMutationOptions | Date | string,
 ) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   assertUuid(id, "Folder");
   const expectedUpdatedAt = normalizeExpectedUpdatedAt(options);
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const folders = await lockAllFolders(tx);
+      const folders = (await lockAllFolders(tx)).filter(
+        (folder) => folder.purpose === normalizedPurpose,
+      );
       const current = folders.find((folder) => folder.id === id);
-      if (!current) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+      if (!current)
+        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
 
       await tx.$queryRaw`SELECT id FROM question_banks ORDER BY id FOR UPDATE`;
       const scheduledBankCount = await tx.questionBank.count({
-        where: { folderId: id, status: ContentStatus.scheduled },
+        where: {
+          folderId: id,
+          purpose: normalizedPurpose,
+          status: ContentStatus.scheduled,
+        },
       });
       if (scheduledBankCount) {
         throw new QuestionBankOrganizationError(
           "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
           {
             code: "scheduled_unsupported",
-            details: { bankCount: scheduledBankCount, operation: "remove_folder", status: ContentStatus.scheduled },
+            details: {
+              bankCount: scheduledBankCount,
+              operation: "remove_folder",
+              status: ContentStatus.scheduled,
+            },
           },
         );
       }
       await tx.questionBank.updateMany({
         data: { folderId: current.parentId, updatedByUserId: actorId },
-        where: { folderId: id },
+        where: { folderId: id, purpose: normalizedPurpose },
       });
       await tx.questionBankFolder.updateMany({
         data: { parentId: current.parentId, updatedByUserId: actorId },
-        where: { parentId: id },
+        where: { parentId: id, purpose: normalizedPurpose },
       });
       await tx.questionBankFolder.delete({ where: { id } });
       return { id, parentId: current.parentId };
@@ -497,14 +665,19 @@ async function listQuestionBankCategories(purpose: QuestionBankPurpose) {
       _count: { _all: true },
     }),
   ]);
-  const countByCategoryId = new Map(counts.map((row) => [row.categoryId, row._count._all]));
-  return rows.map((row) => ({
-    bankCount: countByCategoryId.get(row.id) ?? 0,
-    createdAt: row.createdAt.toISOString(),
-    id: row.id,
-    name: row.name,
-    updatedAt: row.updatedAt.toISOString(),
-  } satisfies QuestionBankCategoryDto));
+  const countByCategoryId = new Map(
+    counts.map((row) => [row.categoryId, row._count._all]),
+  );
+  return rows.map(
+    (row) =>
+      ({
+        bankCount: countByCategoryId.get(row.id) ?? 0,
+        createdAt: row.createdAt.toISOString(),
+        id: row.id,
+        name: row.name,
+        updatedAt: row.updatedAt.toISOString(),
+      }) satisfies QuestionBankCategoryDto,
+  );
 }
 
 async function createQuestionBankCategory(nameInput: string, actorId: string) {
@@ -542,8 +715,11 @@ async function renameQuestionBankCategory(
   try {
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
-      const current = await tx.questionBankCategory.findUnique({ where: { id } });
-      if (!current) throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
+      const current = await tx.questionBankCategory.findUnique({
+        where: { id },
+      });
+      if (!current)
+        throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
       const updated = await tx.questionBankCategory.update({
         where: { id },
@@ -574,10 +750,15 @@ async function removeQuestionBankCategory(
   try {
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
-      const current = await tx.questionBankCategory.findUnique({ where: { id } });
-      if (!current) throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
+      const current = await tx.questionBankCategory.findUnique({
+        where: { id },
+      });
+      if (!current)
+        throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
-      await tx.questionBankCategoryAssignment.deleteMany({ where: { categoryId: id } });
+      await tx.questionBankCategoryAssignment.deleteMany({
+        where: { categoryId: id },
+      });
       await tx.questionBankCategory.delete({ where: { id } });
       return { id };
     });
@@ -586,7 +767,12 @@ async function removeQuestionBankCategory(
   }
 }
 
-async function setQuestionBankCategories(bankId: string, categoryIds: string[], actorId: string, options?: BankMutationOptions) {
+async function setQuestionBankCategories(
+  bankId: string,
+  categoryIds: string[],
+  actorId: string,
+  options?: BankMutationOptions,
+) {
   assertUuid(bankId, "Bank Soal");
   const uniqueCategoryIds = [...new Set(categoryIds)];
   uniqueCategoryIds.forEach((id) => assertUuid(id, "Kategori"));
@@ -595,29 +781,62 @@ async function setQuestionBankCategories(bankId: string, categoryIds: string[], 
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
-      if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+      const bank = await tx.questionBank.findUnique({
+        where: { id: bankId },
+        select: { id: true, revision: true, status: true, updatedAt: true },
+      });
+      if (!bank)
+        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       assertBankMutationSupported(bank.status);
-      if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
+      if (bank.status === ContentStatus.archived)
+        throw new QuestionBankOrganizationError(
+          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+        );
 
-      const categories = await tx.questionBankCategory.findMany({ where: { id: { in: uniqueCategoryIds } }, select: { id: true } });
-      if (categories.length !== uniqueCategoryIds.length) throw new QuestionBankOrganizationError("Sebagian kategori tidak ditemukan.");
-      await tx.questionBankCategoryAssignment.deleteMany({ where: { questionBankId: bankId } });
+      const categories = await tx.questionBankCategory.findMany({
+        where: { id: { in: uniqueCategoryIds } },
+        select: { id: true },
+      });
+      if (categories.length !== uniqueCategoryIds.length)
+        throw new QuestionBankOrganizationError(
+          "Sebagian kategori tidak ditemukan.",
+        );
+      await tx.questionBankCategoryAssignment.deleteMany({
+        where: { questionBankId: bankId },
+      });
       if (uniqueCategoryIds.length) {
         await tx.questionBankCategoryAssignment.createMany({
-          data: uniqueCategoryIds.map((categoryId) => ({ assignedByUserId: actorId, categoryId, questionBankId: bankId })),
+          data: uniqueCategoryIds.map((categoryId) => ({
+            assignedByUserId: actorId,
+            categoryId,
+            questionBankId: bankId,
+          })),
         });
       }
-      const updated = await tx.questionBank.update({ where: { id: bankId }, data: { updatedByUserId: actorId }, select: { revision: true, updatedAt: true } });
-      return { bankId, categoryIds: uniqueCategoryIds, revision: updated.revision, updatedAt: updated.updatedAt.toISOString() };
+      const updated = await tx.questionBank.update({
+        where: { id: bankId },
+        data: { updatedByUserId: actorId },
+        select: { revision: true, updatedAt: true },
+      });
+      return {
+        bankId,
+        categoryIds: uniqueCategoryIds,
+        revision: updated.revision,
+        updatedAt: updated.updatedAt.toISOString(),
+      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
   }
 }
 
-async function assignQuestionBankCategories(bankId: string, categoryIds: string[], actorId: string, options?: BankMutationOptions) {
+async function assignQuestionBankCategories(
+  bankId: string,
+  categoryIds: string[],
+  actorId: string,
+  options?: BankMutationOptions,
+) {
   assertUuid(bankId, "Bank Soal");
   const uniqueCategoryIds = [...new Set(categoryIds)];
   uniqueCategoryIds.forEach((id) => assertUuid(id, "Kategori"));
@@ -626,69 +845,169 @@ async function assignQuestionBankCategories(bankId: string, categoryIds: string[
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
-      if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+      const bank = await tx.questionBank.findUnique({
+        where: { id: bankId },
+        select: { id: true, revision: true, status: true, updatedAt: true },
+      });
+      if (!bank)
+        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       assertBankMutationSupported(bank.status);
-      if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
-      const categories = await tx.questionBankCategory.findMany({ where: { id: { in: uniqueCategoryIds } }, select: { id: true } });
-      if (categories.length !== uniqueCategoryIds.length) throw new QuestionBankOrganizationError("Sebagian kategori tidak ditemukan.");
+      if (bank.status === ContentStatus.archived)
+        throw new QuestionBankOrganizationError(
+          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+        );
+      const categories = await tx.questionBankCategory.findMany({
+        where: { id: { in: uniqueCategoryIds } },
+        select: { id: true },
+      });
+      if (categories.length !== uniqueCategoryIds.length)
+        throw new QuestionBankOrganizationError(
+          "Sebagian kategori tidak ditemukan.",
+        );
       if (uniqueCategoryIds.length) {
         await tx.questionBankCategoryAssignment.createMany({
-          data: uniqueCategoryIds.map((categoryId) => ({ assignedByUserId: actorId, categoryId, questionBankId: bankId })),
+          data: uniqueCategoryIds.map((categoryId) => ({
+            assignedByUserId: actorId,
+            categoryId,
+            questionBankId: bankId,
+          })),
           skipDuplicates: true,
         });
       }
-      const updated = await tx.questionBank.update({ where: { id: bankId }, data: { updatedByUserId: actorId }, select: { revision: true, updatedAt: true } });
-      return { bankId, categoryIds: uniqueCategoryIds, revision: updated.revision, updatedAt: updated.updatedAt.toISOString() };
+      const updated = await tx.questionBank.update({
+        where: { id: bankId },
+        data: { updatedByUserId: actorId },
+        select: { revision: true, updatedAt: true },
+      });
+      return {
+        bankId,
+        categoryIds: uniqueCategoryIds,
+        revision: updated.revision,
+        updatedAt: updated.updatedAt.toISOString(),
+      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
   }
 }
 
-async function removeQuestionBankCategoryAssignment(bankId: string, categoryId: string, actorId: string, options?: BankMutationOptions) {
+async function removeQuestionBankCategoryAssignment(
+  bankId: string,
+  categoryId: string,
+  actorId: string,
+  options?: BankMutationOptions,
+) {
   assertUuid(bankId, "Bank Soal");
   assertUuid(categoryId, "Kategori");
   try {
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
-      if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+      const bank = await tx.questionBank.findUnique({
+        where: { id: bankId },
+        select: { id: true, revision: true, status: true, updatedAt: true },
+      });
+      if (!bank)
+        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       assertBankMutationSupported(bank.status);
-      if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
-      const category = await tx.questionBankCategory.findUnique({ where: { id: categoryId }, select: { id: true } });
-      if (!category) throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
-      await tx.questionBankCategoryAssignment.deleteMany({ where: { categoryId, questionBankId: bankId } });
-      const updated = await tx.questionBank.update({ where: { id: bankId }, data: { updatedByUserId: actorId }, select: { revision: true, updatedAt: true } });
-      return { bankId, categoryId, revision: updated.revision, updatedAt: updated.updatedAt.toISOString() };
+      if (bank.status === ContentStatus.archived)
+        throw new QuestionBankOrganizationError(
+          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+        );
+      const category = await tx.questionBankCategory.findUnique({
+        where: { id: categoryId },
+        select: { id: true },
+      });
+      if (!category)
+        throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
+      await tx.questionBankCategoryAssignment.deleteMany({
+        where: { categoryId, questionBankId: bankId },
+      });
+      const updated = await tx.questionBank.update({
+        where: { id: bankId },
+        data: { updatedByUserId: actorId },
+        select: { revision: true, updatedAt: true },
+      });
+      return {
+        bankId,
+        categoryId,
+        revision: updated.revision,
+        updatedAt: updated.updatedAt.toISOString(),
+      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
   }
 }
 
-async function moveQuestionBanksToFolder(bankIds: string[], folderId: string | null, actorId: string, options?: BankMoveMutationOptions) {
+async function moveQuestionBanksToFolder(
+  bankIds: string[],
+  folderId: string | null,
+  actorId: string,
+  purpose: QuestionBankPurpose,
+  options?: BankMoveMutationOptions,
+) {
+  const normalizedPurpose = assertQuestionBankPurpose(purpose);
   const uniqueBankIds = [...new Set(bankIds)];
-  if (!uniqueBankIds.length) throw new QuestionBankOrganizationError("Pilih minimal satu Bank Soal.");
+  if (!uniqueBankIds.length)
+    throw new QuestionBankOrganizationError("Pilih minimal satu Bank Soal.");
   uniqueBankIds.forEach((id) => assertUuid(id, "Bank Soal"));
   if (folderId) assertUuid(folderId, "Folder");
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const folders = await lockAllFolders(tx);
-      if (folderId && !folders.some((folder) => folder.id === folderId)) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+      const folders = (await lockAllFolders(tx)).filter(
+        (folder) => folder.purpose === normalizedPurpose,
+      );
+      if (folderId && !folders.some((folder) => folder.id === folderId))
+        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       await lockBanks(tx, uniqueBankIds);
-      const banks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds } }, select: { id: true, revision: true, status: true, updatedAt: true } });
-      if (banks.length !== uniqueBankIds.length) throw new QuestionBankOrganizationError("Sebagian Bank Soal tidak ditemukan.");
-      banks.forEach((bank) => assertExpectedBankVersion(bank, options?.expected?.[bank.id]));
+      const banks = await tx.questionBank.findMany({
+        where: { id: { in: uniqueBankIds } },
+        select: {
+          id: true,
+          purpose: true,
+          revision: true,
+          status: true,
+          updatedAt: true,
+        },
+      });
+      if (banks.length !== uniqueBankIds.length)
+        throw new QuestionBankOrganizationError(
+          "Sebagian Bank Soal tidak ditemukan.",
+        );
+      if (banks.some((bank) => bank.purpose !== normalizedPurpose)) {
+        throw new QuestionBankOrganizationError(
+          `Bank Soal hanya dapat dipindahkan di pohon Bank Soal ${questionBankPurposeLabel(normalizedPurpose)}.`,
+        );
+      }
+      banks.forEach((bank) =>
+        assertExpectedBankVersion(bank, options?.expected?.[bank.id]),
+      );
       banks.forEach((bank) => assertBankMutationSupported(bank.status));
-      if (banks.some((bank) => bank.status === ContentStatus.archived)) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dipindahkan.");
-      await tx.questionBank.updateMany({ data: { folderId, updatedByUserId: actorId }, where: { id: { in: uniqueBankIds } } });
-      const updatedBanks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds } }, select: { id: true, revision: true, updatedAt: true } });
-      return { bankIds: uniqueBankIds, folderId, versions: updatedBanks.map((bank) => ({ id: bank.id, revision: bank.revision, updatedAt: bank.updatedAt.toISOString() })) };
+      if (banks.some((bank) => bank.status === ContentStatus.archived))
+        throw new QuestionBankOrganizationError(
+          "Bank Soal yang diarsipkan tidak dapat dipindahkan.",
+        );
+      await tx.questionBank.updateMany({
+        data: { folderId, updatedByUserId: actorId },
+        where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
+      });
+      const updatedBanks = await tx.questionBank.findMany({
+        where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
+        select: { id: true, revision: true, updatedAt: true },
+      });
+      return {
+        bankIds: uniqueBankIds,
+        folderId,
+        versions: updatedBanks.map((bank) => ({
+          id: bank.id,
+          revision: bank.revision,
+          updatedAt: bank.updatedAt.toISOString(),
+        })),
+      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);

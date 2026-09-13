@@ -24,6 +24,7 @@ enum RoleName {
   student
   tutor
   admin
+  affiliator
 
   @@map("role_name")
 }
@@ -165,7 +166,6 @@ enum ReusableQuestionPackageMode {
   fixed_set
   random_pool
   blueprint
-  cat_pool
 
   @@map("reusable_question_package_mode")
 }
@@ -180,7 +180,6 @@ enum ReusableQuestionPackageVersionProvenance {
 
 enum TryoutTestType {
   cbt
-  cat
 
   @@map("tryout_test_type")
 }
@@ -244,15 +243,6 @@ enum TryoutAttemptTestRunStatus {
   expired
 
   @@map("tryout_attempt_test_run_status")
-}
-
-enum TryoutCatRunState {
-  not_applicable
-  ready
-  failed
-  voided
-
-  @@map("tryout_cat_run_state")
 }
 
 enum TryoutIntegrityEventType {
@@ -1223,9 +1213,6 @@ model User {
   tryoutDeliveryAudits                   TryoutDeliveryAudit[]
   adminPreviewTryoutRestartsForStudent   AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartStudent")
   adminPreviewTryoutRestartsByActor      AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartActor")
-  recordedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationRecordedBy")
-  approvedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationApprovedBy")
-  catResolutionAudits                    TryoutCatResolutionAudit[]
   topicPerformances                      StudentTopicPerformance[]
   subtestPerformances                    StudentSubtestPerformance[]
   learningRecommendations                LearningRecommendation[]
@@ -1269,6 +1256,8 @@ model User {
   notificationsReceived                  Notification[]
   billingAccounts                        BillingAccount[]                 @relation("StudentBilling")
   extendedBillingAccounts                BillingAccount[]                 @relation("BillingExtendedBy")
+  affiliatorProfile                      AffiliatorProfile?
+  packagePurchases                       PackagePurchase[]                @relation("PackagePurchaseStudent")
   updatedSystemConfigs                   SystemConfig[]                   @relation("SystemConfigUpdatedBy")
   draftUpdatedSystemConfigs              SystemConfig[]                   @relation("SystemConfigDraftUpdatedBy")
   publishedSystemConfigs                 SystemConfig[]                   @relation("SystemConfigPublishedBy")
@@ -1791,7 +1780,7 @@ model QuestionBank {
 
   createdBy                                User                                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                                User                                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  folder                                   QuestionBankFolder?                       @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  folder                                   QuestionBankFolder?                       @relation(fields: [folderId, purpose], references: [id, purpose], onDelete: Restrict)
   categories                               QuestionBankCategoryAssignment[]
   questions                                Question[]
   sourceQuizzes                            StandaloneQuiz[]
@@ -1802,6 +1791,7 @@ model QuestionBank {
   reusableQuestionPackageVersionBankScopes ReusableQuestionPackageVersionBankScope[]
 
   @@index([folderId])
+  @@index([folderId, purpose])
   @@index([purpose, status])
   @@map("question_banks")
 }
@@ -1810,6 +1800,7 @@ model Question {
   id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code               String          @unique @db.VarChar(120)
   questionBankId     String?         @map("question_bank_id") @db.Uuid
+  materi             String?         @db.VarChar(200)
   subtestId          String?         @map("subtest_id") @db.Uuid
   topicId            String?         @map("topic_id") @db.Uuid
   stem               String          @db.Text
@@ -1845,7 +1836,6 @@ model Question {
   adaptivePracticeAnswers     AdaptivePracticeAnswer[]
   reusablePackageItems        ReusableQuestionPackageItem[]        @relation("ReusablePackageItemSourceQuestion")
   reusablePackageVersionItems ReusableQuestionPackageVersionItem[] @relation("ReusablePackageVersionItemSourceQuestion")
-  twoPlCalibrations           TwoPlQuestionCalibration[]
 
   @@index([topicId])
   @@index([questionBankId])
@@ -1860,6 +1850,7 @@ model QuestionRevision {
   revisionNo         Int                        @map("revision_no")
   status             QuestionRevisionStatus     @default(draft)
   provenance         QuestionRevisionProvenance @default(authored)
+  materi             String?                    @db.VarChar(200)
   stem               String                     @db.Text
   questionType       QuestionType               @default(single_choice) @map("question_type")
   difficulty         DifficultyLevel            @default(medium)
@@ -1885,7 +1876,6 @@ model QuestionRevision {
   reusablePackageItems        ReusableQuestionPackageItem[]        @relation("ReusablePackageItemSourceQuestionRevision")
   reusablePackageVersionItems ReusableQuestionPackageVersionItem[] @relation("ReusablePackageVersionItemSourceQuestionRevision")
   tryoutItems                 TryoutItem[]                         @relation("TryoutItemSourceQuestionRevision")
-  calibrations                TwoPlQuestionCalibration[]
 
   @@unique([questionId, revisionNo])
   @@index([questionId, status])
@@ -1913,33 +1903,6 @@ model QuestionRevisionOption {
   @@map("question_revision_options")
 }
 
-model TwoPlQuestionCalibration {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  questionId               String                     @map("question_id") @db.Uuid
-  questionRevisionId       String                     @map("question_revision_id") @db.Uuid
-  contentDigest            String                     @map("content_digest") @db.VarChar(128)
-  modelVersion             String                     @map("model_version") @db.VarChar(120)
-  discrimination           Decimal                    @db.Decimal(10, 6)
-  difficulty               Decimal                    @db.Decimal(10, 6)
-  approvalState            String                     @default("approved") @map("approval_state") @db.VarChar(24)
-  sourceRevisionProvenance QuestionRevisionProvenance @default(authored) @map("source_revision_provenance")
-  recordedByUserId         String                     @map("recorded_by_user_id") @db.Uuid
-  approvedByUserId         String                     @map("approved_by_user_id") @db.Uuid
-  approvedAt               DateTime                   @default(now()) @map("approved_at") @db.Timestamptz
-  auditReason              String                     @map("audit_reason") @db.Text
-  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamptz
-
-  question         Question         @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  questionRevision QuestionRevision @relation(fields: [questionRevisionId], references: [id], onDelete: Restrict)
-  recordedBy       User             @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
-  approvedBy       User             @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
-
-  @@unique([questionRevisionId, modelVersion])
-  @@index([questionId, modelVersion])
-  @@index([modelVersion, approvalState])
-  @@map("two_pl_question_calibrations")
-}
-
 model QuestionOption {
   id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   questionId String  @map("question_id") @db.Uuid
@@ -1964,20 +1927,23 @@ model QuestionOption {
 model QuestionBankFolder {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parentId        String?  @map("parent_id") @db.Uuid
+  purpose         QuestionBankPurpose
   name            String   @db.VarChar(160)
   createdByUserId String   @map("created_by_user_id") @db.Uuid
   updatedByUserId String   @map("updated_by_user_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  parent                                     QuestionBankFolder?                         @relation("QuestionBankFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  parent                                     QuestionBankFolder?                         @relation("QuestionBankFolderTree", fields: [parentId, purpose], references: [id, purpose], onDelete: Restrict)
   children                                   QuestionBankFolder[]                        @relation("QuestionBankFolderTree")
   banks                                      QuestionBank[]
   reusableQuestionPackageVersionFolderScopes ReusableQuestionPackageVersionFolderScope[]
   createdBy                                  User                                        @relation("QuestionBankFolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                                  User                                        @relation("QuestionBankFolderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
 
+  @@unique([id, purpose], map: "question_bank_folders_id_purpose_key")
   @@index([parentId, name])
+  @@index([purpose, parentId, name])
   @@map("question_bank_folders")
 }
 
@@ -2045,6 +2011,7 @@ model StandaloneQuiz {
   status                   ContentStatus                         @default(draft)
   opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
   closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
+  durationSeconds          Int?                                  @map("duration_seconds")
   attemptsAllowed          Int?                                  @default(1) @map("attempts_allowed")
   scorePolicy              StandaloneQuizScorePolicy             @default(latest) @map("score_policy")
   retryDelaySeconds        Int?                                  @map("retry_delay_seconds")
@@ -2108,6 +2075,7 @@ model StandaloneQuizVersion {
   provenance               StandaloneQuizVersionProvenance       @default(runtime)
   opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
   closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
+  durationSeconds          Int?                                  @map("duration_seconds")
   createdAt                DateTime                              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -2598,7 +2566,6 @@ model AssessmentRelease {
   assemblyScopeSummary            Json?                        @map("assembly_scope_summary") @db.JsonB
   assemblyResolvedSourceIds       Json?                        @map("assembly_resolved_source_ids") @db.JsonB
   assemblyResolvedRevisionDigests Json?                        @map("assembly_resolved_revision_digests") @db.JsonB
-  assemblyCatCalibration          Json?                        @map("assembly_cat_calibration") @db.JsonB
   publishedAt                     DateTime                     @map("published_at") @db.Timestamptz
   createdByUserId                 String                       @map("created_by_user_id") @db.Uuid
   createdAt                       DateTime                     @default(now()) @map("created_at") @db.Timestamptz
@@ -2772,8 +2739,6 @@ model TryoutSection {
   testType         TryoutTestType @default(cbt) @map("test_type")
   scoringConfig    Json?          @map("scoring_config") @db.JsonB
   shuffleItems     Boolean        @default(false) @map("shuffle_items")
-  catItemCount     Int?           @map("cat_item_count")
-  catModelVersion  String?        @map("cat_model_version") @db.VarChar(120)
 
   tryout         TryoutPackage                   @relation(fields: [tryoutId], references: [id])
   subtest        Subtest                         @relation(fields: [subtestId], references: [id])
@@ -2932,9 +2897,6 @@ model TryoutAttemptTestRun {
   maxScore                Decimal?                    @map("max_score") @db.Decimal(10, 4)
   scaledScore             Decimal?                    @map("scaled_score") @db.Decimal(7, 2)
   normalizedScore         Decimal?                    @map("normalized_score") @db.Decimal(7, 2)
-  catState                TryoutCatRunState           @default(not_applicable) @map("cat_state")
-  catSnapshot             Json?                       @map("cat_snapshot") @db.JsonB
-  catFailureReason        String?                     @map("cat_failure_reason") @db.Text
   calculationReleaseable  Boolean                     @default(false) @map("calculation_releaseable")
   createdAt               DateTime                    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -2943,7 +2905,6 @@ model TryoutAttemptTestRun {
   assessmentRelease   AssessmentRelease?         @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
   section             TryoutSection              @relation(fields: [tryoutSectionId], references: [id], onDelete: Restrict)
   answers             TryoutAnswer[]
-  catResolutionAudits TryoutCatResolutionAudit[]
   integrityEvents     TryoutIntegrityEvent[]
 
   @@unique([attemptId, tryoutSectionId])
@@ -2964,23 +2925,6 @@ model TryoutIntegrityEvent {
   @@unique([runId, serverSequence])
   @@index([runId, createdAt])
   @@map("tryout_integrity_events")
-}
-
-model TryoutCatResolutionAudit {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  runId       String   @map("run_id") @db.Uuid
-  actorUserId String   @map("actor_user_id") @db.Uuid
-  action      String   @db.VarChar(32)
-  reason      String   @db.Text
-  before      Json?    @db.JsonB
-  after       Json?    @db.JsonB
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  run   TryoutAttemptTestRun @relation(fields: [runId], references: [id], onDelete: Restrict)
-  actor User                 @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
-
-  @@index([runId, createdAt])
-  @@map("tryout_cat_resolution_audits")
 }
 
 model TryoutAnswer {
@@ -4750,6 +4694,58 @@ model BillingAccount {
   extendedBy User? @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
 
   @@map("billing_accounts")
+}
+
+/// One admin-assigned referral identity for an affiliator. The code may be
+/// rotated by replacing this value; purchase rows keep their own immutable
+/// code snapshot for historical reporting.
+model AffiliatorProfile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  referralCode String   @unique @map("referral_code") @db.VarChar(40)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  packagePurchases PackagePurchase[]
+
+  @@index([isActive, referralCode])
+  @@map("affiliator_profiles")
+}
+
+enum PackagePurchaseStatus {
+  pending
+  succeeded
+  failed
+  refunded
+  cancelled
+
+  @@map("package_purchase_status")
+}
+
+/// First-party package purchase evidence. Package fields and the referral
+/// code are snapshots because catalogues and codes can change later.
+model PackagePurchase {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId             String               @map("student_id") @db.Uuid
+  packageCode           String               @map("package_code") @db.VarChar(80)
+  packageName           String               @map("package_name") @db.VarChar(220)
+  status                PackagePurchaseStatus @default(pending)
+  affiliatorProfileId   String?              @map("affiliator_profile_id") @db.Uuid
+  referralCodeSnapshot  String?              @map("referral_code_snapshot") @db.VarChar(40)
+  providerReference     String               @unique @map("provider_reference") @db.VarChar(160)
+  completedAt           DateTime?            @map("completed_at") @db.Timestamptz
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student           User              @relation("PackagePurchaseStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  affiliatorProfile AffiliatorProfile? @relation(fields: [affiliatorProfileId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@index([affiliatorProfileId, status, completedAt])
+  @@index([status, completedAt])
+  @@map("package_purchases")
 }
 
 model SystemConfig {

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   aggregateTryoutScores,
   materializeFrozenAnswers,
-  normalizeCatAbility,
   normalizeCbtScore,
   normalizeRunScore,
   TRYOUT_SCORE_AGGREGATION_VERSION,
@@ -17,19 +16,10 @@ assert.equal(normalizeCbtScore(3, 3), 100);
 assert.equal(normalizeCbtScore(4, 3), 100);
 assert.equal(normalizeCbtScore(-1, 3), 0);
 
-assert.equal(normalizeCatAbility(0), 50);
-assert.ok(normalizeCatAbility(-2) < 50);
-assert.ok(normalizeCatAbility(2) > 50);
-assert.equal(normalizeCatAbility(-1000), 0);
-assert.equal(normalizeCatAbility(1000), 100);
-
-assert.equal(normalizeRunScore({ score: 2, maxScore: 4 }, "cbt"), 50);
-assert.equal(normalizeRunScore({ ability: 0 }, "cat"), 50);
-assert.equal(normalizeRunScore({ score: 2 }, "cat", { currentAbility: 0.72 }), 67.26);
-assert.equal(normalizeRunScore({ normalizedScore: 72.345 }, "cat"), 72.35);
-assert.equal(normalizeRunScore({ score: 0.5 }, "cat"), normalizeCatAbility(0.5));
-assert.equal(normalizeRunScore({ score: 2 }, "cbt"), null);
-assert.equal(normalizeRunScore({ score: 2, maxScore: 0 }, "cbt"), null);
+assert.equal(normalizeRunScore({ score: 2, maxScore: 4 }), 50);
+assert.equal(normalizeRunScore({ normalizedScore: 72.345 }), 72.35);
+assert.equal(normalizeRunScore({ score: 2 }), null);
+assert.equal(normalizeRunScore({ score: 2, maxScore: 0 }), null);
 
 assert.equal(aggregateTryoutScores([0, 25, 50, 75, 100, 50, 50]), 50);
 assert.equal(aggregateTryoutScores([33.33, 33.33, 33.33, 33.33, 33.33, 33.33, 33.33]), 33.33);
@@ -54,10 +44,6 @@ assert.deepEqual(frozenScore.materializedAnswers, [
   { itemId: "item-2", isCorrect: false, pointsAwarded: 0 },
 ]);
 
-const catSubset = materializeFrozenAnswers(frozenItems, [{ itemId: "item-1", selectedOptionId: "option-b" }], ["item-1"]);
-assert.equal(catSubset.invalid, false);
-assert.equal(catSubset.unansweredCount, 0);
-assert.equal(catSubset.normalizedScore, 0);
 assert.equal(materializeFrozenAnswers(frozenItems, [{ itemId: "item-3", selectedOptionId: "option-a" }]).invalid, true);
 
 const multipleItems = [{

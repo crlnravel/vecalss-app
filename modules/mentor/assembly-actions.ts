@@ -50,7 +50,7 @@ async function getReadyAssemblyRevisionAction(versionId: string, target: Assembl
 async function attachReadyAssemblyAction(input: { target: AssemblyAttachmentTarget; targetSubtestCode: string; targetTestType: AssemblyAttachmentTestType; versionId: string }) {
   await assemblyManagementSession();
   try {
-    if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim() || (input.targetTestType !== "cbt" && input.targetTestType !== "cat")) {
+    if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim() || input.targetTestType !== "cbt") {
       throw new AssemblyValidationError("invalid_mode", "Attachment assembly hanya tersedia untuk Tryout dengan Subtest yang valid.");
     }
     return { ok: true as const, result: await getReadyAssemblyAttachment(input.versionId, input.target, input.targetSubtestCode, input.targetTestType) };

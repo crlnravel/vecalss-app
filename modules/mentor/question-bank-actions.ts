@@ -100,27 +100,27 @@ type ExpectedUpdatedAtInput = { expectedUpdatedAt?: string };
 type BankVersionInput = { expectedRevision?: number; expectedUpdatedAt?: string };
 type BankMoveVersionInput = { expected: Record<string, BankVersionInput> };
 
-async function createQuestionBankFolderAction(input: { name: string; parentId?: string | null }) {
+async function createQuestionBankFolderAction(input: { name: string; parentId?: string | null; purpose: QuestionBankPurpose }) {
   const session = await requireTutorSession();
   try { const result = await createQuestionBankFolder(input, session.user.id); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Folder tidak dapat dibuat saat ini."); }
 }
 
-async function renameQuestionBankFolderAction(id: string, name: string, options?: ExpectedUpdatedAtInput) {
+async function renameQuestionBankFolderAction(id: string, name: string, purpose: QuestionBankPurpose, options?: ExpectedUpdatedAtInput) {
   const session = await requireTutorSession();
-  try { const result = await renameQuestionBankFolder(id, name, session.user.id, options); refresh(); return { ok: true as const, result }; }
+  try { const result = await renameQuestionBankFolder(id, name, session.user.id, purpose, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Folder tidak dapat diubah saat ini."); }
 }
 
-async function moveQuestionBankFolderAction(id: string, parentId: string | null, options?: ExpectedUpdatedAtInput) {
+async function moveQuestionBankFolderAction(id: string, parentId: string | null, purpose: QuestionBankPurpose, options?: ExpectedUpdatedAtInput) {
   const session = await requireTutorSession();
-  try { const result = await moveQuestionBankFolder(id, parentId, session.user.id, options); refresh(); return { ok: true as const, result }; }
+  try { const result = await moveQuestionBankFolder(id, parentId, session.user.id, purpose, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Folder tidak dapat dipindahkan saat ini."); }
 }
 
-async function removeQuestionBankFolderAction(id: string, options?: ExpectedUpdatedAtInput) {
+async function removeQuestionBankFolderAction(id: string, purpose: QuestionBankPurpose, options?: ExpectedUpdatedAtInput) {
   const session = await requireTutorSession();
-  try { const result = await removeQuestionBankFolder(id, session.user.id, options); refresh(); return { ok: true as const, result }; }
+  try { const result = await removeQuestionBankFolder(id, session.user.id, purpose, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Folder tidak dapat dihapus saat ini."); }
 }
 
@@ -160,9 +160,9 @@ async function removeQuestionBankCategoryAssignmentAction(bankId: string, catego
   catch (error) { return questionBankActionFailure(error, "Kategori Bank Soal tidak dapat dilepas saat ini."); }
 }
 
-async function moveQuestionBanksToFolderAction(bankIds: string[], folderId: string | null, options: BankMoveVersionInput) {
+async function moveQuestionBanksToFolderAction(bankIds: string[], folderId: string | null, purpose: QuestionBankPurpose, options: BankMoveVersionInput) {
   const session = await requireTutorSession();
-  try { const result = await moveQuestionBanksToFolder(bankIds, folderId, session.user.id, options); refresh(); return { ok: true as const, result }; }
+  try { const result = await moveQuestionBanksToFolder(bankIds, folderId, session.user.id, purpose, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat dipindahkan saat ini."); }
 }
 
@@ -176,9 +176,9 @@ async function listQuestionBankFolderTreeAction(purpose: QuestionBankPurpose) {
   return listQuestionBankFolderTree(purpose);
 }
 
-async function getQuestionBankFolderPathAction(folderId: string | null) {
+async function getQuestionBankFolderPathAction(folderId: string | null, purpose: QuestionBankPurpose) {
   await requireTutorSession();
-  return getQuestionBankFolderPath(folderId);
+  return getQuestionBankFolderPath(folderId, purpose);
 }
 
 async function listQuestionBankCategoriesAction(purpose: QuestionBankPurpose) {

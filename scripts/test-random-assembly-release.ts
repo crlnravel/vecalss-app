@@ -111,8 +111,6 @@ const metadata = {
   seed: "blueprint-seed",
 };
 const releaseSection = {
-  catItemCount: null,
-  catModelVersion: null,
   durationSeconds: 60,
   id: "section-1",
   instructions: null,

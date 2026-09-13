@@ -46,6 +46,8 @@ type QuizAttemptQuestion = {
   passage: string[];
   prompt: string;
   selectedOptionKey: string | null;
+  selectedOptionKeys?: string[];
+  questionType?: "single_choice" | "multiple_choice";
 };
 
 type QuizAttemptQuestionMarker = {
@@ -321,13 +323,13 @@ function getQuizSubjectByCode(code: string) {
   return quizSubjects.find((subject) => subject.title === code);
 }
 
-function toDatabaseQuizItem(record: { attemptsAllowed?: number | null; correctAnswerVisibility?: QuizCorrectAnswerVisibility; formBehavior?: QuizFormBehavior; items: { id: string }[]; retryDelaySeconds?: number | null; reviewTiming?: QuizReviewTiming; scorePolicy?: QuizScorePolicy; slug: string; title: string }, isCompleted = false, latestAttemptId?: string): QuizItem {
+function toDatabaseQuizItem(record: { attemptsAllowed?: number | null; correctAnswerVisibility?: QuizCorrectAnswerVisibility; durationSeconds?: number | null; formBehavior?: QuizFormBehavior; items: { id: string }[]; retryDelaySeconds?: number | null; reviewTiming?: QuizReviewTiming; scorePolicy?: QuizScorePolicy; slug: string; title: string }, isCompleted = false, latestAttemptId?: string): QuizItem {
   return {
     attemptsAllowed: record.attemptsAllowed,
     completionRate: 0,
     correctAnswerVisibility: record.correctAnswerVisibility,
     difficulty: "Menengah",
-    duration: "",
+    duration: record.durationSeconds && record.durationSeconds > 0 ? `${Math.ceil(record.durationSeconds / 60)} menit` : "",
     formBehavior: record.formBehavior,
     isCompleted,
     latestAttemptId,

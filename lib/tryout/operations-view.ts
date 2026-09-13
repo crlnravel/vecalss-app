@@ -47,19 +47,8 @@ function explanationsCompleteForRelease(run: TryoutAttemptRecord["runs"][number]
       id: string;
     }>;
   };
-  const adaptive = run.catSnapshot as { selectedItemIds?: unknown } | null;
-  if (run.catSnapshot !== null && (!adaptive || !Array.isArray(adaptive.selectedItemIds))) return false;
-  const selectedItemIds = Array.isArray(adaptive?.selectedItemIds)
-    && adaptive.selectedItemIds.every((itemId): itemId is string => typeof itemId === "string")
-    ? new Set(adaptive.selectedItemIds)
-    : null;
-  if (Array.isArray(adaptive?.selectedItemIds)
-    && (!selectedItemIds || selectedItemIds.size !== adaptive.selectedItemIds.length || selectedItemIds.size === 0)) return false;
-  const items = selectedItemIds
-    ? (snapshot.items ?? []).filter((item) => selectedItemIds.has(item.id))
-    : snapshot.items ?? [];
+  const items = snapshot.items ?? [];
   return items.length > 0
-    && (!selectedItemIds || items.length === selectedItemIds.size)
     && items.every((item) => Boolean(item.explanation?.trim() || item.explanationAssetId));
 }
 
@@ -105,7 +94,6 @@ function resultReleaseReady(
       || !["sealed", "expired"].includes(run.status)
       || run.scoringState !== "scored"
       || !run.calculationReleaseable
-      || run.catState === "voided"
       || run.normalizedScore === null
       || !explanationsCompleteForRelease(run)) return false;
     seenSectionIds.add(run.tryoutSectionId);
@@ -165,13 +153,6 @@ function serializeRun(
       ? toOperationsReleaseMetadata(run.assessmentRelease)
       : null,
     calculationReleaseable: run.calculationReleaseable,
-    catFailureReason: run.catFailureReason,
-    catResolutionAudits: run.catResolutionAudits.map((audit) => ({
-      action: audit.action,
-      createdAt: audit.createdAt.toISOString(),
-      reason: audit.reason,
-    })),
-    catState: run.catState,
     id: run.id,
     integrityEventTrail: run.integrityEvents.map((event) => ({
       createdAt: event.createdAt.toISOString(),
@@ -289,9 +270,6 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       answerCount: run.answerCount,
       answeredAt: run.answeredAt,
       answeredCount: run.answeredCount,
-      catFailureReason: run.catFailureReason,
-      catResolutionAudits: run.catResolutionAudits,
-      catState: run.catState,
       id: run.id,
       integrityEventTrail: run.integrityEventTrail,
       integrityEvents: run.integrityEvents,
@@ -360,7 +338,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
   const liveByAdmissionId = new Map(live.map((item) => [item.admissionId, item]));
   const participantsWithAttention = participants.map((participant) => {
     const projection = liveByAdmissionId.get(participant.admissionId);
-    const attention = projection && ["needs_attention", "disconnected", "cat_failure"].includes(projection.state)
+    const attention = projection && ["needs_attention", "disconnected"].includes(projection.state)
       ? {
           attemptId: projection.attemptId,
           label: projection.label,

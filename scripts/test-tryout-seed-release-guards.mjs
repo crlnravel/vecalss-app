@@ -16,8 +16,6 @@ import {
 } from "../prisma/seed-assessment.mjs";
 
 const section = {
-  catItemCount: null,
-  catModelVersion: null,
   durationSeconds: 600,
   id: "section-physical",
   instructions: "Pilih jawaban yang paling tepat.",
@@ -99,8 +97,6 @@ function physicalSnapshot() {
     subtest_name: section.subtestName,
     title: section.title,
     content: {
-      catItemCount: section.catItemCount,
-      catModelVersion: section.catModelVersion,
       durationSeconds: section.durationSeconds,
       instructions: section.instructions,
       items: section.items.map((item) => ({

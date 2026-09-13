@@ -6,6 +6,7 @@ first coherent account lifecycle slice for:
 - `UC-00` User Authentication and Session Management
 - `UC-02` Complete First-Login Onboarding
 - `UC-18` Manage Student Enrollment
+- Affiliator conversion dashboard and first-party package purchase attribution
 
 ## Local Setup
 
@@ -39,6 +40,7 @@ Use these accounts for the principal test journeys:
 | Returning student with learning history | `student@vecalss.local` | `Student12345!` | `/login` |
 | New student completing first login | `newstudent@vecalss.local` | `TempStudent123!` | `/login` |
 | Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/login` |
+| Affiliator conversion dashboard | `affiliator@vecalss.local` | `Affiliator12345!` | `/login` |
 
 The assessment-only command expects the accounts and Materi taxonomy to exist.
 Use `pnpm db:seed-assessment` only when refreshing assessment data in an already
@@ -63,8 +65,14 @@ prompts, or assistant content.
 - `DATABASE_URL`: PostgreSQL connection string used by Prisma.
 - `APP_BASE_URL`: Base URL used to generate password-reset links.
 - `REGISTRATION_FORM_URL`: Public registration form target used by landing-page CTAs.
-- `SEED_*`: Optional overrides for the dummy admin, student, and tutor credentials created by
-  `pnpm db:seed`.
+- `SEED_*`: Optional overrides for the dummy admin, student, tutor, and affiliator credentials created by
+  `pnpm db:seed`. `SEED_AFFILIATOR_CODE` changes the seeded affiliator’s referral code.
+- `AFFILIATOR_PURCHASE_WEBHOOK_SECRET`: Required server-only HMAC secret for
+  `POST /api/internal/package-purchases/succeeded`. The checkout service signs
+  `{ event: "package.purchase.succeeded", studentId, packageCode,
+  providerReference, referralCode?, completedAt? }` with
+  `sha256=<hex-digest>` in `x-vecalss-purchase-signature`; the server resolves
+  the active student and published package before recording a conversion.
 
 For local role testing, you can set `DEBUG=true` in `.env`. The avatar menu will
 then show a development-only account switcher for active seeded accounts. It
@@ -135,7 +143,15 @@ both document-only and document-plus-video coverage.
 - `/notifications/[notificationId]`
 - `/admin/notifications`
 - `/admin/enrollment`
+- `/admin/affiliators`
 - `/mentor/dashboard`
+- `/affiliator`
+- `/affiliator/dashboard`
+
+Successful package attribution is accepted only through the signed internal
+purchase-event endpoint. Reusing a `providerReference` is idempotent; changing
+its student or package is rejected. The dashboard paginates the complete
+successful conversion history instead of silently truncating older rows.
 
 ## Two-API-instance scalability simulation
 

@@ -13,8 +13,12 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
+import {
+  isQuestionBankMateri,
+  normalizeQuestionBankMateri,
+} from "@/lib/question-bank/materi";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
-import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import { syncStandaloneQuizBankRevisions } from "@/lib/quiz/repository";
 import {
   getQuestionBankReadinessFromRevisions,
   getQuestionReadinessFromRevision,
@@ -60,6 +64,7 @@ type BankQuestionInput = {
   explanation: string;
   explanationMediaAssetId?: string;
   id?: string;
+  materi?: string;
   prompt: string;
   promptMediaAssetId?: string;
   questionType?: QuestionAnswerMode;
@@ -83,11 +88,11 @@ type QuestionBankOrganization = {
   folderPath: QuestionBankFolderPath;
 };
 type QuestionBankDiscovery = {
+  materiCoverage: string[];
   subjectCoverage: string[];
 };
 type BankQuestionDto = {
   bankId: string;
-  catReady?: boolean;
   choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
   correctChoiceId: string;
   correctChoiceIds: string[];
@@ -95,6 +100,7 @@ type BankQuestionDto = {
   explanation: string;
   explanationMediaAssetId?: string;
   id: string;
+  materi?: string;
   prompt: string;
   promptMediaAssetId?: string;
   questionContentDigest?: string;
@@ -221,6 +227,7 @@ type FolderRow = {
   id: string;
   name: string;
   parentId: string | null;
+  purpose: QuestionBankPurpose;
   updatedAt: Date;
 };
 
@@ -252,12 +259,13 @@ function isReadyRevision(revision: RevisionReadinessRecord | null) {
 }
 
 type BankMetrics = {
+  materiCoverage: string[];
   questionCount: number;
   readyCount: number;
   subjectCoverage: string[];
 };
 
-function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "questionType" | "options" | "subtest" | "currentRevision">, bankId: string, catReady = false): BankQuestionDto {
+function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "questionType" | "options" | "subtest" | "materi" | "currentRevision">, bankId: string): BankQuestionDto {
   const revision = question.currentRevision;
   const options = revision?.options ?? question.options;
   const stem = revision?.stem ?? question.stem;
@@ -275,7 +283,6 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
       : ContentStatus.draft;
   return {
     bankId,
-    catReady,
     choices: options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
     correctChoiceId: correctChoiceIds[0] ?? options[0]?.id ?? "",
     correctChoiceIds,
@@ -283,6 +290,7 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
     explanation: explanation ?? "",
     explanationMediaAssetId: explanationAssetId ?? undefined,
     id: question.id,
+    materi: revision?.materi ?? question.materi ?? undefined,
     prompt: stem,
     promptMediaAssetId: promptAssetId ?? undefined,
     questionContentDigest: revision?.contentDigest,
@@ -298,7 +306,7 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
 }
 
 function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[], metrics: BankMetrics): QuestionBankCatalogEntry {
-  const folderPath = folderPathFromRows(bank.folder?.id ?? null, folderRows);
+  const folderPath = folderPathFromRows(bank.folder?.id ?? null, folderRows, bank.purpose);
   return {
     bank: {
       categories: bank.categories
@@ -320,6 +328,7 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
       reusableIn: [questionBankPurposeLabel(bank.purpose)],
       revision: bank.revision,
       status: bank.status,
+      materiCoverage: metrics.materiCoverage,
       subjectCoverage: metrics.subjectCoverage,
       title: bank.name,
       updatedAt: bank.updatedAt.toISOString(),
@@ -330,7 +339,7 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
 async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, BankMetrics>> {
   if (!bankIds.length) return new Map();
   const ids = Prisma.join(bankIds.map((id) => Prisma.sql`${id}::uuid`));
-  const rows = await prisma.$queryRaw<Array<{ bankId: string; questionCount: number; readyCount: number; subjectCoverage: string[] | null }>>(Prisma.sql`
+  const rows = await prisma.$queryRaw<Array<{ bankId: string; materiCoverage: string[] | null; questionCount: number; readyCount: number; subjectCoverage: string[] | null }>>(Prisma.sql`
     WITH option_rollup AS (
       SELECT r.id AS revision_id,
         COUNT(ro.id)::int AS option_count,
@@ -341,7 +350,7 @@ async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, B
       LEFT JOIN assets ra ON ra.id = ro.asset_id
       GROUP BY r.id
     ), active_revisions AS (
-      SELECT q.id AS question_id, q.question_bank_id, q.subtest_id, r.*, option_rollup.option_count,
+      SELECT q.id AS question_id, q.question_bank_id, q.subtest_id, q.materi AS question_materi, r.*, option_rollup.option_count,
         option_rollup.correct_count, option_rollup.options_ready
       FROM questions q
       JOIN question_revisions r ON r.id = q.current_revision_id
@@ -362,7 +371,8 @@ async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, B
           AND (pa.id IS NULL OR pa.state = 'ready')
           AND (ea.id IS NULL OR ea.state = 'ready')
       )::int AS "readyCount",
-      ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.code) FILTER (WHERE s.code IS NOT NULL), NULL) AS "subjectCoverage"
+      ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.code) FILTER (WHERE s.code IS NOT NULL), NULL) AS "subjectCoverage",
+      ARRAY_REMOVE(ARRAY_AGG(DISTINCT NULLIF(BTRIM(COALESCE(active_revisions.materi, active_revisions.question_materi)), '')) FILTER (WHERE NULLIF(BTRIM(COALESCE(active_revisions.materi, active_revisions.question_materi)), '') IS NOT NULL), NULL) AS "materiCoverage"
     FROM active_revisions
     LEFT JOIN subtests s ON s.id = active_revisions.subtest_id
     LEFT JOIN assets pa ON pa.id = active_revisions.prompt_asset_id
@@ -372,6 +382,7 @@ async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, B
   return new Map(rows.map((row) => [row.bankId, {
     questionCount: Number(row.questionCount),
     readyCount: Number(row.readyCount),
+    materiCoverage: row.materiCoverage ?? [],
     subjectCoverage: row.subjectCoverage ?? [],
   }]));
 }
@@ -394,6 +405,9 @@ function validate(input: SaveBankInput) {
     throw new QuestionBankError("Setiap soal hanya boleh muncul satu kali.", { code: "invalid_input" });
   }
   for (const question of input.questions) {
+    if (!isQuestionBankMateri(question.subjectCode, question.materi)) {
+      throw new QuestionBankError("Materi harus sesuai dengan subject soal.", { code: "invalid_input" });
+    }
     if (question.choices.length < 2 || question.choices.length > 5) throw new QuestionBankError("Setiap soal harus memiliki 2 sampai 5 opsi.");
     const questionType = question.questionType ?? QuestionType.single_choice;
     if (questionType !== QuestionType.single_choice && questionType !== QuestionType.multiple_choice) {
@@ -410,15 +424,20 @@ function validate(input: SaveBankInput) {
 
 function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
   if (folderId === undefined || folderId === null) return null;
-  if (typeof folderId !== "string" || !QUESTION_BANK_FOLDER_UUID_PATTERN.test(folderId)) {
-    throw new QuestionBankError("Folder Bank Soal tidak valid.", { code: "invalid_input" });
+  if (
+    typeof folderId !== "string" ||
+    !QUESTION_BANK_FOLDER_UUID_PATTERN.test(folderId)
+  ) {
+    throw new QuestionBankError("Folder Bank Soal tidak valid.", {
+      code: "invalid_input",
+    });
   }
   return folderId;
 }
 
 async function getFolderRows(client: typeof prisma | Prisma.TransactionClient = prisma): Promise<FolderRow[]> {
   return client.questionBankFolder.findMany({
-    select: { id: true, name: true, parentId: true, updatedAt: true },
+    select: { id: true, name: true, parentId: true, purpose: true, updatedAt: true },
   });
 }
 
@@ -445,7 +464,13 @@ function toDto(
       .map((question) => question.subtest?.code)
       .filter((code): code is string => Boolean(code)),
   )];
+  const materiCoverage = [...new Set(
+    questions
+      .map((question) => question.materi?.trim())
+      .filter((materi): materi is string => Boolean(materi)),
+  )].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
   const catalog = toCatalogDto(bank, folderRows, {
+    materiCoverage,
     questionCount: questions.length,
     readyCount: ready,
     subjectCoverage,
@@ -480,7 +505,11 @@ function buildListWhere(options: ListQuestionBanksOptions = {}): Prisma.Question
       { name: { contains: search, mode: "insensitive" } },
       { folder: { name: { contains: search, mode: "insensitive" } } },
       { categories: { some: { category: { name: { contains: search, mode: "insensitive" } } } } },
-      { questions: { some: { status: { not: ContentStatus.archived }, subtest: { code: { contains: search, mode: "insensitive" } } } } },
+      { questions: { some: { status: { not: ContentStatus.archived }, OR: [
+        { materi: { contains: search, mode: "insensitive" } },
+        { currentRevision: { materi: { contains: search, mode: "insensitive" } } },
+        { subtest: { code: { contains: search, mode: "insensitive" } } },
+      ] } } },
     ] });
   }
   return conditions.length ? { AND: conditions } : {};
@@ -506,7 +535,7 @@ async function listQuestionBankPage(options: ListQuestionBanksOptions & { page?:
   ]);
   const metrics = await getBankMetrics(records.map((record) => record.id));
   return {
-    items: records.map((record) => toCatalogDto(record, folderRows, metrics.get(record.id) ?? { questionCount: 0, readyCount: 0, subjectCoverage: [] })),
+    items: records.map((record) => toCatalogDto(record, folderRows, metrics.get(record.id) ?? { materiCoverage: [], questionCount: 0, readyCount: 0, subjectCoverage: [] })),
     page,
     pageSize,
     total,
@@ -585,7 +614,7 @@ function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma
       b.code ILIKE ${needle}
       OR b.name ILIKE ${needle}
       OR COALESCE(b.description, '') ILIKE ${needle}
-      OR EXISTS (SELECT 1 FROM question_bank_folders bf WHERE bf.id = b.folder_id AND bf.name ILIKE ${needle})
+      OR EXISTS (SELECT 1 FROM question_bank_folders bf WHERE bf.id = b.folder_id AND bf.purpose = b.purpose AND bf.name ILIKE ${needle})
       OR EXISTS (
         SELECT 1 FROM question_bank_category_assignments bs
         JOIN question_bank_categories bc ON bc.id = bs.category_id
@@ -594,7 +623,10 @@ function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma
       OR EXISTS (
         SELECT 1 FROM questions bq
         JOIN subtests bqs ON bqs.id = bq.subtest_id
-        WHERE bq.question_bank_id = b.id AND bq.status <> ${ContentStatus.archived} AND bqs.code ILIKE ${needle}
+        JOIN question_revisions bqr ON bqr.id = bq.current_revision_id
+        WHERE bq.question_bank_id = b.id
+          AND bq.status <> ${ContentStatus.archived}
+          AND (bqs.code ILIKE ${needle} OR COALESCE(bqr.materi, bq.materi, '') ILIKE ${needle})
       )
     )`);
   }
@@ -627,7 +659,7 @@ async function listQuestionBankSourcePage(options: ListQuestionBankSourceOptions
     items: ids.flatMap((id) => {
       const record = recordById.get(id);
       if (!record) return [];
-      return [toCatalogDto(record, folderRows, metrics.get(id) ?? { questionCount: 0, readyCount: 0, subjectCoverage: [] })];
+      return [toCatalogDto(record, folderRows, metrics.get(id) ?? { materiCoverage: [], questionCount: 0, readyCount: 0, subjectCoverage: [] })];
     }),
     page,
     pageSize,
@@ -676,18 +708,13 @@ async function listQuestionBankSourceQuestions(bankId: string, options: ListQues
     LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
   `);
   const [folderRows, metrics] = await Promise.all([getFolderRows(), getBankMetrics([bankId])]);
-  const bankDto = toCatalogDto(bank, folderRows, metrics.get(bankId) ?? { questionCount: 0, readyCount: 0, subjectCoverage: [] }).bank;
+  const bankDto = toCatalogDto(bank, folderRows, metrics.get(bankId) ?? { materiCoverage: [], questionCount: 0, readyCount: 0, subjectCoverage: [] }).bank;
   const ids = rows.map((row) => row.id);
   if (!ids.length) {
     const [{ total }] = await prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`SELECT COUNT(*)::int AS total FROM questions q JOIN question_revisions qr ON qr.id = q.current_revision_id WHERE ${Prisma.join(questionConditions, " AND ")}`);
     return { bank: bankDto, page, pageSize, questions: [], total: Number(total) };
   }
   const records = await prisma.question.findMany({ where: { id: { in: ids } }, include: sourceQuestionInclude });
-  const revisionIds = records.flatMap((record) => record.currentRevision?.id ? [record.currentRevision.id] : []);
-  const calibrations = revisionIds.length
-    ? await prisma.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } })
-    : [];
-  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
   const recordById = new Map(records.map((record) => [record.id, record]));
   return {
     bank: bankDto,
@@ -695,17 +722,7 @@ async function listQuestionBankSourceQuestions(bankId: string, options: ListQues
     pageSize,
     questions: ids.flatMap((id) => {
       const record = recordById.get(id);
-      const revision = record?.currentRevision;
-      const calibration = revision ? calibrationByRevision.get(revision.id) : undefined;
-      const catReady = Boolean(revision
-        && calibration
-        && calibration.questionId === record?.id
-        && calibration.contentDigest === revision.contentDigest
-        && Number.isFinite(Number(calibration.difficulty))
-        && Number.isFinite(Number(calibration.discrimination))
-        && Number(calibration.discrimination) > 0
-        && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
-      return record ? [toBankQuestionDto(record as SourceQuestionRecord, bankId, catReady)] : [];
+      return record ? [toBankQuestionDto(record as SourceQuestionRecord, bankId)] : [];
     }),
     total: rows[0]?.total ?? 0,
   };
@@ -736,6 +753,7 @@ function revisionOptionWrites(input: BankQuestionInput): RevisionOptionWrite[] {
 
 type CanonicalQuestionContent = {
   digest: string;
+  materi: string | null;
   questionId: string;
   subtestCode: string | null;
 };
@@ -745,6 +763,7 @@ function canonicalDigestFromInput(input: BankQuestionInput, options = revisionOp
     difficulty: input.difficulty,
     explanation: input.explanation.trim() || null,
     explanationAssetId: input.explanationMediaAssetId || null,
+    materi: normalizeQuestionBankMateri(input.subjectCode, input.materi),
     options,
     prompt: input.prompt,
     promptAssetId: input.promptMediaAssetId || null,
@@ -756,6 +775,7 @@ function canonicalDigestFromRevision(revision: {
   difficulty: DifficultyLevel;
   explanation: string | null;
   explanationAssetId: string | null;
+  materi: string | null;
   options: readonly {
     assetId: string | null;
     content: string;
@@ -782,6 +802,7 @@ function canonicalDigestFromRevision(revision: {
     difficulty: revision.difficulty,
     explanation: revision.explanation,
     explanationAssetId: revision.explanationAssetId,
+    materi: revision.materi,
     options,
     prompt: revision.stem,
     promptAssetId: revision.promptAssetId,
@@ -796,6 +817,7 @@ function canonicalQuestionFromInput(
   if (!question.id) return null;
   return {
     digest: canonicalDigestFromInput(question),
+    materi: normalizeQuestionBankMateri(question.subjectCode, question.materi),
     questionId: question.id,
     subtestCode,
   };
@@ -804,12 +826,14 @@ function canonicalQuestionFromInput(
 function canonicalQuestionFromRecord(question: {
   currentRevision: Parameters<typeof canonicalDigestFromRevision>[0] | null;
   id: string;
+  materi: string | null;
   subtest: { code: string } | null;
 }): CanonicalQuestionContent | null {
   const revision = question.currentRevision;
   if (!revision) return null;
   return {
     digest: canonicalDigestFromRevision(revision),
+    materi: revision.materi ?? question.materi ?? null,
     questionId: question.id,
     subtestCode: question.subtest?.code ?? null,
   };
@@ -823,6 +847,7 @@ function sameCanonicalQuestionContent(
     && right
     && left.questionId === right.questionId
     && left.subtestCode === right.subtestCode
+    && left.materi === right.materi
     && left.digest === right.digest);
 }
 
@@ -903,6 +928,7 @@ async function createQuestionRevision(
     difficulty: DifficultyLevel;
     explanation: string | null;
     explanationAssetId: string | null;
+    materi: string | null;
     promptAssetId: string | null;
     questionType: QuestionAnswerMode;
   },
@@ -911,6 +937,7 @@ async function createQuestionRevision(
     difficulty: input.difficulty,
     explanation: input.explanation,
     explanationAssetId: input.explanationAssetId,
+    materi: input.materi,
     options: input.options,
     prompt: input.stem,
     promptAssetId: input.promptAssetId,
@@ -924,6 +951,7 @@ async function createQuestionRevision(
       difficulty: input.difficulty,
       explanation: input.explanation,
       explanationAssetId: input.explanationAssetId,
+      materi: input.materi,
       promptAssetId: input.promptAssetId,
       provenance: QuestionRevisionProvenance.authored,
       questionId: input.questionId,
@@ -952,6 +980,7 @@ async function updateDraftQuestionRevision(
     difficulty: DifficultyLevel;
     explanation: string | null;
     explanationAssetId: string | null;
+    materi: string | null;
     promptAssetId: string | null;
     questionType: QuestionAnswerMode;
   },
@@ -960,6 +989,7 @@ async function updateDraftQuestionRevision(
     difficulty: input.difficulty,
     explanation: input.explanation,
     explanationAssetId: input.explanationAssetId,
+    materi: input.materi,
     options: input.options,
     prompt: input.stem,
     promptAssetId: input.promptAssetId,
@@ -972,6 +1002,7 @@ async function updateDraftQuestionRevision(
       difficulty: input.difficulty,
       explanation: input.explanation,
       explanationAssetId: input.explanationAssetId,
+      materi: input.materi,
       promptAssetId: input.promptAssetId,
       questionType: input.questionType,
       stem: input.stem,
@@ -1050,12 +1081,18 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
     if (!bankId) {
       if (folderId) {
-        const folder = await tx.questionBankFolder.findUnique({ where: { id: folderId }, select: { purpose: true } });
+        const folder = await tx.questionBankFolder.findUnique({
+          where: { id: folderId },
+          select: { purpose: true },
+        });
         if (!folder || folder.purpose !== input.purpose) {
-          throw new QuestionBankError("Folder Bank Soal tidak ditemukan untuk tujuan yang dipilih.", {
-            code: "invalid_input",
-            details: { folderId, purpose: input.purpose },
-          });
+          throw new QuestionBankError(
+            "Folder Bank Soal tidak ditemukan untuk tujuan yang dipilih.",
+            {
+              code: "invalid_input",
+              details: { folderId, purpose: input.purpose },
+            },
+          );
         }
       }
       const created = await tx.questionBank.create({
@@ -1128,6 +1165,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           difficulty: question.difficulty as DifficultyLevel,
           explanation: question.explanation.trim() || null,
           explanationAssetId: question.explanationMediaAssetId || null,
+          materi: normalizeQuestionBankMateri(question.subjectCode, question.materi),
           promptAssetId: question.promptMediaAssetId || null,
           questionType,
           stem: question.prompt,
@@ -1154,6 +1192,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             explanation: data.explanation,
             explanationAssetId: data.explanationAssetId,
             id: revisionId,
+            materi: data.materi,
             options,
             promptAssetId: data.promptAssetId,
             questionId: saved.id,
@@ -1185,6 +1224,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             difficulty: data.difficulty,
             explanation: data.explanation,
             explanationAssetId: data.explanationAssetId,
+            materi: data.materi,
             options,
             promptAssetId: data.promptAssetId,
             questionId: current.id,
@@ -1199,6 +1239,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             difficulty: data.difficulty,
             explanation: data.explanation,
             explanationAssetId: data.explanationAssetId,
+            materi: data.materi,
             options,
             promptAssetId: data.promptAssetId,
             stem: data.stem,
@@ -1230,7 +1271,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 type QuestionBankLifecycleOptions = { expectedRevision: number };
 
 async function updateQuestionBankLifecycle(id: string, operation: "publish" | "unpublish" | "archive" | "restore", actorId: string, options: QuestionBankLifecycleOptions) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
@@ -1300,6 +1341,18 @@ async function updateQuestionBankLifecycle(id: string, operation: "publish" | "u
     }
     return { id, revision, status };
   });
+  if (operation === "publish") {
+    try {
+      await syncStandaloneQuizBankRevisions(id);
+    } catch (error) {
+      // The Bank publication is already durable. The editor also retries this
+      // idempotent sync when it receives a ready source revision, so a
+      // transient propagation failure must not make a successful publication
+      // look like an error to the mentor.
+      console.error("Published Bank Soal revision sync failed", error);
+    }
+  }
+  return result;
 }
 
 type QuestionRevisionLifecycleStatus = "draft" | "review" | "ready" | "retired";

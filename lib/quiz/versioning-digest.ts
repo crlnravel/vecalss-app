@@ -53,6 +53,7 @@ type KuisAssessmentDefinition = {
   attemptsAllowed: number | null;
   correctAnswerVisibility: KuisCorrectAnswerVisibility;
   description: string;
+  durationSeconds: number | null;
   formBehavior: KuisFormBehavior;
   questions: readonly KuisDefinitionQuestion[];
   retryDelaySeconds: number | null;
@@ -77,6 +78,7 @@ type KuisAssessmentDefinitionInput = {
   attemptsAllowed?: number | null;
   correctAnswerVisibility?: KuisCorrectAnswerVisibility;
   description: string;
+  durationSeconds?: number | null;
   formBehavior?: KuisFormBehavior;
   questions: readonly KuisDefinitionQuestion[];
   retryDelaySeconds?: number | null;
@@ -127,6 +129,7 @@ function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput)
     attemptsAllowed: input.attemptsAllowed === undefined ? 1 : input.attemptsAllowed,
     correctAnswerVisibility: input.correctAnswerVisibility ?? "show",
     description: input.description,
+    durationSeconds: input.durationSeconds ?? null,
     formBehavior: input.formBehavior ?? "same",
     questions: input.questions.map((question) => ({
       choices: question.choices.map((choice) => ({
@@ -185,6 +188,9 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
     attemptsAllowed: definition.attemptsAllowed,
     correctAnswerVisibility: definition.correctAnswerVisibility,
     description: definition.description,
+    // Keep the null/default case compatible with definitions written before
+    // Kuis duration was introduced; a configured duration remains versioned.
+    durationSeconds: definition.durationSeconds ?? undefined,
     formBehavior: definition.formBehavior,
     questions: definition.questions.map((question) => {
       const correctChoiceIds = question.correctChoiceIds?.length

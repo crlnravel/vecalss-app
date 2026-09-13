@@ -58,19 +58,18 @@ import {
 
 type Option = { choiceKey: string; content: string; id: string; sortOrder: number };
 type Item = { id: string; options: Option[]; prompt: string; questionType?: "single_choice" | "multiple_choice" | string | null; sortOrder: number };
-type Snapshot = { durationSeconds: number; instructions?: string | null; items: Item[]; testType: "cbt" | "cat" };
+type Snapshot = { durationSeconds: number; instructions?: string | null; items: Item[]; testType: "cbt" };
 type Section = {
   durationSeconds: number;
   questionCount: number;
   subtest: { code: string; name: string };
-  testType: "cbt" | "cat";
+  testType: "cbt";
   title: string;
 };
 type RunSummary = { id: string; section: Section; sequenceNo: number; status: string };
 type State = {
   activeRun: null | {
     answers: Array<{ selectedOptionId: string | null; selectedOptionIds?: string[] | null; tryoutItemId: string }>;
-    activeItemId: string | null;
     contentSnapshot: Snapshot;
     fullscreenPrompt: boolean;
     id: string;
@@ -307,15 +306,12 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   const run = state?.activeRun;
   const snapshot = run?.contentSnapshot;
-  const activeItemId = run?.activeItemId;
   const items = useMemo(
     () => {
       if (!snapshot) return [];
-      if (snapshot.testType !== "cat") return snapshot.items;
-      const activeItem = activeItemId ? snapshot.items.find((candidate) => candidate.id === activeItemId) : undefined;
-      return activeItem ? [activeItem] : [];
+      return snapshot.items;
     },
-    [activeItemId, snapshot],
+    [snapshot],
   );
   const activeRunId = run?.id;
   const fullscreenPrompt = run?.fullscreenPrompt;
@@ -408,7 +404,6 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
         const otherAnswers = current.activeRun.answers.filter((answer) => answer.tryoutItemId !== item.id);
         return { ...current, activeRun: { ...current.activeRun, answers: [...otherAnswers, { selectedOptionId: nextSelectedOptionIds[0] ?? null, selectedOptionIds: nextSelectedOptionIds, tryoutItemId: item.id }] } };
       });
-      if (snapshot?.testType === "cat") await refresh();
     } catch (saveError) {
       unstable_rethrow(saveError);
       setSaveState("error");
@@ -635,8 +630,7 @@ function ParticipantAttemptFooter({
   setSubmitOpen,
   snapshot,
 }: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "items" | "onIndexChange" | "saveState" | "selected" | "setSubmitOpen" | "snapshot">) {
-  const isCat = snapshot?.testType === "cat";
-  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{isCat ? <Button aria-label={selected.length ? "Jawaban tersimpan, menyiapkan soal berikutnya" : "Pilih jawaban untuk lanjut"} className="h-12 w-full justify-center" disabled size="lg" variant="brand">{selected.length ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}</Button> : index >= items.length - 1 ? <Button aria-label="Selesai" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Selesai</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
+  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{index >= items.length - 1 ? <Button aria-label="Selesai" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Selesai</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
 }
 
 function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUrgent, tryoutTitle }: Pick<ParticipantAttemptScreenProps, "enterFullscreen" | "now" | "run" | "runCount" | "timerUrgent" | "tryoutTitle">) {

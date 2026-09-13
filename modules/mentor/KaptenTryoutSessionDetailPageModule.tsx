@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput } from "@/components/ui/field";
 import {
   Table,
@@ -34,8 +34,7 @@ import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
 import { ChevronLeft } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
+import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
 import { HelpFieldLabel, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
 
@@ -52,21 +51,15 @@ const attemptStateLabels: Record<string, string> = {
   void: "Dibatalkan",
 };
 
-const sessionDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
-  dateStyle: "medium",
-  timeZone: "Asia/Jakarta",
-  timeStyle: "short",
-});
-
 type DeliverySession = TryoutOperationsView["sessions"][number];
 type SessionSchedule = { availableFrom: string; availableUntil: string };
 
 function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolean; delivery: DeliverySession; initial: TryoutOperationsView; onOpen: () => void }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke daftar sesi Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`} />} size="icon" title="Kembali ke daftar sesi Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
+      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}/operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
       <ReferencePageHeader
-        actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="brand">Buka sesi</Button> : null}</div>}
+        actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="brand">Buka sesi</Button> : null}</div>}
         className="min-w-0 flex-1"
         description={initial.title}
         title={delivery.name}
@@ -76,27 +69,38 @@ function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolea
 }
 
 function SessionScheduleCard({
-  delivery,
-  effectivePolicy,
   onScheduleChange,
   onSave,
   schedule,
   scheduleBusy,
   scheduleChanged,
   scheduleLocked,
+  onOpen,
+  openBusy = false,
+  title = "Detail sesi",
 }: {
-  delivery: DeliverySession;
-  effectivePolicy: Policy;
+  onOpen?: () => void;
   onSave: () => void;
+  openBusy?: boolean;
   onScheduleChange: (schedule: SessionSchedule) => void;
   schedule: SessionSchedule;
   scheduleBusy: boolean;
   scheduleChanged: boolean;
   scheduleLocked: boolean;
+  title?: string;
 }) {
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "mt-5 ring-0")}>
-      <CardHeader><CardTitle className="text-lg font-semibold">Detail sesi</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+        {onOpen ? (
+          <CardAction>
+            <Button disabled={openBusy} onClick={onOpen} variant="brand">
+              Buka sesi
+            </Button>
+          </CardAction>
+        ) : null}
+      </CardHeader>
       <CardContent className="grid gap-6">
         <div className="grid gap-5 text-sm md:grid-cols-2">
           <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
@@ -104,9 +108,6 @@ function SessionScheduleCard({
         </div>
         <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-sm">
-            <p className="text-secondary-500">Jadwal rilis hasil</p>
-            <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
-            {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}</p> : null}
             {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p> : null}
           </div>
           <Button disabled={scheduleLocked || scheduleBusy || !scheduleChanged} onClick={onSave} variant="reference">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>
@@ -149,9 +150,11 @@ function SessionOpenDialog({ busy, onConfirm, onOpenChange, open }: { busy: bool
 }
 
 function KaptenTryoutSessionDetailPageModule({
+  embedded = false,
   initial,
   sessionId,
 }: {
+  embedded?: boolean;
   initial: TryoutOperationsView;
   sessionId: string;
 }) {
@@ -168,10 +171,6 @@ function KaptenTryoutSessionDetailPageModule({
   const scheduleLocked = delivery.attempts.length > 0 || ["closed", "archived"].includes(delivery.status);
   const scheduleChanged = schedule.availableFrom !== formatTryoutDateTimeLocal(delivery.availableFrom)
     || schedule.availableUntil !== formatTryoutDateTimeLocal(delivery.availableUntil);
-  const effectivePolicy = (delivery.releasePolicy === "inherit"
-    ? initial.defaultReleasePolicy
-    : delivery.releasePolicy) as Policy;
-
   const handleConfirm = async () => {
     if (!confirmation) return;
     setBusy(true);
@@ -224,11 +223,38 @@ function KaptenTryoutSessionDetailPageModule({
     }
   };
 
+  if (embedded) {
+    return (
+      <>
+        <OperationNotice message={notice} />
+        <SessionScheduleCard
+          onSave={() => void handleScheduleSave()}
+          onScheduleChange={setSchedule}
+          schedule={schedule}
+          scheduleBusy={scheduleBusy}
+          scheduleChanged={scheduleChanged}
+          scheduleLocked={scheduleLocked}
+          onOpen={initial.status === "published" && delivery.status === "draft" ? () => setConfirmation("open") : undefined}
+          openBusy={busy}
+          title="Waktu akses peserta"
+        />
+        <SessionOpenDialog
+          busy={busy}
+          onConfirm={() => void handleConfirm()}
+          onOpenChange={(open) => {
+            if (!open && !busy) setConfirmation(null);
+          }}
+          open={Boolean(confirmation)}
+        />
+      </>
+    );
+  }
+
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <SessionDetailHeader busy={busy} delivery={delivery} initial={initial} onOpen={() => setConfirmation("open")} />
       <OperationNotice message={notice} />
-      <SessionScheduleCard delivery={delivery} effectivePolicy={effectivePolicy} onSave={() => void handleScheduleSave()} onScheduleChange={setSchedule} schedule={schedule} scheduleBusy={scheduleBusy} scheduleChanged={scheduleChanged} scheduleLocked={scheduleLocked} />
+      <SessionScheduleCard onSave={() => void handleScheduleSave()} onScheduleChange={setSchedule} schedule={schedule} scheduleBusy={scheduleBusy} scheduleChanged={scheduleChanged} scheduleLocked={scheduleLocked} />
       <SessionAttemptsTable delivery={delivery} tryoutId={initial.id} />
       <SessionOpenDialog busy={busy} onConfirm={() => void handleConfirm()} onOpenChange={(open) => { if (!open && !busy) setConfirmation(null); }} open={Boolean(confirmation)} />
     </main>

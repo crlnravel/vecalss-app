@@ -18,7 +18,7 @@ type ParticipantTryoutSection = {
   sequenceNo: number;
   subtestCode: string;
   subtestName: string;
-  testType: "cbt" | "cat";
+  testType: "cbt";
   title: string;
 };
 
@@ -154,7 +154,7 @@ function releaseSections(
       sequenceNo: section.sequenceNo ?? 0,
       subtestCode: section.subtestCode ?? section.subtestId ?? "",
       subtestName: section.subtestName ?? section.subtestId ?? "",
-      testType: section.scoring?.testType === "cat" ? "cat" : "cbt",
+      testType: "cbt",
       title: section.title ?? "",
     };
   });

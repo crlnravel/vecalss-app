@@ -27,7 +27,10 @@ const kaptenDirectoryModule = await readFile(resolve(root, "modules/admin/compon
 
 assert.match(enrollment, /createStudentEnrollment/);
 assert.match(enrollment, /createKaptenEnrollment/);
-assert.match(enrollment, /role === "student" \? RoleName\.student : RoleName\.tutor/);
+assert.match(enrollment, /createAffiliatorEnrollment/);
+assert.match(enrollment, /roleNameForEnrollmentRole/);
+assert.match(enrollment, /RoleName\.affiliator/);
+assert.match(enrollment, /affiliatorProfile\.create/);
 assert.match(enrollment, /createEnrollmentHandoff/);
 assert.match(enrollment, /releaseEnrollmentHandoff/);
 assert.match(enrollment, /assertNoExistingEmail/);
@@ -84,7 +87,7 @@ assert.match(config, /parsed\.pathname !==/);
 assert.match(config, /pathless absolute HTTP\(S\) origin/);
 assert.match(handoffService, /worker\/scheduler boundary/);
 assert.match(handoffService, /passwordResetToken\.updateMany/);
-assert.match(studentModule, /status === "disabled"/);
+assert.match(studentModule, /studentStatusTone|status === "disabled"/);
 assert.match(kaptenDirectoryModule, /status === "disabled"/);
 
 const releaseServiceStart = handoffService.indexOf("async function releaseEnrollmentHandoff");

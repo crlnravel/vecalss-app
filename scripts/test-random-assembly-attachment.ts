@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 
 import {
   AssemblyValidationError,
-  assemblyCompatibleWithTestType,
   assertAssemblyAttachmentCompatibility,
 } from "../lib/tryout/assembly-validation";
 
@@ -18,14 +17,14 @@ const [repository, actions, builder, createPage, editPage, tryoutRepository, rel
   readFile(new URL("../lib/question-bank/repository.ts", import.meta.url), "utf8"),
 ]);
 
-for (const mode of ["fixed_set", "random_pool", "blueprint", "cat_pool"] as const) {
+for (const mode of ["fixed_set", "random_pool", "blueprint"] as const) {
   assert.doesNotThrow(() => assertAssemblyAttachmentCompatibility({
     bankIds: ["bank-1"],
     bankPurposes: ["tryout"],
     mode,
     subtestCode: "PU",
     target: "tryout",
-    targetTestType: mode === "cat_pool" ? "cat" : "cbt",
+    targetTestType: "cbt",
     targetSubtestCode: "PU",
   }));
 }
@@ -43,42 +42,11 @@ assert.throws(
   (error: unknown) => error instanceof AssemblyValidationError && error.code === "wrong_subtest",
 );
 
-assert.equal(assemblyCompatibleWithTestType("cat_pool", "cat"), true);
-assert.equal(assemblyCompatibleWithTestType("cat_pool", "cbt"), false);
-assert.equal(assemblyCompatibleWithTestType("fixed_set", "cbt"), true);
-assert.equal(assemblyCompatibleWithTestType("fixed_set", "cat"), false);
-assert.throws(
-  () => assertAssemblyAttachmentCompatibility({
-    bankIds: ["bank-1"],
-    bankPurposes: ["tryout"],
-    mode: "cat_pool",
-    subtestCode: "PU",
-    target: "tryout",
-    targetTestType: "cbt",
-    targetSubtestCode: "PU",
-  }),
-  (error: unknown) => error instanceof AssemblyValidationError && error.code === "invalid_mode",
-);
-assert.throws(
-  () => assertAssemblyAttachmentCompatibility({
-    bankIds: ["bank-1"],
-    bankPurposes: ["tryout"],
-    mode: "fixed_set",
-    subtestCode: "PU",
-    target: "tryout",
-    targetTestType: "cat",
-    targetSubtestCode: "PU",
-  }),
-  (error: unknown) => error instanceof AssemblyValidationError && error.code === "invalid_mode",
-);
-
 assert.match(repository, /async function listReadyAssemblyRevisions/u);
 assert.match(repository, /async function getReadyAssemblyAttachment/u);
 assert.match(repository, /assertAssemblyAttachmentCompatibility/u);
 assert.match(repository, /targetTestType/u);
 assert.match(repository, /source.status !== ContentStatus\.published/u);
-assert.match(repository, /Number\.isFinite\(calibration\.difficulty\)/u);
-assert.match(repository, /discrimination <= 0/u);
 assert.match(repository, /versionItemContentIssues/u);
 assert.match(repository, /snapshotItems: version\.items/u);
 assert.match(repository, /usesImmutableSnapshot/u);
@@ -104,15 +72,13 @@ assert.doesNotMatch(editPage, /listReadyAssemblyRevisions|readyAssemblies/u, "Tr
 
 assert.match(tryoutRepository, /Paket Soal sudah diarsipkan/u, "Tryout save must reject archived package bindings");
 assert.doesNotMatch(tryoutRepository, /sectionInput\.packageVersionId/u, "Tryout save must not resolve package versions");
-assert.match(tryoutRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u);
-assert.match(tryoutRepository, /Number\(calibration\.discrimination\) <= 0/u);
-assert.match(sourceRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u, "direct Question DTO must expose numeric CAT readiness parity");
-assert.match(sourceRepository, /Number\(calibration\.discrimination\) > 0/u, "direct Question DTO must require positive discrimination");
+assert.doesNotMatch(tryoutRepository, /calibration|cat_pool|testType === "cat"/u);
+assert.doesNotMatch(sourceRepository, /calibration|catReady/u, "direct Question DTOs must not expose CAT compatibility state");
 
 assert.match(release, /version\.package\.status === ContentStatus\.archived/u);
 assert.doesNotMatch(release, /version\.package\.status !== ContentStatus\.published/u);
 assert.match(release, /subtestId: true/u, "release eligibility must load immutable version Subtest identity");
 assert.match(release, /section\.packageVersion\.subtestId !== section\.subtestId/u, "release eligibility must reject legacy Subtest mismatches");
-assert.match(release, /!modeMatchesTestType/u, "release eligibility must reject forged fixed Set/CAT combinations");
+assert.doesNotMatch(release, /modeMatchesTestType|cat_pool|testType === "cat"/u, "release eligibility must remain CBT-only");
 
 console.log("Tryout assembly attachment contract passed.");

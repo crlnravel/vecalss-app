@@ -1,5 +1,4 @@
 type LiveState =
-  | "cat_failure"
   | "checked_in"
   | "disconnected"
   | "in_progress"
@@ -19,8 +18,6 @@ type LiveAttemptInput = {
   scoringState: string;
   status: string;
   runs: ReadonlyArray<{
-    catFailureReason?: string | null;
-    catState: string;
     integrityEvents?: number;
     remainingSeconds?: number | null;
     scoringReviewReason?: string | null;
@@ -33,7 +30,6 @@ type LiveAttemptInput = {
 type LiveProjection = {
   activeRunSequenceNo: number | null;
   attemptId: string | null;
-  catFailureSequenceNo: number | null;
   disconnectStartedAt: string | null;
   integrityEventCount: number;
   label: string;
@@ -58,8 +54,6 @@ type ResultAttemptInput = {
   status: string;
   runs: ReadonlyArray<{
     calculationReleaseable?: boolean;
-    catFailureReason?: string | null;
-    catState: string;
     scoringReviewReason?: string | null;
     scoringState: string;
     status: string;
@@ -98,7 +92,6 @@ type WorkspaceParticipantInput = {
 };
 
 const liveStateLabels: Record<LiveState, string> = {
-  cat_failure: "CAT perlu ditinjau",
   checked_in: "Siap mulai",
   disconnected: "Terputus",
   in_progress: "Berlangsung",
@@ -136,7 +129,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: null,
       attemptId: null,
-      catFailureSequenceNo: null,
       disconnectStartedAt: null,
       integrityEventCount: 0,
       label: liveStateLabels.registered,
@@ -156,7 +148,6 @@ function deriveTryoutLiveProjection(input: {
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const activeRunExpired = typeof activeRun?.remainingSeconds === "number" && activeRun.remainingSeconds <= 0;
   const expiredRun = attempt.runs.find((run) => run.status === "expired") ?? null;
-  const failedCatRun = attempt.runs.find((run) => run.catState === "failed") ?? null;
   // Disconnected is intentionally marker-driven. Do not infer it from a
   // client timer or an integrity event; only the authorized server lifecycle
   // commands may create or reconcile this marker.
@@ -174,7 +165,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: failedCatRun?.sequenceNo ?? null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.disconnected,
@@ -188,7 +178,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.submitted,
@@ -200,25 +189,10 @@ function deriveTryoutLiveProjection(input: {
     };
   }
 
-  if (failedCatRun) {
-    return {
-      activeRunSequenceNo: activeRun?.sequenceNo ?? null,
-      attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: failedCatRun.sequenceNo,
-      ...lifecycle,
-      integrityEventCount,
-      label: liveStateLabels.cat_failure,
-      reason: failedCatRun.catFailureReason ?? `CAT gagal pada Test ${failedCatRun.sequenceNo}; buka attempt untuk review atau resolusi.`,
-      severity: "critical",
-      state: "cat_failure",
-    };
-  }
-
   if (reviewRequired || integrityEventCount > 0) {
     return {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
@@ -234,7 +208,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
@@ -248,7 +221,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
@@ -262,7 +234,6 @@ function deriveTryoutLiveProjection(input: {
     return {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.in_progress,
@@ -277,7 +248,6 @@ function deriveTryoutLiveProjection(input: {
   return {
     activeRunSequenceNo: null,
     attemptId: attempt.attemptId ?? null,
-    catFailureSequenceNo: null,
     ...lifecycle,
     integrityEventCount,
     label: liveStateLabels.checked_in,
@@ -306,8 +276,6 @@ function deriveTryoutResultProjection(input: {
 
   const reviewRun = attempt.runs.find((run) =>
     run.scoringState === "review_required"
-      || run.catState === "failed"
-      || run.catState === "voided"
       || run.scoringReviewReason,
   ) ?? null;
   const resultReadiness: ResultReadiness = attempt.scoringState === "review_required" || reviewRun
@@ -339,7 +307,6 @@ function deriveTryoutResultProjection(input: {
     resultReadiness,
     reviewReason: attempt.scoringReviewReason
       ?? reviewRun?.scoringReviewReason
-      ?? reviewRun?.catFailureReason
       ?? null,
     scoreVisible,
   };

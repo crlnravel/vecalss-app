@@ -76,7 +76,7 @@ const projection = deriveTryoutLiveProjection({
     reconciledAt: "2026-08-23T08:01:00.000Z",
     scoringState: "pending",
     status: "in_progress",
-    runs: [{ catState: "not_applicable", sequenceNo: 1, status: "active", scoringState: "pending" }],
+    runs: [{ sequenceNo: 1, status: "active", scoringState: "pending" }],
   },
 });
 assert.equal(projection.state, "in_progress");
@@ -89,7 +89,7 @@ assert.equal(deriveTryoutLiveProjection({
     attemptState: "in_progress",
     scoringState: "pending",
     status: "in_progress",
-    runs: [{ catState: "not_applicable", sequenceNo: 2, status: "expired", scoringState: "review_required" }],
+    runs: [{ sequenceNo: 2, status: "expired", scoringState: "review_required" }],
   },
 }).state, "needs_attention");
 assert.equal(deriveTryoutLiveProjection({
@@ -100,7 +100,7 @@ assert.equal(deriveTryoutLiveProjection({
     disconnectStartedAt: "2026-08-23T08:00:00.000Z",
     scoringState: "pending",
     status: "expired",
-    runs: [{ catState: "not_applicable", sequenceNo: 1, status: "expired", scoringState: "pending" }],
+    runs: [{ sequenceNo: 1, status: "expired", scoringState: "pending" }],
   },
 }).state, "submitted");
 assert.equal(deriveTryoutLiveProjection({
@@ -112,7 +112,7 @@ assert.equal(deriveTryoutLiveProjection({
     reconciledAt: "2026-08-23T08:05:00.000Z",
     scoringState: "pending",
     status: "in_progress",
-    runs: [{ catState: "not_applicable", sequenceNo: 1, status: "expired", scoringState: "pending" }],
+    runs: [{ sequenceNo: 1, status: "expired", scoringState: "pending" }],
   },
 }).state, "needs_attention");
 assert.equal(deriveTryoutLiveProjection({
@@ -123,7 +123,7 @@ assert.equal(deriveTryoutLiveProjection({
     integrityEvents: 1,
     scoringState: "review_required",
     status: "submitted",
-    runs: [{ catState: "failed", sequenceNo: 1, status: "sealed", scoringState: "review_required" }],
+    runs: [{ sequenceNo: 1, status: "sealed", scoringState: "review_required" }],
   },
 }).state, "submitted");
 

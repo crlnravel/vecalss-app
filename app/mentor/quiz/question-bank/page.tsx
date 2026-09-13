@@ -10,11 +10,11 @@ import {
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import {
-  listQuestionBankCategories,
   listQuestionBankFolderTree,
   listQuestionBankPage,
 } from "@/lib/question-bank/repository";
 import type { QuestionBankSort } from "@/lib/question-bank/repository";
+import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { KaptenQuestionBankPageModule } from "@/modules/mentor/KaptenQuestionBankCataloguePageModules";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
@@ -31,12 +31,14 @@ export default async function MentorQuestionBankPage({
   const params = await searchParams;
   const parsedQuery = parseQuestionBankQuery(params);
   if (parsedQuery.issues.length || parsedQuery.purpose === null) {
+    const requestedPurpose = Array.isArray(params.purpose) ? params.purpose[0] : params.purpose;
+    const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
     return (
-      <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={navigationLabel} searchPlaceholder="Cari bank soal, folder, atau materi..." session={session} showSearch={false} sidebarAppearance="reference">
         <section aria-labelledby="question-bank-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="question-bank-context-unavailable">Konteks Bank Soal tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtest, folder, kategori, dan filter yang tersedia untuk melanjutkan.</p>
+          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtest, folder, dan filter yang tersedia untuk melanjutkan.</p>
         </section>
       </MentorWorkspaceShell>
     );
@@ -55,16 +57,14 @@ export default async function MentorQuestionBankPage({
   const page = parsedQuery.page;
   const search = parsedQuery.q;
   const requestedSort = parsedQuery.sort as QuestionBankSort;
-  const [banks, folderTree, categories] = await Promise.all([
+  const [banks, folderTree] = await Promise.all([
     listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize: 25, purpose: requestedPurpose, search, sort: requestedSort, status, subjectCoverage: requestedSubjects }),
     listQuestionBankFolderTree(requestedPurpose),
-    listQuestionBankCategories(requestedPurpose),
   ]);
 
   return (
     <KaptenQuestionBankPageModule
       key={JSON.stringify({ category: requestedCategories, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
-      initialCategories={categories}
       initialEntries={banks.items}
       initialFolderTree={folderTree}
       initialPage={banks.page}

@@ -48,6 +48,7 @@ type KaptenQuiz = KaptenResource & {
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   draftRevision?: number | null;
   draftVersionId?: string;
+  durationSeconds?: number | null;
   formBehavior?: QuizFormBehavior;
   hasUnpublishedChanges?: boolean;
   questionCount: number;
@@ -73,6 +74,7 @@ type KaptenQuestionBank = KaptenResource & {
   revision?: number;
   reusableIn: string[];
   /** Discovery only. Question subtests are the compatibility authority. */
+  materiCoverage?: string[];
   subjectCoverage?: string[];
   tags?: string[];
   topic?: string;
@@ -92,6 +94,7 @@ type BankQuestion = {
   explanation: string;
   explanationMediaAssetId?: string;
   id: string;
+  materi?: string;
   prompt: string;
   promptMediaAssetId?: string;
   questionContentDigest?: string;

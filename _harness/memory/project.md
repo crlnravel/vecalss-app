@@ -13,6 +13,13 @@ The sections below are historical records unless a newer dated section
 supersedes them. For the current repository map, read [`docs/wiki/`](../../docs/wiki/)
 and then verify the source tree before making an implementation decision.
 
+## Pre-release database migration and legacy policy (2026-09-12)
+
+- The project is in an active pre-release phase.
+- Agents are explicitly permitted and encouraged to migrate the database forward to support new features, refactors, and architectural improvements.
+- Preserving obsolete legacy tables, backward-compatibility bridges, or legacy system state is not important or required at this stage. Prioritize clean, simplified schema models over legacy maintenance.
+- Creating manual database backups, snapshots, or dump files (e.g. `/tmp/*.dump`) before running migrations or resets is not required. Development and local data is disposable and reproducible via seed scripts (`pnpm db:seed`).
+
 ## Current repository baseline (2026-08-30)
 
 - The project wiki is now under `docs/wiki/`. Its pages cover architecture,

@@ -43,11 +43,11 @@ assert.doesNotMatch(narrowRefreshSource, /participants: view\.participants/u, "r
 assert.doesNotMatch(narrowRefreshSource, /sessions: view\.sessions/u, "refresh must not return raw session attempts");
 assert.doesNotMatch(narrowRefreshSource, /results:|attempts:/u, "refresh DTO must stay focused");
 
-assert.match(page, /KaptenTryoutInvitationPicker/u);
-assert.match(page, /initial\.admissionMode === "open"/u, "open admission should bypass invitation entry");
-assert.match(page, /Semua peserta dapat bergabung/u, "open admission should explain that every participant can join");
-assert.match(page, /setParticipants\(view\.participants\)/u);
-assert.match(page, /setSessions\(view\.sessions\)/u);
+assert.doesNotMatch(page, /KaptenTryoutInvitationPicker/u, "the participant workspace should stay focused on the participant list");
+assert.doesNotMatch(page, /Semua peserta dapat bergabung|initial\.admissionMode/u, "participant list should not duplicate access-policy controls");
+assert.match(page, /initial\.results/u, "the participant workspace should render Tryout results");
+assert.match(page, /CompactFilterTabs/u, "the participant workspace should retain Kuis-style result filters");
+assert.match(page, /Cari nama peserta/u, "the participant workspace should search participant results");
 assert.match(ui, /searchTryoutInvitationStudentsAction/u);
 assert.match(ui, /refreshTryoutParticipantsAction/u);
 assert.match(ui, /inviteTryoutParticipantAction/u);

@@ -12,7 +12,6 @@ import {
   ReusableQuestionPackageMode,
   ReusableQuestionPackageVersionProvenance,
 } from "@/generated/prisma/client";
-import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -143,7 +142,7 @@ const versionInclude = {
     orderBy: { categoryId: "asc" as const },
   },
   folderScopes: {
-    include: { folder: { select: { id: true, name: true } } },
+    include: { folder: { select: { id: true, name: true, purpose: true } } },
     orderBy: { folderId: "asc" as const },
   },
   items: {
@@ -164,14 +163,6 @@ const versionInclude = {
 type SourceRecord = Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>;
 type VersionRecord = Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>;
 type VersionItemRecord = VersionRecord["items"][number];
-type CalibrationRecord = {
-  contentDigest: string;
-  difficulty: number;
-  discrimination: number;
-  questionId: string;
-  sourceRevisionProvenance: QuestionRevisionProvenance;
-};
-
 type KuisAssemblyItem = {
   difficulty: DifficultyLevel;
   explanation: string | null;
@@ -312,7 +303,6 @@ function sourceContentIssues(
   subtestId: string,
   bankIds: readonly string[],
   identity?: AssemblyCandidateSource,
-  allowMultipleChoice = true,
 ): AssemblyReadinessIssue[] {
   if (!source) {
     return [issue("stale_candidate", "Kandidat tidak lagi ditemukan di Bank Soal.", { sourceQuestionId: identity?.sourceQuestionId })];
@@ -368,8 +358,8 @@ function sourceContentIssues(
   const answerKey = answerMode
     ? validateAnswerKey(answerMode, revision.options.map((option) => ({ id: option.label, isCorrect: option.isCorrect })))
     : null;
-  if (revision.options.length < 2 || revision.options.length > 5 || !answerMode || !answerKey?.ok || (!allowMultipleChoice && answerMode === "multiple_choice") || revision.options.some((option) => !option.content.trim())) {
-    blockers.push(issue("options", !allowMultipleChoice && answerMode === "multiple_choice" ? "Kandidat CAT harus memiliki tepat satu jawaban benar." : "Kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
+  if (revision.options.length < 2 || revision.options.length > 5 || !answerMode || !answerKey?.ok || revision.options.some((option) => !option.content.trim())) {
+    blockers.push(issue("options", "Kandidat harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: revision.options.length,
       sourceQuestionId: source.id,
     }));
@@ -386,7 +376,7 @@ function sourceContentIssues(
   return blockers;
 }
 
-function versionItemContentIssues(item: VersionItemRecord, subtestId: string, allowMultipleChoice = true): AssemblyReadinessIssue[] {
+function versionItemContentIssues(item: VersionItemRecord, subtestId: string): AssemblyReadinessIssue[] {
   const blockers: AssemblyReadinessIssue[] = [];
   if (!item.sourceQuestionId.trim() || !item.sourceQuestionRevisionId?.trim() || !item.sourceContentDigest?.trim()) {
     blockers.push(issue("stale_candidate", "Snapshot soal tidak memiliki identitas Question, revisi Ready, dan digest yang lengkap.", {
@@ -410,9 +400,8 @@ function versionItemContentIssues(item: VersionItemRecord, subtestId: string, al
   if (item.options.length < 2
     || item.options.length > 5
     || !answerKey.ok
-    || (!allowMultipleChoice && answerMode === "multiple_choice")
     || item.options.some((option) => !option.content.trim())) {
-    blockers.push(issue("options", !allowMultipleChoice && answerMode === "multiple_choice" ? "Snapshot CAT harus memiliki tepat satu jawaban benar." : "Snapshot harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
+    blockers.push(issue("options", "Snapshot harus memiliki 2–5 opsi berisi dengan kunci jawaban yang valid.", {
       optionCount: item.options.length,
       sourceQuestionId: item.sourceQuestionId,
     }));
@@ -443,7 +432,6 @@ function candidateIssues(
   sources: SourceRecord[],
   candidates: AssemblyCandidateSource[],
   definition: NormalizedAssemblyDefinition,
-  calibrations = new Map<string, CalibrationRecord>(),
 ) {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const blockers: AssemblyReadinessIssue[] = [];
@@ -454,27 +442,7 @@ function candidateIssues(
       continue;
     }
     seen.add(candidate.sourceQuestionId);
-    blockers.push(...sourceContentIssues(sourceById.get(candidate.sourceQuestionId), definition.subtestId, definition.scope.bankIds, candidate, definition.mode !== "cat_pool"));
-    if (definition.mode === "cat_pool") {
-      const revision = sourceById.get(candidate.sourceQuestionId)?.currentRevision;
-      const calibration = revision ? calibrations.get(revision.id) : undefined;
-      if (!calibration
-        || calibration.questionId !== candidate.sourceQuestionId
-        || calibration.contentDigest !== candidate.sourceContentDigest
-        || !Number.isFinite(calibration.difficulty)
-        || !Number.isFinite(calibration.discrimination)
-        || calibration.discrimination <= 0
-        || revision?.provenance === QuestionRevisionProvenance.legacy_unknown
-        || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) {
-        blockers.push(issue("calibration", "Kandidat CAT belum memiliki kalibrasi 2PL kanonis yang cocok dengan revisi dan digest.", {
-          modelVersion: CANONICAL_2PL_MODEL_VERSION,
-          difficulty: calibration?.difficulty,
-          discrimination: calibration?.discrimination,
-          sourceQuestionId: candidate.sourceQuestionId,
-          sourceQuestionRevisionId: candidate.sourceQuestionRevisionId,
-        }));
-      }
-    }
+    blockers.push(...sourceContentIssues(sourceById.get(candidate.sourceQuestionId), definition.subtestId, definition.scope.bankIds, candidate));
   }
   return blockers;
 }
@@ -496,7 +464,7 @@ async function readScopeState(
     tx.subtest.findUnique({ where: { id: definition.subtestId }, select: { code: true, id: true, isActive: true, name: true } }),
     tx.questionBank.findMany({ where: { id: { in: definition.scope.bankIds } }, select: { folderId: true, id: true, name: true, purpose: true, status: true } }),
     definition.scope.folderIds.length
-      ? tx.questionBankFolder.findMany({ where: { id: { in: definition.scope.folderIds } }, select: { id: true, name: true } })
+      ? tx.questionBankFolder.findMany({ where: { id: { in: definition.scope.folderIds } }, select: { id: true, name: true, purpose: true } })
       : Promise.resolve([]),
     definition.scope.categoryIds.length
       ? tx.questionBankCategoryAssignment.findMany({
@@ -529,9 +497,18 @@ async function readScopeState(
       }));
     }
   }
-  const folderIds = new Set(folders.map((folder) => folder.id));
+  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
   for (const folderId of definition.scope.folderIds) {
-    if (!folderIds.has(folderId)) blockers.push(issue("scope", "Folder cakupan tidak ditemukan.", { folderId }));
+    const folder = folderById.get(folderId);
+    if (!folder) {
+      blockers.push(issue("scope", "Folder cakupan tidak ditemukan.", { folderId }));
+    } else if (folder.purpose !== expectedPurpose) {
+      blockers.push(issue("scope", `Assembly hanya dapat memakai folder Bank Soal tujuan ${expectedPurpose === "quiz" ? "Kuis" : "Tryout"}.`, {
+        expectedPurpose,
+        folderId,
+        purpose: folder.purpose,
+      }));
+    }
   }
   const categoryIds = new Set(categoryAssignments.map((assignment) => assignment.categoryId));
   for (const categoryId of definition.scope.categoryIds) {
@@ -561,22 +538,6 @@ async function readSources(tx: Prisma.TransactionClient, sourceQuestionIds: read
   return tx.question.findMany({ where: { id: { in: ids } }, include: sourceInclude });
 }
 
-async function readCalibrations(tx: Prisma.TransactionClient, revisionIds: readonly string[]) {
-  const ids = [...new Set(revisionIds)].sort();
-  if (!ids.length) return new Map<string, CalibrationRecord>();
-  const rows = await tx.twoPlQuestionCalibration.findMany({
-    where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: ids } },
-    select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
-  });
-  return new Map(rows.map((row) => [row.questionRevisionId, {
-    contentDigest: row.contentDigest,
-    difficulty: Number(row.difficulty),
-    discrimination: Number(row.discrimination),
-    questionId: row.questionId,
-    sourceRevisionProvenance: row.sourceRevisionProvenance,
-  }]));
-}
-
 async function assertScope(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition, expectedPurpose: AssemblyBankPurpose = "tryout") {
   const state = await readScopeState(tx, definition, expectedPurpose);
   if (state.blockers.length) throwIssue(state.blockers[0]);
@@ -598,10 +559,7 @@ async function assertCandidates(
   const sources = lockSources
     ? await lockAndReadSources(tx, candidates.map((candidate) => candidate.sourceQuestionId))
     : await readSources(tx, candidates.map((candidate) => candidate.sourceQuestionId));
-  const calibrations = definition.mode === "cat_pool"
-    ? await readCalibrations(tx, sources.map((source) => source.currentRevision?.id).filter((id): id is string => Boolean(id)))
-    : undefined;
-  const blockers = candidateIssues(sources, candidates, definition, calibrations);
+  const blockers = candidateIssues(sources, candidates, definition);
   if (sources.length !== candidates.length) {
     blockers.unshift(issue("stale_candidate", "Sebagian kandidat tidak lagi ditemukan.", {
       foundCount: sources.length,
@@ -616,7 +574,7 @@ async function assertCandidates(
       requestedCount,
     });
   }
-  return { calibrations, sources };
+  return { sources };
 }
 
 function packageSelect() {
@@ -690,7 +648,7 @@ function toAssemblyVersionDto(version: VersionRecord) {
     categoryScopes: version.categoryScopes.map((scope) => ({ id: scope.category.id, name: scope.category.name })),
     definitionDigest: version.definitionDigest,
     folderIds: version.folderScopes.map((scope) => scope.folderId),
-    folderScopes: version.folderScopes.map((scope) => ({ id: scope.folder.id, name: scope.folder.name })),
+    folderScopes: version.folderScopes.map((scope) => ({ id: scope.folder.id, name: scope.folder.name, purpose: scope.folder.purpose })),
     id: version.id,
     itemCount: version.items.length,
     mode: version.mode as AssemblyMode,
@@ -738,12 +696,13 @@ function toAttachmentSummary(version: VersionRecord, readiness: AssemblyReadines
 }
 
 function assemblyVersionMatchesPurpose(
-  version: Pick<VersionRecord, "bankScopes" | "sourceBank">,
+  version: Pick<VersionRecord, "bankScopes" | "folderScopes" | "sourceBank">,
   expectedPurpose: AssemblyBankPurpose,
 ) {
   return version.sourceBank.purpose === expectedPurpose
     && version.bankScopes.length > 0
-    && version.bankScopes.every((scope) => scope.questionBank.purpose === expectedPurpose);
+    && version.bankScopes.every((scope) => scope.questionBank.purpose === expectedPurpose)
+    && version.folderScopes.every((scope) => scope.folder.purpose === expectedPurpose);
 }
 
 async function readVersionForResponse(tx: Prisma.TransactionClient, versionId: string) {
@@ -888,7 +847,7 @@ async function readyAssemblyDraft(packageId: string, actorId: string, options: A
     await assertScope(tx, definition);
     const candidates = definition.candidates;
     const candidateState = definition.mode === "blueprint"
-      ? { sources: [] as SourceRecord[], calibrations: undefined }
+      ? { sources: [] as SourceRecord[] }
       : await assertCandidates(tx, definition, candidates, true);
 
     const sourceById = new Map(candidateState.sources.map((source) => [source.id, source]));
@@ -1180,9 +1139,9 @@ async function collectReadiness(
         requestedCount: definition.candidates.length,
       }));
     }
-    const snapshotBlockers = snapshotItems.flatMap((item) => versionItemContentIssues(item, definition.subtestId, definition.mode !== "cat_pool"));
+    const snapshotBlockers = snapshotItems.flatMap((item) => versionItemContentIssues(item, definition.subtestId));
     blockers.push(...snapshotBlockers);
-    const eligibleItems = snapshotItems.filter((item) => versionItemContentIssues(item, definition.subtestId, definition.mode !== "cat_pool").length === 0);
+    const eligibleItems = snapshotItems.filter((item) => versionItemContentIssues(item, definition.subtestId).length === 0);
     const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
     for (const item of eligibleItems) {
       const difficulty = item.difficulty;
@@ -1208,8 +1167,8 @@ async function collectReadiness(
   let eligibleSources: SourceRecord[] = [];
   if (definition.mode === "blueprint") {
     const scopeSources = await queryBlueprintSources(tx, definition, expectedPurpose);
-    for (const source of scopeSources) blockers.push(...sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, undefined, true));
-    eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, undefined, true).length === 0);
+    for (const source of scopeSources) blockers.push(...sourceContentIssues(source, definition.subtestId, definition.scope.bankIds));
+    eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds).length === 0);
   } else {
     const candidates = definition.candidates;
     if (!candidates.length) blockers.push(issue("shortage", "Assembly belum memiliki kandidat yang dapat dipakai.", {
@@ -1217,13 +1176,10 @@ async function collectReadiness(
       requestedCount: definition.rule?.requestedCount ?? null,
     }));
     sources = await readSources(tx, candidates.map((candidate) => candidate.sourceQuestionId));
-    const calibrations = definition.mode === "cat_pool"
-      ? await readCalibrations(tx, sources.map((source) => source.currentRevision?.id).filter((id): id is string => Boolean(id)))
-      : undefined;
-    blockers.push(...candidateIssues(sources, candidates, definition, calibrations));
+    blockers.push(...candidateIssues(sources, candidates, definition));
     const requestedCount = definition.rule?.requestedCount ?? 0;
     if (candidates.length < requestedCount) blockers.push(issue("shortage", "Jumlah kandidat lebih sedikit dari jumlah soal yang diminta.", { availableCount: candidates.length, requestedCount }));
-    eligibleSources = sources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, candidates.find((candidate) => candidate.sourceQuestionId === source.id), definition.mode !== "cat_pool").length === 0);
+    eligibleSources = sources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds, candidates.find((candidate) => candidate.sourceQuestionId === source.id)).length === 0);
   }
 
   const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
@@ -1313,7 +1269,7 @@ function kuisItemFromSource(source: SourceRecord, subtestId: string): KuisAssemb
 /**
  * Resolve a Ready assembly into the existing StandaloneQuiz item shape while
  * retaining the package/version identity in the caller's transaction.  Kuis
- * intentionally supports only one published Bank and never CAT Pool.
+ * intentionally supports only one published Bank and CBT assembly modes.
  */
 async function resolveReadyAssemblyForKuis(
   tx: Prisma.TransactionClient,

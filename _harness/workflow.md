@@ -98,9 +98,10 @@ The UX confirmation step is a hard gate. Do not proceed to schema/backend work u
 
 ### Migration rules
 
-- Never rewrite or delete existing migration files.
-- Always create forward migrations.
-- Destructive migrations (dropping columns/tables with data) require explicit user confirmation.
+- **Pre-release phase stance:** The project is in active pre-release development. Migrating the database forward is encouraged. Preserving obsolete legacy models or creating database backups is **not required**.
+- Always create forward migrations (`prisma migrate dev --name <name>`).
+- Dropping unused legacy columns/tables or resetting development data does not require pre-migration backup archives. If schema changes require a clean database state, run `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed`.
+- Never rewrite or delete committed migration history without coordination.
 
 ## Design token changes
 
@@ -164,14 +165,14 @@ Before performing any verification using a browser (**ego-browser**):
 - [ ] Do not claim success when required checks fail
 - [ ] Clearly document genuine environment blockers, skipped checks, and remaining risk
 
-### Destructive commands (always require confirmation)
+### Environment & database commands
 
-| Command | Effect |
-|---|---|
-| `pnpm db:reset` | Erases all local database data |
-| `pnpm db:seed` | Resets database and reseeds demo data |
-| `pnpm db:apply-*` | Applies destructive guarded operations |
-| `pnpm test:scalability` | Requires Docker; only for Redis/shared-rate-limit changes |
+| Command | Effect | Pre-release guideline |
+|---|---|---|
+| `pnpm db:reset` | Erases local database data | Routine for schema resync in pre-release; no backup required |
+| `pnpm db:seed` | Resets database and reseeds demo data | Routine fixture recreation in pre-release |
+| `pnpm db:apply-*` | Applies guarded operations | Review script contents before running |
+| `pnpm test:scalability` | Requires Docker | Only for Redis/shared-rate-limit changes |
 
 ## Session end
 

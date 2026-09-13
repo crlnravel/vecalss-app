@@ -508,6 +508,7 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     basics: "basics",
     build: "sections",
     configure_sections: "sections",
+    content: "sections",
     delivery: "schedule",
     live: "live",
     operations: "attempts",

@@ -1,12 +1,22 @@
 import "server-only";
 
+import { decodeLegacyAnswerSelection } from "@/lib/question-bank/answer-contract";
 import { getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getStandaloneQuizAttempt, getStandaloneQuizAttemptStatuses, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus } from "@/lib/quiz/repository";
 import { getQuizSubjectByCode, toDatabaseQuizItem, type QuizAttempt, type QuizSubject } from "@/modules/quiz/data";
 
-function toQuestionSnapshot(item: { id: string; prompt: string; explanation: string | null; options: { id: string; choiceKey: string; content: string; isCorrect: boolean }[]; sourceQuestionId: string | null }, selectedOptionId: string | null) {
+function toQuestionSnapshot(item: { id: string; prompt: string; explanation: string | null; options: { id: string; choiceKey: string; content: string; isCorrect: boolean }[]; questionType: string; sourceQuestionId: string | null }, selectedOptionIds: readonly string[]) {
   const options = item.options.map((choice) => ({ id: choice.id, key: choice.choiceKey, text: choice.content }));
   if (options.length < 2) return null;
-  return { hint: item.explanation || "Pilih jawaban yang paling tepat.", id: item.id, options, passage: [], prompt: item.prompt, selectedOptionKey: selectedOptionId };
+  const multipleAnswer = item.questionType === "multiple_choice";
+  return { hint: item.explanation || (multipleAnswer ? "Pilih semua jawaban yang benar." : "Pilih jawaban yang paling tepat."), id: item.id, options, passage: [], prompt: item.prompt, questionType: multipleAnswer ? "multiple_choice" as const : "single_choice" as const, selectedOptionKey: selectedOptionIds[0] ?? null, selectedOptionKeys: [...selectedOptionIds] };
+}
+
+function answerSelectionIds(answer: { selectedOptionId: string; selectedOptionIds: unknown }) {
+  const rawPlural = Array.isArray(answer.selectedOptionIds) && answer.selectedOptionIds.every((value): value is string => typeof value === "string")
+    ? answer.selectedOptionIds
+    : null;
+  const decoded = decodeLegacyAnswerSelection({ selectedOptionId: answer.selectedOptionId, selectedOptionIds: rawPlural });
+  return decoded.ok ? decoded.selectedOptionIds : [];
 }
 
 function attemptsAllowedFromParticipation(snapshot: unknown, fallback: number | null) {
@@ -55,8 +65,8 @@ async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, st
   if (!subject || !attemptId) return null;
   const active = await getStandaloneQuizAttempt(subject.title, quizSlug, studentId, attemptId);
   if (!active) return null;
-  const selectedOptionByItem = new Map(active.attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
-  const questions = active.quiz.items.map((item) => toQuestionSnapshot(item, selectedOptionByItem.get(item.id) ?? null)).filter((question): question is NonNullable<typeof question> => question !== null);
+  const selectedOptionIdsByItem = new Map(active.attempt.answers.map((answer) => [answer.quizItemId, answerSelectionIds(answer)]));
+  const questions = active.quiz.items.map((item) => toQuestionSnapshot(item, selectedOptionIdsByItem.get(item.id) ?? [])).filter((question): question is NonNullable<typeof question> => question !== null);
   if (!questions.length) return null;
   const quiz = toDatabaseQuizItem(active.quiz);
   const attempt: QuizAttempt = {
@@ -66,7 +76,7 @@ async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, st
     flaggedCount: 0,
     focusLabel: `Latihan ${subject.title}`,
     isSubmitted: active.attempt.status !== "in_progress",
-    markers: questions.map((question, index) => ({ number: index + 1, state: index === 0 ? "active" : question.selectedOptionKey ? "answered" : "empty" })),
+    markers: questions.map((question, index) => ({ number: index + 1, state: index === 0 ? "active" : (question.selectedOptionKeys?.length ?? (question.selectedOptionKey ? 1 : 0)) > 0 ? "answered" : "empty" })),
     questions,
     remainingTime: "Tanpa batas waktu",
   };
@@ -80,7 +90,7 @@ async function getAvailableQuizPreview(subjectSlug: string, quizSlug: string) {
   // does not create an admission/attempt when a local published draft wins on hydration.
   const record = await getAvailableStandaloneQuiz(subject.title, quizSlug);
   if (!record) return null;
-  const questions = record.items.map((item) => toQuestionSnapshot(item, null)).filter((question): question is NonNullable<typeof question> => question !== null);
+  const questions = record.items.map((item) => toQuestionSnapshot(item, [])).filter((question): question is NonNullable<typeof question> => question !== null);
   if (!questions.length) return null;
   const quiz = toDatabaseQuizItem(record);
   return { policy: {

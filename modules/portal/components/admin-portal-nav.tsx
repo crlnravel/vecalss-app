@@ -10,6 +10,7 @@ import {
   History,
   LayoutDashboard,
   SlidersHorizontal,
+  Share2,
   Sparkles,
   Users,
 } from "@/lib/icons";
@@ -31,7 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "ai" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
+type AdminSection = "overview" | "ai" | "students" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -50,6 +51,7 @@ const adminOperationNavigation: AdminNavigationItem[] = [
 const adminDirectoryNavigation: AdminNavigationItem[] = [
   { href: "/admin/enrollment", icon: Users, id: "students", label: "Siswa" },
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
+  { href: "/admin/affiliators", icon: Share2, id: "affiliators", label: "Affiliator" },
 ];
 
 const adminContentNavigation: AdminNavigationItem[] = [

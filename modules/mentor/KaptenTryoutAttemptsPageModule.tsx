@@ -63,7 +63,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
               const questionCount = attempt.runs.reduce((total, run) => total + run.questionCount, 0);
               const sealedRuns = attempt.runs.filter((run) => run.status === "sealed" || run.status === "expired").length;
               const status = live
-                ? live.state === "cat_failure" ? "Butuh tindakan" : liveStateLabels[live.state]
+                ? liveStateLabels[live.state]
                 : participantAttemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
               return (
                 <TableRow className="border-0 hover:bg-primary-50/45" key={attempt.id}>

@@ -63,6 +63,7 @@ const definition: KuisAssessmentDefinitionInput = {
   closesAt: "2026-10-01T00:00:00.000Z",
   correctAnswerVisibility: "show",
   description: "Latihan singkat.",
+  durationSeconds: 1800,
   formBehavior: "same",
   opensAt: "2026-09-01T00:00:00.000Z",
   questions: [question, secondQuestion],
@@ -86,6 +87,7 @@ const reorderedDefinition: KuisAssessmentDefinitionInput = {
   opensAt: "2027-01-01T00:00:00.000Z",
   reviewTiming: definition.reviewTiming,
   description: definition.description,
+  durationSeconds: definition.durationSeconds,
   formBehavior: definition.formBehavior,
   retryDelaySeconds: definition.retryDelaySeconds,
   attemptsAllowed: definition.attemptsAllowed,
@@ -106,6 +108,11 @@ assert.notEqual(
   digestKuisAssessmentDefinition({ ...definition, attemptsAllowed: null }),
   digestKuisAssessmentDefinition({ ...definition, attemptsAllowed: 1 }),
   "unlimited attempts must remain distinct from a one-attempt definition",
+);
+assert.notEqual(
+  digestKuisAssessmentDefinition(definition),
+  digestKuisAssessmentDefinition({ ...definition, durationSeconds: 3600 }),
+  "duration must be part of the versioned assessment definition",
 );
 assert.equal(
   normalizeKuisAssessmentDefinition({ ...definition, attemptsAllowed: null }).attemptsAllowed,
