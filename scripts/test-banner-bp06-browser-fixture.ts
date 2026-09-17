@@ -1879,10 +1879,10 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       return { requiredSelectors: ["form", "#login-email", "#login-password"], requiredText: ["Masuk ke Vecalss"] };
     }
     if (pathname === "/admin/student-preview" || pathname.startsWith("/admin/student-preview/")) {
-      return { requiredSelectors: [], requiredText: ["Student preview"] };
+      return { requiredSelectors: [], requiredText: ["STUDENT PREVIEW"] };
     }
     if (pathname === "/admin/student-banners") {
-      return { requiredSelectors: [], requiredText: ["Banner maker"] };
+      return { requiredSelectors: [], requiredText: ["BANNER MAKER"] };
     }
     const routeMarker = { "/courses": "Materi", "/dashboard": "Beranda", "/quiz": "Kuis", "/tryout": "Tryout" }[pathname];
     return { requiredSelectors: [], requiredText: routeMarker ? [routeMarker] : [] };
@@ -2311,7 +2311,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         const suffix = destinationPaths[destination];
         const publishedPath = "/admin/student-preview" + suffix;
         const destinationMarker = "Synthetic " + destination;
-        const publishedInfo = await go(publishedPath, { requiredText: ["Student preview", destinationMarker, "published"] });
+        const publishedInfo = await go(publishedPath, { requiredText: ["STUDENT PREVIEW", destinationMarker, "published"] });
         const publishedBody = await text();
         if (!routeMatches(pageInfoUrl(publishedInfo), publishedPath, true) || !publishedBody.includes(destinationMarker) || !publishedBody.includes("published")) {
           fail("published preview destination/source marker or exact route was missing");
@@ -2321,7 +2321,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
           "published " + destination + " preview",
         );
         const draftPath = publishedPath + "?bannerSource=draft&revision=" + drafts[destination];
-        const draftInfo = await go(draftPath, { requiredText: ["Student preview", destinationMarker, "draft"] });
+        const draftInfo = await go(draftPath, { requiredText: ["STUDENT PREVIEW", destinationMarker, "draft"] });
         const draftBody = await text();
         if (!routeMatches(pageInfoUrl(draftInfo), draftPath, true) || !draftBody.includes(destinationMarker) || !draftBody.includes("draft")) {
           fail("draft preview destination/source marker or exact route was missing");
@@ -2358,7 +2358,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
             'button[aria-label^="Simpan draf"]',
             'button[aria-label^="Terbitkan"]',
           ],
-          requiredText: ["Banner maker", labels[destination], "Layer", "Edit banner", "BP06 " + destination + " draft", "Synthetic " + destination],
+          requiredText: ["BANNER MAKER", labels[destination], "Layer", "Edit banner", "BP06 " + destination + " draft", "Synthetic " + destination],
         });
         const body = await text();
         const controls = await js("(() => ({ addText: Boolean(document.querySelector('button[aria-label=\"Tambahkan teks\"]')), save: Boolean(document.querySelector('button[aria-label^=\"Simpan draf\"]')), publish: Boolean(document.querySelector('button[aria-label^=\"Terbitkan\"]')) }))()");
