@@ -84,6 +84,8 @@ const ADDITIONAL_STUDENTS = [
 ];
 
 const SEEDED_STUDENTS = [...DEMO_STUDENTS, ...ADDITIONAL_STUDENTS];
+// Keep the fixture above one 50-row log page so seeded QA exercises pagination.
+const AFFILIATOR_EXTRA_CONVERSION_COUNT = 57;
 
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -542,7 +544,44 @@ async function seedAffiliatorConversions(
     },
   ];
 
-  for (const purchase of purchases) {
+  const packageFixtures = [
+    {
+      packageCode: "SNBT-INTENSIF-2027",
+      packageName: "Program Intensif SNBT 2027",
+    },
+    {
+      packageCode: "SNBT-TRYOUT-01",
+      packageName: "Paket Tryout SNBT · Seri 01",
+    },
+    {
+      packageCode: "SNBT-LITERASI-2027",
+      packageName: "Paket Literasi SNBT 2027",
+    },
+  ];
+  const studentFixtures = [
+    primaryStudentId,
+    studentIds.completed,
+    studentIds.secondCompleted,
+  ];
+  const additionalPurchases = Array.from(
+    { length: AFFILIATOR_EXTRA_CONVERSION_COUNT },
+    (_, index) => {
+      const sequence = purchases.length + index + 1;
+      const packageFixture = packageFixtures[index % packageFixtures.length];
+
+      return {
+        completedAt: new Date(
+          Date.UTC(2026, 8, 7, 5, 25) - index * 24 * 60 * 60 * 1000,
+        ),
+        packageCode: packageFixture.packageCode,
+        packageName: packageFixture.packageName,
+        providerReference: `seed-affiliator-purchase-${String(sequence).padStart(3, "0")}`,
+        studentId: studentFixtures[index % studentFixtures.length],
+      };
+    },
+  );
+
+  for (const purchase of [...purchases, ...additionalPurchases]) {
     await upsertPackagePurchase(client, {
       ...purchase,
       affiliatorProfileId,
