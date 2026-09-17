@@ -1863,7 +1863,10 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   let opened = false;
   let taskCleanupError = null;
 
-  const destinationPaths = { beranda: "/", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
+  // The root preview route is canonicalized without a trailing slash; keep
+  // the expected URL aligned with the actual Next route while preserving the
+  // destination-specific path suffixes for the other surfaces.
+  const destinationPaths = { beranda: "", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
 
   function pageInfoUrl(info) {
     return info && typeof info.url === "string" ? info.url : null;
@@ -2064,6 +2067,18 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     return String(await snapshotText());
   }
 
+  async function clickText(selector, expectedText) {
+    const matched = await js(`(() => {
+      const expected = ${JSON.stringify(expectedText)};
+      const nodes = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+      const node = nodes.find((candidate) => (candidate.textContent || "").trim() === expected);
+      if (!node) return false;
+      node.click();
+      return true;
+    })()`);
+    if (matched !== true) fail("element text was not found: " + selector + " / " + expectedText);
+  }
+
   function safeDiagnostic(value, limit = 1200) {
     let text = String(value ?? "");
     for (const secret of [
@@ -2179,7 +2194,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function logout(expectedNotice) {
     await click('button[aria-label="Menu akun"]');
-    await click('[role="menuitem"]:has-text("Keluar")');
+    await clickText('[role="menuitem"]', "Keluar");
     await click('[role="alertdialog"] button[type="submit"]');
     const info = await waitForRoute("/login", { exactSearch: false });
     if (expectedNotice && !String(pageInfoUrl(info)).includes(expectedNotice)) fail("logout notice missing: " + pageInfoUrl(info));
@@ -2389,15 +2404,15 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await go("/admin/student-banners?destination=materi");
       await click('button[aria-label="Tambahkan teks"]');
       await click("#banner-destination");
-      await click('[role="option"]:has-text("Kuis")');
+      await clickText('[role="option"]', "Kuis");
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-destination-switch\"]')))");
       if (!dialog) fail("dirty destination switch dialog did not open");
-      await click('[data-testid="banner-destination-switch"] button:has-text("Batal")');
+      await clickText('[data-testid="banner-destination-switch"] button', "Batal");
       const afterCancel = await waitForRoute("/admin/student-banners?destination=materi");
       if (!routeMatches(pageInfoUrl(afterCancel), "/admin/student-banners?destination=materi", true)) fail("dirty switch cancel left the current destination");
       await click("#banner-destination");
-      await click('[role="option"]:has-text("Kuis")');
-      await click('[data-testid="banner-destination-switch"] button:has-text("Buang dan beralih")');
+      await clickText('[role="option"]', "Kuis");
+      await clickText('[data-testid="banner-destination-switch"] button', "Buang dan beralih");
       const afterDiscard = await waitForRoute("/admin/student-banners?destination=kuis");
       if (!routeMatches(pageInfoUrl(afterDiscard), "/admin/student-banners?destination=kuis", true)) fail("dirty switch discard did not navigate");
       return { cancel: true, discard: true };
@@ -2408,7 +2423,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await click('button[aria-label^="Terbitkan"]');
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-publish-confirmation\"]')))");
       if (!dialog) fail("publish confirmation dialog did not open");
-      await click('[data-testid="banner-publish-confirmation"] button:has-text("Batal")');
+      await clickText('[data-testid="banner-publish-confirmation"] button', "Batal");
       const afterCancel = await js("(() => !document.querySelector('[data-testid=\"banner-publish-confirmation\"]'))()");
       if (!afterCancel) fail("publish confirmation dialog did not close on cancel");
       return { dialog: true, cancel: true };
@@ -2430,7 +2445,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         if (draftRevision) liveDraftRevisions[destination] = draftRevision;
         await screenshot("admin-" + destination + "-long-personalization");
         await click('button[aria-label^="Terbitkan"]');
-        await click('button:has-text("Terbitkan ' + destination.charAt(0).toUpperCase() + destination.slice(1) + '")');
+        await clickText('button', "Terbitkan " + destination.charAt(0).toUpperCase() + destination.slice(1));
         await wait(3);
         const afterPublish = await text();
         if (!afterPublish.includes("Banner tujuan diterbitkan.")) fail("publish confirmation was not rendered for " + destination);
@@ -2522,7 +2537,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await go("/admin/student-banners?destination=tryout");
       const body = await text();
       if (!body.includes("Banner perlu dipulihkan")) fail("restored recovery source did not render");
-      await click('button:has-text("Gunakan starter teks dan perbaiki")');
+      await clickText('button', "Gunakan starter teks dan perbaiki");
       await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
       await fillInput("#banner-starter-description", "BP06 recovered final {targetMajor} {targetUniversity}");
       await pressKey("Tab");
@@ -2534,7 +2549,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       if (!recoveryDraftRevision) fail("recovery draft preview revision was not exposed");
       liveDraftRevisions.tryout = recoveryDraftRevision;
       await click('button[aria-label^="Terbitkan"]');
-      await click('button:has-text("Terbitkan Tryout")');
+      await clickText('button', "Terbitkan Tryout");
       await wait(3);
       const publishedBody = await text();
       if (!publishedBody.includes("Banner tujuan diterbitkan.")) fail("recovery publish confirmation was not rendered");
