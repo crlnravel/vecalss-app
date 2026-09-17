@@ -34,13 +34,16 @@ type AffiliatorConversionLog = {
 };
 
 type AffiliatorDashboardData = {
-  conversionLog: AffiliatorConversionLog[];
-  conversionLogPage: number;
-  conversionLogPageCount: number;
   latestConversionAt: Date | null;
   profile: AffiliatorProfileView | null;
   successfulPurchaseCount: number;
   uniqueStudentCount: number;
+};
+
+type AffiliatorConversionLogData = {
+  conversionLog: AffiliatorConversionLog[];
+  conversionLogPage: number;
+  conversionLogPageCount: number;
 };
 
 const affiliatorProfileSelect = {
@@ -117,13 +120,9 @@ async function assertActiveStudent(
   }
 }
 
-/**
- * Reads only successful, attributed purchases for the signed-in affiliator.
- * Pending or failed checkout attempts never appear in the conversion log.
- */
+/** Reads aggregate conversion statistics for the signed-in affiliator. */
 async function getAffiliatorDashboard(
   userId: string,
-  { conversionLogPage = 1 }: { conversionLogPage?: number } = {},
 ): Promise<AffiliatorDashboardData> {
   const profile = await prisma.affiliatorProfile.findUnique({
     select: affiliatorProfileSelect,
@@ -132,9 +131,6 @@ async function getAffiliatorDashboard(
 
   if (!profile) {
     return {
-      conversionLog: [],
-      conversionLogPage: 1,
-      conversionLogPageCount: 1,
       latestConversionAt: null,
       profile: null,
       successfulPurchaseCount: 0,
@@ -157,12 +153,39 @@ async function getAffiliatorDashboard(
     }),
   ]);
 
+  return {
+    latestConversionAt: latestPurchase?.completedAt ?? null,
+    profile,
+    successfulPurchaseCount,
+    uniqueStudentCount: uniqueStudents.length,
+  };
+}
+
+async function getAffiliatorConversionLog(
+  userId: string,
+  { page: requestedPage = 1 }: { page?: number } = {},
+): Promise<AffiliatorConversionLogData> {
+  const profile = await prisma.affiliatorProfile.findUnique({
+    select: affiliatorProfileSelect,
+    where: { userId },
+  });
+
+  if (!profile) {
+    return {
+      conversionLog: [],
+      conversionLogPage: 1,
+      conversionLogPageCount: 1,
+    };
+  }
+
+  const where = successfulPurchaseWhere(profile.id);
+  const successfulPurchaseCount = await prisma.packagePurchase.count({ where });
   const conversionLogPageCount = Math.max(
     1,
     Math.ceil(successfulPurchaseCount / CONVERSION_LOG_PAGE_SIZE),
   );
   const page = Math.min(
-    normalizeConversionLogPage(conversionLogPage),
+    normalizeConversionLogPage(requestedPage),
     conversionLogPageCount,
   );
   const purchases = await prisma.packagePurchase.findMany({
@@ -200,10 +223,6 @@ async function getAffiliatorDashboard(
     })),
     conversionLogPage: page,
     conversionLogPageCount,
-    latestConversionAt: latestPurchase?.completedAt ?? null,
-    profile,
-    successfulPurchaseCount,
-    uniqueStudentCount: uniqueStudents.length,
   };
 }
 
@@ -382,11 +401,13 @@ async function recordSuccessfulPackagePurchase({
 }
 
 export {
+  getAffiliatorConversionLog,
   getAffiliatorDashboard,
   recordSuccessfulPackagePurchase,
 };
 export type {
   AffiliatorConversionLog,
+  AffiliatorConversionLogData,
   AffiliatorDashboardData,
   AffiliatorProfileView,
   RecordSuccessfulPackagePurchaseInput,
