@@ -2068,14 +2068,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   }
 
   async function clickText(selector, expectedText) {
-    const matched = await js(`(() => {
-      const expected = ${JSON.stringify(expectedText)};
-      const nodes = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
-      const node = nodes.find((candidate) => (candidate.textContent || "").trim() === expected);
-      if (!node) return false;
-      node.click();
-      return true;
-    })()`);
+    const matched = await js(
+      "(() => {"
+      + " const expected = " + JSON.stringify(expectedText) + ";"
+      + " const nodes = Array.from(document.querySelectorAll(" + JSON.stringify(selector) + "));"
+      + " const node = nodes.find((candidate) => (candidate.textContent || \"\").trim() === expected);"
+      + " if (!node) return false;"
+      + " node.click();"
+      + " return true;"
+      + "})()",
+    );
     if (matched !== true) fail("element text was not found: " + selector + " / " + expectedText);
   }
 
