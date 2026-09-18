@@ -1781,6 +1781,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   return String.raw`
 (async () => {
   const { lstat, readFile, rename, rm, writeFile } = await import("node:fs/promises");
+  const { Buffer } = await import("node:buffer");
   const { randomUUID } = await import("node:crypto");
   const { dirname, join, resolve } = await import("node:path");
   const privatePaths = ${serializedPrivatePaths};
@@ -1958,14 +1959,31 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     const width = typeof info.w === "number" && info.w > 0 ? info.w : 1280;
     const height = typeof info.h === "number" && info.h > 0 ? info.h : 900;
     const safeName = String(name).replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 96) || "diagnostic";
-    const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".png");
+    const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".jpg");
     try {
-      await captureScreenshot({ fullPage: false, path: screenshotPath });
+      const result = await cdp("Page.captureScreenshot", {
+        captureBeyondViewport: false,
+        clip: {
+          height: Math.min(height, 1200),
+          scale: 1,
+          width: Math.min(width, 1600),
+          x: 0,
+          y: 0,
+        },
+        format: "jpeg",
+        fromSurface: false,
+        optimizeForSpeed: true,
+        quality: 30,
+      });
+      if (!result || typeof result.data !== "string" || result.data.length < 128) {
+        fail("viewport screenshot returned no bounded image payload");
+      }
+      await writeFile(screenshotPath, Buffer.from(result.data, "base64"), { mode: 0o600 });
       const entry = await lstat(screenshotPath);
       if (!entry.isFile() || entry.size < 128) {
         fail("viewport screenshot returned no bounded image payload");
       }
-      return { encodedBytes: entry.size, format: "png", height, width };
+      return { encodedBytes: entry.size, format: "jpeg", height, width };
     } finally {
       await rm(screenshotPath, { force: true });
     }
