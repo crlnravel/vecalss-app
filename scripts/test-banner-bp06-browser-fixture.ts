@@ -1975,10 +1975,31 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         optimizeForSpeed: true,
         quality: 30,
       });
-      if (!result || typeof result.data !== "string" || result.data.length < 128) {
-        fail("viewport screenshot returned no bounded image payload");
+      const candidate = result && typeof result === "object" && "data" in result
+        ? result.data
+        : result && typeof result === "object" && "result" in result && result.result && typeof result.result === "object" && "data" in result.result
+          ? result.result.data
+          : result;
+      const image = typeof candidate === "string"
+        ? Buffer.from(candidate, "base64")
+        : Buffer.isBuffer(candidate)
+          ? candidate
+          : candidate instanceof Uint8Array
+            ? Buffer.from(candidate)
+            : candidate instanceof ArrayBuffer
+              ? Buffer.from(new Uint8Array(candidate))
+              : null;
+      if (!image || image.length < 128) {
+        const shape = result === null
+          ? "null"
+          : result === undefined
+            ? "undefined"
+            : typeof result === "object"
+              ? Object.keys(result).slice(0, 12).join(",") || "object"
+              : typeof result;
+        fail("viewport screenshot transport returned no bounded image payload (result shape: " + shape + ")");
       }
-      await writeFile(screenshotPath, Buffer.from(result.data, "base64"), { mode: 0o600 });
+      await writeFile(screenshotPath, image, { mode: 0o600 });
       const entry = await lstat(screenshotPath);
       if (!entry.isFile() || entry.size < 128) {
         fail("viewport screenshot returned no bounded image payload");
