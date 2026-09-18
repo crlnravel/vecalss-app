@@ -71,6 +71,29 @@ references before creating a new table shell:
   operations. It does not replace cards, compact lists, or learning-journey
   surfaces.
 
+## Event logs
+
+Purchase histories, audit trails, and other event-first records are not
+spreadsheet tables. Do not create a wide multi-column log whose cells stack a
+primary value and a second line of metadata (for example, student plus email
+and package plus code) across the row. That two-line table treatment is hard to
+scan and becomes a horizontal-scroll problem on small screens.
+
+Use the compact audit-log treatment instead:
+
+- Give each row one clear primary event or subject label.
+- Keep supporting metadata short and visually subordinate beneath or beside the
+  primary label.
+- Keep status and time explicit, aligned, and easy to scan.
+- Let the row reflow into a stacked, responsive layout without requiring a
+  wide viewport or a second mobile-only table language.
+- Preserve semantic list/table markup and accessible names even when the
+  visual arrangement is compact.
+
+Use the full `DataTable` pattern above only when users need true column-based
+comparison, sorting, filtering, selection, or row actions. For read-only event
+history, the compact audit-log list is the default.
+
 ### Operational table empty states
 
 Use this rule for every approved operational table when its query returns no
