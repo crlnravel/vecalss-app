@@ -1940,7 +1940,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function screenshot(name) {
     const info = await pageInfo();
-    const screenshot = await captureViewportScreenshot();
+    const screenshot = await captureViewportScreenshot(name);
     cliLog("BP06_BROWSER_SCREENSHOT " + JSON.stringify({
       name,
       dialog: pageInfoDialog(info) ? safeDiagnostic(JSON.stringify(pageInfoDialog(info)), 600) : null,
@@ -1952,22 +1952,23 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     }));
   }
 
-  async function captureViewportScreenshot() {
+  async function captureViewportScreenshot(name = "diagnostic") {
     const info = await pageInfo();
     if (!info || pageInfoDialog(info)) fail("cannot capture a screenshot while a browser dialog is open");
     const width = typeof info.w === "number" && info.w > 0 ? info.w : 1280;
     const height = typeof info.h === "number" && info.h > 0 ? info.h : 900;
-    const result = await cdp("Page.captureScreenshot", {
-      captureBeyondViewport: false,
-      clip: { height, scale: 1, width, x: 0, y: 0 },
-      format: "jpeg",
-      fromSurface: true,
-      quality: 45,
-    });
-    if (!result || typeof result.data !== "string" || result.data.length < 128) {
-      fail("viewport screenshot returned no bounded image payload");
+    const safeName = String(name).replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 96) || "diagnostic";
+    const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".png");
+    try {
+      await captureScreenshot({ fullPage: false, path: screenshotPath });
+      const entry = await lstat(screenshotPath);
+      if (!entry.isFile() || entry.size < 128) {
+        fail("viewport screenshot returned no bounded image payload");
+      }
+      return { encodedBytes: entry.size, format: "png", height, width };
+    } finally {
+      await rm(screenshotPath, { force: true });
     }
-    return { encodedBytes: result.data.length, format: "jpeg" };
   }
 
   async function requestTransition(operation) {
@@ -2153,7 +2154,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
           error: safeDiagnostic(event?.error, 300),
         }))
         : rawEvents;
-      const screenshotResult = await diagnosticProbe("captureScreenshot", () => captureViewportScreenshot(), 1_000);
+      const screenshotResult = await diagnosticProbe("captureScreenshot", () => captureViewportScreenshot("diagnostic-" + name), 1_000);
       const screenshotCaptured = !screenshotResult?.error;
 
       cliLog("BP06_BROWSER_CASE_DIAGNOSTIC " + JSON.stringify({
