@@ -33,17 +33,32 @@ type AffiliatorConversionLog = {
   studentName: string;
 };
 
+type AffiliatorConversionTrendPoint = {
+  count: number;
+  date: string;
+};
+
+type AffiliatorPackageMixItem = {
+  count: number;
+  packageCode: string;
+  packageName: string;
+};
+
 type AffiliatorDashboardData = {
   latestConversionAt: Date | null;
   profile: AffiliatorProfileView | null;
   successfulPurchaseCount: number;
   uniqueStudentCount: number;
+  conversionTrend: AffiliatorConversionTrendPoint[];
+  packageMix: AffiliatorPackageMixItem[];
 };
 
 type AffiliatorConversionLogData = {
   conversionLog: AffiliatorConversionLog[];
   conversionLogPage: number;
   conversionLogPageCount: number;
+  conversionLogPageSize: number;
+  conversionLogTotal: number;
 };
 
 const affiliatorProfileSelect = {
@@ -131,7 +146,9 @@ async function getAffiliatorDashboard(
 
   if (!profile) {
     return {
+      conversionTrend: [],
       latestConversionAt: null,
+      packageMix: [],
       profile: null,
       successfulPurchaseCount: 0,
       uniqueStudentCount: 0,
@@ -139,7 +156,13 @@ async function getAffiliatorDashboard(
   }
 
   const where = successfulPurchaseWhere(profile.id);
-  const [successfulPurchaseCount, uniqueStudents, latestPurchase] = await Promise.all([
+  const [
+    successfulPurchaseCount,
+    uniqueStudents,
+    latestPurchase,
+    conversionTrend,
+    packageMix,
+  ] = await Promise.all([
     prisma.packagePurchase.count({ where }),
     prisma.packagePurchase.findMany({
       distinct: ["studentId"],
@@ -151,10 +174,50 @@ async function getAffiliatorDashboard(
       select: { completedAt: true },
       where,
     }),
+    prisma.$queryRaw<AffiliatorConversionTrendPoint[]>`
+      WITH anchor AS (
+        SELECT MAX(completed_at) AS max_at
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+      ), days AS (
+        SELECT generate_series(
+          (((anchor.max_at AT TIME ZONE 'Asia/Jakarta')::date - 6)::timestamp),
+          (((anchor.max_at AT TIME ZONE 'Asia/Jakarta')::date)::timestamp),
+          INTERVAL '1 day'
+        )::date AS day
+        FROM anchor
+        WHERE anchor.max_at IS NOT NULL
+      )
+      SELECT to_char(days.day, 'YYYY-MM-DD') AS date,
+        COUNT(p.id)::int AS count
+      FROM days
+      LEFT JOIN package_purchases p
+        ON p.affiliator_profile_id = ${profile.id}::uuid
+        AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND p.completed_at IS NOT NULL
+        AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date = days.day
+      GROUP BY days.day
+      ORDER BY days.day ASC
+    `,
+    prisma.$queryRaw<AffiliatorPackageMixItem[]>`
+      SELECT package_code AS "packageCode",
+        package_name AS "packageName",
+        COUNT(*)::int AS count
+      FROM package_purchases
+      WHERE affiliator_profile_id = ${profile.id}::uuid
+        AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND completed_at IS NOT NULL
+      GROUP BY package_code, package_name
+      ORDER BY COUNT(*) DESC, package_name ASC
+    `,
   ]);
 
   return {
+    conversionTrend,
     latestConversionAt: latestPurchase?.completedAt ?? null,
+    packageMix,
     profile,
     successfulPurchaseCount,
     uniqueStudentCount: uniqueStudents.length,
@@ -175,6 +238,8 @@ async function getAffiliatorConversionLog(
       conversionLog: [],
       conversionLogPage: 1,
       conversionLogPageCount: 1,
+      conversionLogPageSize: CONVERSION_LOG_PAGE_SIZE,
+      conversionLogTotal: 0,
     };
   }
 
@@ -223,6 +288,8 @@ async function getAffiliatorConversionLog(
     })),
     conversionLogPage: page,
     conversionLogPageCount,
+    conversionLogPageSize: CONVERSION_LOG_PAGE_SIZE,
+    conversionLogTotal: successfulPurchaseCount,
   };
 }
 
@@ -408,7 +475,9 @@ export {
 export type {
   AffiliatorConversionLog,
   AffiliatorConversionLogData,
+  AffiliatorConversionTrendPoint,
   AffiliatorDashboardData,
+  AffiliatorPackageMixItem,
   AffiliatorProfileView,
   RecordSuccessfulPackagePurchaseInput,
 };

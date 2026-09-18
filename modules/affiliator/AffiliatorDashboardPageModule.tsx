@@ -9,6 +9,7 @@ import type {
   AffiliatorDashboardData,
 } from "@/lib/affiliator/service";
 import type { SessionContext } from "@/lib/auth/types";
+import { AffiliatorDashboardCharts } from "./components/affiliator-dashboard-charts";
 import { AffiliatorReferralCodeCard } from "./components/affiliator-referral-code-card";
 import { AffiliatorWorkspaceShell } from "./components/affiliator-workspace-shell";
 
@@ -103,6 +104,10 @@ function AffiliatorDashboardPageModule({
       )}
 
       <AffiliatorStatistics dashboard={dashboard} />
+      <AffiliatorDashboardCharts
+        conversionTrend={dashboard.conversionTrend}
+        packageMix={dashboard.packageMix}
+      />
     </AffiliatorWorkspaceShell>
   );
 }
