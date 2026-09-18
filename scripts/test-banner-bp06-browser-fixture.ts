@@ -1879,7 +1879,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   function routeDefaults(path) {
     const pathname = new URL(baseUrl + path).pathname;
     if (pathname === "/login") {
-      return { requiredSelectors: ["form", "#login-email", "#login-password"], requiredText: ["Masuk ke Vecalss"] };
+      return { requiredSelectors: ["form", "#login-email, input[name=\"email\"]", "#login-password, input[name=\"password\"]"], requiredText: ["Masuk ke Vecalss"] };
     }
     if (pathname === "/admin/student-preview" || pathname.startsWith("/admin/student-preview/")) {
       return { requiredSelectors: [], requiredText: ["STUDENT PREVIEW"] };
@@ -2207,8 +2207,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function login(email, password, expectedPath) {
     await go("/login");
-    await fillInput("#login-email", email);
-    await fillInput("#login-password", password);
+    await fillInput("#login-email, input[name=\"email\"]", email);
+    await fillInput("#login-password, input[name=\"password\"]", password);
     await click("button[type=submit]");
     const info = await waitForRoute(expectedPath, { exactSearch: false });
     if (!pageInfoUrl(info)) fail("login redirect did not expose a normal page URL");
@@ -2333,7 +2333,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
     await check("login-page-real-route", async () => {
       const info = await go("/login");
-      const formMarkers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) }))()");
+      const formMarkers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email, input[name=\"email\"]')), password: Boolean(document.querySelector('#login-password, input[name=\"password\"]')) }))()");
       return { formMarkers, url: pageInfoUrl(info) };
     });
 
