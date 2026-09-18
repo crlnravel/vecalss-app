@@ -1988,17 +1988,24 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
         playwrightPage = await playwrightContext.newPage();
       }
       const cookieResult = await cdp("Storage.getCookies");
+      const cookieHost = (() => {
+        try {
+          return new URL(baseUrl).hostname;
+        } catch {
+          return "127.0.0.1";
+        }
+      })();
       const cookies = Array.isArray(cookieResult?.cookies)
         ? cookieResult.cookies
           .filter((cookie) => cookie && typeof cookie.name === "string" && typeof cookie.value === "string")
           .map((cookie) => ({
+            domain: typeof cookie.domain === "string" && cookie.domain.length > 0 ? cookie.domain : cookieHost,
             expires: typeof cookie.expires === "number" && cookie.expires > 0 ? cookie.expires : undefined,
             httpOnly: cookie.httpOnly === true,
             name: cookie.name,
             path: typeof cookie.path === "string" && cookie.path.length > 0 ? cookie.path : "/",
             sameSite: ["Strict", "Lax", "None"].includes(cookie.sameSite) ? cookie.sameSite : undefined,
             secure: cookie.secure === true,
-            url: baseUrl,
             value: cookie.value,
           }))
         : [];
