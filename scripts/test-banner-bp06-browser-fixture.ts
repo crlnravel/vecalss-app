@@ -23,6 +23,8 @@ const TEST_DATABASE_ENV = "BANNER_MEDIA_SAFETY_TEST_DATABASE_URL";
 const FALLBACK_DATABASE_ENV = "VERA_DISPOSABLE_DATABASE_URL";
 const DISPOSABLE_ACK_ENV = "VERA_DISPOSABLE_DB_ACK";
 const STATE_ENV = "BP06_BROWSER_STATE_PATH";
+const PLAYWRIGHT_PACKAGE_ROOT_ENV = "BP06_PLAYWRIGHT_PACKAGE_ROOT";
+const PLAYWRIGHT_EXECUTABLE_PATH_ENV = "BP06_PLAYWRIGHT_EXECUTABLE_PATH";
 const PORT = 5146;
 const STATE_PREFIX = "vecalss-bp06-browser-state";
 const MIRROR_PREFIX = "vecalss-bp06-browser-";
@@ -1769,8 +1771,10 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
   throw new Error(`Next child did not render the expected login shell within 90s. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
 }
 
-function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
+function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwrightPackageRoot: string, playwrightExecutablePath: string) {
   const serializedPrivatePaths = JSON.stringify(privatePaths);
+  const serializedPlaywrightPackageRoot = JSON.stringify(playwrightPackageRoot);
+  const serializedPlaywrightExecutablePath = JSON.stringify(playwrightExecutablePath);
   const serializedBrowserTiming = JSON.stringify({
     destinationCount: 4,
     interactionSlackMs: BROWSER_INTERACTION_SLACK_MS,
@@ -1783,8 +1787,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   const { lstat, readFile, rename, rm, writeFile } = await import("node:fs/promises");
   const { Buffer } = await import("node:buffer");
   const { randomUUID } = await import("node:crypto");
+  const { createRequire } = await import("node:module");
   const { dirname, join, resolve } = await import("node:path");
   const privatePaths = ${serializedPrivatePaths};
+  const playwrightPackageRoot = ${serializedPlaywrightPackageRoot};
+  const playwrightExecutablePath = ${serializedPlaywrightExecutablePath};
   const browserTiming = ${serializedBrowserTiming};
   const baseUrl = "http://127.0.0.1:5146";
   const stateDirectory = dirname(resolve(privatePaths.stateFile));
@@ -1863,6 +1870,9 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   let task = null;
   let opened = false;
   let taskCleanupError = null;
+  let playwrightBrowser = null;
+  let playwrightContext = null;
+  let playwrightPage = null;
 
   // The root preview route is canonicalized without a trailing slash; keep
   // the expected URL aligned with the actual Next route while preserving the
@@ -1970,54 +1980,39 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     const safeName = String(name).replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 96) || "diagnostic";
     const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".jpg");
     try {
-      // Use the active browsing-context target instead of the generic CDP
-      // connection. The latter can resolve against the browser target and
-      // leaves Page.captureScreenshot waiting for a page session forever.
-      // BiDi viewport clips are relative to the visual viewport; the helper
-      // applies pageLeft/pageTop when it translates the request to CDP.
-      const result = await captureScreenshot({
-        clip: {
-          height: Math.min(height, 1200),
-          type: "box",
-          width: Math.min(width, 1600),
-          x: 0,
-          y: 0,
-        },
-        format: { quality: 0.3, type: "image/jpeg" },
-        origin: "viewport",
-      });
-      const candidate = typeof result === "string"
-        ? result
-        : result && typeof result === "object" && "data" in result
-        ? result.data
-        : result && typeof result === "object" && "result" in result && result.result && typeof result.result === "object" && "data" in result.result
-          ? result.result.data
-          : result;
-      const image = typeof candidate === "string"
-        ? Buffer.from(candidate, "base64")
-        : Buffer.isBuffer(candidate)
-          ? candidate
-          : candidate instanceof Uint8Array
-            ? Buffer.from(candidate)
-            : candidate instanceof ArrayBuffer
-              ? Buffer.from(new Uint8Array(candidate))
-              : null;
-      if (!image || image.length < 128) {
-        const shape = result === null
-          ? "null"
-          : result === undefined
-            ? "undefined"
-            : typeof result === "object"
-              ? Object.keys(result).slice(0, 12).join(",") || "object"
-              : typeof result;
-        fail("viewport screenshot transport returned no bounded image payload (result shape: " + shape + ")");
+      if (!playwrightBrowser) {
+        const require = createRequire(import.meta.url);
+        const playwright = require(join(playwrightPackageRoot, "index.js"));
+        playwrightBrowser = await playwright.chromium.launch({ executablePath: playwrightExecutablePath, headless: true });
+        playwrightContext = await playwrightBrowser.newContext({ viewport: { width: Math.min(width, 1600), height: Math.min(height, 1200) } });
+        playwrightPage = await playwrightContext.newPage();
       }
-      await writeFile(screenshotPath, image, { mode: 0o600 });
+      const cookieResult = await cdp("Storage.getCookies");
+      const cookies = Array.isArray(cookieResult?.cookies)
+        ? cookieResult.cookies
+          .filter((cookie) => cookie && typeof cookie.name === "string" && typeof cookie.value === "string")
+          .map((cookie) => ({
+            expires: typeof cookie.expires === "number" && cookie.expires > 0 ? cookie.expires : undefined,
+            httpOnly: cookie.httpOnly === true,
+            name: cookie.name,
+            path: typeof cookie.path === "string" && cookie.path.length > 0 ? cookie.path : "/",
+            sameSite: ["Strict", "Lax", "None"].includes(cookie.sameSite) ? cookie.sameSite : undefined,
+            secure: cookie.secure === true,
+            url: baseUrl,
+            value: cookie.value,
+          }))
+        : [];
+      await playwrightContext.addCookies(cookies);
+      await playwrightPage.setViewportSize({ width: Math.min(width, 1600), height: Math.min(height, 1200) });
+      const currentUrl = pageInfoUrl(info);
+      if (!currentUrl) fail("Playwright screenshot source URL was unavailable");
+      await playwrightPage.goto(currentUrl, { timeout: 20_000, waitUntil: "domcontentloaded" });
+      await playwrightPage.screenshot({ path: screenshotPath, quality: 30, type: "jpeg" });
       const entry = await lstat(screenshotPath);
       if (!entry.isFile() || entry.size < 128) {
         fail("viewport screenshot returned no bounded image payload");
       }
-      return { encodedBytes: entry.size, format: "jpeg", height, width };
+      return { encodedBytes: entry.size, format: "jpeg", height, runner: "playwright-chromium", width };
     } finally {
       await rm(screenshotPath, { force: true });
     }
@@ -2733,6 +2728,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     cliLog("BP06_BROWSER_FATAL " + message);
     throw error;
   } finally {
+    if (playwrightBrowser) {
+      try {
+        await playwrightBrowser.close();
+      } catch (error) {
+        const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
+        failed.push({ name: "playwright-screenshot-cleanup", message });
+        outcomes.set("playwright-screenshot-cleanup", "failed");
+        cliLog("BP06_BROWSER_CLEANUP_ERROR " + message);
+      }
+    }
     if (task) {
       try {
         const result = await completeTaskSpace(task.id, { keep: false });
@@ -2768,7 +2773,15 @@ async function runBrowserSupervisor() {
   let stage = "setup";
   let supervisorError: unknown = null;
   let diagnosticStateForArtifact: FixtureState | null = null;
+  const playwrightPackageRoot = process.env[PLAYWRIGHT_PACKAGE_ROOT_ENV]?.trim() || "";
+  const playwrightExecutablePath = process.env[PLAYWRIGHT_EXECUTABLE_PATH_ENV]?.trim() || "";
   try {
+    if (!playwrightPackageRoot) {
+      throw new Error(`BP06 ${PLAYWRIGHT_PACKAGE_ROOT_ENV} must point at the approved Playwright package root`);
+    }
+    if (!playwrightExecutablePath) {
+      throw new Error(`BP06 ${PLAYWRIGHT_EXECUTABLE_PATH_ENV} must point at the approved Chromium executable`);
+    }
     await setup();
     stage = "fixture-preflight";
     state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
@@ -2820,7 +2833,7 @@ async function runBrowserSupervisor() {
     stage = "browser-run";
     transitionPromise = superviseBrowserTransitions(state, () => browserDone);
     if (!privatePaths) throw new Error("BP06 browser private paths were not prepared before launch");
-    browserChild.stdin?.end(browserVerificationScript(privatePaths));
+    browserChild.stdin?.end(browserVerificationScript(privatePaths, playwrightPackageRoot, playwrightExecutablePath));
     await waitForChildExit(browserChild, BROWSER_OVERALL_TIMEOUT_MS, "ego-browser");
     browserDone = true;
     const transitionCount = await transitionPromise;
