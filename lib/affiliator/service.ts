@@ -16,6 +16,7 @@ import {
 
 const CONVERSION_LOG_PAGE_SIZE = 50;
 const MAX_CONVERSION_LOG_PAGE = 100_000;
+const PACKAGE_MIX_LIMIT = 6;
 
 type AffiliatorProfileView = {
   id: string;
@@ -158,22 +159,26 @@ async function getAffiliatorDashboard(
   const where = successfulPurchaseWhere(profile.id);
   const [
     successfulPurchaseCount,
-    uniqueStudents,
+    uniqueStudentCountResult,
     latestPurchase,
     conversionTrend,
     packageMix,
   ] = await Promise.all([
     prisma.packagePurchase.count({ where }),
-    prisma.packagePurchase.findMany({
-      distinct: ["studentId"],
-      select: { studentId: true },
-      where,
-    }),
+    prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(DISTINCT student_id)::int AS count
+      FROM package_purchases
+      WHERE affiliator_profile_id = ${profile.id}::uuid
+        AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND completed_at IS NOT NULL
+    `,
     prisma.packagePurchase.findFirst({
       orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       select: { completedAt: true },
       where,
     }),
+    // Keep the latest active seven-day window visible for sparse referral
+    // histories; the chart labels this as a historical activity period.
     prisma.$queryRaw<AffiliatorConversionTrendPoint[]>`
       WITH anchor AS (
         SELECT MAX(completed_at) AS max_at
@@ -202,15 +207,22 @@ async function getAffiliatorDashboard(
       ORDER BY days.day ASC
     `,
     prisma.$queryRaw<AffiliatorPackageMixItem[]>`
+      WITH package_counts AS (
+        SELECT package_code,
+          MAX(package_name) AS package_name,
+          COUNT(*)::int AS count
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+        GROUP BY package_code
+      )
       SELECT package_code AS "packageCode",
         package_name AS "packageName",
-        COUNT(*)::int AS count
-      FROM package_purchases
-      WHERE affiliator_profile_id = ${profile.id}::uuid
-        AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
-        AND completed_at IS NOT NULL
-      GROUP BY package_code, package_name
-      ORDER BY COUNT(*) DESC, package_name ASC
+        count
+      FROM package_counts
+      ORDER BY count DESC, package_name ASC, package_code ASC
+      LIMIT ${PACKAGE_MIX_LIMIT}
     `,
   ]);
 
@@ -220,7 +232,7 @@ async function getAffiliatorDashboard(
     packageMix,
     profile,
     successfulPurchaseCount,
-    uniqueStudentCount: uniqueStudents.length,
+    uniqueStudentCount: uniqueStudentCountResult[0]?.count ?? 0,
   };
 }
 

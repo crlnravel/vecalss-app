@@ -37,15 +37,15 @@ function ConversionTrend({ trend }: { trend: AffiliatorConversionTrendPoint[] })
           className="font-heading text-lg font-semibold tracking-[-0.02em] text-secondary-900"
           id="affiliator-conversion-trend-heading"
         >
-          Tren harian
+          Tren konversi
         </h3>
-        <span className="text-xs text-secondary-500">7 hari</span>
+        <span className="text-xs text-secondary-500">7 hari aktif terakhir</span>
       </div>
 
       {trend.length ? (
         <figure className="mt-6">
           <div
-            aria-label={`Konversi harian: ${trendDescription(trend)}`}
+            aria-label={`Konversi harian pada 7 hari aktif terakhir: ${trendDescription(trend)}`}
             className="grid min-h-44 grid-cols-7 items-end gap-2 border-b border-primary-200 px-1 pb-0 pt-3 sm:gap-3"
             role="img"
           >
@@ -102,11 +102,11 @@ function PackageMix({ packageMix }: { packageMix: AffiliatorPackageMixItem[] }) 
         >
           Paket
         </h3>
-        <span className="text-xs text-secondary-500">Terjual</span>
+        <span className="text-xs text-secondary-500">Paket teratas</span>
       </div>
 
       {packageMix.length ? (
-        <ol aria-label="Komposisi paket" className="mt-6 space-y-5">
+        <ol aria-label="Komposisi paket teratas" className="mt-6 space-y-5">
           {packageMix.map((item) => {
             const width = Math.max((item.count / maxCount) * 100, 4);
 
