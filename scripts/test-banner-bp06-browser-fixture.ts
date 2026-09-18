@@ -2569,8 +2569,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       await wait(2);
       const secondTabs = await listTabs();
       const secondTab = secondTabs.find((tab) => String(tab.url || "").includes("bp06tab=two"));
-      const firstId = firstTab && (firstTab.id || firstTab.tabId);
-      const secondId = secondTab && (secondTab.id || secondTab.tabId);
+      const firstId = firstTab && (firstTab.targetId || firstTab.id || firstTab.tabId || first?.targetId || first?.id || first?.tabId);
+      const secondId = secondTab && (secondTab.targetId || secondTab.id || secondTab.tabId || second?.targetId || second?.id || second?.tabId);
       if (!firstId || !secondId) fail("two browser tabs were not addressable");
       await switchTab(firstId);
       await addAndSaveDraft("BP06 conflict winner {firstName}");
