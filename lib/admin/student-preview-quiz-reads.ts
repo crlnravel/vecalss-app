@@ -118,10 +118,21 @@ function toContractRecord(record: PreviewQuizRecord) {
 }
 
 async function readPublishedPreviewQuizRecords() {
+  // The managed Preview fixture may intentionally contain no published quiz
+  // rows. Resolve that empty catalogue before traversing version/item/media
+  // relations; this keeps the empty Kuis surface deterministic and avoids a
+  // needless nested query over an otherwise empty read.
+  const publishedIds = await prisma.standaloneQuiz.findMany({
+    orderBy: [{ title: "asc" }, { slug: "asc" }],
+    select: { id: true },
+    where: { status: ContentStatus.published },
+  });
+  if (publishedIds.length === 0) return [];
+
   return prisma.standaloneQuiz.findMany({
     orderBy: [{ title: "asc" }, { slug: "asc" }],
     select: previewQuizSelect,
-    where: { status: ContentStatus.published },
+    where: { id: { in: publishedIds.map(({ id }) => id) } },
   });
 }
 
