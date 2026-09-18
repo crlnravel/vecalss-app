@@ -2331,6 +2331,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
     await wait(0.5);
   }
 
+  async function clearBannerLayerSelection() {
+    const hasCanvas = await js("(() => Boolean(document.querySelector('[aria-label=\"Canvas banner\"]')))()");
+    if (!hasCanvas) fail("banner canvas was not rendered before frame-height check");
+    await js("(() => { const node = document.querySelector('[aria-label=\"Canvas banner\"]'); node?.focus(); return Boolean(node); })()");
+    await pressKey("Escape");
+    await wait(0.25);
+    const hasFrameHeight = await js("(() => Boolean(document.querySelector('#destination-desktop-banner-frame-height')))()");
+    if (!hasFrameHeight) fail("frame-height control did not render after clearing layer selection");
+  }
+
   async function saveDraftObserving(textValue) {
     await ensureTextLayer();
     await fillInput("#destination-desktop-layer-text", textValue);
@@ -2529,6 +2539,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
         const publishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
         if (!publishedRevision) fail("published revision was not exposed for " + destination);
         livePublishedRevisions[destination] = publishedRevision;
+        await clearBannerLayerSelection();
         await fillInput("#destination-desktop-banner-frame-height", "160");
         await pressKey("Tab");
         await screenshot("admin-" + destination + "-short-160");
@@ -2633,6 +2644,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       const recoveryPublishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
       if (!recoveryPublishedRevision) fail("recovery published revision was not exposed");
       livePublishedRevisions.tryout = recoveryPublishedRevision;
+      await clearBannerLayerSelection();
       await fillInput("#destination-desktop-banner-frame-height", "160");
       await pressKey("Tab");
       await screenshot("recovery-tryout-short-160");
