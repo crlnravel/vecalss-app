@@ -1956,22 +1956,38 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   async function captureViewportScreenshot(name = "diagnostic") {
     const info = await pageInfo();
     if (!info || pageInfoDialog(info)) fail("cannot capture a screenshot while a browser dialog is open");
-    const width = typeof info.w === "number" && info.w > 0 ? info.w : 1280;
-    const height = typeof info.h === "number" && info.h > 0 ? info.h : 900;
+    const viewport = await js("(() => { const value = window.visualViewport; return { height: value?.height || window.innerHeight, pageLeft: value?.pageLeft ?? window.scrollX, pageTop: value?.pageTop ?? window.scrollY, width: value?.width || window.innerWidth }; })()");
+    const width = typeof viewport?.width === "number" && Number.isFinite(viewport.width) && viewport.width > 0
+      ? Math.floor(viewport.width)
+      : typeof info.w === "number" && info.w > 0
+        ? info.w
+        : 1280;
+    const height = typeof viewport?.height === "number" && Number.isFinite(viewport.height) && viewport.height > 0
+      ? Math.floor(viewport.height)
+      : typeof info.h === "number" && info.h > 0
+        ? info.h
+        : 900;
+    const x = typeof viewport?.pageLeft === "number" && Number.isFinite(viewport.pageLeft) && viewport.pageLeft >= 0
+      ? Math.floor(viewport.pageLeft)
+      : 0;
+    const y = typeof viewport?.pageTop === "number" && Number.isFinite(viewport.pageTop) && viewport.pageTop >= 0
+      ? Math.floor(viewport.pageTop)
+      : 0;
     const safeName = String(name).replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 96) || "diagnostic";
     const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".jpg");
     try {
+      await cdp("Page.bringToFront");
       const result = await cdp("Page.captureScreenshot", {
         captureBeyondViewport: false,
         clip: {
           height: Math.min(height, 1200),
           scale: 1,
           width: Math.min(width, 1600),
-          x: 0,
-          y: 0,
+          x,
+          y,
         },
         format: "jpeg",
-        fromSurface: false,
+        fromSurface: true,
         optimizeForSpeed: true,
         quality: 30,
       });
