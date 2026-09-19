@@ -2632,9 +2632,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       const body = await text();
       if (!body.includes("Banner perlu dipulihkan")) fail("restored recovery source did not render");
       await clickText('button', "Gunakan starter teks dan perbaiki");
-      await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ["#banner-starter-title", "#banner-starter-description"],
+        requiredText: ["Perbaiki starter teks sebelum menyimpan"],
+      });
       await fillInput("#banner-starter-description", "BP06 recovered final {targetMajor} {targetUniversity}");
+      await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
       await pressKey("Tab");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ['button[aria-label="Tambahkan teks"]'],
+      });
       await addAndSaveDraft("BP06 tryout recovered subsequent {firstName} {targetMajor} {targetUniversity}");
       const saved = await text();
       if (!saved.includes("Draf banner tujuan tersimpan.")) fail("recovery draft save confirmation was not rendered");
