@@ -2280,9 +2280,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       requiredSelectors: ['[data-slot="alert-dialog-action"]'],
       requiredText: ["Ya, keluar"],
     });
-    const logoutActionMatches = await js(
-      `(() => Array.from(document.querySelectorAll('[data-slot="alert-dialog-action"]')).filter((node) => (node.textContent || '').trim() === 'Ya, keluar').length)()`,
-    );
+    const logoutActionMatches = await js("(() => Array.from(document.querySelectorAll('[data-slot=\"alert-dialog-action\"]')).filter((node) => (node.textContent || '').trim() === 'Ya, keluar').length)()");
     if (logoutActionMatches !== 1) fail("logout confirmation action was not uniquely rendered: " + String(logoutActionMatches));
     await click('[data-slot="alert-dialog-action"]');
     const info = await waitForRoute("/login", { exactSearch: false });
