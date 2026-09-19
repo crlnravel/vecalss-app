@@ -20,7 +20,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -68,16 +67,6 @@ function StudentSidebarNavigation({ activeLabel, isReference, notificationBadge,
   const navigationItems = previewMode ? previewNavigationItems : studentNavigationItems;
   return (
     <SidebarContent className={isReference ? "gap-0" : undefined}>
-      <SidebarGroupLabel
-        className={cn(
-          "mx-2",
-          isReference &&
-            "h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase group-data-[collapsible=icon]:hidden",
-        )}
-      >
-        Belajar
-      </SidebarGroupLabel>
-
       <SidebarGroup
         className={
           isReference
