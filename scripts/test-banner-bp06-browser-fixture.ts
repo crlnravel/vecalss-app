@@ -2276,7 +2276,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       requiredText: ["Keluar"],
     });
     await clickText('[data-slot="dropdown-menu-item"]', "Keluar");
-    await click('[role="alertdialog"] button[type="submit"]');
+    await waitForRoute("/admin/student-banners?destination=tryout", {
+      requiredSelectors: ['[data-slot="alert-dialog-action"]'],
+      requiredText: ["Ya, keluar"],
+    });
+    await clickText('[data-slot="alert-dialog-action"]', "Ya, keluar");
     const info = await waitForRoute("/login", { exactSearch: false });
     if (expectedNotice && !String(pageInfoUrl(info)).includes(expectedNotice)) fail("logout notice missing: " + pageInfoUrl(info));
   }
