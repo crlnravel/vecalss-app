@@ -27,6 +27,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ReferencePageHeader,
   ReferenceStatusBadge,
   ReferenceSurface,
@@ -598,6 +604,18 @@ function MateriAdministrationSection({
   const isArchived = status === "archived";
   const isLifecycleActionBlocked = isSaving || hasUnsavedChanges;
   const isPublishBlocked = isLifecycleActionBlocked || readiness !== "ready";
+  const publishButton = (
+    <Button
+      aria-busy={isSaving}
+      disabled={isPublishBlocked}
+      onClick={onPublish}
+      type="button"
+      variant="brand"
+    >
+      <Upload />
+      {isSaving ? "Menerbitkan…" : "Terbitkan materi"}
+    </Button>
+  );
 
   return (
     <>
@@ -625,16 +643,20 @@ function MateriAdministrationSection({
             ) : null}
           </div>
           {isDraft ? (
-            <Button
-              aria-busy={isSaving}
-              disabled={isPublishBlocked}
-              onClick={onPublish}
-              type="button"
-              variant="brand"
-            >
-              <Upload />
-              {isSaving ? "Menerbitkan…" : "Terbitkan materi"}
-            </Button>
+            hasUnsavedChanges ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger render={<span className="inline-flex" />}>
+                    {publishButton}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Simpan perubahan sebelum mengubah status publikasi materi.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              publishButton
+            )
           ) : null}
           {isPublished ? (
             <Button
@@ -661,11 +683,7 @@ function MateriAdministrationSection({
             </Button>
           ) : null}
         </div>
-        {hasUnsavedChanges ? (
-          <p className="text-sm leading-6 text-student-status-attention-fg">
-            Simpan perubahan sebelum mengubah status publikasi materi.
-          </p>
-        ) : readiness !== "ready" && isDraft ? (
+        {readiness !== "ready" && isDraft ? (
           <p className="text-sm leading-6 text-student-status-attention-fg">
             Lengkapi judul dan PDF/ebook sebelum menerbitkan materi.
           </p>
