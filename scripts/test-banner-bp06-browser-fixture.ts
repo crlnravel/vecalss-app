@@ -32,13 +32,17 @@ const SCHEMA_PREFIX = "banner_bp06_browser_";
 const MIRROR_DIST_DIR = ".next-bp06-browser";
 const NEXT_ROUTE_TYPE_REFERENCES = ["./.next/types/routes.d.ts", "./.next/dev/types/routes.d.ts"] as const;
 // The embedded browser matrix currently has 52 bounded route/navigation
-// attempts (including login/logout and the two stale-conflict tabs). Keep the
-// overall child deadline derived from that matrix instead of a smaller fixed
-// window that can expire before all four destinations report independently.
+// attempts (including login/logout and the two stale-conflict tabs). Isolated
+// Webpack cold compilation has reached roughly 59 seconds, so navigation gets
+// a separate 90-second budget while marker readiness remains 30 seconds. Keep
+// the overall child deadline derived from the combined per-attempt budget.
+const BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS = 90;
+const BROWSER_ROUTE_NAVIGATION_TIMEOUT_MS = BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS * 1_000;
 const BROWSER_ROUTE_READINESS_TIMEOUT_MS = 30_000;
+const BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS = BROWSER_ROUTE_NAVIGATION_TIMEOUT_MS + BROWSER_ROUTE_READINESS_TIMEOUT_MS;
 const BROWSER_ROUTE_ATTEMPT_BOUND = 52;
 const BROWSER_INTERACTION_SLACK_MS = 300_000;
-const BROWSER_OVERALL_TIMEOUT_MS = BROWSER_ROUTE_ATTEMPT_BOUND * BROWSER_ROUTE_READINESS_TIMEOUT_MS + BROWSER_INTERACTION_SLACK_MS;
+const BROWSER_OVERALL_TIMEOUT_MS = BROWSER_ROUTE_ATTEMPT_BOUND * BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS + BROWSER_INTERACTION_SLACK_MS;
 const BROWSER_TRANSITION_TIMEOUT_MS = BROWSER_OVERALL_TIMEOUT_MS + 30_000;
 const BROWSER_DIAGNOSTIC_BYTE_CAP = 256_000;
 
@@ -1779,7 +1783,9 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
     destinationCount: 4,
     interactionSlackMs: BROWSER_INTERACTION_SLACK_MS,
     overallTimeoutMs: BROWSER_OVERALL_TIMEOUT_MS,
+    routeAttemptTimeoutMs: BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS,
     routeAttemptBound: BROWSER_ROUTE_ATTEMPT_BOUND,
+    routeNavigationTimeoutSeconds: BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS,
     routeReadinessTimeoutMs: BROWSER_ROUTE_READINESS_TIMEOUT_MS,
   });
   return String.raw`
@@ -2130,10 +2136,10 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
   async function go(path, options = {}) {
     const url = baseUrl + path;
     if (!opened) {
-      await openOrReuseTab(url, { wait: true, timeout: 30 });
+      await openOrReuseTab(url, { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       opened = true;
     } else {
-      await gotoAndWait(url, { timeout: 30 });
+      await gotoAndWait(url, { timeout: browserTiming.routeNavigationTimeoutSeconds });
     }
     return waitForRoute(path, options);
   }
@@ -2365,7 +2371,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
   }
 
   function destinationBudget(routeAttemptsPerDestination = 1, interactionSlackMs = 20_000) {
-    return browserTiming.destinationCount * routeAttemptsPerDestination * browserTiming.routeReadinessTimeoutMs + interactionSlackMs;
+    return browserTiming.destinationCount * routeAttemptsPerDestination * browserTiming.routeAttemptTimeoutMs + interactionSlackMs;
   }
 
   async function runDestinationAssertions(name, action, budgetMilliseconds = destinationBudget()) {
@@ -2401,7 +2407,9 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       destinationCount: browserTiming.destinationCount,
       interactionSlackMs: browserTiming.interactionSlackMs,
       overallTimeoutMs: browserTiming.overallTimeoutMs,
+      routeAttemptTimeoutMs: browserTiming.routeAttemptTimeoutMs,
       routeAttemptBound: browserTiming.routeAttemptBound,
+      routeNavigationTimeoutSeconds: browserTiming.routeNavigationTimeoutSeconds,
       routeReadinessTimeoutMs: browserTiming.routeReadinessTimeoutMs,
     }));
 
@@ -2571,11 +2579,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
     }, ["admin-publish-dialog-cancel"]);
 
     await check("admin-stale-conflict-two-tabs", async () => {
-      const first = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=one", { wait: true, timeout: 30 });
+      const first = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=one", { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       await wait(2);
       const firstTabs = await listTabs();
       const firstTab = firstTabs.find((tab) => String(tab.url || "").includes("bp06tab=one"));
-      const second = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=two", { wait: true, timeout: 30 });
+      const second = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=two", { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       await wait(2);
       const secondTabs = await listTabs();
       const secondTab = secondTabs.find((tab) => String(tab.url || "").includes("bp06tab=two"));
@@ -2881,7 +2889,7 @@ async function runBrowserSupervisor() {
     const transitionCount = await transitionPromise;
     transitionPromise = null;
     if (browserChild.exitCode === null) {
-      throw new Error(`ego-browser child exceeded the bounded ${BROWSER_OVERALL_TIMEOUT_MS}ms verification window derived from ${BROWSER_ROUTE_ATTEMPT_BOUND} route attempts at ${BROWSER_ROUTE_READINESS_TIMEOUT_MS}ms each plus ${BROWSER_INTERACTION_SLACK_MS}ms interaction slack`);
+      throw new Error(`ego-browser child exceeded the bounded ${BROWSER_OVERALL_TIMEOUT_MS}ms verification window derived from ${BROWSER_ROUTE_ATTEMPT_BOUND} route attempts at ${BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS}ms each (${BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS}s navigation + ${BROWSER_ROUTE_READINESS_TIMEOUT_MS}ms readiness) plus ${BROWSER_INTERACTION_SLACK_MS}ms interaction slack`);
     }
     if (browserChild.exitCode !== 0) {
       throw new Error(`ego-browser verification exited ${browserChild.exitCode}. Ego tail: ${safeDiagnosticTail(browserCapture?.lines ?? [], 20)}. Next tail: ${safeDiagnosticTail(nextCapture?.lines ?? [], 20)}`);
