@@ -414,14 +414,19 @@ function createQuestionBankCatalogueColumns({
                 >
                   {row.bank.title}
                 </Link>
-                <p className="mt-0.5 block truncate text-xs text-secondary-500">
-                  {row.bank.questionCount} soal
-                </p>
+                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="block truncate text-xs text-secondary-500">
+                    {row.bank.questionCount} soal
+                  </p>
+                  <span className="lg:hidden">
+                    <StatusPill status={row.bank.status} />
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ),
-      headerClassName: "min-w-[18rem]",
+      headerClassName: "min-w-0 lg:min-w-[18rem]",
       hideable: false,
       id: "name",
       label: "Nama",
@@ -452,7 +457,8 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-[9rem]",
+      cellClassName: "max-lg:hidden",
+      headerClassName: "max-lg:hidden lg:min-w-[9rem]",
       id: "subject",
       label: "Subject",
       width: 22,
@@ -482,7 +488,7 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-[16rem]",
+      headerClassName: "min-w-0 lg:min-w-[16rem]",
       id: "materi",
       label: "Materi",
       width: 30,
@@ -494,10 +500,11 @@ function createQuestionBankCatalogueColumns({
         ) : (
           <StatusPill status={row.bank.status} />
         ),
-      headerClassName: "min-w-[7rem]",
+      cellClassName: "max-lg:hidden",
+      headerClassName: "max-lg:hidden lg:min-w-[7rem]",
       id: "status",
       label: "Status",
-      width: 8,
+      width: 10,
     },
   ];
 }
@@ -2095,7 +2102,7 @@ function QuestionBankCataloguePageContent({
             value: initialSearch,
           }}
           showColumnVisibility={false}
-          tableClassName="min-w-[760px]"
+          tableClassName="min-w-0"
           wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
         />
         {initialTotal ? (
