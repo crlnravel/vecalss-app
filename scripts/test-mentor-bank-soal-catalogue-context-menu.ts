@@ -17,7 +17,12 @@ assert.doesNotMatch(catalogue, /label: "Aksi"/u, "the catalogue must not render 
 assert.match(catalogue, /ContextMenuContent[\s\S]*Edit bank soal/u, "bank actions must remain available in the row context menu");
 assert.match(catalogue, /ContextMenuContent[\s\S]*Ubah nama/u, "folder actions must remain available in the row context menu");
 assert.match(catalogue, /rowContextMenu=\{catalogueRowContextMenu\}/u, "the catalogue must attach actions to each row context menu");
+assert.match(catalogue, /const openCatalogueRow = \(row: QuestionBankCatalogueRow\)[\s\S]*?router\.push\(row\.bank\.href\)/u, "catalogue rows must navigate to their folder or bank destination");
+assert.match(catalogue, /onRowClick=\{openCatalogueRow\}/u, "the catalogue must make the full row navigable");
+assert.match(catalogue, /id: "materi"[\s\S]*?width: 30/u, "Materi should receive the larger table share");
+assert.match(catalogue, /id: "status"[\s\S]*?width: 8/u, "Status should receive the smaller table share");
 assert.match(dataTable, /rowContextMenu\?: \(row: T\) => ReactNode/u, "DataTable must support row context menu content");
+assert.match(dataTable, /onRowClick\?: \(row: T\) => void/u, "DataTable must support full-row navigation");
 assert.match(dataTable, /<ContextMenuTrigger render=\{tableRow\}/u, "DataTable must render the context trigger on the semantic table row");
 assert.match(table, /forwardRef<HTMLTableRowElement/u, "table rows must forward refs for context-menu positioning and focus");
 assert.match(contextMenu, /ContextMenuPrimitive\.Root/u, "the shared context-menu wrapper must use Base UI context-menu primitives");

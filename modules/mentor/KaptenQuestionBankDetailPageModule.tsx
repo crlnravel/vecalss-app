@@ -80,23 +80,6 @@ type ConfirmationRequest = {
 
 type QuestionBankDetailTab = "soal" | "pengaturan";
 
-const QUESTION_BANK_METADATA_PILL_CLASS_NAME =
-  "min-h-7 px-3 py-1.5 text-xs font-medium";
-
-function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  const isArchived = status === "archived";
-
-  return (
-    <MentorBadge
-      className={QUESTION_BANK_METADATA_PILL_CLASS_NAME}
-      size="sm"
-      tone={isArchived ? "neutral" : "success"}
-    >
-      {isArchived ? "Diarsipkan" : "Diterbitkan"}
-    </MentorBadge>
-  );
-}
-
 function QuestionBankStatusAction({
   bank,
   handleLifecycle,
@@ -209,12 +192,8 @@ function QuestionBankArchiveSection({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-secondary-900">
-            Arsipkan Bank Soal
+            Administrasi
           </h2>
-          <p className="max-w-2xl text-sm leading-6 text-secondary-600">
-            Bank Soal yang diarsipkan tidak dapat diedit sampai dipulihkan
-            kembali.
-          </p>
         </div>
         <QuestionBankLifecycleActions
           bank={bank}
@@ -345,19 +324,18 @@ function QuestionBankMetadataCard({
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <StatusPill status={bank.status} />
-            <MentorBadge
-              className={QUESTION_BANK_METADATA_PILL_CLASS_NAME}
-              size="sm"
-              tone="category"
-            >
-              {questionBankPurposeLabel(bank.purpose ?? "quiz")}
-            </MentorBadge>
-          </div>
         </div>
 
         <div className="space-y-5">
+          <div>
+            <span className="text-xs font-semibold text-secondary-500">
+              Tipe
+            </span>
+            <p className="mt-1 text-sm font-medium text-secondary-900">
+              {questionBankPurposeLabel(bank.purpose ?? "quiz")}
+            </p>
+          </div>
+
           <div>
             <div className="flex items-center justify-start gap-1.5">
               <span className="text-xs font-semibold text-secondary-500">
@@ -997,7 +975,7 @@ function KaptenQuestionBankDetailPageModule({
     setConfirmationRequest({
       confirmLabel: "Arsipkan",
       description:
-        "Bank Soal ini akan dipindahkan ke arsip dan tidak dapat dipakai untuk authoring sampai dipulihkan.",
+        "Bank soal yang diarsipkan tidak dapat digunakan untuk membuat soal hingga dipulihkan.",
       onConfirm: () => {
         setConfirmationRequest(null);
         void handleLifecycle("archive");

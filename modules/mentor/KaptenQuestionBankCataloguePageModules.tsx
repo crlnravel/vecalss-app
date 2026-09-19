@@ -482,10 +482,10 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-[14rem]",
+      headerClassName: "min-w-[16rem]",
       id: "materi",
       label: "Materi",
-      width: 24,
+      width: 30,
     },
     {
       cell: (row) =>
@@ -497,7 +497,7 @@ function createQuestionBankCatalogueColumns({
       headerClassName: "min-w-[7rem]",
       id: "status",
       label: "Status",
-      width: 13,
+      width: 8,
     },
   ];
 }
@@ -1704,6 +1704,13 @@ function useQuestionBankCatalogueState({
     resetPage();
     navigateCatalogue({ folder: folder.id, page: 1 });
   };
+  const openCatalogueRow = (row: QuestionBankCatalogueRow) => {
+    if (row.kind === "folder") {
+      openCatalogueFolder(row.folder);
+      return;
+    }
+    router.push(row.bank.href);
+  };
   const openBankLifecycle = (
     bank: BankEntry["bank"],
     action: LifecycleAction,
@@ -1786,6 +1793,7 @@ function useQuestionBankCatalogueState({
     navigateCatalogue,
     openFolderCreate,
     openFolderManage,
+    openCatalogueRow,
     openMoveBank,
     pendingConfirmation,
     pendingLifecycle,
@@ -1885,6 +1893,7 @@ function QuestionBankCataloguePageContent({
     navigateCatalogue,
     openFolderCreate,
     openFolderManage,
+    openCatalogueRow,
     pendingConfirmation,
     pendingLifecycle,
     resetPage,
@@ -2052,6 +2061,7 @@ function QuestionBankCataloguePageContent({
           isLoading={isCataloguePending}
           loadingLabel="Memuat bank soal…"
           moreMenu={sortMenu}
+          onRowClick={openCatalogueRow}
           rowContextMenu={catalogueRowContextMenu}
           rows={catalogueRows}
           search={{
