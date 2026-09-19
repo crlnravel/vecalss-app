@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ReferencePageHeader,
   ReferenceSectionHeading,
+  ReferenceSurface,
 } from "@/components/dashboard";
 import { ArrowRight } from "@/lib/icons";
 import type {
@@ -47,22 +48,22 @@ function AffiliatorStatistics({ dashboard }: { dashboard: AffiliatorDashboardDat
         title="Statistik"
       />
 
-      <dl className="grid divide-y divide-primary-100 border-y border-primary-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <div className="py-5 sm:px-6 sm:pl-0">
+      <dl className="grid gap-3 sm:grid-cols-3">
+        <ReferenceSurface as="div" className="min-w-0 p-5 sm:p-6" variant="inset">
           <dt className="text-sm text-secondary-500">Pembelian berhasil</dt>
           <dd className="mt-3 font-heading text-4xl font-semibold tracking-[-0.04em] text-secondary-900 tabular-nums">
             {dashboard.successfulPurchaseCount}
           </dd>
           <p className="mt-1 text-xs text-secondary-500">Paket dibayar</p>
-        </div>
-        <div className="py-5 sm:px-6">
+        </ReferenceSurface>
+        <ReferenceSurface as="div" className="min-w-0 p-5 sm:p-6" variant="inset">
           <dt className="text-sm text-secondary-500">Siswa unik</dt>
           <dd className="mt-3 font-heading text-4xl font-semibold tracking-[-0.04em] text-secondary-900 tabular-nums">
             {dashboard.uniqueStudentCount}
           </dd>
           <p className="mt-1 text-xs text-secondary-500">Dari kode referral</p>
-        </div>
-        <div className="py-5 sm:px-6 sm:pr-0">
+        </ReferenceSurface>
+        <ReferenceSurface as="div" className="min-w-0 p-5 sm:p-6" variant="inset">
           <dt className="text-sm text-secondary-500">Aktivitas terakhir</dt>
           <dd className="mt-3 font-heading text-3xl font-semibold tracking-[-0.04em] text-secondary-900">
             {formatCompactDate(latestConversion)}
@@ -70,7 +71,7 @@ function AffiliatorStatistics({ dashboard }: { dashboard: AffiliatorDashboardDat
           <p className="mt-1 text-xs text-secondary-500">
             {latestConversion ? timeFormatter.format(latestConversion) : "Belum ada"}
           </p>
-        </div>
+        </ReferenceSurface>
       </dl>
     </section>
   );
@@ -98,9 +99,14 @@ function AffiliatorDashboardPageModule({
           isActive={dashboard.profile.isActive}
         />
       ) : (
-        <p className="border-y border-student-status-attention-border py-4 text-sm text-student-status-attention-fg">
+        <ReferenceSurface
+          aria-label="Status kode referral"
+          className="p-4 text-sm text-student-status-attention-fg"
+          role="status"
+          variant="inset"
+        >
           Kode referral belum tersedia. Hubungi admin.
-        </p>
+        </ReferenceSurface>
       )}
 
       <AffiliatorStatistics dashboard={dashboard} />

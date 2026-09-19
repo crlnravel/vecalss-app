@@ -7,6 +7,14 @@ import {
 } from "@/components/dashboard";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { StudentBadge } from "@/components/ui/student-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type {
   AffiliatorConversionLog,
   AffiliatorConversionLogData,
@@ -27,46 +35,74 @@ function formatDate(value: Date) {
 
 function ConversionLogRow({ conversion }: { conversion: AffiliatorConversionLog }) {
   return (
-    <li className="grid gap-4 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
-      <div className="min-w-0">
-        <p className="truncate font-semibold text-secondary-900">{conversion.packageName}</p>
-        <p className="mt-1 truncate text-sm text-secondary-700">{conversion.studentName}</p>
-        <p className="mt-1 truncate text-xs text-secondary-500">{conversion.studentEmail}</p>
-      </div>
-      <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-2">
+    <TableRow className="border-primary-100/80 hover:bg-primary-50/40">
+      <TableCell
+        className="max-w-[20rem] truncate px-4 py-3.5 font-semibold text-secondary-900 sm:px-5"
+        title={conversion.packageName}
+      >
+        {conversion.packageName}
+      </TableCell>
+      <TableCell
+        className="max-w-[15rem] truncate px-4 py-3.5 text-secondary-700 sm:px-5"
+        title={conversion.studentName}
+      >
+        {conversion.studentName}
+      </TableCell>
+      <TableCell className="px-4 py-3.5 text-secondary-600 sm:px-5">
+        <time dateTime={conversion.completedAt.toISOString()}>
+          {formatDate(conversion.completedAt)}
+        </time>
+      </TableCell>
+      <TableCell className="px-4 py-3.5 sm:px-5">
         <StudentBadge size="sm" tone="success">
           Berhasil
         </StudentBadge>
-        <time
-          className="text-xs text-secondary-500"
-          dateTime={conversion.completedAt.toISOString()}
-        >
-          {formatDate(conversion.completedAt)}
-        </time>
-      </div>
-    </li>
+      </TableCell>
+    </TableRow>
   );
 }
 
-function ConversionLogList({
+function ConversionLogTable({
   conversionLog,
 }: {
   conversionLog: AffiliatorConversionLog[];
 }) {
   return (
-    conversionLog.length ? (
-      <ol aria-label="Daftar pembelian paket yang berhasil" className="divide-y divide-primary-100/80">
-        {conversionLog.map((conversion) => (
-          <ConversionLogRow conversion={conversion} key={conversion.id} />
-        ))}
-      </ol>
-    ) : (
-      <ReferenceEmptyState
-        description="Pembelian berhasil akan muncul di sini."
-        icon={ChartColumnBig}
-        title="Belum ada pembelian"
-      />
-    )
+    <Table aria-label="Daftar pembelian paket yang berhasil" className="min-w-[680px] border-collapse text-left text-sm">
+      <TableHeader className="bg-primary-50/70 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">
+        <TableRow className="border-primary-100/80 hover:bg-transparent">
+          <TableHead className="px-4 py-3.5 sm:px-5" scope="col">
+            Paket
+          </TableHead>
+          <TableHead className="px-4 py-3.5 sm:px-5" scope="col">
+            Siswa
+          </TableHead>
+          <TableHead className="px-4 py-3.5 sm:px-5" scope="col">
+            Waktu
+          </TableHead>
+          <TableHead className="px-4 py-3.5 sm:px-5" scope="col">
+            Status
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {conversionLog.length ? (
+          conversionLog.map((conversion) => (
+            <ConversionLogRow conversion={conversion} key={conversion.id} />
+          ))
+        ) : (
+          <TableRow className="hover:bg-transparent">
+            <TableCell className="p-0" colSpan={4}>
+              <ReferenceEmptyState
+                description="Pembelian berhasil akan muncul di sini."
+                icon={ChartColumnBig}
+                title="Belum ada pembelian"
+              />
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -138,7 +174,7 @@ function AffiliatorPurchaseLogPageModule({
 
       <section aria-label="Daftar pembelian" className="min-w-0 space-y-4">
         <ReferenceSurface className="overflow-hidden p-0">
-          <ConversionLogList conversionLog={log.conversionLog} />
+          <ConversionLogTable conversionLog={log.conversionLog} />
           <ConversionLogPagination
             page={log.conversionLogPage}
             pageCount={log.conversionLogPageCount}

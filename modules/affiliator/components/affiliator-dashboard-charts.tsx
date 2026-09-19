@@ -2,6 +2,7 @@ import type {
   AffiliatorConversionTrendPoint,
   AffiliatorPackageMixItem,
 } from "@/lib/affiliator/service";
+import { ReferenceSurface } from "@/components/dashboard";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -27,10 +28,12 @@ function ConversionTrend({ trend }: { trend: AffiliatorConversionTrendPoint[] })
   const maxCount = Math.max(...trend.map((point) => point.count), 1);
 
   return (
-    <section
+    <ReferenceSurface
       aria-labelledby="affiliator-conversion-trend-heading"
-      className="min-w-0 border-y border-primary-100 py-5"
+      as="section"
+      className="min-w-0 p-5 sm:p-6"
       data-testid="affiliator-conversion-trend"
+      variant="inset"
     >
       <div className="flex items-baseline justify-between gap-4">
         <h3
@@ -82,7 +85,7 @@ function ConversionTrend({ trend }: { trend: AffiliatorConversionTrendPoint[] })
       ) : (
         <p className="mt-5 text-sm text-secondary-500">Belum ada konversi.</p>
       )}
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -90,10 +93,12 @@ function PackageMix({ packageMix }: { packageMix: AffiliatorPackageMixItem[] }) 
   const maxCount = Math.max(...packageMix.map((item) => item.count), 1);
 
   return (
-    <section
+    <ReferenceSurface
       aria-labelledby="affiliator-package-mix-heading"
-      className="min-w-0 border-y border-primary-100 py-5"
+      as="section"
+      className="min-w-0 p-5 sm:p-6"
       data-testid="affiliator-package-mix"
+      variant="inset"
     >
       <div className="flex items-baseline justify-between gap-4">
         <h3
@@ -136,7 +141,7 @@ function PackageMix({ packageMix }: { packageMix: AffiliatorPackageMixItem[] }) 
       ) : (
         <p className="mt-5 text-sm text-secondary-500">Belum ada penjualan.</p>
       )}
-    </section>
+    </ReferenceSurface>
   );
 }
 

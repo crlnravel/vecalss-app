@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ReferenceSurface } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "@/lib/icons";
 
@@ -27,7 +28,11 @@ function AffiliatorReferralCodeCard({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-y border-primary-100 py-4">
+    <ReferenceSurface
+      aria-label="Kode referral"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-4 p-5 sm:p-6"
+      variant="inset"
+    >
       <div className="min-w-0">
         <p className="text-sm text-secondary-500">Kode referral</p>
         <div className="mt-1 flex min-w-0 items-center gap-3">
@@ -51,7 +56,7 @@ function AffiliatorReferralCodeCard({
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
         <span aria-live="polite">{copied ? "Tersalin" : "Salin kode"}</span>
       </Button>
-    </div>
+    </ReferenceSurface>
   );
 }
 
