@@ -320,8 +320,6 @@ function sourceContentIssues(
   }
   if (bank?.status === ContentStatus.archived) {
     blockers.push(issue("archived_bank", "Bank Soal kandidat sudah diarsipkan.", { bankId: bank.id }));
-  } else if (bank?.status !== ContentStatus.published) {
-    blockers.push(issue("bank_inactive", "Bank Soal kandidat belum berstatus Ready.", { bankId: bank?.id, status: bank?.status }));
   }
   if (source.status === ContentStatus.archived) {
     blockers.push(issue("stale_candidate", "Soal kandidat sudah diarsipkan.", { sourceQuestionId: source.id }));
@@ -486,8 +484,6 @@ async function readScopeState(
       blockers.push(issue("scope", "Bank Soal cakupan tidak ditemukan.", { bankId }));
     } else if (bank.status === ContentStatus.archived) {
       blockers.push(issue("archived_bank", "Bank Soal cakupan sudah diarsipkan.", { bankId }));
-    } else if (bank.status !== ContentStatus.published) {
-      blockers.push(issue("bank_inactive", "Bank Soal cakupan belum berstatus Ready.", { bankId, status: bank.status }));
     }
     if (bank && bank.purpose !== expectedPurpose) {
       blockers.push(issue("scope", `Assembly hanya dapat memakai Bank Soal tujuan ${expectedPurpose === "quiz" ? "Kuis" : "Tryout"}.`, {
@@ -1044,7 +1040,7 @@ async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: N
           ...(definition.scope.categoryIds.length ? { categories: { some: { categoryId: { in: definition.scope.categoryIds } } } } : {}),
           ...(definition.scope.folderIds.length ? { folderId: { in: definition.scope.folderIds } } : {}),
           purpose: expectedPurpose,
-          status: ContentStatus.published,
+          status: { not: ContentStatus.archived },
         },
       },
       questionBankId: { in: definition.scope.bankIds },

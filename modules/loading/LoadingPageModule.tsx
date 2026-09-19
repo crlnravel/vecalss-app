@@ -31,25 +31,101 @@ export function LoadingPageModule() {
           strokeWidth="3"
         />
         <circle className="route-current" fill="var(--voyage-warm-sun)" r="7">
-          <animateMotion dur="7s" path={VOYAGE_ROUTE_PATH} repeatCount="indefinite" />
+          <animateMotion
+            dur="7s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
         </circle>
-        <circle className="route-current" fill="var(--voyage-forest)" opacity="0.86" r="4">
-          <animateMotion begin="-2.1s" dur="5.2s" path={VOYAGE_ROUTE_PATH} repeatCount="indefinite" />
+        <circle
+          className="route-current"
+          fill="var(--voyage-forest)"
+          opacity="0.86"
+          r="4"
+        >
+          <animateMotion
+            begin="-2.1s"
+            dur="5.2s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
         </circle>
-        <circle className="route-current" fill="var(--voyage-warm-sun)" opacity="0.82" r="3">
-          <animateMotion begin="-5.4s" dur="11s" path={VOYAGE_ROUTE_PATH} repeatCount="indefinite" />
+        <circle
+          className="route-current"
+          fill="var(--voyage-warm-sun)"
+          opacity="0.82"
+          r="3"
+        >
+          <animateMotion
+            begin="-5.4s"
+            dur="11s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
         </circle>
-        <circle className="route-current" fill="var(--voyage-forest)" opacity="0.6" r="9">
-          <animateMotion begin="-7s" dur="13s" path={VOYAGE_ROUTE_PATH} repeatCount="indefinite" />
+        <circle
+          className="route-current"
+          fill="var(--voyage-forest)"
+          opacity="0.6"
+          r="9"
+        >
+          <animateMotion
+            begin="-7s"
+            dur="13s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
         </circle>
         <circle cx="190" cy="565" fill="var(--voyage-warm-sun)" r="8" />
-        <circle cx="356" cy="360" fill="var(--voyage-forest)" opacity="0.54" r="5" />
-        <circle cx="508" cy="610" fill="var(--voyage-warm-sun)" opacity="0.76" r="4" />
-        <circle cx="728" cy="236" fill="var(--voyage-forest)" opacity="0.48" r="11" />
-        <circle cx="904" cy="636" fill="var(--voyage-warm-sun)" opacity="0.72" r="6" />
-        <circle cx="1145" cy="432" fill="var(--voyage-forest)" opacity="0.72" r="9" />
-        <circle cx="1292" cy="305" fill="var(--voyage-forest)" opacity="0.54" r="4" />
-        <circle cx="1372" cy="620" fill="var(--voyage-warm-sun)" opacity="0.44" r="9" />
+        <circle
+          cx="356"
+          cy="360"
+          fill="var(--voyage-forest)"
+          opacity="0.54"
+          r="5"
+        />
+        <circle
+          cx="508"
+          cy="610"
+          fill="var(--voyage-warm-sun)"
+          opacity="0.76"
+          r="4"
+        />
+        <circle
+          cx="728"
+          cy="236"
+          fill="var(--voyage-forest)"
+          opacity="0.48"
+          r="11"
+        />
+        <circle
+          cx="904"
+          cy="636"
+          fill="var(--voyage-warm-sun)"
+          opacity="0.72"
+          r="6"
+        />
+        <circle
+          cx="1145"
+          cy="432"
+          fill="var(--voyage-forest)"
+          opacity="0.72"
+          r="9"
+        />
+        <circle
+          cx="1292"
+          cy="305"
+          fill="var(--voyage-forest)"
+          opacity="0.54"
+          r="4"
+        />
+        <circle
+          cx="1372"
+          cy="620"
+          fill="var(--voyage-warm-sun)"
+          opacity="0.44"
+          r="9"
+        />
       </svg>
       <div
         aria-hidden="true"
@@ -93,18 +169,9 @@ export function LoadingPageModule() {
             </div>
 
             <div className="flex flex-col justify-center px-1 py-2 sm:px-4 lg:px-0 lg:py-12">
-              <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold tracking-[-0.04em] text-[var(--voyage-deep)]">
-                Menyusun
-                <br />
-                rute belajarmu
+              <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold text-[var(--voyage-deep)]">
+                Menyusun rute belajarmu...
               </h1>
-              <p
-                aria-label="Halaman sedang dimuat"
-                className="route-shimmer mt-7 max-w-[31ch] text-base leading-7 md:text-lg"
-                role="status"
-              >
-                Menyiapkan halaman Anda…
-              </p>
             </div>
           </div>
         </div>

@@ -43,7 +43,7 @@ type KaptenMateriSubjectView = {
   slug: string;
 };
 
-function formatDuration(durationSeconds: number | undefined) {
+function formatDuration(durationSeconds: number | null | undefined) {
   if (!durationSeconds || durationSeconds <= 0) return "";
   const minutes = Math.floor(durationSeconds / 60);
   const seconds = durationSeconds % 60;

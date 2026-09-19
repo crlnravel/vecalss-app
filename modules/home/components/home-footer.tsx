@@ -25,7 +25,7 @@ const contactLinks = [
 function HomeFooter() {
   return (
     <footer className="bg-[var(--voyage-deep)] text-white">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 py-14 md:px-10 lg:px-16 lg:py-16">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 pt-14 md:px-10 lg:px-16 lg:pt-16">
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
           <div className="max-w-[28rem]">
             <Link
@@ -48,14 +48,19 @@ function HomeFooter() {
                 VECALSS
               </span>
             </Link>
-            <p className="mt-5 max-w-[30ch] text-sm leading-7 text-voyage-sea-glass md:text-base">
+            <p className="mt-5 max-w-[30ch] text-sm leading-7 text-voyage-sea-glass md:text-base font-thin">
               Ekosistem belajar untuk Voyager yang ingin mempersiapkan diri
               menuju PTN dengan lebih terarah.
             </p>
           </div>
 
-          <nav aria-label="Quick links" className="grid gap-3 text-sm font-medium">
-            <p className="kicker-label mb-2 text-voyage-sea-glass">Quick Links</p>
+          <nav
+            aria-label="Quick links"
+            className="grid gap-3 text-sm font-medium"
+          >
+            <p className="kicker-label mb-2 text-voyage-sea-glass">
+              Quick Links
+            </p>
             {quickLinks.map((item) => (
               <Link
                 key={item.label}
@@ -67,8 +72,13 @@ function HomeFooter() {
             ))}
           </nav>
 
-          <nav aria-label="Social media" className="grid gap-3 text-sm font-medium">
-            <p className="kicker-label mb-2 text-voyage-sea-glass">Social Media</p>
+          <nav
+            aria-label="Social media"
+            className="grid gap-3 text-sm font-medium"
+          >
+            <p className="kicker-label mb-2 text-voyage-sea-glass">
+              Social Media
+            </p>
             {contactLinks.map((item) => {
               const Icon = item.icon;
 

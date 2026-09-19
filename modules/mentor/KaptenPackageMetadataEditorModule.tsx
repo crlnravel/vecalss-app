@@ -48,7 +48,7 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
         {error ? <ReferenceSurface as="div" className="px-4 py-3 text-sm text-danger-600" role="alert" variant="inset">{error}</ReferenceSurface> : null}
         <div className="grid gap-5">
           <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-title">Judul Paket</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-title" required>Judul Paket</FieldLabel>
             <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} id="package-title" onChange={(event) => setTitle(event.target.value)} value={title} />
           </Field>
           <Field>

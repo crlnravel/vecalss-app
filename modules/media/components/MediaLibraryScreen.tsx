@@ -556,6 +556,7 @@ function MediaLibraryItemsPane({
       <div
         className={cn(
           "relative min-h-0 flex-1 overflow-y-auto",
+          isReference && "flex flex-col",
           isDragging &&
             "rounded-xl bg-primary-50/60 ring-2 ring-primary-500/35",
         )}
@@ -807,17 +808,7 @@ function MediaLibraryReferenceToolbar({
 
   return (
     <div className="space-y-5">
-      <CompactFilterTabs
-        aria-label="Filter media"
-        items={options}
-        onValueChange={(value) => {
-          setAssetFilter(value);
-          setAssetPage(1);
-          setSelectedItemIds(new Set());
-        }}
-        value={assetFilter}
-      />
-      <label className="relative block w-full max-w-2xl">
+      <label className="relative block w-full">
         <span className="sr-only">Cari {mediaLabel}</span>
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
         <Input
@@ -835,6 +826,16 @@ function MediaLibraryReferenceToolbar({
           value={searchInput}
         />
       </label>
+      <CompactFilterTabs
+        aria-label="Filter media"
+        items={options}
+        onValueChange={(value) => {
+          setAssetFilter(value);
+          setAssetPage(1);
+          setSelectedItemIds(new Set());
+        }}
+        value={assetFilter}
+      />
       {selectionMode ? (
         <ReferenceSurface
           as="div"
@@ -1062,7 +1063,6 @@ function MediaLibraryReferenceHeader({
             </Button>
           </>
         }
-        description="Kelola aset untuk materi, kuis, dan tryout dalam satu tempat."
         title="Media"
       />
       <input
@@ -1416,6 +1416,7 @@ function MediaLibraryWorkspaceView(props: MediaLibraryScreenViewProps) {
     "relative min-h-[28rem] overflow-hidden transition-[border-color,background-color] duration-150",
     !isDrive && "rounded-[2rem] border border-primary-100 bg-white",
     isDrive && !isReference && "flex min-h-0 flex-1 flex-col",
+    isReference && "flex flex-col",
     isReference && REFERENCE_SURFACE_CLASS_NAMES.raised,
     isDragging && "border-2 border-primary-500 bg-primary-50/70",
   );

@@ -443,7 +443,6 @@ function assertReadyBankSources(
         source.questionBankId !== sourceBankId ||
         source.questionBank?.purpose !== expectedPurpose ||
         source.questionBank?.status === ContentStatus.archived ||
-        source.questionBank?.status !== ContentStatus.published ||
         source.status === ContentStatus.archived ||
         source.status !== ContentStatus.published ||
         revision?.status !== QuestionRevisionStatus.ready ||
@@ -540,7 +539,7 @@ function latestReadySourceUpdate(
   if (
     !revision ||
     source.questionBank?.purpose !== QuestionBankPurpose.quiz ||
-    source.questionBank.status !== ContentStatus.published ||
+    source.questionBank.status === ContentStatus.archived ||
     source.status !== ContentStatus.published ||
     source.subtest?.code !== expectedSubtestCode ||
     revision.status !== QuestionRevisionStatus.ready ||
@@ -654,7 +653,7 @@ async function readReadyQuizBankSources(
 
   // Lock the source identity and its current revision while the snapshot is
   // assembled. The copied rows below are authoritative even if the Bank is
-  // subsequently edited, unpublished, archived, or removed from the picker.
+  // subsequently edited, archived, or removed from the picker.
   await tx.$queryRaw`
     SELECT q.id
     FROM questions q
@@ -663,7 +662,7 @@ async function readReadyQuizBankSources(
     WHERE q.id IN (${Prisma.join(questionIds)})
       AND q.question_bank_id = ${input.bankId}::uuid
       AND b.purpose = 'quiz'
-      AND b.status = 'published'
+      AND b.status <> 'archived'
       AND q.status = 'published'
       AND r.status = 'ready'
     ORDER BY q.id
@@ -1940,7 +1939,7 @@ async function syncStandaloneQuizBankRevisions(bankId: string) {
         questionBankId: bankId,
         questionBank: {
           purpose: QuestionBankPurpose.quiz,
-          status: ContentStatus.published,
+          status: { not: ContentStatus.archived },
         },
         status: ContentStatus.published,
       },

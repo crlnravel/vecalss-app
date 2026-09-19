@@ -23,6 +23,8 @@ const TEST_DATABASE_ENV = "BANNER_MEDIA_SAFETY_TEST_DATABASE_URL";
 const FALLBACK_DATABASE_ENV = "VERA_DISPOSABLE_DATABASE_URL";
 const DISPOSABLE_ACK_ENV = "VERA_DISPOSABLE_DB_ACK";
 const STATE_ENV = "BP06_BROWSER_STATE_PATH";
+const PLAYWRIGHT_PACKAGE_ROOT_ENV = "BP06_PLAYWRIGHT_PACKAGE_ROOT";
+const PLAYWRIGHT_EXECUTABLE_PATH_ENV = "BP06_PLAYWRIGHT_EXECUTABLE_PATH";
 const PORT = 5146;
 const STATE_PREFIX = "vecalss-bp06-browser-state";
 const MIRROR_PREFIX = "vecalss-bp06-browser-";
@@ -30,13 +32,17 @@ const SCHEMA_PREFIX = "banner_bp06_browser_";
 const MIRROR_DIST_DIR = ".next-bp06-browser";
 const NEXT_ROUTE_TYPE_REFERENCES = ["./.next/types/routes.d.ts", "./.next/dev/types/routes.d.ts"] as const;
 // The embedded browser matrix currently has 52 bounded route/navigation
-// attempts (including login/logout and the two stale-conflict tabs). Keep the
-// overall child deadline derived from that matrix instead of a smaller fixed
-// window that can expire before all four destinations report independently.
+// attempts (including login/logout and the two stale-conflict tabs). Isolated
+// Webpack cold compilation has reached roughly 59 seconds, so navigation gets
+// a separate 90-second budget while marker readiness remains 30 seconds. Keep
+// the overall child deadline derived from the combined per-attempt budget.
+const BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS = 90;
+const BROWSER_ROUTE_NAVIGATION_TIMEOUT_MS = BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS * 1_000;
 const BROWSER_ROUTE_READINESS_TIMEOUT_MS = 30_000;
+const BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS = BROWSER_ROUTE_NAVIGATION_TIMEOUT_MS + BROWSER_ROUTE_READINESS_TIMEOUT_MS;
 const BROWSER_ROUTE_ATTEMPT_BOUND = 52;
 const BROWSER_INTERACTION_SLACK_MS = 300_000;
-const BROWSER_OVERALL_TIMEOUT_MS = BROWSER_ROUTE_ATTEMPT_BOUND * BROWSER_ROUTE_READINESS_TIMEOUT_MS + BROWSER_INTERACTION_SLACK_MS;
+const BROWSER_OVERALL_TIMEOUT_MS = BROWSER_ROUTE_ATTEMPT_BOUND * BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS + BROWSER_INTERACTION_SLACK_MS;
 const BROWSER_TRANSITION_TIMEOUT_MS = BROWSER_OVERALL_TIMEOUT_MS + 30_000;
 const BROWSER_DIAGNOSTIC_BYTE_CAP = 256_000;
 
@@ -1769,21 +1775,29 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
   throw new Error(`Next child did not render the expected login shell within 90s. Probe: ${JSON.stringify(lastProbe)}. Tail: ${safeDiagnosticTail(output)}`);
 }
 
-function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
+function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwrightPackageRoot: string, playwrightExecutablePath: string) {
   const serializedPrivatePaths = JSON.stringify(privatePaths);
+  const serializedPlaywrightPackageRoot = JSON.stringify(playwrightPackageRoot);
+  const serializedPlaywrightExecutablePath = JSON.stringify(playwrightExecutablePath);
   const serializedBrowserTiming = JSON.stringify({
     destinationCount: 4,
     interactionSlackMs: BROWSER_INTERACTION_SLACK_MS,
     overallTimeoutMs: BROWSER_OVERALL_TIMEOUT_MS,
+    routeAttemptTimeoutMs: BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS,
     routeAttemptBound: BROWSER_ROUTE_ATTEMPT_BOUND,
+    routeNavigationTimeoutSeconds: BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS,
     routeReadinessTimeoutMs: BROWSER_ROUTE_READINESS_TIMEOUT_MS,
   });
   return String.raw`
 (async () => {
   const { lstat, readFile, rename, rm, writeFile } = await import("node:fs/promises");
+  const { Buffer } = await import("node:buffer");
   const { randomUUID } = await import("node:crypto");
+  const { createRequire } = await import("node:module");
   const { dirname, join, resolve } = await import("node:path");
   const privatePaths = ${serializedPrivatePaths};
+  const playwrightPackageRoot = ${serializedPlaywrightPackageRoot};
+  const playwrightExecutablePath = ${serializedPlaywrightExecutablePath};
   const browserTiming = ${serializedBrowserTiming};
   const baseUrl = "http://127.0.0.1:5146";
   const stateDirectory = dirname(resolve(privatePaths.stateFile));
@@ -1862,8 +1876,14 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   let task = null;
   let opened = false;
   let taskCleanupError = null;
+  let playwrightBrowser = null;
+  let playwrightContext = null;
+  let playwrightPage = null;
 
-  const destinationPaths = { beranda: "/", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
+  // The root preview route is canonicalized without a trailing slash; keep
+  // the expected URL aligned with the actual Next route while preserving the
+  // destination-specific path suffixes for the other surfaces.
+  const destinationPaths = { beranda: "", materi: "/courses", kuis: "/quiz", tryout: "/tryout" };
 
   function pageInfoUrl(info) {
     return info && typeof info.url === "string" ? info.url : null;
@@ -1876,13 +1896,13 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   function routeDefaults(path) {
     const pathname = new URL(baseUrl + path).pathname;
     if (pathname === "/login") {
-      return { requiredSelectors: ["form", "#login-email", "#login-password"], requiredText: ["Masuk ke Vecalss"] };
+      return { requiredSelectors: ["form", "#login-email, input[name=\"email\"]", "#login-password, input[name=\"password\"]"], requiredText: ["Masuk ke Vecalss"] };
     }
     if (pathname === "/admin/student-preview" || pathname.startsWith("/admin/student-preview/")) {
-      return { requiredSelectors: [], requiredText: ["Student preview"] };
+      return { requiredSelectors: [], requiredText: ["STUDENT PREVIEW"] };
     }
     if (pathname === "/admin/student-banners") {
-      return { requiredSelectors: [], requiredText: ["Banner maker"] };
+      return { requiredSelectors: [], requiredText: ["BANNER MAKER"] };
     }
     const routeMarker = { "/courses": "Materi", "/dashboard": "Beranda", "/quiz": "Kuis", "/tryout": "Tryout" }[pathname];
     return { requiredSelectors: [], requiredText: routeMarker ? [routeMarker] : [] };
@@ -1937,14 +1957,78 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function screenshot(name) {
     const info = await pageInfo();
-    await captureScreenshot();
+    const screenshot = await captureViewportScreenshot(name);
     cliLog("BP06_BROWSER_SCREENSHOT " + JSON.stringify({
       name,
       dialog: pageInfoDialog(info) ? safeDiagnostic(JSON.stringify(pageInfoDialog(info)), 600) : null,
       url: safePageUrl(pageInfoUrl(info), true),
       width: info?.w,
       height: info?.h,
+      format: screenshot.format,
+      encodedBytes: screenshot.encodedBytes,
     }));
+  }
+
+  async function captureViewportScreenshot(name = "diagnostic") {
+    const info = await pageInfo();
+    if (!info || pageInfoDialog(info)) fail("cannot capture a screenshot while a browser dialog is open");
+    const viewport = await js("(() => { const value = window.visualViewport; return { height: value?.height || window.innerHeight, width: value?.width || window.innerWidth }; })()");
+    const width = typeof viewport?.width === "number" && Number.isFinite(viewport.width) && viewport.width > 0
+      ? Math.floor(viewport.width)
+      : typeof info.w === "number" && info.w > 0
+        ? info.w
+        : 1280;
+    const height = typeof viewport?.height === "number" && Number.isFinite(viewport.height) && viewport.height > 0
+      ? Math.floor(viewport.height)
+      : typeof info.h === "number" && info.h > 0
+        ? info.h
+        : 900;
+    const safeName = String(name).replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 96) || "diagnostic";
+    const screenshotPath = join(stateDirectory, ".bp06-screenshot-" + safeName + ".jpg");
+    try {
+      if (!playwrightBrowser) {
+        const require = createRequire(import.meta.url);
+        const playwright = require(join(playwrightPackageRoot, "index.js"));
+        playwrightBrowser = await playwright.chromium.launch({ executablePath: playwrightExecutablePath, headless: true });
+        playwrightContext = await playwrightBrowser.newContext({ viewport: { width: Math.min(width, 1600), height: Math.min(height, 1200) } });
+        playwrightPage = await playwrightContext.newPage();
+      }
+      const cookieResult = await cdp("Storage.getCookies");
+      const cookieHost = (() => {
+        try {
+          return new URL(baseUrl).hostname;
+        } catch {
+          return "127.0.0.1";
+        }
+      })();
+      const cookies = Array.isArray(cookieResult?.cookies)
+        ? cookieResult.cookies
+          .filter((cookie) => cookie && typeof cookie.name === "string" && typeof cookie.value === "string")
+          .map((cookie) => ({
+            domain: typeof cookie.domain === "string" && cookie.domain.length > 0 ? cookie.domain : cookieHost,
+            expires: typeof cookie.expires === "number" && cookie.expires > 0 ? cookie.expires : undefined,
+            httpOnly: cookie.httpOnly === true,
+            name: cookie.name,
+            path: typeof cookie.path === "string" && cookie.path.length > 0 ? cookie.path : "/",
+            sameSite: ["Strict", "Lax", "None"].includes(cookie.sameSite) ? cookie.sameSite : undefined,
+            secure: cookie.secure === true,
+            value: cookie.value,
+          }))
+        : [];
+      await playwrightContext.addCookies(cookies);
+      await playwrightPage.setViewportSize({ width: Math.min(width, 1600), height: Math.min(height, 1200) });
+      const currentUrl = pageInfoUrl(info);
+      if (!currentUrl) fail("Playwright screenshot source URL was unavailable");
+      await playwrightPage.goto(currentUrl, { timeout: 20_000, waitUntil: "domcontentloaded" });
+      await playwrightPage.screenshot({ path: screenshotPath, quality: 30, type: "jpeg" });
+      const entry = await lstat(screenshotPath);
+      if (!entry.isFile() || entry.size < 128) {
+        fail("viewport screenshot returned no bounded image payload");
+      }
+      return { encodedBytes: entry.size, format: "jpeg", height, runner: "playwright-chromium", width };
+    } finally {
+      await rm(screenshotPath, { force: true });
+    }
   }
 
   async function requestTransition(operation) {
@@ -2052,16 +2136,30 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   async function go(path, options = {}) {
     const url = baseUrl + path;
     if (!opened) {
-      await openOrReuseTab(url, { wait: true, timeout: 30 });
+      await openOrReuseTab(url, { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       opened = true;
     } else {
-      await gotoAndWait(url, { timeout: 30 });
+      await gotoAndWait(url, { timeout: browserTiming.routeNavigationTimeoutSeconds });
     }
     return waitForRoute(path, options);
   }
 
   async function text() {
     return String(await snapshotText());
+  }
+
+  async function clickText(selector, expectedText) {
+    const matched = await js(
+      "(() => {"
+      + " const expected = " + JSON.stringify(expectedText) + ";"
+      + " const nodes = Array.from(document.querySelectorAll(" + JSON.stringify(selector) + "));"
+      + " const node = nodes.find((candidate) => (candidate.textContent || \"\").trim() === expected);"
+      + " if (!node) return false;"
+      + " node.click();"
+      + " return true;"
+      + "})()",
+    );
+    if (matched !== true) fail("element text was not found: " + selector + " / " + expectedText);
   }
 
   function safeDiagnostic(value, limit = 1200) {
@@ -2116,7 +2214,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
           error: safeDiagnostic(event?.error, 300),
         }))
         : rawEvents;
-      const screenshotResult = await diagnosticProbe("captureScreenshot", () => captureScreenshot(), 1_000);
+      const screenshotResult = await diagnosticProbe("captureScreenshot", () => captureViewportScreenshot("diagnostic-" + name), 1_000);
       const screenshotCaptured = !screenshotResult?.error;
 
       cliLog("BP06_BROWSER_CASE_DIAGNOSTIC " + JSON.stringify({
@@ -2169,8 +2267,8 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function login(email, password, expectedPath) {
     await go("/login");
-    await fillInput("#login-email", email);
-    await fillInput("#login-password", password);
+    await fillInput("#login-email, input[name=\"email\"]", email);
+    await fillInput("#login-password, input[name=\"password\"]", password);
     await click("button[type=submit]");
     const info = await waitForRoute(expectedPath, { exactSearch: false });
     if (!pageInfoUrl(info)) fail("login redirect did not expose a normal page URL");
@@ -2179,8 +2277,18 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
 
   async function logout(expectedNotice) {
     await click('button[aria-label="Menu akun"]');
-    await click('[role="menuitem"]:has-text("Keluar")');
-    await click('[role="alertdialog"] button[type="submit"]');
+    await waitForRoute("/admin/student-banners?destination=tryout", {
+      requiredSelectors: ['[data-slot="dropdown-menu-item"]'],
+      requiredText: ["Keluar"],
+    });
+    await clickText('[data-slot="dropdown-menu-item"]', "Keluar");
+    await waitForRoute("/admin/student-banners?destination=tryout", {
+      requiredSelectors: ['[data-slot="alert-dialog-action"]'],
+      requiredText: ["Ya, keluar"],
+    });
+    const logoutActionMatches = await js("(() => Array.from(document.querySelectorAll('[data-slot=\"alert-dialog-action\"]')).filter((node) => (node.textContent || '').trim() === 'Ya, keluar').length)()");
+    if (logoutActionMatches !== 1) fail("logout confirmation action was not uniquely rendered: " + String(logoutActionMatches));
+    await click('[data-slot="alert-dialog-action"]');
     const info = await waitForRoute("/login", { exactSearch: false });
     if (expectedNotice && !String(pageInfoUrl(info)).includes(expectedNotice)) fail("logout notice missing: " + pageInfoUrl(info));
   }
@@ -2239,6 +2347,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     await wait(0.5);
   }
 
+  async function clearBannerLayerSelection() {
+    const hasCanvas = await js("(() => Boolean(document.querySelector('[aria-label=\"Canvas banner\"]')))()");
+    if (!hasCanvas) fail("banner canvas was not rendered before frame-height check");
+    await js("(() => { const node = document.querySelector('[aria-label=\"Canvas banner\"]'); node?.focus(); return Boolean(node); })()");
+    await pressKey("Escape");
+    await wait(0.25);
+    const hasFrameHeight = await js("(() => Boolean(document.querySelector('#destination-desktop-banner-frame-height')))()");
+    if (!hasFrameHeight) fail("frame-height control did not render after clearing layer selection");
+  }
+
   async function saveDraftObserving(textValue) {
     await ensureTextLayer();
     await fillInput("#destination-desktop-layer-text", textValue);
@@ -2253,7 +2371,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
   }
 
   function destinationBudget(routeAttemptsPerDestination = 1, interactionSlackMs = 20_000) {
-    return browserTiming.destinationCount * routeAttemptsPerDestination * browserTiming.routeReadinessTimeoutMs + interactionSlackMs;
+    return browserTiming.destinationCount * routeAttemptsPerDestination * browserTiming.routeAttemptTimeoutMs + interactionSlackMs;
   }
 
   async function runDestinationAssertions(name, action, budgetMilliseconds = destinationBudget()) {
@@ -2289,13 +2407,15 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       destinationCount: browserTiming.destinationCount,
       interactionSlackMs: browserTiming.interactionSlackMs,
       overallTimeoutMs: browserTiming.overallTimeoutMs,
+      routeAttemptTimeoutMs: browserTiming.routeAttemptTimeoutMs,
       routeAttemptBound: browserTiming.routeAttemptBound,
+      routeNavigationTimeoutSeconds: browserTiming.routeNavigationTimeoutSeconds,
       routeReadinessTimeoutMs: browserTiming.routeReadinessTimeoutMs,
     }));
 
     await check("login-page-real-route", async () => {
       const info = await go("/login");
-      const formMarkers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email')), password: Boolean(document.querySelector('#login-password')) }))()");
+      const formMarkers = await js("(() => ({ form: Boolean(document.querySelector('form')), email: Boolean(document.querySelector('#login-email, input[name=\"email\"]')), password: Boolean(document.querySelector('#login-password, input[name=\"password\"]')) }))()");
       return { formMarkers, url: pageInfoUrl(info) };
     });
 
@@ -2311,7 +2431,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         const suffix = destinationPaths[destination];
         const publishedPath = "/admin/student-preview" + suffix;
         const destinationMarker = "Synthetic " + destination;
-        const publishedInfo = await go(publishedPath, { requiredText: ["Student preview", destinationMarker, "published"] });
+        const publishedInfo = await go(publishedPath, { requiredText: ["STUDENT PREVIEW", destinationMarker, "published"] });
         const publishedBody = await text();
         if (!routeMatches(pageInfoUrl(publishedInfo), publishedPath, true) || !publishedBody.includes(destinationMarker) || !publishedBody.includes("published")) {
           fail("published preview destination/source marker or exact route was missing");
@@ -2321,7 +2441,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
           "published " + destination + " preview",
         );
         const draftPath = publishedPath + "?bannerSource=draft&revision=" + drafts[destination];
-        const draftInfo = await go(draftPath, { requiredText: ["Student preview", destinationMarker, "draft"] });
+        const draftInfo = await go(draftPath, { requiredText: ["STUDENT PREVIEW", destinationMarker, "draft"] });
         const draftBody = await text();
         if (!routeMatches(pageInfoUrl(draftInfo), draftPath, true) || !draftBody.includes(destinationMarker) || !draftBody.includes("draft")) {
           fail("draft preview destination/source marker or exact route was missing");
@@ -2358,7 +2478,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
             'button[aria-label^="Simpan draf"]',
             'button[aria-label^="Terbitkan"]',
           ],
-          requiredText: ["Banner maker", labels[destination], "Layer", "Edit banner", "BP06 " + destination + " draft", "Synthetic " + destination],
+          requiredText: ["BANNER MAKER", labels[destination], "Layer", "Edit banner", "BP06 " + destination + " draft", "Synthetic " + destination],
         });
         const body = await text();
         const controls = await js("(() => ({ addText: Boolean(document.querySelector('button[aria-label=\"Tambahkan teks\"]')), save: Boolean(document.querySelector('button[aria-label^=\"Simpan draf\"]')), publish: Boolean(document.querySelector('button[aria-label^=\"Terbitkan\"]')) }))()");
@@ -2389,15 +2509,15 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await go("/admin/student-banners?destination=materi");
       await click('button[aria-label="Tambahkan teks"]');
       await click("#banner-destination");
-      await click('[role="option"]:has-text("Kuis")');
+      await clickText('[role="option"]', "Kuis");
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-destination-switch\"]')))");
       if (!dialog) fail("dirty destination switch dialog did not open");
-      await click('[data-testid="banner-destination-switch"] button:has-text("Batal")');
+      await clickText('[data-testid="banner-destination-switch"] button', "Batal");
       const afterCancel = await waitForRoute("/admin/student-banners?destination=materi");
       if (!routeMatches(pageInfoUrl(afterCancel), "/admin/student-banners?destination=materi", true)) fail("dirty switch cancel left the current destination");
       await click("#banner-destination");
-      await click('[role="option"]:has-text("Kuis")');
-      await click('[data-testid="banner-destination-switch"] button:has-text("Buang dan beralih")');
+      await clickText('[role="option"]', "Kuis");
+      await clickText('[data-testid="banner-destination-switch"] button', "Buang dan beralih");
       const afterDiscard = await waitForRoute("/admin/student-banners?destination=kuis");
       if (!routeMatches(pageInfoUrl(afterDiscard), "/admin/student-banners?destination=kuis", true)) fail("dirty switch discard did not navigate");
       return { cancel: true, discard: true };
@@ -2408,7 +2528,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await click('button[aria-label^="Terbitkan"]');
       const dialog = await js("(() => Boolean(document.querySelector('[data-testid=\"banner-publish-confirmation\"]')))");
       if (!dialog) fail("publish confirmation dialog did not open");
-      await click('[data-testid="banner-publish-confirmation"] button:has-text("Batal")');
+      await clickText('[data-testid="banner-publish-confirmation"] button', "Batal");
       const afterCancel = await js("(() => !document.querySelector('[data-testid=\"banner-publish-confirmation\"]'))()");
       if (!afterCancel) fail("publish confirmation dialog did not close on cancel");
       return { dialog: true, cancel: true };
@@ -2430,13 +2550,14 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
         if (draftRevision) liveDraftRevisions[destination] = draftRevision;
         await screenshot("admin-" + destination + "-long-personalization");
         await click('button[aria-label^="Terbitkan"]');
-        await click('button:has-text("Terbitkan ' + destination.charAt(0).toUpperCase() + destination.slice(1) + '")');
+        await clickText('button', "Terbitkan " + destination.charAt(0).toUpperCase() + destination.slice(1));
         await wait(3);
         const afterPublish = await text();
         if (!afterPublish.includes("Banner tujuan diterbitkan.")) fail("publish confirmation was not rendered for " + destination);
         const publishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
         if (!publishedRevision) fail("published revision was not exposed for " + destination);
         livePublishedRevisions[destination] = publishedRevision;
+        await clearBannerLayerSelection();
         await fillInput("#destination-desktop-banner-frame-height", "160");
         await pressKey("Tab");
         await screenshot("admin-" + destination + "-short-160");
@@ -2458,16 +2579,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     }, ["admin-publish-dialog-cancel"]);
 
     await check("admin-stale-conflict-two-tabs", async () => {
-      const first = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=one", { wait: true, timeout: 30 });
+      const first = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=one", { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       await wait(2);
       const firstTabs = await listTabs();
       const firstTab = firstTabs.find((tab) => String(tab.url || "").includes("bp06tab=one"));
-      const second = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=two", { wait: true, timeout: 30 });
+      const second = await openOrReuseTab(baseUrl + "/admin/student-banners?destination=kuis&bp06tab=two", { wait: true, timeout: browserTiming.routeNavigationTimeoutSeconds });
       await wait(2);
       const secondTabs = await listTabs();
       const secondTab = secondTabs.find((tab) => String(tab.url || "").includes("bp06tab=two"));
-      const firstId = firstTab && (firstTab.id || firstTab.tabId);
-      const secondId = secondTab && (secondTab.id || secondTab.tabId);
+      const firstId = firstTab && (firstTab.targetId || firstTab.id || firstTab.tabId || first?.targetId || first?.id || first?.tabId);
+      const secondId = secondTab && (secondTab.targetId || secondTab.id || secondTab.tabId || second?.targetId || second?.id || second?.tabId);
       if (!firstId || !secondId) fail("two browser tabs were not addressable");
       await switchTab(firstId);
       await addAndSaveDraft("BP06 conflict winner {firstName}");
@@ -2487,7 +2608,13 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     await check("admin-recovery-bootstrap-lossless-correction", async () => {
       await go("/admin/student-banners?destination=tryout");
       const body = await text();
-      if (!body.includes("Banner perlu dipulihkan") || !body.includes("Perbaiki starter teks sebelum menyimpan")) fail("recovery panel did not render");
+      const recoveryPanel = await js("(() => ({ panel: Boolean(document.querySelector('[data-testid=\"banner-recovery\"]')), title: Boolean(document.querySelector('#banner-recovery-title')), starter: Array.from(document.querySelectorAll('button')).some((node) => (node.textContent || '').includes('Gunakan starter teks dan perbaiki')) }))()");
+      if (!body.includes("Banner perlu dipulihkan") || !recoveryPanel?.panel || !recoveryPanel.title || !recoveryPanel.starter) fail("recovery panel did not render");
+      await clickText('button', "Gunakan starter teks dan perbaiki");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ["#banner-starter-title", "#banner-starter-description"],
+        requiredText: ["Perbaiki starter teks sebelum menyimpan"],
+      });
       const initial = await js("(() => ({ title: document.querySelector('#banner-starter-title')?.value || '', description: document.querySelector('#banner-starter-description')?.value || '' }))()");
       if (!initial || initial.title.length !== 181 || !initial.title.startsWith("BP06 legacy over-limit ")) fail("over-limit legacy title was not retained losslessly");
       if (initial.description !== "BP06 legacy description {firstName} {targetMajor} {targetUniversity}") fail("legacy description was not retained losslessly");
@@ -2522,10 +2649,17 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       await go("/admin/student-banners?destination=tryout");
       const body = await text();
       if (!body.includes("Banner perlu dipulihkan")) fail("restored recovery source did not render");
-      await click('button:has-text("Gunakan starter teks dan perbaiki")');
-      await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
+      await clickText('button', "Gunakan starter teks dan perbaiki");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ["#banner-starter-title", "#banner-starter-description"],
+        requiredText: ["Perbaiki starter teks sebelum menyimpan"],
+      });
       await fillInput("#banner-starter-description", "BP06 recovered final {targetMajor} {targetUniversity}");
+      await fillInput("#banner-starter-title", "BP06 recovered final {firstName}");
       await pressKey("Tab");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ['button[aria-label="Tambahkan teks"]'],
+      });
       await addAndSaveDraft("BP06 tryout recovered subsequent {firstName} {targetMajor} {targetUniversity}");
       const saved = await text();
       if (!saved.includes("Draf banner tujuan tersimpan.")) fail("recovery draft save confirmation was not rendered");
@@ -2534,13 +2668,14 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
       if (!recoveryDraftRevision) fail("recovery draft preview revision was not exposed");
       liveDraftRevisions.tryout = recoveryDraftRevision;
       await click('button[aria-label^="Terbitkan"]');
-      await click('button:has-text("Terbitkan Tryout")');
+      await clickText('button', "Terbitkan Tryout");
       await wait(3);
       const publishedBody = await text();
       if (!publishedBody.includes("Banner tujuan diterbitkan.")) fail("recovery publish confirmation was not rendered");
       const recoveryPublishedRevision = await js("(() => document.querySelector('input[name=\"revision\"]')?.value || null)()");
       if (!recoveryPublishedRevision) fail("recovery published revision was not exposed");
       livePublishedRevisions.tryout = recoveryPublishedRevision;
+      await clearBannerLayerSelection();
       await fillInput("#destination-desktop-banner-frame-height", "160");
       await pressKey("Tab");
       await screenshot("recovery-tryout-short-160");
@@ -2643,6 +2778,16 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths) {
     cliLog("BP06_BROWSER_FATAL " + message);
     throw error;
   } finally {
+    if (playwrightBrowser) {
+      try {
+        await playwrightBrowser.close();
+      } catch (error) {
+        const message = errorText(error).replaceAll(/password|credential/giu, "redacted");
+        failed.push({ name: "playwright-screenshot-cleanup", message });
+        outcomes.set("playwright-screenshot-cleanup", "failed");
+        cliLog("BP06_BROWSER_CLEANUP_ERROR " + message);
+      }
+    }
     if (task) {
       try {
         const result = await completeTaskSpace(task.id, { keep: false });
@@ -2678,7 +2823,15 @@ async function runBrowserSupervisor() {
   let stage = "setup";
   let supervisorError: unknown = null;
   let diagnosticStateForArtifact: FixtureState | null = null;
+  const playwrightPackageRoot = process.env[PLAYWRIGHT_PACKAGE_ROOT_ENV]?.trim() || "";
+  const playwrightExecutablePath = process.env[PLAYWRIGHT_EXECUTABLE_PATH_ENV]?.trim() || "";
   try {
+    if (!playwrightPackageRoot) {
+      throw new Error(`BP06 ${PLAYWRIGHT_PACKAGE_ROOT_ENV} must point at the approved Playwright package root`);
+    }
+    if (!playwrightExecutablePath) {
+      throw new Error(`BP06 ${PLAYWRIGHT_EXECUTABLE_PATH_ENV} must point at the approved Chromium executable`);
+    }
     await setup();
     stage = "fixture-preflight";
     state = JSON.parse(await readFile(statePath(), "utf8")) as FixtureState;
@@ -2730,13 +2883,13 @@ async function runBrowserSupervisor() {
     stage = "browser-run";
     transitionPromise = superviseBrowserTransitions(state, () => browserDone);
     if (!privatePaths) throw new Error("BP06 browser private paths were not prepared before launch");
-    browserChild.stdin?.end(browserVerificationScript(privatePaths));
+    browserChild.stdin?.end(browserVerificationScript(privatePaths, playwrightPackageRoot, playwrightExecutablePath));
     await waitForChildExit(browserChild, BROWSER_OVERALL_TIMEOUT_MS, "ego-browser");
     browserDone = true;
     const transitionCount = await transitionPromise;
     transitionPromise = null;
     if (browserChild.exitCode === null) {
-      throw new Error(`ego-browser child exceeded the bounded ${BROWSER_OVERALL_TIMEOUT_MS}ms verification window derived from ${BROWSER_ROUTE_ATTEMPT_BOUND} route attempts at ${BROWSER_ROUTE_READINESS_TIMEOUT_MS}ms each plus ${BROWSER_INTERACTION_SLACK_MS}ms interaction slack`);
+      throw new Error(`ego-browser child exceeded the bounded ${BROWSER_OVERALL_TIMEOUT_MS}ms verification window derived from ${BROWSER_ROUTE_ATTEMPT_BOUND} route attempts at ${BROWSER_ROUTE_ATTEMPT_TIMEOUT_MS}ms each (${BROWSER_ROUTE_NAVIGATION_TIMEOUT_SECONDS}s navigation + ${BROWSER_ROUTE_READINESS_TIMEOUT_MS}ms readiness) plus ${BROWSER_INTERACTION_SLACK_MS}ms interaction slack`);
     }
     if (browserChild.exitCode !== 0) {
       throw new Error(`ego-browser verification exited ${browserChild.exitCode}. Ego tail: ${safeDiagnosticTail(browserCapture?.lines ?? [], 20)}. Next tail: ${safeDiagnosticTail(nextCapture?.lines ?? [], 20)}`);

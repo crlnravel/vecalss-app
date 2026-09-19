@@ -37,7 +37,7 @@ function CompactTabsTrigger({ className, ...props }: CompactTabsTriggerProps) {
   return (
     <TabsTrigger
       className={cn(
-        "!h-[44px] !min-h-[44px] !min-w-[44px] !flex-none rounded-full bg-secondary-100 px-4 text-xs font-medium text-secondary-600 transition-[background-color,color,box-shadow] motion-reduce:transition-none data-active:bg-primary-700 data-active:text-white focus-visible:border-primary-700 focus-visible:ring-primary-700/25",
+        "!h-[44px] !min-h-[44px] !min-w-[44px] !flex-none rounded-full bg-secondary-100 px-4 text-xs font-medium text-secondary-600 transition-[background-color,color,box-shadow] motion-reduce:transition-none data-active:bg-voyage-deep data-active:text-white data-active:shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)] focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45",
         className,
       )}
       {...props}
@@ -72,7 +72,7 @@ function CompactFilterTabs<TValue extends string>({
             onClick={() => onValueChange(item.value)}
             size="default"
             type="button"
-            variant={selected ? "brand" : "context"}
+            variant={selected ? "filterActive" : "context"}
           >
             {item.label}
           </Button>

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-04T14:26:12Z",
+  "generatedAt": "2026-09-18T01:44:06Z",
   "title": "Design System: Vecalss",
   "extensions": {
     "colorMeta": {
@@ -33,6 +33,30 @@
         "displayName": "Sea-Glass Wash",
         "canonical": "#EEF8F1",
         "tonalRamp": ["#CFE7D8", "#D7EDDF", "#E2F0E6", "#E8F5EC", "#EEF8F1", "#F3FAF5", "#F7FAF8", "#FFFFFF"]
+      },
+      "harbor-canvas": {
+        "role": "neutral",
+        "displayName": "Harbor Canvas",
+        "canonical": "#EEF2F0",
+        "tonalRamp": ["#2B3531", "#52605A", "#7C8A84", "#AAB5B0", "#CFD7D3", "#EEF2F0", "#F5F7F6", "#FCFDFC"]
+      },
+      "ice": {
+        "role": "neutral",
+        "displayName": "Ice",
+        "canonical": "#FCFDFC",
+        "tonalRamp": ["#23302A", "#46534D", "#748079", "#A7B0AB", "#CFD5D2", "#E8ECEA", "#F4F7F5", "#FCFDFC"]
+      },
+      "mist-island": {
+        "role": "neutral",
+        "displayName": "Mist Island",
+        "canonical": "#EEF3F1",
+        "tonalRamp": ["#25322C", "#4A5B53", "#73877D", "#A0B2A9", "#C4D1CB", "#DEE7E3", "#EEF3F1", "#FAFCFB"]
+      },
+      "mint-island": {
+        "role": "secondary",
+        "displayName": "Mint Island",
+        "canonical": "#EEF5F2",
+        "tonalRamp": ["#20382E", "#466456", "#759584", "#A5BFAF", "#C6D9CF", "#DFEAE4", "#EEF5F2", "#FAFCFB"]
       },
       "canvas": {
         "role": "neutral",
@@ -69,12 +93,46 @@
         "displayName": "Warm Sun",
         "canonical": "#FFD766",
         "tonalRamp": ["#D9AD32", "#E8BE45", "#F0CC59", "#FFD766", "#FFE28C", "#FFF0BE", "#FFF8DF", "#FFFDF4"]
+      },
+      "warm-sun-ink": {
+        "role": "neutral",
+        "displayName": "Warm-Sun Ink",
+        "canonical": "#5B4B18",
+        "tonalRamp": ["#302708", "#46390F", "#5B4B18", "#746326", "#93813D", "#B9A86D", "#DDD1A7", "#FAF5E4"]
+      },
+      "warm-sand": {
+        "role": "tertiary",
+        "displayName": "Warm Sand",
+        "canonical": "#F2C89F",
+        "tonalRamp": ["#4A2D17", "#704A2C", "#996A46", "#C08E67", "#DCAC84", "#F2C89F", "#F9E1C9", "#FFF7EF"]
+      },
+      "harbor-orange": {
+        "role": "tertiary",
+        "displayName": "Harbor Orange",
+        "canonical": "#FFB77C",
+        "tonalRamp": ["#4A2309", "#743A12", "#A75822", "#D17C42", "#EE9D61", "#FFB77C", "#FFD8BA", "#FFF3E9"]
+      },
+      "rating-gold": {
+        "role": "tertiary",
+        "displayName": "Rating Gold",
+        "canonical": "#E8AD16",
+        "tonalRamp": ["#3B2900", "#604300", "#8A6305", "#B9840B", "#E8AD16", "#F2C84A", "#FAE393", "#FFF8DB"]
+      },
+      "voyage-deep-hover": {
+        "role": "primary",
+        "displayName": "Voyage Deep Hover",
+        "canonical": "#013D2E",
+        "tonalRamp": ["#011E17", "#012A20", "#013D2E", "#075341", "#176B52", "#478F77", "#88BBA8", "#EEF7F3"]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Voyage Display",
         "purpose": "Confident page statements, route titles, and expressive learning moments."
+      },
+      "marketing-display": {
+        "displayName": "Marketing Display",
+        "purpose": "Short, balanced public-page statements with a lighter 600 weight and compressed 0.9 line height."
       },
       "body": {
         "displayName": "Voyage Sans",
@@ -83,6 +141,10 @@
       "label": {
         "displayName": "Voyage Labels",
         "purpose": "Compact uppercase context for subtests, sections, and statuses."
+      },
+      "brand-wordmark": {
+        "displayName": "Vecalss Wordmark",
+        "purpose": "The Sports World face is reserved for the Vecalss brand name in logo lockups."
       }
     },
     "shadows": [
@@ -105,6 +167,11 @@
         "name": "parchment-panel",
         "value": "0 26px 80px -46px rgba(1,76,56,0.24), inset 0 1px 0 rgba(255,255,255,0.6)",
         "purpose": "Soft depth for larger pale panels without making them feel heavy."
+      },
+      {
+        "name": "floating-navigation",
+        "value": "0 16px 44px -30px rgba(1,76,56,0.5)",
+        "purpose": "Reserved for the functional public navigation shell; landing story content remains flat on Harbor Canvas."
       }
     ],
     "motion": [
@@ -126,7 +193,52 @@
       {
         "name": "reduced-motion",
         "value": "@media (prefers-reduced-motion: reduce)",
-        "purpose": "Remove translation, tilt, and looping motion while preserving state changes."
+        "purpose": "Show final static landing compositions, stop loops, and switch anchor scrolling to auto while preserving state changes."
+      },
+      {
+        "name": "hero-continuous-handoff",
+        "value": "scroll-linked translate, scale, opacity, blur with 5.8s bounded satellite drift",
+        "purpose": "Keep the full hero visible immediately, then gently recede it as the portrait scene enters."
+      },
+      {
+        "name": "orbit-entrance",
+        "value": "transform, opacity, filter 720ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Alternate Kapten and alumni portraits inward from the left and right edges, then let them drift outward slightly on exit."
+      },
+      {
+        "name": "university-logo-wheel",
+        "value": "section-scroll-linked rotate(-180deg → 180deg); marks counter-rotate",
+        "purpose": "Roll the six real university marks through the same edge clusters as the Kapten statement while the document moves through the scene, keeping each mark upright and readable."
+      },
+      {
+        "name": "program-reveal",
+        "value": "transform, opacity, filter, clip-path 720ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Reveal transparent program offerings in sequence across the shared divider grid."
+      },
+      {
+        "name": "learning-stack-to-fan",
+        "value": "transform, opacity, filter 820ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Open five free-floating learning groups from one stack into the final fan."
+      },
+      {
+        "name": "scene-scroll-handoff",
+        "value": "requestAnimationFrame CSS variables; translate up to 54px, scale to .965, blur to 3.5px",
+        "purpose": "Carry outgoing scenes in the direction of travel while the next composition enters, without React re-renders."
+      },
+      {
+        "name": "hero-core-breathe",
+        "value": "transform 5.4s cubic-bezier(0.16, 1, 0.3, 1) infinite while visible",
+        "purpose": "A restrained mascot pulse that pauses when the hero is offscreen or the page is hidden."
+      },
+      {
+        "name": "testimonial-stage",
+        "value": "transform, opacity, filter 620ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Shuffle direct quote groups between previous, active, and next depth positions while controls remain stationary."
+      },
+      {
+        "name": "landing-anchor-scroll",
+        "value": "scroll-behavior: smooth; auto under prefers-reduced-motion",
+        "purpose": "Move in-page landing links smoothly at the document root without overriding reduced-motion preference."
       }
     ],
     "breakpoints": [
@@ -216,23 +328,70 @@
       "description": "A progress landmark that makes an available lesson feel tangible and actionable.",
       "html": "<a class='ds-journey-node' href='#'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z'></path><path d='M4 5.5v16'></path></svg><span>Bagian 1</span></a>",
       "css": ".ds-journey-node{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:112px;height:112px;border:4px solid #fff;border-radius:38px;background:#176B4D;color:#fff;text-decoration:none;font:800 12px/1.1 var(--font-voyage-sans),sans-serif;box-shadow:0 9px 0 #0F563B,0 26px 48px -30px rgba(23,107,77,.68);transition:transform 200ms ease,background-color 200ms ease,box-shadow 200ms ease}.ds-journey-node svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-journey-node:hover{transform:translateY(-4px);background:#2F8A5D}.ds-journey-node:active{transform:translateY(3px);box-shadow:0 3px 0 #0F563B}.ds-journey-node:focus-visible{outline:3px solid rgba(65,153,125,.5);outline-offset:4px}"
+    },
+    {
+      "name": "Continuous Landing Canvas",
+      "kind": "custom",
+      "refersTo": "marketing-scene",
+      "description": "A full-width story beat placed directly on the same uninterrupted Harbor Canvas as every neighboring section.",
+      "html": "<section class='ds-landing-scene'><div class='ds-network' aria-hidden='true'><span>✦</span><span>◎</span><b>V</b><span>△</span><span>✺</span></div><h2>Semuanya terhubung.</h2><p>Materi, latihan, hasil, dan pendampingan berada di satu rute yang jelas.</p></section>",
+      "css": ".ds-landing-scene{display:grid;place-items:center;width:100%;min-height:480px;padding:48px 24px;overflow:hidden;background:#EEF2F0;color:#014C38;text-align:center;font-family:var(--font-voyage-sans),sans-serif}.ds-landing-scene h2{max-width:10ch;margin:28px 0 0;font:600 clamp(40px,7vw,80px)/.9 var(--font-voyage-display),sans-serif;letter-spacing:-.04em}.ds-landing-scene p{max-width:52ch;margin:18px 0 0;font:500 15px/1.7 var(--font-voyage-sans),sans-serif}.ds-network{position:relative;display:grid;grid-template-columns:repeat(5,56px);align-items:center;gap:18px}.ds-network:before{position:absolute;left:28px;right:28px;top:50%;height:1px;background:rgba(1,76,56,.2);content:''}.ds-network span,.ds-network b{position:relative;display:grid;place-items:center;width:56px;height:56px;background:transparent;color:#014C38;font-style:normal;box-shadow:none}.ds-network b{width:72px;height:72px;border:1px solid rgba(1,76,56,.2);border-radius:20px;font:400 24px/1 var(--font-sports-world),sans-serif}@media(max-width:639px){.ds-landing-scene{min-height:420px;padding-inline:16px}.ds-network{grid-template-columns:repeat(3,52px)}.ds-network span:nth-of-type(2),.ds-network span:nth-of-type(4){display:none}}"
+    },
+    {
+      "name": "Floating Marketing Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-marketing",
+      "description": "A compact fixed-style entry shell with a brand lockup, pill links, and one dominant conversion action.",
+      "html": "<header class='ds-marketing-nav'><a class='ds-marketing-brand' href='#' aria-label='Vecalss homepage'><b>V</b><span>VECALSS</span></a><nav aria-label='Navigasi utama'><a href='#'>Tentang</a><a href='#'>Program</a><a href='#'>Alumni</a></nav><a class='ds-marketing-cta' href='#'>Mulai belajar</a></header>",
+      "css": ".ds-marketing-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:800px;min-height:56px;padding:0 8px 0 16px;border:1px solid rgba(1,76,56,.1);border-radius:16px;background:rgba(255,255,255,.96);color:#014C38;box-shadow:0 16px 44px -30px rgba(1,76,56,.5);font-family:var(--font-voyage-sans),sans-serif}.ds-marketing-brand{display:flex;align-items:center;gap:8px;min-height:44px;color:inherit;text-decoration:none}.ds-marketing-brand b{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#014C38;color:#fff}.ds-marketing-brand span{font:400 16px/1 var(--font-sports-world),sans-serif;letter-spacing:.08em}.ds-marketing-nav nav{display:flex;align-items:center;gap:4px}.ds-marketing-nav nav a{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:999px;color:rgba(1,76,56,.78);font-size:12px;font-weight:600;text-decoration:none}.ds-marketing-nav nav a:hover{background:#F1F5F3;color:#014C38}.ds-marketing-cta{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:12px;background:#014C38;color:#fff;font-size:12px;font-weight:700;text-decoration:none}.ds-marketing-cta:hover{background:#013D2E}.ds-marketing-nav a:focus-visible{outline:3px solid rgba(47,138,93,.45);outline-offset:3px}@media(max-width:639px){.ds-marketing-nav nav{display:none}.ds-marketing-cta{width:44px;padding:0;justify-content:center;font-size:0}.ds-marketing-cta:after{content:'→';font-size:18px}}"
+    },
+    {
+      "name": "Program Divider Grid",
+      "kind": "custom",
+      "refersTo": "program-grid-item",
+      "description": "Four transparent program offerings share quiet divider lines instead of becoming closed cards.",
+      "html": "<section class='ds-program-grid'><article><i>✦</i><b>Voyager Intensif</b><span>Persiapan terarah</span></article><article><i>◎</i><b>Tryout</b><span>Ukur kesiapan</span></article><article><i>△</i><b>Mentoring</b><span>Jaga ritme</span></article><article><i>↗</i><b>Bank Soal</b><span>Latihan yang terhubung</span></article></section>",
+      "css": ".ds-program-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-block:1px solid rgba(1,76,56,.16);background:#EEF2F0;color:#014C38;font-family:var(--font-voyage-sans),sans-serif}.ds-program-grid article{display:flex;min-height:220px;padding:24px;flex-direction:column;justify-content:flex-end;border-right:1px solid rgba(1,76,56,.16);background:transparent}.ds-program-grid article:nth-child(3){border-right:0}.ds-program-grid article:nth-child(4){grid-column:1/-1;min-height:180px;border-top:1px solid rgba(1,76,56,.16);border-right:0}.ds-program-grid i{margin-bottom:auto;color:#014C38;font-size:38px;font-style:normal}.ds-program-grid b{font-size:20px;letter-spacing:-.03em}.ds-program-grid span{margin-top:8px;color:rgba(1,76,56,.78);font-size:13px}@media(max-width:639px){.ds-program-grid{grid-template-columns:1fr}.ds-program-grid article,.ds-program-grid article:nth-child(3),.ds-program-grid article:nth-child(4){grid-column:auto;min-height:180px;border-right:0;border-top:1px solid rgba(1,76,56,.16)}.ds-program-grid article:first-child{border-top:0}}"
+    },
+    {
+      "name": "Learning Step Fan",
+      "kind": "custom",
+      "refersTo": "learning-step",
+      "description": "Five free-floating art-and-text groups open from one stack into a connected learning sequence.",
+      "html": "<div class='ds-learning-fan'><article><i>✦</i><b>Materi</b><span>Konsep</span></article><article><i>◎</i><b>Kuis</b><span>Pemahaman</span></article><article><i>△</i><b>Tryout</b><span>Kesiapan</span></article><article><i>↗</i><b>Progres</b><span>Arah</span></article><article><i>✺</i><b>Mentoring</b><span>Ritme</span></article></div>",
+      "css": ".ds-learning-fan{display:flex;align-items:flex-end;justify-content:center;min-height:300px;padding:36px 12px 52px;background:#EEF2F0;overflow:hidden;font-family:var(--font-voyage-sans),sans-serif}.ds-learning-fan article{display:flex;flex:0 0 142px;flex-direction:column;align-items:center;justify-content:flex-end;height:220px;margin:0 -8px;padding:18px;background:transparent;color:#014C38;text-align:center;transform-origin:50% 125%}.ds-learning-fan article:nth-child(1){transform:translateY(46px) rotate(-16deg)}.ds-learning-fan article:nth-child(2){transform:translateY(14px) rotate(-8deg)}.ds-learning-fan article:nth-child(3){z-index:2;transform:translateY(-4px) scale(1.03)}.ds-learning-fan article:nth-child(4){transform:translateY(14px) rotate(8deg)}.ds-learning-fan article:nth-child(5){transform:translateY(46px) rotate(16deg)}.ds-learning-fan i{margin-bottom:auto;color:#014C38;font-size:40px;font-style:normal}.ds-learning-fan b{font-size:18px;letter-spacing:-.03em}.ds-learning-fan span{margin-top:8px;color:rgba(1,76,56,.78);font-size:12px}@media(max-width:639px){.ds-learning-fan article{flex-basis:112px}.ds-learning-fan article:nth-child(1),.ds-learning-fan article:nth-child(5){opacity:.42}}"
+    },
+    {
+      "name": "Testimonial Stage",
+      "kind": "custom",
+      "refersTo": "testimonial-story",
+      "description": "One accessible quote group is centered directly on Harbor Canvas while transparent side previews provide visual continuity.",
+      "html": "<section class='ds-testimonial-stage' aria-label='Cerita Voyager'><article class='ds-testimonial-side' aria-hidden='true'>Arah belajarku jadi jelas.</article><article class='ds-testimonial-active' aria-live='polite'><b>Naila</b><small>Sosiologi UNAIR</small><span aria-label='5 dari 5 bintang'>★★★★★</span><p>“Belajarku jadi lebih terarah dan nggak berasa sendirian.”</p></article><article class='ds-testimonial-side' aria-hidden='true'>Materinya lengkap dan suportif.</article><div class='ds-testimonial-controls'><button aria-label='Cerita sebelumnya'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='m15 18-6-6 6-6'/></svg></button><button aria-label='Cerita berikutnya'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='m9 18 6-6-6-6'/></svg></button></div></section>",
+      "css": ".ds-testimonial-stage{position:relative;display:flex;align-items:flex-start;justify-content:center;min-height:390px;padding:20px 0 72px;overflow:hidden;background:#EEF2F0;color:#014C38;font-family:var(--font-voyage-sans),sans-serif}.ds-testimonial-active,.ds-testimonial-side{width:314px;padding:32px 28px;background:transparent;text-align:center}.ds-testimonial-active{position:relative;z-index:2}.ds-testimonial-active b,.ds-testimonial-active small,.ds-testimonial-active span{display:block}.ds-testimonial-active b{font-size:24px;letter-spacing:-.03em}.ds-testimonial-active small{margin-top:6px;color:rgba(1,76,56,.78)}.ds-testimonial-active span{margin-top:22px;color:#E8AD16;letter-spacing:3px}.ds-testimonial-active p{margin:18px 0 0;color:rgba(1,76,56,.78);font-size:14px;line-height:1.7}.ds-testimonial-side{position:absolute;top:52px;opacity:.36;font-size:14px}.ds-testimonial-side:first-child{left:3%;transform:rotate(-6deg)}.ds-testimonial-side:nth-child(3){right:3%;transform:rotate(6deg)}.ds-testimonial-controls{position:absolute;bottom:16px;display:flex;gap:8px}.ds-testimonial-controls button{display:grid;place-items:center;width:44px;height:44px;border:1px solid rgba(1,76,56,.24);border-radius:999px;background:transparent;color:#014C38}.ds-testimonial-controls svg{width:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-testimonial-controls button:hover{background:rgba(255,255,255,.42)}.ds-testimonial-controls button:focus-visible{outline:3px solid rgba(47,138,93,.45);outline-offset:3px}@media(max-width:639px){.ds-testimonial-side{display:none}.ds-testimonial-active{width:min(78vw,314px)}}"
     }
   ],
   "narrative": {
     "northStar": "The Playful Voyage Map",
-    "overview": "Vecalss makes learning feel like a journey with a visible route, friendly landmarks, and a clear next step. The Materi experience is the strongest expression of this idea: sea-glass gradients soften the surface, deep green anchors actions and progress, and voyage illustrations turn completion into a small story rather than a checklist.\n\nThe system is playful but purposeful. It uses generous rounded geometry, confident type, tactile interaction feedback, and a light canvas so students can scan quickly without losing warmth. Playfulness belongs in the moments that explain progress, invite action, or reward completion; authoring and operational surfaces should borrow the same language with a calmer density.",
+    "overview": "Vecalss makes learning feel like a journey with a visible route, friendly landmarks, and a clear next step. The Materi experience is the strongest expression of this idea: sea-glass gradients soften the surface, deep green anchors actions and progress, and voyage illustrations turn completion into a small story rather than a checklist.\n\nThe system is playful but purposeful. It uses generous rounded geometry, confident type, tactile interaction feedback, and a light canvas so students can scan quickly without losing warmth. Playfulness belongs in the moments that explain progress, invite action, or reward completion; authoring and operational surfaces should borrow the same language with a calmer density.\n\nPublic storytelling extends that world across one uninterrupted pale Harbor Canvas. A connected hero network, real Kapten and alumni, campus marks, voyage objects, and the mascot sit directly on that field so every learning activity and person reads as part of one route toward campus. Story beats are shaped by whitespace, scale, and motion rather than filled panels or card containers; operational screens inherit the materials and contrast without copying this stagecraft.",
     "keyCharacteristics": [
       "Deep voyage green paired with sea-glass mint gradients.",
       "Friendly, heavy headings with readable supporting copy.",
-      "Soft-lifted cards with occasional offset shadows for tactile states.",
+      "Soft-lifted cards and tactile depth only where the product needs a functional container or control.",
       "Rounded containers, expressive icons, and purposeful voyage illustrations.",
-      "Small lifts, tilts, and presses that clarify interaction without becoming a game layer."
+      "Small lifts, tilts, and presses that clarify interaction without becoming a game layer.",
+      "One continuous pale Harbor Canvas with full-width story beats separated by whitespace.",
+      "Connected networks, human orbits, free-floating step fans, and moving proof that explain relationships spatially."
     ],
     "rules": [
       { "name": "The Sea-Glass Contrast Rule", "body": "Use pale mint gradients to support hierarchy, never as a substitute for text contrast. Primary actions, headings, and progress states must remain anchored in deep green.", "section": "colors" },
       { "name": "The One Warm Accent Rule", "body": "Warm sun is an event color. Do not let it become a second competing brand palette across ordinary cards or navigation.", "section": "colors" },
+      { "name": "The Continuous-Harbor Rule", "body": "Keep the public landing on one pale Harbor Canvas. Separate story beats with space and composition, never with filled, bordered, rounded, or shadowed section frames.", "section": "colors" },
+      { "name": "The Warm-Material Rule", "body": "Warm fills support art, milestones, and proof. They do not become backing cards behind landing-page art or replace the green action hierarchy without a verified contrast pairing.", "section": "colors" },
       { "name": "The Bold-Then-Readable Rule", "body": "Let headings carry the personality through weight and scale; never make supporting copy compete through decoration or compressed line length.", "section": "typography" },
+      { "name": "The Statement-and-Support Rule", "body": "Let one large, short statement carry each marketing story beat; supporting copy stays modest, high-contrast, and comfortably measured beneath it.", "section": "typography" },
+      { "name": "The One-Connected-Voyage Rule", "body": "Relationship layouts must communicate a system—people, learning activities, and outcomes connected to one journey—not a decorative collage of disconnected elements.", "section": "layout" },
       { "name": "The Soft-Lift Rule", "body": "Resting surfaces should feel light; motion and shadow should explain affordance, state, or progress rather than decorate every edge.", "section": "elevation" },
+      { "name": "The Motion-Is-Evidence Rule", "body": "Animate connection, hierarchy, or state; if the composition stops making sense when animation stops, the composition is not finished.", "section": "elevation" },
       { "name": "The Three Button Families Rule", "body": "Pills belong to marketing and onboarding, compact rounded controls belong to workspace and admin tasks, and tactile larger-corner controls belong to learning progress. Keep the shared color, focus, and disabled contract across all three.", "section": "components" }
     ],
     "dos": [
@@ -242,7 +401,12 @@
       "**Do** keep body copy calm, readable, and comfortably spaced beneath bold headings.",
       "**Do** carry the same tactile language into Kapten and admin surfaces while reducing decorative density for operational work.",
       "**Do** select the button family from the surface: marketing/onboarding pills, workspace/admin controls, or learning tactile actions.",
-      "**Do** keep button color, border, focus, disabled, and loading states on named tokens or shared variants."
+      "**Do** keep button color, border, focus, disabled, and loading states on named tokens or shared variants.",
+      "**Do** run public story beats directly across one uninterrupted Harbor Canvas.",
+      "**Do** make the learning system spatially connected through routes, orbits, dividers, and free-floating groups.",
+      "**Do** use real Kapten, alumni, campus, mascot, and voyage assets where proof or identity is the message.",
+      "**Do** preserve one readable active item, visible focus, 44px targets, and 4.5:1 small-copy contrast.",
+      "**Do** verify public-surface changes at both 1440px and 390px and refresh the evidence paths above."
     ],
     "donts": [
       "**Don't** turn the product into a generic admin panel of dense tables, tiny labels, or analytics-first blocks.",
@@ -252,7 +416,12 @@
       "**Don't** remove the tactile hover, focus, and press cues from interactive learning controls without replacing them with an equally clear state signal.",
       "**Don't** use marketing pills as the default shape for admin, Kapten, or student workspace actions.",
       "**Don't** mix strong dark borders, solid fills, and equal emphasis in a secondary action group.",
-      "**Don't** hard-code route-specific button colors when a family token already expresses the intended meaning."
+      "**Don't** hard-code route-specific button colors when a family token already expresses the intended meaning.",
+      "**Don't** add filled cards, art wells, rounded section frames, border boxes, or shadows behind landing-page content groups.",
+      "**Don't** carry orbit, fan, or full-viewport scene staging into operational screens by default.",
+      "**Don't** depend on movement, side previews, or decorative imagery to communicate essential content.",
+      "**Don't** expose inactive testimonial groups to assistive technology or duplicate live announcements.",
+      "**Don't** shrink desktop compositions uniformly on mobile; replace them with an intentional reading order."
     ]
   }
 }

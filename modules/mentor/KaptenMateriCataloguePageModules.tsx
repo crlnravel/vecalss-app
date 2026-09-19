@@ -15,10 +15,8 @@ import {
 import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
-import type {
-  DataTableColumn,
-  DataTableFilter,
-} from "@/components/ui/data-table";
+import type { DataTableColumn } from "@/components/ui/data-table";
+import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   ContextMenuContent,
@@ -32,11 +30,7 @@ import {
   ReferenceSurface,
   ReferenceStatusBadge,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import {
-  REFERENCE_CONTROL_CLASS_NAMES,
-  REFERENCE_FIELD_LABEL_CLASS_NAME,
-  REFERENCE_SURFACE_CLASS_NAMES,
-} from "@/components/dashboard/reference-dashboard-tokens";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   buildMentorMateriCreateHref as buildCanonicalMateriCreateHref,
@@ -47,7 +41,6 @@ import {
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
-  DropdownField,
   PaginationLinks,
 } from "@/modules/mentor/components/kapten-ui";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
@@ -65,13 +58,14 @@ import { cn } from "@/lib/utils";
 
 type MateriSortKey = "" | "status" | "title";
 type MateriSortDirection = "asc" | "desc";
+type MateriStatusFilter = "" | "archived" | "draft" | "published" | "scheduled";
 
 type MateriCatalogueQuery = {
   direction?: MateriSortDirection;
   page?: number;
   q?: string;
   sort?: MateriSortKey;
-  status?: string;
+  status?: MateriStatusFilter;
 };
 
 function buildCreateHref(subjectSlug?: string, returnTo?: string) {
@@ -97,16 +91,6 @@ function buildMateriSubjectHref(
     sort: query.sort as MateriSubjectQuery["sort"],
     status: query.status as MateriSubjectQuery["status"],
   });
-}
-
-function statusLabel(status: KaptenMateriView["status"]) {
-  return status === "published"
-    ? "Diterbitkan"
-    : status === "archived"
-      ? "Diarsipkan"
-      : status === "scheduled"
-        ? "Terjadwal"
-        : "Draf";
 }
 
 function sortLessons(
@@ -147,7 +131,7 @@ type MateriCatalogueState = {
   query: string;
   sort: MateriSortKey;
   sortDirection: MateriSortDirection;
-  statusFilter: string;
+  statusFilter: MateriStatusFilter;
   tableVersion: number;
 };
 
@@ -185,7 +169,7 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
     <Link
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
-        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
         "group flex min-w-0 flex-col p-4",
       )}
       href={buildMateriSubjectHref(subject.slug)}
@@ -199,9 +183,12 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
           {subjectCategory}
         </MentorBadge>
       </div>
-      <h2 className="mt-4 text-xl font-semibold text-secondary-900">
-        {subject.name}
+      <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-secondary-900">
+        {subject.code}
       </h2>
+      <p className="mt-1 text-sm leading-6 text-secondary-600">
+        {subject.name}
+      </p>
     </Link>
   );
 }
@@ -263,7 +250,7 @@ function KaptenMateriSubjectPageModule({
   initialQuery?: string;
   initialSort?: MateriSortKey;
   initialSortDirection?: MateriSortDirection;
-  initialStatusFilter?: string;
+  initialStatusFilter?: MateriStatusFilter;
   session: SessionContext;
   subject: KaptenMateriSubjectView;
 }) {
@@ -437,7 +424,7 @@ type MateriSubjectCatalogueActions = {
     lesson: KaptenMateriView,
     action: "archive" | "delete" | "publish" | "restore" | "unpublish",
   ) => void;
-  onStatusFilterChange: (value: string) => void;
+  onStatusFilterChange: (value: MateriStatusFilter) => void;
 };
 
 type MateriSubjectCatalogueData = {
@@ -447,46 +434,52 @@ type MateriSubjectCatalogueData = {
   visiblePage: number;
 };
 
-function MateriSubjectCatalogueFilterPanel({
-  onStatusFilterChange,
-  statusFilter,
+const materiStatusTabs: Array<{
+  label: string;
+  value: MateriStatusFilter;
+}> = [
+  { label: "Semua", value: "" },
+  { label: "Draf", value: "draft" },
+  { label: "Diterbitkan", value: "published" },
+  { label: "Terjadwal", value: "scheduled" },
+  { label: "Diarsipkan", value: "archived" },
+];
+
+function MateriStatusTabs({
+  items,
+  onChange,
+  value,
 }: {
-  onStatusFilterChange: (value: string) => void;
-  statusFilter: string;
+  items: readonly KaptenMateriView[];
+  onChange: (value: MateriStatusFilter) => void;
+  value: MateriStatusFilter;
 }) {
-  const allFilterOptionValue = "__all__";
+  const counts = {
+    "": items.length,
+    archived: items.filter((item) => item.status === "archived").length,
+    draft: items.filter((item) => item.status === "draft").length,
+    published: items.filter((item) => item.status === "published").length,
+    scheduled: items.filter((item) => item.status === "scheduled").length,
+  };
 
   return (
-    <div className="space-y-3 p-1">
-      <p className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "px-2")}>
-        Filter lesson
-      </p>
-      <div className="space-y-1.5">
-        <label
-          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
-          htmlFor="materi-subject-status-filter"
-        >
-          Status
-        </label>
-        <DropdownField
-          ariaLabel="Filter status"
-          className={REFERENCE_CONTROL_CLASS_NAMES.select}
-          id="materi-subject-status-filter"
-          onValueChange={(value) =>
-            onStatusFilterChange(value === allFilterOptionValue ? "" : value)
-          }
-          options={[
-            { label: "Semua status", value: allFilterOptionValue },
-            { label: "Draf", value: "draft" },
-            { label: "Diterbitkan", value: "published" },
-            { label: "Diarsipkan", value: "archived" },
-            { label: "Terjadwal", value: "scheduled" },
-          ]}
-          placeholder="Semua status"
-          value={statusFilter || allFilterOptionValue}
-        />
-      </div>
-    </div>
+    <CompactFilterTabs
+      aria-label="Filter status Materi"
+      className="w-full"
+      items={materiStatusTabs.map((tab) => ({
+        label: (
+          <>
+            <span>{tab.label}</span>
+            <span className="text-xs font-medium opacity-70">
+              ({counts[tab.value]})
+            </span>
+          </>
+        ),
+        value: tab.value,
+      }))}
+      onValueChange={onChange}
+      value={value}
+    />
   );
 }
 
@@ -541,6 +534,7 @@ function MateriSubjectCatalogueScreen({
   const {
     bulkError,
     bulkNotice,
+    lessons,
     query,
     sort,
     sortDirection,
@@ -562,19 +556,6 @@ function MateriSubjectCatalogueScreen({
     direction: sortDirection,
   });
   const hasActiveFilters = Boolean(query || statusFilter);
-  const activeFilters: DataTableFilter[] = [
-    ...(statusFilter
-      ? [
-          {
-            id: "status",
-            label: "Status",
-            value: statusLabel(statusFilter as KaptenMateriView["status"]),
-            href: buildHref({ status: "" }),
-          },
-        ]
-      : []),
-  ];
-
   const columns: DataTableColumn<KaptenMateriView>[] = [
     {
       cell: (lesson) => (
@@ -698,7 +679,8 @@ function MateriSubjectCatalogueScreen({
               </Button>
             }
             className="min-w-0 flex-1"
-            title={subject.name}
+            description={subject.name}
+            title={subject.code}
           />
         </div>
 
@@ -735,13 +717,6 @@ function MateriSubjectCatalogueScreen({
                 hasActiveFilters={hasActiveFilters}
               />
             }
-            filterPanel={
-              <MateriSubjectCatalogueFilterPanel
-                onStatusFilterChange={actions.onStatusFilterChange}
-                statusFilter={statusFilter}
-              />
-            }
-            filters={activeFilters}
             getRowId={(lesson) => lesson.code}
             key={tableVersion}
             onRowClick={(lesson) =>
@@ -775,6 +750,13 @@ function MateriSubjectCatalogueScreen({
               key: sort || null,
             }}
             tableClassName="min-w-[760px]"
+            toolbarBelowSearch={
+              <MateriStatusTabs
+                items={lessons}
+                onChange={actions.onStatusFilterChange}
+                value={statusFilter}
+              />
+            }
             wrapperClassName={cn(
               REFERENCE_SURFACE_CLASS_NAMES.raised,
               "min-w-0",

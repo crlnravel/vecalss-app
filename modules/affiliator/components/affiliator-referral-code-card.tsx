@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ReferenceSurface } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "@/lib/icons";
 
@@ -27,27 +28,35 @@ function AffiliatorReferralCodeCard({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-3xl border border-primary-100 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)] sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+    <ReferenceSurface
+      aria-label="Kode referral"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-4 p-5 sm:p-6"
+      variant="inset"
+    >
       <div className="min-w-0">
-        <p className="text-ui-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-          {isActive ? "Kode aktif" : "Kode tidak aktif"}
-        </p>
-        <code className="mt-1 block truncate font-mono text-2xl font-semibold tracking-[0.12em] text-primary-900">
-          {code}
-        </code>
+        <p className="text-sm text-secondary-500">Kode referral</p>
+        <div className="mt-1 flex min-w-0 items-center gap-3">
+          <code className="truncate font-mono text-xl font-semibold tracking-[0.12em] text-primary-900">
+            {code}
+          </code>
+          <span className="shrink-0 text-xs text-secondary-500">
+            {isActive ? "Aktif" : "Nonaktif"}
+          </span>
+        </div>
       </div>
       <Button
         aria-label={copied ? "Kode referral tersalin" : "Salin kode referral"}
-        className="w-full sm:w-auto"
+        className="shrink-0"
         disabled={!isActive}
         onClick={() => void copyCode()}
         type="button"
-        variant="brand"
+        variant="brandOutline"
+        size="sm"
       >
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
         <span aria-live="polite">{copied ? "Tersalin" : "Salin kode"}</span>
       </Button>
-    </div>
+    </ReferenceSurface>
   );
 }
 

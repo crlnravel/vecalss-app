@@ -91,6 +91,7 @@ type DataTableProps<T> = {
   columns: readonly DataTableColumn<T>[];
   filterPanel?: ReactNode;
   filters?: readonly DataTableFilter[];
+  toolbarBelowSearch?: ReactNode;
   clearFiltersHref?: string;
   getRowId: (row: T) => string;
   isLoading?: boolean;
@@ -403,6 +404,7 @@ function DataTableGrid<T>({
 
 function DataTableSearchForm({
   cancelPendingSearch,
+  className,
   handleSearchChange,
   handleSearchSubmit,
   isSearchDebouncing,
@@ -413,6 +415,7 @@ function DataTableSearchForm({
   tableIsLoading,
 }: {
   cancelPendingSearch: () => void;
+  className?: string;
   handleSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isSearchDebouncing: boolean;
@@ -426,7 +429,10 @@ function DataTableSearchForm({
     <form
       action={search.action}
       aria-busy={tableIsLoading}
-      className="relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25"
+      className={cn(
+        "relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25",
+        className,
+      )}
       method="get"
       onSubmit={handleSearchSubmit}
     >
@@ -607,6 +613,7 @@ function DataTableToolbar<T>({
   setVisibleColumnIds,
   visibleColumnIds,
   visibleColumns,
+  toolbarBelowSearch,
 }: {
   cancelPendingSearch: () => void;
   columns: readonly DataTableColumn<T>[];
@@ -625,6 +632,7 @@ function DataTableToolbar<T>({
   setVisibleColumnIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   visibleColumnIds: Set<string>;
   visibleColumns: readonly DataTableColumn<T>[];
+  toolbarBelowSearch?: ReactNode;
 }) {
   const {
     hasCustomColumnVisibility,
@@ -637,61 +645,72 @@ function DataTableToolbar<T>({
   } = flags;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-      {search ? (
-        <DataTableSearchForm
-          cancelPendingSearch={cancelPendingSearch}
-          handleSearchChange={handleSearchChange}
-          handleSearchSubmit={handleSearchSubmit}
-          isSearchDebouncing={isSearchDebouncing}
-          isSearchPending={isSearchPending}
-          search={search}
-          searchId={searchId}
-          searchValue={searchValue}
-          tableIsLoading={tableIsLoading}
-        />
-      ) : (
-        <div className="min-w-0 flex-1" />
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5",
+        toolbarBelowSearch && "flex-col items-stretch",
       )}
-
-      <div className="flex items-center gap-2">
-        {filterPanel ? (
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  aria-label="Buka filter tabel"
-                  className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl motion-reduce:transition-none aria-expanded:bg-secondary-50"
-                  size="icon-sm"
-                  type="button"
-                  variant={filters.length ? "contextSelected" : "ghost"}
-                />
-              }
-            >
-              <ListFilter aria-hidden="true" />
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
-              {filterPanel}
-            </PopoverContent>
-          </Popover>
-        ) : null}
-
-        {hasTableMenu ? (
-          <DataTableActionMenu
-            columns={columns}
-            hasCustomColumnVisibility={hasCustomColumnVisibility}
-            hasSelection={hasSelection}
-            moreMenu={moreMenu}
-            resetColumns={resetColumns}
-            selectionActionMenu={selectionActionMenu}
-            setSelectedIds={setSelectedIds}
-            setVisibleColumnIds={setVisibleColumnIds}
-            showColumnVisibility={showColumnVisibility}
-            visibleColumnIds={visibleColumnIds}
-            visibleColumns={visibleColumns}
+    >
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-3">
+        {search ? (
+          <DataTableSearchForm
+            cancelPendingSearch={cancelPendingSearch}
+            className={toolbarBelowSearch ? "w-full flex-none" : undefined}
+            handleSearchChange={handleSearchChange}
+            handleSearchSubmit={handleSearchSubmit}
+            isSearchDebouncing={isSearchDebouncing}
+            isSearchPending={isSearchPending}
+            search={search}
+            searchId={searchId}
+            searchValue={searchValue}
+            tableIsLoading={tableIsLoading}
           />
-        ) : null}
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
+
+        <div className="flex items-center gap-2">
+          {filterPanel ? (
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    aria-label="Buka filter tabel"
+                    className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl motion-reduce:transition-none aria-expanded:bg-secondary-50"
+                    size="icon-sm"
+                    type="button"
+                    variant={filters.length ? "contextSelected" : "ghost"}
+                  />
+                }
+              >
+                <ListFilter aria-hidden="true" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
+                {filterPanel}
+              </PopoverContent>
+            </Popover>
+          ) : null}
+
+          {hasTableMenu ? (
+            <DataTableActionMenu
+              columns={columns}
+              hasCustomColumnVisibility={hasCustomColumnVisibility}
+              hasSelection={hasSelection}
+              moreMenu={moreMenu}
+              resetColumns={resetColumns}
+              selectionActionMenu={selectionActionMenu}
+              setSelectedIds={setSelectedIds}
+              setVisibleColumnIds={setVisibleColumnIds}
+              showColumnVisibility={showColumnVisibility}
+              visibleColumnIds={visibleColumnIds}
+              visibleColumns={visibleColumns}
+            />
+          ) : null}
+        </div>
       </div>
+      {toolbarBelowSearch ? (
+        <div className="w-full min-w-0">{toolbarBelowSearch}</div>
+      ) : null}
     </div>
   );
 }
@@ -720,6 +739,7 @@ function DataTable<T>({
   selection = false,
   selectionActions,
   tableClassName,
+  toolbarBelowSearch,
 }: DataTableProps<T>) {
   const router = useRouter();
   const searchId = useId();
@@ -872,6 +892,7 @@ function DataTable<T>({
         setVisibleColumnIds={setVisibleColumnIds}
         visibleColumnIds={visibleColumnIds}
         visibleColumns={visibleColumns}
+        toolbarBelowSearch={toolbarBelowSearch}
       />
 
       <DataTableFilterChips clearFiltersHref={clearFiltersHref} filters={filters} />

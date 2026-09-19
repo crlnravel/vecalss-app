@@ -25,10 +25,8 @@ type QuestionBankErrorCode =
   | "invalid_input"
   | "invalid_lifecycle_transition"
   | "not_found"
-  | "published_content_locked"
   | "question_retired"
   | "readiness_failed"
-  | "scheduled_unsupported"
   | "stale_revision";
 
 type QuestionBankErrorOptions = {
@@ -161,15 +159,6 @@ function assertExpectedBankVersion(
   if (expectedRevision !== undefined && bank.revision !== expectedRevision) {
     throw new QuestionBankOrganizationError(
       "Bank Soal telah diperbarui. Muat ulang lalu coba lagi.",
-    );
-  }
-}
-
-function assertBankMutationSupported(status: ContentStatus) {
-  if (status === ContentStatus.scheduled) {
-    throw new QuestionBankOrganizationError(
-      "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-      { code: "scheduled_unsupported", details: { status } },
     );
   }
 }
@@ -616,26 +605,6 @@ async function removeQuestionBankFolder(
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
 
       await tx.$queryRaw`SELECT id FROM question_banks ORDER BY id FOR UPDATE`;
-      const scheduledBankCount = await tx.questionBank.count({
-        where: {
-          folderId: id,
-          purpose: normalizedPurpose,
-          status: ContentStatus.scheduled,
-        },
-      });
-      if (scheduledBankCount) {
-        throw new QuestionBankOrganizationError(
-          "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-          {
-            code: "scheduled_unsupported",
-            details: {
-              bankCount: scheduledBankCount,
-              operation: "remove_folder",
-              status: ContentStatus.scheduled,
-            },
-          },
-        );
-      }
       await tx.questionBank.updateMany({
         data: { folderId: current.parentId, updatedByUserId: actorId },
         where: { folderId: id, purpose: normalizedPurpose },
@@ -788,7 +757,6 @@ async function setQuestionBankCategories(
       if (!bank)
         throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
-      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived)
         throw new QuestionBankOrganizationError(
           "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
@@ -852,7 +820,6 @@ async function assignQuestionBankCategories(
       if (!bank)
         throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
-      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived)
         throw new QuestionBankOrganizationError(
           "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
@@ -911,7 +878,6 @@ async function removeQuestionBankCategoryAssignment(
       if (!bank)
         throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
-      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived)
         throw new QuestionBankOrganizationError(
           "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
@@ -986,7 +952,6 @@ async function moveQuestionBanksToFolder(
       banks.forEach((bank) =>
         assertExpectedBankVersion(bank, options?.expected?.[bank.id]),
       );
-      banks.forEach((bank) => assertBankMutationSupported(bank.status));
       if (banks.some((bank) => bank.status === ContentStatus.archived))
         throw new QuestionBankOrganizationError(
           "Bank Soal yang diarsipkan tidak dapat dipindahkan.",

@@ -237,12 +237,14 @@ function ParticipantActionsPanel({
         </CardHeader>
         <CardContent className="grid gap-4">
           <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="participant-audit-reason">Alasan audit</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="participant-audit-reason" required>Alasan audit</FieldLabel>
             <FieldInput
+              aria-required="true"
               className={REFERENCE_CONTROL_CLASS_NAMES.input}
               id="participant-audit-reason"
               onChange={(event) => setAuditReason(event.target.value)}
               placeholder="Jelaskan alasan tindakan"
+              required
               value={auditReason}
             />
           </Field>
@@ -418,7 +420,7 @@ function KaptenTryoutParticipantDetailPageModule({
           aria-label="Kembali ke daftar peserta Tryout"
           className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
           nativeButton={false}
-          render={<Link href={`/mentor/tryout/${initial.id}/operations/participants`} />}
+          render={<Link href={`/mentor/tryout/${initial.id}?workspace=participants`} />}
           size="icon"
           title="Kembali ke daftar peserta Tryout"
           variant="ghost"

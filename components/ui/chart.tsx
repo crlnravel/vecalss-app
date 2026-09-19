@@ -304,29 +304,34 @@ function ChartLegendContent({
       {payload.reduce<React.ReactNode[]>((items, item) => {
         if (item.type === "none") return items
 
-        const key = `${nameKey ?? item.dataKey ?? "value"}`
-        const itemConfig = getPayloadConfigFromPayload(config, item, key)
+        const configKey = `${nameKey ?? item.dataKey ?? "value"}`
+        const itemConfig = getPayloadConfigFromPayload(config, item, configKey)
+        const payloadKey =
+          typeof item.payload === "object" && item.payload !== null && "key" in item.payload
+            ? item.payload.key
+            : undefined
+        const reactKey = `${payloadKey ?? item.value ?? item.dataKey ?? "item"}-${items.length}`
 
         items.push(
-            <div
-              key={key}
-              className={cn(
-                "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
-              )}
-            >
-              {itemConfig?.icon && !hideIcon ? (
-                <itemConfig.icon />
-              ) : (
-                <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
-                />
-              )}
-              {itemConfig?.label}
-            </div>
-          )
+          <div
+            key={reactKey}
+            className={cn(
+              "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
+            )}
+          >
+            {itemConfig?.icon && !hideIcon ? (
+              <itemConfig.icon />
+            ) : (
+              <div
+                className="h-2 w-2 shrink-0 rounded-[2px]"
+                style={{
+                  backgroundColor: item.color,
+                }}
+              />
+            )}
+            {itemConfig?.label}
+          </div>
+        )
         return items
       }, [])}
     </div>

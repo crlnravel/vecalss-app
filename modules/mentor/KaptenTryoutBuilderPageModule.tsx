@@ -7,11 +7,11 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Copy,
   Eye,
   ImagePlus,
-  Lock,
   Save,
   Search,
   SendHorizontal,
@@ -25,7 +25,6 @@ import {
   useRef,
   useState,
   type ComponentProps,
-  type Dispatch,
 } from "react";
 import { imageMediaMimeTypes } from "@/lib/media/domain";
 import type { MediaAssetDto } from "@/lib/media/types";
@@ -74,7 +73,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ReferencePageHeader,
-  ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
@@ -108,14 +106,19 @@ import {
 } from "@/modules/mentor/question-bank-actions";
 import {
   duplicateTryoutAction,
+  archiveTryoutAction,
+  deleteTryoutAction,
   saveTryoutAction,
   unpublishTryoutAction,
   updateTryoutMetadataAction,
 } from "@/modules/mentor/tryout-actions";
 import {
-  TryoutLifecycleMenu,
   TryoutWorkspaceHeader,
+  type TryoutWorkspaceTab,
 } from "@/modules/mentor/KaptenTryoutWorkspaceHeader";
+import { KaptenTryoutOperationsModule } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
+import { KaptenTryoutSettingsPageModule } from "@/modules/mentor/KaptenTryoutSettingsPageModule";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<
   "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM"
@@ -1521,10 +1524,6 @@ function TryoutSubtestIndex({
         >
           Subtest Tryout
         </h2>
-        <p className="max-w-[65ch] text-sm leading-6 text-secondary-600">
-          Pilih subtest untuk mengatur durasi, instruksi, metode penilaian, dan
-          soal yang digunakan.
-        </p>
       </div>
       <ul
         aria-label="Daftar subtest Tryout"
@@ -1552,6 +1551,10 @@ function TryoutSubtestIndex({
                   <span className="text-base font-semibold text-secondary-900">
                     {section.subtest}
                   </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="ml-auto size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5"
+                  />
                 </Button>
               ) : (
                 <Button
@@ -1564,6 +1567,10 @@ function TryoutSubtestIndex({
                   <span className="text-base font-semibold text-secondary-900">
                     {section.subtest}
                   </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="ml-auto size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5"
+                  />
                 </Button>
               )}
             </li>
@@ -2136,6 +2143,54 @@ function useTryoutBuilderState({
     }
   };
 
+  const archive = async () => {
+    if (!id) return;
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
+    try {
+      const result = await archiveTryoutAction(id);
+      if (!result.ok) {
+        dispatch({ error: result.message, type: "setError" });
+        return;
+      }
+      window.location.assign("/mentor/tryout");
+    } catch (archiveError) {
+      dispatch({
+        error:
+          archiveError instanceof Error
+            ? archiveError.message
+            : "Tryout belum dapat diarsipkan. Coba lagi.",
+        type: "setError",
+      });
+    } finally {
+      dispatch({ saving: false, type: "setSaving" });
+    }
+  };
+
+  const remove = async () => {
+    if (!id) return;
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
+    try {
+      const result = await deleteTryoutAction(id);
+      if (!result.ok) {
+        dispatch({ error: result.message, type: "setError" });
+        return;
+      }
+      window.location.assign("/mentor/tryout");
+    } catch (deleteError) {
+      dispatch({
+        error:
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Tryout belum dapat dihapus. Coba lagi.",
+        type: "setError",
+      });
+    } finally {
+      dispatch({ saving: false, type: "setSaving" });
+    }
+  };
+
   const saveMetadata = async () => {
     if (!id) return;
     const draftToSave = latestDraftRef.current;
@@ -2338,6 +2393,7 @@ function useTryoutBuilderState({
     activeDirectQuestions,
     activeSection,
     activeSourceQuestions,
+    archive,
     browseBankId,
     configureReady,
     discardDraft,
@@ -2370,6 +2426,7 @@ function useTryoutBuilderState({
     sourceQuestionTotal,
     toggleDirectQuestion,
     unpublish,
+    remove,
     updateDraft,
     unpublishOpen,
     update,
@@ -2378,16 +2435,14 @@ function useTryoutBuilderState({
 
 function TryoutBuilderHeaderActions({
   configureReady,
-  dispatch,
   draft,
-  hasActiveAttempt,
   id,
   mode,
   onPublishClick,
   saving,
 }: Pick<
   ComponentProps<typeof TryoutBuilderHeader>,
-  "dispatch" | "draft" | "hasActiveAttempt" | "id" | "mode" | "saving"
+  "draft" | "id" | "mode" | "saving"
 > & {
   configureReady: boolean;
   onPublishClick: () => void;
@@ -2414,34 +2469,18 @@ function TryoutBuilderHeaderActions({
           {saving ? "Menerbitkan…" : "Terbitkan"}
         </Button>
       ) : null}
-      {mode === "published" || draft.locked ? (
-        <TryoutLifecycleMenu
-          allowDuplicate={mode === "published" || draft.locked}
-          hasActiveAttempt={hasActiveAttempt}
-          onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
-          onUnpublish={
-            mode === "published"
-              ? () => dispatch({ open: true, type: "setUnpublishOpen" })
-              : undefined
-          }
-          saving={saving}
-          status={draft.status}
-          tryoutId={id}
-        />
-      ) : null}
     </div>
   );
 }
 
 function TryoutBuilderNotices({
-  draft,
   error,
   guardExternalNavigation,
   initialParent,
   mode,
 }: Pick<
   React.ComponentProps<typeof TryoutBuilderHeader>,
-  "draft" | "error" | "guardExternalNavigation" | "initialParent" | "mode"
+  "error" | "guardExternalNavigation" | "initialParent" | "mode"
 >) {
   return (
     <>
@@ -2453,19 +2492,6 @@ function TryoutBuilderNotices({
           <CircleAlert className="mt-1 size-4 shrink-0" />
           {error}
         </p>
-      ) : null}
-      {draft.locked ? (
-        <ReferenceSurface
-          className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700"
-          role="status"
-          variant="inset"
-        >
-          <Lock className="mt-1 size-4 shrink-0" />
-          <p>
-            <strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini;
-            buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.
-          </p>
-        </ReferenceSurface>
       ) : null}
       {initialParent && mode === "draft" ? (
         <ReferenceSurface
@@ -2506,34 +2532,32 @@ function TryoutBuilderNotices({
 
 function TryoutBuilderHeader({
   configureReady,
-  dispatch,
   draft,
   error,
   guardExternalNavigation,
-  hasActiveAttempt,
   id,
+  activeWorkspace,
   initialSubtest,
   initialParent,
-  initialWorkspace,
   mode,
   onPublishClick,
+  onWorkspaceChange,
   saving,
 }: {
+  activeWorkspace: TryoutWorkspaceTab;
   configureReady: boolean;
-  dispatch: Dispatch<BuilderAction>;
   draft: TryoutDraft;
   error: string | null;
   guardExternalNavigation: (
     href: string,
     event: { preventDefault: () => void },
   ) => void;
-  hasActiveAttempt: boolean;
   id?: string;
   initialSubtest?: SubjectCode;
   initialParent?: { id: string; publishedAt?: string; title: string };
-  initialWorkspace?: "identity" | "subtests";
   mode: "draft" | "published";
   onPublishClick: () => void;
+  onWorkspaceChange: (tab: TryoutWorkspaceTab) => void;
   saving: boolean;
 }) {
   const isSubtestEditor = Boolean(initialSubtest && id);
@@ -2547,9 +2571,7 @@ function TryoutBuilderHeader({
   const actions = (
     <TryoutBuilderHeaderActions
       configureReady={configureReady}
-      dispatch={dispatch}
       draft={draft}
-      hasActiveAttempt={hasActiveAttempt}
       id={id}
       mode={mode}
       onPublishClick={onPublishClick}
@@ -2564,23 +2586,19 @@ function TryoutBuilderHeader({
     return (
       <>
         <TryoutWorkspaceHeader
-          activeTab={
-            isSubtestEditor || initialWorkspace === "subtests"
-              ? "subtests"
-              : "identity"
-          }
+          activeTab={isSubtestEditor ? "subtests" : activeWorkspace}
           actions={actions}
           backHref={workspaceBackHref}
           backLabel={isSubtestEditor ? "Kembali ke Subtest" : undefined}
           id={id}
+          locked={draft.locked}
+          onTabChange={onWorkspaceChange}
           onNavigate={(href, event) => guardExternalNavigation(href, event)}
           parentId={initialParent?.id}
           showTabs={!isSubtestEditor}
-          status={draft.status}
           title={isSubtestEditor ? `Subtes ${initialSubtest}` : draft.title}
         />
         <TryoutBuilderNotices
-          draft={draft}
           error={error}
           guardExternalNavigation={guardExternalNavigation}
           initialParent={initialParent}
@@ -2615,11 +2633,6 @@ function TryoutBuilderHeader({
               {mode === "published" && !initialSubtest ? (
                 <span>Kelola akses, sesi, dan hasil untuk Tryout ini.</span>
               ) : null}
-              <ReferenceStatusBadge
-                appearance="mentor"
-                size="xs"
-                status={mode === "published" ? "published" : "draft"}
-              />
               {initialSubtest && mode === "draft" && saving ? (
                 <span aria-live="polite">Menyimpan otomatis…</span>
               ) : null}
@@ -2636,7 +2649,6 @@ function TryoutBuilderHeader({
         />
       </div>
       <TryoutBuilderNotices
-        draft={draft}
         error={error}
         guardExternalNavigation={guardExternalNavigation}
         initialParent={initialParent}
@@ -2664,16 +2676,20 @@ function KaptenTryoutBuilderPageModule({
   initialSubtest?: SubjectCode;
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
-  initialWorkspace?: "identity" | "subtests";
+  initialWorkspace?: TryoutWorkspaceTab;
   operationsInitial?: TryoutOperationsView & {
     workflow?: CanonicalTryoutWorkflowProjection;
   };
 }) {
+  const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
+    initialSubtest ? "subtests" : initialWorkspace ?? "identity",
+  );
   const {
     activeBrowseBank,
     activeDirectQuestions,
     activeSection,
     activeSourceQuestions,
+    archive,
     browseBankId,
     configureReady,
     discardDraft,
@@ -2704,6 +2720,7 @@ function KaptenTryoutBuilderPageModule({
     sourceQuestionTotal,
     toggleDirectQuestion,
     unpublish,
+    remove,
     unpublishOpen,
     updateDraft,
     update,
@@ -2718,18 +2735,17 @@ function KaptenTryoutBuilderPageModule({
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
       <TryoutBuilderHeader
+        activeWorkspace={activeWorkspace}
         configureReady={configureReady}
-        dispatch={dispatch}
         draft={draft}
         error={error}
         guardExternalNavigation={guardExternalNavigation}
-        hasActiveAttempt={hasActiveAttempt}
         id={id}
         initialSubtest={initialSubtest}
         initialParent={initialParent}
-        initialWorkspace={initialWorkspace}
         mode={mode}
         onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
+        onWorkspaceChange={setActiveWorkspace}
         saving={saving}
       />
 
@@ -2771,7 +2787,7 @@ function KaptenTryoutBuilderPageModule({
           sourceQuestionTotal={sourceQuestionTotal}
           saving={saving}
         />
-      ) : initialWorkspace === "subtests" ? (
+      ) : activeWorkspace === "subtests" ? (
         <TryoutSubtestIndex
           draft={draft}
           id={id}
@@ -2788,6 +2804,29 @@ function KaptenTryoutBuilderPageModule({
               );
           }}
           readOnly={mode === "published" || draft.locked}
+          saving={saving}
+        />
+      ) : activeWorkspace === "operations" && operationsInitial ? (
+        <ReferenceSurface as="section" className="mt-4 p-5 sm:p-7">
+          <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
+        </ReferenceSurface>
+      ) : activeWorkspace === "participants" && operationsInitial ? (
+        <ReferenceSurface as="section" className="mt-4 p-5 sm:p-7">
+          <KaptenTryoutParticipantsPageModule
+            embedded
+            initial={operationsInitial}
+            parentId={initialParent?.id}
+          />
+        </ReferenceSurface>
+      ) : activeWorkspace === "settings" ? (
+        <KaptenTryoutSettingsPageModule
+          draft={{ locked: draft.locked, status: draft.status, title: draft.title }}
+          error={error}
+          hasActiveAttempt={hasActiveAttempt}
+          onArchive={() => void archive()}
+          onDelete={() => void remove()}
+          onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
+          onUnpublish={() => dispatch({ open: true, type: "setUnpublishOpen" })}
           saving={saving}
         />
       ) : (

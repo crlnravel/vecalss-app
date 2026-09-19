@@ -131,9 +131,7 @@ function HelpTooltip({ content, label }: { content: string; label: string }) {
         <TooltipTrigger render={<Button aria-label={label} size="icon-xs" type="button" variant="ghost" />}>
           <CircleHelp />
         </TooltipTrigger>
-        <TooltipContent className="border bg-card text-card-foreground [&>svg]:bg-card [&>svg]:fill-card">
-          {content}
-        </TooltipContent>
+        <TooltipContent>{content}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -142,9 +140,8 @@ function HelpTooltip({ content, label }: { content: string; label: string }) {
 function HelpFieldLabel({ htmlFor, label, required = false, tooltip }: { htmlFor?: string; label: string; required?: boolean; tooltip?: string }) {
   return (
     <div className="flex items-center gap-1">
-      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={htmlFor}>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={htmlFor} required={required}>
         {label}
-        {required ? <><span aria-hidden="true" className="text-destructive"> *</span><span className="sr-only"> (wajib)</span></> : null}
       </FieldLabel>
       {tooltip ? <HelpTooltip content={tooltip} label={`Bantuan ${label}`} /> : null}
     </div>
@@ -168,7 +165,7 @@ function OptionSet<T extends string>({
 }) {
   return (
     <Field>
-      {labelTooltip ? <HelpFieldLabel label={label} required={required} tooltip={labelTooltip} /> : <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>{label}{required ? <><span aria-hidden="true" className="text-destructive"> *</span><span className="sr-only"> (wajib)</span></> : null}</FieldLabel>}
+      {labelTooltip ? <HelpFieldLabel label={label} required={required} tooltip={labelTooltip} /> : <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} required={required}>{label}</FieldLabel>}
       <RadioGroup
         className="grid gap-2"
         onValueChange={(next) => onValueChange(next as T)}

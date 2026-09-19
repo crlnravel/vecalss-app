@@ -491,6 +491,7 @@ function QuestionPromptField({
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
           htmlFor="question-prompt"
+          required
         >
           Pertanyaan
         </FieldLabel>
@@ -537,7 +538,7 @@ function QuestionPromptField({
           className="text-sm font-medium text-student-status-danger-fg"
           id="question-prompt-error"
         >
-          Isi pertanyaan sebelum menerbitkan.
+          Isi pertanyaan sebelum menyimpan.
         </p>
       ) : null}
       {questionDraft.promptMediaAssetId ? (
@@ -586,6 +587,7 @@ function QuestionAnswerModeField({
       <FieldLabel
         className={REFERENCE_FIELD_LABEL_CLASS_NAME}
         htmlFor="question-answer-mode"
+        required
       >
         Tipe soal
       </FieldLabel>
@@ -976,8 +978,10 @@ function QuestionChoicesField({
         aria-invalid={hasChoiceCountIssue}
         className="grid gap-3 border-0 p-0 sm:grid-cols-2"
       >
-        <legend className="sr-only" id="question-choices-label">
+        <legend className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "col-span-full")} id="question-choices-label">
           Pilihan jawaban
+          <span aria-hidden="true" className="ml-1 text-destructive">*</span>
+          <span className="sr-only"> (wajib)</span>
         </legend>
         <fieldset
           aria-describedby={describedBy(
@@ -1065,6 +1069,7 @@ function QuestionSubtestField({
       <FieldLabel
         className={REFERENCE_FIELD_LABEL_CLASS_NAME}
         htmlFor="question-subtest"
+        required
       >
         Subtest
       </FieldLabel>
@@ -1131,7 +1136,7 @@ function QuestionSubtestField({
           className="text-sm font-medium text-student-status-danger-fg"
           id="question-subtest-error"
         >
-          Pilih Subtest sebelum menerbitkan.
+          Pilih Subtest sebelum menyimpan.
         </p>
       ) : null}
     </Field>
@@ -1228,6 +1233,7 @@ function QuestionDifficultyField({
       <FieldLabel
         className={REFERENCE_FIELD_LABEL_CLASS_NAME}
         htmlFor="question-difficulty"
+        required
       >
         Tingkat kesulitan
       </FieldLabel>
@@ -1307,8 +1313,7 @@ function QuestionExplanationField({
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
           htmlFor="question-explanation"
         >
-          Penjelasan{" "}
-          <span className="font-normal text-secondary-400">(opsional)</span>
+          Penjelasan
         </FieldLabel>
         <Button
           aria-describedby={describedBy(
@@ -1905,7 +1910,6 @@ type QuestionBankBuilderViewState = {
   isMetadataLocked: boolean;
   isQuestionContentLocked: boolean;
   isSaving: boolean;
-  isDraftLifecycle: boolean;
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
   mediaPickerTarget: MediaPickerTarget | null;
@@ -1938,12 +1942,11 @@ type QuestionBankBuilderActions = {
   onUpdateDraft: (question: BankQuestion) => void;
   requestExit: (route: string) => void;
   requestArchive: () => void;
-  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
   updateCategories: (patch: QuestionBankCategoryPatch) => void;
   updateLifecycle: (
-    operation: "archive" | "publish" | "unpublish" | "restore",
+    operation: "archive" | "restore",
   ) => void;
 };
 
@@ -1958,7 +1961,10 @@ function QuestionBankEditorTitle({
   onFocusIssue: () => void;
   state: QuestionBankBuilderViewState;
 }) {
-  const title = mode === "create" ? "Buat Bank Soal Baru" : builderState.title;
+  const title =
+    mode === "create"
+      ? `Buat Bank Soal ${builderState.purpose === "quiz" ? "Kuis" : "Tryout"} Baru`
+      : builderState.title;
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
@@ -1981,9 +1987,6 @@ function QuestionBankEditorTitle({
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
             {title}
           </h1>
-          <MentorBadge size="xs" tone="category">
-            {builderState.purpose === "quiz" ? "Kuis" : "Tryout"}
-          </MentorBadge>
         </div>
         {state.readiness.incompleteCount > 0 ? (
           <Button
@@ -2005,37 +2008,30 @@ function QuestionBankEditorTitle({
   );
 }
 
-function getQuestionBankPublishDisabledReason(
-  builderState: QuestionBankBuilderFormState,
-  state: QuestionBankBuilderViewState,
-) {
-  if (state.hasUnsavedChanges) return "Simpan dulu untuk menerbitkan";
-  if (builderState.questions.length === 0)
-    return "Tambahkan minimal satu soal sebelum menerbitkan";
-  if (state.readiness.incompleteCount > 0)
-    return state.readiness.incompleteCount + " soal belum lengkap";
-  return undefined;
-}
-
 function QuestionBankSaveAction({
   actions,
   builderState,
+  className,
   mode,
   state,
+  size = "sm",
 }: {
   actions: QuestionBankBuilderActions;
   builderState: QuestionBankBuilderFormState;
+  className?: string;
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
+  size?: "default" | "sm";
 }) {
   const saveLabel = mode === "create" ? "Buat" : "Simpan perubahan";
   const titleMissing = mode === "create" && !builderState.title.trim();
   return (
     <Button
       aria-label={saveLabel}
+      className={className}
       disabled={state.isSaving || state.isMetadataLocked || titleMissing}
       onClick={actions.saveDraft}
-      size="sm"
+      size={size}
       title={mode === "create" ? undefined : saveLabel}
       type="button"
       variant={state.hasUnsavedChanges ? "brand" : "reference"}
@@ -2055,7 +2051,7 @@ function QuestionBankLifecycleMenu({
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
 }) {
-  if (mode !== "edit" || !state.isDraftLifecycle) return null;
+  if (mode !== "edit" || state.isMetadataLocked) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -2086,47 +2082,6 @@ function QuestionBankLifecycleMenu({
   );
 }
 
-function QuestionBankPublishAction({
-  actions,
-  builderState,
-  mode,
-  state,
-}: {
-  actions: QuestionBankBuilderActions;
-  builderState: QuestionBankBuilderFormState;
-  mode: "create" | "edit";
-  state: QuestionBankBuilderViewState;
-}) {
-  if (mode !== "edit" || !state.isDraftLifecycle) return null;
-  const disabledReason = getQuestionBankPublishDisabledReason(
-    builderState,
-    state,
-  );
-  return (
-    <>
-      <Button
-        aria-busy={state.isSaving}
-        data-question-bank-lifecycle-action="publish"
-        aria-describedby={
-          disabledReason ? "publish-disabled-reason" : undefined
-        }
-        disabled={state.isSaving || Boolean(disabledReason)}
-        id="question-bank-lifecycle-publish"
-        onClick={() => actions.requestLifecycleChange("publish")}
-        type="button"
-        variant="brandOutline"
-      >
-        {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
-      </Button>
-      {disabledReason ? (
-        <p className="text-xs text-secondary-600" id="publish-disabled-reason">
-          {disabledReason}
-        </p>
-      ) : null}
-    </>
-  );
-}
-
 function QuestionBankHeaderActions({
   actions,
   builderState,
@@ -2138,6 +2093,7 @@ function QuestionBankHeaderActions({
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
 }) {
+  if (mode === "create") return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <QuestionBankSaveAction
@@ -2147,12 +2103,6 @@ function QuestionBankHeaderActions({
         state={state}
       />
       <QuestionBankLifecycleMenu actions={actions} mode={mode} state={state} />
-      <QuestionBankPublishAction
-        actions={actions}
-        builderState={builderState}
-        mode={mode}
-        state={state}
-      />
     </div>
   );
 }
@@ -2195,44 +2145,55 @@ function QuestionBankMetadataForm({
   state: QuestionBankBuilderViewState;
 }) {
   return (
-    <ReferenceSurface as="section" className="grid max-w-4xl gap-5 p-5 md:p-7">
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="bank-title"
-        >
-          Judul bank
-        </FieldLabel>
-        <FieldInput
-          aria-required="true"
-          className={REFERENCE_CONTROL_CLASS_NAMES.input}
-          disabled={state.isMetadataLocked}
-          id="bank-title"
-          onChange={(event) =>
-            actions.updateMetadata("title", event.target.value)
-          }
-          required
-          value={builderState.title}
-        />
-      </Field>
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="bank-description"
-        >
-          Deskripsi
-        </FieldLabel>
-        <FieldTextarea
-          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
-          disabled={state.isMetadataLocked}
-          id="bank-description"
-          onChange={(event) =>
-            actions.updateMetadata("description", event.target.value)
-          }
-          value={builderState.description}
-        />
-      </Field>
-    </ReferenceSurface>
+    <div className="space-y-4">
+      <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
+        <Field>
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="bank-title"
+            required
+          >
+            Judul bank
+          </FieldLabel>
+          <FieldInput
+            aria-required="true"
+            className={REFERENCE_CONTROL_CLASS_NAMES.input}
+            disabled={state.isMetadataLocked}
+            id="bank-title"
+            onChange={(event) =>
+              actions.updateMetadata("title", event.target.value)
+            }
+            required
+            value={builderState.title}
+          />
+        </Field>
+        <Field>
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="bank-description"
+          >
+            Deskripsi
+          </FieldLabel>
+          <FieldTextarea
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
+            disabled={state.isMetadataLocked}
+            id="bank-description"
+            onChange={(event) =>
+              actions.updateMetadata("description", event.target.value)
+            }
+            value={builderState.description}
+          />
+        </Field>
+      </ReferenceSurface>
+      <QuestionBankSaveAction
+        actions={actions}
+        builderState={builderState}
+        className="w-full"
+        mode="create"
+        size="default"
+        state={state}
+      />
+    </div>
   );
 }
 
@@ -2534,7 +2495,7 @@ function QuestionBankCreateWorkspace({
   return (
     <MentorWorkspaceShell
       activeLabel={navigationLabel}
-      breadcrumbLabel={`Buat ${navigationLabel}`}
+      breadcrumbLabel={`Bank Baru`}
       contentElement="div"
       mainClassName="max-w-[1500px] gap-7"
       onNavigateAway={() => !state.hasUnsavedChanges}
@@ -2793,7 +2754,7 @@ function useQuestionBankPersistence({
   }
 
   async function updateLifecycle(
-    operation: "archive" | "publish" | "unpublish" | "restore",
+    operation: "archive" | "restore",
   ) {
     const id = bankIdRef.current;
     if (!id) return;
@@ -2808,22 +2769,16 @@ function useQuestionBankPersistence({
         return;
       }
       revisionRef.current = result.result.revision;
-      if (operation === "publish") setServerReadiness(null);
       updateEditor({
         hasUnsavedChanges: false,
         lifecycleError: null,
         lifecycleStatus: result.result.status,
       });
-      const lifecycleMessage =
-        operation === "publish"
-          ? "Bank Soal diterbitkan."
-          : operation === "unpublish"
-            ? "Bank Soal dijadikan draf."
-            : operation === "archive"
-              ? "Bank Soal diarsipkan."
-              : "Bank Soal dipulihkan.";
+      const lifecycleMessage = operation === "archive"
+        ? "Bank Soal diarsipkan."
+        : "Bank Soal dipulihkan.";
       showToast(lifecycleMessage, { variant: "success" });
-      if (operation === "publish" || operation === "archive") {
+      if (operation === "archive") {
         onBankNoLongerEditable(result.result.id);
       }
     } finally {
@@ -3079,7 +3034,7 @@ function useQuestionBankDraftActions({
       previewChoiceIds: [],
       questionDraft: nextQuestion,
       readinessAnnouncement:
-        "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menerbitkan.",
+        "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menyimpan.",
     });
   }, [
     activeQuestion?.subjectCode,
@@ -3224,12 +3179,7 @@ function useQuestionBankIssueNavigation({
         );
       }
       if (!target || target.hasAttribute("disabled")) {
-        const lifecycleAction =
-          lifecycleStatus === "published"
-            ? "unpublish"
-            : lifecycleStatus === "archived"
-              ? "restore"
-              : null;
+        const lifecycleAction = lifecycleStatus === "archived" ? "restore" : null;
         const lifecycleTarget = lifecycleAction
           ? document.querySelector<HTMLButtonElement>(
               `[data-question-bank-lifecycle-action="${lifecycleAction}"]`,
@@ -3361,12 +3311,7 @@ function useQuestionBankIssueNavigation({
         if (pendingIssueFocusRef.current !== pendingIssue) return;
         const focusResult = focusTarget(pendingIssue, activeQuestion);
         if (focusResult === "handoff") {
-          const lifecycleAction =
-            lifecycleStatus === "published"
-              ? "Jadikan draf"
-              : lifecycleStatus === "archived"
-                ? "Pulihkan bank"
-                : "buka kunci lifecycle";
+          const lifecycleAction = "Pulihkan bank";
           updateEditor({
             readinessAnnouncement: `Soal ${getQuestionNumber(builderState.questions, pendingIssue.questionId)} memiliki masalah ${readinessFieldLabel(pendingIssue)} yang terkunci. Pilih ${lifecycleAction} untuk membuka perbaikan.`,
           });
@@ -3410,9 +3355,7 @@ function useQuestionBankLifecycleActions({
   removeQuestion: (id: string) => void;
   router: ReturnType<typeof useRouter>;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
-  updateLifecycle: (
-    operation: "archive" | "publish" | "unpublish" | "restore",
-  ) => void;
+  updateLifecycle: (operation: "archive" | "restore") => void;
 }) {
   const closeConfirmation = useCallback(
     () => updateEditor({ confirmationRequest: null }),
@@ -3456,26 +3399,6 @@ function useQuestionBankLifecycleActions({
     },
     [builderState.questions, removeQuestion, updateEditor],
   );
-  const requestLifecycleChange = useCallback(
-    (operation: "publish" | "unpublish") => {
-      const isPublishing = operation === "publish";
-      updateEditor({
-        confirmationRequest: {
-          actionVariant: "brand",
-          confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
-          description: isPublishing
-            ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
-            : "Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru. Tryout yang sudah ada tidak akan terpengaruh.",
-          dialogVariant: "warning",
-          onConfirm: () => updateLifecycle(operation),
-          title: isPublishing
-            ? "Terbitkan Bank Soal?"
-            : "Jadikan Bank Soal draf?",
-        },
-      });
-    },
-    [updateEditor, updateLifecycle],
-  );
   const requestArchive = useCallback(
     () =>
       updateEditor({
@@ -3494,7 +3417,6 @@ function useQuestionBankLifecycleActions({
     confirmPendingAction,
     requestArchive,
     requestExit,
-    requestLifecycleChange,
     requestQuestionRemoval,
   };
 }
@@ -3588,10 +3510,8 @@ function getQuestionBankBuilderDerivedState({
       ) ?? null)
     : null;
   const isMetadataLocked =
-    editorState.lifecycleStatus === "archived" ||
-    editorState.lifecycleStatus === "scheduled";
-  const isQuestionContentLocked = editorState.lifecycleStatus !== "draft";
-  const isDraftLifecycle = editorState.lifecycleStatus === "draft";
+    editorState.lifecycleStatus === "archived";
+  const isQuestionContentLocked = editorState.lifecycleStatus === "archived";
   const localReadiness = getQuestionBankReadinessFromDrafts(
     builderState.questions,
   );
@@ -3606,7 +3526,6 @@ function getQuestionBankBuilderDerivedState({
   );
   return {
     activeQuestion,
-    isDraftLifecycle,
     isMetadataLocked,
     isQuestionContentLocked,
     readiness,
@@ -3653,7 +3572,6 @@ function createQuestionBankBuilderActions({
     onUpdateDraft: draftActions.updateQuestionDraft,
     requestArchive: lifecycleActions.requestArchive,
     requestExit: lifecycleActions.requestExit,
-    requestLifecycleChange: lifecycleActions.requestLifecycleChange,
     saveDraft: persistence.saveDraft,
     updateCategories: draftActions.updateCategories,
     updateLifecycle: persistence.updateLifecycle,
@@ -3716,7 +3634,6 @@ function useQuestionBankBuilderState({
   const builderState = localBuilderState;
   const {
     activeQuestion,
-    isDraftLifecycle,
     isMetadataLocked,
     isQuestionContentLocked,
     readiness,
@@ -3810,7 +3727,6 @@ function useQuestionBankBuilderState({
     bankIdValue: bankId ?? initialBank?.id,
     builderState,
     editorState,
-    isDraftLifecycle,
     isMetadataLocked,
     isQuestionContentLocked,
     questionRowRefs,
@@ -3846,7 +3762,6 @@ function KaptenQuestionBankBuilderPageModule({
     bankIdValue,
     builderState,
     editorState,
-    isDraftLifecycle,
     isMetadataLocked,
     isQuestionContentLocked,
     questionRowRefs,
@@ -3876,7 +3791,6 @@ function KaptenQuestionBankBuilderPageModule({
         confirmationRequest: editorState.confirmationRequest,
         hasSubmittedPreview: editorState.hasSubmittedPreview,
         hasUnsavedChanges: editorState.hasUnsavedChanges,
-        isDraftLifecycle,
         isMetadataLocked,
         isQuestionContentLocked,
         isSaving: editorState.isSaving,

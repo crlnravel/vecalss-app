@@ -16,6 +16,7 @@ import {
 
 const CONVERSION_LOG_PAGE_SIZE = 50;
 const MAX_CONVERSION_LOG_PAGE = 100_000;
+const PACKAGE_MIX_LIMIT = 6;
 
 type AffiliatorProfileView = {
   id: string;
@@ -33,14 +34,40 @@ type AffiliatorConversionLog = {
   studentName: string;
 };
 
+type AffiliatorConversionTrendPoint = {
+  count: number;
+  date: string;
+};
+
+type AffiliatorConversionBreakdownPoint = {
+  count: number;
+  date: string;
+  packageCode: string;
+  packageName: string;
+};
+
+type AffiliatorPackageMixItem = {
+  count: number;
+  packageCode: string;
+  packageName: string;
+};
+
 type AffiliatorDashboardData = {
-  conversionLog: AffiliatorConversionLog[];
-  conversionLogPage: number;
-  conversionLogPageCount: number;
   latestConversionAt: Date | null;
   profile: AffiliatorProfileView | null;
   successfulPurchaseCount: number;
   uniqueStudentCount: number;
+  conversionTrend: AffiliatorConversionTrendPoint[];
+  conversionBreakdown: AffiliatorConversionBreakdownPoint[];
+  packageMix: AffiliatorPackageMixItem[];
+};
+
+type AffiliatorConversionLogData = {
+  conversionLog: AffiliatorConversionLog[];
+  conversionLogPage: number;
+  conversionLogPageCount: number;
+  conversionLogPageSize: number;
+  conversionLogTotal: number;
 };
 
 const affiliatorProfileSelect = {
@@ -117,14 +144,152 @@ async function assertActiveStudent(
   }
 }
 
-/**
- * Reads only successful, attributed purchases for the signed-in affiliator.
- * Pending or failed checkout attempts never appear in the conversion log.
- */
+/** Reads aggregate conversion statistics for the signed-in affiliator. */
 async function getAffiliatorDashboard(
   userId: string,
-  { conversionLogPage = 1 }: { conversionLogPage?: number } = {},
 ): Promise<AffiliatorDashboardData> {
+  const profile = await prisma.affiliatorProfile.findUnique({
+    select: affiliatorProfileSelect,
+    where: { userId },
+  });
+
+  if (!profile) {
+    return {
+      conversionBreakdown: [],
+      conversionTrend: [],
+      latestConversionAt: null,
+      packageMix: [],
+      profile: null,
+      successfulPurchaseCount: 0,
+      uniqueStudentCount: 0,
+    };
+  }
+
+  const where = successfulPurchaseWhere(profile.id);
+  const [
+    successfulPurchaseCount,
+    uniqueStudentCountResult,
+    latestPurchase,
+    conversionTrend,
+    conversionBreakdown,
+    packageMix,
+  ] = await Promise.all([
+    prisma.packagePurchase.count({ where }),
+    prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(DISTINCT student_id)::int AS count
+      FROM package_purchases
+      WHERE affiliator_profile_id = ${profile.id}::uuid
+        AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND completed_at IS NOT NULL
+    `,
+    prisma.packagePurchase.findFirst({
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      select: { completedAt: true },
+      where,
+    }),
+    // Keep the latest active seven-day window visible for sparse referral
+    // histories; the chart labels this as a historical activity period.
+    prisma.$queryRaw<AffiliatorConversionTrendPoint[]>`
+      WITH anchor AS (
+        SELECT MAX(completed_at) AS max_at
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+      ), days AS (
+        SELECT generate_series(
+          (((anchor.max_at AT TIME ZONE 'Asia/Jakarta')::date - 6)::timestamp),
+          (((anchor.max_at AT TIME ZONE 'Asia/Jakarta')::date)::timestamp),
+          INTERVAL '1 day'
+        )::date AS day
+        FROM anchor
+        WHERE anchor.max_at IS NOT NULL
+      )
+      SELECT to_char(days.day, 'YYYY-MM-DD') AS date,
+        COUNT(p.id)::int AS count
+      FROM days
+      LEFT JOIN package_purchases p
+        ON p.affiliator_profile_id = ${profile.id}::uuid
+        AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND p.completed_at IS NOT NULL
+        AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date = days.day
+      GROUP BY days.day
+      ORDER BY days.day ASC
+    `,
+    prisma.$queryRaw<AffiliatorConversionBreakdownPoint[]>`
+      WITH anchor AS (
+        SELECT (MAX(completed_at) AT TIME ZONE 'Asia/Jakarta')::date AS max_day
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+      ), windowed_packages AS (
+        SELECT p.package_code,
+          MAX(p.package_name) AS package_name,
+          COUNT(*)::int AS total_count
+        FROM package_purchases p
+        CROSS JOIN anchor
+        WHERE p.affiliator_profile_id = ${profile.id}::uuid
+          AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND p.completed_at IS NOT NULL
+          AND anchor.max_day IS NOT NULL
+          AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN anchor.max_day - 6 AND anchor.max_day
+        GROUP BY p.package_code
+        ORDER BY total_count DESC, package_name ASC, p.package_code ASC
+        LIMIT ${PACKAGE_MIX_LIMIT}
+      )
+      SELECT to_char((p.completed_at AT TIME ZONE 'Asia/Jakarta')::date, 'YYYY-MM-DD') AS date,
+        p.package_code AS "packageCode",
+        wp.package_name AS "packageName",
+        COUNT(*)::int AS count
+      FROM package_purchases p
+      JOIN windowed_packages wp ON wp.package_code = p.package_code
+      CROSS JOIN anchor
+      WHERE p.affiliator_profile_id = ${profile.id}::uuid
+        AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND p.completed_at IS NOT NULL
+        AND anchor.max_day IS NOT NULL
+        AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN anchor.max_day - 6 AND anchor.max_day
+      GROUP BY (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date,
+        p.package_code,
+        wp.package_name
+      ORDER BY date ASC, count DESC, wp.package_name ASC, p.package_code ASC
+    `,
+    prisma.$queryRaw<AffiliatorPackageMixItem[]>`
+      WITH package_counts AS (
+        SELECT package_code,
+          MAX(package_name) AS package_name,
+          COUNT(*)::int AS count
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+        GROUP BY package_code
+      )
+      SELECT package_code AS "packageCode",
+        package_name AS "packageName",
+        count
+      FROM package_counts
+      ORDER BY count DESC, package_name ASC, package_code ASC
+      LIMIT ${PACKAGE_MIX_LIMIT}
+    `,
+  ]);
+
+  return {
+    conversionBreakdown,
+    conversionTrend,
+    latestConversionAt: latestPurchase?.completedAt ?? null,
+    packageMix,
+    profile,
+    successfulPurchaseCount,
+    uniqueStudentCount: uniqueStudentCountResult[0]?.count ?? 0,
+  };
+}
+
+async function getAffiliatorConversionLog(
+  userId: string,
+  { page: requestedPage = 1 }: { page?: number } = {},
+): Promise<AffiliatorConversionLogData> {
   const profile = await prisma.affiliatorProfile.findUnique({
     select: affiliatorProfileSelect,
     where: { userId },
@@ -135,34 +300,19 @@ async function getAffiliatorDashboard(
       conversionLog: [],
       conversionLogPage: 1,
       conversionLogPageCount: 1,
-      latestConversionAt: null,
-      profile: null,
-      successfulPurchaseCount: 0,
-      uniqueStudentCount: 0,
+      conversionLogPageSize: CONVERSION_LOG_PAGE_SIZE,
+      conversionLogTotal: 0,
     };
   }
 
   const where = successfulPurchaseWhere(profile.id);
-  const [successfulPurchaseCount, uniqueStudents, latestPurchase] = await Promise.all([
-    prisma.packagePurchase.count({ where }),
-    prisma.packagePurchase.findMany({
-      distinct: ["studentId"],
-      select: { studentId: true },
-      where,
-    }),
-    prisma.packagePurchase.findFirst({
-      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-      select: { completedAt: true },
-      where,
-    }),
-  ]);
-
+  const successfulPurchaseCount = await prisma.packagePurchase.count({ where });
   const conversionLogPageCount = Math.max(
     1,
     Math.ceil(successfulPurchaseCount / CONVERSION_LOG_PAGE_SIZE),
   );
   const page = Math.min(
-    normalizeConversionLogPage(conversionLogPage),
+    normalizeConversionLogPage(requestedPage),
     conversionLogPageCount,
   );
   const purchases = await prisma.packagePurchase.findMany({
@@ -200,10 +350,8 @@ async function getAffiliatorDashboard(
     })),
     conversionLogPage: page,
     conversionLogPageCount,
-    latestConversionAt: latestPurchase?.completedAt ?? null,
-    profile,
-    successfulPurchaseCount,
-    uniqueStudentCount: uniqueStudents.length,
+    conversionLogPageSize: CONVERSION_LOG_PAGE_SIZE,
+    conversionLogTotal: successfulPurchaseCount,
   };
 }
 
@@ -382,12 +530,17 @@ async function recordSuccessfulPackagePurchase({
 }
 
 export {
+  getAffiliatorConversionLog,
   getAffiliatorDashboard,
   recordSuccessfulPackagePurchase,
 };
 export type {
   AffiliatorConversionLog,
+  AffiliatorConversionLogData,
+  AffiliatorConversionBreakdownPoint,
+  AffiliatorConversionTrendPoint,
   AffiliatorDashboardData,
+  AffiliatorPackageMixItem,
   AffiliatorProfileView,
   RecordSuccessfulPackagePurchaseInput,
 };

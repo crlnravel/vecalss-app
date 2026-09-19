@@ -1,3 +1,5 @@
+"use client";
+
 import { CalendarDays } from "@/lib/icons";
 
 import {

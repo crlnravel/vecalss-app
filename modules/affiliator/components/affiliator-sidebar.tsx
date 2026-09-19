@@ -35,7 +35,7 @@ type AffiliatorNavigationItem = {
 const affiliatorNavigation: AffiliatorNavigationItem[] = [
   { href: "/affiliator/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   {
-    href: "/affiliator/dashboard#conversion-log",
+    href: "/affiliator/log-pembelian",
     icon: ChartColumnBig,
     label: "Log pembelian",
   },

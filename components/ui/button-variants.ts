@@ -7,7 +7,9 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
         brand:
-          "border-primary-700 bg-primary-700 text-white hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/25",
+          "border-primary-700 bg-primary-700 text-white shadow-[0_4px_0_var(--voyage-deep-hover),0_14px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_64%,transparent)] hover:-translate-y-0.5 hover:bg-primary-800 hover:shadow-[0_6px_0_var(--voyage-deep-hover),0_18px_34px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] focus-visible:border-primary-700 focus-visible:ring-primary-700/25 motion-safe:active:translate-y-px motion-reduce:transform-none",
+        filterActive:
+          "border-voyage-deep bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)] hover:bg-voyage-deep-hover hover:shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_14%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_78%,transparent)] focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45 motion-reduce:transform-none",
         marketing:
           "rounded-full border-voyage-deep bg-voyage-deep text-white hover:bg-voyage-deep-hover focus-visible:border-voyage-deep focus-visible:ring-voyage-leaf/45",
         marketingOutline:

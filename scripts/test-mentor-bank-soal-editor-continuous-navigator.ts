@@ -17,7 +17,10 @@ assert.doesNotMatch(builder, /Bank diterbitkan/u);
 assert.doesNotMatch(builder, /Navigasi soal" className="[^"]*border-t/u);
 assert.match(builder, /const visibleQuestions = builderState\.questions/u);
 assert.match(builder, /className="flex flex-col gap-1\.5"/u);
-assert.match(builder, /builderState\.questions\.findIndex\(\(item\) => item\.id === question\.id\) \+ 1/u);
+assert.match(
+  builder,
+  /builderState\.questions\.findIndex\(\s*\(item\) => item\.id === question\.id,?\s*\) \+ 1/u,
+);
 assert.match(builder, /question\.id === activeQuestionId/u);
 assert.match(builder, /key=\{question\.id\}/u);
 assert.match(builder, /onOpenQuestion\(question\.id\)/u);

@@ -600,9 +600,9 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const destinationTopicId = current && sourceCode === subject.code ? current.topicId : destinationTopics[0].id;
     if (!current) {
-      await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: video ? Math.ceil(video.durationSeconds / 60) : null, status: ContentStatus.draft, createdByUserId: tutorId, updatedByUserId: tutorId } });
+      await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: video?.durationSeconds ? Math.ceil(video.durationSeconds / 60) : null, status: ContentStatus.draft, createdByUserId: tutorId, updatedByUserId: tutorId } });
     } else {
-      await tx.module.update({ where: { code }, data: { ...(sourceCode === subject.code ? {} : { topicId: destinationTopicId }), title, estimatedMinutes: video ? Math.ceil(video.durationSeconds / 60) : null, updatedByUserId: tutorId } });
+      await tx.module.update({ where: { code }, data: { ...(sourceCode === subject.code ? {} : { topicId: destinationTopicId }), title, estimatedMinutes: video?.durationSeconds ? Math.ceil(video.durationSeconds / 60) : null, updatedByUserId: tutorId } });
     }
 
     const orderFor = (subjectCode: string) => {

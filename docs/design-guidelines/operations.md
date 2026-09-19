@@ -71,6 +71,30 @@ references before creating a new table shell:
   operations. It does not replace cards, compact lists, or learning-journey
   surfaces.
 
+## Event logs and simple tables
+
+Purchase histories, audit trails, and other event-first records use a simple
+semantic table when users need to scan a few consistent fields. **NO MULTILINE
+TABLE:** never stack a primary value with secondary metadata inside a cell or
+turn one record into a card-like multi-line row. Do not pair student plus email
+or package plus code as separate lines in the same row.
+
+- Keep every visible cell to one concise line. Use truncation with a `title`
+  for long values instead of adding a second line.
+- Use only the fields needed for the scan, such as `Paket`, `Siswa`, `Waktu`,
+  and `Status`; move extra detail to a separate detail view when it is needed.
+- Keep status and time explicit, aligned, and easy to scan.
+- Use the shared `Table` primitives inside the approved white surface. Keep
+  narrow-screen overflow inside the table container; do not replace the table
+  with stacked cards or a second mobile-only layout.
+- Preserve table headers, caption/name, and empty-state semantics. The empty
+  result is table content, not a synthetic record.
+
+Use the full `DataTable` pattern above when users need column-based comparison,
+sorting, filtering, selection, or row actions. For a read-only event history,
+the simple one-line table is the default; a compact list is not a substitute
+when the request calls for a table.
+
 ### Operational table empty states
 
 Use this rule for every approved operational table when its query returns no

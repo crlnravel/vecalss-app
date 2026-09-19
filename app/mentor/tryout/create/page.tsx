@@ -36,7 +36,7 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
     parent: parsedQuery.parent,
     returnTo: parsedQuery.returnTo,
     session: parsedQuery.session,
-    workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "schedule" : undefined),
+    workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "operations" : undefined),
   });
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
   return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule /></MentorWorkspaceShell>;

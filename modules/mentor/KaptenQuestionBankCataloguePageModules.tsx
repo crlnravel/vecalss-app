@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CircleHelp,
   Ellipsis,
-  FilePenLine,
   Folder,
   FolderPlus,
   LibraryBig,
@@ -129,7 +128,7 @@ type ConfirmationState = {
   onConfirm: () => void;
   title: string;
 } | null;
-type LifecycleAction = "archive" | "publish" | "restore" | "unpublish";
+type LifecycleAction = "archive" | "restore";
 type BankSortMode = "updated" | "name" | "questions";
 type QuestionBankPurpose = "quiz" | "tryout";
 
@@ -338,24 +337,11 @@ function folderPath(
 }
 
 function statusCopy(status: KaptenQuestionBank["status"]) {
-  return status === "published"
-    ? "Diterbitkan"
-    : status === "archived"
-      ? "Diarsipkan"
-      : status === "scheduled"
-        ? "Terjadwal"
-        : "Draf";
+  return status === "archived" ? "Diarsipkan" : "Diterbitkan";
 }
 
 function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  const tone =
-    status === "published"
-      ? "success"
-      : status === "archived"
-        ? "neutral"
-        : status === "scheduled"
-          ? "info"
-          : "attention";
+  const tone = status === "archived" ? "neutral" : "success";
 
   return (
     <MentorBadge size="sm" tone={tone}>
@@ -414,14 +400,19 @@ function createQuestionBankCatalogueColumns({
                 >
                   {row.bank.title}
                 </Link>
-                <p className="mt-0.5 block truncate text-xs text-secondary-500">
-                  {row.bank.questionCount} soal
-                </p>
+                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="block truncate text-xs text-secondary-500">
+                    {row.bank.questionCount} soal
+                  </p>
+                  <span className="lg:hidden">
+                    <StatusPill status={row.bank.status} />
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ),
-      headerClassName: "min-w-[18rem]",
+      headerClassName: "min-w-0 lg:min-w-[18rem]",
       hideable: false,
       id: "name",
       label: "Nama",
@@ -452,7 +443,8 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-[9rem]",
+      cellClassName: "max-lg:hidden",
+      headerClassName: "max-lg:hidden lg:min-w-[9rem]",
       id: "subject",
       label: "Subject",
       width: 22,
@@ -482,10 +474,10 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-[14rem]",
+      headerClassName: "min-w-0 lg:min-w-[16rem]",
       id: "materi",
       label: "Materi",
-      width: 24,
+      width: 30,
     },
     {
       cell: (row) =>
@@ -494,10 +486,11 @@ function createQuestionBankCatalogueColumns({
         ) : (
           <StatusPill status={row.bank.status} />
         ),
-      headerClassName: "min-w-[7rem]",
+      cellClassName: "max-lg:hidden",
+      headerClassName: "max-lg:hidden lg:min-w-[7rem]",
       id: "status",
       label: "Status",
-      width: 13,
+      width: 10,
     },
   ];
 }
@@ -545,22 +538,6 @@ function QuestionBankCatalogueRowContextMenu({
       </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuGroup>
-        {row.bank.status === "draft" ? (
-          <ContextMenuItem
-            onClick={() => actions.onSetLifecycle(row.bank, "publish")}
-          >
-            <Upload />
-            Terbitkan
-          </ContextMenuItem>
-        ) : null}
-        {row.bank.status === "published" ? (
-          <ContextMenuItem
-            onClick={() => actions.onSetLifecycle(row.bank, "unpublish")}
-          >
-            <FilePenLine />
-            Jadikan draf
-          </ContextMenuItem>
-        ) : null}
         {row.bank.status !== "archived" ? (
           <ContextMenuItem
             onClick={() => actions.onSetLifecycle(row.bank, "archive")}
@@ -777,10 +754,8 @@ function QuestionBankCatalogueFilterPanel({
           }}
           options={[
             { label: "Semua status", value: "" },
-            { label: "Draf", value: "draft" },
             { label: "Diterbitkan", value: "published" },
             { label: "Diarsipkan", value: "archived" },
-            { label: "Terjadwal", value: "scheduled" },
           ]}
           placeholder="Semua status"
           value={statusFilter}
@@ -873,6 +848,7 @@ function QuestionBankFolderDialog({
             <FieldLabel
               className={REFERENCE_FIELD_LABEL_CLASS_NAME}
               htmlFor="folder-name"
+              required
             >
               Nama folder
             </FieldLabel>
@@ -882,6 +858,7 @@ function QuestionBankFolderDialog({
               id="folder-name"
               maxLength={160}
               onChange={(event) => onFolderNameChange(event.target.value)}
+              required
               value={folderName}
             />
           </Field>
@@ -1704,6 +1681,13 @@ function useQuestionBankCatalogueState({
     resetPage();
     navigateCatalogue({ folder: folder.id, page: 1 });
   };
+  const openCatalogueRow = (row: QuestionBankCatalogueRow) => {
+    if (row.kind === "folder") {
+      openCatalogueFolder(row.folder);
+      return;
+    }
+    router.push(row.bank.href);
+  };
   const openBankLifecycle = (
     bank: BankEntry["bank"],
     action: LifecycleAction,
@@ -1786,6 +1770,7 @@ function useQuestionBankCatalogueState({
     navigateCatalogue,
     openFolderCreate,
     openFolderManage,
+    openCatalogueRow,
     openMoveBank,
     pendingConfirmation,
     pendingLifecycle,
@@ -1817,18 +1802,6 @@ function useQuestionBankCatalogueState({
 function getQuestionBankLifecycleCopy(
   action?: LifecycleAction,
 ): [string, string, string] {
-  if (action === "publish")
-    return [
-      "Terbitkan bank?",
-      "Bank yang lengkap akan tersedia sebagai sumber baru.",
-      "Terbitkan",
-    ];
-  if (action === "unpublish")
-    return [
-      "Kembalikan ke draf?",
-      "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.",
-      "Jadikan draf",
-    ];
   if (action === "archive")
     return [
       "Arsipkan bank?",
@@ -1837,7 +1810,7 @@ function getQuestionBankLifecycleCopy(
     ];
   return [
     "Pulihkan bank?",
-    "Bank kembali sebagai draf dan dapat diatur lagi.",
+    "Bank kembali tersedia dan dapat diatur lagi.",
     "Pulihkan",
   ];
 }
@@ -1885,6 +1858,7 @@ function QuestionBankCataloguePageContent({
     navigateCatalogue,
     openFolderCreate,
     openFolderManage,
+    openCatalogueRow,
     pendingConfirmation,
     pendingLifecycle,
     resetPage,
@@ -1967,36 +1941,36 @@ function QuestionBankCataloguePageContent({
               <p className="mt-1 text-sm font-normal leading-6 text-secondary-600">
                 Buat bank soal atau folder baru untuk mulai mengisi ruang ini.
               </p>
-              {!isGlobalSearch ? (
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={questionBankCreateHref({
-                          folder: selectedFolder,
-                          purpose: initialPurpose,
-                        })}
-                      />
-                    }
-                    size="sm"
-                    type="button"
-                    variant="brand"
-                  >
-                    <Plus />
-                    Buat bank soal
-                  </Button>
-                  <Button
-                    onClick={() => openFolderCreate(folderCreateParentId)}
-                    size="sm"
-                    type="button"
-                    variant="brandOutline"
-                  >
-                    <FolderPlus />
-                    {folderCreateLabel}
-                  </Button>
-                </div>
-              ) : null}
+              {/* {!isGlobalSearch ? ( */}
+              {/*   <div className="mt-5 flex flex-wrap items-center justify-center gap-2"> */}
+              {/*     <Button */}
+              {/*       nativeButton={false} */}
+              {/*       render={ */}
+              {/*         <Link */}
+              {/*           href={questionBankCreateHref({ */}
+              {/*             folder: selectedFolder, */}
+              {/*             purpose: initialPurpose, */}
+              {/*           })} */}
+              {/*         /> */}
+              {/*       } */}
+              {/*       size="sm" */}
+              {/*       type="button" */}
+              {/*       variant="brand" */}
+              {/*     > */}
+              {/*       <Plus /> */}
+              {/*       Buat bank soal */}
+              {/*     </Button> */}
+              {/*     <Button */}
+              {/*       onClick={() => openFolderCreate(folderCreateParentId)} */}
+              {/*       size="sm" */}
+              {/*       type="button" */}
+              {/*       variant="brandOutline" */}
+              {/*     > */}
+              {/*       <FolderPlus /> */}
+              {/*       {folderCreateLabel} */}
+              {/*     </Button> */}
+              {/*   </div> */}
+              {/* ) : null} */}
             </div>
           }
           filterPanel={
@@ -2015,43 +1989,10 @@ function QuestionBankCataloguePageContent({
               ? `folder-${row.folder.id ?? row.folder.name}`
               : `bank-${row.bank.id}`
           }
-          headerActions={
-            selectedFolder !== ROOT_FOLDER && currentFolder?.id ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      aria-label={`Kelola folder ${currentFolder.name}`}
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <Ellipsis />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => openFolderManage(currentFolder, "rename")}
-                  >
-                    <Pencil />
-                    Ubah nama
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => openFolderManage(currentFolder, "remove")}
-                    variant="destructive"
-                  >
-                    <Trash2 />
-                    Hapus folder
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null
-          }
           isLoading={isCataloguePending}
           loadingLabel="Memuat bank soal…"
           moreMenu={sortMenu}
+          onRowClick={openCatalogueRow}
           rowContextMenu={catalogueRowContextMenu}
           rows={catalogueRows}
           search={{
@@ -2085,7 +2026,7 @@ function QuestionBankCataloguePageContent({
             value: initialSearch,
           }}
           showColumnVisibility={false}
-          tableClassName="min-w-[760px]"
+          tableClassName="min-w-0"
           wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
         />
         {initialTotal ? (

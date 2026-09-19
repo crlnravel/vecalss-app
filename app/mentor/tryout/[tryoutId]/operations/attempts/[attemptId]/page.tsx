@@ -13,7 +13,6 @@ import {
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryoutAttemptDetailPageModule";
-import { TryoutLifecycleMenu } from "@/modules/mentor/KaptenTryoutWorkspaceHeader";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
@@ -78,14 +77,6 @@ export default async function TryoutAttemptDetailPage({
       sidebarAppearance="reference"
     >
       <KaptenTryoutWorkspaceFrame
-        actions={
-          <TryoutLifecycleMenu
-            allowDuplicate={operations.status === "published"}
-            hasActiveAttempt={operations.attempts.some((candidate) => candidate.attemptState === "in_progress" || candidate.status === "in_progress")}
-            status={operations.status}
-            tryoutId={tryoutId}
-          />
-        }
         activeTab="operations"
         initial={operations}
         parentId={parsedQuery.parent}

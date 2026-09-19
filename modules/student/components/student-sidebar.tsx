@@ -20,7 +20,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -66,7 +65,66 @@ function StudentSidebarBrand({ isCompactReferenceMark, isReference, previewMode 
 
 function StudentSidebarNavigation({ activeLabel, isReference, notificationBadge, previewMode }: { activeLabel: string; isReference: boolean; notificationBadge?: string; previewMode: boolean }) {
   const navigationItems = previewMode ? previewNavigationItems : studentNavigationItems;
-  return <SidebarContent className={isReference ? "gap-0" : undefined}><SidebarGroup className={isReference ? "mb-2 group-data-[collapsible=icon]:mb-0.5! group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0" : undefined}><SidebarGroupLabel className={isReference ? "h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase group-data-[collapsible=icon]:hidden" : undefined}>Belajar</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{navigationItems.map((item) => { const badge = !previewMode && item.label === "Notifikasi" ? notificationBadge : undefined; const href = previewMode ? buildAdminStudentPreviewRoute(item.href) : item.href; return <SidebarMenuItem key={item.label}><SidebarMenuButton className={isReference ? cn("h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35", "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]", "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!", item.label === activeLabel && "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!") : undefined} isActive={item.label === activeLabel} render={<Link href={href} />} tooltip={item.label}><span className={cn("flex size-4 shrink-0 items-center justify-center [&>svg]:size-4", isReference && item.label === activeLabel && "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] [&>svg]:size-5")}><item.icon /></span><span className={isReference ? "group-data-[collapsible=icon]:hidden" : undefined}>{item.label}</span></SidebarMenuButton>{badge ? <SidebarMenuBadge className="border border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg">{badge}</SidebarMenuBadge> : null}</SidebarMenuItem>; })}</SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>;
+  return (
+    <SidebarContent className={isReference ? "gap-0" : undefined}>
+      <SidebarGroup
+        className={
+          isReference
+            ? "mb-2 group-data-[collapsible=icon]:mb-0.5! group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0"
+            : undefined
+        }
+      >
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {navigationItems.map((item) => {
+              const badge = !previewMode && item.label === "Notifikasi" ? notificationBadge : undefined;
+              const href = previewMode ? buildAdminStudentPreviewRoute(item.href) : item.href;
+
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton
+                    className={
+                      isReference
+                        ? cn(
+                            "h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+                            "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
+                            "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
+                            item.label === activeLabel &&
+                              "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!",
+                          )
+                        : undefined
+                    }
+                    isActive={item.label === activeLabel}
+                    render={<Link href={href} />}
+                    tooltip={item.label}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-4 shrink-0 items-center justify-center [&>svg]:size-4",
+                        isReference &&
+                          item.label === activeLabel &&
+                          "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] [&>svg]:size-5",
+                      )}
+                    >
+                      <item.icon />
+                    </span>
+                    <span className={isReference ? "group-data-[collapsible=icon]:hidden" : undefined}>
+                      {item.label}
+                    </span>
+                  </SidebarMenuButton>
+                  {badge ? (
+                    <SidebarMenuBadge className="border border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg">
+                      {badge}
+                    </SidebarMenuBadge>
+                  ) : null}
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+  );
 }
 
 function StudentSidebarFooter({ isReference, state }: { isReference: boolean; state: "collapsed" | "expanded" }) {

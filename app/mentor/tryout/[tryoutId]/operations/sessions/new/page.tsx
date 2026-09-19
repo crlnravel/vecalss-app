@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
+import { buildMentorTryoutHref } from "@/lib/navigation/canonical-context";
 
 export const metadata: Metadata = { title: "Buat Sesi Tryout | Vecalss LMS" };
 
@@ -11,14 +11,9 @@ export default async function NewTryoutSessionPage({
 }: {
   params: Promise<{ tryoutId: string }>;
 }) {
-  const [{ tryoutId }, session] = await Promise.all([
+  const [{ tryoutId }] = await Promise.all([
     params,
     requireTutorSession(),
   ]);
-  const operations = await getOwnedTryoutOperationsView(
-    tryoutId,
-    session.user.id,
-  );
-  if (!operations) notFound();
-  redirect(`/mentor/tryout/${tryoutId}/operations`);
+  redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations" }));
 }

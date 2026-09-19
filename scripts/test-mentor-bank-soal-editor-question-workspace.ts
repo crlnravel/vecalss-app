@@ -12,19 +12,19 @@ const editRoute = fs.readFileSync(
 
 const workspace =
   builder.match(
-    /function QuestionBankBuilderScreen\([\s\S]*?\n\}\n\nfunction useQuestionBankNavigationGuards/u,
+    /function QuestionBankQuestionContent\([\s\S]*?\n\}\n\nfunction QuestionBankCreateWorkspace/u,
   )?.[0] ?? "";
 const editorForm =
   builder.match(
-    /function QuestionBankEditorForm\([\s\S]*?\n\}\n\nfunction QuestionBankPreview/u,
+    /function QuestionPromptField\([\s\S]*?\n\}\s*function QuestionBankPreview/u,
   )?.[0] ?? "";
 const preview =
   builder.match(
-    /function QuestionBankPreview\([\s\S]*?\n\}\n\nfunction QuestionBankInventory/u,
+    /function QuestionBankPreview\([\s\S]*?\n\}\s*function QuestionBankInventory/u,
   )?.[0] ?? "";
 const openQuestionBlock =
   builder.match(
-    /function openQuestion\(questionId: string\) \{[\s\S]*?\n  \}/u,
+    /const openQuestion = useCallback\([\s\S]*?hasSubmittedPreview: false,[\s\S]*?previewChoiceId: null,[\s\S]*?\n  \);/u,
   )?.[0] ?? "";
 
 assert.match(workspace, /<Switch/u);
@@ -32,28 +32,28 @@ assert.match(workspace, /Preview/u);
 assert.match(workspace, /checked=\{state\.questionEditorTab === "preview"\}/u);
 assert.match(
   workspace,
-  /onCheckedChange=\{\(checked\) => actions\.onEditorTabChange\(checked \? "preview" : "edit"\)\}/u,
+  /onCheckedChange=\{\(checked\) =>\s*actions\.onEditorTabChange\(checked \? "preview" : "edit"\)\s*\}/u,
 );
 assert.doesNotMatch(workspace, /<Tabs|TabsTrigger|TabsContent/u);
 assert.match(workspace, /state\.questionEditorTab === "preview"/u);
 assert.match(workspace, /<QuestionBankEditorForm/u);
 assert.match(workspace, /<QuestionBankPreview/u);
-assert.match(workspace, /builderState\.questions\.length === 0/u);
+assert.match(workspace, /!builderState\.questions\.length/u);
 assert.match(workspace, /Tambah soal pertama/u);
-assert.match(workspace, /Bank soal dapat disimpan tanpa soal/u);
+assert.match(builder, /Bank soal(?: tetap)? dapat disimpan tanpa soal/u);
 
 assert.match(openQuestionBlock, /hasSubmittedPreview: false/u);
 assert.match(openQuestionBlock, /previewChoiceId: null/u);
 assert.doesNotMatch(openQuestionBlock, /questionEditorTab\s*:/u);
 assert.match(
   builder,
-  /onChoiceChange: \(value(?:: string)?\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u,
+  /onChoiceChange: \(value\) => \{[\s\S]*?hasSubmittedPreview: false,[\s\S]*?previewChoiceId: nextIds\[0\]/u,
 );
 assert.match(
   builder,
   /onSubmitPreview: \(\) => updateEditor\(\{ hasSubmittedPreview: true \}\)/u,
 );
-assert.match(preview, /<RadioGroup key=\{questionDraft\.id\}/u);
+assert.match(preview, /<RadioGroup\s+key=\{questionDraft\.id\}/u);
 assert.doesNotMatch(
   builder.match(/saveQuestionBankAction\(\{[\s\S]*?\}\)/u)?.[0] ?? "",
   /previewChoiceId|hasSubmittedPreview/u,
@@ -125,21 +125,21 @@ assert.match(editorForm, /data-question-field="media"/u);
 assert.match(editorForm, /data-question-field="subtest"/u);
 assert.match(editorForm, /id="question-prompt"/u);
 assert.match(editorForm, /id=\{inputId\}/u);
-assert.match(editorForm, /id=\{`bank-correct-choice-\$\{choice\.id\}`\}/u);
+assert.match(editorForm, /id=\{"bank-correct-choice-" \+ choice\.id\}/u);
 assert.match(editorForm, /id="question-media-prompt"/u);
-assert.match(editorForm, /id=\{`question-media-choice-\$\{choice\.id\}`\}/u);
+assert.match(editorForm, /id=\{"question-media-choice-" \+ choice\.id\}/u);
 assert.match(editorForm, /id="question-media-explanation"/u);
 assert.match(editorForm, /id="question-subtest"/u);
-assert.match(editorForm, /field=\{`choice-\$\{choice\.id\}`\}/u);
+assert.match(editorForm, /field=\{"choice-" \+ choice\.id\}/u);
 assert.match(editorForm, /onRemoveChoiceMedia\(choice\.id\)/u);
 
 assert.match(
   builder,
-  /const isMetadataLocked = lifecycleStatus === "archived" \|\| lifecycleStatus === "scheduled"/u,
+  /const isMetadataLocked =\s*editorState\.lifecycleStatus === "archived"/u,
 );
 assert.match(
   builder,
-  /const isQuestionContentLocked = lifecycleStatus !== "draft"/u,
+  /const isQuestionContentLocked = editorState\.lifecycleStatus === "archived"/u,
 );
 assert.match(builder, /state\.isMetadataLocked/u);
 assert.doesNotMatch(
@@ -150,7 +150,7 @@ assert.doesNotMatch(
 assert.doesNotMatch(builder, /Masalah berikutnya|soal ditampilkan/u);
 assert.match(builder, /const visibleQuestions = builderState\.questions/u);
 assert.match(builder, /className="flex flex-col gap-1\.5"/u);
-assert.match(editRoute, /initial\.bank\.status !== "draft"/u);
+assert.match(editRoute, /initial\.bank\.status === "archived"/u);
 assert.match(
   builder,
   /disabled=\{isQuestionContentLocked\}[\s\S]*?id="question-prompt"/u,

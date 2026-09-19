@@ -13,7 +13,7 @@ import { toastVariantClassNames, type ToastVariant, type VecalssToastOptions } f
 const defaultToastClassNames: ToastClassnames = {
   actionButton: "rounded-lg bg-primary-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-800",
   cancelButton: "rounded-lg bg-secondary-100 px-2.5 py-1.5 text-xs font-semibold text-secondary-700 hover:bg-secondary-200",
-  closeButton: "!left-auto !right-2 !top-2 !translate-x-0 !translate-y-0 rounded-lg border-0 bg-transparent text-secondary-500 opacity-100 hover:bg-secondary-100 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30",
+  closeButton: "!left-auto !right-2 !top-1/2 !translate-x-0 !-translate-y-1/2 rounded-lg border-0 bg-transparent text-secondary-500 opacity-100 hover:bg-secondary-100 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30",
   content: "min-w-0",
   default: toastVariantClassNames.default,
   description: "pr-8 text-xs leading-5 text-secondary-600",

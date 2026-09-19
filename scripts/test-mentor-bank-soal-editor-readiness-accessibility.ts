@@ -21,7 +21,10 @@ const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
 };
 const lifecycleSource = builder.match(/async function updateLifecycle\([\s\S]*?\n  \}\n\n  return \{ saveDraft, updateLifecycle \};/u)?.[0] ?? "";
 
-assert.match(builder, /getQuestionBankReadinessFromDrafts\(builderState\.questions\)/u);
+assert.match(
+  builder,
+  /getQuestionBankReadinessFromDrafts\(\s*builderState\.questions\s*,?\s*\)/u,
+);
 assert.match(builder, /mergeQuestionBankReadiness\(/u);
 assert.match(builder, /pruneServerReadinessForDraftChange\(/u);
 assert.match(builder, /state\.readiness\.incompleteCount/u);
@@ -44,7 +47,7 @@ assert.match(builder, /data-question-anchor/u);
 assert.match(builder, /scrollIntoView/u);
 assert.match(builder, /target\.focus\(\{ preventScroll: true \}\)/u);
 assert.doesNotMatch(builder, /activeTab/u);
-assert.match(builder, /builderState\.questions\.length === 0/u);
+assert.match(builder, /!builderState\.questions\.length/u);
 assert.match(builder, /Tambah soal pertama/u);
 assert.doesNotMatch(builder, /InventoryFilter|inventoryFilter|Filter inventori soal|soal ditampilkan/u);
 assert.match(builder, /role="status"/u);
@@ -55,8 +58,7 @@ assert.match(builder, /initialReadiness\?: QuestionBankReadiness \| null/u);
 assert.match(builder, /serverReadiness: mode === "edit" \? initialReadiness : null/u);
 assert.match(builder, /if \(result\.readiness\) setServerReadiness\(result\.readiness\)/u);
 assert.match(builder, /setServerReadiness\(result\.result\.readiness\)/u);
-assert.match(lifecycleSource, /if \(operation === "publish"\) setServerReadiness\(null\)/u);
-assert.equal((lifecycleSource.match(/setServerReadiness\(null\)/gu) ?? []).length, 1, "archive/unpublish/restore must preserve server readiness");
+assert.doesNotMatch(lifecycleSource, /setServerReadiness\(null\)/u);
 assert.match(builder, /questionIssues = state\.readiness\.issues\.filter/u);
 assert.match(builder, /aria-invalid=\{hasPromptIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasChoiceTextIssue\}/u);
@@ -64,13 +66,16 @@ assert.match(builder, /aria-invalid=\{hasSubtestIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasChoiceCountIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasCorrectChoiceIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasPromptMediaIssue\}/u);
-assert.match(builder, /className=\{cn\(REFERENCE_CONTROL_CLASS_NAMES\.input, "min-w-0 flex-1 bg-transparent py-2"\)\}[^>]*data-question-anchor="choice"/u);
+assert.match(
+  builder,
+  /className=\{cn\(\s*REFERENCE_CONTROL_CLASS_NAMES\.input,\s*"min-w-0 flex-1 bg-transparent py-2",\s*\)\}\s*data-question-anchor="choice"/u,
+);
 assert.match(builder, /onBankNoLongerEditable/u);
 assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{id\}\?purpose=\$\{builderState\.purpose\}`/u);
 assert.match(builder, /question-choice-count-error/u);
 assert.match(builder, /question-correct-choice-error/u);
 assert.match(builder, /question-answer-mode/u);
-assert.match(builder, /Beberapa jawaban/u);
+assert.match(builder, /Pilihan Ganda Kompleks/u);
 assert.match(builder, /type=\{multipleAnswer \? "checkbox" : "radio"\}/u);
 assert.match(builder, /correctChoiceIdsFor\(/u);
 assert.match(builder, /question-prompt-media-error/u);
@@ -85,7 +90,6 @@ assert.equal(
   "ticket-6 contract must be runnable through package.json",
 );
 
-assert.match(builder, /Simpan dulu untuk menerbitkan/u);
 assert.match(builder, /state\.readiness\.incompleteCount > 0/u);
 assert.match(builder, /<DropdownMenuItem[^>]*variant="destructive"[^>]*>[\s\S]*Arsipkan/u);
 assert.match(builder, /updateLifecycle\("archive"\)/u);

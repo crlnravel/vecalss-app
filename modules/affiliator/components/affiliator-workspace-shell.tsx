@@ -18,11 +18,6 @@ import { cn } from "@/lib/utils";
 import { AffiliatorSidebar } from "./affiliator-sidebar";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 
-const affiliatorRootHrefByLabel: Record<string, string> = {
-  Dashboard: "/affiliator/dashboard",
-  "Log pembelian": "/affiliator/dashboard#conversion-log",
-};
-
 function AffiliatorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
@@ -36,8 +31,8 @@ function AffiliatorWorkspaceShell({
   mainClassName?: string;
   session: SessionContext;
 }) {
-  const rootHref = affiliatorRootHrefByLabel[activeLabel] ?? "/affiliator/dashboard";
-  const isRootPage = breadcrumbLabel === activeLabel;
+  const rootHref = "/affiliator/dashboard";
+  const isRootPage = activeLabel === "Dashboard";
 
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
@@ -54,7 +49,7 @@ function AffiliatorWorkspaceShell({
                   <BreadcrumbList>
                     <BreadcrumbItem>
                       <BreadcrumbLink className="text-secondary-500" href={rootHref}>
-                        {activeLabel}
+                        Dashboard
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     {!isRootPage ? (

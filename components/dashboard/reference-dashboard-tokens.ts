@@ -17,11 +17,20 @@ const REFERENCE_SURFACE_CLASS_NAMES = {
     "rounded-4xl border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-deep-hover),0_20px_38px_-26px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)]",
   raisedInteractive:
     "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)]",
+  raisedStableInteractive:
+    "transition-[border-color,box-shadow] duration-200 motion-safe:hover:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] motion-reduce:transition-none",
 } as const;
 
 const REFERENCE_SHADOW_CLASS_NAMES = {
+  tactile:
+    "shadow-[0_6px_0_var(--voyage-sea-glass),0_18px_36px_-26px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent)]",
   tactileActive:
     "shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)]",
+} as const;
+
+const REFERENCE_INTERACTION_CLASS_NAMES = {
+  tactile:
+    "transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)] motion-safe:focus-visible:-translate-y-1 motion-safe:focus-visible:shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:focus-visible:translate-y-0",
 } as const;
 
 const REFERENCE_FIELD_LABEL_CLASS_NAME =
@@ -98,6 +107,7 @@ export {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_ICON_TONE_CLASS_NAMES,
+  REFERENCE_INTERACTION_CLASS_NAMES,
   REFERENCE_NAV_CLASS_NAMES,
   REFERENCE_SHADOW_CLASS_NAMES,
   REFERENCE_STATUS_LABELS,
