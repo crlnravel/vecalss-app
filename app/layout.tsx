@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { DebugAccountSwitcherProvider } from "@/components/debug-account-switcher-provider";
 import { isDebugAccountSwitcherEnabled } from "@/lib/config";
 
+import "lenis/dist/lenis.css";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({

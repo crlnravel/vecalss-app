@@ -26,7 +26,7 @@ export default async function MentorQuestionBankEditorPage({
     requireTutorSession(),
   ]);
   const initial = await getQuestionBankForEdit(bankId);
-  if (!initial || initial.bank.status !== "draft") notFound();
+  if (!initial || initial.bank.status === "archived") notFound();
 
   return (
     <KaptenQuestionBankBuilderPageModule

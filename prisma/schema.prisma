@@ -1771,7 +1771,7 @@ model QuestionBank {
   description     String?       @db.Text
   folderId        String?       @map("folder_id") @db.Uuid
   purpose         QuestionBankPurpose
-  status          ContentStatus @default(draft)
+  status          ContentStatus @default(published)
   revision        Int           @default(1)
   createdByUserId String        @map("created_by_user_id") @db.Uuid
   updatedByUserId String        @map("updated_by_user_id") @db.Uuid

@@ -17,12 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -154,7 +148,7 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
     <Link
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
-        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
         "group flex min-w-0 flex-col p-4",
       )}
       href={`/mentor/quiz/subject/${subject.slug}`}
@@ -168,9 +162,12 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
           {subjectCategory}
         </MentorBadge>
       </div>
-      <h2 className="mt-4 text-xl font-semibold text-secondary-900">
-        {subject.name}
+      <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-secondary-900">
+        {subject.code}
       </h2>
+      <p className="mt-1 text-sm leading-6 text-secondary-600">
+        {subject.name}
+      </p>
     </Link>
   );
 }
@@ -385,7 +382,8 @@ function QuizSubjectHeader({ subject }: { subject: KaptenSubject }) {
             Buat Kuis
           </Button>
         }
-        title={subject.name}
+        description={subject.name}
+        title={subject.code}
       />
     </div>
   );
@@ -728,17 +726,7 @@ function KaptenQuizSubjectPageModule({
       <div className="space-y-8">
         <QuizSubjectHeader subject={subject} />
         <section aria-label="Filter Kuis" className="space-y-4">
-          <QuizStatusTabs
-            items={quizzes}
-            onChange={(value) =>
-              dispatch({
-                patch: { page: 1, selectedIds: new Set(), statusFilter: value },
-                type: "patch",
-              })
-            }
-            value={statusFilter}
-          />
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             <CatalogueSearchInput
               onChange={(value) =>
                 dispatch({
@@ -750,6 +738,16 @@ function KaptenQuizSubjectPageModule({
               value={query}
             />
           </div>
+          <QuizStatusTabs
+            items={quizzes}
+            onChange={(value) =>
+              dispatch({
+                patch: { page: 1, selectedIds: new Set(), statusFilter: value },
+                type: "patch",
+              })
+            }
+            value={statusFilter}
+          />
         </section>
         {selectionMode ? (
           <QuizSelectionToolbar

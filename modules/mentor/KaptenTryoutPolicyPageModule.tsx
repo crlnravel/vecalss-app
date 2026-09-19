@@ -59,7 +59,7 @@ function KaptenTryoutPolicyPageModule({
   const [pendingAdmissionMode, setPendingAdmissionMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
-  const tryoutHref = `/mentor/tryout/${initial.id}/operations`;
+  const tryoutHref = `/mentor/tryout/${initial.id}?workspace=operations`;
 
   const admissionChanged = admissionMode !== initialAdmissionMode;
   const releaseChanged = defaultReleasePolicy !== initialDefaultReleasePolicy;

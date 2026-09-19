@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ReferenceEmptyState,
+  ReferencePageHeader,
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
@@ -181,14 +182,16 @@ function questionIssues(question: QuizQuestionSnapshot) {
   return issues;
 }
 
-function hasQuizDraftContent(form: QuizEditorForm) {
-  const defaultSubjectCode = kaptenSubjects[0]?.code ?? "PU";
+function hasQuizDraftContent(
+  form: QuizEditorForm,
+  pristineSubjectCode = kaptenSubjects[0]?.code ?? "PU",
+) {
   const title = form.title.trim();
 
   return Boolean(
     (title && title !== "Kuis baru") ||
     form.description.trim() ||
-    (form.subjectCode && form.subjectCode !== defaultSubjectCode) ||
+    (form.subjectCode && form.subjectCode !== pristineSubjectCode) ||
     form.opensAt.trim() ||
     form.closesAt.trim() ||
     form.attemptsAllowed !== 1 ||
@@ -802,6 +805,11 @@ function useQuizEditorState({
   quizId?: string;
 }) {
   const router = useRouter();
+  const pristineSubjectCode =
+    initialQuiz?.subjectCode ??
+    initialSubjectCode ??
+    kaptenSubjects[0]?.code ??
+    "PU";
   const initialForm = useState<QuizEditorForm>(() =>
     getInitialForm(initialQuiz, initialQuestions, initialSubjectCode),
   )[0];
@@ -811,7 +819,8 @@ function useQuizEditorState({
     initialForm.questions[0]?.id ?? null,
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(
-    mode === "create" && hasQuizDraftContent(initialForm),
+    mode === "create" &&
+      hasQuizDraftContent(initialForm, pristineSubjectCode),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -842,11 +851,13 @@ function useQuizEditorState({
   const markChanged = useCallback(
     (nextForm = form) => {
       setHasUnsavedChanges(
-        mode === "create" ? hasQuizDraftContent(nextForm) : true,
+        mode === "create"
+          ? hasQuizDraftContent(nextForm, pristineSubjectCode)
+          : true,
       );
       setSaveError(null);
     },
-    [form, mode],
+    [form, mode, pristineSubjectCode],
   );
 
   const patchForm = useCallback(
@@ -1347,41 +1358,35 @@ function QuizEditWorkspace({
   );
 }
 
-function QuizCreateHeader({ state }: { state: QuizEditorState }) {
+function QuizCreateHeader() {
   return (
-    <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
-        <Button
-          aria-label="Kembali ke daftar Kuis"
-          nativeButton={false}
-          render={<Link href="/mentor/quiz" />}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <ChevronLeft />
-          Kembali ke daftar
-        </Button>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">
-            {state.form.title || "Kuis tanpa judul"}
-          </h1>
-          {state.hasUnsavedChanges ? (
-            <ReferenceStatusBadge
-              appearance="mentor"
-              label="Belum disimpan"
-              size="xs"
-              status="need_help"
-            />
-          ) : null}
-        </div>
-        <p className="mt-2 text-sm leading-6 text-secondary-500">
-          Atur informasi dasar Kuis sebelum menambahkan soal.
-        </p>
-      </div>
+    <div className="flex min-w-0 items-start gap-3">
+      <Button
+        aria-label="Kembali ke daftar Kuis"
+        className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+        nativeButton={false}
+        render={<Link href="/mentor/quiz" />}
+        size="icon"
+        title="Kembali ke daftar Kuis"
+        variant="ghost"
+      >
+        <ChevronLeft aria-hidden="true" className="size-5" />
+      </Button>
+      <ReferencePageHeader
+        className="min-w-0 flex-1"
+        title="Kuis baru"
+      />
+    </div>
+  );
+}
+
+function QuizCreateSubmitButton({ state }: { state: QuizEditorState }) {
+  return (
+    <div className="w-full">
       <Button
         aria-busy={state.isSaving}
         aria-label="Buat"
+        className="w-full"
         disabled={state.isSaving || state.editorDisabled}
         onClick={() => void state.persistence.saveQuiz()}
         type="button"
@@ -1389,7 +1394,7 @@ function QuizCreateHeader({ state }: { state: QuizEditorState }) {
       >
         <Save /> {state.isSaving ? "Membuat…" : "Buat"}
       </Button>
-    </header>
+    </div>
   );
 }
 
@@ -1397,12 +1402,13 @@ function QuizCreateFields({ state }: { state: QuizEditorState }) {
   return (
     <ReferenceSurface
       as="section"
-      className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.38fr)] md:p-7"
+      className="grid gap-5 p-5 md:p-7"
     >
       <Field>
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
           htmlFor="quiz-editor-title"
+          required
         >
           Judul Kuis
         </FieldLabel>
@@ -1418,6 +1424,7 @@ function QuizCreateFields({ state }: { state: QuizEditorState }) {
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
           htmlFor="quiz-editor-subject"
+          required
         >
           Subjek
         </FieldLabel>
@@ -1433,13 +1440,12 @@ function QuizCreateFields({ state }: { state: QuizEditorState }) {
           value={state.form.subjectCode}
         />
       </Field>
-      <Field className="md:col-span-2">
+      <Field>
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
           htmlFor="quiz-editor-description"
         >
-          Deskripsi{" "}
-          <span className="font-normal text-secondary-400">(opsional)</span>
+          Deskripsi
         </FieldLabel>
         <FieldTextarea
           className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[96px]`}
@@ -1474,12 +1480,13 @@ function QuizCreateWorkspace({
       sidebarAppearance="reference"
       shouldGuardNavigation={state.hasUnsavedChanges}
     >
-      <QuizCreateHeader state={state} />
+      <QuizCreateHeader />
       <QuizEditorFeedback
         saveError={state.saveError}
         scheduleError={state.scheduleError}
       />
       <QuizCreateFields state={state} />
+      <QuizCreateSubmitButton state={state} />
     </MentorWorkspaceShell>
   );
 }

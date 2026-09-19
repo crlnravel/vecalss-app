@@ -300,7 +300,7 @@ function InvitationDetailCard({
         <InvitationSelectedStudent selectedStudent={selectedStudent} />
 
         <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={sessionInputId}>Sesi Tryout</FieldLabel>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={sessionInputId} required>Sesi Tryout</FieldLabel>
           <ReferenceSelect
             aria-describedby={`${sessionInputId}-hint`}
             aria-label="Sesi Tryout"
@@ -321,7 +321,7 @@ function InvitationDetailCard({
         </Field>
 
         <Field>
-          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={reasonInputId}>Alasan audit <span aria-hidden="true" className="text-destructive">*</span><span className="sr-only"> (wajib)</span></FieldLabel>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={reasonInputId} required>Alasan audit</FieldLabel>
           <FieldTextarea
             aria-describedby={`${reasonInputId}-hint`}
             aria-required="true"

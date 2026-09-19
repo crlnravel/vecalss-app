@@ -57,7 +57,7 @@ type SessionSchedule = { availableFrom: string; availableUntil: string };
 function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolean; delivery: DeliverySession; initial: TryoutOperationsView; onOpen: () => void }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}/operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
+      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}?workspace=operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
       <ReferencePageHeader
         actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="brand">Buka sesi</Button> : null}</div>}
         className="min-w-0 flex-1"

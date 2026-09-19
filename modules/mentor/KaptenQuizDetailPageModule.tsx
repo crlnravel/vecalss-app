@@ -743,7 +743,7 @@ function QuizSettings({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-secondary-900">
-                Status Kuis
+                Administrasi
               </h2>
             </div>
             <Button
@@ -768,9 +768,9 @@ function QuizSettings({
         }
         onClick={onSave}
         type="button"
-        variant="reference"
+        variant="brand"
       >
-        {isSaving ? "Menyimpan…" : "Simpan perubahan"}
+        {isSaving ? "Menyimpan…" : "Simpan"}
       </Button>
     </div>
   );
@@ -913,15 +913,6 @@ function KaptenQuizDetailPageModule({
                 Terbitkan
               </Button>
             ) : null}
-            <Button
-              nativeButton={false}
-              render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />}
-              type="button"
-              variant="brand"
-            >
-              <FilePenLine />
-              Edit soal
-            </Button>
           </div>
         </div>
         <QuizMetadataCard
@@ -958,7 +949,18 @@ function KaptenQuizDetailPageModule({
               Pengaturan
             </FullWidthLineTabsTrigger>
           </FullWidthLineTabsList>
-          <TabsContent className="m-0" value="preview">
+          <TabsContent className="m-0 space-y-4" value="preview">
+            <div className="flex justify-end">
+              <Button
+                nativeButton={false}
+                render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />}
+                type="button"
+                variant="brand"
+              >
+                <FilePenLine />
+                Edit soal
+              </Button>
+            </div>
             <QuizPreview
               quizId={quiz.id}
               questions={questions}

@@ -307,6 +307,7 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
 
 function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[], metrics: BankMetrics): QuestionBankCatalogEntry {
   const folderPath = folderPathFromRows(bank.folder?.id ?? null, folderRows, bank.purpose);
+  const status = bank.status === ContentStatus.archived ? ContentStatus.archived : ContentStatus.published;
   return {
     bank: {
       categories: bank.categories
@@ -327,7 +328,7 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
       purpose: bank.purpose,
       reusableIn: [questionBankPurposeLabel(bank.purpose)],
       revision: bank.revision,
-      status: bank.status,
+      status,
       materiCoverage: metrics.materiCoverage,
       subjectCoverage: metrics.subjectCoverage,
       title: bank.name,
@@ -487,7 +488,11 @@ function buildListWhere(options: ListQuestionBanksOptions = {}): Prisma.Question
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
   if (options.purpose) conditions.push({ purpose: assertQuestionBankPurpose(options.purpose) });
   if (options.folderId !== undefined) conditions.push({ folderId: options.folderId });
-  if (options.status) conditions.push({ status: options.status });
+  if (options.status) {
+    conditions.push(options.status === ContentStatus.archived
+      ? { status: ContentStatus.archived }
+      : { status: { not: ContentStatus.archived } });
+  }
   if (categoryIds.length) conditions.push({ categories: { some: { categoryId: { in: categoryIds } } } });
   if (options.subjectCoverage?.length) {
     conditions.push({ questions: {
@@ -583,7 +588,7 @@ function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma
   const purpose = assertQuestionBankPurpose(options.purpose);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`b.purpose = ${purpose}`,
-    Prisma.sql`b.status = ${ContentStatus.published}`,
+    Prisma.sql`b.status <> ${ContentStatus.archived}`,
     Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND rq.status <> ${ContentStatus.archived} AND ${buildReadySourceQuestionCondition("rq", "b")})`,
   ];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
@@ -680,11 +685,11 @@ async function listQuestionBankSourceQuestions(bankId: string, options: ListQues
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 100));
   const page = Math.max(1, options.page ?? 1);
   const bank = await prisma.questionBank.findUnique({ where: { id: bankId, purpose }, include: bankCatalogInclude });
-  if (!bank || bank.status !== ContentStatus.published) return null;
+  if (!bank || bank.status === ContentStatus.archived) return null;
   const questionConditions: Prisma.Sql[] = [
     Prisma.sql`q.question_bank_id = ${bankId}::uuid`,
     Prisma.sql`q.status <> ${ContentStatus.archived}`,
-    Prisma.sql`EXISTS (SELECT 1 FROM question_banks qb WHERE qb.id = q.question_bank_id AND qb.purpose = ${purpose} AND qb.status = ${ContentStatus.published})`,
+    Prisma.sql`EXISTS (SELECT 1 FROM question_banks qb WHERE qb.id = q.question_bank_id AND qb.purpose = ${purpose} AND qb.status <> ${ContentStatus.archived})`,
     buildReadySourceQuestionCondition("q"),
   ];
   if (options.subjectCode) {
@@ -851,70 +856,6 @@ function sameCanonicalQuestionContent(
     && left.digest === right.digest);
 }
 
-type QuestionContentRecord = Parameters<typeof canonicalQuestionFromRecord>[0] & {
-  status: ContentStatus;
-};
-
-function publishedQuestionRecords(existing: readonly QuestionContentRecord[]) {
-  return existing.filter((question) => (
-    question.status !== ContentStatus.archived
-    && question.currentRevision?.status === QuestionRevisionStatus.ready
-  ));
-}
-
-function assertPublishedQuestionContentUnchanged(
-  input: SaveBankInput,
-  existing: readonly QuestionContentRecord[],
-  subtestByCode: ReadonlyMap<string, { id: string; code: string }>,
-) {
-  const published = publishedQuestionRecords(existing);
-  const publishedById = new Map(published.map((question) => [question.id, question]));
-  const incomingById = new Map(input.questions.flatMap((question) => {
-    if (!question.id) return [];
-    const subtest = subtestByCode.get(question.subjectCode);
-    return [[question.id, canonicalQuestionFromInput(question, subtest?.code ?? null)] as const];
-  }));
-  const changedQuestionIds: string[] = [];
-  const addedQuestionIds: string[] = [];
-  const removedQuestionIds: string[] = [];
-  const incomingPublishedIds = input.questions.flatMap((question) => (
-    question.id && publishedById.has(question.id) ? [question.id] : []
-  ));
-  const reordered = incomingPublishedIds.length === published.length
-    && incomingPublishedIds.some((questionId, index) => questionId !== published[index]?.id);
-
-  for (const question of published) {
-    const incoming = incomingById.get(question.id);
-    if (!incoming) {
-      removedQuestionIds.push(question.id);
-      continue;
-    }
-    if (!sameCanonicalQuestionContent(canonicalQuestionFromRecord(question), incoming)) {
-      changedQuestionIds.push(question.id);
-    }
-  }
-  for (const question of input.questions) {
-    if (!question.id || !publishedById.has(question.id)) {
-      addedQuestionIds.push(question.id ?? "new");
-    }
-  }
-
-  if (!changedQuestionIds.length && !addedQuestionIds.length && !removedQuestionIds.length && !reordered) return;
-  throw new QuestionBankError(
-    "Konten soal yang sudah diterbitkan terkunci. Pilih ‘Jadikan draf’ terlebih dahulu.",
-    {
-      attemptedInput: input,
-      code: "published_content_locked",
-      details: {
-        addedQuestionIds,
-        changedQuestionIds,
-        removedQuestionIds,
-        reordered,
-      },
-    },
-  );
-}
-
 async function createQuestionRevision(
   tx: Prisma.TransactionClient,
   input: {
@@ -1046,21 +987,15 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
   const folderId = normalizeQuestionBankFolderId(input.folderId);
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     let bankId = input.id;
-    let status: ContentStatus = ContentStatus.draft;
+    const status: ContentStatus = ContentStatus.published;
     if (bankId) {
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
       const current = await tx.questionBank.findUnique({ where: { id: bankId } });
       if (!current) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
       if (input.revision === undefined || current.revision !== input.revision) {
         throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.", { code: "stale_revision" });
-      }
-      if (current.status === ContentStatus.scheduled) {
-        throw new QuestionBankError(
-          "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-          { code: "scheduled_unsupported", details: { status: current.status } },
-        );
       }
       if (current.status === ContentStatus.archived) {
         throw new QuestionBankError(
@@ -1074,7 +1009,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           details: { currentPurpose: current.purpose, requestedPurpose: input.purpose },
         });
       }
-      status = current.status;
     }
 
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
@@ -1103,6 +1037,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           name: input.title.trim(),
           purpose: input.purpose,
           createdByUserId: actorId,
+          status,
           updatedByUserId: actorId,
         },
       });
@@ -1125,10 +1060,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
       orderBy: { createdAt: "asc" },
     });
 
-    if (status === ContentStatus.published) {
-      assertPublishedQuestionContentUnchanged(input, existing, subtestByCode);
-    }
-
     if (input.id) {
       await tx.questionBank.update({
         where: { id: persistedBankId },
@@ -1136,6 +1067,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           description: input.description.trim() || null,
           name: input.title.trim(),
           revision: { increment: 1 },
+          status,
           updatedByUserId: actorId,
         },
       });
@@ -1266,93 +1198,70 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     ]);
     return toDto(saved, folderRows);
   });
+  try {
+    await syncStandaloneQuizBankRevisions(result.bank.id);
+  } catch (error) {
+    // The Bank save is already durable. Quiz source snapshots are updated by
+    // an idempotent follow-up, so a transient propagation failure must not
+    // make a successful Bank Soal save look like an error to the mentor.
+    console.error("Active Bank Soal revision sync failed", error);
+  }
+  return result;
 }
 
 type QuestionBankLifecycleOptions = { expectedRevision: number };
 
-async function updateQuestionBankLifecycle(id: string, operation: "publish" | "unpublish" | "archive" | "restore", actorId: string, options: QuestionBankLifecycleOptions) {
-  const result = await prisma.$transaction(async (tx) => {
+async function updateQuestionBankLifecycle(id: string, operation: "archive" | "restore", actorId: string, options: QuestionBankLifecycleOptions) {
+  const requestedOperation = String(operation);
+  if (requestedOperation !== "archive" && requestedOperation !== "restore") {
+    throw new QuestionBankError("Operasi status Bank Soal tidak valid.", {
+      code: "invalid_input",
+      details: { operation: requestedOperation },
+    });
+  }
+  const isArchive = requestedOperation === "archive";
+  return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     if (bank.revision !== options.expectedRevision) {
       throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.", { code: "stale_revision" });
     }
-    if (bank.status === ContentStatus.scheduled) {
-      throw new QuestionBankError(
-        "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-        { code: "scheduled_unsupported", details: { status: bank.status, operation } },
-      );
-    }
-
-    const allowedOperations: Record<ContentStatus, readonly string[]> = {
-      [ContentStatus.draft]: ["publish", "archive"],
-      [ContentStatus.published]: ["unpublish", "archive"],
-      [ContentStatus.archived]: ["restore"],
-      [ContentStatus.scheduled]: [],
-    };
-    if (!allowedOperations[bank.status]?.includes(operation)) {
+    const operationAllowed = isArchive
+      ? bank.status !== ContentStatus.archived
+      : bank.status === ContentStatus.archived;
+    if (!operationAllowed) {
       throw new QuestionBankError(
         "Perubahan status Bank Soal tidak diizinkan dari status saat ini.",
         {
           code: "invalid_lifecycle_transition",
-          details: { from: bank.status, operation },
+          details: { from: bank.status, operation: requestedOperation },
         },
       );
     }
 
     const activeQuestions = bank.questions.filter((question) => question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
-    const readiness = getQuestionBankReadinessFromRevisions(activeQuestions.map((question) => ({
-      questionId: question.id,
-      revision: question.currentRevision,
-      subtestCode: question.subtest?.code,
-    })));
-    if (operation === "publish") {
-      if (!activeQuestions.length || readiness.issues.length) {
-        throw new QuestionBankError(
-          "Lengkapi soal yang masih bermasalah sebelum menerbitkan Bank Soal.",
-          {
-            code: "readiness_failed",
-            details: { activeQuestionCount: activeQuestions.length },
-            readiness,
-          },
-        );
-      }
-    }
-    const status = operation === "publish" ? ContentStatus.published : operation === "archive" ? ContentStatus.archived : ContentStatus.draft;
+    const status = isArchive ? ContentStatus.archived : ContentStatus.published;
     const revision = bank.revision + 1;
     await tx.questionBank.update({ where: { id }, data: { status, revision, updatedByUserId: actorId } });
-    // Bank lifecycle controls source availability. Historical questions that
-    // were intentionally removed remain archived; only active rows follow a
-    // publish/unpublish transition. Archiving the bank itself does not erase
-    // the active-question state needed for a safe restore.
-    if (operation === "publish") {
-      await Promise.all(activeQuestions.flatMap((question) => [
-        ...(question.currentRevision?.status !== QuestionRevisionStatus.ready && question.currentRevision
-          ? [tx.questionRevision.update({ where: { id: question.currentRevision.id }, data: { readyAt: new Date(), status: QuestionRevisionStatus.ready, updatedByUserId: actorId } })]
-          : []),
-        tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.published, updatedByUserId: actorId } }),
-      ]));
-    } else if (operation === "archive") {
+    // Archiving the bank makes all active question identities unavailable as
+    // sources while preserving their current revisions for a safe restore.
+    if (isArchive) {
       await Promise.all(activeQuestions.map((question) => tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.archived, updatedByUserId: actorId } })));
-    } else if (operation === "restore") {
+    } else {
       const restoreQuestions = bank.questions.filter((question) => question.status === ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
-      await Promise.all(restoreQuestions.map((question) => tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.draft, updatedByUserId: actorId } })));
+      await Promise.all(restoreQuestions.map((question) => tx.question.update({
+        where: { id: question.id },
+        data: {
+          status: question.currentRevision?.status === QuestionRevisionStatus.ready
+            ? ContentStatus.published
+            : ContentStatus.draft,
+          updatedByUserId: actorId,
+        },
+      })));
     }
     return { id, revision, status };
   });
-  if (operation === "publish") {
-    try {
-      await syncStandaloneQuizBankRevisions(id);
-    } catch (error) {
-      // The Bank publication is already durable. The editor also retries this
-      // idempotent sync when it receives a ready source revision, so a
-      // transient propagation failure must not make a successful publication
-      // look like an error to the mentor.
-      console.error("Published Bank Soal revision sync failed", error);
-    }
-  }
-  return result;
 }
 
 type QuestionRevisionLifecycleStatus = "draft" | "review" | "ready" | "retired";
@@ -1401,12 +1310,6 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
       },
     });
     if (!revision) throw new QuestionBankError("Revisi soal tidak ditemukan.", { code: "not_found" });
-    if (revision.question.questionBank?.status === ContentStatus.scheduled) {
-      throw new QuestionBankError(
-        "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-        { code: "scheduled_unsupported", details: { status: revision.question.questionBank.status } },
-      );
-    }
     if (revision.question.questionBank?.status === ContentStatus.archived) {
       throw new QuestionBankError(
         "Bank Soal yang diarsipkan harus dipulihkan sebelum revisinya dapat diubah.",
@@ -1489,12 +1392,6 @@ async function deleteQuestionBank(id: string, actorId: string) {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, status: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
-    if (bank.status === ContentStatus.scheduled) {
-      throw new QuestionBankError(
-        "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
-        { code: "scheduled_unsupported", details: { status: bank.status, operation: "delete" } },
-      );
-    }
     const modifierId = actorId;
 
     const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([

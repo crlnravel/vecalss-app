@@ -361,6 +361,7 @@ function MateriBasicsSection({
           <FieldLabel
             className={REFERENCE_FIELD_LABEL_CLASS_NAME}
             htmlFor="materi-subject"
+            required
           >
             Subject
           </FieldLabel>
@@ -422,6 +423,7 @@ function MateriBasicsSection({
           <FieldLabel
             className={REFERENCE_FIELD_LABEL_CLASS_NAME}
             htmlFor="materi-title"
+            required
           >
             Judul materi
           </FieldLabel>
@@ -470,6 +472,8 @@ function MateriDocumentSection({
           id="materi-document-title"
         >
           Bacaan PDF
+          <span aria-hidden="true" className="ml-1 text-destructive">*</span>
+          <span className="sr-only"> (wajib)</span>
         </h2>
       </div>
       <ReferenceSurface className="space-y-4 p-4 sm:p-5" variant="inset">
@@ -550,7 +554,7 @@ function MateriVideoSection({
           className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
           id="materi-video-title"
         >
-          Video pendamping (opsional)
+          Video pendamping
         </h2>
       </div>
       <div>

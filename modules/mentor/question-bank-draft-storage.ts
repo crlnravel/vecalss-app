@@ -178,6 +178,7 @@ function sanitizeDraft(draft: StoredQuestionBankDraft): StoredQuestionBankDraft 
     ...draft,
     bank: {
       ...draft.bank,
+      status: draft.bank.status === "archived" ? "archived" : "published",
       tags: containsLegacyTag || originalTags === undefined ? derivedTags : [...new Set(validTags)],
     },
     questions,
@@ -269,7 +270,7 @@ function getQuestionBankCatalog() {
 
 function getQuestionBankSourceCatalog() {
   return getQuestionBankCatalog().reduce<Array<{ bank: KaptenQuestionBank; questions: BankQuestion[] }>>((sources, { bank, questions }) => {
-    const readyQuestions = bank.status === "published" ? questions.filter(isReadyBankQuestion) : [];
+    const readyQuestions = bank.status !== "archived" ? questions.filter(isReadyBankQuestion) : [];
     if (readyQuestions.length > 0) sources.push({ bank, questions: readyQuestions });
     return sources;
   }, []);
@@ -277,7 +278,7 @@ function getQuestionBankSourceCatalog() {
 
 function updateQuestionBankLifecycle(
   ids: string[],
-  operation: "publish" | "unpublish",
+  operation: "archive" | "restore",
 ) {
   const uniqueIds = [...new Set(ids)];
   if (!uniqueIds.length) throw new Error("Pilih minimal satu bank soal.");
@@ -289,19 +290,16 @@ function updateQuestionBankLifecycle(
     throw new Error("Sebagian bank soal tidak ditemukan. Muat ulang halaman lalu coba lagi.");
   }
 
-  const requiredStatus = operation === "publish" ? "draft" : "published";
+  const requiredStatus = operation === "archive" ? "published" : "archived";
   if (selected.some(({ bank }) => bank.status !== requiredStatus)) {
     throw new Error(
-      operation === "publish"
-        ? "Pilih hanya bank soal draf yang siap diterbitkan."
-        : "Pilih hanya bank soal yang sudah diterbitkan.",
+      operation === "archive"
+        ? "Pilih hanya bank soal yang belum diarsipkan."
+        : "Pilih hanya bank soal yang sudah diarsipkan.",
     );
   }
-  if (operation === "publish" && selected.some(({ questions }) => !questions.length || questions.some((question) => !isReadyBankQuestion(question)))) {
-    throw new Error("Lengkapi minimal satu soal di setiap bank sebelum menerbitkannya.");
-  }
 
-  const nextStatus = operation === "publish" ? "published" : "draft";
+  const nextStatus = operation === "archive" ? "archived" : "published";
   const stored = readDrafts();
   const byId = new Map(stored.map((draft) => [draft.bank.id, draft]));
   for (const { bank, questions } of selected) {

@@ -53,7 +53,7 @@ export default async function MentorQuestionBankPage({
   // The catalogue root is the unfiled collection. A committed search is the
   // only state that intentionally spans every folder.
   const folderId = requestedFolder === undefined ? null : requestedFolder === "root" || requestedFolder === "unfiled" ? null : requestedFolder;
-  const status = parsedQuery.status ? parsedQuery.status as "draft" | "scheduled" | "published" | "archived" : undefined;
+  const status = parsedQuery.status ? parsedQuery.status as "published" | "archived" : undefined;
   const page = parsedQuery.page;
   const search = parsedQuery.q;
   const requestedSort = parsedQuery.sort as QuestionBankSort;

@@ -73,7 +73,7 @@ async function saveQuestionBankAction(input: SaveBankInput) {
   catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini."); }
 }
 
-async function updateQuestionBankLifecycleAction(id: string, operation: "publish" | "unpublish" | "archive" | "restore", options: QuestionBankLifecycleOptions) {
+async function updateQuestionBankLifecycleAction(id: string, operation: "archive" | "restore", options: QuestionBankLifecycleOptions) {
   const session = await requireTutorSession();
   try { const result = await updateQuestionBankLifecycle(id, operation, session.user.id, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Status Bank Soal tidak dapat diubah saat ini."); }

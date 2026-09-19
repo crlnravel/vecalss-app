@@ -18,14 +18,26 @@ function Field({
 
 function FieldLabel({
   className,
+  children,
+  required = false,
   ...props
-}: React.ComponentProps<typeof FieldPrimitive.Label>) {
+}: React.ComponentProps<typeof FieldPrimitive.Label> & { required?: boolean }) {
   return (
     <FieldPrimitive.Label
       data-slot="field-label"
       className={cn("text-base leading-7 text-primary-900", className)}
       {...props}
-    />
+    >
+      {children}
+      {required ? (
+        <>
+          <span aria-hidden="true" className="ml-1 text-destructive">
+            *
+          </span>
+          <span className="sr-only"> (wajib)</span>
+        </>
+      ) : null}
+    </FieldPrimitive.Label>
   );
 }
 

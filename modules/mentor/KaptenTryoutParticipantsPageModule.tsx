@@ -97,7 +97,7 @@ function TryoutAttemptRow({
           </span>
         </Link>
       </TableCell>
-      <TableCell className="px-4 py-4">
+      <TableCell className="px-4 py-4 text-center">
         <span className="flex justify-center tabular-nums text-secondary-900">
           {inProgress
             ? "—"
@@ -198,7 +198,7 @@ function KaptenTryoutParticipantsPageModule({
                   <TableHead className="h-auto px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
                     Nama
                   </TableHead>
-                  <TableHead className="h-auto w-28 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
+                  <TableHead className="h-auto w-28 px-4 py-3 text-center text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
                     Skor
                   </TableHead>
                   <TableHead className="h-auto w-36 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">

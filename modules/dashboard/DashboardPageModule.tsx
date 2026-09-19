@@ -32,8 +32,17 @@ import {
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CompactTabsList, CompactTabsTrigger } from "@/components/ui/compact-filter-tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  CompactTabsList,
+  CompactTabsTrigger,
+} from "@/components/ui/compact-filter-tabs";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type {
   ExamEvent,
@@ -43,9 +52,7 @@ import type {
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import {
-  resolveStudentBannerText,
-} from "@/lib/student/banner-content";
+import { resolveStudentBannerText } from "@/lib/student/banner-content";
 import {
   getStudentBannerDescription,
   getStudentBannerHeading,
@@ -69,19 +76,64 @@ const quickAccessItems: Array<{
   icon: DashboardIcon;
   label: string;
 }> = [
-  { description: "Lanjutkan bacaanmu", href: "/courses", icon: BookOpen, label: "Materi" },
-  { description: "Latihan soal sesuai subtes", href: "/quiz", icon: ListChecks, label: "Kuis" },
-  { description: "Uji kesiapan UTBK", href: "/tryout", icon: Gauge, label: "Tryout" },
-  { description: "Tanya dan susun strategi belajar", href: "/vera-ai", icon: Bot, label: "Vera AI" },
-  { description: "Cek update dan pengingat belajar", href: "/notifications", icon: Bell, label: "Notifikasi" },
-  { description: "Atur data diri dan target", href: "/settings", icon: UserRound, label: "Profil" },
-  { description: "Kelola jurusan dan kampus tujuan", href: "/settings#target-belajar", icon: Target, label: "Target Belajar" },
-  { description: "Selesaikan tugas belajar hari ini", href: "#daily-mission", icon: CalendarCheck, label: "Misi Harian" },
-  { description: "Lihat performa dan latihanmu", href: "#progress", icon: Activity, label: "Progress Belajar" },
+  {
+    description: "Lanjutkan bacaanmu",
+    href: "/courses",
+    icon: BookOpen,
+    label: "Materi",
+  },
+  {
+    description: "Latihan soal sesuai subtes",
+    href: "/quiz",
+    icon: ListChecks,
+    label: "Kuis",
+  },
+  {
+    description: "Uji kesiapan UTBK",
+    href: "/tryout",
+    icon: Gauge,
+    label: "Tryout",
+  },
+  {
+    description: "Tanya dan susun strategi belajar",
+    href: "/vera-ai",
+    icon: Bot,
+    label: "Vera AI",
+  },
+  {
+    description: "Cek update dan pengingat belajar",
+    href: "/notifications",
+    icon: Bell,
+    label: "Notifikasi",
+  },
+  {
+    description: "Atur data diri dan target",
+    href: "/settings",
+    icon: UserRound,
+    label: "Profil",
+  },
+  {
+    description: "Kelola jurusan dan kampus tujuan",
+    href: "/settings#target-belajar",
+    icon: Target,
+    label: "Target Belajar",
+  },
+  {
+    description: "Selesaikan tugas belajar hari ini",
+    href: "#daily-mission",
+    icon: CalendarCheck,
+    label: "Misi Harian",
+  },
+  {
+    description: "Lihat performa dan latihanmu",
+    href: "#progress",
+    icon: Activity,
+    label: "Progress Belajar",
+  },
 ];
 
 const dailyMissionItems = [
-  "Daftar Tryout SNBT Pintarly",
+  "Daftar Tryout SNBT",
   "Kerjakan Latihan Kilat 10 Soal PU (Penalaran Umum)",
   "Selesaikan 1 Bacaan Materi",
 ];
@@ -129,10 +181,13 @@ function DashboardPageModule({
 }) {
   const firstName = getFirstName(session.user.fullName);
   const examDaysLeft = getExamDaysLeft(profile);
-  const target = [
-    profile.targetMajor?.name,
-    profile.targetUniversity?.shortName ?? profile.targetUniversity?.name,
-  ].filter(Boolean).join(" - ") || "target belajarmu";
+  const target =
+    [
+      profile.targetMajor?.name,
+      profile.targetUniversity?.shortName ?? profile.targetUniversity?.name,
+    ]
+      .filter(Boolean)
+      .join(" - ") || "target belajarmu";
   const bannerVariables = { firstName, target };
 
   return (
@@ -147,10 +202,12 @@ function DashboardPageModule({
     >
       <section>
         {banner.design ? (
-          <Card className={cn(
-            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
-            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
-          )}>
+          <Card
+            className={cn(
+              "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+              REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+            )}
+          >
             <StudentBannerArtwork
               banner={banner}
               className="absolute inset-0 size-full rounded-none"
@@ -168,11 +225,16 @@ function DashboardPageModule({
             </CardHeader>
           </Card>
         ) : (
-          <Card className={cn(
-            "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
-            REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
-          )}>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block">
+          <Card
+            className={cn(
+              "relative min-h-[330px] overflow-hidden rounded-5xl border-0 bg-learning-hero-bg py-0 text-learning-hero-fg ring-0",
+              REFERENCE_SHADOW_CLASS_NAMES.tactileActive,
+            )}
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] xl:block"
+            >
               <div className="absolute right-6 top-8 size-64 rounded-full border border-voyage-sea-glass/30 xl:right-10 xl:size-72" />
               <div className="absolute right-10 top-12 size-56 rounded-full bg-voyage-sea-glass xl:right-14 xl:size-64" />
               <div className="absolute right-9 top-10 size-10 rounded-full bg-voyage-warm-sun" />
@@ -189,10 +251,16 @@ function DashboardPageModule({
               <div className="grid gap-12">
                 <div>
                   <h1 className="max-w-3xl font-display text-4xl leading-[1.08] font-extrabold tracking-[-0.04em] text-balance text-learning-hero-fg md:text-5xl">
-                    {resolveStudentBannerText(banner.fallback.title, bannerVariables)}
+                    {resolveStudentBannerText(
+                      banner.fallback.title,
+                      bannerVariables,
+                    )}
                   </h1>
                   <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-learning-hero-muted">
-                    {resolveStudentBannerText(banner.fallback.description, bannerVariables)}
+                    {resolveStudentBannerText(
+                      banner.fallback.description,
+                      bannerVariables,
+                    )}
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -217,12 +285,18 @@ function DashboardPageModule({
 
 function HeroCountdownPill({ daysLeft }: { daysLeft: number | null }) {
   const label =
-    daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`;
+    daysLeft === null
+      ? "Pasang target"
+      : daysLeft === 0
+        ? "Hari H UTBK"
+        : `H-${daysLeft} UTBK`;
 
   return (
     <div className="inline-flex min-h-11 items-center gap-2.5 rounded-full bg-student-status-attention-solid-bg px-4 py-2 text-student-status-attention-solid-fg">
       <CalendarCheck aria-hidden="true" className="size-[18px]" />
-      <span className="text-base font-bold leading-none tabular-nums">{label}</span>
+      <span className="text-base font-bold leading-none tabular-nums">
+        {label}
+      </span>
     </div>
   );
 }
@@ -231,7 +305,9 @@ function HeroDataPill() {
   return (
     <div className="inline-flex min-h-11 items-center gap-2 px-1 py-2 text-learning-hero-muted">
       <Info aria-hidden="true" className="size-[18px]" />
-      <span className="text-sm font-semibold leading-none">XP belum tersedia</span>
+      <span className="text-sm font-semibold leading-none">
+        XP belum tersedia
+      </span>
     </div>
   );
 }
@@ -240,11 +316,18 @@ function DashboardDataNotice() {
   return (
     <Card className="border border-learning-card-border bg-voyage-surface py-0 shadow-none ring-0">
       <CardContent className="flex items-start gap-4 px-6 py-5">
-        <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
+        <Info
+          aria-hidden="true"
+          className="mt-0.5 size-5 shrink-0 text-primary-700"
+        />
         <div>
-          <p className="text-sm font-semibold text-secondary-900">Data dashboard belum tersedia</p>
+          <p className="text-sm font-semibold text-secondary-900">
+            Data dashboard belum tersedia
+          </p>
           <p className="mt-1 text-sm leading-6 text-secondary-600">
-            Ringkasan aktivitas di bawah belum tersambung ke sumber live. Nilai XP, misi, dan analitik tidak akan dianggap tersimpan sampai data tersedia.
+            Ringkasan aktivitas di bawah belum tersambung ke sumber live. Nilai
+            XP, misi, dan analitik tidak akan dianggap tersimpan sampai data
+            tersedia.
           </p>
         </div>
       </CardContent>
@@ -252,13 +335,21 @@ function DashboardDataNotice() {
   );
 }
 
-function DashboardSectionHeading({ icon: Icon, title }: { icon: DashboardIcon; title: string }) {
+function DashboardSectionHeading({
+  icon: Icon,
+  title,
+}: {
+  icon: DashboardIcon;
+  title: string;
+}) {
   return (
     <div className="flex items-center gap-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-voyage-sea-glass text-voyage-deep">
         <Icon aria-hidden="true" className="size-5" />
       </span>
-      <h2 className="text-xl font-extrabold tracking-tight text-voyage-ink">{title}</h2>
+      <h2 className="text-xl font-extrabold tracking-tight text-voyage-ink">
+        {title}
+      </h2>
     </div>
   );
 }
@@ -269,11 +360,17 @@ function QuickAccessSection() {
       <DashboardSectionHeading icon={Zap} title="Akses Cepat" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
-          <Link className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2" href={item.href} key={item.label}>
-            <Card className={cn(
-              REFERENCE_SURFACE_CLASS_NAMES.tactile,
-              "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
-            )}>
+          <Link
+            className="block min-w-0 rounded-4xl outline-none focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            href={item.href}
+            key={item.label}
+          >
+            <Card
+              className={cn(
+                REFERENCE_SURFACE_CLASS_NAMES.tactile,
+                "gap-0 border-learning-card-border py-0 ring-0 transition-[border-color,background-color] duration-200 hover:border-voyage-forest motion-reduce:transition-none",
+              )}
+            >
               <CardContent className="flex min-h-24 items-center gap-5 px-5 py-4">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep">
                   <item.icon aria-hidden="true" className="size-6" />
@@ -286,7 +383,10 @@ function QuickAccessSection() {
                     {item.description}
                   </CardDescription>
                 </div>
-                <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-voyage-deep" />
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-5 shrink-0 text-voyage-deep"
+                />
               </CardContent>
             </Card>
           </Link>
@@ -300,12 +400,19 @@ function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-5" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card
+        className={cn(
+          REFERENCE_SURFACE_CLASS_NAMES.tactile,
+          "gap-0 border-learning-card-border py-0 ring-0",
+        )}
+      >
         <CardHeader className="flex flex-row items-center justify-between gap-5 px-6 pb-5 pt-6">
           <CardDescription className="text-sm text-learning-muted-ink">
             Belum tersedia karena sumber aktivitas belum tersambung.
           </CardDescription>
-          <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">Belum dimulai</span>
+          <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">
+            Belum dimulai
+          </span>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 px-6 pb-6">
           {dailyMissionItems.map((mission) => (
@@ -314,7 +421,12 @@ function DailyMissionSection() {
               className="flex min-h-12 items-center gap-3 rounded-2xl border border-secondary-200 bg-voyage-canvas px-3.5 py-2.5 text-learning-muted-ink"
               key={mission}
             >
-              <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full border border-secondary-300 bg-white text-xs">–</span>
+              <span
+                aria-hidden="true"
+                className="grid size-5 shrink-0 place-items-center rounded-full border border-secondary-300 bg-white text-xs"
+              >
+                –
+              </span>
               <span className="text-sm font-medium">{mission}</span>
             </div>
           ))}
@@ -334,35 +446,75 @@ function AnalyticsSection() {
   );
 }
 
-function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
+function AnalyticsCard({
+  children,
+  description,
+  title,
+}: {
+  children: React.ReactNode;
+  description: string;
+  title: string;
+}) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0")}>
+    <Card
+      className={cn(
+        REFERENCE_SURFACE_CLASS_NAMES.tactile,
+        "min-h-[240px] gap-0 border-learning-card-border py-0 ring-0",
+      )}
+    >
       <CardHeader className="gap-2 px-6 pb-0 pt-6">
-        <CardTitle className="text-base font-bold text-voyage-ink">{title}</CardTitle>
-        <CardDescription className="text-sm text-learning-muted-ink">{description}</CardDescription>
+        <CardTitle className="text-base font-bold text-voyage-ink">
+          {title}
+        </CardTitle>
+        <CardDescription className="text-sm text-learning-muted-ink">
+          {description}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 px-6 pb-6 pt-4">{children}</CardContent>
+      <CardContent className="flex flex-1 px-6 pb-6 pt-4">
+        {children}
+      </CardContent>
     </Card>
   );
 }
 
 function AccuracyCard() {
-  return <UnavailableAnalyticsCard description="Belum ada sumber aktivitas untuk menghitung akurasi." title="Akurasi" />;
+  return (
+    <UnavailableAnalyticsCard
+      description="Belum ada sumber aktivitas untuk menghitung akurasi."
+      title="Akurasi"
+    />
+  );
 }
 
 function PracticeActivityCard() {
-  return <UnavailableAnalyticsCard description="Belum ada sumber aktivitas untuk menampilkan tren." title="Aktivitas Latihan" />;
+  return (
+    <UnavailableAnalyticsCard
+      description="Belum ada sumber aktivitas untuk menampilkan tren."
+      title="Aktivitas Latihan"
+    />
+  );
 }
 
-function UnavailableAnalyticsCard({ description, title }: { description: string; title: string }) {
+function UnavailableAnalyticsCard({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
   return (
     <AnalyticsCard description={description} title={title}>
       <Empty className="min-h-40 gap-4 border-0 p-5">
-        <EmptyMedia className="size-12 rounded-full bg-secondary-100 text-learning-muted-ink" variant="icon">
+        <EmptyMedia
+          className="size-12 rounded-full bg-secondary-100 text-learning-muted-ink"
+          variant="icon"
+        >
           <Info />
         </EmptyMedia>
         <EmptyHeader>
-          <EmptyTitle className="text-sm font-medium text-secondary-600">Belum tersedia</EmptyTitle>
+          <EmptyTitle className="text-sm font-medium text-secondary-600">
+            Belum tersedia
+          </EmptyTitle>
         </EmptyHeader>
       </Empty>
     </AnalyticsCard>
@@ -374,7 +526,9 @@ function TryoutProgressCard() {
     <AnalyticsCard description="Nilai Tryout terakhir" title="Progress Tryout">
       <Empty className="min-h-40 gap-4 border-0 p-5">
         <EmptyHeader>
-          <EmptyTitle className="text-sm font-medium text-learning-muted-ink">Belum ada data Tryout yang selesai</EmptyTitle>
+          <EmptyTitle className="text-sm font-medium text-learning-muted-ink">
+            Belum ada data Tryout yang selesai
+          </EmptyTitle>
         </EmptyHeader>
       </Empty>
     </AnalyticsCard>
@@ -385,33 +539,50 @@ function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card
+        className={cn(
+          REFERENCE_SURFACE_CLASS_NAMES.tactile,
+          "gap-0 border-learning-card-border py-0 ring-0",
+        )}
+      >
         <CardContent className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
           <Tabs defaultValue="PU">
             <CompactTabsList aria-label="Pilih bab">
               {chapterTabs.map((chapter) => (
-                <CompactTabsTrigger
-                  key={chapter.value}
-                  value={chapter.value}
-                >
+                <CompactTabsTrigger key={chapter.value} value={chapter.value}>
                   {chapter.value}
                 </CompactTabsTrigger>
               ))}
             </CompactTabsList>
             {chapterTabs.map((chapter) => (
-              <TabsContent className="mt-4" key={chapter.value} value={chapter.value}>
+              <TabsContent
+                className="mt-4"
+                key={chapter.value}
+                value={chapter.value}
+              >
                 <Empty className="min-h-[240px] gap-4 border-0 p-6">
-                  <EmptyMedia className="size-14 rounded-full bg-primary-50 text-primary-500" variant="icon">
+                  <EmptyMedia
+                    className="size-14 rounded-full bg-primary-50 text-primary-500"
+                    variant="icon"
+                  >
                     <BookOpen />
                   </EmptyMedia>
                   <EmptyHeader>
-                    <EmptyTitle className="text-base font-medium text-secondary-900">Belum ada data</EmptyTitle>
+                    <EmptyTitle className="text-base font-medium text-secondary-900">
+                      Belum ada data
+                    </EmptyTitle>
                     <EmptyDescription>
-                      Mulai latihan {chapter.label} untuk melihat keahlian per bab!
+                      Mulai latihan {chapter.label} untuk melihat keahlian per
+                      bab!
                     </EmptyDescription>
                   </EmptyHeader>
                   <EmptyContent>
-                    <Button nativeButton={false} render={<Link href="/quiz" />} size="sm" variant="brand">
+                    <Button
+                      nativeButton={false}
+                      render={<Link href="/quiz" />}
+                      size="sm"
+                      variant="brand"
+                    >
                       Latihan Sekarang
                     </Button>
                   </EmptyContent>
@@ -429,18 +600,38 @@ function RecentActivitySection() {
   return (
     <section className="flex flex-col gap-5">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "gap-0 border-learning-card-border py-0 ring-0")}>
+      <Card
+        className={cn(
+          REFERENCE_SURFACE_CLASS_NAMES.tactile,
+          "gap-0 border-learning-card-border py-0 ring-0",
+        )}
+      >
         <CardContent className="p-5 md:p-6">
           <Empty className="min-h-[250px] gap-4 rounded-3xl border border-dashed border-secondary-300 bg-transparent p-6">
             <EmptyMedia className="mb-1" variant="default">
-              <Image alt="" className="size-16 object-contain opacity-45 grayscale" height={64} src="/brand/mascot-vecalss.png" width={64} />
+              <Image
+                alt=""
+                className="size-16 object-contain opacity-45 grayscale"
+                height={64}
+                src="/brand/mascot-vecalss.png"
+                width={64}
+              />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle className="text-base font-medium text-secondary-900">Kamu belum ada belajar nih.</EmptyTitle>
-              <EmptyDescription>Yuk, mulai progress belajarmu sekarang!</EmptyDescription>
+              <EmptyTitle className="text-base font-medium text-secondary-900">
+                Kamu belum ada belajar nih.
+              </EmptyTitle>
+              <EmptyDescription>
+                Yuk, mulai progress belajarmu sekarang!
+              </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button nativeButton={false} render={<Link href="/courses" />} size="sm" variant="brand">
+              <Button
+                nativeButton={false}
+                render={<Link href="/courses" />}
+                size="sm"
+                variant="brand"
+              >
                 Lihat Materi
               </Button>
             </EmptyContent>

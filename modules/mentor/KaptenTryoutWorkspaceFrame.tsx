@@ -35,7 +35,6 @@ function KaptenTryoutWorkspaceFrame({
         id={initial.id}
         onNavigate={onNavigate}
         parentId={parentId}
-        status={initial.status}
         title={initial.title}
       />
       <div className="mt-6 min-w-0">{children}</div>

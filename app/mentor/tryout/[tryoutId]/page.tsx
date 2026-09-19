@@ -62,7 +62,7 @@ function TryoutWorkspace({
   session,
   tryoutId,
 }: {
-  activeWorkspace: "identity" | "subtests";
+  activeWorkspace: "identity" | "subtests" | "operations" | "participants" | "settings";
   initialDraft: TryoutDraft;
   initialOperations: InitialOperations;
   parentDraft: TryoutDraft | null;
@@ -79,7 +79,7 @@ function TryoutWorkspace({
         id={tryoutId}
         initialDraft={initialDraft}
         initialParent={parent}
-        initialWorkspace={activeWorkspace === "subtests" ? "subtests" : "identity"}
+        initialWorkspace={activeWorkspace}
         operationsInitial={initialOperations}
       />
     </MentorWorkspaceShell>
@@ -88,8 +88,16 @@ function TryoutWorkspace({
 
 function redirectLegacyTryoutWorkspace(tryoutId: string, workspace: ParsedTryoutContext["workspace"]): never | void {
   if (workspace === "schedule" || workspace === "attempts" || workspace === "live" || workspace === "results") {
-    redirect(`/mentor/tryout/${tryoutId}/operations`);
+    redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations" }));
   }
+}
+
+function initialWorkspaceForContext(parsedQuery: ParsedTryoutContext): "identity" | "subtests" | "operations" | "participants" | "settings" {
+  if (parsedQuery.workspace === "participants" || parsedQuery.delivery === "participants") return "participants";
+  if (parsedQuery.workspace === "settings") return "settings";
+  if (parsedQuery.workspace === "operations" || parsedQuery.delivery) return "operations";
+  if (parsedQuery.workspace === "sections") return "subtests";
+  return "identity";
 }
 
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
@@ -115,13 +123,10 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
     parent: parsedQuery.parent,
     returnTo: parsedQuery.returnTo,
     session: parsedQuery.session,
-    workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "schedule" : undefined),
+    workspace: parsedQuery.workspace ?? (parsedQuery.delivery === "participants" ? "participants" : parsedQuery.delivery ? "operations" : undefined),
   };
   const canonicalHref = buildMentorTryoutHref(tryoutId, normalizedContext);
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
-  if (parsedQuery.delivery === "policy") redirect(`/mentor/tryout/${tryoutId}/operations`);
-  if (parsedQuery.delivery === "participants") redirect(`/mentor/tryout/${tryoutId}/operations/participants`);
-  if (parsedQuery.delivery === "sessions") redirect(`/mentor/tryout/${tryoutId}/operations`);
   redirectLegacyTryoutWorkspace(tryoutId, parsedQuery.workspace);
-  return <TryoutWorkspace activeWorkspace={parsedQuery.workspace === "sections" ? "subtests" : "identity"} initialDraft={initialDraft} initialOperations={operationsInitial} parentDraft={parentDraft} session={session} tryoutId={tryoutId} />;
+  return <TryoutWorkspace activeWorkspace={initialWorkspaceForContext(parsedQuery)} initialDraft={initialDraft} initialOperations={operationsInitial} parentDraft={parentDraft} session={session} tryoutId={tryoutId} />;
 }

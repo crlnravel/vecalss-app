@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  REFERENCE_INTERACTION_CLASS_NAMES,
+  REFERENCE_SHADOW_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
+import { cn } from "@/lib/utils";
 import type { CrewMember } from "../data";
 
 type MentorCardsProps = {
@@ -32,7 +37,11 @@ function MentorCards({ members }: MentorCardsProps) {
               render={
                 <button
                   aria-label={`Lihat profil ${member.name}`}
-                  className="group overflow-hidden rounded-4xl bg-white text-left transition-[transform,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:shadow-[0_34px_90px_-72px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--voyage-deep)]/18"
+                  className={cn(
+                    "group overflow-hidden rounded-4xl bg-white text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--voyage-deep)]/18",
+                    REFERENCE_SHADOW_CLASS_NAMES.tactile,
+                    REFERENCE_INTERACTION_CLASS_NAMES.tactile,
+                  )}
                   type="button"
                 />
               }

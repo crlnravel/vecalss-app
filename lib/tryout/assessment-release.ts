@@ -373,11 +373,6 @@ function sourceReadinessIssues(
   }
   if (bank?.status === ContentStatus.archived) {
     blockers.push(resolutionBlocker("archived_bank", "Bank Soal kandidat sudah diarsipkan.", { bankId: bank.id }));
-  } else if (bank?.status !== ContentStatus.published) {
-    blockers.push(resolutionBlocker("bank_inactive", "Bank Soal kandidat belum berstatus Ready.", {
-      bankId: bank?.id,
-      status: bank?.status,
-    }));
   }
   if (bank?.purpose !== "tryout") {
     blockers.push(resolutionBlocker("scope", "Tryout hanya dapat dirilis dari Bank Soal tujuan Tryout.", {
@@ -588,7 +583,7 @@ async function queryBlueprintSourceIds(
           ...(version.categoryScopes.length ? { categories: { some: { categoryId: { in: version.categoryScopes.map((scope) => scope.categoryId) } } } } : {}),
           ...(version.folderScopes.length ? { folderId: { in: version.folderScopes.map((scope) => scope.folderId) } } : {}),
           purpose: "tryout",
-          status: ContentStatus.published,
+          status: { not: ContentStatus.archived },
         },
       },
       questionBankId: { in: version.bankScopes.map((scope) => scope.questionBankId) },

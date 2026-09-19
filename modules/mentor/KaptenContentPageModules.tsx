@@ -337,7 +337,7 @@ function KaptenSettingsPageModule({
             <div className="grid gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field className="sm:col-span-2">
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-profile-name">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-profile-name" required>
                     Nama profil
                   </FieldLabel>
                   <FieldInput
@@ -349,7 +349,7 @@ function KaptenSettingsPageModule({
                 </Field>
 
                 <Field className="sm:col-span-2">
-                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-tutor-email">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-tutor-email" required>
                     Email tutor
                   </FieldLabel>
                   <FieldInput
@@ -388,7 +388,7 @@ function KaptenSettingsPageModule({
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-default-subject">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-default-subject" required>
                   Subjek utama
                 </FieldLabel>
                 <DropdownField
@@ -402,7 +402,7 @@ function KaptenSettingsPageModule({
               </Field>
 
               <Field>
-                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-language">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-language" required>
                   Bahasa konten
                 </FieldLabel>
                 <DropdownField

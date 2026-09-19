@@ -303,7 +303,7 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
 }
 async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourceQuestionIds: string[], subtest: SubjectCode, sourceBankId: string) {
   // Lock both source questions and their Banks before rereading lifecycle/media state.
-  // Bank writes use the same aggregate row, so selection cannot race an unpublish/archive.
+  // Bank writes use the same aggregate row, so selection cannot race an archive.
   await tx.$queryRaw`SELECT q.id FROM questions q JOIN question_banks b ON b.id = q.question_bank_id WHERE q.id IN (${Prisma.join(sourceQuestionIds)}) ORDER BY q.id FOR SHARE OF q, b`;
   const sources = await tx.question.findMany({ where: { id: { in: sourceQuestionIds } }, include: sourceInclude });
   if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian sumber Paket tidak tersedia.");
@@ -811,17 +811,76 @@ async function unpublishTryout(id: string, actorId: string) {
   });
 }
 
+async function archiveTryout(id: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+    const current = await tx.tryoutPackage.findFirst({
+      select: { id: true, publishedAt: true, status: true },
+      where: { createdByUserId: actorId, id },
+    });
+    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
+    if (current.status === ContentStatus.archived) throw new TryoutValidationError("Tryout ini sudah diarsipkan.");
+
+    const updated = await tx.tryoutPackage.update({
+      data: { publishedAt: null, status: ContentStatus.archived },
+      include: tryoutInclude,
+      where: { id },
+    });
+    await tx.tryoutDeliveryAudit.create({
+      data: {
+        action: "tryout.archived",
+        actorUserId: actorId,
+        after: json({ publishedAt: null, status: updated.status }),
+        before: json({ publishedAt: current.publishedAt?.toISOString() ?? null, status: current.status }),
+        reason: "Tryout diarsipkan oleh Kapten.",
+        tryoutId: id,
+      },
+    });
+    return toTryoutDto(updated);
+  });
+}
+
+async function deleteTryout(id: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+    const current = await tx.tryoutPackage.findFirst({
+      select: { id: true, status: true },
+      where: { createdByUserId: actorId, id },
+    });
+    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
+    if (current.status !== ContentStatus.draft) throw new TryoutValidationError("Hanya Tryout draf yang dapat dihapus. Arsipkan Tryout yang sudah terbit.");
+
+    const [attemptCount, releaseCount, sessionCount, admissionCount, auditCount, previewRestartCount] = await Promise.all([
+      tx.tryoutAttempt.count({ where: { tryoutId: id } }),
+      tx.assessmentRelease.count({ where: { tryoutId: id } }),
+      tx.tryoutDeliverySession.count({ where: { tryoutId: id } }),
+      tx.tryoutAdmission.count({ where: { tryoutId: id } }),
+      tx.tryoutDeliveryAudit.count({ where: { tryoutId: id } }),
+      tx.adminPreviewTryoutRestart.count({ where: { tryoutId: id } }),
+    ]);
+    if (attemptCount || releaseCount || admissionCount || auditCount || previewRestartCount) {
+      throw new TryoutValidationError("Tryout memiliki riwayat atau sesi terkait. Gunakan Arsipkan Tryout agar riwayat tetap tersimpan.");
+    }
+
+    await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
+    await tx.tryoutSection.deleteMany({ where: { tryoutId: id } });
+    if (sessionCount) await tx.tryoutDeliverySession.deleteMany({ where: { tryoutId: id } });
+    await tx.tryoutPackage.delete({ where: { id } });
+    return { id };
+  });
+}
+
 async function readyReusableQuestionPackageVersion(packageId: string, actorId: string) {
   return prisma.$transaction((tx) => commitPackageReadyVersion(tx, packageId, actorId));
 }
 
 async function listTryouts(actorId: string) {
   const records = await prisma.tryoutPackage.findMany({ where: { createdByUserId: actorId }, include: tryoutInclude, orderBy: { updatedAt: "desc" } });
-  return records.flatMap((record) => hasArchivedPackageBinding(record) ? [] : [toTryoutDto(record)]);
+  return records.flatMap((record) => record.status === ContentStatus.archived || hasArchivedPackageBinding(record) ? [] : [toTryoutDto(record)]);
 }
 async function getTryoutForEdit(id: string, actorId: string) {
   const record = await prisma.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: tryoutInclude });
-  return record && !hasArchivedPackageBinding(record) ? toTryoutDto(record) : null;
+  return record && record.status !== ContentStatus.archived && !hasArchivedPackageBinding(record) ? toTryoutDto(record) : null;
 }
 function validateTryoutInput(input: SaveTryoutInput) {
   for (const section of input.sections) {
@@ -952,5 +1011,5 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 }
 async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ bannerMediaId: current.bannerMediaId, description: current.description, sections: current.sections.map((section) => ({ directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: "cbt" })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
-export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, unpublishTryout, updateTryoutMetadata };
+export { archiveTryout, deleteTryout, duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, unpublishTryout, updateTryoutMetadata };
 export type { DirectQuestionInput, PackageConflictCode, PackageDto, PackageInput, PackageItemInput, PackageMetadataInput, PackageSaveIntent, PackageVersionReadiness, ReleasedPackageVersion, SaveReusableQuestionPackageResult, SaveTryoutInput, TestInput, TryoutMetadataInput };

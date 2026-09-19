@@ -63,6 +63,8 @@ import {
   ImageBroken as PhosphorImageOff,
   ImageSquare as PhosphorImagePlus,
   Info as PhosphorInfo,
+  InstagramLogo as PhosphorInstagramLogo,
+  LinkedinLogo as PhosphorLinkedinLogo,
   Lightning as PhosphorZap,
   LinkBreak as PhosphorUnlink,
   LinkSimple as PhosphorLink2,
@@ -92,6 +94,7 @@ import {
   SkipForward as PhosphorSkipForward,
   SlidersHorizontal as PhosphorSlidersHorizontal,
   Sparkle as PhosphorSparkles,
+  Star as PhosphorStar,
   SpinnerGap as PhosphorLoaderCircle,
   SquaresFour as PhosphorSquaresFour,
   Table as PhosphorTable,
@@ -112,6 +115,7 @@ import {
   WifiHigh as PhosphorWifiHigh,
   X as PhosphorX,
   XCircle as PhosphorCircleX,
+  XLogo as PhosphorXLogo,
 } from "@phosphor-icons/react/dist/ssr";
 
 /**
@@ -192,6 +196,8 @@ export const Image = PhosphorImage;
 export const ImageOff = PhosphorImageOff;
 export const ImagePlus = PhosphorImagePlus;
 export const Info = PhosphorInfo;
+export const InstagramLogo = PhosphorInstagramLogo;
+export const LinkedinLogo = PhosphorLinkedinLogo;
 export const Languages = PhosphorLanguages;
 export const LayoutDashboard = PhosphorSquaresFour;
 export const LayoutGrid = PhosphorSquaresFour;
@@ -236,6 +242,7 @@ export const ShieldAlert = PhosphorShieldAlert;
 export const ShieldCheck = PhosphorShieldCheck;
 export const ShieldX = PhosphorShieldX;
 export const SkipForward = PhosphorSkipForward;
+export const Star = PhosphorStar;
 export const SlidersHorizontal = PhosphorSlidersHorizontal;
 export const Sparkles = PhosphorSparkles;
 export const Target = PhosphorTarget;
@@ -254,4 +261,5 @@ export const Video = PhosphorVideo;
 export const WifiHigh = PhosphorWifiHigh;
 export const X = PhosphorX;
 export const XIcon = PhosphorX;
+export const XLogo = PhosphorXLogo;
 export const Zap = PhosphorZap;

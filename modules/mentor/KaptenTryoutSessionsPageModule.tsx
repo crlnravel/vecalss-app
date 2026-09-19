@@ -32,7 +32,7 @@ function KaptenTryoutSessionsPageModule({
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? <header><div><h2 className="text-xl font-semibold text-secondary-900">Sesi utama</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Sesi utama belum aktif</p> : null}</div></header> : <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}/operations`}
+        backHref={`/mentor/tryout/${initial.id}?workspace=operations`}
         description={initial.title}
         title="Sesi utama"
       />}

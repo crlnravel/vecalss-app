@@ -1,67 +1,75 @@
 import Image from "next/image";
-import { ArrowRight } from "@/lib/icons";
+import Link from "next/link";
 
-import { featuredTopAlumni, type TopAlumni } from "@/modules/alumni/data";
+import { ArrowRight, InstagramLogo, LinkedinLogo, XLogo } from "@/lib/icons";
+import { featuredTopAlumni } from "@/modules/alumni/data";
+
 import { FAQ } from "./components/FAQ";
-import { MarketingHeader } from "./components/marketing-header";
 import { ActionButtonLink } from "./components/home-primitives";
-import { HomeFooter } from "./components/home-footer";
-import { MentorCards } from "./components/mentor-cards";
+import { LandingMotionController } from "./components/landing-motion-controller";
+import { MarketingHeader } from "./components/marketing-header";
+import { TestimonialStage } from "./components/testimonial-stage";
 import {
   campusCrewMarks,
   crewMembers,
   faqItems,
   pathways,
   testimonials,
-  voyagePrinciples,
 } from "./data";
 
-const principleAssets = [
-  "/brand/voyage-assets/jangkar.png",
-  "/brand/voyage-assets/teropong.png",
-  "/brand/voyage-assets/kemudi-kapal.png",
+const footerLinks = [
+  {
+    title: "Jelajahi",
+    items: [
+      { href: "/#about", label: "Tentang Vecalss" },
+      { href: "/#program", label: "Program" },
+      { href: "/#alumni", label: "Alumni" },
+    ],
+  },
+  {
+    title: "Bantuan",
+    items: [
+      { href: "/faq", label: "FAQ" },
+      { href: "/about", label: "Tentang kami" },
+      { href: "/login", label: "Masuk" },
+    ],
+  },
 ];
 
-const programAssets = [
-  "/brand/voyage-assets/perahu.png",
-  "/brand/voyage-assets/kapal-bajak-laut-vecalss.png",
-  "/brand/voyage-assets/teropong.png",
-  "/brand/voyage-assets/jangkar.png",
+const footerSocialLinks = [
+  {
+    href: "https://www.instagram.com/vecalss.academy/",
+    label: "Instagram",
+    icon: InstagramLogo,
+  },
+  {
+    href: "https://www.linkedin.com/company/vecalss",
+    label: "LinkedIn",
+    icon: LinkedinLogo,
+  },
+  {
+    href: "https://x.com/vecalss",
+    label: "X",
+    icon: XLogo,
+  },
 ];
 
-const logos = [0, 1, 2].flatMap((copy) =>
-  campusCrewMarks.map((item) => ({ ...item, copy })),
-);
-const marqueeItems = [0, 1].flatMap((copy) =>
-  testimonials.map((item) => ({ ...item, copy })),
-);
-
-function SectionIntro({
-  title,
+function PanelHeading({
   body,
-  center = false,
-  light = false,
+  children,
+  id,
 }: {
   body?: string;
-  center?: boolean;
-  light?: boolean;
-  title: string;
+  children: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <div className={`${center ? "mx-auto text-center" : ""} max-w-[760px]`}>
-      <h2
-        className={`text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] md:text-6xl ${
-          light ? "text-white" : "text-[var(--voyage-deep)]"
-        }`}
-      >
-        {title}
+    <div className="motion-heading mx-auto max-w-[780px] text-center" id={id}>
+      <h2 className="text-balance text-[clamp(2.6rem,6vw,5.75rem)] font-semibold leading-[0.92] tracking-[-0.04em] text-[var(--voyage-deep)]">
+        {children}
       </h2>
       {body ? (
-        <p
-          className={`mt-5 max-w-[54ch] text-base leading-7 md:text-lg ${
-            center ? "mx-auto" : ""
-          } ${light ? "text-white/78" : "text-[var(--voyage-deep)]/70"}`}
-        >
+        <p className="mx-auto mt-5 max-w-[62ch] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
           {body}
         </p>
       ) : null}
@@ -71,196 +79,231 @@ function SectionIntro({
 
 function Hero() {
   return (
-    <section className="bg-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-4 pb-14 pt-3 md:px-8 lg:px-10">
-        <MarketingHeader currentPath="/" layout="landing" />
-
-        <div className="grid flex-1 gap-8 py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:items-center lg:py-16">
-          <div className="max-w-[720px]">
-            <h1 className="text-balance text-6xl font-semibold leading-[0.95] tracking-[-0.055em] text-[var(--voyage-deep)] sm:text-7xl md:text-8xl lg:text-8xl">
-              Misi Belajar Konsisten Dari Dasar Sampai Mahir
-            </h1>
-            <p className="mt-7 max-w-[600px] text-lg leading-8 text-[var(--voyage-deep)]/70 md:text-xl md:leading-8">
-              Peta belajar yang jelas, ritme yang konsisten, dan Kapten yang
-              menjaga perjalananmu tetap menuju PTN.
-            </p>
-
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <ActionButtonLink
-                href="/login"
-                variant="marketing"
-              >
-                Mulai Belajar
-              </ActionButtonLink>
-              <ActionButtonLink
-                href="/#program"
-                variant="marketingOutline"
-              >
-                Lihat Program
-              </ActionButtonLink>
-            </div>
-          </div>
-
-          <div className="relative mx-auto w-full max-w-[540px] lg:max-w-[620px]">
-            <div className="absolute inset-x-8 bottom-4 h-24 rounded-full bg-[var(--voyage-deep)]/12 blur-3xl" />
-            <div className="relative aspect-square">
-              <Image
-                alt="Maskot Vecalss sebagai kapten perjalanan belajar"
-                fill
-                priority
-                className="object-contain drop-shadow-[0_34px_72px_color-mix(in_oklab,var(--voyage-deep)_16%,transparent)]"
-                sizes="(min-width: 1024px) 620px, 88vw"
-                src="/brand/mascot-vecalss.png"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LogoMarquee() {
-  return (
-    <section className="bg-white py-16 md:py-24">
-      <div className="mx-auto mb-12 w-full max-w-[1440px] px-4 md:px-8 lg:px-10">
-        <h2 className="max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
-          Tempat Para Voyager Berlabuh
-        </h2>
-        <p className="mt-5 max-w-[620px] text-base leading-7 text-[var(--voyage-deep)]/66 md:text-lg md:leading-8">
-          Ribuan Voyager telah menuntaskan perjalanan mereka dan berlabuh di
-          kampus impian di seluruh Indonesia.
-        </p>
-      </div>
-
-      <div className="marquee-mask marquee-mask-white py-3 md:py-5">
-        <div className="marquee-track hover:[animation-play-state:paused]">
-          {logos.map((item) => (
-            <div
-              key={`${item.name}-${item.copy}`}
-              className="relative mx-5 h-20 w-36 shrink-0 opacity-58 transition duration-300 hover:opacity-100 md:mx-8 md:h-24 md:w-48"
+    <section className="reference-panel" data-motion-scene="hero" id="top">
+      <div className="motion-scene-stage mx-auto grid min-h-svh w-full max-w-[1360px] items-center gap-8 px-5 pb-16 pt-28 md:px-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-10 lg:pb-20">
+        <div className="motion-hero-copy relative z-10 text-left">
+          <h1 className="max-w-[10ch] text-balance text-5xl font-semibold tracking-[-0.04em] text-[var(--voyage-deep)] sm:text-[clamp(3.5rem,6vw,5.75rem)] sm:leading-[0.9]">
+            Lancarkan perjalananmu menuju{" "}
+            <span
+              className="hero-accent-word text-[var(--voyage-warm-sun)]"
+              style={{
+                color: "var(--voyage-warm-sun)",
+                textDecoration: "none",
+                textDecorationColor: "var(--voyage-warm-sun)",
+                textDecorationLine: "underline",
+                textDecorationStyle: "wavy",
+                textDecorationThickness: "0.08em",
+                textUnderlineOffset: "0.12em",
+              }}
             >
-              <Image
-                alt={item.markAlt}
-                fill
-                className="object-contain"
-                sizes="144px"
-                src={item.markSrc}
-              />
-            </div>
-          ))}
+              PTN
+            </span>
+          </h1>
+          <p className="mt-6 max-w-[500px] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
+            Ayo mulai perjalananmu dari sini!
+          </p>
+          <ActionButtonLink
+            className="landing-elevated-button mt-7 h-12 min-w-36 px-5 text-sm"
+            href="/login"
+            variant="marketing"
+          >
+            Mulai belajar
+            <ArrowRight className="ml-2 size-4" />
+          </ActionButtonLink>
+        </div>
+
+        <div className="home-hero-media relative aspect-[4/3] w-full overflow-hidden lg:translate-x-40">
+          <video
+            aria-label="Maskot Vecalss mengamati perjalanan belajar dengan kaca pembesar"
+            autoPlay
+            className="size-full object-cover"
+            loop
+            muted
+            playsInline
+            poster="/brand/mascot-vecalss.png"
+            preload="auto"
+            src="/mascott.webm"
+          />
         </div>
       </div>
     </section>
   );
 }
 
-function AboutSection() {
+function MentorPortraitWheel() {
+  const orbitGroups = [
+    {
+      mentors: crewMembers.slice(0, 4),
+      className: "university-orbit-left",
+      side: "kiri",
+      startAngle: -45,
+    },
+    {
+      mentors: crewMembers.slice(4, 8),
+      className: "university-orbit-right",
+      side: "kanan",
+      startAngle: 45,
+    },
+  ];
+
+  return (
+    <div
+      aria-label="Foto para Kapten berputar di sisi kiri dan kanan"
+      className="motion-university-wheel absolute inset-0"
+      role="group"
+    >
+      {orbitGroups.map((group) => (
+        <div
+          aria-label={`Orbit Kapten sisi ${group.side}`}
+          className={`university-orbit-shell ${group.className}`}
+          key={group.side}
+        >
+          <div aria-hidden="true" className="university-orbit-ring" />
+          <div className="university-orbit-track">
+            {group.mentors.map((mentor, index) => {
+              const angle = group.startAngle + index * 90;
+
+              return (
+                <div
+                  className="university-orbit-node"
+                  key={mentor.id}
+                  style={
+                    {
+                      "--orbit-angle": `${angle}deg`,
+                      "--orbit-counter-angle": `${-angle}deg`,
+                      "--orbit-portrait-scale": index % 2 === 0 ? "1" : "0.88",
+                    } as React.CSSProperties
+                  }
+                >
+                  <figure className="university-orbit-logo">
+                    <div className="home-mentor-card-photo relative min-h-0 flex-1 overflow-hidden rounded-[18px]">
+                      <Image
+                        alt={mentor.photoAlt}
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 768px) 12rem, 7rem"
+                        src={mentor.photoSrc}
+                      />
+                    </div>
+                    <figcaption className="flex min-h-12 flex-col items-center justify-center px-2 text-center leading-tight">
+                      <span className="text-sm font-semibold text-[var(--voyage-deep)] md:text-base">
+                        {mentor.name}
+                      </span>
+                      <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--voyage-deep)]/62 md:text-xs">
+                        {mentor.campus}
+                      </span>
+                    </figcaption>
+                  </figure>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MentorField() {
+  return (
+    <div className="relative mx-auto h-full min-h-svh w-full max-w-[1440px]">
+      <MentorPortraitWheel />
+      <div className="motion-orbit-copy relative z-10 flex h-full min-h-svh flex-col items-center justify-center px-16 text-center md:px-8">
+        <div className="landing-recessed-emblem relative mb-7 flex size-16 items-center justify-center rounded-[22px] bg-white md:size-20 md:rounded-[26px]">
+          <div className="relative size-10 md:size-24">
+            <Image
+              alt=""
+              fill
+              className="object-contain"
+              sizes="48px"
+              src="/brand/voyage-assets/kemudi-kapal.png"
+            />
+          </div>
+        </div>
+        <h2 className="mx-auto max-w-[10ch] text-balance text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.04em] text-[var(--voyage-deep)]">
+          Kapten di setiap langkah.
+        </h2>
+        <p className="mx-auto mt-5 max-w-[520px] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
+          Tutor dari kampus unggulan membantu kamu belajar konsisten.
+        </p>
+        <Link
+          className="landing-elevated-button mt-7 inline-flex min-h-10 items-center rounded-full bg-[var(--voyage-deep)] px-5 text-xs font-semibold text-white transition-colors hover:bg-[var(--voyage-deep-hover)]"
+          href="/about"
+        >
+          Kenali para Kapten
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function MentorsSection() {
   return (
     <section
+      className="reference-panel relative h-[240svh] md:h-[270svh]"
+      data-motion-scene="mentors"
       id="about"
-      className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10"
     >
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-14 lg:grid-cols-[0.86fr_1fr] lg:items-center">
-        <div className="relative min-h-[300px] md:min-h-[500px]">
-          <Image
-            alt="Variasi maskot Vecalss"
-            fill
-            className="object-contain object-center drop-shadow-[0_34px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)] lg:object-left"
-            sizes="(min-width: 2048px) 1045px, 120vw"
-            src="/brand/voyage-assets/mascot-about-variation.png"
-          />
-        </div>
-
-        <div>
-          <SectionIntro
-            title="Dari Perjalanan Kecil ke 15.000+ Voyager"
-            body="Vecalss bermula dari ruang belajar kecil untuk membantu siswa menata ulang persiapan menuju PTN. Dari sana, perjalanan ini tumbuh menjadi ekosistem belajar yang memadukan kelas, latihan, mentoring, dan komunitas agar setiap Voyager punya arah yang lebih jelas, ritme yang lebih konsisten, dan teman seperjalanan yang memahami prosesnya."
-          />
+      <div className="sticky top-0 h-svh overflow-hidden px-5 md:px-8">
+        <div className="motion-scene-stage h-full">
+          <MentorField />
         </div>
       </div>
     </section>
   );
 }
 
-function PrinciplesSection() {
-  return (
-    <section className="bg-[var(--voyage-deep)] px-4 py-20 text-white md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
-        <SectionIntro
-          center
-          light
-          title="Tiga Prinsip yang Menjaga Setiap Voyager Tetap di Jalur"
-        />
+function ProgramCard({ index }: { index: number }) {
+  const pathway = pathways[index];
+  const isWideCard = index > 2;
+  const imageClass = isWideCard
+    ? "right-1 top-1/2 size-44 -translate-y-1/2 md:right-8 md:size-56"
+    : "right-2 top-1 size-40 md:right-3 md:top-2 md:size-48";
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {voyagePrinciples.map((principle, index) => (
-            <article
-              key={principle.title}
-              className="group min-h-[320px] rounded-4xl border border-white/14 bg-white/[0.06] p-6 transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09]"
-            >
-              <div className="relative mx-auto h-36 w-36 md:h-44 md:w-44">
-                <Image
-                  alt=""
-                  fill
-                  className="object-contain transition duration-300 group-hover:scale-105"
-                  sizes="176px"
-                  src={principleAssets[index]}
-                />
-              </div>
-              <h3 className="mt-7 text-center text-3xl font-semibold tracking-[-0.03em]">
-                {principle.title}
-              </h3>
-              <p className="mx-auto mt-3 max-w-[25ch] text-center text-sm leading-6 text-white/72">
-                {principle.body}
-              </p>
-            </article>
-          ))}
-        </div>
+  return (
+    <article
+      className={`program-reference-card motion-program-card relative min-h-[250px] overflow-hidden p-6 md:min-h-[320px] ${isWideCard ? "md:col-span-3" : "md:col-span-2"}`}
+      style={
+        {
+          "--motion-delay": `${index * 85}ms`,
+        } as React.CSSProperties
+      }
+    >
+      <div className={`program-card-art absolute ${imageClass}`}>
+        <Image
+          alt=""
+          fill
+          className="object-contain"
+          sizes="208px"
+          src={pathway.art}
+        />
       </div>
-    </section>
+      <div className="relative z-10 flex h-full max-w-[62%] flex-col justify-end md:max-w-[68%]">
+        <h3 className="text-balance text-2xl font-semibold leading-[1.02] tracking-[-0.03em] text-[var(--voyage-deep)] md:text-3xl">
+          {pathway.title}
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-[var(--voyage-deep)]/78">
+          {pathway.summary}
+        </p>
+      </div>
+    </article>
   );
 }
 
 function ProgramsSection() {
   return (
     <section
+      className="reference-panel px-5 pb-20 pt-28 md:px-8 md:pb-28 md:pt-32"
+      data-motion-scene="programs"
       id="program"
-      className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10"
     >
-      <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
-        <SectionIntro
-          center
-          title="Pilih Rute Belajarmu"
-          body="Empat misi sederhana untuk tahap perjalanan yang berbeda."
-        />
-
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
+      <div className="motion-scene-stage">
+        <PanelHeading body="Didesain untuk membantu para voyager melewati perjalanan menuju PTN">
+          Program
+        </PanelHeading>
+        <div className="program-reference-grid mx-auto mt-10 grid w-full max-w-[1160px] gap-4 md:grid-cols-6 md:gap-5">
           {pathways.map((pathway, index) => (
-            <article
-              key={pathway.id}
-              className="group relative min-h-[300px] overflow-hidden rounded-4xl border border-[var(--voyage-deep)]/10 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18 hover:shadow-[0_34px_90px_-74px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] md:p-10"
-            >
-              <div className="absolute -bottom-12 -right-10 h-48 w-48 opacity-[0.11] transition duration-300 group-hover:scale-105 md:h-64 md:w-64">
-                <Image
-                  alt=""
-                  fill
-                  className="object-contain"
-                  sizes="260px"
-                  src={programAssets[index]}
-                />
-              </div>
-              <span className="relative text-sm font-semibold text-[var(--voyage-deep)]/55">
-                Rute {pathway.kicker}
-              </span>
-              <h3 className="relative mt-8 max-w-[13ch] text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-6xl">
-                {pathway.title}
-              </h3>
-              <p className="relative mt-5 max-w-[34ch] text-base leading-7 text-[var(--voyage-deep)]/70">
-                {pathway.summary}
-              </p>
-              <div className="relative mt-8 h-px w-16 bg-[var(--voyage-deep)]/16" />
-            </article>
+            <ProgramCard index={index} key={pathway.id} />
           ))}
         </div>
       </div>
@@ -268,77 +311,277 @@ function ProgramsSection() {
   );
 }
 
-function MentorsSection() {
-  return (
-    <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
-        <SectionIntro
-          center
-          title="Para Kapten di Balik Setiap Kelas"
-          body="Tutor dari UI, ITB, UGM, dan PTN unggulan lainnya."
-        />
+function LearningLoopSection() {
+  const campusDisplayNames: Record<string, string> = {
+    IPB: "Institut Pertanian Bogor",
+    ITB: "Institut Teknologi Bandung",
+    ITS: "Institut Teknologi Sepuluh Nopember",
+    UI: "Universitas Indonesia",
+    UGM: "Universitas Gadjah Mada",
+    Unair: "Universitas Airlangga",
+    Unpad: "Universitas Padjadjaran",
+    UPN: "UPN Veteran Jakarta",
+  };
+  const rotatingCampuses = [
+    ...campusCrewMarks,
+    {
+      name: "IPB",
+      markSrc: "/brand/campuses/ipb.png",
+      markAlt: "Institut Pertanian Bogor mark",
+    },
+    {
+      name: "ITS",
+      markSrc: "/brand/campuses/its.svg",
+      markAlt: "Institut Teknologi Sepuluh Nopember mark",
+    },
+  ].map((campus) => ({
+    ...campus,
+    displayName: campusDisplayNames[campus.name] ?? campus.name,
+  }));
+  const focusedCampuses = [
+    rotatingCampuses[1],
+    rotatingCampuses[0],
+    ...rotatingCampuses.slice(2).reverse(),
+  ];
 
-        <MentorCards members={crewMembers} />
+  return (
+    <section
+      className="reference-panel px-4 py-20 md:px-8 md:py-28"
+      data-motion-scene="learning"
+      id="learning-loop"
+    >
+      <div className="motion-scene-stage mx-auto w-full max-w-[1440px]">
+        <div className="home-campus-sunken-panel relative min-h-[550px] overflow-hidden px-5 pt-14 md:min-h-[720px] md:px-12 md:pt-16">
+          <div className="motion-heading relative z-20 mx-auto text-center">
+            <h2 className="mx-auto max-w-[15ch] text-balance text-[clamp(2.6rem,5vw,4.75rem)] font-semibold leading-[0.94] tracking-[-0.04em] text-[var(--voyage-deep)]">
+              Kampus Tujuan
+            </h2>
+            <p className="mx-auto mt-5 max-w-[62ch] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
+              Belajar terarah menuju kampus impian.
+            </p>
+          </div>
+
+          <div
+            aria-label={`Kampus tujuan: ${rotatingCampuses.map((campus) => campus.displayName).join(", ")}`}
+            className="home-campus-carousel absolute inset-x-0 bottom-0 z-10 h-[350px] overflow-hidden md:h-[520px]"
+            role="img"
+          >
+            <div aria-hidden="true" className="home-campus-orbit-track">
+              <div className="home-campus-orbit-ring" />
+              {rotatingCampuses.map((campus, index) => {
+                const angle = 225 + index * (360 / rotatingCampuses.length);
+
+                return (
+                  <div
+                    className="home-campus-orbit-node"
+                    key={campus.name}
+                    style={
+                      {
+                        "--campus-angle": `${angle}deg`,
+                        "--campus-counter-angle": `${-angle}deg`,
+                        "--campus-counter-end-angle": `${-angle - 360}deg`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div className="home-campus-logo-card">
+                      <Image
+                        alt=""
+                        fill
+                        className="object-contain p-5 md:p-7"
+                        sizes="(min-width: 768px) 184px, 112px"
+                        src={campus.markSrc}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="home-campus-focus-caption absolute inset-x-5 bottom-7 z-20 min-h-16 text-center md:bottom-10 md:min-h-20"
+            >
+              {focusedCampuses.map((campus, index) => (
+                <div
+                  className="home-campus-focus-caption-item absolute inset-x-0 top-0"
+                  key={campus.name}
+                  style={
+                    {
+                      "--caption-delay": `${index * 3.5}s`,
+                    } as React.CSSProperties
+                  }
+                >
+                  <p className="text-balance text-xl font-semibold tracking-[-0.03em] text-[var(--voyage-deep)] md:text-3xl">
+                    {campus.displayName}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function ResultsSection() {
-  return (
-    <section className="bg-[var(--voyage-deep)] py-20 text-white md:py-28">
-      <div className="scroll-reveal mx-auto w-full max-w-[1180px] px-4 md:px-8 lg:px-10">
-        <SectionIntro
-          center
-          light
-          title="Para Voyager yang Telah Berlabuh"
-          body="Cerita singkat dari Voyager yang menemukan ritme, arah, dan keberanian untuk terus bergerak menuju kampus impian."
-        />
-      </div>
+function AlumniSection() {
+  const alumni = featuredTopAlumni.slice(0, 6);
+  const positions = [
+    "left-[2%] top-[18%]",
+    "left-[17%] top-[6%]",
+    "bottom-[4%] left-[12%]",
+    "right-[16%] top-[6%]",
+    "right-[2%] top-[20%]",
+    "bottom-[4%] right-[11%]",
+  ];
+  const entryVectors = [
+    { x: -460, y: 56, rotate: -8 },
+    { x: -380, y: -42, rotate: 7 },
+    { x: -420, y: 70, rotate: -8 },
+    { x: 380, y: -40, rotate: -7 },
+    { x: 460, y: 58, rotate: 8 },
+    { x: 420, y: 72, rotate: 7 },
+  ];
+  const portraitDelays = [0, 130, 260, 65, 195, 325];
 
-      <div className="marquee-mask marquee-mask-dark mt-12 overflow-hidden">
-        <div className="marquee-track hover:[animation-play-state:paused]">
-          {marqueeItems.map((item) => (
-            <article
-              key={`${item.name}-${item.copy}`}
-              className="mx-3 flex w-[320px] shrink-0 flex-col rounded-4xl border border-white/12 bg-white p-5 text-[var(--voyage-deep)] shadow-[0_26px_80px_-64px_color-mix(in_oklab,var(--secondary-900)_44%,transparent)] md:mx-4 md:w-[390px] md:p-6"
-            >
-              <div className="flex items-center justify-between gap-5">
-                <div className="flex items-center gap-4">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[var(--voyage-deep)]/[0.04] md:size-16">
-                    <Image
-                      alt={item.avatarAlt}
-                      fill
-                      className="object-cover"
-                      sizes="64px"
-                      src={item.avatarSrc}
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-semibold tracking-[-0.03em]">
-                      {item.name}
-                    </h3>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--voyage-deep)]/48">
-                      {item.meta}
-                    </p>
-                  </div>
+  return (
+    <section
+      className="reference-panel relative overflow-hidden px-5 py-24 md:px-8 md:py-32"
+      data-motion-scene="alumni"
+      id="alumni"
+    >
+      <div className="motion-scene-stage relative isolate mx-auto min-h-[720px] w-full max-w-[1240px] md:min-h-[820px]">
+        <div className="motion-orbit-copy absolute inset-x-0 top-[46%] z-10 -translate-y-1/2 text-center md:top-1/2">
+          <div className="mx-auto mb-6 flex w-fit items-center gap-2">
+            {campusCrewMarks.slice(0, 4).map((campus) => (
+              <div className="relative size-9" key={campus.name}>
+                <Image
+                  alt={campus.markAlt}
+                  fill
+                  className="object-contain"
+                  sizes="36px"
+                  src={campus.markSrc}
+                />
+              </div>
+            ))}
+          </div>
+          <h2 className="mx-auto max-w-[11ch] text-balance text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.04em] text-[var(--voyage-deep)]">
+            1.000+ Voyager telah berlabuh
+          </h2>
+          <p className="mx-auto mt-5 max-w-[520px] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
+            Selanjutnya jadi giliranmu!
+          </p>
+          <Link
+            className="landing-elevated-button mt-7 inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--voyage-deep)] px-5 text-xs font-semibold text-white transition-colors hover:bg-[var(--voyage-deep-hover)]"
+            href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
+            target="_blank"
+          >
+            Lihat alumni lainnya
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+
+        {alumni.map((person, index) => (
+          <figure
+            className={`motion-alumni-spread absolute ${positions[index]} hidden w-36 md:block lg:w-44`}
+            data-alumni-card
+            data-alumni-rotate={entryVectors[index].rotate}
+            data-alumni-x={entryVectors[index].x}
+            data-alumni-y={entryVectors[index].y}
+            key={person.id}
+            style={
+              {
+                "--card-float-delay": `${index * -0.9}s`,
+                "--card-float-duration": `${5.2 + (index % 3) * 0.7}s`,
+                "--card-float-rotate": `${index % 2 === 0 ? -1.8 : 1.8}deg`,
+                "--card-float-x": `${index % 2 === 0 ? -9 : 9}px`,
+                "--card-float-y": `${-14 - (index % 3) * 3}px`,
+                "--motion-delay": `${portraitDelays[index]}ms`,
+              } as React.CSSProperties
+            }
+          >
+            <div className="home-alumni-card">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[12px]">
+                <Image
+                  alt={`${person.name} profile photo`}
+                  fill
+                  className="object-cover"
+                  sizes="176px"
+                  src={person.photoSrc}
+                />
+              </div>
+              {person.logoSrc ? (
+                <div className="home-alumni-campus-mark absolute right-3 top-3 size-10 rounded-[12px] bg-white p-1.5">
+                  <Image
+                    alt={person.logoAlt ?? ""}
+                    fill
+                    className="object-contain p-1.5"
+                    sizes="40px"
+                    src={person.logoSrc}
+                  />
                 </div>
-                {item.universityMarkSrc && item.universityMarkAlt ? (
-                  <div className="relative size-11 shrink-0 opacity-85 md:size-12">
+              ) : null}
+              <figcaption className="px-2 pb-1 pt-3 text-center text-xs font-semibold leading-5 text-[var(--voyage-deep)]">
+                {person.name.split(" ")[0]} ·{" "}
+                {person.university.split(" ").at(-1)}
+              </figcaption>
+            </div>
+          </figure>
+        ))}
+
+        <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 gap-2 md:hidden">
+          {alumni.slice(0, 3).map((person, index) => (
+            <div
+              className="motion-alumni-spread"
+              data-alumni-card
+              data-alumni-rotate={index === 1 ? 0 : index === 0 ? -5 : 5}
+              data-alumni-x={index === 0 ? -180 : index === 2 ? 180 : 0}
+              data-alumni-y={index === 1 ? 72 : 48}
+              key={person.id}
+              style={
+                {
+                  "--motion-delay": `${index * 90}ms`,
+                } as React.CSSProperties
+              }
+            >
+              <figure
+                className="home-alumni-card"
+                style={
+                  {
+                    "--card-float-delay": `${index * -0.8}s`,
+                    "--card-float-duration": `${5 + index * 0.6}s`,
+                    "--card-float-rotate": `${index === 1 ? 1.4 : -1.4}deg`,
+                    "--card-float-x": `${index === 1 ? 6 : -6}px`,
+                    "--card-float-y": `${-10 - index * 2}px`,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="relative aspect-[4/5] overflow-hidden rounded-[10px]">
+                  <Image
+                    alt={`${person.name} profile photo`}
+                    fill
+                    className="object-cover"
+                    sizes="30vw"
+                    src={person.photoSrc}
+                  />
+                </div>
+                {person.logoSrc ? (
+                  <div className="home-alumni-campus-mark absolute right-2 top-2 size-8 rounded-[10px] bg-white">
                     <Image
-                      alt={item.universityMarkAlt}
+                      alt={person.logoAlt ?? ""}
                       fill
-                      className="object-contain"
-                      sizes="48px"
-                      src={item.universityMarkSrc}
+                      className="object-contain p-1.5"
+                      sizes="32px"
+                      src={person.logoSrc}
                     />
                   </div>
                 ) : null}
-              </div>
-              <p className="mt-7 text-base leading-7 text-[var(--voyage-deep)]/72 md:text-lg md:leading-8">
-                &ldquo;{item.quote}&rdquo;
-              </p>
-            </article>
+                <figcaption className="px-1 pb-0.5 pt-2 text-center text-xs font-semibold leading-4 text-[var(--voyage-deep)]">
+                  {person.name.split(" ")[0]} ·{" "}
+                  {person.university.split(" ").at(-1)}
+                </figcaption>
+              </figure>
+            </div>
           ))}
         </div>
       </div>
@@ -346,196 +589,167 @@ function ResultsSection() {
   );
 }
 
-function TopAlumniSection() {
+function TestimonialsSection() {
   return (
-    <section className="bg-[var(--voyage-canvas)] px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
-        <div className="grid gap-8 lg:grid-cols-[0.4fr_0.6fr] lg:items-end">
-          <SectionIntro
-            title="Top Alumni 2026"
-            body="Tempat para voyager berlabuh!"
-          />
-
-          <div className="flex lg:justify-end">
-            <ActionButtonLink
-              href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
-              target="_blank"
-              variant="marketing"
-            >
-              Lihat Top 90 dan Alumni Lainnya...
-              <ArrowRight className="ml-2 size-4" />
-            </ActionButtonLink>
-          </div>
-        </div>
-
-        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {featuredTopAlumni.map((alumnus) => (
-            <TopAlumniCard alumnus={alumnus} key={alumnus.id} />
-          ))}
-        </div>
+    <section
+      className="reference-panel px-5 pb-18 pt-28 md:px-8 md:pt-32"
+      data-motion-scene="testimonials"
+      id="stories"
+    >
+      <div className="motion-scene-stage">
+        <PanelHeading body="Cerita Voyager yang menemukan arah belajarnya.">
+          Kata Mereka
+        </PanelHeading>
+        <TestimonialStage items={testimonials} />
       </div>
     </section>
-  );
-}
-
-function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
-  return (
-    <article className="group overflow-hidden rounded-2xl border border-[var(--voyage-deep)]/10 bg-white shadow-[0_18px_44px_-42px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18">
-      <div className="relative aspect-[4/5] bg-[var(--voyage-deep)]/[0.04]">
-        <Image
-          alt={`${alumnus.name} profile photo`}
-          fill
-          className="object-cover"
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-          src={alumnus.photoSrc}
-        />
-        {alumnus.logoSrc && alumnus.logoAlt ? (
-          <div className="absolute right-3 top-3 size-9 md:size-10">
-            <Image
-              alt={alumnus.logoAlt}
-              fill
-              className="object-contain"
-              sizes="40px"
-              src={alumnus.logoSrc}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div className="p-3.5 md:p-4">
-        <h3 className="text-base font-semibold leading-tight tracking-[-0.03em] text-[var(--voyage-deep)] md:text-lg">
-          {alumnus.name}
-        </h3>
-        <p className="mt-1.5 text-xs leading-4 text-[var(--voyage-deep)]/68 md:text-sm md:leading-5">
-          {alumnus.university}
-        </p>
-        {alumnus.isPlaceholder ? (
-          <p className="mt-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--voyage-deep)]/42">
-            Placeholder
-          </p>
-        ) : null}
-      </div>
-    </article>
   );
 }
 
 function QuestionsSection() {
   return (
-    <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.58fr_1fr] lg:items-start">
-        <div className="flex flex-col gap-8">
-          <SectionIntro
-            title="Pertanyaan dari Deck Kapal"
-            body="Jawaban singkat sebelum kamu mulai berlayar."
-          />
-          <div className="relative mx-auto aspect-square w-full max-w-[260px] lg:mx-0 lg:max-w-[320px]">
-            <div className="absolute inset-6 rounded-full bg-[var(--voyage-deep)]/10 blur-3xl" />
+    <section
+      className="reference-panel px-5 pb-10 pt-28 md:px-8 md:pt-32"
+      data-motion-scene="faq"
+      id="faq"
+    >
+      <div className="motion-scene-stage mx-auto grid min-h-[700px] w-full max-w-[1100px] gap-10 lg:grid-cols-[0.72fr_1fr] lg:items-stretch">
+        <div className="flex flex-col text-center lg:min-h-full">
+          <PanelHeading body="Jawaban singkat sebelum mulai.">FAQ</PanelHeading>
+          <div className="relative mx-auto mt-8 aspect-square w-44 md:w-52 lg:mt-auto lg:w-64">
             <Image
-              alt="Maskot Vecalss menemani bagian FAQ"
+              alt="Maskot Vecalss menemani bagian pertanyaan"
               fill
-              className="relative object-contain drop-shadow-[0_30px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)]"
-              sizes="(min-width: 1024px) 320px, 260px"
+              className="object-contain"
+              sizes="256px"
               src="/brand/mascot-vecalss.png"
             />
           </div>
         </div>
-        <FAQ className="gap-3" items={faqItems} />
+        <FAQ
+          className="motion-faq-list mx-auto mt-12 w-full max-w-[900px] lg:mt-0"
+          items={faqItems}
+          variant="minimal"
+        />
       </div>
     </section>
   );
 }
 
-function VeraAiSection() {
+function LandingFooter() {
   return (
-    <section className="bg-[var(--voyage-canvas)] px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-12 lg:grid-cols-[1fr_0.72fr] lg:items-center">
+    <footer
+      className="relative border-t border-[var(--voyage-deep)]/12 px-6 pt-16 pb-4 md:px-12 md:pt-20 md:pb-6"
+      data-motion-scene="footer"
+    >
+      <div className="motion-footer-content mx-auto grid w-full max-w-[1040px] gap-10 md:grid-cols-[1.35fr_0.7fr_0.7fr_0.8fr]">
         <div>
-          <SectionIntro
-            title="Vera AI Akan Membantu Membaca Arah Belajarmu"
-            body="Vecalss sedang menyiapkan Vera AI sebagai kompas personal untuk menganalisis pola belajar, membaca area yang perlu diperkuat, dan memberi rekomendasi langkah yang lebih tepat untuk setiap Voyager."
-          />
-          <div className="mt-9 grid gap-3 sm:grid-cols-2">
-            <div className="border-l border-[var(--voyage-deep)]/18 py-1 pl-5">
-              <p className="text-sm font-semibold text-[var(--voyage-deep)]">
-                Peta yang personal
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[var(--voyage-deep)]/64">
-                Rekomendasi belajar disesuaikan dengan ritme dan kebutuhanmu.
-              </p>
-            </div>
-            <div className="border-l border-[var(--voyage-deep)]/18 py-1 pl-5">
-              <p className="text-sm font-semibold text-[var(--voyage-deep)]">
-                Arah yang lebih jelas
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[var(--voyage-deep)]/64">
-                Setiap langkah dibuat lebih fokus dari awal sampai hari ujian.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative mx-auto aspect-square w-full max-w-[360px]">
-          <div className="absolute inset-8 rounded-full bg-[var(--voyage-deep)]/10 blur-3xl" />
-          <Image
-            alt="Teropong sebagai simbol kompas cerdas Vera AI"
-            fill
-            className="relative object-contain drop-shadow-[0_34px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)]"
-            sizes="360px"
-            src="/brand/voyage-assets/teropong.png"
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FinalCTA() {
-  return (
-    <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-5xl bg-[var(--voyage-deep)] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
-        <div>
-          <h2 className="text-5xl font-semibold leading-tight tracking-[-0.05em] md:text-7xl">
-            Siap Memulai Misimu?
-          </h2>
-          <p className="mt-5 max-w-[520px] text-lg leading-8 text-white/76">
-            Bergabung ke misi belajar konsisten bersama Vecalss.
+          <Link
+            aria-label="Vecalss homepage"
+            className="inline-flex items-center gap-3"
+            href="/"
+          >
+            <Image
+              alt=""
+              className="h-11 w-auto"
+              height={910}
+              sizes="56px"
+              src="/brand/logo-mark-cropped.png"
+              width={1145}
+            />
+            <span
+              className="text-2xl font-normal uppercase tracking-[0.08em] text-[var(--voyage-deep)]"
+              style={{ fontFamily: "var(--font-sports-world)" }}
+            >
+              VECALSS
+            </span>
+          </Link>
+          <p className="mt-6 max-w-[29ch] text-base font-semibold leading-7 text-[var(--voyage-deep)]">
+            Ekosistem belajar yang menyatukan arah, latihan, dan pendampingan
+            menuju PTN.
           </p>
           <ActionButtonLink
+            className="landing-elevated-button mt-7 h-12 px-5 text-sm"
             href="/login"
-            variant="marketingOnDark"
+            variant="marketing"
           >
-            Ikut Misi Belajar
-            <ArrowRight className="ml-2 size-4" />
+            Mulai misimu
           </ActionButtonLink>
         </div>
-        <div className="relative mx-auto aspect-square w-full max-w-[210px] lg:max-w-none">
-          <Image
-            alt="Maskot Vecalss mengajak memulai misi belajar"
-            fill
-            className="object-contain"
-            sizes="240px"
-            src="/brand/mascot-vecalss.png"
-          />
-        </div>
+
+        {footerLinks.map((group) => (
+          <nav aria-label={group.title} key={group.title}>
+            <h2 className="text-sm font-semibold text-[var(--voyage-deep)]">
+              {group.title}
+            </h2>
+            <div className="mt-4 grid gap-3">
+              {group.items.map((item) => (
+                <Link
+                  className="w-fit text-sm text-[var(--voyage-deep)]/78 underline-offset-4 hover:text-[var(--voyage-deep)] hover:underline"
+                  href={item.href}
+                  key={item.label}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ))}
+
+        <nav aria-label="Media sosial">
+          <h2 className="text-sm font-semibold text-[var(--voyage-deep)]">
+            Ikuti kami
+          </h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {footerSocialLinks.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  aria-label={item.label}
+                  className="landing-elevated-button landing-elevated-button-light flex size-11 items-center justify-center rounded-[12px] border border-[var(--voyage-deep)]/16 bg-white text-sm font-semibold text-[var(--voyage-deep)] transition-colors hover:border-[var(--voyage-deep)]/35"
+                  href={item.href}
+                  key={item.label}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <Icon
+                    aria-hidden="true"
+                    className="size-5"
+                    weight="regular"
+                  />
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
-    </section>
+
+      <div className="mx-auto mt-6 w-full max-w-[1040px] pt-6 md:mt-8">
+        <p className="text-xs text-[var(--voyage-deep)]/70">
+          © 2026 Vecalss Learning Academy
+        </p>
+      </div>
+    </footer>
   );
 }
 
 function HomePageModule() {
   return (
-    <main className="overflow-x-clip bg-white text-[var(--voyage-deep)]">
+    <main
+      className="reference-landing min-h-screen overflow-x-clip bg-[#eef2f0] text-[var(--voyage-deep)]"
+      data-landing-motion-root
+    >
+      <LandingMotionController />
+      <MarketingHeader currentPath="/" layout="landing" />
       <Hero />
-      <LogoMarquee />
-      <AboutSection />
-      <PrinciplesSection />
-      <ProgramsSection />
       <MentorsSection />
-      <TopAlumniSection />
-      <ResultsSection />
+      <ProgramsSection />
+      <LearningLoopSection />
+      <AlumniSection />
+      <TestimonialsSection />
       <QuestionsSection />
-      <VeraAiSection />
-      <FinalCTA />
-      <HomeFooter />
+      <LandingFooter />
     </main>
   );
 }

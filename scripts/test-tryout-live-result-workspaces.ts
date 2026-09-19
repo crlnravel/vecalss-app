@@ -188,10 +188,10 @@ assert.match(attemptDetailRoute, /contentElement="div"/u);
 assert.match(participantDetailRoute, /contentElement="div"/u);
 assert.doesNotMatch(sessionDetailRoute, /operations\.status !== "published"/u, "draft main-session detail must remain reachable for schedule editing");
 assert.match(sessionDetailRoute, /operations\.sessions\.some\(\(item\) => item\.id === sessionId\)/u, "session detail must validate ownership before rendering");
-assert.match(sessionCreateRoute, /redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "the retired new-session route must return to the consolidated operations page");
-assert.match(operationsRoute, /parsed\.delivery === "sessions"[\s\S]*redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "legacy session context must land on the consolidated operations page");
+assert.match(sessionCreateRoute, /workspace: "operations"/u, "the retired new-session route must return to the consolidated operations page");
+assert.match(operationsRoute, /workspace: "operations"/u, "legacy session context must land on the consolidated operations page");
 assert.match(operationsModule, /KaptenTryoutSessionDetailPageModule[\s\S]*embedded/u, "the operational page must embed the main-session calendar editor");
 assert.doesNotMatch(operationsModule, /operations\/sessions/u, "the operational page must not link to the retired session list");
-assert.match(sessionsListRoute, /redirect\(`\/mentor\/tryout\/\$\{tryoutId\}\/operations`\)/u, "the retired session-list route must redirect to operations");
+assert.match(sessionsListRoute, /workspace: "operations"/u, "the retired session-list route must redirect to operations");
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

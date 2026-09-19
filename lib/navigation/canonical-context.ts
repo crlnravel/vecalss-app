@@ -49,7 +49,7 @@ export type MateriStatus = (typeof MATERI_STATUSES)[number];
 export const MATERI_SORT_KEYS = ["title", "status"] as const;
 export type MateriSortKey = (typeof MATERI_SORT_KEYS)[number];
 
-export const QUESTION_BANK_STATUSES = ["draft", "published", "archived", "scheduled"] as const;
+export const QUESTION_BANK_STATUSES = ["published", "archived"] as const;
 export type QuestionBankStatus = (typeof QUESTION_BANK_STATUSES)[number];
 export const QUESTION_BANK_SORT_KEYS = ["updated", "name", "questions"] as const;
 export type QuestionBankSortKey = (typeof QUESTION_BANK_SORT_KEYS)[number];
@@ -58,6 +58,9 @@ export const TRYOUT_WORKSPACES = [
   "basics",
   "sections",
   "review",
+  "operations",
+  "participants",
+  "settings",
   "schedule",
   "live",
   "attempts",
@@ -331,7 +334,13 @@ export function parseQuestionBankQuery(input: NavigationQueryInput) {
 
   const statusParam = singleValue(input, "status");
   if (statusParam.invalid) issues.push(issue("status", statusParam.value, "Status Bank Soal hanya boleh dipilih satu kali."));
-  const statusValue = statusParam.value ?? "";
+  const requestedStatus = statusParam.value ?? "";
+  // Draft and scheduled were legacy bank-level states. They now resolve to
+  // the single active state so old links remain usable after the lifecycle
+  // simplification.
+  const statusValue = requestedStatus === "draft" || requestedStatus === "scheduled"
+    ? "published"
+    : requestedStatus;
   if (statusValue && !QUESTION_BANK_STATUSES.includes(statusValue as QuestionBankStatus)) {
     issues.push(issue("status", statusValue, "Status Bank Soal tersebut tidak tersedia."));
   }
@@ -509,21 +518,21 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     build: "sections",
     configure_sections: "sections",
     content: "sections",
-    delivery: "schedule",
-    live: "live",
-    operations: "attempts",
+    delivery: "operations",
+    live: "operations",
+    operations: "operations",
     overview: "basics",
-    participants: "schedule",
-    policy: "schedule",
+    participants: "participants",
+    policy: "operations",
     publish: "review",
     readiness_publish: "review",
     results: "results",
     review: "review",
     rules: "sections",
-    schedule: "schedule",
+    schedule: "operations",
     sections: "sections",
-    sessions: "schedule",
-    attempts: "attempts",
+    sessions: "operations",
+    attempts: "operations",
     questions: "sections",
   };
   const workspaceValue = workspaceParam.value;
@@ -544,10 +553,14 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   if (deliveryValue !== undefined) {
     delivery = deliveryAliases[deliveryValue] ?? null;
     if (!delivery) issues.push(issue("delivery", deliveryValue, "Area delivery Tryout tersebut tidak tersedia."));
-  } else if (workspaceValue === "policy" || workspaceValue === "sessions" || workspaceValue === "participants") {
+  } else if (workspaceValue === "policy" || workspaceValue === "sessions") {
     delivery = deliveryAliases[workspaceValue];
   }
-  if (workspace !== null && workspace !== "schedule" && delivery !== null) {
+  const deliveryWorkspaceCompatible =
+    workspace === null
+    || (workspace === "operations" && (delivery === "policy" || delivery === "sessions"))
+    || (workspace === "participants" && delivery === "participants");
+  if (!deliveryWorkspaceCompatible && delivery !== null) {
     issues.push(issue("delivery", deliveryValue, "Area delivery hanya tersedia di workspace Schedule."));
   }
 
@@ -606,7 +619,7 @@ export function buildMentorTryoutOperationsHref(tryoutId: string, context: Parti
   return buildMentorTryoutHref(tryoutId, {
     ...context,
     delivery: context.delivery ?? "sessions",
-    workspace: context.workspace ?? "schedule",
+    workspace: context.workspace ?? "operations",
   });
 }
 

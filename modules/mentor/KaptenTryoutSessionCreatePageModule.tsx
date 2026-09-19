@@ -42,7 +42,7 @@ function KaptenTryoutSessionCreatePageModule({
   const [session, setSession] = useState<SessionDraft>(emptySession);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
-  const sessionsHref = `/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`;
+  const sessionsHref = `/mentor/tryout/${initial.id}?workspace=operations&delivery=sessions`;
 
   const handleCreate = async () => {
     if (
@@ -73,7 +73,7 @@ function KaptenTryoutSessionCreatePageModule({
         setNotice({ message: result.message ?? "Sesi tidak dapat dibuat.", tone: "error" });
         return;
       }
-      router.push(`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`);
+      router.push(`/mentor/tryout/${initial.id}?workspace=operations&delivery=sessions`);
     } catch (createError) {
       setNotice({ message: createError instanceof Error ? createError.message : "Sesi tidak dapat dibuat.", tone: "error" });
     } finally {
