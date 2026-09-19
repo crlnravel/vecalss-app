@@ -276,6 +276,13 @@ function PackageDistribution({
     }),
     [data],
   );
+  const totalCount = data.reduce((total, item) => total + item.count, 0);
+  const distributionSummary = data
+    .map((item) => {
+      const percentage = totalCount ? Math.round((item.count / totalCount) * 100) : 0;
+      return `${item.label}: ${numberFormatter.format(item.count)} (${percentage}%)`;
+    })
+    .join(", ");
 
   return (
     <ReferenceSurface
@@ -298,16 +305,14 @@ function PackageDistribution({
           </p>
         </div>
         <span className="text-xs font-medium tabular-nums text-secondary-500">
-          {numberFormatter.format(data.reduce((total, item) => total + item.count, 0))} total
+          {numberFormatter.format(totalCount)} total
         </span>
       </div>
 
       {data.length ? (
         <ChartContainer
           aria-label={
-            groupBy === "package"
-              ? "Diagram lingkaran distribusi paket"
-              : "Diagram lingkaran distribusi hari"
+            `${groupBy === "package" ? "Diagram lingkaran distribusi paket" : "Diagram lingkaran distribusi hari"}: ${distributionSummary}`
           }
           className="mx-auto mt-4 h-[260px] w-full max-w-[360px] aspect-auto"
           config={distributionChartConfig}
@@ -327,12 +332,51 @@ function PackageDistribution({
                 <Cell fill={item.fill} key={item.key} />
               ))}
             </Pie>
-            <ChartLegend content={<ChartLegendContent nameKey="key" />} />
+            <ChartLegend
+              content={
+                <ChartLegendContent
+                  className="flex-wrap gap-x-3 gap-y-1.5"
+                  nameKey="key"
+                />
+              }
+            />
           </PieChart>
         </ChartContainer>
       ) : (
         <p className="mt-5 text-sm text-secondary-500">Belum ada pembelian.</p>
       )}
+
+      {data.length ? (
+        <ul
+          aria-label="Ringkasan distribusi pembelian"
+          className="mt-2 grid gap-2 sm:grid-cols-2"
+        >
+          {data.map((item) => {
+            const percentage = totalCount ? Math.round((item.count / totalCount) * 100) : 0;
+
+            return (
+              <li
+                className="flex min-w-0 items-center justify-between gap-3 text-xs"
+                key={`summary-${item.key}`}
+              >
+                <span className="flex min-w-0 items-center gap-2 text-secondary-600">
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  />
+                  <span className="truncate" title={item.label}>
+                    {item.label}
+                  </span>
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums text-secondary-900">
+                  {numberFormatter.format(item.count)} · {percentage}%
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </ReferenceSurface>
   );
 }
