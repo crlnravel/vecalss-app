@@ -211,7 +211,7 @@ export function MediaLibraryItemsView({
   const recoveryKind = getRecoveryKind(error, snapshot, query, assetFilter);
   const recoveryState = (
     <MediaLibraryRecoveryState
-      className={isReference ? "mx-5 md:mx-8" : undefined}
+      className={isReference ? "mx-5 flex-1 md:mx-8" : undefined}
       errorMessage={error}
       isPicker={isPicker}
       kind={recoveryKind}
@@ -219,6 +219,7 @@ export function MediaLibraryItemsView({
       onClear={clearFilters}
       onRetry={actions.refreshLibrary}
       onUpload={snapshot?.isStorageConfigured ? () => fileInputRef.current?.click() : undefined}
+      showUploadAction={!isReference}
     />
   );
   const populatedProps: MediaLibraryItemsViewProps = {

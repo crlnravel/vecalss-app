@@ -39,6 +39,7 @@ function MediaLibraryRecoveryActions({
   onClear,
   onRetry,
   onUpload,
+  showUploadAction = true,
 }: {
   isFiltered: boolean;
   isPicker: boolean;
@@ -48,13 +49,22 @@ function MediaLibraryRecoveryActions({
   onClear?: () => void;
   onRetry?: () => void;
   onUpload?: () => void;
+  showUploadAction?: boolean;
 }) {
+  const hasRecoveryAction =
+    (isFiltered && Boolean(onClear)) ||
+    (isStorageUnavailable && Boolean(onRetry)) ||
+    (kind === "error" && Boolean(onRetry)) ||
+    (kind === "empty" && showUploadAction && Boolean(onUpload));
+
+  if (!hasRecoveryAction) return null;
+
   return (
     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
       {isFiltered && onClear ? <Button onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button> : null}
       {isStorageUnavailable && onRetry ? <Button onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
       {kind === "error" && onRetry ? <Button onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "empty" && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Upload {mediaName}</Button> : null}
+      {kind === "empty" && showUploadAction && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Upload {mediaName}</Button> : null}
     </div>
   );
 }
@@ -68,6 +78,7 @@ function MediaLibraryRecoveryState({
   onClear,
   onRetry,
   onUpload,
+  showUploadAction = true,
 }: {
   className?: string;
   errorMessage?: string | null;
@@ -77,6 +88,7 @@ function MediaLibraryRecoveryState({
   onClear?: () => void;
   onRetry?: () => void;
   onUpload?: () => void;
+  showUploadAction?: boolean;
 }) {
   const { Icon, description, isFiltered, isStorageUnavailable, title } = getRecoveryCopy(kind, mediaLabel, errorMessage, Boolean(onUpload));
   const isPlainEmptyState = kind === "empty" || kind === "filtered";
@@ -93,7 +105,7 @@ function MediaLibraryRecoveryState({
       </div>
       <h2 className="text-base font-semibold text-secondary-900">{title}</h2>
       <p className="mt-2 max-w-[44ch] text-sm leading-6 text-secondary-600">{description}</p>
-      <MediaLibraryRecoveryActions isFiltered={isFiltered} isPicker={isPicker} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} />
+      <MediaLibraryRecoveryActions isFiltered={isFiltered} isPicker={isPicker} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} showUploadAction={showUploadAction} />
     </section>
   );
 }
