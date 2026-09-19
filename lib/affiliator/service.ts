@@ -39,6 +39,13 @@ type AffiliatorConversionTrendPoint = {
   date: string;
 };
 
+type AffiliatorConversionBreakdownPoint = {
+  count: number;
+  date: string;
+  packageCode: string;
+  packageName: string;
+};
+
 type AffiliatorPackageMixItem = {
   count: number;
   packageCode: string;
@@ -51,6 +58,7 @@ type AffiliatorDashboardData = {
   successfulPurchaseCount: number;
   uniqueStudentCount: number;
   conversionTrend: AffiliatorConversionTrendPoint[];
+  conversionBreakdown: AffiliatorConversionBreakdownPoint[];
   packageMix: AffiliatorPackageMixItem[];
 };
 
@@ -147,6 +155,7 @@ async function getAffiliatorDashboard(
 
   if (!profile) {
     return {
+      conversionBreakdown: [],
       conversionTrend: [],
       latestConversionAt: null,
       packageMix: [],
@@ -162,6 +171,7 @@ async function getAffiliatorDashboard(
     uniqueStudentCountResult,
     latestPurchase,
     conversionTrend,
+    conversionBreakdown,
     packageMix,
   ] = await Promise.all([
     prisma.packagePurchase.count({ where }),
@@ -206,6 +216,45 @@ async function getAffiliatorDashboard(
       GROUP BY days.day
       ORDER BY days.day ASC
     `,
+    prisma.$queryRaw<AffiliatorConversionBreakdownPoint[]>`
+      WITH anchor AS (
+        SELECT (MAX(completed_at) AT TIME ZONE 'Asia/Jakarta')::date AS max_day
+        FROM package_purchases
+        WHERE affiliator_profile_id = ${profile.id}::uuid
+          AND status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND completed_at IS NOT NULL
+      ), windowed_packages AS (
+        SELECT p.package_code,
+          MAX(p.package_name) AS package_name,
+          COUNT(*)::int AS total_count
+        FROM package_purchases p
+        CROSS JOIN anchor
+        WHERE p.affiliator_profile_id = ${profile.id}::uuid
+          AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+          AND p.completed_at IS NOT NULL
+          AND anchor.max_day IS NOT NULL
+          AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN anchor.max_day - 6 AND anchor.max_day
+        GROUP BY p.package_code
+        ORDER BY total_count DESC, package_name ASC, p.package_code ASC
+        LIMIT ${PACKAGE_MIX_LIMIT}
+      )
+      SELECT to_char((p.completed_at AT TIME ZONE 'Asia/Jakarta')::date, 'YYYY-MM-DD') AS date,
+        p.package_code AS "packageCode",
+        wp.package_name AS "packageName",
+        COUNT(*)::int AS count
+      FROM package_purchases p
+      JOIN windowed_packages wp ON wp.package_code = p.package_code
+      CROSS JOIN anchor
+      WHERE p.affiliator_profile_id = ${profile.id}::uuid
+        AND p.status = ${PackagePurchaseStatus.succeeded}::package_purchase_status
+        AND p.completed_at IS NOT NULL
+        AND anchor.max_day IS NOT NULL
+        AND (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN anchor.max_day - 6 AND anchor.max_day
+      GROUP BY (p.completed_at AT TIME ZONE 'Asia/Jakarta')::date,
+        p.package_code,
+        wp.package_name
+      ORDER BY date ASC, count DESC, wp.package_name ASC, p.package_code ASC
+    `,
     prisma.$queryRaw<AffiliatorPackageMixItem[]>`
       WITH package_counts AS (
         SELECT package_code,
@@ -227,6 +276,7 @@ async function getAffiliatorDashboard(
   ]);
 
   return {
+    conversionBreakdown,
     conversionTrend,
     latestConversionAt: latestPurchase?.completedAt ?? null,
     packageMix,
@@ -487,6 +537,7 @@ export {
 export type {
   AffiliatorConversionLog,
   AffiliatorConversionLogData,
+  AffiliatorConversionBreakdownPoint,
   AffiliatorConversionTrendPoint,
   AffiliatorDashboardData,
   AffiliatorPackageMixItem,

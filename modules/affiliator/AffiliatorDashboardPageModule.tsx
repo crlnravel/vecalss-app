@@ -111,6 +111,7 @@ function AffiliatorDashboardPageModule({
 
       <AffiliatorStatistics dashboard={dashboard} />
       <AffiliatorDashboardCharts
+        conversionBreakdown={dashboard.conversionBreakdown}
         conversionTrend={dashboard.conversionTrend}
         packageMix={dashboard.packageMix}
       />

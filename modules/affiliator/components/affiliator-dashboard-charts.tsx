@@ -1,8 +1,40 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { ReferenceSurface } from "@/components/dashboard";
+import { Button } from "@/components/ui/button";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "@/lib/icons";
 import type {
+  AffiliatorConversionBreakdownPoint,
   AffiliatorConversionTrendPoint,
   AffiliatorPackageMixItem,
 } from "@/lib/affiliator/service";
-import { ReferenceSurface } from "@/components/dashboard";
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -12,20 +44,115 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
 
 const numberFormatter = new Intl.NumberFormat("id-ID");
 
+const PIE_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
+const purchaseChartConfig = {
+  count: {
+    label: "Pembelian",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
+
+type DistributionGroup = "package" | "day";
+
+type BarDatum = {
+  count: number;
+  date: string;
+  label: string;
+};
+
+type PieDatum = {
+  count: number;
+  fill: string;
+  key: string;
+  label: string;
+};
+
 function formatTrendDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00+07:00`));
 }
 
-function trendDescription(trend: AffiliatorConversionTrendPoint[]) {
-  if (!trend.length) return "Belum ada konversi.";
+function sumByDate(
+  breakdown: AffiliatorConversionBreakdownPoint[],
+  packageCode: string,
+) {
+  const counts = new Map<string, number>();
 
-  return trend
-    .map((point) => `${formatTrendDate(point.date)}: ${point.count} pembelian`)
-    .join(", ");
+  for (const point of breakdown) {
+    if (packageCode !== "all" && point.packageCode !== packageCode) continue;
+    counts.set(point.date, (counts.get(point.date) ?? 0) + point.count);
+  }
+
+  return counts;
 }
 
-function ConversionTrend({ trend }: { trend: AffiliatorConversionTrendPoint[] }) {
-  const maxCount = Math.max(...trend.map((point) => point.count), 1);
+function ChartFilterMenu({
+  label,
+  onValueChange,
+  options,
+  value,
+}: {
+  label: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+}) {
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? options[0]?.label ?? label;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={label}
+        render={
+          <Button
+            className="h-auto min-h-10 max-w-full gap-1.5 rounded-xl px-3 text-xs font-semibold"
+            size="sm"
+            type="button"
+            variant="reference"
+          />
+        }
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-secondary-400" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-44">
+        <DropdownMenuRadioGroup onValueChange={onValueChange} value={value}>
+          {options.map((option) => (
+            <DropdownMenuRadioItem closeOnClick key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ConversionTrend({
+  breakdown,
+  packageCode,
+  trend,
+}: {
+  breakdown: AffiliatorConversionBreakdownPoint[];
+  packageCode: string;
+  trend: AffiliatorConversionTrendPoint[];
+}) {
+  const countsByDate = useMemo(() => sumByDate(breakdown, packageCode), [breakdown, packageCode]);
+  const data = useMemo<BarDatum[]>(
+    () =>
+      trend.map((point) => ({
+        count: packageCode === "all" ? point.count : countsByDate.get(point.date) ?? 0,
+        date: point.date,
+        label: formatTrendDate(point.date),
+      })),
+    [countsByDate, packageCode, trend],
+  );
 
   return (
     <ReferenceSurface
@@ -35,62 +162,120 @@ function ConversionTrend({ trend }: { trend: AffiliatorConversionTrendPoint[] })
       data-testid="affiliator-conversion-trend"
       variant="inset"
     >
-      <div className="flex items-baseline justify-between gap-4">
-        <h3
-          className="font-heading text-lg font-semibold tracking-[-0.02em] text-secondary-900"
-          id="affiliator-conversion-trend-heading"
-        >
-          Tren konversi
-        </h3>
-        <span className="text-xs text-secondary-500">7 hari aktif terakhir</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div>
+          <h3
+            className="font-heading text-lg font-semibold tracking-[-0.02em] text-secondary-900"
+            id="affiliator-conversion-trend-heading"
+          >
+            Pembelian per hari
+          </h3>
+          <p className="mt-1 text-xs text-secondary-500">7 hari aktif terakhir</p>
+        </div>
+        <span className="text-xs font-medium tabular-nums text-secondary-500">
+          {numberFormatter.format(data.reduce((total, point) => total + point.count, 0))} total
+        </span>
       </div>
 
-      {trend.length ? (
-        <figure className="mt-6">
-          <div
-            aria-label={`Konversi harian pada 7 hari aktif terakhir: ${trendDescription(trend)}`}
-            className="grid min-h-44 grid-cols-7 items-end gap-2 border-b border-primary-200 px-1 pb-0 pt-3 sm:gap-3"
-            role="img"
-          >
-            {trend.map((point) => {
-              const height = point.count
-                ? Math.max((point.count / maxCount) * 100, 12)
-                : 3;
-
-              return (
-                <div
-                  className="flex h-full min-w-0 flex-col items-center justify-end gap-2"
-                  key={point.date}
-                >
-                  <span className="text-xs font-semibold tabular-nums text-secondary-700">
-                    {numberFormatter.format(point.count)}
-                  </span>
-                  <div className="flex h-28 w-full items-end justify-center sm:h-32">
-                    <div
-                      aria-hidden="true"
-                      className="w-full max-w-8 rounded-t-md bg-primary-700"
-                      style={{ height: `${height}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <figcaption className="mt-3 grid grid-cols-7 gap-2 px-1 text-center text-xs text-secondary-500 sm:gap-3">
-            {trend.map((point) => (
-              <span key={point.date}>{formatTrendDate(point.date)}</span>
-            ))}
-          </figcaption>
-        </figure>
+      {data.length ? (
+        <ChartContainer
+          aria-label="Diagram batang pembelian per hari"
+          className="mt-5 h-[230px] w-full max-w-full aspect-auto"
+          config={purchaseChartConfig}
+        >
+          <BarChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              axisLine={false}
+              dataKey="label"
+              tickLine={false}
+              tickMargin={8}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 11 }} width={34} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  indicator="line"
+                  labelFormatter={(_, payload) =>
+                    payload[0]?.payload?.date
+                      ? formatTrendDate(String(payload[0].payload.date))
+                      : "Pembelian"
+                  }
+                />
+              }
+              cursor={false}
+            />
+            <Bar dataKey="count" fill="var(--color-count)" maxBarSize={38} radius={6} />
+          </BarChart>
+        </ChartContainer>
       ) : (
-        <p className="mt-5 text-sm text-secondary-500">Belum ada konversi.</p>
+        <p className="mt-5 text-sm text-secondary-500">Belum ada pembelian.</p>
       )}
     </ReferenceSurface>
   );
 }
 
-function PackageMix({ packageMix }: { packageMix: AffiliatorPackageMixItem[] }) {
-  const maxCount = Math.max(...packageMix.map((item) => item.count), 1);
+function PackageDistribution({
+  breakdown,
+  groupBy,
+  packageCode,
+  packageMix,
+  trend,
+}: {
+  breakdown: AffiliatorConversionBreakdownPoint[];
+  groupBy: DistributionGroup;
+  packageCode: string;
+  packageMix: AffiliatorPackageMixItem[];
+  trend: AffiliatorConversionTrendPoint[];
+}) {
+  const data = useMemo<PieDatum[]>(() => {
+    const grouped = new Map<string, PieDatum>();
+
+    if (groupBy === "package") {
+      for (const item of packageMix) {
+        if (packageCode !== "all" && item.packageCode !== packageCode) continue;
+        grouped.set(item.packageCode, {
+          count: item.count,
+          fill: PIE_COLORS[grouped.size % PIE_COLORS.length],
+          key: item.packageCode,
+          label: item.packageName,
+        });
+      }
+    } else if (packageCode === "all") {
+      for (const item of trend) {
+        grouped.set(item.date, {
+          count: item.count,
+          fill: PIE_COLORS[grouped.size % PIE_COLORS.length],
+          key: item.date,
+          label: formatTrendDate(item.date),
+        });
+      }
+    } else {
+      for (const item of breakdown) {
+        if (item.packageCode !== packageCode) continue;
+        const current = grouped.get(item.date);
+        grouped.set(item.date, {
+          count: (current?.count ?? 0) + item.count,
+          fill: current?.fill ?? PIE_COLORS[grouped.size % PIE_COLORS.length],
+          key: item.date,
+          label: formatTrendDate(item.date),
+        });
+      }
+    }
+
+    return [...grouped.values()].sort((left, right) => right.count - left.count);
+  }, [breakdown, groupBy, packageCode, packageMix, trend]);
+
+  const distributionChartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: { label: "Pembelian", color: "var(--chart-1)" },
+      ...Object.fromEntries(
+        data.map((item) => [item.key, { label: item.label, color: item.fill }]),
+      ),
+    }),
+    [data],
+  );
 
   return (
     <ReferenceSurface
@@ -100,66 +285,115 @@ function PackageMix({ packageMix }: { packageMix: AffiliatorPackageMixItem[] }) 
       data-testid="affiliator-package-mix"
       variant="inset"
     >
-      <div className="flex items-baseline justify-between gap-4">
-        <h3
-          className="font-heading text-lg font-semibold tracking-[-0.02em] text-secondary-900"
-          id="affiliator-package-mix-heading"
-        >
-          Paket
-        </h3>
-        <span className="text-xs text-secondary-500">Paket teratas</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div>
+          <h3
+            className="font-heading text-lg font-semibold tracking-[-0.02em] text-secondary-900"
+            id="affiliator-package-mix-heading"
+          >
+            Distribusi pembelian
+          </h3>
+          <p className="mt-1 text-xs text-secondary-500">
+            {groupBy === "package" ? "Menurut paket" : "Menurut hari"}
+          </p>
+        </div>
+        <span className="text-xs font-medium tabular-nums text-secondary-500">
+          {numberFormatter.format(data.reduce((total, item) => total + item.count, 0))} total
+        </span>
       </div>
 
-      {packageMix.length ? (
-        <ol aria-label="Komposisi paket teratas" className="mt-6 space-y-5">
-          {packageMix.map((item) => {
-            const width = Math.max((item.count / maxCount) * 100, 4);
-
-            return (
-              <li className="min-w-0" key={item.packageCode}>
-                <div className="flex items-start justify-between gap-4 text-sm">
-                  <span className="min-w-0 truncate font-medium text-secondary-800">
-                    {item.packageName}
-                  </span>
-                  <span className="shrink-0 font-semibold tabular-nums text-secondary-900">
-                    {numberFormatter.format(item.count)}
-                  </span>
-                </div>
-                <div
-                  aria-hidden="true"
-                  className="mt-2 h-2 overflow-hidden rounded-full bg-primary-100"
-                >
-                  <div
-                    className="h-full rounded-full bg-primary-700"
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+      {data.length ? (
+        <ChartContainer
+          aria-label={
+            groupBy === "package"
+              ? "Diagram lingkaran distribusi paket"
+              : "Diagram lingkaran distribusi hari"
+          }
+          className="mx-auto mt-4 h-[260px] w-full max-w-[360px] aspect-auto"
+          config={distributionChartConfig}
+        >
+          <PieChart accessibilityLayer>
+            <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="key" />} />
+            <Pie
+              data={data}
+              dataKey="count"
+              innerRadius={58}
+              nameKey="key"
+              outerRadius={88}
+              paddingAngle={2}
+              strokeWidth={2}
+            >
+              {data.map((item) => (
+                <Cell fill={item.fill} key={item.key} />
+              ))}
+            </Pie>
+            <ChartLegend content={<ChartLegendContent nameKey="key" />} />
+          </PieChart>
+        </ChartContainer>
       ) : (
-        <p className="mt-5 text-sm text-secondary-500">Belum ada penjualan.</p>
+        <p className="mt-5 text-sm text-secondary-500">Belum ada pembelian.</p>
       )}
     </ReferenceSurface>
   );
 }
 
 function AffiliatorDashboardCharts({
+  conversionBreakdown,
   conversionTrend,
   packageMix,
 }: {
+  conversionBreakdown: AffiliatorConversionBreakdownPoint[];
   conversionTrend: AffiliatorConversionTrendPoint[];
   packageMix: AffiliatorPackageMixItem[];
 }) {
+  const [packageCode, setPackageCode] = useState("all");
+  const [groupBy, setGroupBy] = useState<DistributionGroup>("package");
+
+  const packageOptions = useMemo(
+    () => [
+      { label: "Semua paket", value: "all" },
+      ...packageMix.map((item) => ({ label: item.packageName, value: item.packageCode })),
+    ],
+    [packageMix],
+  );
+
   return (
-    <div
-      aria-label="Visualisasi statistik affiliator"
-      className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.85fr)] lg:gap-10"
-    >
-      <ConversionTrend trend={conversionTrend} />
-      <PackageMix packageMix={packageMix} />
-    </div>
+    <section aria-label="Visualisasi statistik affiliator" className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900">Analisis</h2>
+          <p className="mt-1 text-sm text-secondary-500">Saring paket atau ubah kelompok distribusi.</p>
+        </div>
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+          <ChartFilterMenu
+            label="Filter paket"
+            onValueChange={setPackageCode}
+            options={packageOptions}
+            value={packageCode}
+          />
+          <ChartFilterMenu
+            label="Kelompokkan distribusi"
+            onValueChange={(value) => setGroupBy(value as DistributionGroup)}
+            options={[
+              { label: "Kelompok: paket", value: "package" },
+              { label: "Kelompok: hari", value: "day" },
+            ]}
+            value={groupBy}
+          />
+        </div>
+      </div>
+
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.85fr)] lg:gap-5">
+        <ConversionTrend breakdown={conversionBreakdown} packageCode={packageCode} trend={conversionTrend} />
+        <PackageDistribution
+          breakdown={conversionBreakdown}
+          groupBy={groupBy}
+          packageCode={packageCode}
+          packageMix={packageMix}
+          trend={conversionTrend}
+        />
+      </div>
+    </section>
   );
 }
 
