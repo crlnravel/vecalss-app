@@ -30,7 +30,7 @@ assert.doesNotMatch(builder, /activeTab|collapsedByDefault=\{mode === "create"\}
 assert.match(builder, /function QuestionBankMetadataForm\(/u);
 assert.match(builder, /function QuestionMateriField\(/u);
 assert.doesNotMatch(builder, /function QuestionBankCategoryPicker\(/u);
-assert.match(builder, /Bank soal dapat disimpan tanpa soal/u);
+assert.match(builder, /function QuestionBankSaveAction\(/u);
 assert.match(detail, /questionBankFolderLabel\(/u);
 assert.doesNotMatch(builder, /moveQuestionBanksToFolderAction|<FieldLabel htmlFor="bank-folder">Folder<\/FieldLabel>/u);
 assert.match(labels, /QUESTION_BANK_ROOT_LABEL = "Bank soal"/u);
@@ -65,8 +65,8 @@ assert.doesNotMatch(inventory, /Perlu diperbaiki/u);
 assert.match(builder, /description: `Soal nomor \$\{questionNumber\} akan dihapus/u);
 assert.match(builder, /title: `Hapus soal nomor \$\{questionNumber\}\?`/u);
 assert.doesNotMatch(builder, /const questionLabel = question\?\.prompt/u);
-assert.match(builder, /requestLifecycleChange[\s\S]*?\(operation: "publish" \| "unpublish"\)/u);
-assert.match(builder, /Jadikan Bank Soal draf\?/u);
+assert.doesNotMatch(builder, /requestLifecycleChange|QuestionBankPublishAction|Terbitkan/u);
+assert.match(builder, /operation: "archive" \| "restore"/u);
 assert.doesNotMatch(builder, /Tryout yang sudah dibuat tetap menggunakan snapshot soal/u);
 assert.doesNotMatch(builder, /Masalah berikutnya|Bank diterbitkan/u);
 assert.doesNotMatch(builder, /Siap dipakai|Belum lengkap|Tersimpan/u);
@@ -77,20 +77,49 @@ assert.match(detail, /question\.choices\.map\(\(choice, choiceIndex\) =>/u);
 assert.match(detail, /const choiceLabel = String\.fromCharCode\(65 \+ choiceIndex\)/u);
 assert.match(detail, /\{choiceLabel\}/u);
 assert.doesNotMatch(detail, /\{choice\.id\}\s*<\/span>/u);
-assert.match(detail, /bank\.status === "published"[\s\S]*Buat draf/u);
-assert.match(detail, /bank\.status === "draft"[\s\S]*Terbitkan/u);
-assert.match(detail, /requestLifecycleChange[\s\S]*?\(operation: "publish" \| "unpublish"\)/u);
-assert.match(detail, /Jadikan Bank Soal draf\?/u);
+assert.match(detail, /const isArchived = status === "archived"/u);
+assert.match(detail, /isArchived \? "Diarsipkan" : "Diterbitkan"/u);
+assert.doesNotMatch(detail, /requestLifecycleChange|Terbitkan|Buat draf|Jadikan draf/u);
 assert.doesNotMatch(detail, /Tryout yang sudah dibuat tetap menggunakan snapshot soal/u);
 assert.match(detail, /<span className="shrink-0 text-xs font-semibold text-secondary-500">\s*Subjek\s*<\/span>/u);
 assert.match(detail, /<span className="shrink-0 text-xs font-semibold text-secondary-500">\s*Kesulitan\s*<\/span>/u);
 assert.match(detail, /flex w-full flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto/u);
 assert.match(detail, /aria-label="Buka Editor"/u);
 assert.doesNotMatch(detail, /Buka Editor Soal/u);
-assert.match(detail, /const editorLocked = bank\.status !== "draft"/u);
+assert.doesNotMatch(detail, /Tulis Soal Pertama/u);
+assert.match(detail, /type QuestionBankDetailTab = "soal" \| "pengaturan"/u);
+assert.match(detail, /<FullWidthLineTabsList aria-label="Bagian detail Bank Soal">[\s\S]*?value="soal"[\s\S]*?>\s*Soal[\s\S]*?value="pengaturan"[\s\S]*?>\s*Pengaturan/u);
+assert.match(detail, /function QuestionBankEditorButton\([\s\S]*?className="w-full shadow-sm"/u);
+assert.match(detail, /<TabsContent className="m-0" value="soal">[\s\S]*?<QuestionBankQuestionsSection/u);
+assert.match(detail, /function QuestionBankArchiveSection\([\s\S]*?Arsipkan Bank Soal[\s\S]*?<QuestionBankLifecycleActions/u);
+assert.match(detail, /<TabsContent className="m-0" value="pengaturan">[\s\S]*?<QuestionBankArchiveSection/u);
+const metadataUsageIndex = detail.indexOf("<QuestionBankMetadataCard");
+const tabsUsageIndex = detail.indexOf("<Tabs\n");
+assert.ok(
+  metadataUsageIndex >= 0 && metadataUsageIndex < tabsUsageIndex,
+  "Bank Soal metadata should stay above the tabs",
+);
+const settingsContent =
+  detail.match(
+    /<TabsContent className="m-0" value="pengaturan">[\s\S]*?<\/TabsContent>/u,
+  )?.[0] ?? "";
+assert.doesNotMatch(
+  settingsContent,
+  /<QuestionBankMetadataCard/u,
+  "Bank Soal metadata should not be nested in Pengaturan",
+);
+const questionsSection =
+  detail.match(
+    /function QuestionBankQuestionsSection\([\s\S]*?\n\}\n\nfunction QuestionBankArchiveConfirmationDialog/u,
+  )?.[0] ?? "";
+assert.match(
+  questionsSection,
+  /Daftar Soal[\s\S]*?<QuestionBankEditorButton bank=\{bank\} bankId=\{bankId\} \/>[\s\S]*?questions\.length === 0/u,
+  "Buka Editor should sit below Daftar Soal in the Soal section",
+);
+assert.match(detail, /const editorLocked = bank\.status === "archived"/u);
 assert.match(detail, /TooltipContent>\{editorLockReason\}<\/TooltipContent>/u);
 assert.match(detail, /Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu/u);
-assert.match(detail, /Untuk mengedit kembali, jadikan Bank Soal draf terlebih dahulu/u);
 assert.match(detail, /Batalkan arsip/u);
 assert.doesNotMatch(detail, /Pulihkan bank/u);
 assert.match(detail, /variant="brandOutline"/u);
@@ -106,13 +135,15 @@ assert.match(detail, /Deskripsi[\s\S]*Folder[\s\S]*Materi/u);
 assert.doesNotMatch(detail, /<span[^>]*>Kategori<\/span>/u);
 assert.match(detail, /showToast\(/u);
 assert.doesNotMatch(detail, /Soal Siap|Semua soal siap dipublikasikan|Siap dipakai|Belum lengkap/u);
+assert.match(detailRoute, /searchParams: Promise<\{ tab\?: string \| string\[\] \}>/u);
+assert.match(detailRoute, /initialTab=\{parseTab\(tab\)\}/u);
 
 // Readiness issue traversal must identify the exact field/choice/media target,
 // announce progress, and focus the exact editable field.
 assert.match(builder, /Lihat masalah/u);
 assert.doesNotMatch(builder, /Masalah berikutnya/u);
 assert.match(builder, /pendingIssueFocusRef/u);
-assert.match(builder, /focusIssueTarget\(/u);
+assert.match(builder, /focusTarget\(/u);
 assert.match(builder, /issue\.field === "choice"/u);
 assert.match(builder, /issue\.choiceId/u);
 assert.match(builder, /data-question-anchor=/u);
@@ -127,20 +158,20 @@ assert.match(builder, /aria-live="assertive"/u);
 
 // Preview is keyed by question identity and question selection clears only
 // answer/feedback state, preserving the active Preview tab.
-assert.match(builder, /<RadioGroup key=\{questionDraft\.id\}/u);
+assert.match(builder, /<RadioGroup\s+key=\{questionDraft\.id\}/u);
 assert.match(builder, /hasSubmittedPreview: false/u);
 assert.match(builder, /previewChoiceId: null/u);
-assert.match(builder, /onChoiceChange: \(value(?:: string)?\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
+assert.match(builder, /onChoiceChange: \(value\) => \{[\s\S]*?hasSubmittedPreview: false,[\s\S]*?previewChoiceId: nextIds\[0\]/u);
 const saveCall = builder.match(/saveQuestionBankAction\(\{[\s\S]*?\}\)/u)?.[0] ?? "";
 assert.doesNotMatch(saveCall, /previewChoiceId|hasSubmittedPreview/u);
 
 // Lifecycle, persistence, conflict, and navigation guards are deliberately
 // asserted at their boundaries so browser checks can focus on user-visible
 // state transitions rather than duplicating database setup.
-assert.match(builder, /const isMetadataLocked = lifecycleStatus === "archived" \|\| lifecycleStatus === "scheduled"/u);
-assert.match(builder, /const isQuestionContentLocked = lifecycleStatus !== "draft"/u);
-assert.match(builder, /data-question-bank-lifecycle-action="publish"/u);
-assert.match(editRoute, /initial\.bank\.status !== "draft"/u);
+assert.match(builder, /const isMetadataLocked =\s*editorState\.lifecycleStatus === "archived"/u);
+assert.match(builder, /const isQuestionContentLocked = editorState\.lifecycleStatus === "archived"/u);
+assert.doesNotMatch(builder, /data-question-bank-lifecycle-action="publish"/u);
+assert.match(editRoute, /initial\.bank\.status === "archived"/u);
 assert.doesNotMatch(builder, /Bank diterbitkan|Bank diarsipkan|Bank terjadwal|Bank Soal Terjadwal belum didukung untuk perubahan di editor ini/u);
 assert.match(builder, /beforeunload/u);
 assert.match(builder, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u);
@@ -149,20 +180,15 @@ assert.match(shell, /Perubahan yang belum disimpan akan hilang/u);
 
 assert.match(repository, /SELECT id FROM question_banks WHERE id = \$\{bankId\}::uuid FOR UPDATE/u);
 assert.match(repository, /code: "stale_revision"/u);
-assert.match(repository, /assertPublishedQuestionContentUnchanged\(input, existing, subtestByCode\)/u);
-assert.match(repository, /code: "published_content_locked"/u);
 assert.match(repository, /sameCanonicalQuestionContent\(/u);
-assert.match(repository, /const allowedOperations: Record<ContentStatus, readonly string\[\]>/u);
-assert.match(repository, /\[ContentStatus\.draft\]: \["publish", "archive"\]/u);
-assert.match(repository, /\[ContentStatus\.published\]: \["unpublish", "archive"\]/u);
-assert.match(repository, /\[ContentStatus\.archived\]: \["restore"\]/u);
+assert.match(repository, /operation: "archive" \| "restore"/u);
+assert.match(repository, /const status = isArchive \? ContentStatus\.archived : ContentStatus\.published/u);
 assert.match(repository, /code: "invalid_lifecycle_transition"/u);
 assert.match(repository, /code: "readiness_failed"/u);
-assert.match(repository, /code: "scheduled_unsupported"/u);
+assert.doesNotMatch(repository, /code: "scheduled_unsupported"/u);
 assert.match(repository, /question\.status === ContentStatus\.archived/u);
 assert.match(repository, /question\.currentRevision\?\.status !== QuestionRevisionStatus\.retired/u);
-assert.match(organization, /assertBankMutationSupported\(status: ContentStatus\)/u);
-assert.match(organization, /code: "scheduled_unsupported"/u);
+assert.doesNotMatch(organization, /assertBankMutationSupported|code: "scheduled_unsupported"/u);
 assert.match(organization, /expectedRevision/u);
 
 // The failure payload remains a type-only implementation detail. Exporting it
@@ -176,9 +202,9 @@ assert.match(actions, /questionBankActionFailure\(error, "Status Bank Soal tidak
 // not import the editor's legacy catalogue vocabulary.
 assert.match(packageBuilder, /<FieldLabel[^>]*htmlFor="package-source-bank-picker">Bank Soal<\/FieldLabel>/u);
 assert.match(packageBuilder, /Pilih Bank Soal/u);
-assert.match(quizBuilder, /<FieldLabel[^>]*htmlFor="quiz-editor-subject">Subjek<\/FieldLabel>/u);
+assert.match(quizBuilder, /<FieldLabel[\s\S]*?htmlFor="quiz-editor-subject"[\s\S]*?>\s*Subjek\s*<\/FieldLabel>/u);
 assert.match(quizBuilder, /ReferenceSelect/u);
-assert.match(tryoutBuilder, /<FieldLabel[^>]*>Bank Soal untuk ditelusuri(?:\s*<RequiredMark\s*\/>)?\s*<\/FieldLabel>/u);
+assert.match(tryoutBuilder, /<FieldLabel[\s\S]*?>\s*Bank Soal terpilih\s*<RequiredMark\s*\/?>\s*<\/FieldLabel>/u);
 assert.match(tryoutBuilder, /role="listbox"/u);
 for (const [name, source] of [["Paket Soal", packageBuilder], ["Kuis", quizBuilder], ["Tryout", tryoutBuilder]] as const) {
   assert.doesNotMatch(source, /\bUnfiled\b|\bunfiled\b/u, `${name} source picker must not expose legacy catalogue vocabulary`);

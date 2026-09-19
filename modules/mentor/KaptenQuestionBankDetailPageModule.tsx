@@ -8,11 +8,9 @@ import {
   Check,
   ChevronLeft,
   CircleHelp,
-  FilePenLine,
   Folder,
   LibraryBig,
   Pencil,
-  Plus,
   Upload,
   X,
 } from "@/lib/icons";
@@ -33,10 +31,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  FullWidthLineTabsList,
+  FullWidthLineTabsTrigger,
+} from "@/components/ui/full-width-line-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -75,73 +78,22 @@ type ConfirmationRequest = {
   title: string;
 };
 
+type QuestionBankDetailTab = "soal" | "pengaturan";
+
 const QUESTION_BANK_METADATA_PILL_CLASS_NAME =
   "min-h-7 px-3 py-1.5 text-xs font-medium";
 
 function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  const tone =
-    status === "published"
-      ? "success"
-      : status === "archived"
-        ? "neutral"
-        : status === "scheduled"
-          ? "info"
-          : "attention";
-  const label =
-    status === "published"
-      ? "Terbit"
-      : status === "archived"
-        ? "Diarsipkan"
-        : status === "scheduled"
-          ? "Terjadwal"
-          : "Draf";
+  const isArchived = status === "archived";
 
   return (
     <MentorBadge
       className={QUESTION_BANK_METADATA_PILL_CLASS_NAME}
       size="sm"
-      tone={tone}
+      tone={isArchived ? "neutral" : "success"}
     >
-      {label}
+      {isArchived ? "Diarsipkan" : "Diterbitkan"}
     </MentorBadge>
-  );
-}
-
-function QuestionBankArchiveAction({
-  bank,
-  isSavingLifecycle,
-  requestArchive,
-}: {
-  bank: KaptenQuestionBank;
-  isSavingLifecycle: boolean;
-  requestArchive: () => void;
-}) {
-  if (bank.status === "archived" || bank.status === "scheduled") return null;
-
-  return (
-    <></>
-    /*
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              aria-busy={isSavingLifecycle}
-              aria-label="Arsipkan bank soal"
-              disabled={isSavingLifecycle}
-              onClick={requestArchive}
-              size="icon-sm"
-              type="button"
-              variant="dangerOutline"
-            />
-          }
-        >
-          <Archive />
-        </TooltipTrigger>
-        <TooltipContent>Arsipkan bank soal</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    */
   );
 }
 
@@ -149,16 +101,12 @@ function QuestionBankStatusAction({
   bank,
   handleLifecycle,
   isSavingLifecycle,
-  publishDisabledReason,
-  requestLifecycleChange,
+  requestArchive,
 }: {
   bank: KaptenQuestionBank;
-  handleLifecycle: (
-    operation: "publish" | "unpublish" | "archive" | "restore",
-  ) => Promise<void>;
+  handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
   isSavingLifecycle: boolean;
-  publishDisabledReason?: string;
-  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
+  requestArchive: () => void;
 }) {
   if (bank.status === "archived") {
     return (
@@ -175,39 +123,20 @@ function QuestionBankStatusAction({
       </Button>
     );
   }
-  if (bank.status === "published") {
-    return (
-      <Button
-        aria-busy={isSavingLifecycle}
-        data-question-bank-lifecycle-action="unpublish"
-        disabled={isSavingLifecycle}
-        onClick={() => requestLifecycleChange("unpublish")}
-        size="sm"
-        type="button"
-        variant="brandOutline"
-      >
-        <FilePenLine />
-        {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
-      </Button>
-    );
-  }
-  if (bank.status !== "draft") return null;
 
   return (
     <Button
       aria-busy={isSavingLifecycle}
-      aria-describedby={
-        publishDisabledReason ? "publish-disabled-reason" : undefined
-      }
-      data-question-bank-lifecycle-action="publish"
-      disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
-      onClick={() => requestLifecycleChange("publish")}
+      aria-label="Arsipkan bank soal"
+      data-question-bank-lifecycle-action="archive"
+      disabled={isSavingLifecycle}
+      onClick={requestArchive}
       size="sm"
       type="button"
-      variant="brand"
+      variant="dangerOutline"
     >
-      <Upload />
-      {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
+      <Archive />
+      {isSavingLifecycle ? "Mengarsipkan…" : "Arsipkan"}
     </Button>
   );
 }
@@ -216,58 +145,29 @@ function QuestionBankLifecycleActions({
   bank,
   handleLifecycle,
   isSavingLifecycle,
-  publishDisabledReason,
   requestArchive,
-  requestLifecycleChange,
 }: {
   bank: KaptenQuestionBank;
-  handleLifecycle: (
-    operation: "publish" | "unpublish" | "archive" | "restore",
-  ) => Promise<void>;
+  handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
   isSavingLifecycle: boolean;
-  publishDisabledReason?: string;
   requestArchive: () => void;
-  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <QuestionBankArchiveAction
-        bank={bank}
-        isSavingLifecycle={isSavingLifecycle}
-        requestArchive={requestArchive}
-      />
       <QuestionBankStatusAction
         bank={bank}
         handleLifecycle={handleLifecycle}
         isSavingLifecycle={isSavingLifecycle}
-        publishDisabledReason={publishDisabledReason}
-        requestLifecycleChange={requestLifecycleChange}
+        requestArchive={requestArchive}
       />
-      {publishDisabledReason ? (
-        <p className="sr-only" id="publish-disabled-reason">
-          {publishDisabledReason}
-        </p>
-      ) : null}
     </div>
   );
 }
 
 function QuestionBankDetailHeaderBar({
   bank,
-  handleLifecycle,
-  isSavingLifecycle,
-  publishDisabledReason,
-  requestArchive,
-  requestLifecycleChange,
 }: {
   bank: KaptenQuestionBank;
-  handleLifecycle: (
-    operation: "publish" | "unpublish" | "archive" | "restore",
-  ) => Promise<void>;
-  isSavingLifecycle: boolean;
-  publishDisabledReason?: string;
-  requestArchive: () => void;
-  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
 }) {
   const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
 
@@ -289,16 +189,41 @@ function QuestionBankDetailHeaderBar({
           <ChevronLeft />
         </Button>
       </div>
-
-      <QuestionBankLifecycleActions
-        bank={bank}
-        handleLifecycle={handleLifecycle}
-        isSavingLifecycle={isSavingLifecycle}
-        publishDisabledReason={publishDisabledReason}
-        requestArchive={requestArchive}
-        requestLifecycleChange={requestLifecycleChange}
-      />
     </div>
+  );
+}
+
+function QuestionBankArchiveSection({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  requestArchive,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  isSavingLifecycle: boolean;
+  requestArchive: () => void;
+}) {
+  return (
+    <ReferenceSurface as="section" className="p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-secondary-900">
+            Arsipkan Bank Soal
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-secondary-600">
+            Bank Soal yang diarsipkan tidak dapat diedit sampai dipulihkan
+            kembali.
+          </p>
+        </div>
+        <QuestionBankLifecycleActions
+          bank={bank}
+          handleLifecycle={handleLifecycle}
+          isSavingLifecycle={isSavingLifecycle}
+          requestArchive={requestArchive}
+        />
+      </div>
+    </ReferenceSurface>
   );
 }
 
@@ -732,26 +657,20 @@ function QuestionBankQuestionCard({
   );
 }
 
-function QuestionBankQuestionsSection({
+function QuestionBankEditorButton({
   bank,
   bankId,
-  questions,
-  readiness,
 }: {
   bank: KaptenQuestionBank;
   bankId: string;
-  questions: BankQuestion[];
-  readiness: QuestionBankReadiness;
 }) {
-  const editorLocked = bank.status !== "draft";
+  const editorLocked = bank.status === "archived";
   const editorLockReason =
-    bank.status === "archived"
-      ? "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu."
-      : "Untuk mengedit kembali, jadikan Bank Soal draf terlebih dahulu.";
+    "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu.";
   const editorButton = (
     <Button
       aria-label="Buka Editor"
-      className="w-full shadow-sm sm:w-auto"
+      className="w-full shadow-sm"
       disabled={editorLocked}
       nativeButton={editorLocked}
       render={
@@ -770,6 +689,31 @@ function QuestionBankQuestionsSection({
     </Button>
   );
 
+  if (!editorLocked) return editorButton;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger render={<span className="flex w-full" />}>
+          {editorButton}
+        </TooltipTrigger>
+        <TooltipContent>{editorLockReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function QuestionBankQuestionsSection({
+  bank,
+  bankId,
+  questions,
+  readiness,
+}: {
+  bank: KaptenQuestionBank;
+  bankId: string;
+  questions: BankQuestion[];
+  readiness: QuestionBankReadiness;
+}) {
   return (
     <section className="space-y-6">
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -783,21 +727,9 @@ function QuestionBankQuestionsSection({
             </MentorBadge>
           </div>
         </div>
-        {editorLocked ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger
-                render={<span className="inline-flex w-full sm:w-auto" />}
-              >
-                {editorButton}
-              </TooltipTrigger>
-              <TooltipContent>{editorLockReason}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          editorButton
-        )}
       </div>
+
+      <QuestionBankEditorButton bank={bank} bankId={bankId} />
 
       {questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center">
@@ -809,21 +741,6 @@ function QuestionBankQuestionsSection({
             Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan
             pembahasan.
           </p>
-          {bank.status === "draft" ? (
-            <Button
-              className="mt-6"
-              nativeButton={false}
-              render={
-                <Link
-                  href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`}
-                />
-              }
-              variant="brand"
-            >
-              <Plus />
-              Tulis Soal Pertama
-            </Button>
-          ) : null}
         </div>
       ) : (
         <div className="grid gap-4">
@@ -892,16 +809,20 @@ function KaptenQuestionBankDetailPageModule({
   initialBank,
   initialQuestions = [],
   initialReadiness = null,
+  initialTab = "soal",
   session,
 }: {
   bankId: string;
   initialBank: KaptenQuestionBank;
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
+  initialTab?: QuestionBankDetailTab;
   session: SessionContext;
 }) {
   const router = useRouter();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
+  const [activeTab, setActiveTab] =
+    useState<QuestionBankDetailTab>(initialTab);
   const [questions] = useState<BankQuestion[]>(initialQuestions);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -921,8 +842,7 @@ function KaptenQuestionBankDetailPageModule({
 
   const readiness =
     initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
-  const isMetadataLocked =
-    bank.status === "archived" || bank.status === "scheduled";
+  const isMetadataLocked = bank.status === "archived";
 
   const folderLabel = questionBankFolderLabel(
     bank.folderId ?? null,
@@ -944,6 +864,16 @@ function KaptenQuestionBankDetailPageModule({
   ].sort((left, right) =>
     left.localeCompare(right, undefined, { sensitivity: "base" }),
   );
+
+  function changeTab(value: string) {
+    if (value !== "soal" && value !== "pengaturan") return;
+    const next = value as QuestionBankDetailTab;
+    setActiveTab(next);
+    router.push(
+      `/mentor/quiz/question-bank/${bank.id}?tab=${next}`,
+      { scroll: false },
+    );
+  }
 
   async function handleSaveTitle() {
     const trimmed = titleInput.trim();
@@ -1026,7 +956,7 @@ function KaptenQuestionBankDetailPageModule({
   }
 
   async function handleLifecycle(
-    operation: "publish" | "unpublish" | "archive" | "restore",
+    operation: "archive" | "restore",
   ) {
     setIsSavingLifecycle(true);
     setLifecycleError(null);
@@ -1049,9 +979,7 @@ function KaptenQuestionBankDetailPageModule({
       }));
       const lifecycleMessage = {
         archive: "Bank Soal diarsipkan.",
-        publish: "Bank Soal diterbitkan.",
         restore: "Bank Soal dipulihkan.",
-        unpublish: "Bank Soal dijadikan draf.",
       }[operation];
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
@@ -1078,30 +1006,6 @@ function KaptenQuestionBankDetailPageModule({
     });
   }
 
-  function requestLifecycleChange(operation: "publish" | "unpublish") {
-    const isPublishing = operation === "publish";
-
-    setConfirmationRequest({
-      actionVariant: "brand",
-      confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
-      description: isPublishing
-        ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
-        : "Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru. Tryout yang sudah ada tidak akan terpengaruh.",
-      dialogVariant: "warning",
-      onConfirm: () => {
-        setConfirmationRequest(null);
-        void handleLifecycle(operation);
-      },
-      title: isPublishing ? "Terbitkan Bank Soal?" : "Jadikan Bank Soal draf?",
-    });
-  }
-
-  const publishDisabledReason =
-    questions.length === 0
-      ? "Tambahkan minimal satu soal sebelum diterbitkan"
-      : readiness.incompleteCount > 0
-        ? `${readiness.incompleteCount} soal perlu diperbaiki sebelum diterbitkan`
-        : undefined;
   const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
 
   return (
@@ -1117,19 +1021,7 @@ function KaptenQuestionBankDetailPageModule({
       <div className="space-y-8">
         <QuestionBankDetailHeaderBar
           bank={bank}
-          handleLifecycle={handleLifecycle}
-          isSavingLifecycle={isSavingLifecycle}
-          publishDisabledReason={publishDisabledReason}
-          requestArchive={requestArchive}
-          requestLifecycleChange={requestLifecycleChange}
         />
-
-        {lifecycleError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Terjadi Masalah</AlertTitle>
-            <AlertDescription>{lifecycleError}</AlertDescription>
-          </Alert>
-        ) : null}
 
         <QuestionBankMetadataCard
           bank={bank}
@@ -1153,12 +1045,49 @@ function KaptenQuestionBankDetailPageModule({
           titleInput={titleInput}
         />
 
-        <QuestionBankQuestionsSection
-          bank={bank}
-          bankId={bankId}
-          questions={questions}
-          readiness={readiness}
-        />
+        {lifecycleError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Terjadi Masalah</AlertTitle>
+            <AlertDescription>{lifecycleError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <Tabs
+          className="w-full min-w-0 gap-7"
+          onValueChange={changeTab}
+          value={activeTab}
+        >
+          <FullWidthLineTabsList aria-label="Bagian detail Bank Soal">
+            <FullWidthLineTabsTrigger
+              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              value="soal"
+            >
+              Soal
+            </FullWidthLineTabsTrigger>
+            <FullWidthLineTabsTrigger
+              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              value="pengaturan"
+            >
+              Pengaturan
+            </FullWidthLineTabsTrigger>
+          </FullWidthLineTabsList>
+          <TabsContent className="m-0" value="soal">
+            <QuestionBankQuestionsSection
+              bank={bank}
+              bankId={bankId}
+              questions={questions}
+              readiness={readiness}
+            />
+          </TabsContent>
+          <TabsContent className="m-0" value="pengaturan">
+            <QuestionBankArchiveSection
+              bank={bank}
+              handleLifecycle={handleLifecycle}
+              isSavingLifecycle={isSavingLifecycle}
+              requestArchive={requestArchive}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <QuestionBankArchiveConfirmationDialog
