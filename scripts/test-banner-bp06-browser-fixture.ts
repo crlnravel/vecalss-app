@@ -2271,7 +2271,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
 
   async function logout(expectedNotice) {
     await click('button[aria-label="Menu akun"]');
-    await clickText('[role="menuitem"]', "Keluar");
+    await waitForRoute("/admin/student-banners?destination=tryout", {
+      requiredSelectors: ['[data-slot="dropdown-menu-item"]'],
+      requiredText: ["Keluar"],
+    });
+    await clickText('[data-slot="dropdown-menu-item"]', "Keluar");
     await click('[role="alertdialog"] button[type="submit"]');
     const info = await waitForRoute("/login", { exactSearch: false });
     if (expectedNotice && !String(pageInfoUrl(info)).includes(expectedNotice)) fail("logout notice missing: " + pageInfoUrl(info));
