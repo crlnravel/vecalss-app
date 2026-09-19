@@ -50,7 +50,11 @@ const PIE_COLORS = [
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
+  "var(--voyage-warm-sun)",
+  "var(--secondary-500)",
 ];
+
+const OTHER_PACKAGE_KEY = "__other__";
 
 const purchaseChartConfig = {
   count: {
@@ -111,7 +115,7 @@ function ChartFilterMenu({
         aria-label={label}
         render={
           <Button
-            className="h-auto min-h-10 max-w-full gap-1.5 rounded-xl px-3 text-xs font-semibold"
+            className="h-auto min-h-11 max-w-full gap-1.5 rounded-xl px-3 text-xs font-semibold"
             size="sm"
             type="button"
             variant="reference"
@@ -153,6 +157,9 @@ function ConversionTrend({
       })),
     [countsByDate, packageCode, trend],
   );
+  const dataDescription = data
+    .map((point) => `${point.label}: ${numberFormatter.format(point.count)} pembelian`)
+    .join(", ");
 
   return (
     <ReferenceSurface
@@ -183,7 +190,14 @@ function ConversionTrend({
           className="mt-5 h-[230px] w-full max-w-full aspect-auto"
           config={purchaseChartConfig}
         >
-          <BarChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+          <BarChart
+            accessibilityLayer
+            data={data}
+            desc={dataDescription}
+            margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+            role="img"
+            title="Pembelian per hari"
+          >
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               axisLine={false}
@@ -212,6 +226,15 @@ function ConversionTrend({
       ) : (
         <p className="mt-5 text-sm text-secondary-500">Belum ada pembelian.</p>
       )}
+      {data.length ? (
+        <ul aria-label="Ringkasan pembelian harian" className="sr-only">
+          {data.map((point) => (
+            <li key={point.date}>
+              {point.label}: {numberFormatter.format(point.count)} pembelian
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </ReferenceSurface>
   );
 }
@@ -221,18 +244,22 @@ function PackageDistribution({
   groupBy,
   packageCode,
   packageMix,
+  totalSuccessfulPurchases,
   trend,
 }: {
   breakdown: AffiliatorConversionBreakdownPoint[];
   groupBy: DistributionGroup;
   packageCode: string;
   packageMix: AffiliatorPackageMixItem[];
+  totalSuccessfulPurchases: number;
   trend: AffiliatorConversionTrendPoint[];
 }) {
   const data = useMemo<PieDatum[]>(() => {
     const grouped = new Map<string, PieDatum>();
 
     if (groupBy === "package") {
+      const packageMixCount = packageMix.reduce((total, item) => total + item.count, 0);
+
       for (const item of packageMix) {
         if (packageCode !== "all" && item.packageCode !== packageCode) continue;
         grouped.set(item.packageCode, {
@@ -241,6 +268,19 @@ function PackageDistribution({
           key: item.packageCode,
           label: item.packageName,
         });
+      }
+
+      if (packageCode === "all") {
+        const otherCount = Math.max(totalSuccessfulPurchases - packageMixCount, 0);
+
+        if (otherCount > 0) {
+          grouped.set(OTHER_PACKAGE_KEY, {
+            count: otherCount,
+            fill: PIE_COLORS[PIE_COLORS.length - 1],
+            key: OTHER_PACKAGE_KEY,
+            label: "Lainnya",
+          });
+        }
       }
     } else if (packageCode === "all") {
       for (const item of trend) {
@@ -264,8 +304,13 @@ function PackageDistribution({
       }
     }
 
-    return [...grouped.values()].sort((left, right) => right.count - left.count);
-  }, [breakdown, groupBy, packageCode, packageMix, trend]);
+    return [...grouped.values()].sort(
+      (left, right) =>
+        right.count - left.count ||
+        left.label.localeCompare(right.label, "id-ID") ||
+        left.key.localeCompare(right.key),
+    );
+  }, [breakdown, groupBy, packageCode, packageMix, totalSuccessfulPurchases, trend]);
 
   const distributionChartConfig = useMemo<ChartConfig>(
     () => ({
@@ -277,6 +322,20 @@ function PackageDistribution({
     [data],
   );
   const totalCount = data.reduce((total, item) => total + item.count, 0);
+  const hasOmittedPackageTail =
+    groupBy === "package" &&
+    packageCode === "all" &&
+    data.some((item) => item.key === OTHER_PACKAGE_KEY);
+  const distributionScope =
+    groupBy === "package"
+      ? packageCode === "all"
+        ? hasOmittedPackageTail
+          ? "Seluruh histori · top 6 + lainnya"
+          : "Seluruh histori"
+        : "Seluruh histori · paket terpilih"
+      : packageCode === "all"
+        ? "7 hari aktif terakhir"
+        : "7 hari aktif · paket terpilih";
   const distributionSummary = data
     .map((item) => {
       const percentage = totalCount ? Math.round((item.count / totalCount) * 100) : 0;
@@ -300,9 +359,7 @@ function PackageDistribution({
           >
             Distribusi pembelian
           </h3>
-          <p className="mt-1 text-xs text-secondary-500">
-            {groupBy === "package" ? "Menurut paket" : "Menurut hari"}
-          </p>
+          <p className="mt-1 text-xs text-secondary-500">{distributionScope}</p>
         </div>
         <span className="text-xs font-medium tabular-nums text-secondary-500">
           {numberFormatter.format(totalCount)} total
@@ -312,12 +369,17 @@ function PackageDistribution({
       {data.length ? (
         <ChartContainer
           aria-label={
-            `${groupBy === "package" ? "Diagram lingkaran distribusi paket" : "Diagram lingkaran distribusi hari"}: ${distributionSummary}`
+            `${groupBy === "package" ? "Diagram lingkaran distribusi paket" : "Diagram lingkaran distribusi hari"}: ${distributionScope}. ${distributionSummary}`
           }
           className="mx-auto mt-4 h-[260px] w-full max-w-[360px] aspect-auto"
           config={distributionChartConfig}
         >
-          <PieChart accessibilityLayer>
+          <PieChart
+            accessibilityLayer
+            desc={`${distributionScope}. ${distributionSummary}`}
+            role="img"
+            title={groupBy === "package" ? "Distribusi pembelian menurut paket" : "Distribusi pembelian menurut hari"}
+          >
             <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="key" />} />
             <Pie
               data={data}
@@ -385,10 +447,12 @@ function AffiliatorDashboardCharts({
   conversionBreakdown,
   conversionTrend,
   packageMix,
+  totalSuccessfulPurchases,
 }: {
   conversionBreakdown: AffiliatorConversionBreakdownPoint[];
   conversionTrend: AffiliatorConversionTrendPoint[];
   packageMix: AffiliatorPackageMixItem[];
+  totalSuccessfulPurchases: number;
 }) {
   const [packageCode, setPackageCode] = useState("all");
   const [groupBy, setGroupBy] = useState<DistributionGroup>("package");
@@ -434,6 +498,7 @@ function AffiliatorDashboardCharts({
           groupBy={groupBy}
           packageCode={packageCode}
           packageMix={packageMix}
+          totalSuccessfulPurchases={totalSuccessfulPurchases}
           trend={conversionTrend}
         />
       </div>

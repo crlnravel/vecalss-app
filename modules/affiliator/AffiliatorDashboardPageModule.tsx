@@ -114,6 +114,7 @@ function AffiliatorDashboardPageModule({
         conversionBreakdown={dashboard.conversionBreakdown}
         conversionTrend={dashboard.conversionTrend}
         packageMix={dashboard.packageMix}
+        totalSuccessfulPurchases={dashboard.successfulPurchaseCount}
       />
     </AffiliatorWorkspaceShell>
   );
