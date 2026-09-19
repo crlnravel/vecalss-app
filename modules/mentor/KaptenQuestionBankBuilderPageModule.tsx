@@ -2201,43 +2201,45 @@ function QuestionBankMetadataForm({
   state: QuestionBankBuilderViewState;
 }) {
   return (
-    <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="bank-title"
-        >
-          Judul bank
-        </FieldLabel>
-        <FieldInput
-          aria-required="true"
-          className={REFERENCE_CONTROL_CLASS_NAMES.input}
-          disabled={state.isMetadataLocked}
-          id="bank-title"
-          onChange={(event) =>
-            actions.updateMetadata("title", event.target.value)
-          }
-          required
-          value={builderState.title}
-        />
-      </Field>
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="bank-description"
-        >
-          Deskripsi
-        </FieldLabel>
-        <FieldTextarea
-          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
-          disabled={state.isMetadataLocked}
-          id="bank-description"
-          onChange={(event) =>
-            actions.updateMetadata("description", event.target.value)
-          }
-          value={builderState.description}
-        />
-      </Field>
+    <div className="space-y-4">
+      <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
+        <Field>
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="bank-title"
+          >
+            Judul bank
+          </FieldLabel>
+          <FieldInput
+            aria-required="true"
+            className={REFERENCE_CONTROL_CLASS_NAMES.input}
+            disabled={state.isMetadataLocked}
+            id="bank-title"
+            onChange={(event) =>
+              actions.updateMetadata("title", event.target.value)
+            }
+            required
+            value={builderState.title}
+          />
+        </Field>
+        <Field>
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor="bank-description"
+          >
+            Deskripsi
+          </FieldLabel>
+          <FieldTextarea
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
+            disabled={state.isMetadataLocked}
+            id="bank-description"
+            onChange={(event) =>
+              actions.updateMetadata("description", event.target.value)
+            }
+            value={builderState.description}
+          />
+        </Field>
+      </ReferenceSurface>
       <QuestionBankSaveAction
         actions={actions}
         builderState={builderState}
@@ -2246,7 +2248,7 @@ function QuestionBankMetadataForm({
         size="default"
         state={state}
       />
-    </ReferenceSurface>
+    </div>
   );
 }
 

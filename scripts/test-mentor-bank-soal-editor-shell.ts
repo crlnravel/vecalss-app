@@ -23,6 +23,12 @@ assert.match(builder, /disabled=\{state\.isSaving \|\| state\.isMetadataLocked \
 assert.match(builder, /function QuestionBankHeaderActions[\s\S]*?if \(mode === "create"\) return null;/u);
 assert.match(metadataForm, /className="grid w-full gap-5 p-5 md:p-7"/u);
 assert.match(metadataForm, /<QuestionBankSaveAction[\s\S]*?className="w-full"[\s\S]*?size="default"/u);
+const metadataCardEnd = metadataForm.indexOf("</ReferenceSurface>");
+const createSaveAction = metadataForm.indexOf("<QuestionBankSaveAction");
+assert.ok(
+  metadataCardEnd >= 0 && createSaveAction > metadataCardEnd,
+  "create save action should sit outside and below the metadata card",
+);
 assert.doesNotMatch(builder, /function QuestionBankTabs\(/u);
 assert.doesNotMatch(builder, /function QuestionBankOrganizationPanel\(/u);
 assert.doesNotMatch(builder, /activeTab/u);
