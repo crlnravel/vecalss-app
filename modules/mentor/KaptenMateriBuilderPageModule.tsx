@@ -168,13 +168,11 @@ function MateriBuilderHeader({
   isPreviewOpen,
   mode,
   parentHref,
-  status,
 }: {
   builderState: MateriBuilderState;
   isPreviewOpen: boolean;
   mode: "create" | "edit";
   parentHref: string;
-  status: KaptenMateriView["status"];
 }) {
   if (isPreviewOpen) return null;
 
@@ -193,7 +191,6 @@ function MateriBuilderHeader({
       </Button>
       <ReferencePageHeader
         className="min-w-0 flex-1"
-        description={<ReferenceStatusBadge appearance="mentor" size="xs" status={status} />}
         title={
           mode === "create"
             ? "Buat Materi"
@@ -617,15 +614,15 @@ function MateriAdministrationSection({
             >
               Administrasi
             </h2>
-            <p className="max-w-2xl text-sm leading-6 text-secondary-600">
-              {isDraft
-                ? "Terbitkan materi setelah data dan bacaan siap."
-                : isPublished
-                  ? "Materi ini sedang tersedia untuk siswa."
+            {!isPublished ? (
+              <p className="max-w-2xl text-sm leading-6 text-secondary-600">
+                {isDraft
+                  ? "Terbitkan materi setelah data dan bacaan siap."
                   : isArchived
                     ? "Materi ini diarsipkan dan tidak dapat diedit."
                     : "Atur status publikasi materi."}
-            </p>
+              </p>
+            ) : null}
           </div>
           {isDraft ? (
             <Button
@@ -1129,7 +1126,6 @@ function KaptenMateriBuilderPageModule({
           isPreviewOpen={isPreviewOpen}
           mode={mode}
           parentHref={parentHref}
-          status={materiStatus}
         />
 
         {!isPreviewOpen && saveError ? (
