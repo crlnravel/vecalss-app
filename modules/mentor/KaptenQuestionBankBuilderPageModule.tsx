@@ -2020,22 +2020,27 @@ function getQuestionBankPublishDisabledReason(
 function QuestionBankSaveAction({
   actions,
   builderState,
+  className,
   mode,
   state,
+  size = "sm",
 }: {
   actions: QuestionBankBuilderActions;
   builderState: QuestionBankBuilderFormState;
+  className?: string;
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
+  size?: "default" | "sm";
 }) {
   const saveLabel = mode === "create" ? "Buat" : "Simpan perubahan";
   const titleMissing = mode === "create" && !builderState.title.trim();
   return (
     <Button
       aria-label={saveLabel}
+      className={className}
       disabled={state.isSaving || state.isMetadataLocked || titleMissing}
       onClick={actions.saveDraft}
-      size="sm"
+      size={size}
       title={mode === "create" ? undefined : saveLabel}
       type="button"
       variant={state.hasUnsavedChanges ? "brand" : "reference"}
@@ -2138,6 +2143,7 @@ function QuestionBankHeaderActions({
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
 }) {
+  if (mode === "create") return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <QuestionBankSaveAction
@@ -2195,7 +2201,7 @@ function QuestionBankMetadataForm({
   state: QuestionBankBuilderViewState;
 }) {
   return (
-    <ReferenceSurface as="section" className="grid max-w-4xl gap-5 p-5 md:p-7">
+    <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
       <Field>
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -2232,6 +2238,14 @@ function QuestionBankMetadataForm({
           value={builderState.description}
         />
       </Field>
+      <QuestionBankSaveAction
+        actions={actions}
+        builderState={builderState}
+        className="w-full"
+        mode="create"
+        size="default"
+        state={state}
+      />
     </ReferenceSurface>
   );
 }
