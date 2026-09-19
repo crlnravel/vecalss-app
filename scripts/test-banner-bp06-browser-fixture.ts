@@ -2592,6 +2592,11 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
       const body = await text();
       const recoveryPanel = await js("(() => ({ panel: Boolean(document.querySelector('[data-testid=\"banner-recovery\"]')), title: Boolean(document.querySelector('#banner-recovery-title')), starter: Array.from(document.querySelectorAll('button')).some((node) => (node.textContent || '').includes('Gunakan starter teks dan perbaiki')) }))()");
       if (!body.includes("Banner perlu dipulihkan") || !recoveryPanel?.panel || !recoveryPanel.title || !recoveryPanel.starter) fail("recovery panel did not render");
+      await clickText('button', "Gunakan starter teks dan perbaiki");
+      await waitForRoute("/admin/student-banners?destination=tryout", {
+        requiredSelectors: ["#banner-starter-title", "#banner-starter-description"],
+        requiredText: ["Perbaiki starter teks sebelum menyimpan"],
+      });
       const initial = await js("(() => ({ title: document.querySelector('#banner-starter-title')?.value || '', description: document.querySelector('#banner-starter-description')?.value || '' }))()");
       if (!initial || initial.title.length !== 181 || !initial.title.startsWith("BP06 legacy over-limit ")) fail("over-limit legacy title was not retained losslessly");
       if (initial.description !== "BP06 legacy description {firstName} {targetMajor} {targetUniversity}") fail("legacy description was not retained losslessly");
