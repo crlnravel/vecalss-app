@@ -49,7 +49,7 @@ assert.deepEqual(toDocumentInput(managedState), {
 });
 
 const partialVideo = validateMateriBuilderState({ ...baseState, videoUrl: "https://video.example.test/reading.mp4" }, subjects);
-assert.ok(partialVideo.videoDuration, "a video URL without duration should fail at duration");
+assert.deepEqual(partialVideo, {}, "a video URL should not require a duration");
 
 const documentAndVideo = validateMateriBuilderState({
   ...baseState,

@@ -29,7 +29,7 @@ type MateriDocument = {
 };
 
 type MateriVideo = {
-  durationSeconds: number;
+  durationSeconds: number | null;
   mediaUrl: string;
 };
 
@@ -214,9 +214,7 @@ function validateMateriVideoInput({
     errors[urlField] = "Gunakan URL video HTTP atau HTTPS yang valid.";
   }
 
-  if (!normalizedDuration) {
-    errors[durationField] = "Durasi video wajib diisi jika URL video diisi.";
-  } else if (!parseVideoDurationSeconds(normalizedDuration)) {
+  if (normalizedDuration && !parseVideoDurationSeconds(normalizedDuration)) {
     errors[durationField] = "Gunakan format MM:SS dengan durasi lebih dari 00:00.";
   }
 
@@ -224,7 +222,7 @@ function validateMateriVideoInput({
   return {
     errors: {},
     video: {
-      durationSeconds: parseVideoDurationSeconds(normalizedDuration)!,
+      durationSeconds: parseVideoDurationSeconds(normalizedDuration),
       mediaUrl: normalizedUrl,
     },
   };
@@ -303,13 +301,22 @@ function readMateriResources(resources: readonly MateriResourceLike[]): MateriRe
 
   const document = toReadDocument(documents[0]);
   const video = videos.length === 1 ? videos[0] : null;
+  const hasValidDuration =
+    video?.durationSeconds === null
+    || video?.durationSeconds === undefined
+    || (
+      typeof video.durationSeconds === "number"
+      && Number.isSafeInteger(video.durationSeconds)
+      && video.durationSeconds > 0
+    );
   const validVideo = video
     && isNonBlank(video.mediaUrl)
     && isHttpUrl(video.mediaUrl)
-    && typeof video.durationSeconds === "number"
-    && Number.isSafeInteger(video.durationSeconds)
-    && video.durationSeconds > 0
-    ? { durationSeconds: video.durationSeconds, mediaUrl: video.mediaUrl.trim() }
+    && hasValidDuration
+    ? {
+        durationSeconds: video.durationSeconds ?? null,
+        mediaUrl: video.mediaUrl.trim(),
+      }
     : null;
   const videoError = videos.length > 1
     ? "ambiguous"

@@ -115,11 +115,27 @@ assert.equal(isMateriReady("Malformed document", readMateriResources([{
   sourceKind: "hosted",
 }])), false);
 
-const missingVideoDuration = validateMateriVideoInput({
+const videoWithoutDuration = validateMateriVideoInput({
   url: "https://video.example.test/reading.mp4",
 });
-assert.equal(missingVideoDuration.video, null);
-assert.ok(missingVideoDuration.errors.videoDuration);
+assert.equal(videoWithoutDuration.errors.videoDuration, undefined);
+assert.deepEqual(videoWithoutDuration.video, {
+  durationSeconds: null,
+  mediaUrl: "https://video.example.test/reading.mp4",
+});
+
+const documentAndVideoWithoutDuration = readMateriResources([{
+  assetType: "video",
+  durationSeconds: null,
+  mediaUrl: "https://video.example.test/reading.mp4",
+}, {
+  assetType: "attachment",
+  mediaUrl: hostedDocument.document.url,
+  mimeType: hostedDocument.document.mimeType,
+  sourceKind: "hosted",
+}]);
+assert.equal(documentAndVideoWithoutDuration.video?.durationSeconds, null);
+assert.equal(isMateriReady("Document plus video without duration", documentAndVideoWithoutDuration), true);
 
 const missingVideoUrl = validateMateriVideoInput({ duration: "08:30", url: "" });
 assert.equal(missingVideoUrl.video, null);
