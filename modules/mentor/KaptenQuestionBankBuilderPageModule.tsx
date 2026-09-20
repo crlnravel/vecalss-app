@@ -85,6 +85,14 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import {
+  QuestionBankCsvCreateInput,
+  type QuestionBankCsvDraftSummary,
+} from "@/modules/mentor/components/question-bank-csv-flow";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
   kaptenSubjects,
   type BankQuestion,
   type KaptenQuestionBank,
@@ -1912,6 +1920,7 @@ type QuestionBankBuilderViewState = {
   isSaving: boolean;
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
+  lockState: AuthoringLockState;
   mediaPickerTarget: MediaPickerTarget | null;
   pendingRouteReplacement: string | null;
   previewChoiceId: string | null;
@@ -1940,6 +1949,8 @@ type QuestionBankBuilderActions = {
   onSelectMedia: (asset: MediaAssetDto) => void;
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
+  onLockStateChange: (state: AuthoringLockState) => void;
+  replaceCsvDraft: (summary: QuestionBankCsvDraftSummary) => void;
   requestExit: (route: string) => void;
   requestArchive: () => void;
   saveDraft: () => void;
@@ -2498,6 +2509,13 @@ function QuestionBankCreateWorkspace({
         mode="create"
         state={state}
       />
+      <ResourceAuthoringLockBanner
+        hasLocalChanges={state.hasUnsavedChanges}
+        onRetry={() => actions.onLockStateChange("owned")}
+        onStateChange={actions.onLockStateChange}
+        showScenarioPicker
+        state={state.lockState}
+      />
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
@@ -2505,6 +2523,10 @@ function QuestionBankCreateWorkspace({
         actions={actions}
         builderState={builderState}
         state={state}
+      />
+      <QuestionBankCsvCreateInput
+        disabled={state.isQuestionContentLocked}
+        onApply={actions.replaceCsvDraft}
       />
       <QuestionBankBuilderDialogs
         actions={actions}
@@ -2543,6 +2565,16 @@ function QuestionBankEditWorkspace({
         detailHref={detailHref}
         state={state}
       />
+      <div className="shrink-0 px-3 pt-3 md:px-6">
+        <ResourceAuthoringLockBanner
+          className="mx-auto max-w-5xl"
+          hasLocalChanges={state.hasUnsavedChanges}
+          onRetry={() => actions.onLockStateChange("owned")}
+          onStateChange={actions.onLockStateChange}
+          showScenarioPicker
+          state={state.lockState}
+        />
+      </div>
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
@@ -3036,6 +3068,47 @@ function useQuestionBankDraftActions({
     updateEditor,
   ]);
 
+  const replaceCsvDraft = useCallback(
+    (summary: QuestionBankCsvDraftSummary) => {
+      if (isQuestionContentLocked || summary.rowCount < 1) return;
+      const subjectCode =
+        activeQuestion?.subjectCode ??
+        builderState.questions.at(-1)?.subjectCode ??
+        builderState.subjectCode ??
+        "PU";
+      const draftQuestions = Array.from({ length: summary.rowCount }, (_, index) => {
+        const id = createQuestionId(subjectCode);
+        return {
+          ...emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", subjectCode),
+          id,
+          prompt: `[Mock CSV] ${summary.fileName} · Soal ${index + 1}`,
+        };
+      });
+      const nextState = { ...builderState, questions: draftQuestions };
+      markChanged(nextState);
+      updateEditor({
+        activeQuestionId: draftQuestions[0]?.id ?? null,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: draftQuestions[0]
+          ? toQuestionDraft(draftQuestions[0])
+          : fallbackQuestion,
+        readinessAnnouncement: `${summary.rowCount} draf soal dari ${summary.fileName} ditambahkan secara lokal.`,
+      });
+    },
+    [
+      activeQuestion?.subjectCode,
+      bankId,
+      builderState,
+      fallbackQuestion,
+      initialBank?.id,
+      isQuestionContentLocked,
+      markChanged,
+      updateEditor,
+    ],
+  );
+
   const removeQuestion = useCallback(
     (id: string) => {
       if (isQuestionContentLocked) return;
@@ -3077,6 +3150,7 @@ function useQuestionBankDraftActions({
     removeChoice,
     removeChoiceMedia,
     removeQuestion,
+    replaceCsvDraft,
     selectMediaAsset,
     updateCategories,
     updateMetadata,
@@ -3490,18 +3564,19 @@ function getQuestionBankBuilderInitialData({
 function getQuestionBankBuilderDerivedState({
   builderState,
   editorState,
+  lockState,
 }: {
   builderState: LocalQuestionBankState;
   editorState: QuestionBankEditorState;
+  lockState: AuthoringLockState;
 }) {
   const activeQuestion = editorState.activeQuestionId
     ? (builderState.questions.find(
         (question) => question.id === editorState.activeQuestionId,
       ) ?? null)
     : null;
-  const isMetadataLocked =
-    editorState.lifecycleStatus === "archived";
-  const isQuestionContentLocked = editorState.lifecycleStatus === "archived";
+  const isMetadataLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
+  const isQuestionContentLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
   const localReadiness = getQuestionBankReadinessFromDrafts(
     builderState.questions,
   );
@@ -3530,6 +3605,7 @@ function createQuestionBankBuilderActions({
   onChoiceChange,
   onCloseMedia,
   onEditorTabChange,
+  onLockStateChange,
   onOpenMedia,
   onSubmitPreview,
   persistence,
@@ -3540,6 +3616,7 @@ function createQuestionBankBuilderActions({
   onChoiceChange: (value: string) => void;
   onCloseMedia: () => void;
   onEditorTabChange: (value: string) => void;
+  onLockStateChange: (state: AuthoringLockState) => void;
   onOpenMedia: (target: MediaPickerTarget) => void;
   onSubmitPreview: () => void;
   persistence: ReturnType<typeof useQuestionBankPersistence>;
@@ -3552,6 +3629,7 @@ function createQuestionBankBuilderActions({
     onChoiceChange,
     onCloseMedia,
     onEditorTabChange,
+    onLockStateChange,
     onOpenMedia,
     onOpenQuestion: draftActions.openQuestion,
     onRemoveChoice: draftActions.removeChoice,
@@ -3607,6 +3685,7 @@ function useQuestionBankBuilderState({
     questionBankEditorReducer,
     initialEditorState,
   );
+  const [lockState, setLockState] = useState<AuthoringLockState>("owned");
   const updateEditor = useCallback(
     (patch: Partial<QuestionBankEditorState>) =>
       dispatch({ patch, type: "patch" }),
@@ -3628,7 +3707,11 @@ function useQuestionBankBuilderState({
     isQuestionContentLocked,
     readiness,
     selectedMediaAssetId,
-  } = getQuestionBankBuilderDerivedState({ builderState, editorState });
+  } = getQuestionBankBuilderDerivedState({
+    builderState,
+    editorState,
+    lockState,
+  });
   const draftActions = useQuestionBankDraftActions({
     activeQuestion,
     activeQuestionId: editorState.activeQuestionId,
@@ -3708,6 +3791,7 @@ function useQuestionBankBuilderState({
     onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
     onEditorTabChange: (value) =>
       updateEditor({ questionEditorTab: value as "edit" | "preview" }),
+    onLockStateChange: setLockState,
     onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
     onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
     persistence,
@@ -3719,6 +3803,7 @@ function useQuestionBankBuilderState({
     editorState,
     isMetadataLocked,
     isQuestionContentLocked,
+    lockState,
     questionRowRefs,
     readiness,
     selectedMediaAssetId,
@@ -3754,6 +3839,7 @@ function KaptenQuestionBankBuilderPageModule({
     editorState,
     isMetadataLocked,
     isQuestionContentLocked,
+    lockState,
     questionRowRefs,
     readiness,
     selectedMediaAssetId,
@@ -3783,6 +3869,7 @@ function KaptenQuestionBankBuilderPageModule({
         hasUnsavedChanges: editorState.hasUnsavedChanges,
         isMetadataLocked,
         isQuestionContentLocked,
+        lockState,
         isSaving: editorState.isSaving,
         lifecycleError: editorState.lifecycleError,
         lifecycleStatus: editorState.lifecycleStatus,

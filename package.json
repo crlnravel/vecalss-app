@@ -113,6 +113,7 @@
     "test:mentor-bank-soal-editor-readiness-accessibility": "tsx scripts/test-mentor-bank-soal-editor-readiness-accessibility.ts",
     "test:mentor-bank-soal-editor-shell": "tsx scripts/test-mentor-bank-soal-editor-shell.ts",
     "test:mentor-bank-soal-editor-verification": "tsx scripts/test-mentor-bank-soal-editor-verification.ts",
+    "test:mentor-bank-soal-lock-csv-ui": "tsx scripts/test-mentor-bank-soal-lock-csv-ui.ts",
     "test:question-bank-organization-seed": "node scripts/test-question-bank-organization-seed.mjs",
     "test:question-bank-purpose": "node scripts/test-question-bank-purpose.mjs",
     "test:question-bank-materi": "tsx scripts/test-question-bank-materi.ts",
