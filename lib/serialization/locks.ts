@@ -23,6 +23,7 @@ type LockLevel = (typeof LOCK_LEVEL)[keyof typeof LOCK_LEVEL];
 type SerializationTransaction = Prisma.TransactionClient;
 
 const DEFAULT_LOCK_TIMEOUT_MS = 5_000;
+const RESOURCE_EDIT_LOCK_PREFIX = "vecalss:resource-edit:";
 
 class ResourceBusyRetryError extends Error {
   readonly code = "resource_busy_retry" as const;
@@ -135,6 +136,28 @@ async function acquireEditKeys(
   for (const key of canonicalKeys) await acquireAdvisoryLock(tx, key, LOCK_LEVEL.edit);
 }
 
+/**
+ * Logical edit leases use a namespaced key so their advisory locks cannot
+ * collide with the legacy domain/edit keys used by existing repositories.
+ * Resource lease callers validate and canonicalize the two components before
+ * reaching this helper.
+ */
+function resourceEditLockKey(resourceType: string, resourceId: string) {
+  return `${RESOURCE_EDIT_LOCK_PREFIX}${resourceType}:${resourceId}`;
+}
+
+async function acquireResourceEditKey(
+  tx: SerializationTransaction,
+  resourceType: string,
+  resourceId: string,
+) {
+  return acquireAdvisoryLock(
+    tx,
+    resourceEditLockKey(resourceType, resourceId),
+    LOCK_LEVEL.edit,
+  );
+}
+
 async function acquirePrincipalRuntimeKey(
   tx: SerializationTransaction,
   key: string,
@@ -203,16 +226,19 @@ function bankOrganizationCategoriesMutexKey() {
 export {
   DEFAULT_LOCK_TIMEOUT_MS,
   LOCK_LEVEL,
+  RESOURCE_EDIT_LOCK_PREFIX,
   ResourceBusyRetryError,
   acquireAdvisoryLock,
   acquireDomainMutex,
   acquireDomainMutexes,
   acquireEditKey,
   acquireEditKeys,
+  acquireResourceEditKey,
   acquirePrincipalRuntimeKey,
   isRetryableSerializationFailure,
   lockOrderedRows,
   orderedUnique,
+  resourceEditLockKey,
   setTransactionLockTimeout,
   toResourceBusyRetry,
   tryoutMutexKey,
