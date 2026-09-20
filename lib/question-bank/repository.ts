@@ -19,6 +19,14 @@ import {
 } from "@/lib/serialization/locks";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import {
+  assertReadyKaptenImageAssets,
+  ManagedImageAssetValidationError,
+} from "@/lib/question-bank/media-validator";
+import {
+  assertAuthoringEditLease,
+  type AuthoringEditLease,
+} from "@/lib/serialization/authoring-lease";
+import {
   isQuestionBankMateri,
   normalizeQuestionBankMateri,
 } from "@/lib/question-bank/materi";
@@ -76,6 +84,7 @@ type BankQuestionInput = {
 };
 type SaveBankInput = {
   description: string;
+  editLease?: AuthoringEditLease;
   folderId?: string | null;
   id?: string;
   purpose: QuestionBankPurpose;
@@ -760,6 +769,14 @@ function revisionOptionWrites(input: BankQuestionInput): RevisionOptionWrite[] {
   }));
 }
 
+function questionMediaAssetIds(questions: readonly BankQuestionInput[]) {
+  return questions.flatMap((question) => [
+    question.promptMediaAssetId,
+    question.explanationMediaAssetId,
+    ...question.choices.map((choice) => choice.mediaAssetId),
+  ]);
+}
+
 type CanonicalQuestionContent = {
   digest: string;
   materi: string | null;
@@ -965,7 +982,7 @@ async function updateDraftQuestionRevision(
 
 async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionId: string, existing: Array<{ id: string; sortOrder: number }>, options: RevisionOptionWrite[]) {
   const retained = new Set<string>();
-  await Promise.all(options.map(async (option, optionIndex) => {
+  for (const [optionIndex, option] of options.entries()) {
     const old = existing.find((candidate) => candidate.sortOrder === optionIndex);
     if (old) {
       retained.add(old.id);
@@ -974,7 +991,7 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
       const created = await tx.questionOption.create({ data: { ...option, questionId } });
       retained.add(created.id);
     }
-  }));
+  }
   const extras = existing.filter((option) => !retained.has(option.id));
   if (extras.length) {
     await tx.questionOption.deleteMany({
@@ -999,6 +1016,18 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     let bankId = input.id;
     const status: ContentStatus = ContentStatus.published;
     if (bankId) {
+      const accessibleBank = await tx.questionBank.findUnique({
+        where: { id: bankId },
+        select: { id: true },
+      });
+      if (!accessibleBank)
+        throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
+      await assertAuthoringEditLease(
+        tx,
+        { resourceId: bankId, resourceType: "question_bank" },
+        actorId,
+        input.editLease,
+      );
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
       const current = await tx.questionBank.findUnique({ where: { id: bankId } });
       if (!current) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
@@ -1021,6 +1050,17 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
+    try {
+      await assertReadyKaptenImageAssets(tx, questionMediaAssetIds(input.questions));
+    } catch (error) {
+      if (error instanceof ManagedImageAssetValidationError) {
+        throw new QuestionBankError(error.message, {
+          code: "invalid_input",
+          details: { assetIds: [...error.assetIds] },
+        });
+      }
+      throw error;
+    }
     if (!bankId) {
       if (folderId) {
         const folder = await tx.questionBankFolder.findUnique({
@@ -1083,8 +1123,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
     const existingById = new Map(existing.map((question) => [question.id, question]));
     const retainedIds = new Set<string>();
-    await Promise.all(
-      input.questions.map(async (question, questionIndex) => {
+    for (const [questionIndex, question] of input.questions.entries()) {
         const subtest = subtestByCode.get(question.subjectCode);
         if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
         const isTemporary = isTemporaryQuestionId(question.id);
@@ -1143,14 +1182,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
           await tx.question.update({ where: { id: saved.id }, data: { currentRevisionId: revision.id, revision: revision.revisionNo } });
           retainedIds.add(saved.id);
-          return;
+          continue;
         }
 
         retainedIds.add(current.id);
         const currentRevision = current.currentRevision;
         const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
         if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
-          return;
+          continue;
         }
         if (!currentRevision) {
           throw new QuestionBankError("Revisi aktif soal tidak ditemukan.", { code: "invalid_input", details: { questionId: current.id } });
@@ -1191,15 +1230,24 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: currentRevision.id } });
         }
         await syncLegacyQuestionOptions(tx, current.id, current.options, options);
-      }),
-    );
+    }
     const removed = existing.filter((question) => !retainedIds.has(question.id));
-    await Promise.all(removed.flatMap((question) => [
-      ...(question.currentRevision && question.currentRevision.status !== QuestionRevisionStatus.retired
-        ? [tx.questionRevision.update({ where: { id: question.currentRevision.id }, data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: actorId } })]
-        : []),
-      tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.archived, updatedByUserId: actorId } }),
-    ]));
+    for (const question of removed) {
+      if (question.currentRevision && question.currentRevision.status !== QuestionRevisionStatus.retired) {
+        await tx.questionRevision.update({
+          where: { id: question.currentRevision.id },
+          data: {
+            retiredAt: new Date(),
+            status: QuestionRevisionStatus.retired,
+            updatedByUserId: actorId,
+          },
+        });
+      }
+      await tx.question.update({
+        where: { id: question.id },
+        data: { status: ContentStatus.archived, updatedByUserId: actorId },
+      });
+    }
     const [saved, folderRows] = await Promise.all([
       tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude }),
       getFolderRows(tx),
@@ -1209,7 +1257,10 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   return result;
 }
 
-type QuestionBankLifecycleOptions = { expectedRevision: number };
+type QuestionBankLifecycleOptions = {
+  editLease?: AuthoringEditLease;
+  expectedRevision: number;
+};
 
 async function updateQuestionBankLifecycle(id: string, operation: "archive" | "restore", actorId: string, options: QuestionBankLifecycleOptions) {
   const requestedOperation = String(operation);
@@ -1221,6 +1272,12 @@ async function updateQuestionBankLifecycle(id: string, operation: "archive" | "r
   }
   const isArchive = requestedOperation === "archive";
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: id, resourceType: "question_bank" },
+      actorId,
+      options.editLease,
+    );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
@@ -1247,28 +1304,53 @@ async function updateQuestionBankLifecycle(id: string, operation: "archive" | "r
     // Archiving the bank makes all active question identities unavailable as
     // sources while preserving their current revisions for a safe restore.
     if (isArchive) {
-      await Promise.all(activeQuestions.map((question) => tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.archived, updatedByUserId: actorId } })));
+      for (const question of activeQuestions) {
+        await tx.question.update({
+          where: { id: question.id },
+          data: { status: ContentStatus.archived, updatedByUserId: actorId },
+        });
+      }
     } else {
       const restoreQuestions = bank.questions.filter((question) => question.status === ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
-      await Promise.all(restoreQuestions.map((question) => tx.question.update({
-        where: { id: question.id },
-        data: {
-          status: question.currentRevision?.status === QuestionRevisionStatus.ready
-            ? ContentStatus.published
-            : ContentStatus.draft,
-          updatedByUserId: actorId,
-        },
-      })));
+      for (const question of restoreQuestions) {
+        await tx.question.update({
+          where: { id: question.id },
+          data: {
+            status: question.currentRevision?.status === QuestionRevisionStatus.ready
+              ? ContentStatus.published
+              : ContentStatus.draft,
+            updatedByUserId: actorId,
+          },
+        });
+      }
     }
     return { id, revision, status };
   });
 }
 
 type QuestionRevisionLifecycleStatus = "draft" | "review" | "ready" | "retired";
-type QuestionRevisionLifecycleOptions = { expectedStatus: QuestionRevisionLifecycleStatus; expectedUpdatedAt: string };
+type QuestionRevisionLifecycleOptions = {
+  editLease?: AuthoringEditLease;
+  expectedStatus: QuestionRevisionLifecycleStatus;
+  expectedUpdatedAt: string;
+};
 
 async function updateQuestionRevisionLifecycle(id: string, targetStatus: QuestionRevisionLifecycleStatus, actorId: string, options: QuestionRevisionLifecycleOptions) {
   return prisma.$transaction(async (tx) => {
+    const identity = await tx.questionRevision.findUnique({
+      where: { id },
+      select: { question: { select: { questionBankId: true } } },
+    });
+    const questionBankId = identity?.question.questionBankId;
+    if (!questionBankId) {
+      throw new QuestionBankError("Revisi soal tidak terikat ke Bank Soal.", { code: "not_found" });
+    }
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: questionBankId, resourceType: "question_bank" },
+      actorId,
+      options.editLease,
+    );
     // Take the parent bank lock first, matching saveQuestionBank and bank
     // lifecycle operations. Standalone questions have no bank row, so their
     // question/revision lock below remains the serialization boundary.
@@ -1387,8 +1469,18 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
   });
 }
 
-async function deleteQuestionBank(id: string, actorId: string) {
+async function deleteQuestionBank(
+  id: string,
+  actorId: string,
+  editLease?: AuthoringEditLease,
+) {
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: id, resourceType: "question_bank" },
+      actorId,
+      editLease,
+    );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, status: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });

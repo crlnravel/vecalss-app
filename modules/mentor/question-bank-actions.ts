@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireTutorSession } from "@/lib/auth/access";
 import type { QuestionBankPurpose } from "@/generated/prisma/client";
+import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   assignQuestionBankCategories,
   createQuestionBankCategory,
@@ -90,9 +91,9 @@ async function updateQuestionRevisionLifecycleAction(id: string, status: Questio
   }
 }
 
-async function deleteQuestionBankAction(id: string) {
+async function deleteQuestionBankAction(id: string, editLease?: AuthoringEditLease) {
   const session = await requireTutorSession();
-  try { const result = await deleteQuestionBank(id, session.user.id); refresh(); return { ok: true as const, result }; }
+  try { const result = await deleteQuestionBank(id, session.user.id, editLease); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat dihapus saat ini."); }
 }
 
