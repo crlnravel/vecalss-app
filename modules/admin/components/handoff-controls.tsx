@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FieldRequiredMark } from "@/components/ui/field";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus } from "@/generated/prisma/client";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -90,7 +91,7 @@ function HandoffControls({
           <input name="handoffId" type="hidden" value={handoffId} />
           <label className="flex items-start gap-3 text-xs leading-5 text-secondary-600">
             <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reissue" />
-             <span>Saya memahami bahwa tindakan ini mencabut handoff saat ini dan membuat penggantinya.</span>
+             <span>Saya memahami bahwa tindakan ini mencabut handoff saat ini dan membuat penggantinya.<FieldRequiredMark /></span>
           </label>
            <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Membuat ulang…" : "Buat ulang handoff"}</Button>
         </form>

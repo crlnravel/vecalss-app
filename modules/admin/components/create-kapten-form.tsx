@@ -37,7 +37,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-           <FieldLabel htmlFor="kapten-full-name">Nama Kapten</FieldLabel>
+           <FieldLabel htmlFor="kapten-full-name" required>Nama Kapten</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.fullName ? "kapten-full-name-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.fullName)}
@@ -51,7 +51,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         </Field>
 
         <Field>
-           <FieldLabel htmlFor="kapten-email">Email Kapten</FieldLabel>
+           <FieldLabel htmlFor="kapten-email" required>Email Kapten</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.email ? "kapten-email-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.email)}

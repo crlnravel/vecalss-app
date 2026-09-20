@@ -10,7 +10,7 @@ import { StudentDetailTargetExamSelect } from "./components/student-detail-targe
 import { formatStudentStatus, studentStatusTone } from "./student-status";
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel, FieldRequiredMark } from "@/components/ui/field";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type {
@@ -160,9 +160,9 @@ function StudentPersonalFields({ firstName, lastName, student }: { firstName: st
   return (
     <DetailSection title="Informasi pribadi">
       <div className="grid gap-5 md:grid-cols-2">
-        <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama depan</span><input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" /></label>
+        <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama depan<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" /></label>
         <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama belakang</span><input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" /></label>
-        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Alamat email</span><input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" /></label>
+        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Alamat email<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" /></label>
         <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Nomor telepon</span><input aria-readonly="true" className={`${detailFieldClassName} text-secondary-700`} defaultValue={student.phone ?? "Not provided"} readOnly type="text" /></label>
       </div>
     </DetailSection>

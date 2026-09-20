@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
+import { FieldRequiredMark } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus, UserStatus } from "@/generated/prisma/client";
@@ -269,8 +270,8 @@ function KaptenDetailPanel({
             <input name="userId" type="hidden" value={kapten.id} />
             <input name="directoryQuery" type="hidden" value={directoryQuery} />
             <div className="grid gap-5 sm:grid-cols-2">
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nama Kapten</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Email Kapten</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nama Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Email Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
                <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nomor telepon</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
                <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
             </div>
@@ -288,7 +289,7 @@ function KaptenDetailPanel({
                   <input name="directoryQuery" type="hidden" value={directoryQuery} />
                   <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
                     <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="deactivate" />
-                     <span>Saya memahami bahwa tindakan ini menonaktifkan akun, mencabut sesi aktif, dan membatalkan handoff terbuka.</span>
+                    <span>Saya memahami bahwa tindakan ini menonaktifkan akun, mencabut sesi aktif, dan membatalkan handoff terbuka.<FieldRequiredMark /></span>
                   </label>
                    <Button type="submit" variant="destructive">Nonaktifkan</Button>
                 </form>
@@ -298,7 +299,7 @@ function KaptenDetailPanel({
                   <input name="directoryQuery" type="hidden" value={directoryQuery} />
                   <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
                     <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reactivate" />
-                     <span>Saya memahami bahwa pemulihan tidak mengembalikan sesi atau handoff lama.</span>
+                    <span>Saya memahami bahwa pemulihan tidak mengembalikan sesi atau handoff lama.<FieldRequiredMark /></span>
                   </label>
                    <button className={buttonVariants({ variant: "brandOutline" })} type="submit">Pulihkan</button>
                 </form>

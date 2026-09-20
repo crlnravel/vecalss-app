@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { FieldRequiredMark } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto, PolicySection } from "@/lib/admin/ai-policy/contracts";
 import {
@@ -179,8 +180,8 @@ function AiPolicyTypedControls({
           </div>
         </div>
         <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
-          Unit quota harian
-          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
+          Unit quota harian<FieldRequiredMark />
+          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} required type="number" value={dailyLimit} />
         </label>
       </ReferenceSurface>
 
@@ -197,9 +198,9 @@ function AiPolicyTypedControls({
             <ReferenceSurface className="rounded-2xl p-3" key={mode} variant="inset">
               <p className="text-sm font-semibold text-secondary-900">{formatAiFeatureLabel(mode)}</p>
               <div className="mt-2 grid gap-2">
-                <label className="grid gap-1 text-xs text-secondary-600">Batas input<input aria-label={`${formatAiFeatureLabel(mode)} — batas input`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "inputBound", num); }} type="number" value={values.inputBound} /></label>
-                <label className="grid gap-1 text-xs text-secondary-600">Batas output<input aria-label={`${formatAiFeatureLabel(mode)} — batas output`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "hardOutputCap", num); }} type="number" value={values.hardOutputCap} /></label>
-                <label className="grid gap-1 text-xs text-secondary-600">Batas reservasi<input aria-label={`${formatAiFeatureLabel(mode)} — batas reservasi`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "reservationBound", num); }} type="number" value={values.reservationBound} /></label>
+                <label className="grid gap-1 text-xs text-secondary-600">Batas input<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas input`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "inputBound", num); }} required type="number" value={values.inputBound} /></label>
+                <label className="grid gap-1 text-xs text-secondary-600">Batas output<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas output`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "hardOutputCap", num); }} required type="number" value={values.hardOutputCap} /></label>
+                <label className="grid gap-1 text-xs text-secondary-600">Batas reservasi<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas reservasi`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "reservationBound", num); }} required type="number" value={values.reservationBound} /></label>
               </div>
             </ReferenceSurface>
           ))}
@@ -209,13 +210,13 @@ function AiPolicyTypedControls({
       <div className="grid gap-4 md:grid-cols-2">
         <ReferenceSurface className="rounded-2xl p-4" variant="inset">
           <p className="text-sm font-bold text-secondary-900">Penyelesaian</p>
-          <label className="mt-3 grid gap-2 text-sm text-secondary-700">Usia maksimum menunggu (menit)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={30} max={360} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: num } : current); } }} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
+          <label className="mt-3 grid gap-2 text-sm text-secondary-700">Usia maksimum menunggu (menit)<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={30} max={360} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: num } : current); } }} required type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
         </ReferenceSurface>
         <ReferenceSurface className="rounded-2xl p-4" variant="inset">
           <p className="text-sm font-bold text-secondary-900">Anggaran laporan / lonjakan</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm text-secondary-700">Unit / 24 jam<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: num } : current); } }} type="number" value={reportConfig.unitLimit} /></label>
-            <label className="grid gap-2 text-sm text-secondary-700">Diterima / 10 menit<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: num } : current); } }} type="number" value={reportConfig.requestLimit} /></label>
+            <label className="grid gap-2 text-sm text-secondary-700">Unit / 24 jam<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: num } : current); } }} required type="number" value={reportConfig.unitLimit} /></label>
+            <label className="grid gap-2 text-sm text-secondary-700">Diterima / 10 menit<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: num } : current); } }} required type="number" value={reportConfig.requestLimit} /></label>
             <label className="grid gap-2 text-sm text-secondary-700">Kelompok minimum (tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
             <label className="grid gap-2 text-sm text-secondary-700">Rentang maksimum (hari, tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
           </div>
@@ -235,7 +236,7 @@ function AiPolicyTypedControls({
             ["operationalMetadataTtlDays", "Metadata operasional (hari)"],
             ["activeArtifactEvidenceTtlDays", "Bukti artefak aktif (hari)"],
           ] as const).map(([field, label]) => (
-            <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} type="number" value={retentionConfig[field] ?? ""} /></label>
+            <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} required type="number" value={retentionConfig[field] ?? ""} /></label>
           ))}
         </div>
       </ReferenceSurface>
@@ -661,13 +662,14 @@ function AiPolicyScopeSection({ state, requestConfirmation }: { state: AiPolicyP
       </div>
       {metadata.canMutate ? (
         <div className="mt-6 border-t border-primary-100 pt-5">
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan</label>
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan<FieldRequiredMark /></label>
           <textarea
             className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y rounded-2xl`}
             id="policy-reason"
             maxLength={500}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Contoh: menyelaraskan batas report burst untuk periode ujian."
+            required
             value={reason}
           />
           <Button
@@ -736,12 +738,12 @@ function AiPolicyAggregatePreview({ state, requestConfirmation }: { state: AiPol
   return (
     <ReferenceSurface className="grid gap-3 rounded-2xl p-4" variant="inset">
       <div className="grid gap-2">
-        <p className="text-sm font-semibold text-secondary-800">Rentang pratinjau agregat</p>
+        <p className="text-sm font-semibold text-secondary-800">Rentang pratinjau agregat<FieldRequiredMark /></p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
-          <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
+          <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" required type="date" value={previewFrom} />
+          <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" required type="date" value={previewTo} />
         </div>
-        <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
+        <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} required value={previewTimezone} />
         <Button
           disabled={busy || !previewFrom || !previewTo}
           onClick={() => requestConfirmation(
@@ -767,8 +769,8 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
       <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
-        Waktu berlaku (lokal browser → UTC)
-        <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
+        Waktu berlaku (lokal browser → UTC)<FieldRequiredMark />
+        <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} required type="datetime-local" value={effectiveAt} />
       </label>
       <div className="flex items-end gap-2">
         <Button
@@ -860,10 +862,10 @@ function AiPolicyRetentionSection({ state, requestConfirmation }: { state: AiPol
       <p className="mt-2 text-sm leading-6 text-secondary-600">Permintaan perpanjangan hanya dicatat sebagai menunggu. Tidak ada tenggat, siklus hidup, klaim penghapusan, atau tindakan kunci yang berubah di Sprint 4.</p>
       {canGovern ? (
         <div className="mt-5 space-y-3">
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target</label>
-          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/referensi tanpa isi" value={targetReference} />
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)</label>
-          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" value={requestedUpperBound} />
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target<FieldRequiredMark /></label>
+          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/referensi tanpa isi" required value={targetReference} />
+          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)<FieldRequiredMark /></label>
+          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" required value={requestedUpperBound} />
           <Button
             disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()}
             onClick={() => requestConfirmation(

@@ -5,6 +5,7 @@ import { ArrowDownToLine, CircleHelp, FileUp, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { FieldRequiredMark } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -189,7 +190,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
   return (
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
       <div className="flex items-center gap-1.5">
-        <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih peran</label>
+        <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih peran<FieldRequiredMark /></label>
         <Tooltip>
           <TooltipTrigger render={<Button aria-label="Role import guidance" size="icon-xs" type="button" variant="ghost" />}>
             <CircleHelp aria-hidden="true" size={15} />
@@ -204,6 +205,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
           id="import-role"
           onValueChange={(value) => onRoleChange(value as ImportRole)}
           options={[{ label: "Siswa", value: "student" }, { label: "Kapten", value: "tutor" }]}
+          required
           value={role}
         />
       </div>
@@ -251,7 +253,7 @@ function ImportFileUpload({
 }) {
   return (
     <ReferenceSurface as="div" className={showRoleSelect ? "min-w-0 p-4 lg:col-span-2 sm:p-5" : "min-w-0 p-4 sm:p-5"} variant="inset">
-      <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3. Unggah file" : "2. Unggah file"}</p>
+      <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3. Unggah file" : "2. Unggah file"}<FieldRequiredMark /></p>
       <p className="mt-2 text-xs leading-5 text-secondary-500">Hanya CSV, maksimal 2 MiB dan 500 baris data.</p>
       <label
         className={cn(
@@ -265,7 +267,7 @@ function ImportFileUpload({
         onDragOver={onDragOver}
         onDrop={handleFileDrop}
       >
-        <input accept=".csv,text/csv" aria-describedby="roster-upload-help" className="sr-only" disabled={busy} id="roster-upload" key={file?.name ?? "empty"} name="file" onChange={handleFileInputChange} ref={fileInputRef} type="file" />
+        <input accept=".csv,text/csv" aria-describedby="roster-upload-help" className="sr-only" disabled={busy} id="roster-upload" key={file?.name ?? "empty"} name="file" onChange={handleFileInputChange} ref={fileInputRef} required={!file} type="file" />
         <Upload aria-hidden="true" className="text-primary-700" size={26} />
         <span className="mt-3 text-sm font-semibold text-secondary-900">{file ? file.name : "Letakkan file CSV di sini atau telusuri"}</span>
         <span className="mt-1 text-xs leading-5 text-secondary-500">{file ? "Siap diunggah" : "Hanya CSV · maksimal 2 MiB · 500 baris data"}</span>

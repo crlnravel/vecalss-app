@@ -16,6 +16,17 @@ function Field({
   );
 }
 
+function FieldRequiredMark() {
+  return (
+    <>
+      <span aria-hidden="true" className="ml-1 text-destructive">
+        *
+      </span>
+      <span className="sr-only"> (wajib)</span>
+    </>
+  );
+}
+
 function FieldLabel({
   className,
   children,
@@ -29,14 +40,7 @@ function FieldLabel({
       {...props}
     >
       {children}
-      {required ? (
-        <>
-          <span aria-hidden="true" className="ml-1 text-destructive">
-            *
-          </span>
-          <span className="sr-only"> (wajib)</span>
-        </>
-      ) : null}
+      {required ? <FieldRequiredMark /> : null}
     </FieldPrimitive.Label>
   );
 }
@@ -87,4 +91,4 @@ function FieldError({
   );
 }
 
-export { Field, FieldError, FieldInput, FieldLabel, FieldTextarea };
+export { Field, FieldError, FieldInput, FieldLabel, FieldRequiredMark, FieldTextarea };

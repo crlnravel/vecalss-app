@@ -37,7 +37,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-cohort">Kelas</FieldLabel>
+          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-cohort" required>Kelas</FieldLabel>
           <ReferenceSelect
             aria-label="Kelas penerima"
             aria-describedby={state.fieldErrors?.cohortId ? "kelas-notification-cohort-error" : undefined}
@@ -58,7 +58,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
         </Field>
 
         <Field>
-          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-title">Judul</FieldLabel>
+          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-title" required>Judul</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.title ? "kelas-notification-title-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.title)}
@@ -75,7 +75,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
         <Field className="md:col-span-2">
           <div className="flex items-center gap-1.5">
-            <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-body">Pesan</FieldLabel>
+            <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-body" required>Pesan</FieldLabel>
             <Tooltip>
               <TooltipTrigger render={<Button aria-label="Bantuan format pesan" className="text-secondary-500 hover:text-primary-800" size="icon-xs" type="button" variant="ghost" />}>
                 <CircleHelp aria-hidden="true" />

@@ -36,7 +36,7 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="affiliator-full-name">Nama affiliator</FieldLabel>
+          <FieldLabel htmlFor="affiliator-full-name" required>Nama affiliator</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.fullName ? "affiliator-full-name-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.fullName)}
@@ -50,7 +50,7 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="affiliator-email">Email affiliator</FieldLabel>
+          <FieldLabel htmlFor="affiliator-email" required>Email affiliator</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.email ? "affiliator-email-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.email)}
@@ -65,7 +65,7 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="affiliator-referral-code">Kode referral</FieldLabel>
+          <FieldLabel htmlFor="affiliator-referral-code" required>Kode referral</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.referralCode ? "affiliator-referral-code-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.referralCode)}

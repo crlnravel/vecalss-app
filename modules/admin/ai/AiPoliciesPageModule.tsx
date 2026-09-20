@@ -782,7 +782,7 @@ export function AiPoliciesPageModule({
             className={cn(
               "inline-flex min-h-[44px] max-w-full items-center rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
               activeTab === "active"
-                ? "bg-primary-800 text-white shadow-xs"
+                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
                 : "text-secondary-600 hover:bg-primary-50",
             )}
           >
@@ -798,7 +798,7 @@ export function AiPoliciesPageModule({
             className={cn(
               "inline-flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
               activeTab === "editor"
-                ? "bg-primary-800 text-white shadow-xs"
+                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
                 : "text-secondary-600 hover:bg-primary-50",
             )}
           >
@@ -817,7 +817,7 @@ export function AiPoliciesPageModule({
             className={cn(
               "inline-flex min-h-[44px] max-w-full items-center rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
               activeTab === "history"
-                ? "bg-primary-800 text-white shadow-xs"
+                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
                 : "text-secondary-600 hover:bg-primary-50",
             )}
           >

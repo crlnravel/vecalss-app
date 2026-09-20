@@ -45,7 +45,7 @@ function StudentPasswordForm({
         ) : null}
 
         <Field>
-          <FieldLabel htmlFor="student-new-password">Password baru</FieldLabel>
+          <FieldLabel htmlFor="student-new-password" required>Password baru</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.password ? "student-new-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.password)}
@@ -60,7 +60,7 @@ function StudentPasswordForm({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="student-confirm-password">Konfirmasi password</FieldLabel>
+          <FieldLabel htmlFor="student-confirm-password" required>Konfirmasi password</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.confirmPassword ? "student-confirm-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.confirmPassword)}

@@ -20,6 +20,7 @@ import {
   X,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { FieldRequiredMark } from "@/components/ui/field";
 import {
   ReferencePageHeader,
   ReferenceStatusBadge,
@@ -740,7 +741,7 @@ function PendingHandoffRows({
       </div>
       <label className={cn(REFERENCE_SURFACE_CLASS_NAMES.inset, "mt-4 flex items-start gap-3 px-4 py-3 text-xs leading-5 text-secondary-600")}>
         <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => onAcknowledgeIntentChange(event.target.checked)} type="checkbox" />
-        <span>Saya akan membagikan file ini melalui kanal yang aman dan memahami bahwa kredensial yang dipilih tidak dapat dipulihkan setelah dirilis.</span>
+        <span>Saya akan membagikan file ini melalui kanal yang aman dan memahami bahwa kredensial yang dipilih tidak dapat dipulihkan setelah dirilis.<FieldRequiredMark /></span>
       </label>
       <Button className="mt-3" disabled={!pendingRows.length || !acknowledgeIntent || downloadBusy} onClick={onDownload} type="button" variant="brand">
         <Download aria-hidden="true" size={16} />
@@ -793,7 +794,7 @@ function ReleasedHandoffRows({
       </div>
       <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-attention-fg">
         <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
-        <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.</span>
+        <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
       <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="attentionOutline">
         <Check aria-hidden="true" size={16} />
@@ -845,7 +846,7 @@ function DownloadedHandoffNotice({
       <p className="mt-1 text-xs leading-5">Konfirmasi bahwa file sudah sampai ke penerima. Konfirmasi ini mencatat handoff dan tidak menampilkan kredensial lagi.</p>
       <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-success-fg">
         <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
-        <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.</span>
+        <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
       <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="brandOutline">
         <Check aria-hidden="true" size={16} />
@@ -1226,7 +1227,7 @@ function ImportDraftContent({ canConfirm, cancelArmed, cancelBusy, cancelImport,
       <ReferenceSurface as="section" aria-labelledby="confirm-import-heading" className="p-5 sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="confirm-import-heading">Pilih satu metode handoff</h2>
+            <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="confirm-import-heading">Pilih satu metode handoff<FieldRequiredMark /></h2>
             <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">Pilihan ini berlaku untuk setiap akun baru dalam import. Akun yang sudah ada hanya menerima pembaruan profil dan tidak pernah menerima kredensial baru.</p>
           </div>
           <ImportDraftReadiness invalidCount={importStatus.counts.invalid} />

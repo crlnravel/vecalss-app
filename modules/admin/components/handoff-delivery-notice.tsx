@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FieldRequiredMark } from "@/components/ui/field";
 import type { EnrollmentHandoffMethod } from "@/generated/prisma/client";
 import { acknowledgeEnrollmentHandoffAction } from "@/modules/admin/actions";
 import type { FormState } from "@/modules/auth/form-state";
@@ -65,7 +66,7 @@ function HandoffDeliveryNotice({
           <input name="handoffId" type="hidden" value={state.handoffId} />
           <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
             <input className="mt-1" name="confirmation" required type="checkbox" value="acknowledge" />
-             <span>Saya mengonfirmasi bahwa handoff ini sudah diberikan kepada penerima.</span>
+             <span>Saya mengonfirmasi bahwa handoff ini sudah diberikan kepada penerima.<FieldRequiredMark /></span>
           </label>
           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">
              {pending ? "Menyimpan…" : "Konfirmasi handoff"}
@@ -96,7 +97,7 @@ function HandoffDeliveryNotice({
                   onChange={(event) => setRecoveryConfirmed(event.target.checked)}
                   type="checkbox"
                 />
-                 <span>Saya akan menggunakan detail siswa untuk mengonfirmasi atau membuat ulang handoff ini sebelum membagikannya.</span>
+                 <span>Saya akan menggunakan detail siswa untuk mengonfirmasi atau membuat ulang handoff ini sebelum membagikannya.<FieldRequiredMark /></span>
               </label>
               <Button
                 className="min-h-10"

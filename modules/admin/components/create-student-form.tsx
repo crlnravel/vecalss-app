@@ -97,12 +97,12 @@ function CreateStudentFormFields({
     <div aria-disabled={handoffActive || undefined} className={handoffActive ? "pointer-events-none opacity-65" : undefined} inert={handoffActive || undefined}>
       <div className={embedded ? "grid gap-5 sm:grid-cols-2" : "grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]"}>
         <Field>
-          <FieldLabel htmlFor="student-full-name">Nama siswa</FieldLabel>
+          <FieldLabel htmlFor="student-full-name" required>Nama siswa</FieldLabel>
           <FieldInput aria-describedby={state.fieldErrors?.fullName ? "student-full-name-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.fullName)} id="student-full-name" name="fullName" onChange={(event) => setFullName(event.currentTarget.value)} placeholder="Alya Ramadhani" required value={fullName} />
           <FieldError error={state.fieldErrors?.fullName} id="student-full-name-error" />
         </Field>
         <Field>
-          <FieldLabel htmlFor="student-email">Email siswa</FieldLabel>
+          <FieldLabel htmlFor="student-email" required>Email siswa</FieldLabel>
           <FieldInput aria-describedby={state.fieldErrors?.email ? "student-email-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.email)} id="student-email" name="email" onChange={(event) => setEmail(event.currentTarget.value)} placeholder="alya@student.vecalss.id" required type="email" value={email} />
           <FieldError error={state.fieldErrors?.email} id="student-email-error" />
         </Field>
