@@ -85,6 +85,18 @@ enum MediaLibraryScope {
   @@map("media_library_scope")
 }
 
+enum EditLeaseResourceType {
+  materi
+  quiz
+  question_bank
+  question_package
+  tryout
+  media_asset
+  media_folder
+
+  @@map("edit_lease_resource_type")
+}
+
 enum MediaAssetState {
   pending
   ready
@@ -1268,6 +1280,7 @@ model User {
   confirmedEnrollmentImports             EnrollmentImport[]               @relation("EnrollmentImportConfirmedBy")
   matchedEnrollmentImportRows            EnrollmentImportRow[]            @relation("EnrollmentImportRowMatchedUser")
   resultEnrollmentImportRows             EnrollmentImportRow[]            @relation("EnrollmentImportRowResultUser")
+  editLeases                             EditLease[]
 
   @@index([fullName, id], map: "users_directory_full_name_id_idx")
   @@index([createdAt, id], map: "users_directory_created_at_id_idx")
@@ -1292,6 +1305,26 @@ model AuthSession {
   @@unique([refreshTokenHash])
   @@index([userId])
   @@map("auth_sessions")
+}
+
+model EditLease {
+  resourceType EditLeaseResourceType @map("resource_type")
+  resourceId   String                @map("resource_id") @db.VarChar(128)
+  holderUserId String                @map("holder_user_id") @db.Uuid
+  tokenDigest  String                @map("token_digest") @db.VarChar(64)
+  generation   Int
+  acquiredAt   DateTime              @map("acquired_at") @db.Timestamptz
+  heartbeatAt  DateTime              @map("heartbeat_at") @db.Timestamptz
+  expiresAt    DateTime              @map("expires_at") @db.Timestamptz
+  releasedAt   DateTime?             @map("released_at") @db.Timestamptz
+
+  holder User @relation(fields: [holderUserId], references: [id], onDelete: Cascade)
+
+  @@id([resourceType, resourceId])
+  @@index([expiresAt])
+  @@index([holderUserId])
+  @@index([releasedAt, expiresAt])
+  @@map("edit_leases")
 }
 
 /// Handles self-service resets and first-login credential overrides.
