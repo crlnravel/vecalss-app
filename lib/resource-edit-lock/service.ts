@@ -551,17 +551,19 @@ async function assertEditLease(
   },
 ) {
   const prepared = prepareProof(input);
-  await acquireResourceBoundary(tx, prepared);
-  await assertResourceAccessible(tx, prepared, prepared.holderUserId);
-  const serverNow = await databaseNow(tx);
-  const current = await readLease(tx, prepared);
-  if (!current || current.holderUserId !== prepared.holderUserId || current.generation !== prepared.generation || !sameDigest(current.tokenDigest, digestLeaseToken(prepared.token))) {
-    throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
-  }
-  if (current.releasedAt !== null || current.expiresAt.getTime() <= serverNow.getTime()) {
-    throw new EditLeaseServiceError("lease_expired", 409, "Izin edit telah berakhir.");
-  }
-  return ownedStatus(current, serverNow);
+  return withSerializationLockTimeout(tx, async () => {
+    await acquireResourceBoundary(tx, prepared);
+    await assertResourceAccessible(tx, prepared, prepared.holderUserId);
+    const serverNow = await databaseNow(tx);
+    const current = await readLease(tx, prepared);
+    if (!current || current.holderUserId !== prepared.holderUserId || current.generation !== prepared.generation || !sameDigest(current.tokenDigest, digestLeaseToken(prepared.token))) {
+      throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+    }
+    if (current.releasedAt !== null || current.expiresAt.getTime() <= serverNow.getTime()) {
+      throw new EditLeaseServiceError("lease_expired", 409, "Izin edit telah berakhir.");
+    }
+    return ownedStatus(current, serverNow);
+  });
 }
 
 async function deleteEditLeaseForResource(resourceType: unknown, resourceId: unknown) {

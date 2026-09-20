@@ -77,8 +77,9 @@ async function readBoundedJson(request: Request): Promise<unknown> {
 
   const advertisedLength = request.headers.get("content-length");
   if (advertisedLength !== null) {
-    const parsedLength = Number(advertisedLength);
-    if (!Number.isSafeInteger(parsedLength) || parsedLength < 0) {
+    const normalizedLength = advertisedLength.trim();
+    const parsedLength = Number(normalizedLength);
+    if (!/^\d+$/u.test(normalizedLength) || !Number.isSafeInteger(parsedLength)) {
       throw editLeaseError("invalid_proof");
     }
     if (parsedLength > MAX_EDIT_LEASE_BODY_BYTES) {
