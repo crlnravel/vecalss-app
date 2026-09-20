@@ -8,6 +8,18 @@ import {
 } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 import { aggregateTryoutScores, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+  lockTryoutAdmissions,
+  lockTryoutAssignments,
+  lockTryoutAttempts,
+  lockTryoutRuns,
+  lockTryoutSessions,
+  lockTryoutStudents,
+  prepareTryoutTransaction,
+} from "@/lib/tryout/locks";
 
 class TryoutResultValidationError extends Error {}
 
@@ -208,12 +220,10 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   if (attempt.scoringState === AssessmentScoringState.scored && attempt.score !== null && attempt.scoringVersion === TRYOUT_SCORE_AGGREGATION_VERSION && hasTypedBreakdowns) {
     return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore: Number(attempt.score), runScores: scores, state: "existing" };
   }
-  await Promise.all(
-    attempt.runs.map((run) => {
-      const frozen = frozenRunFields(run, isReleaseBoundRun(run));
-      return upsertTryoutBreakdown(tx, attemptId, { ...run, section: { subtestId: frozen.subtestId ?? run.section.subtestId } });
-    }),
-  );
+  for (const run of attempt.runs) {
+    const frozen = frozenRunFields(run, isReleaseBoundRun(run));
+    await upsertTryoutBreakdown(tx, attemptId, { ...run, section: { subtestId: frozen.subtestId ?? run.section.subtestId } });
+  }
   const correctCount = attempt.runs.reduce((sum, run) => sum + (run.correctCount ?? 0), 0);
   const wrongCount = attempt.runs.reduce((sum, run) => sum + (run.wrongCount ?? 0), 0);
   const unansweredCount = attempt.runs.reduce((sum, run) => sum + (run.unansweredCount ?? 0), 0);
@@ -235,10 +245,75 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore, runScores: scores };
 }
 
+type TryoutResultScope = {
+  admissionIds: string[];
+  assignmentIds: string[];
+  attemptIds: string[];
+  runIds: string[];
+  sessionId: string;
+  tryoutId: string;
+};
+
+/**
+ * Resolve the Tryout identity before claiming any row. The session/attempt
+ * graph is only read during discovery; all claims then follow the shared
+ * Tryout -> session -> admission/assignment/attempt/run order.
+ */
+async function lockTryoutResultScope(
+  tx: Prisma.TransactionClient,
+  identity: { id: string; kind: "attempt" | "session" },
+): Promise<TryoutResultScope> {
+  const resolved = await acquireTryoutIdentityMutex(tx, identity);
+  if (!resolved?.sessionId) throw new TryoutResultValidationError("Hasil Tryout tidak ditemukan.");
+
+  const attemptRows = identity.kind === "session"
+    ? await tx.tryoutAttempt.findMany({
+      where: { deliverySessionId: resolved.sessionId },
+      select: { admissionId: true, id: true, studentId: true },
+      orderBy: { id: "asc" },
+    })
+    : resolved.attemptId
+      ? await tx.tryoutAttempt.findMany({
+        where: { id: resolved.attemptId },
+        select: { admissionId: true, id: true, studentId: true },
+      })
+      : [];
+
+  await lockTryoutStudents(tx, attemptRows.map((row) => row.studentId));
+  await lockTryoutAggregate(tx, resolved.tryoutId);
+  await assertTryoutIdentityStable(tx, identity, resolved.tryoutId);
+  await lockTryoutSessions(tx, [resolved.sessionId]);
+
+  const admissionIds = [...new Set(attemptRows.map((row) => row.admissionId))].sort();
+  const assignmentRows = admissionIds.length
+    ? await tx.tryoutDeliveryAssignment.findMany({
+      where: { admissionId: { in: admissionIds }, deliverySessionId: resolved.sessionId },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    })
+    : [];
+  const runRows = attemptRows.length
+    ? await tx.tryoutAttemptTestRun.findMany({
+      where: { attemptId: { in: attemptRows.map((row) => row.id) } },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    })
+    : [];
+  const assignmentIds = assignmentRows.map((row) => row.id);
+  const attemptIds = attemptRows.map((row) => row.id);
+  const runIds = runRows.map((row) => row.id);
+  await lockTryoutAdmissions(tx, admissionIds);
+  await lockTryoutAssignments(tx, assignmentIds);
+  await lockTryoutAttempts(tx, attemptIds);
+  await lockTryoutRuns(tx, runIds);
+  return { admissionIds, assignmentIds, attemptIds, runIds, sessionId: resolved.sessionId, tryoutId: resolved.tryoutId };
+}
+
 async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit perhitungan wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    await lockTryoutResultScope(tx, { id: attemptId, kind: "attempt" });
     const target = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { tryout: { select: { createdByUserId: true } } } });
     if (!target) throw new TryoutResultValidationError("Attempt Tryout tidak ditemukan.");
     if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat menghitung hasil Tryout milik Kapten lain.");
@@ -272,17 +347,18 @@ async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySes
 async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit rilis wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    const scope = await lockTryoutResultScope(tx, { id: deliverySessionId, kind: "session" });
     const target = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, select: { releasedAt: true, releaseState: true, tryout: { select: { createdByUserId: true } } } });
     if (!target) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
     if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat merilis hasil Tryout milik Kapten lain.");
-    const { policy, session } = await sessionReleaseReadiness(tx, deliverySessionId);
+    const { policy } = await sessionReleaseReadiness(tx, deliverySessionId);
     if (policy !== "manual") throw new TryoutResultValidationError("Kontrol rilis master hanya digunakan untuk sesi dengan kebijakan manual.");
     if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const };
     const releasedAt = new Date();
     await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { releaseReason: reason.trim(), releaseState: AssessmentResultReleaseState.released, releasedAt, releasedByUserId: actorId } });
-    await tx.tryoutAttempt.updateMany({ where: { deliverySessionId }, data: { releaseAt: releasedAt, releaseState: AssessmentResultReleaseState.released } });
-    await tx.tryoutDeliveryAudit.create({ data: { action: "result.bundle_released", actorUserId: actorId, after: json({ bundle: ["score", "review", "explanations", "ranking", "report"], policy }), deliverySessionId, reason: reason.trim(), tryoutId: session.tryoutId } });
+    await tx.tryoutAttempt.updateMany({ where: { id: { in: scope.attemptIds } }, data: { releaseAt: releasedAt, releaseState: AssessmentResultReleaseState.released } });
+    await tx.tryoutDeliveryAudit.create({ data: { action: "result.bundle_released", actorUserId: actorId, after: json({ bundle: ["score", "review", "explanations", "ranking", "report"], policy }), deliverySessionId, reason: reason.trim(), tryoutId: scope.tryoutId } });
     return { deliverySessionId, releasedAt, state: "released" as const };
   });
 }
@@ -301,9 +377,7 @@ function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentRes
   return { rank: null, state: "unavailable" as const, total: scored.length };
 }
 
-async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, now: Date) {
-  return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid FOR UPDATE`;
+async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.TransactionClient, deliverySessionId: string, now: Date) {
     const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, tryout: { select: { id: true, defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } } } } } });
     if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
     if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
@@ -349,17 +423,31 @@ async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, n
       await tx.tryoutAttempt.updateMany({ where: { id: { in: releaseableAttemptIds } }, data: { releaseAt, releaseState } });
     }
     return { deliverySessionId: session.id, releaseAt, releaseState, ready };
+}
+
+async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, now: Date) {
+  return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    await lockTryoutResultScope(tx, { id: deliverySessionId, kind: "session" });
+    return synchronizeTryoutSessionReleaseStateInTransaction(tx, deliverySessionId, now);
   });
 }
 
 async function synchronizeAttemptReleaseState(attemptId: string, studentId: string, now: Date) {
-  const attempt = await prisma.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { deliverySessionId: true } });
-  if (!attempt) return null;
-  return synchronizeTryoutSessionReleaseState(attempt.deliverySessionId, now);
+  return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    const scope = await lockTryoutResultScope(tx, { id: attemptId, kind: "attempt" });
+    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { deliverySessionId: true } });
+    if (!attempt) return null;
+    return synchronizeTryoutSessionReleaseStateInTransaction(tx, scope.sessionId, now);
+  });
 }
 
 async function participantTryoutResult(attemptId: string, studentId: string) {
-  const releaseProbe = await prisma.tryoutAttempt.findFirst({
+  return prisma.$transaction(async (tx) => {
+  await prepareTryoutTransaction(tx);
+  const scope = await lockTryoutResultScope(tx, { id: attemptId, kind: "attempt" });
+  const releaseProbe = await tx.tryoutAttempt.findFirst({
     where: { id: attemptId, studentId },
     select: {
       assessmentReleaseDigest: true,
@@ -374,14 +462,14 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
     && !releaseProbe.assessmentReleaseDigest
     && !releaseProbe.deliverySession.assessmentReleaseId;
   if (!legacyRead) {
-    const preflightRuns = await prisma.tryoutAttemptTestRun.findMany({
+    const preflightRuns = await tx.tryoutAttemptTestRun.findMany({
       where: { attemptId },
       include: { section: { select: { durationSeconds: true, testType: true, title: true } } },
     });
     preflightRuns.forEach((run) => frozenRunFields(run, true));
   }
-  if (!legacyRead) await synchronizeAttemptReleaseState(attemptId, studentId, new Date());
-  const attempt = await prisma.tryoutAttempt.findFirst({
+  if (!legacyRead) await synchronizeTryoutSessionReleaseStateInTransaction(tx, scope.sessionId, new Date());
+  const attempt = await tx.tryoutAttempt.findFirst({
     where: { id: attemptId, studentId },
     include: {
       assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
@@ -538,6 +626,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       };
     }),
   };
+  });
 }
 
 export { calculateTryoutAttempt, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };

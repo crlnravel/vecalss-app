@@ -9,10 +9,18 @@ import { packageReleaseTitle } from "@/lib/tryout/version-label";
 import { canonicalizeCbtScoringConfig } from "@/lib/tryout/cbt-scoring-policy";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
+import { acquireEditKey } from "@/lib/serialization/locks";
 import {
   MAIN_TRYOUT_SESSION_NAME,
   defaultMainSessionWindow,
 } from "@/lib/tryout/main-session";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+  lockTryoutSessions,
+  prepareTryoutTransaction,
+} from "@/lib/tryout/locks";
 
 const SUBJECTS = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 type SubjectCode = (typeof SUBJECTS)[number];
@@ -49,6 +57,14 @@ class PackageConflictError extends TryoutValidationError {
 }
 
 function json(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
+
+async function lockTryoutAuthoringIdentity(tx: Prisma.TransactionClient, tryoutId: string) {
+  const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
+  if (!identity) throw new TryoutValidationError("Tryout tidak ditemukan.");
+  await acquireEditKey(tx, "tryout", tryoutId);
+  await lockTryoutAggregate(tx, identity.tryoutId);
+  return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
+}
 
 async function ensureMainTryoutDeliverySession(
   tx: Prisma.TransactionClient,
@@ -710,7 +726,8 @@ async function saveReusableQuestionPackageMetadata(input: PackageMetadataInput, 
 async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string) {
   if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${input.id}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    await lockTryoutAuthoringIdentity(tx, input.id);
     const current = await tx.tryoutPackage.findFirst({
       where: { id: input.id, createdByUserId: actorId },
       include: tryoutInclude,
@@ -732,14 +749,14 @@ async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string)
 
 async function unpublishTryout(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    await lockTryoutAuthoringIdentity(tx, id);
     const current = await tx.tryoutPackage.findFirst({
       select: { id: true, publishedAt: true, status: true },
       where: { createdByUserId: actorId, id },
     });
     if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
     if (current.status !== ContentStatus.published) throw new TryoutValidationError("Tryout ini sudah tidak berstatus diterbitkan.");
-
     const activeAttempt = await tx.tryoutAttempt.findFirst({
       select: { id: true },
       where: {
@@ -758,6 +775,11 @@ async function unpublishTryout(id: string, actorId: string) {
       include: tryoutInclude,
       where: { id },
     });
+    const mainSessionForLock = await tx.tryoutDeliverySession.findFirst({
+      where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
+      select: { id: true },
+    });
+    if (mainSessionForLock) await lockTryoutSessions(tx, [mainSessionForLock.id]);
     const mainSession = await tx.tryoutDeliverySession.findFirst({
       where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
       select: {
@@ -813,7 +835,8 @@ async function unpublishTryout(id: string, actorId: string) {
 
 async function archiveTryout(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    await lockTryoutAuthoringIdentity(tx, id);
     const current = await tx.tryoutPackage.findFirst({
       select: { id: true, publishedAt: true, status: true },
       where: { createdByUserId: actorId, id },
@@ -842,13 +865,20 @@ async function archiveTryout(id: string, actorId: string) {
 
 async function deleteTryout(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    await lockTryoutAuthoringIdentity(tx, id);
     const current = await tx.tryoutPackage.findFirst({
       select: { id: true, status: true },
       where: { createdByUserId: actorId, id },
     });
     if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
     if (current.status !== ContentStatus.draft) throw new TryoutValidationError("Hanya Tryout draf yang dapat dihapus. Arsipkan Tryout yang sudah terbit.");
+    const sessionsForLock = await tx.tryoutDeliverySession.findMany({
+      where: { tryoutId: id },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    await lockTryoutSessions(tx, sessionsForLock.map((session) => session.id));
 
     const [attemptCount, releaseCount, sessionCount, admissionCount, auditCount, previewRestartCount] = await Promise.all([
       tx.tryoutAttempt.count({ where: { tryoutId: id } }),
@@ -931,10 +961,18 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
   validateTryoutInput(input);
   const schedule = parseTryoutSchedule(input);
   return prisma.$transaction(async (tx) => {
-    const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
+    await prepareTryoutTransaction(tx);
     let id = input.id;
     if (id) {
-      await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
+      await lockTryoutAuthoringIdentity(tx, id);
+      const mainSession = await tx.tryoutDeliverySession.findFirst({
+        where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
+        select: { id: true },
+      });
+      if (mainSession) await lockTryoutSessions(tx, [mainSession.id]);
+    }
+    const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
+    if (id) {
       const current = await tx.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: { attempts: { take: 1 }, sections: { select: { items: { select: { packageVersionId: true } }, packageVersionId: true } } } });
       if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
       if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah. Buat Tryout baru dari soal langsung di Bank Soal.");
@@ -953,11 +991,13 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       await tx.tryoutPackage.update({ where: { id }, data: { admissionMode: input.admissionMode as TryoutAdmissionMode | undefined, bannerMediaId, defaultResultReleasePolicy: input.defaultResultReleasePolicy as TryoutResultReleasePolicy | undefined, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
     } else {
       const created = await tx.tryoutPackage.create({ data: { admissionMode: (input.admissionMode ?? "open") as TryoutAdmissionMode, bannerMediaId, code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, defaultResultReleasePolicy: (input.defaultResultReleasePolicy ?? "automatic_at_end") as TryoutResultReleasePolicy, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
+      await lockTryoutAuthoringIdentity(tx, id);
     }
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
-    const sectionRecords = await Promise.all(SUBJECTS.map(async (subjectCode, index) => {
+    const sectionRecords: Array<{ directSources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[]; section: { id: string } }> = [];
+    for (const [index, subjectCode] of SUBJECTS.entries()) {
       const sectionInput = sectionBySubtest.get(subjectCode)!;
       const subtest = subtestByCode.get(sectionInput.subtest);
       if (!subtest) throw new TryoutValidationError(`Subtest ${sectionInput.subtest} tidak ditemukan.`);
@@ -966,8 +1006,8 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (input.status === "published" && !directSources.length) throw new TryoutValidationError("Setiap Test harus memiliki minimal satu soal langsung sebelum Tryout diterbitkan.");
       const scoringConfig = await resolveCbtScoringConfig(tx, sectionInput.scoringConfig, directSources, input.status === "published");
       const section = await tx.tryoutSection.create({ data: { durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: null, questionCount: directSources.length, scoringConfig: json(scoringConfig), sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
-      return { directSources, section };
-    }));
+      sectionRecords.push({ directSources, section });
+    }
     const itemEntries = sectionRecords.flatMap(({ directSources, section }) => directSources.map((source, index) => {
       const revision = source.currentRevision!;
       return {
@@ -992,12 +1032,12 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     }));
     const sourceQuestionIds = itemEntries.map(({ snapshot }) => snapshot.sourceQuestionId);
     if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
-    await Promise.all(itemEntries.map(async ({ section, snapshot }) => {
+    for (const { section, snapshot } of itemEntries) {
       const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: "direct", packageVersionId: null, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, questionType: snapshot.questionType, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
       await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId, tryoutItemId: item.id })) });
-    }));
+    }
     const assessmentRelease = input.status === "published"
-      ? await createOrReuseAssessmentRelease(tx, id!, actorId, undefined, { publicationIntentKey: input.publicationIntentKey })
+      ? await createOrReuseAssessmentRelease(tx, id!, actorId, undefined, { assumeTryoutLocked: true, publicationIntentKey: input.publicationIntentKey })
       : null;
     await ensureMainTryoutDeliverySession(tx, {
       activate: input.status === "published",

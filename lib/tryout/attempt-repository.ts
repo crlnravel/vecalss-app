@@ -13,6 +13,19 @@ import { canonicalizeCbtScoringConfig, scoreFixedOrderIrt } from "@/lib/tryout/c
 import { prisma } from "@/lib/prisma";
 import { materializeTryoutAttemptInTransaction } from "@/lib/tryout/result-repository";
 import { validateSelectedOptionIds, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+  lockTryoutAdmissions,
+  lockTryoutAssignments,
+  lockTryoutAttempts,
+  lockTryoutRuns,
+  lockTryoutSessions,
+  lockTryoutStudents,
+  prepareTryoutTransaction,
+  resolveTryoutIdentity,
+} from "@/lib/tryout/locks";
 
 class TryoutAttemptValidationError extends Error {}
 
@@ -116,55 +129,32 @@ function assertCompleteFrozenRun(
   return frozen;
 }
 
-async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
-  // A stable participant lock serializes starts before overlapping-session rows exist.
-  // pg_advisory_xact_lock returns PostgreSQL `void`; executeRaw consumes the
-  // command result without asking Prisma to deserialize that value.
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
-}
-
-async function lockTryout(tx: Prisma.TransactionClient, tryoutId: string) {
-  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
-}
-
 async function lockAttemptScope(tx: Prisma.TransactionClient, attemptId: string): Promise<AttemptScope | null> {
-  const scope = await tx.tryoutAttempt.findUnique({
-    where: { id: attemptId },
-    select: {
-      admissionId: true,
-      deliverySessionId: true,
-      id: true,
-      studentId: true,
-      tryoutId: true,
-    },
-  });
+  await prepareTryoutTransaction(tx);
+  const initial = await resolveTryoutIdentity(tx, { id: attemptId, kind: "attempt" });
+  if (!initial) return null;
+  const scope = await acquireTryoutIdentityMutex(tx, { id: attemptId, kind: "attempt" });
   if (!scope) return null;
 
-  // Every authoritative attempt transition uses this order: student,
-  // admission, assignment, session, Tryout, attempt, then run rows. Keeping
-  // the scope exact avoids broad locks while making stale commands serialize
-  // with participant starts, assignment changes, and revocations.
-  await lockStudent(tx, scope.studentId);
-  await tx.$queryRaw`SELECT id FROM tryout_admissions WHERE id = ${scope.admissionId}::uuid FOR UPDATE`;
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_delivery_assignments
-     WHERE admission_id = ${scope.admissionId}::uuid
-       AND delivery_session_id = ${scope.deliverySessionId}::uuid
-     ORDER BY id
-     FOR UPDATE
-  `;
-  await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${scope.deliverySessionId}::uuid FOR UPDATE`;
-  await lockTryout(tx, scope.tryoutId);
-  await tx.$queryRaw`SELECT id FROM tryout_attempts WHERE id = ${scope.id}::uuid FOR UPDATE`;
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_attempt_test_runs
-     WHERE attempt_id = ${scope.id}::uuid
-     ORDER BY id
-     FOR UPDATE
-  `;
-  return scope;
+  // A participant/runtime command enters through the Tryout mutex, then
+  // principal keys, then the shared row order. The first lookup only resolves
+  // the aggregate identity; all mappings are re-read after the mutex.
+  await lockTryoutStudents(tx, [scope.studentId ?? initial.studentId!]);
+  await lockTryoutAggregate(tx, scope.tryoutId);
+  const stable = await assertTryoutIdentityStable(tx, { id: attemptId, kind: "attempt" }, scope.tryoutId);
+  await lockTryoutSessions(tx, [stable.sessionId!]);
+  await lockTryoutAdmissions(tx, [stable.admissionId!]);
+  if (stable.assignmentId) await lockTryoutAssignments(tx, [stable.assignmentId]);
+  await lockTryoutAttempts(tx, [stable.attemptId!]);
+  const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId: stable.attemptId! }, orderBy: { id: "asc" }, select: { id: true } });
+  await lockTryoutRuns(tx, runs.map((run) => run.id));
+  return {
+    admissionId: stable.admissionId!,
+    deliverySessionId: stable.sessionId!,
+    id: stable.attemptId!,
+    studentId: stable.studentId!,
+    tryoutId: stable.tryoutId,
+  };
 }
 
 async function lockOverlappingDeliverySessions(
@@ -173,14 +163,17 @@ async function lockOverlappingDeliverySessions(
   availableFrom: Date,
   availableUntil: Date,
 ) {
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_delivery_sessions
-     WHERE id = ${deliverySessionId}::uuid
-        OR (available_from < ${availableUntil} AND available_until > ${availableFrom})
-     ORDER BY id
-     FOR UPDATE
-  `;
+  const rows = await tx.tryoutDeliverySession.findMany({
+    where: {
+      OR: [
+        { id: deliverySessionId },
+        { availableFrom: { lt: availableUntil }, availableUntil: { gt: availableFrom } },
+      ],
+    },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  await lockTryoutSessions(tx, rows.map((row) => row.id));
 }
 
 async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, attemptId: string, now: Date, autoCalculate = true) {
@@ -257,11 +250,11 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
     }
     const estimated = scoreFixedOrderIrt({ itemParameters: scoringPolicy.itemParameters, responses });
     const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
-    await Promise.all(run.answers.flatMap((answer) => {
+    for (const answer of run.answers) {
       const materialized = materializedByItemId.get(answer.tryoutItemId);
-      if (!materialized) return [];
-      return [tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.isCorrect ? 1 : 0, scoringVersion: estimated.scoringVersion } })];
-    }));
+      if (!materialized) continue;
+      await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.isCorrect ? 1 : 0, scoringVersion: estimated.scoringVersion } });
+    }
     const result = { ability: estimated.ability, answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: items.length, normalizedScore: estimated.normalizedScore, score: estimated.ability, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
     const sealed = await tx.tryoutAttemptTestRun.update({
       where: { id: run.id },
@@ -288,18 +281,14 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
     return sealed;
   }
   const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
-  await Promise.all(
-    run.answers.flatMap((answer) => {
+  for (const answer of run.answers) {
       const materialized = materializedByItemId.get(answer.tryoutItemId);
-      if (!materialized) return [];
-      return [
-        tx.tryoutAnswer.update({
-          where: { id: answer.id },
-          data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION },
-        }),
-      ];
-    }),
-  );
+      if (!materialized) continue;
+      await tx.tryoutAnswer.update({
+        where: { id: answer.id },
+        data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION },
+      });
+  }
   const result = { answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore: scored.normalizedScore, score: scored.rawScore, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
@@ -470,8 +459,9 @@ async function synchronizeAttempt(
   attemptId: string,
   now: Date,
   actorId?: string,
+  lockedScope?: AttemptScope,
 ) {
-  const scope = await lockAttemptScope(tx, attemptId);
+  const scope = lockedScope ?? await lockAttemptScope(tx, attemptId);
   if (!scope) return null;
 
   const attempt = await tx.tryoutAttempt.findUnique({
@@ -568,36 +558,44 @@ async function synchronizeAttempt(
 
 async function synchronizeTryoutOperations(tryoutId: string, actorId: string) {
   const now = new Date();
-  const ownedTryout = await prisma.tryoutPackage.findFirst({
-    select: { id: true },
-    where: { createdByUserId: actorId, id: tryoutId },
+  const candidates = await prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
+    if (!identity) return null;
+    await lockTryoutAggregate(tx, identity.tryoutId);
+    await assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
+    const ownedTryout = await tx.tryoutPackage.findFirst({
+      select: { id: true },
+      where: { createdByUserId: actorId, id: tryoutId },
+    });
+    if (!ownedTryout) return null;
+    return tx.tryoutAttempt.findMany({
+      orderBy: { id: "asc" },
+      select: { id: true },
+      where: {
+        status: AttemptStatus.in_progress,
+        tryoutId,
+        OR: [
+          { serverDeadlineAt: { lte: now } },
+          { deliverySession: { availableUntil: { lte: now } } },
+          { runs: { some: { serverDeadlineAt: { lte: now }, status: TryoutAttemptTestRunStatus.active } } },
+        ],
+      },
+    });
   });
-  if (!ownedTryout) return false;
-  const candidates = await prisma.tryoutAttempt.findMany({
-    orderBy: { id: "asc" },
-    select: { id: true },
-    where: {
-      status: AttemptStatus.in_progress,
-      tryoutId,
-      OR: [
-        { serverDeadlineAt: { lte: now } },
-        { deliverySession: { availableUntil: { lte: now } } },
-        { runs: { some: { serverDeadlineAt: { lte: now }, status: TryoutAttemptTestRunStatus.active } } },
-      ],
-    },
-  });
+  if (!candidates) return false;
   for (const candidate of candidates) {
     // Keep each candidate scope in its own short transaction. A single
     // refresh transaction would retain student/session/Tryout locks from A
     // while waiting for B, which can deadlock against participant commands
     // that acquire B before an overlapping session row.
     const synchronized = await prisma.$transaction(async (tx) => {
+      await synchronizeAttempt(tx, candidate.id, now, actorId);
       const currentOwner = await tx.tryoutPackage.findFirst({
         select: { id: true },
         where: { createdByUserId: actorId, id: tryoutId },
       });
       if (!currentOwner) return false;
-      await synchronizeAttempt(tx, candidate.id, now, actorId);
       return true;
     });
     if (!synchronized) return false;
@@ -675,7 +673,7 @@ async function startTryoutDisconnect(
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
       throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
     }
-    await synchronizeAttempt(tx, attemptId, now, actorId);
+    await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
       where: { id: attemptId },
       include: {
@@ -780,7 +778,7 @@ async function reconcileTryoutDisconnect(
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
       throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
     }
-    await synchronizeAttempt(tx, attemptId, now, actorId);
+    await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
       where: { id: attemptId },
       include: {
@@ -854,6 +852,7 @@ function snapshotSection(section: { id: string; durationSeconds: number; instruc
 async function startTryoutAttempt(deliverySessionId: string, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
     const student = await tx.user.findUnique({
       select: { previewPurpose: true },
       where: { id: studentId },
@@ -861,17 +860,20 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
       throw new TryoutAttemptValidationError("Akun preview admin tidak dapat memulai attempt learner.");
     }
-    await lockStudent(tx, studentId);
+    const identity = await acquireTryoutIdentityMutex(tx, { id: deliverySessionId, kind: "session" });
+    if (!identity) throw new TryoutAttemptValidationError("Sesi Tryout tidak ditemukan.");
+    await lockTryoutStudents(tx, [studentId]);
+    await lockTryoutAggregate(tx, identity.tryoutId);
+    await assertTryoutIdentityStable(tx, { id: deliverySessionId, kind: "session" }, identity.tryoutId);
     const candidate = await tx.tryoutDeliveryAssignment.findFirst({
       where: { deliverySessionId, status: TryoutAssignmentStatus.active, admission: { status: "active", studentId } },
-      select: { id: true },
+      select: { admissionId: true, id: true },
     });
     if (!candidate) throw new TryoutAttemptValidationError("Sesi Tryout tidak tersedia untuk peserta ini.");
 
     // Revocation takes the same participant and assignment locks. Re-read the
     // active row after those locks so a revoke cannot be bypassed between the
     // eligibility check and attempt creation.
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${candidate.id}::uuid FOR UPDATE`;
     const assignment = await tx.tryoutDeliveryAssignment.findFirst({
       where: { id: candidate.id, deliverySessionId, status: TryoutAssignmentStatus.active, admission: { status: "active", studentId } },
       include: { admission: true, deliverySession: true },
@@ -881,8 +883,12 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     if (session.availableFrom > now || session.availableUntil <= now) throw new TryoutAttemptValidationError("Jendela sesi Tryout belum tersedia atau sudah berakhir.");
     if (!session.assessmentReleaseId) throw new TryoutAttemptValidationError("Sesi Tryout belum memiliki AssessmentRelease yang valid.");
 
-    // Lock every overlapping session in a deterministic order, after the stable student lock.
+    // Lock every overlapping session in a deterministic order after the
+    // aggregate row. The candidate assignment is then revalidated while all
+    // hierarchy predecessors are held.
     await lockOverlappingDeliverySessions(tx, deliverySessionId, session.availableFrom, session.availableUntil);
+    await lockTryoutAdmissions(tx, [candidate.admissionId]);
+    await lockTryoutAssignments(tx, [candidate.id]);
     const release = await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } });
     if (!release) throw new TryoutAttemptValidationError("AssessmentRelease sesi Tryout tidak ditemukan.");
     const existing = await tx.tryoutAttempt.findUnique({ where: { deliverySessionId_studentId: { deliverySessionId, studentId } }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, id: true } });
@@ -897,8 +903,8 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     const competing = await tx.tryoutAttempt.findFirst({ where: { studentId, status: { in: [...activeAttemptStatuses] }, deliverySession: { availableFrom: { lt: session.availableUntil }, availableUntil: { gt: session.availableFrom } } }, select: { id: true } });
     if (competing) throw new TryoutAttemptValidationError("Peserta masih memiliki Tryout aktif pada sesi yang waktunya bertumpang tindih.");
 
-    // This is the single content-lock transition: same aggregate lock as authoring writes.
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${session.tryoutId}::uuid FOR UPDATE`;
+    // This is the single content-lock transition: same aggregate lock as
+    // authoring writes. The row was already acquired before session locks.
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { status: true } });
     if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai attempt baru.");
     const lockedTryout = await tx.tryoutPackage.findUniqueOrThrow({
@@ -1041,6 +1047,8 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
 async function attemptState(attemptId: string, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({
       where: { id: attemptId, studentId },
       include: {
@@ -1078,7 +1086,7 @@ async function attemptState(attemptId: string, studentId: string) {
     // Legacy nullable trees are historical reads. Do not expire, seal, score,
     // or rewrite them merely because a participant opens the status endpoint;
     // only release-bound runtime attempts may use the synchronizer here.
-    if (!legacyRead) await synchronizeAttempt(tx, attemptId, now, studentId);
+    if (!legacyRead) await synchronizeAttempt(tx, attemptId, now, studentId, scope);
     const runs = await tx.tryoutAttemptTestRun.findMany({
       where: { attemptId },
       include: {
@@ -1167,10 +1175,12 @@ async function attemptState(attemptId: string, studentId: string) {
 async function recordTryoutIntegrityEvent(attemptId: string, runId: string, eventType: TryoutIntegrityEventType, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assessmentRelease: { select: { id: true } }, deliverySession: { select: { assessmentReleaseId: true, fullscreenPrompt: true } } } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     if (!attempt.assessmentReleaseId || !attempt.assessmentReleaseNumber || !attempt.assessmentReleaseDigest || attempt.assessmentReleaseId !== attempt.deliverySession.assessmentReleaseId) throw new TryoutAttemptValidationError("Attempt Tryout tidak terikat pada AssessmentRelease sesi.");
-    await synchronizeAttempt(tx, attemptId, now, studentId);
+    await synchronizeAttempt(tx, attemptId, now, studentId, scope);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId, status: TryoutAttemptTestRunStatus.active }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, contentSnapshot: true, id: true } });
     if (!run) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat mencatat peringatan Tryout.");
     assertCompleteFrozenRun(run, { testType: TryoutTestType.cbt }, true);
@@ -1179,7 +1189,6 @@ async function recordTryoutIntegrityEvent(attemptId: string, runId: string, even
       const entered = await tx.tryoutIntegrityEvent.findFirst({ where: { eventType: TryoutIntegrityEventType.fullscreen_entered, runId }, select: { id: true } });
       if (!entered) return { ignored: true, serverSequence: null };
     }
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${runId}, 0))`;
     const previous = await tx.tryoutIntegrityEvent.aggregate({ _max: { serverSequence: true }, where: { runId } });
     const event = await tx.tryoutIntegrityEvent.create({ data: { eventType, runId, serverSequence: (previous._max.serverSequence ?? 0) + 1 } });
     return { ignored: false, serverSequence: event.serverSequence };
@@ -1195,6 +1204,8 @@ function redactRunSnapshot(snapshot: Prisma.JsonValue) {
 async function startActiveTestRun(attemptId: string, runId: string, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assessmentRelease: { select: { id: true, contentDigest: true, releaseNumber: true } }, deliverySession: { include: { assessmentRelease: { select: { id: true, contentDigest: true, releaseNumber: true } } } } } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     if (!attempt.assessmentRelease || !attempt.deliverySession.assessmentRelease) throw new TryoutAttemptValidationError("Attempt Tryout belum memiliki AssessmentRelease yang valid.");
@@ -1202,7 +1213,7 @@ async function startActiveTestRun(attemptId: string, runId: string, studentId: s
       { assessmentReleaseDigest: attempt.deliverySession.assessmentRelease.contentDigest, assessmentReleaseId: attempt.deliverySession.assessmentRelease.id, assessmentReleaseNumber: attempt.deliverySession.assessmentRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, now, studentId);
+    await synchronizeAttempt(tx, attemptId, now, studentId, scope);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, include: { section: true } });
     if (!run || run.status !== TryoutAttemptTestRunStatus.pending) throw new TryoutAttemptValidationError("Hanya Test berikutnya yang belum dimulai dapat dibuka.");
     const frozen = assertCompleteFrozenRun(run, run.section, true);
@@ -1238,6 +1249,8 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
   const selectedOptionId = selectedOptionIds[0] ?? null;
   let now = new Date();
   return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const loadAttempt = () => tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, status: true } }, id: true, status: true } });
     let attempt = await loadAttempt();
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
@@ -1247,7 +1260,7 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
       { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, now, studentId);
+    await synchronizeAttempt(tx, attemptId, now, studentId, scope);
     attempt = await loadAttempt();
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     now = new Date();
@@ -1258,7 +1271,7 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
       { assessmentReleaseDigest: run.assessmentReleaseDigest, assessmentReleaseId: run.assessmentReleaseId, assessmentReleaseNumber: run.assessmentReleaseNumber },
       "Run Tryout belum terikat pada AssessmentRelease sesi.",
     );
-    const frozen = assertCompleteFrozenRun(run, run.section, true);
+    assertCompleteFrozenRun(run, run.section, true);
     const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
     const item = content.items?.find((candidate) => candidate.id === tryoutItemId);
     if (!item) throw new TryoutAttemptValidationError("Soal tidak termasuk dalam Test aktif.");
@@ -1273,6 +1286,8 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
 
 async function sealTryoutTestRun(attemptId: string, runId: string, studentId: string) {
   return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } } } }, id: true } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const sessionRelease = attempt.deliverySession.assessmentRelease;
@@ -1281,7 +1296,7 @@ async function sealTryoutTestRun(attemptId: string, runId: string, studentId: st
       { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, new Date(), studentId);
+    await synchronizeAttempt(tx, attemptId, new Date(), studentId, scope);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, select: { id: true, status: true } });
     if (!run) throw new TryoutAttemptValidationError("Test tidak ditemukan.");
     if (run.status === TryoutAttemptTestRunStatus.active) {

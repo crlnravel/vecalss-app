@@ -12,6 +12,16 @@ import {
 } from "@/generated/prisma/client";
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
 import { prisma } from "@/lib/prisma";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+  lockTryoutAdmissions,
+  lockTryoutAssignments,
+  lockTryoutRuntimeKeys,
+  lockTryoutSessions,
+  prepareTryoutTransaction,
+} from "@/lib/tryout/locks";
 
 import {
   canonicalizeAdminPreviewReason,
@@ -178,13 +188,22 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
   const previewStudentId = context.student.id;
 
   return prisma.$transaction(async (tx) => {
-    const lockKey = `admin.student-preview:${previewStudentId}:${parsed.tryoutId}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
-    // The lifecycle lock protects one preview student + Tryout. This second
-    // transaction lock serializes the cross-Tryout request-ID scope before the
-    // unique `(previewStudentId, requestId)` row is inspected/created.
-    const requestLockKey = `admin.student-preview-request:${previewStudentId}:${parsed.requestId}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${requestLockKey}, 0))`;
+    await prepareTryoutTransaction(tx);
+    const identity = await acquireTryoutIdentityMutex(tx, { id: parsed.tryoutId, kind: "tryout" });
+    if (!identity) {
+      throw new AdminPreviewTryoutRestartError(
+        "tryout_not_found",
+        "Tryout preview tidak ditemukan.",
+      );
+    }
+    // Preview-specific principal/request keys are level 2, so they precede the
+    // level-4 Tryout aggregate row in the shared hierarchy.
+    await lockTryoutRuntimeKeys(tx, [
+      `admin.student-preview:${previewStudentId}:${parsed.tryoutId}`,
+      `admin.student-preview-request:${previewStudentId}:${parsed.requestId}`,
+    ]);
+    await lockTryoutAggregate(tx, identity.tryoutId);
+    await assertTryoutIdentityStable(tx, { id: parsed.tryoutId, kind: "tryout" }, identity.tryoutId);
 
     // Idempotent replays return before any content/release side effect. This
     // remains valid even if the Tryout was edited or unpublished after the
@@ -229,22 +248,22 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
       return restartResult(existingRequest, true);
     }
 
-    const [tryout, sourceSession] = await Promise.all([
-      tx.tryoutPackage.findUnique({
-        select: { id: true, status: true },
-        where: { id: parsed.tryoutId },
-      }),
-      tx.tryoutDeliverySession.findUnique({
-        select: {
-          availableFrom: true,
-          availableUntil: true,
-          id: true,
-          status: true,
-          tryoutId: true,
-        },
-        where: { id: parsed.sourceDeliverySessionId },
-      }),
-    ]);
+    // Re-read both sides after the mutex and aggregate row lock. No identity
+    // mapping is trusted from the preliminary request payload.
+    const tryout = await tx.tryoutPackage.findUnique({
+      select: { id: true, status: true },
+      where: { id: parsed.tryoutId },
+    });
+    const sourceSession = await tx.tryoutDeliverySession.findUnique({
+      select: {
+        availableFrom: true,
+        availableUntil: true,
+        id: true,
+        status: true,
+        tryoutId: true,
+      },
+      where: { id: parsed.sourceDeliverySessionId },
+    });
 
     if (!tryout || tryout.status !== ContentStatus.published) {
       throw new AdminPreviewTryoutRestartError(
@@ -264,6 +283,7 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
         "Restart hanya dapat menggunakan sesi Tryout published yang sedang aktif atau sudah closed.",
       );
     }
+    await lockTryoutSessions(tx, [sourceSession.id]);
 
     // Preview restarts create a participant-accessible active session too, so
     // they must pin an existing immutable release boundary. Creating or
@@ -304,6 +324,10 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
           where: { admissionId: admission.id },
         })
       : [];
+    if (admission) {
+      await lockTryoutAdmissions(tx, [admission.id]);
+      await lockTryoutAssignments(tx, assignments.map((assignment) => assignment.id));
+    }
     const current = assertPreviewAssignmentInvariant(
       assignments,
       previewCurrentAssignmentKey(previewStudentId, parsed.tryoutId),

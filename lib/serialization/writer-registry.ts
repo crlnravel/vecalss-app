@@ -112,7 +112,7 @@ const AUTHORING_WRITER_REGISTRY = [
   { name: "releaseTryoutSessionResults", source: "lib/tryout/result-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "session-id", lockOrder: [0, 2, 4, 5, 6, 7, 8] },
   { name: "participantTryoutResult", source: "lib/tryout/result-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "attempt-id", lockOrder: [0, 2, 4, 5, 6, 7, 8] },
   { name: "synchronizeTryoutOperations", source: "lib/tryout/attempt-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 6, 7] },
-  { name: "synchronizeTryoutSessionReleaseState", source: "lib/tryout/result-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "session-id", lockOrder: [0, 4, 5, 6, 7] },
+  { name: "synchronizeTryoutSessionReleaseState", source: "lib/tryout/result-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "session-id", lockOrder: [0, 2, 4, 5, 6, 7] },
   { name: "synchronizeAttempt", source: "lib/tryout/attempt-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "attempt-id", lockOrder: [0, 4, 5, 6, 7] },
   { name: "materializeTryoutAttemptInTransaction", source: "lib/tryout/result-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "attempt-id", lockOrder: [0, 4, 5, 6, 7, 8] },
   { name: "createOrReuseAssessmentRelease", source: "lib/tryout/assessment-release.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 7] },

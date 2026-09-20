@@ -28,6 +28,11 @@ import {
 } from "@/lib/tryout/scoring";
 import { canonicalizeCbtScoringConfig } from "@/lib/tryout/cbt-scoring-policy";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+} from "@/lib/tryout/locks";
 
 const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v1";
 const LOGICAL_ASSESSMENT_REVISION_VERSION = 1;
@@ -176,6 +181,7 @@ type AssemblySectionResolution = {
 };
 
 type CreateAssessmentReleaseOptions = {
+  assumeTryoutLocked?: boolean;
   publicationIntentKey?: string;
 };
 
@@ -1017,7 +1023,7 @@ async function resolveAndMaterializeAssemblies(
     await tx.tryoutSection.update({ where: { id: resolution.sectionId }, data: { questionCount: resolution.snapshots.length } });
     const version = versionById.get(tryoutSectionById.get(resolution.sectionId)?.packageVersionId ?? "");
     if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia saat membuat bridge fisik.", { sectionId: resolution.sectionId });
-    await Promise.all(resolution.snapshots.map(async (snapshot, index) => {
+    for (const [index, snapshot] of resolution.snapshots.entries()) {
       const item = await tx.tryoutItem.create({
         data: {
           difficulty: snapshot.difficulty,
@@ -1051,7 +1057,7 @@ async function resolveAndMaterializeAssemblies(
           tryoutItemId: item.id,
         })),
       });
-    }));
+    }
   }
 
   const reread = await tx.tryoutPackage.findUnique({ where: { id: tryout.id }, include: releaseTryoutInclude });
@@ -1223,7 +1229,12 @@ async function createOrReuseAssessmentRelease(
   // Callers may already hold it; PostgreSQL row locks are re-entrant inside
   // the same transaction, so keeping the guard here prevents a future caller
   // from racing release-number allocation accidentally.
-  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
+  if (!options.assumeTryoutLocked) {
+    const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
+    if (!identity) throw new Error("Tryout tidak ditemukan.");
+    await lockTryoutAggregate(tx, identity.tryoutId);
+    await assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
+  }
   const tryout = await tx.tryoutPackage.findUnique({
     where: { id: tryoutId },
     include: releaseTryoutInclude,
