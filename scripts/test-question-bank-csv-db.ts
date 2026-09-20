@@ -14,14 +14,25 @@ import {
 const TEST_DATABASE_ENV = "QUESTION_BANK_CSV_TEST_DATABASE_URL";
 const MATERI = "Deret Angka & Pola Bilangan";
 
+function databaseIdentity(raw: string) {
+  const parsed = new URL(raw);
+  return {
+    databaseName: decodeURIComponent(parsed.pathname.replace(/^\/+/, "")),
+    host: parsed.hostname.toLowerCase().replace(/^\[|\]$/gu, ""),
+    port: Number(parsed.port || "5432"),
+    schema: parsed.searchParams.get("schema") ?? "public",
+    userName: decodeURIComponent(parsed.username),
+  };
+}
+
 function assertDisposableDatabase(raw: string) {
   const parsed = new URL(raw);
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/gu, "");
-  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+  const identity = databaseIdentity(raw);
   assert.ok(["postgres:", "postgresql:"].includes(parsed.protocol), `${TEST_DATABASE_ENV} must use a PostgreSQL URL.`);
-  assert.ok(["localhost", "127.0.0.1", "::1"].includes(host), `${TEST_DATABASE_ENV} must use a local PostgreSQL host.`);
-  assert.match(databaseName, /(?:csv|test|fixture|bank)/iu, `${TEST_DATABASE_ENV} must name a disposable test database.`);
-  assert.notEqual(raw, process.env.DATABASE_URL?.trim(), `${TEST_DATABASE_ENV} must be distinct from DATABASE_URL.`);
+  assert.ok(["localhost", "127.0.0.1", "::1"].includes(identity.host), `${TEST_DATABASE_ENV} must use a local PostgreSQL host.`);
+  assert.match(identity.databaseName, /(?:csv|test|fixture|bank)/iu, `${TEST_DATABASE_ENV} must name a disposable test database.`);
+  const runtimeUrl = process.env.DATABASE_URL?.trim();
+  if (runtimeUrl) assert.notDeepEqual(identity, databaseIdentity(runtimeUrl), `${TEST_DATABASE_ENV} must be distinct from DATABASE_URL.`);
 }
 
 function serializableRow(index: number, questionId = randomUUID()): QuestionBankCsvSerializableRow {
