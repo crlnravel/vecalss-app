@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
 import { getQuestionBankCatalog } from "@/modules/mentor/question-bank-draft-storage";
 import {
@@ -258,8 +259,7 @@ function KaptenSettingsPageModule({
 }) {
   const [savedSettings, setSavedSettings] = useState(() => initialSettings);
   const [draft, setDraft] = useState(() => initialSettings);
-  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving">("idle");
   const dirty =
     draft.profileName !== savedSettings.profileName ||
     draft.email !== savedSettings.email ||
@@ -273,7 +273,6 @@ function KaptenSettingsPageModule({
   ) => {
     setDraft((current) => ({ ...current, [key]: value }));
     setStatus("idle");
-    setStatusMessage(null);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -281,7 +280,6 @@ function KaptenSettingsPageModule({
     if (!dirty || saving) return;
 
     setStatus("saving");
-    setStatusMessage(null);
     let result: Awaited<ReturnType<typeof saveKaptenSettingsAction>>;
     try {
       result = await saveKaptenSettingsAction({
@@ -291,27 +289,26 @@ function KaptenSettingsPageModule({
         subjectCode: draft.subjectCode,
       });
     } catch {
-      setStatus("error");
-      setStatusMessage("Pengaturan belum tersimpan. Coba lagi.");
+      setStatus("idle");
+      showToast("Pengaturan belum tersimpan. Coba lagi.", { variant: "error" });
       return;
     }
 
     if (!result.ok) {
-      setStatus("error");
-      setStatusMessage(result.message);
+      setStatus("idle");
+      showToast(result.message, { variant: "error" });
       return;
     }
 
     setSavedSettings(result.settings);
     setDraft(result.settings);
-    setStatus("success");
-    setStatusMessage(result.message);
+    setStatus("idle");
+    showToast(result.message, { variant: "success" });
   };
 
   const handleCancel = () => {
     setDraft(savedSettings);
     setStatus("idle");
-    setStatusMessage(null);
   };
 
   return (
@@ -419,7 +416,7 @@ function KaptenSettingsPageModule({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite" className="text-sm leading-6 text-secondary-600">
-              {statusMessage ?? (dirty ? "Perubahan belum disimpan." : "Tidak ada perubahan.")}
+              {dirty ? "Perubahan belum disimpan." : "Tidak ada perubahan."}
             </p>
             <div className="flex flex-col-reverse gap-3 sm:flex-row">
               <Button disabled={!dirty || saving} onClick={handleCancel} type="button" variant="brandOutline">

@@ -8,6 +8,7 @@ import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { showToast } from "@/components/ui/toast";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import {
@@ -64,18 +65,26 @@ function KaptenTryoutSessionCreatePageModule({
       return;
     }
     setBusy(true);
+    setNotice(null);
     try {
       const result = await createTryoutDeliverySessionAction(
         { ...session, rankingRule: "none", resultReleasePolicy: "inherit", tryoutId: initial.id },
         "Membuat sesi Tryout",
       );
       if (!result.ok) {
-        setNotice({ message: result.message ?? "Sesi tidak dapat dibuat.", tone: "error" });
+        showToast(result.message ?? "Sesi tidak dapat dibuat.", {
+          variant: "error",
+        });
         return;
       }
       router.push(`/mentor/tryout/${initial.id}?workspace=operations&delivery=sessions`);
     } catch (createError) {
-      setNotice({ message: createError instanceof Error ? createError.message : "Sesi tidak dapat dibuat.", tone: "error" });
+      showToast(
+        createError instanceof Error
+          ? createError.message
+          : "Sesi tidak dapat dibuat.",
+        { variant: "error" },
+      );
     } finally {
       setBusy(false);
     }

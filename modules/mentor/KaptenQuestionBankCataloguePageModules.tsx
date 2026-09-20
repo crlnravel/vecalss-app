@@ -70,6 +70,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { cn } from "@/lib/utils";
@@ -992,20 +993,16 @@ function QuestionBankMoveDialog({
 }
 
 function QuestionBankLifecycleConfirmationDialog({
-  folderError,
   isApplying,
   lifecycleCopy,
-  lifecycleError,
   onCancel,
   onConfirm,
   onOpenChange,
   open,
   pendingConfirmation,
 }: {
-  folderError: string | null;
   isApplying: boolean;
   lifecycleCopy: [string, string, string];
-  lifecycleError: string | null;
   onCancel: () => void;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
@@ -1044,15 +1041,6 @@ function QuestionBankLifecycleConfirmationDialog({
             {pendingConfirmation?.description ?? lifecycleCopy[1]}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {lifecycleError || folderError ? (
-          <p
-            aria-live="assertive"
-            className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm text-student-status-danger-fg"
-            role="alert"
-          >
-            {lifecycleError ?? folderError}
-          </p>
-        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isApplying} onClick={onCancel}>
             Batal
@@ -1382,7 +1370,6 @@ function useQuestionBankLifecycleActions({
   refreshFromServer,
   setEntries,
   setIsApplying,
-  setLifecycleError,
   setPendingLifecycle,
 }: {
   isApplying: boolean;
@@ -1390,7 +1377,6 @@ function useQuestionBankLifecycleActions({
   refreshFromServer: () => void;
   setEntries: CatalogueStateSetter<BankEntry[]>;
   setIsApplying: CatalogueStateSetter<boolean>;
-  setLifecycleError: CatalogueStateSetter<string | null>;
   setPendingLifecycle: CatalogueStateSetter<{
     action: LifecycleAction;
     bank: BankEntry["bank"];
@@ -1399,7 +1385,6 @@ function useQuestionBankLifecycleActions({
   async function applyLifecycle() {
     if (!pendingLifecycle || isApplying) return;
     setIsApplying(true);
-    setLifecycleError(null);
     try {
       const result = await updateQuestionBankLifecycleAction(
         pendingLifecycle.bank.id,
@@ -1407,7 +1392,7 @@ function useQuestionBankLifecycleActions({
         { expectedRevision: pendingLifecycle.bank.revision ?? 1 },
       );
       if (!result.ok) {
-        setLifecycleError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       setEntries((current) =>
@@ -1425,6 +1410,12 @@ function useQuestionBankLifecycleActions({
         ),
       );
       setPendingLifecycle(null);
+      showToast(
+        pendingLifecycle.action === "archive"
+          ? "Bank Soal diarsipkan."
+          : "Bank Soal dipulihkan.",
+        { variant: "success" },
+      );
       refreshFromServer();
     } finally {
       setIsApplying(false);
@@ -1545,7 +1536,6 @@ function useQuestionBankCatalogueState({
   } | null>(null);
   const [pendingConfirmation, setPendingConfirmation] =
     useState<ConfirmationState>(null);
-  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
@@ -1658,7 +1648,6 @@ function useQuestionBankCatalogueState({
     refreshFromServer,
     setEntries,
     setIsApplying,
-    setLifecycleError,
     setPendingLifecycle,
   });
 
@@ -1692,7 +1681,6 @@ function useQuestionBankCatalogueState({
     bank: BankEntry["bank"],
     action: LifecycleAction,
   ) => {
-    setLifecycleError(null);
     setPendingLifecycle({ action, bank });
   };
   const catalogueColumns = createQuestionBankCatalogueColumns({
@@ -1765,7 +1753,6 @@ function useQuestionBankCatalogueState({
     isApplying,
     isCataloguePending,
     isGlobalSearch,
-    lifecycleError,
     moveBankToFolder,
     navigateCatalogue,
     openFolderCreate,
@@ -1784,7 +1771,6 @@ function useQuestionBankCatalogueState({
     setFolderError,
     setFolderName,
     setFolderParentId,
-    setLifecycleError,
     setPage,
     setPendingConfirmation,
     setPendingLifecycle,
@@ -1853,7 +1839,6 @@ function QuestionBankCataloguePageContent({
     isApplying,
     isCataloguePending,
     isGlobalSearch,
-    lifecycleError,
     moveBankToFolder,
     navigateCatalogue,
     openFolderCreate,
@@ -1871,7 +1856,6 @@ function QuestionBankCataloguePageContent({
     setFolderError,
     setFolderName,
     setFolderParentId,
-    setLifecycleError,
     setPage,
     setPendingConfirmation,
     setPendingLifecycle,
@@ -2100,10 +2084,8 @@ function QuestionBankCataloguePageContent({
         selectedBank={selectedBank}
       />
       <QuestionBankLifecycleConfirmationDialog
-        folderError={folderError}
         isApplying={isApplying}
         lifecycleCopy={lifecycleCopy}
-        lifecycleError={lifecycleError}
         onCancel={() => {
           setPendingLifecycle(null);
           setPendingConfirmation(null);
@@ -2116,7 +2098,6 @@ function QuestionBankCataloguePageContent({
           if (!open && !isApplying) {
             setPendingLifecycle(null);
             setPendingConfirmation(null);
-            setLifecycleError(null);
           }
         }}
         open={Boolean(pendingLifecycle || pendingConfirmation)}

@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import {
   Card,
   CardContent,
@@ -40,9 +41,6 @@ import {
   participantAttemptStateLabels,
   participantSessionStateLabels,
 } from "@/modules/mentor/KaptenTryoutOperationsData";
-import {
-  OperationNotice,
-} from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
   assignTryoutDeliverySessionAction,
   decideTryoutAdmissionAction,
@@ -353,7 +351,6 @@ function KaptenTryoutParticipantDetailPageModule({
   const [selectedSessionId, setSelectedSessionId] = useState(mainSession?.id ?? "");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const activeSessions = mainSession
     && mainSession.status === "active"
     && !admission.assignments.some(
@@ -367,11 +364,13 @@ function KaptenTryoutParticipantDetailPageModule({
   const report = (message: string, result: { ok: boolean; message?: string }) => {
     setBusy(false);
     if (!result.ok) {
-      setNotice(result.message ?? "Tindakan peserta tidak dapat diproses.");
+      showToast(result.message ?? "Tindakan peserta tidak dapat diproses.", {
+        variant: "error",
+      });
       return;
     }
     setAuditReason("");
-    setNotice(message);
+    showToast(message, { variant: "success" });
     router.refresh();
   };
 
@@ -434,8 +433,6 @@ function KaptenTryoutParticipantDetailPageModule({
           title={admission.student}
         />
       </div>}
-      <OperationNotice message={notice} />
-
       <ParticipantSummaryCard participant={participant} />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">

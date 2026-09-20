@@ -21,7 +21,6 @@ import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -800,7 +799,6 @@ function KaptenQuizDetailPageModule({
   );
   const [settings, setSettings] = useState(() => settingsFromQuiz(initialQuiz));
   const [isSaving, setIsSaving] = useState(false);
-  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
   function changeTab(value: string) {
     if (value !== "preview" && value !== "hasil" && value !== "pengaturan")
@@ -817,7 +815,6 @@ function KaptenQuizDetailPageModule({
   ) {
     if (isSaving || quiz.status === "archived") return;
     setIsSaving(true);
-    setLifecycleError(null);
     try {
       const result = await saveStandaloneQuizAction({
         attemptsAllowed: settings.attemptsAllowed,
@@ -842,7 +839,6 @@ function KaptenQuizDetailPageModule({
         title: settings.title,
       });
       if (!result.ok) {
-        setLifecycleError(result.message);
         showToast(result.message, { variant: "error" });
         return;
       }
@@ -858,7 +854,6 @@ function KaptenQuizDetailPageModule({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Kuis belum dapat disimpan.";
-      setLifecycleError(message);
       showToast(message, { variant: "error" });
     } finally {
       setIsSaving(false);

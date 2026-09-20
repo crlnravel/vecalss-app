@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
+import { showToast } from "@/components/ui/toast";
 import {
   ContextMenuContent,
   ContextMenuGroup,
@@ -123,8 +124,6 @@ function sortLessons(
 }
 
 type MateriCatalogueState = {
-  bulkError: string | null;
-  bulkNotice: string | null;
   isBulkPending: boolean;
   lessons: KaptenMateriView[];
   page: number;
@@ -136,8 +135,6 @@ type MateriCatalogueState = {
 };
 
 type MateriCatalogueAction =
-  | { type: "bulkErrorChanged"; error: string | null }
-  | { type: "bulkNoticeChanged"; notice: string | null }
   | { type: "bulkPendingChanged"; pending: boolean }
   | { lessons: KaptenMateriView[]; type: "lessonsChanged" }
   | { type: "tableVersionChanged" };
@@ -147,10 +144,6 @@ function materiCatalogueReducer(
   action: MateriCatalogueAction,
 ): MateriCatalogueState {
   switch (action.type) {
-    case "bulkErrorChanged":
-      return { ...state, bulkError: action.error };
-    case "bulkNoticeChanged":
-      return { ...state, bulkNotice: action.notice };
     case "bulkPendingChanged":
       return { ...state, isBulkPending: action.pending };
     case "lessonsChanged":
@@ -262,8 +255,6 @@ function KaptenMateriSubjectPageModule({
     materiCatalogueReducer,
     undefined,
     () => ({
-      bulkError: null,
-      bulkNotice: null,
       isBulkPending: false,
       lessons: catalogue
         .filter((lesson) => lesson.subjectSlug === subject.slug)
@@ -342,7 +333,6 @@ function KaptenMateriSubjectPageModule({
   ) {
     if (isBulkPending || action === "delete") return;
     dispatch({ pending: true, type: "bulkPendingChanged" });
-    dispatch({ error: null, type: "bulkErrorChanged" });
     try {
       if (action === "publish" || action === "unpublish") {
         const result =
@@ -352,7 +342,7 @@ function KaptenMateriSubjectPageModule({
                 lesson.code,
               ]);
         if (!result.ok) {
-          dispatch({ error: result.message, type: "bulkErrorChanged" });
+          showToast(result.message, { variant: "error" });
           return;
         }
         dispatch({
@@ -367,14 +357,14 @@ function KaptenMateriSubjectPageModule({
           ),
           type: "lessonsChanged",
         });
-        dispatch({ notice: result.message, type: "bulkNoticeChanged" });
+        showToast(result.message, { variant: "success" });
       } else {
         const result =
           action === "archive"
             ? await archiveMateriLessonAction(lesson.code)
             : await returnMateriLessonToDraftAction(lesson.code);
         if (!result.ok) {
-          dispatch({ error: result.message, type: "bulkErrorChanged" });
+          showToast(result.message, { variant: "error" });
           return;
         }
         dispatch({
@@ -383,18 +373,17 @@ function KaptenMateriSubjectPageModule({
           ),
           type: "lessonsChanged",
         });
-        dispatch({ notice: result.message, type: "bulkNoticeChanged" });
+        showToast(result.message, { variant: "success" });
       }
       dispatch({ type: "tableVersionChanged" });
       router.refresh();
     } catch (error) {
-      dispatch({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
-        type: "bulkErrorChanged",
-      });
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ pending: false, type: "bulkPendingChanged" });
     }
@@ -535,8 +524,6 @@ function MateriSubjectCatalogueScreen({
 }) {
   const router = useRouter();
   const {
-    bulkError,
-    bulkNotice,
     lessons,
     query,
     sort,
@@ -686,28 +673,6 @@ function MateriSubjectCatalogueScreen({
             title={subject.code}
           />
         </div>
-
-        {bulkNotice ? (
-          <ReferenceSurface
-            as="div"
-            className="px-4 py-3 text-sm font-medium text-primary-900"
-            role="status"
-            variant="inset"
-          >
-            {bulkNotice}
-          </ReferenceSurface>
-        ) : null}
-        {bulkError ? (
-          <ReferenceSurface
-            aria-live="assertive"
-            as="div"
-            className="border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
-            role="alert"
-            variant="inset"
-          >
-            {bulkError}
-          </ReferenceSurface>
-        ) : null}
 
         <section className="min-w-0 space-y-3">
           <MentorCatalogueTable

@@ -12,6 +12,7 @@ import {
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import {
   Card,
   CardAction,
@@ -27,7 +28,6 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
   AssessmentReleaseNotice,
-  OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { calculateTryoutAttemptAction, reconcileTryoutDisconnectAction, startTryoutDisconnectAction } from "@/modules/mentor/tryout-actions";
 
@@ -97,16 +97,17 @@ function KaptenTryoutAttemptDetailPageModule({
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const [auditReason, setAuditReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const report = (message: string, result: { ok: boolean; message?: string }) => {
     setBusy(null);
     if (!result.ok) {
-      setNotice(result.message ?? "Tindakan attempt tidak dapat diproses.");
+      showToast(result.message ?? "Tindakan attempt tidak dapat diproses.", {
+        variant: "error",
+      });
       return;
     }
     setAuditReason("");
-    setNotice(message);
+    showToast(message, { variant: "success" });
     router.refresh();
   };
 
@@ -140,7 +141,6 @@ function KaptenTryoutAttemptDetailPageModule({
   return (
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "operations" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" description={delivery.name} title={attempt.student} /></div>}
-      <OperationNotice message={notice} />
       <AssessmentReleaseNotice label="Konten attempt" release={attempt.assessmentRelease} />
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
         <AttemptRunsSection attempt={attempt} />

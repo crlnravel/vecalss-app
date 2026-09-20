@@ -2264,19 +2264,6 @@ function QuestionBankBuilderDialogs({
   );
 }
 
-function QuestionBankLifecycleError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <p
-      aria-live="assertive"
-      className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-      role="alert"
-    >
-      {message}
-    </p>
-  );
-}
-
 function QuestionBankEditWorkspaceHeader({
   actions,
   builderState,
@@ -2514,7 +2501,6 @@ function QuestionBankCreateWorkspace({
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
-      <QuestionBankLifecycleError message={state.lifecycleError} />
       <QuestionBankMetadataForm
         actions={actions}
         builderState={builderState}
@@ -2560,7 +2546,6 @@ function QuestionBankEditWorkspace({
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
-      <QuestionBankLifecycleError message={state.lifecycleError} />
       <QuestionBankMobileInventory
         activeQuestionId={state.activeQuestionId}
         builderState={builderState}
@@ -2688,7 +2673,7 @@ function useQuestionBankPersistence({
       });
       if (!result.ok) {
         if (result.readiness) setServerReadiness(result.readiness);
-        updateEditor({ lifecycleError: result.message });
+        showToast(result.message, { variant: "error" });
         return;
       }
       revisionRef.current = result.result.bank.revision;
@@ -2717,10 +2702,8 @@ function useQuestionBankPersistence({
         );
         if (!categoryResult.ok) {
           setLocalBuilderState(contentState);
-          updateEditor({
-            lifecycleError: categoryResult.message,
-            hasUnsavedChanges: true,
-          });
+          updateEditor({ hasUnsavedChanges: true });
+          showToast(categoryResult.message, { variant: "error" });
           return;
         }
       }
@@ -2742,12 +2725,12 @@ function useQuestionBankPersistence({
           pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}`,
         });
     } catch (saveError) {
-      updateEditor({
-        lifecycleError:
-          saveError instanceof Error
-            ? saveError.message
-            : "Bank Soal belum dapat disimpan.",
-      });
+      showToast(
+        saveError instanceof Error
+          ? saveError.message
+          : "Bank Soal belum dapat disimpan.",
+        { variant: "error" },
+      );
     } finally {
       updateEditor({ isSaving: false });
     }
@@ -2765,7 +2748,7 @@ function useQuestionBankPersistence({
       });
       if (!result.ok) {
         if (result.readiness) setServerReadiness(result.readiness);
-        updateEditor({ lifecycleError: result.message });
+        showToast(result.message, { variant: "error" });
         return;
       }
       revisionRef.current = result.result.revision;
@@ -2781,6 +2764,13 @@ function useQuestionBankPersistence({
       if (operation === "archive") {
         onBankNoLongerEditable(result.result.id);
       }
+    } catch (lifecycleError) {
+      showToast(
+        lifecycleError instanceof Error
+          ? lifecycleError.message
+          : "Status Bank Soal tidak dapat diubah saat ini.",
+        { variant: "error" },
+      );
     } finally {
       updateEditor({ isSaving: false });
     }

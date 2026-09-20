@@ -16,7 +16,6 @@ import {
 } from "@/lib/icons";
 import { useState } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
@@ -814,7 +813,6 @@ function KaptenQuestionBankDetailPageModule({
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const [isSavingLifecycle, setIsSavingLifecycle] = useState(false);
-  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [confirmationRequest, setConfirmationRequest] =
     useState<ConfirmationRequest | null>(null);
 
@@ -860,7 +858,6 @@ function KaptenQuestionBankDetailPageModule({
       return;
     }
     setIsSavingTitle(true);
-    setLifecycleError(null);
     try {
       const result = await saveQuestionBankAction({
         description: bank.description,
@@ -871,7 +868,7 @@ function KaptenQuestionBankDetailPageModule({
         title: trimmed,
       });
       if (!result.ok) {
-        setLifecycleError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       setBank((current) => ({
@@ -884,8 +881,9 @@ function KaptenQuestionBankDetailPageModule({
       showToast("Judul Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(
+      showToast(
         err instanceof Error ? err.message : "Gagal mengubah judul bank soal.",
+        { variant: "error" },
       );
     } finally {
       setIsSavingTitle(false);
@@ -899,7 +897,6 @@ function KaptenQuestionBankDetailPageModule({
       return;
     }
     setIsSavingDescription(true);
-    setLifecycleError(null);
     try {
       const result = await saveQuestionBankAction({
         description: trimmed,
@@ -910,7 +907,7 @@ function KaptenQuestionBankDetailPageModule({
         title: bank.title,
       });
       if (!result.ok) {
-        setLifecycleError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       setBank((current) => ({
@@ -923,10 +920,11 @@ function KaptenQuestionBankDetailPageModule({
       showToast("Deskripsi Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
-      setLifecycleError(
+      showToast(
         err instanceof Error
           ? err.message
           : "Gagal mengubah deskripsi bank soal.",
+        { variant: "error" },
       );
     } finally {
       setIsSavingDescription(false);
@@ -937,7 +935,6 @@ function KaptenQuestionBankDetailPageModule({
     operation: "archive" | "restore",
   ) {
     setIsSavingLifecycle(true);
-    setLifecycleError(null);
     try {
       const result = await updateQuestionBankLifecycleAction(
         bank.id,
@@ -1022,13 +1019,6 @@ function KaptenQuestionBankDetailPageModule({
           subjectCoverage={subjectCoverage}
           titleInput={titleInput}
         />
-
-        {lifecycleError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Terjadi Masalah</AlertTitle>
-            <AlertDescription>{lifecycleError}</AlertDescription>
-          </Alert>
-        ) : null}
 
         <Tabs
           className="w-full min-w-0 gap-7"

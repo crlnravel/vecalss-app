@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
+import { showToast } from "@/components/ui/toast";
 import { saveReusableQuestionPackageMetadataAction } from "@/modules/mentor/tryout-actions";
 
 type PackageMetadata = { description: string; id: string; sourceBankName: string; subtest: string; title: string };
@@ -22,15 +23,25 @@ type PackageMetadata = { description: string; id: string; sourceBankName: string
 function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadata: PackageMetadata }) {
   const [description, setDescription] = useState(initialMetadata.description);
   const [title, setTitle] = useState(initialMetadata.title);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const save = async () => {
-    setSaving(true); setError(null);
+    setSaving(true);
     try {
       const result = await saveReusableQuestionPackageMetadataAction({ description, id: initialMetadata.id, title });
-      if (!result.ok) setError(result.message);
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return;
+      }
+      showToast("Informasi Paket tersimpan.", {
+        variant: "success",
+      });
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Informasi Paket belum dapat disimpan.");
+      showToast(
+        saveError instanceof Error
+          ? saveError.message
+          : "Informasi Paket belum dapat disimpan.",
+        { variant: "error" },
+      );
     } finally {
       setSaving(false);
     }
@@ -45,7 +56,6 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
       />
       <ReferenceSurface as="section" aria-labelledby="package-metadata-heading" className="grid gap-6 p-5 sm:p-7">
         <h2 className="text-xl font-semibold text-secondary-900" id="package-metadata-heading">Informasi Paket</h2>
-        {error ? <ReferenceSurface as="div" className="px-4 py-3 text-sm text-danger-600" role="alert" variant="inset">{error}</ReferenceSurface> : null}
         <div className="grid gap-5">
           <Field>
             <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-title" required>Judul Paket</FieldLabel>

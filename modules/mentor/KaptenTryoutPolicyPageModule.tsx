@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
@@ -96,6 +97,7 @@ function KaptenTryoutPolicyPageModule({
     }
 
     setBusy(true);
+    setNotice(null);
     try {
       if (admissionChanged) {
         const admission = await configureTryoutAdmissionAction(
@@ -104,7 +106,10 @@ function KaptenTryoutPolicyPageModule({
           "Pengaturan akses peserta Tryout",
         );
         if (!admission.ok) {
-          setNotice({ message: admission.message ?? "Kebijakan akses peserta gagal disimpan.", tone: "error" });
+          showToast(
+            admission.message ?? "Kebijakan akses peserta gagal disimpan.",
+            { variant: "error" },
+          );
           return;
         }
       }
@@ -116,15 +121,22 @@ function KaptenTryoutPolicyPageModule({
           "Pengaturan jadwal rilis hasil Tryout",
         );
         if (!release.ok) {
-          setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
+          showToast(release.message ?? "Kebijakan rilis gagal disimpan.", {
+            variant: "error",
+          });
           return;
         }
       }
 
-      setNotice(null);
+      showToast("Kebijakan Tryout tersimpan.", { variant: "success" });
       onNext?.();
     } catch (saveError) {
-      setNotice({ message: saveError instanceof Error ? saveError.message : "Kebijakan Tryout belum dapat disimpan.", tone: "error" });
+      showToast(
+        saveError instanceof Error
+          ? saveError.message
+          : "Kebijakan Tryout belum dapat disimpan.",
+        { variant: "error" },
+      );
     } finally {
       setBusy(false);
     }

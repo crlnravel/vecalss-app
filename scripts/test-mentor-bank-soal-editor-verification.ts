@@ -158,7 +158,9 @@ assert.match(builder, /Masalah \$\{issueIndex \+ 1\} dari \$\{totalIssues\}/u);
 assert.match(builder, /focusResult === "handoff"/u);
 assert.match(builder, /role="status"/u);
 assert.match(builder, /aria-live="polite"/u);
-assert.match(builder, /aria-live="assertive"/u);
+assert.match(builder, /showToast\(result\.message, \{ variant: "error" \}\)/u);
+assert.match(builder, /Status Bank Soal tidak dapat diubah saat ini/u);
+assert.doesNotMatch(builder, /QuestionBankLifecycleError/u);
 
 // Preview is keyed by question identity and question selection clears only
 // answer/feedback state, preserving the active Preview tab.

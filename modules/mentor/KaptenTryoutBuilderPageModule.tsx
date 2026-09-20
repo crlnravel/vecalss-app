@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { showToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -2030,7 +2031,7 @@ function useTryoutBuilderState({
           title: draftToSave.title,
         });
         if (!result.ok) {
-          dispatch({ error: result.message, type: "setError" });
+          showToast(result.message, { variant: "error" });
           return false;
         }
         const nextDraft = normalize(result.result);
@@ -2053,13 +2054,12 @@ function useTryoutBuilderState({
         }
         return true;
       } catch (saveError) {
-        dispatch({
-          error:
-            saveError instanceof Error
-              ? saveError.message
-              : "Tryout belum dapat disimpan. Coba lagi.",
-          type: "setError",
-        });
+        showToast(
+          saveError instanceof Error
+            ? saveError.message
+            : "Tryout belum dapat disimpan. Coba lagi.",
+          { variant: "error" },
+        );
         return false;
       } finally {
         dispatch({ saving: false, type: "setSaving" });
@@ -2100,20 +2100,19 @@ function useTryoutBuilderState({
     try {
       const result = await duplicateTryoutAction(id);
       if (!result.ok) {
-        dispatch({ error: result.message, type: "setError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
       window.location.assign(
         `/mentor/tryout/${result.result.id}?parent=${encodeURIComponent(id)}`,
       );
     } catch (duplicateError) {
-      dispatch({
-        error:
-          duplicateError instanceof Error
-            ? duplicateError.message
-            : "Tryout belum dapat disalin. Coba lagi.",
-        type: "setError",
-      });
+      showToast(
+        duplicateError instanceof Error
+          ? duplicateError.message
+          : "Tryout belum dapat disalin. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ saving: false, type: "setSaving" });
     }
@@ -2126,18 +2125,17 @@ function useTryoutBuilderState({
     try {
       const result = await unpublishTryoutAction(id);
       if (!result.ok) {
-        dispatch({ error: result.message, type: "setError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
       window.location.assign(`/mentor/tryout/${id}`);
     } catch (unpublishError) {
-      dispatch({
-        error:
-          unpublishError instanceof Error
-            ? unpublishError.message
-            : "Tryout belum dapat dikembalikan ke draf. Coba lagi.",
-        type: "setError",
-      });
+      showToast(
+        unpublishError instanceof Error
+          ? unpublishError.message
+          : "Tryout belum dapat dikembalikan ke draf. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ saving: false, type: "setSaving" });
     }
@@ -2150,18 +2148,17 @@ function useTryoutBuilderState({
     try {
       const result = await archiveTryoutAction(id);
       if (!result.ok) {
-        dispatch({ error: result.message, type: "setError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
       window.location.assign("/mentor/tryout");
     } catch (archiveError) {
-      dispatch({
-        error:
-          archiveError instanceof Error
-            ? archiveError.message
-            : "Tryout belum dapat diarsipkan. Coba lagi.",
-        type: "setError",
-      });
+      showToast(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Tryout belum dapat diarsipkan. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ saving: false, type: "setSaving" });
     }
@@ -2174,18 +2171,17 @@ function useTryoutBuilderState({
     try {
       const result = await deleteTryoutAction(id);
       if (!result.ok) {
-        dispatch({ error: result.message, type: "setError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
       window.location.assign("/mentor/tryout");
     } catch (deleteError) {
-      dispatch({
-        error:
-          deleteError instanceof Error
-            ? deleteError.message
-            : "Tryout belum dapat dihapus. Coba lagi.",
-        type: "setError",
-      });
+      showToast(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Tryout belum dapat dihapus. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ saving: false, type: "setSaving" });
     }
@@ -2204,7 +2200,7 @@ function useTryoutBuilderState({
         title: draftToSave.title,
       });
       if (!result.ok) {
-        dispatch({ error: result.message, type: "setError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
       const nextDraft = normalize(result.result);
@@ -2215,13 +2211,12 @@ function useTryoutBuilderState({
         dispatch({ dirty: false, type: "setDirty" });
       }
     } catch (metadataError) {
-      dispatch({
-        error:
-          metadataError instanceof Error
-            ? metadataError.message
-            : "Konten Tryout belum dapat disimpan.",
-        type: "setError",
-      });
+      showToast(
+        metadataError instanceof Error
+          ? metadataError.message
+          : "Konten Tryout belum dapat disimpan.",
+        { variant: "error" },
+      );
     } finally {
       dispatch({ saving: false, type: "setMetadataSaving" });
     }

@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput } from "@/components/ui/field";
 import {
@@ -167,7 +168,7 @@ function KaptenTryoutSessionDetailPageModule({
     availableUntil: formatTryoutDateTimeLocal(delivery.availableUntil),
   }));
   const [scheduleBusy, setScheduleBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [validationNotice, setValidationNotice] = useState<string | null>(null);
   const scheduleLocked = delivery.attempts.length > 0 || ["closed", "archived"].includes(delivery.status);
   const scheduleChanged = schedule.availableFrom !== formatTryoutDateTimeLocal(delivery.availableFrom)
     || schedule.availableUntil !== formatTryoutDateTimeLocal(delivery.availableUntil);
@@ -181,13 +182,20 @@ function KaptenTryoutSessionDetailPageModule({
       );
       setConfirmation(null);
       if (!result.ok) {
-        setNotice(result.message ?? "Tindakan tidak dapat diproses.");
+        showToast(result.message ?? "Tindakan tidak dapat diproses.", {
+          variant: "error",
+        });
         return;
       }
-      setNotice("Sesi berhasil dibuka.");
+      showToast("Sesi berhasil dibuka.", { variant: "success" });
       router.refresh();
     } catch (actionError) {
-      setNotice(actionError instanceof Error ? actionError.message : "Tindakan tidak dapat diproses.");
+      showToast(
+        actionError instanceof Error
+          ? actionError.message
+          : "Tindakan tidak dapat diproses.",
+        { variant: "error" },
+      );
     } finally {
       setBusy(false);
     }
@@ -196,11 +204,11 @@ function KaptenTryoutSessionDetailPageModule({
   const handleScheduleSave = async () => {
     if (scheduleLocked || scheduleBusy || !scheduleChanged) return;
     if (!schedule.availableFrom || !schedule.availableUntil || new Date(schedule.availableUntil) <= new Date(schedule.availableFrom)) {
-      setNotice("Waktu selesai harus setelah waktu mulai.");
+      setValidationNotice("Waktu selesai harus setelah waktu mulai.");
       return;
     }
     setScheduleBusy(true);
-    setNotice(null);
+    setValidationNotice(null);
     try {
       const result = await updateTryoutDeliverySessionScheduleAction(
         {
@@ -211,13 +219,20 @@ function KaptenTryoutSessionDetailPageModule({
         "Memperbarui jadwal sesi Tryout",
       );
       if (!result.ok) {
-        setNotice(result.message ?? "Jadwal sesi tidak dapat diperbarui.");
+        showToast(result.message ?? "Jadwal sesi tidak dapat diperbarui.", {
+          variant: "error",
+        });
         return;
       }
-      setNotice("Jadwal sesi berhasil diperbarui.");
+      showToast("Jadwal sesi berhasil diperbarui.", { variant: "success" });
       router.refresh();
     } catch (actionError) {
-      setNotice(actionError instanceof Error ? actionError.message : "Jadwal sesi tidak dapat diperbarui.");
+      showToast(
+        actionError instanceof Error
+          ? actionError.message
+          : "Jadwal sesi tidak dapat diperbarui.",
+        { variant: "error" },
+      );
     } finally {
       setScheduleBusy(false);
     }
@@ -226,7 +241,7 @@ function KaptenTryoutSessionDetailPageModule({
   if (embedded) {
     return (
       <>
-        <OperationNotice message={notice} />
+        <OperationNotice message={validationNotice} />
         <SessionScheduleCard
           onSave={() => void handleScheduleSave()}
           onScheduleChange={setSchedule}
@@ -253,7 +268,7 @@ function KaptenTryoutSessionDetailPageModule({
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <SessionDetailHeader busy={busy} delivery={delivery} initial={initial} onOpen={() => setConfirmation("open")} />
-      <OperationNotice message={notice} />
+      <OperationNotice message={validationNotice} />
       <SessionScheduleCard onSave={() => void handleScheduleSave()} onScheduleChange={setSchedule} schedule={schedule} scheduleBusy={scheduleBusy} scheduleChanged={scheduleChanged} scheduleLocked={scheduleLocked} />
       <SessionAttemptsTable delivery={delivery} tryoutId={initial.id} />
       <SessionOpenDialog busy={busy} onConfirm={() => void handleConfirm()} onOpenChange={(open) => { if (!open && !busy) setConfirmation(null); }} open={Boolean(confirmation)} />

@@ -742,7 +742,7 @@ function useQuizEditorPersistence({
         title: form.title,
       });
       if (!result.ok) {
-        setSaveError(result.message);
+        showToast(result.message, { variant: "error" });
         return;
       }
       const canonicalQuestions = result.questions.map(asEditorQuestion);
@@ -765,8 +765,9 @@ function useQuizEditorPersistence({
           buildMentorQuizEditorHref(result.quiz.id, form.subjectCode),
         );
     } catch (error) {
-      setSaveError(
+      showToast(
         error instanceof Error ? error.message : "Kuis belum dapat disimpan.",
+        { variant: "error" },
       );
     } finally {
       setIsSaving(false);
@@ -906,7 +907,7 @@ function useQuizEditorState({
           targetRevisionId: sourceUpdate.sourceQuestionRevisionId,
         });
         if (!result.ok) {
-          setSaveError(result.message);
+          showToast(result.message, { variant: "error" });
           return false;
         }
         const updatedQuestion = result.questions.find(
@@ -949,10 +950,11 @@ function useQuizEditorState({
         });
         return true;
       } catch (error) {
-        setSaveError(
+        showToast(
           error instanceof Error
             ? error.message
             : "Revisi soal belum dapat diterapkan.",
+          { variant: "error" },
         );
         return false;
       } finally {
@@ -1066,21 +1068,9 @@ function useQuizEditorState({
 
 type QuizEditorState = ReturnType<typeof useQuizEditorState>;
 
-function QuizEditorFeedback({
-  saveError,
-  scheduleError,
-}: Pick<QuizEditorState, "saveError" | "scheduleError">) {
+function QuizEditorFeedback({ scheduleError }: Pick<QuizEditorState, "scheduleError">) {
   return (
     <>
-      {saveError ? (
-        <p
-          aria-live="assertive"
-          className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-          role="alert"
-        >
-          {saveError}
-        </p>
-      ) : null}
       {scheduleError ? (
         <p
           className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
@@ -1348,10 +1338,7 @@ function QuizEditWorkspace({
       data-quiz-editor-shell="full-page"
     >
       <QuizEditHeader quizId={quizId} state={state} subject={subject} />
-      <QuizEditorFeedback
-        saveError={state.saveError}
-        scheduleError={state.scheduleError}
-      />
+      <QuizEditorFeedback scheduleError={state.scheduleError} />
       <QuizEditQuestionArea state={state} />
       <QuizEditorDialogs state={state} />
     </div>
@@ -1481,10 +1468,7 @@ function QuizCreateWorkspace({
       shouldGuardNavigation={state.hasUnsavedChanges}
     >
       <QuizCreateHeader />
-      <QuizEditorFeedback
-        saveError={state.saveError}
-        scheduleError={state.scheduleError}
-      />
+      <QuizEditorFeedback scheduleError={state.scheduleError} />
       <QuizCreateFields state={state} />
       <QuizCreateSubmitButton state={state} />
     </MentorWorkspaceShell>

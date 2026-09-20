@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { ArrowUp } from "@/lib/icons";
 import { setTryoutDefaultOpenRegistrationSessionAction } from "@/modules/mentor/tryout-actions";
 
@@ -33,11 +34,9 @@ function KaptenTryoutSessionPrimaryAction({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const handleOpen = () => {
     if (disabled || busy) return;
-    setNotice(null);
     setOpen(true);
   };
 
@@ -45,17 +44,27 @@ function KaptenTryoutSessionPrimaryAction({
     if (busy) return;
 
     setBusy(true);
-    setNotice(null);
     try {
       const result = await setTryoutDefaultOpenRegistrationSessionAction(sessionId, defaultAuditReason);
       if (!result.ok) {
-        setNotice(result.message ?? "Sesi utama pendaftaran tidak dapat diperbarui.");
+        showToast(
+          result.message ?? "Sesi utama pendaftaran tidak dapat diperbarui.",
+          { variant: "error" },
+        );
         return;
       }
       setOpen(false);
+      showToast("Sesi utama pendaftaran berhasil diperbarui.", {
+        variant: "success",
+      });
       router.refresh();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Sesi utama pendaftaran tidak dapat diperbarui.");
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Sesi utama pendaftaran tidak dapat diperbarui.",
+        { variant: "error" },
+      );
     } finally {
       setBusy(false);
     }
@@ -92,12 +101,6 @@ function KaptenTryoutSessionPrimaryAction({
                 : " Peserta baru akan ditempatkan ke sesi ini."} Perubahan ini dicatat otomatis di audit log.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          {notice ? (
-            <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-3 py-2 text-sm leading-5 text-student-status-danger-fg" role="alert">
-              {notice}
-            </p>
-          ) : null}
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>

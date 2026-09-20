@@ -1106,7 +1106,7 @@ function KaptenMateriBuilderPageModule({
             ? await publishMateriLessonAction(code)
             : await returnMateriLessonToDraftAction(code);
       if (!result.ok) {
-        updateEditor({ saveError: result.message });
+        toast.error(result.message);
         return;
       }
 
@@ -1119,12 +1119,11 @@ function KaptenMateriBuilderPageModule({
       toast.success(result.message);
       router.refresh();
     } catch (error) {
-      updateEditor({
-        saveError:
-          error instanceof Error
-            ? error.message
-            : "Status materi tidak dapat diubah. Coba lagi.",
-      });
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Status materi tidak dapat diubah. Coba lagi.",
+      );
     } finally {
       updateEditor({ isLifecycleSaving: false });
     }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
+import { showToast } from "@/components/ui/toast";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
@@ -54,7 +55,6 @@ function selectedSessionIsAvailable(session: PickerSession, now: number) {
 type PickerState = {
   activeIndex: number;
   busy: boolean;
-  feedback: { message: string; tone: "error" | "success" } | null;
   query: string;
   reason: string;
   searchError: string | null;
@@ -74,9 +74,7 @@ type PickerAction =
   | { type: "chooseStudent"; student: InvitationPickerStudent }
   | { type: "setSessionId"; sessionId: string }
   | { type: "setReason"; reason: string }
-  | { type: "submitStart" }
-  | { type: "submitError"; message: string }
-  | { type: "submitSuccess"; message: string };
+  | { type: "submitStart" };
 
 function pickerReducer(state: PickerState, action: PickerAction): PickerState {
   switch (action.type) {
@@ -99,7 +97,7 @@ function pickerReducer(state: PickerState, action: PickerAction): PickerState {
     case "setActiveIndex":
       return { ...state, activeIndex: action.index };
     case "chooseStudent":
-      return { ...state, activeIndex: -1, feedback: null, selectedStudent: action.student };
+      return { ...state, activeIndex: -1, selectedStudent: action.student };
     case "setSessionId":
       return { ...state, selectedSessionId: action.sessionId };
     case "setReason":
@@ -109,20 +107,9 @@ function pickerReducer(state: PickerState, action: PickerAction): PickerState {
         ...state,
         activeIndex: -1,
         busy: true,
-        feedback: null,
         searchError: null,
         searchState: "idle",
         students: [],
-      };
-    case "submitError":
-      return { ...state, busy: false, feedback: { message: action.message, tone: "error" } };
-    case "submitSuccess":
-      return {
-        ...state,
-        busy: false,
-        feedback: { message: action.message, tone: "success" },
-        reason: "",
-        selectedStudent: null,
       };
     default:
       return state;
@@ -249,18 +236,6 @@ function InvitationSelectedStudent({ selectedStudent }: { selectedStudent: Invit
   );
 }
 
-function InvitationFeedback({ feedback }: { feedback: { message: string; tone: "error" | "success" } | null }) {
-  if (!feedback) return null;
-  const isError = feedback.tone === "error";
-  return (
-    <Alert className={isError ? "border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]" : "border-primary-200 bg-primary-50 text-primary-950"} role={isError ? "alert" : "status"}>
-      {isError ? <CircleAlert aria-hidden="true" /> : <Check aria-hidden="true" />}
-      <AlertTitle>{isError ? "Undangan belum selesai" : "Undangan berhasil"}</AlertTitle>
-      <AlertDescription>{feedback.message}</AlertDescription>
-    </Alert>
-  );
-}
-
 function InvitationSubmitButton({ busy, disabled, onSubmit }: { busy: boolean; disabled: boolean; onSubmit: () => void }) {
   return (
     <Button className="min-h-11 w-full" disabled={busy || disabled} onClick={onSubmit} type="button" variant="reference">
@@ -274,7 +249,6 @@ function InvitationDetailCard({
   availableSessions,
   busy,
   effectiveSelectedSessionId,
-  feedback,
   onReasonChange,
   onSessionChange,
   onSubmit,
@@ -284,7 +258,6 @@ function InvitationDetailCard({
   availableSessions: PickerSession[];
   busy: boolean;
   effectiveSelectedSessionId: string;
-  feedback: { message: string; tone: "error" | "success" } | null;
   onReasonChange: (reason: string) => void;
   onSessionChange: (sessionId: string) => void;
   onSubmit: () => void;
@@ -337,7 +310,6 @@ function InvitationDetailCard({
           <p className="text-xs leading-5 text-secondary-500" id={`${reasonInputId}-hint`}>Catatan ini tersimpan di audit log dan wajib diisi.</p>
         </Field>
 
-        <InvitationFeedback feedback={feedback} />
         <InvitationSubmitButton disabled={!selectedStudent || !effectiveSelectedSessionId || !reason.trim()} busy={busy} onSubmit={onSubmit} />
       </CardContent>
     </Card>
@@ -347,7 +319,6 @@ function InvitationDetailCard({
 const initialPickerState: PickerState = {
   activeIndex: -1,
   busy: false,
-  feedback: null,
   query: "",
   reason: "",
   searchError: null,
@@ -367,7 +338,7 @@ function KaptenTryoutInvitationPicker({
   tryoutId: string;
 }) {
   const [state, dispatch] = useReducer(pickerReducer, initialPickerState);
-  const { activeIndex, busy, feedback, query, reason, searchError, searchState, selectedSessionId, selectedStudent, students } = state;
+  const { activeIndex, busy, query, reason, searchError, searchState, selectedSessionId, selectedStudent, students } = state;
   const searchRequestRef = useRef(0);
   const [currentTime] = useState(() => Date.now());
 
@@ -444,26 +415,28 @@ function KaptenTryoutInvitationPicker({
         effectiveSelectedSessionId,
       );
       if (!result.ok) {
-        dispatch({ message: result.message, type: "submitError" });
+        showToast(result.message, { variant: "error" });
         return;
       }
 
       const refreshed = await refreshTryoutParticipantsAction(tryoutId);
       if (!refreshed.ok) {
-        dispatch({
-          message: "Undangan berhasil diproses, tetapi daftar peserta belum diperbarui. Muat ulang halaman untuk melihat status terbaru.",
-          type: "submitError",
-        });
+        showToast(
+          "Undangan berhasil diproses, tetapi daftar peserta belum diperbarui. Muat ulang halaman untuk melihat status terbaru.",
+          { variant: "warning" },
+        );
         return;
       }
 
       onRefresh(refreshed.result);
-      dispatch({
-        message: "Undangan peserta berhasil diproses dan daftar peserta sudah diperbarui.",
-        type: "submitSuccess",
-      });
+      showToast(
+        "Undangan peserta berhasil diproses dan daftar peserta sudah diperbarui.",
+        { variant: "success" },
+      );
     } catch {
-      dispatch({ message: "Undangan belum dapat diproses. Coba lagi.", type: "submitError" });
+      showToast("Undangan belum dapat diproses. Coba lagi.", {
+        variant: "error",
+      });
     }
   };
 
@@ -500,7 +473,6 @@ function KaptenTryoutInvitationPicker({
           availableSessions={availableSessions}
           busy={busy}
           effectiveSelectedSessionId={effectiveSelectedSessionId}
-          feedback={feedback}
           onReasonChange={(nextReason) => dispatch({ reason: nextReason, type: "setReason" })}
           onSessionChange={(sessionId) => dispatch({ sessionId, type: "setSessionId" })}
           onSubmit={() => void submitInvitation()}

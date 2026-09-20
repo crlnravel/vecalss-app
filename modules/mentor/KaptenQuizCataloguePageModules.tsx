@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
+import { showToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogClose,
@@ -48,8 +49,6 @@ type QuizCatalogueState = {
   page: number;
   selectedIds: Set<string>;
   intent: "publish" | "unpublish" | null;
-  notice: string | null;
-  error: string | null;
   isPending: boolean;
   selectionMode: boolean;
   statusFilter: QuizStatusFilter;
@@ -71,14 +70,14 @@ function quizCatalogueReducer(
     const selectedIds = new Set(state.selectedIds);
     if (action.checked) selectedIds.add(action.id);
     else selectedIds.delete(action.id);
-    return { ...state, notice: null, selectedIds };
+    return { ...state, selectedIds };
   }
   if (action.type === "toggle-all-visible") {
     const selectedIds = new Set(state.selectedIds);
     action.ids.forEach((id) =>
       action.checked ? selectedIds.add(id) : selectedIds.delete(id),
     );
-    return { ...state, notice: null, selectedIds };
+    return { ...state, selectedIds };
   }
   if (action.type === "update-status") {
     const affectedIds = new Set(action.ids);
@@ -313,7 +312,7 @@ async function runQuizLifecycle({
   selectedQuizzes: KaptenQuiz[];
 }) {
   if (!intent || isPending || !selectedQuizzes.length) return;
-  dispatch({ patch: { error: null, isPending: true }, type: "patch" });
+  dispatch({ patch: { isPending: true }, type: "patch" });
   try {
     const ids = selectedQuizzes.map((quiz) => quiz.id);
     const result =
@@ -321,7 +320,7 @@ async function runQuizLifecycle({
         ? await bulkPublishStandaloneQuizzesAction(ids)
         : await bulkUnpublishStandaloneQuizzesAction(ids);
     if (!result.ok) {
-      dispatch({ patch: { error: result.message }, type: "patch" });
+      showToast(result.message, { variant: "error" });
       return;
     }
     dispatch({
@@ -332,23 +331,20 @@ async function runQuizLifecycle({
     dispatch({
       patch: {
         intent: null,
-        notice: result.message,
         selectedIds: new Set(),
         selectionMode: false,
       },
       type: "patch",
     });
+    showToast(result.message, { variant: "success" });
     refresh();
   } catch (caughtError) {
-    dispatch({
-      patch: {
-        error:
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Status quiz tidak dapat diubah saat ini. Coba lagi.",
-      },
-      type: "patch",
-    });
+    showToast(
+      caughtError instanceof Error
+        ? caughtError.message
+        : "Status quiz tidak dapat diubah saat ini. Coba lagi.",
+      { variant: "error" },
+    );
   } finally {
     dispatch({ patch: { isPending: false }, type: "patch" });
   }
@@ -444,7 +440,7 @@ function QuizSelectionToolbar({
           disabled={!canPublish || isPending}
           onClick={() =>
             dispatch({
-              patch: { error: null, intent: "publish" },
+              patch: { intent: "publish" },
               type: "patch",
             })
           }
@@ -458,7 +454,7 @@ function QuizSelectionToolbar({
           disabled={!canUnpublish || isPending}
           onClick={() =>
             dispatch({
-              patch: { error: null, intent: "unpublish" },
+              patch: { intent: "unpublish" },
               type: "patch",
             })
           }
@@ -492,7 +488,6 @@ function QuizSelectionToolbar({
 function QuizSubjectList({
   createHref,
   dispatch,
-  notice,
   pagedQuizzes,
   page,
   pageCount,
@@ -502,7 +497,6 @@ function QuizSubjectList({
 }: {
   createHref: string;
   dispatch: Dispatch<QuizCatalogueAction>;
-  notice: string | null;
   pagedQuizzes: KaptenQuiz[];
   page: number;
   pageCount: number;
@@ -512,15 +506,6 @@ function QuizSubjectList({
 }) {
   return (
     <section className="space-y-3">
-      {notice ? (
-        <ReferenceSurface
-          className="px-4 py-3 text-sm font-medium text-primary-900"
-          role="status"
-          variant="inset"
-        >
-          {notice}
-        </ReferenceSurface>
-      ) : null}
       {pagedQuizzes.length ? (
         pagedQuizzes.map((quiz) => (
           <QuizRow
@@ -576,7 +561,6 @@ function QuizLifecycleDialog({
   canPublish,
   canUnpublish,
   dispatch,
-  error,
   intent,
   isPending,
   onConfirm,
@@ -585,7 +569,6 @@ function QuizLifecycleDialog({
   canPublish: boolean;
   canUnpublish: boolean;
   dispatch: Dispatch<QuizCatalogueAction>;
-  error: string | null;
   intent: QuizCatalogueState["intent"];
   isPending: boolean;
   onConfirm: () => void;
@@ -597,7 +580,7 @@ function QuizLifecycleDialog({
     <Dialog
       onOpenChange={(open) => {
         if (!open && !isPending)
-          dispatch({ patch: { error: null, intent: null }, type: "patch" });
+          dispatch({ patch: { intent: null }, type: "patch" });
       }}
       open
     >
@@ -610,15 +593,6 @@ function QuizLifecycleDialog({
           <DialogTitle>{confirmation.title}</DialogTitle>
           <DialogDescription>{confirmation.description}</DialogDescription>
         </DialogHeader>
-        {error ? (
-          <div
-            aria-live="assertive"
-            className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
-            role="alert"
-          >
-            {error}
-          </div>
-        ) : null}
         <DialogFooter>
           <DialogClose
             disabled={isPending}
@@ -653,10 +627,8 @@ function KaptenQuizSubjectPageModule({
 }) {
   const router = useRouter();
   const [catalogueState, dispatch] = useReducer(quizCatalogueReducer, {
-    error: null,
     intent: null,
     isPending: false,
-    notice: null,
     page: 1,
     query: "",
     quizzes: catalogue.filter((quiz) => quiz.subjectCode === subject.code),
@@ -665,10 +637,8 @@ function KaptenQuizSubjectPageModule({
     statusFilter: "",
   });
   const {
-    error,
     intent,
     isPending,
-    notice,
     page,
     query,
     quizzes,
@@ -770,7 +740,6 @@ function KaptenQuizSubjectPageModule({
         <QuizSubjectList
           createHref={buildMentorQuizCreateHref(subject.code)}
           dispatch={dispatch}
-          notice={notice}
           page={page}
           pageCount={pageCount}
           pagedQuizzes={pagedQuizzes}
@@ -783,7 +752,6 @@ function KaptenQuizSubjectPageModule({
         canPublish={canPublish}
         canUnpublish={canUnpublish}
         dispatch={dispatch}
-        error={error}
         intent={intent}
         isPending={isPending}
         onConfirm={confirmLifecycle}
