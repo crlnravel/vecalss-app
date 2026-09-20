@@ -91,8 +91,15 @@ assert.match(service, /sort\(\(left, right\) => left\.resourceKey\.localeCompare
 assert.match(service, /A callback error\s+\*\s+is intentionally allowed to abort/u);
 assert.match(authoringLease, /type AuthoringEditLease = Pick<EditLeaseProof, "generation" \| "token">/u);
 
-const unreachableBankSync = functionSlice(quiz, "syncStandaloneQuizBankRevisions", "localSnapshotsFromVersion");
-assert.doesNotMatch(unreachableBankSync, /\.create(?:Many)?\(|\.update(?:Many)?\(|\.delete(?:Many)?\(/u);
+assert.doesNotMatch(quiz, /syncStandaloneQuizBankRevisions/u);
+const sourceUpdateDetector = functionSlice(quiz, "getQuizQuestionsWithSourceUpdates", "readReadyQuizBankSources");
+assert.doesNotMatch(sourceUpdateDetector, /\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/u);
+const bankSave = functionSlice(bank, "saveQuestionBank", "updateQuestionBankLifecycle");
+assert.doesNotMatch(
+  bankSave,
+  /tx\.standaloneQuiz(?:Item|Version)?\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/u,
+);
+assert.doesNotMatch(registry, /syncStandaloneQuizBankRevisions/u);
 for (const writer of [
   "saveQuestionBank",
   "updateQuestionBankLifecycle",

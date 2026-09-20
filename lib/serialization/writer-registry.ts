@@ -51,7 +51,6 @@ const AUTHORING_WRITER_REGISTRY = [
   { name: "bulkPublishStandaloneQuizzes", source: "lib/quiz/repository.ts", classification: "transient", resource: "quiz:{id}[]", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "bulkUnpublishStandaloneQuizzes", source: "lib/quiz/repository.ts", classification: "transient", resource: "quiz:{id}[]", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "updateStandaloneQuizLifecycle", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
-  { name: "syncStandaloneQuizBankRevisions", source: "lib/quiz/repository.ts", classification: "explicitly-unreachable", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [] },
   { name: "startStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 6, 7] },
   { name: "saveStandaloneQuizAnswer", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz-attempt:{id}", resolver: "attempt-id", lockOrder: [0, 2, 4, 6, 7] },
   { name: "submitStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz-attempt:{id}", resolver: "attempt-id", lockOrder: [0, 2, 4, 6, 7] },
