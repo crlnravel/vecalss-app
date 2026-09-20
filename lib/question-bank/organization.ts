@@ -8,6 +8,15 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
+import {
+  LOCK_LEVEL,
+  acquireDomainMutex,
+  acquireEditKeys,
+  bankOrganizationCategoriesMutexKey,
+  bankOrganizationFoldersMutexKey,
+  lockOrderedRows,
+  setTransactionLockTimeout,
+} from "@/lib/serialization/locks";
 
 import { questionBankFolderLabel } from "./labels";
 import {
@@ -17,6 +26,7 @@ import {
 } from "./purpose";
 
 const MAX_FOLDER_DEPTH = 512;
+const MAX_AFFECTED_BANKS = 500;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -25,6 +35,7 @@ type QuestionBankErrorCode =
   | "invalid_input"
   | "invalid_lifecycle_transition"
   | "not_found"
+  | "organization_fanout_too_large"
   | "question_retired"
   | "readiness_failed"
   | "stale_revision";
@@ -179,8 +190,7 @@ function rethrowOrganizationError(error: unknown): never {
 }
 
 async function lockAllFolders(tx: Prisma.TransactionClient) {
-  await tx.$queryRaw`SELECT id FROM question_bank_folders ORDER BY purpose, id FOR UPDATE`;
-  return tx.questionBankFolder.findMany({
+  const folders = await tx.questionBankFolder.findMany({
     orderBy: [{ purpose: "asc" }, { id: "asc" }],
     select: {
       id: true,
@@ -190,16 +200,81 @@ async function lockAllFolders(tx: Prisma.TransactionClient) {
       updatedAt: true,
     },
   });
+  await lockOrderedRows(tx, LOCK_LEVEL.organization, folders.map((folder) => `${folder.purpose}:${folder.id}`), async (client, key) => {
+    const [, id] = key.split(":");
+    await client.$queryRaw`SELECT id FROM question_bank_folders WHERE id = ${id}::uuid FOR UPDATE`;
+  });
+  return folders;
 }
 
 async function lockAllCategories(tx: Prisma.TransactionClient) {
-  await tx.$queryRaw`SELECT id FROM question_bank_categories ORDER BY id FOR UPDATE`;
+  const categories = await tx.questionBankCategory.findMany({ orderBy: { id: "asc" }, select: { id: true } });
+  await lockOrderedRows(tx, LOCK_LEVEL.organization, categories.map((category) => `category:${category.id}`), async (client, key) => {
+    await client.$queryRaw`SELECT id FROM question_bank_categories WHERE id = ${key.slice("category:".length)}::uuid FOR UPDATE`;
+  });
 }
 
 async function lockBanks(tx: Prisma.TransactionClient, ids: string[]) {
   const orderedIds = [...new Set(ids)].sort();
   if (!orderedIds.length) return;
-  await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ANY(${orderedIds}::uuid[]) ORDER BY id FOR UPDATE`;
+  await lockOrderedRows(tx, LOCK_LEVEL.aggregate, orderedIds.map((id) => `bank:${id}`), async (client, key) => {
+    await client.$queryRaw`SELECT id FROM question_banks WHERE id = ${key.slice("bank:".length)}::uuid FOR UPDATE`;
+  });
+}
+
+async function prepareOrganizationTransaction(tx: Prisma.TransactionClient) {
+  await setTransactionLockTimeout(tx);
+}
+
+async function lockBankClaims(tx: Prisma.TransactionClient, ids: readonly string[]) {
+  await acquireEditKeys(tx, ids.map((resourceId) => ({ resourceId, resourceType: "question-bank" })));
+}
+
+function assertAffectedBankCount(ids: readonly string[]) {
+  if (new Set(ids).size > MAX_AFFECTED_BANKS) {
+    throw new QuestionBankOrganizationError("Operasi organisasi Bank Soal melebihi batas 500 Bank terdampak.", {
+      code: "organization_fanout_too_large",
+      details: { maxAffectedBanks: MAX_AFFECTED_BANKS },
+    });
+  }
+}
+
+function assertStableAffectedBankIds(expected: readonly string[], actual: readonly string[], label: string) {
+  const expectedIds = [...new Set(expected)].sort();
+  const actualIds = [...new Set(actual)].sort();
+  if (expectedIds.length !== actualIds.length || expectedIds.some((id, index) => id !== actualIds[index])) {
+    throw new QuestionBankOrganizationError(`${label} berubah saat operasi organisasi dimulai. Muat ulang lalu coba lagi.`, {
+      code: "invalid_input",
+      details: { expectedBankIds: expectedIds, actualBankIds: actualIds },
+    });
+  }
+}
+
+async function revalidateFolderBankMembership(
+  tx: Prisma.TransactionClient,
+  folderId: string,
+  purpose: QuestionBankPurpose,
+  expectedBankIds: readonly string[],
+) {
+  const current = await tx.questionBank.findMany({
+    where: { folderId, purpose },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  assertStableAffectedBankIds(expectedBankIds, current.map((bank) => bank.id), "Keanggotaan folder Bank Soal");
+}
+
+async function revalidateCategoryBankMembership(
+  tx: Prisma.TransactionClient,
+  categoryId: string,
+  expectedBankIds: readonly string[],
+) {
+  const current = await tx.questionBankCategoryAssignment.findMany({
+    where: { categoryId },
+    orderBy: { questionBankId: "asc" },
+    select: { questionBankId: true },
+  });
+  assertStableAffectedBankIds(expectedBankIds, current.map((assignment) => assignment.questionBankId), "Keanggotaan kategori Bank Soal");
 }
 
 function folderPathFromRows(
@@ -453,6 +528,8 @@ async function createQuestionBankFolder(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
       const folders = (await lockAllFolders(tx)).filter(
         (folder) => folder.purpose === normalizedPurpose,
       );
@@ -497,6 +574,8 @@ async function renameQuestionBankFolder(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
       const folders = (await lockAllFolders(tx)).filter(
         (folder) => folder.purpose === normalizedPurpose,
       );
@@ -530,6 +609,8 @@ async function moveQuestionBankFolder(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
       const folders = (await lockAllFolders(tx)).filter(
         (folder) => folder.purpose === normalizedPurpose,
       );
@@ -596,6 +677,12 @@ async function removeQuestionBankFolder(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
+      const affectedBanks = await tx.questionBank.findMany({ where: { folderId: id, purpose: normalizedPurpose }, select: { id: true }, orderBy: { id: "asc" } });
+      assertAffectedBankCount(affectedBanks.map((bank) => bank.id));
+      await lockBankClaims(tx, affectedBanks.map((bank) => bank.id));
+      await revalidateFolderBankMembership(tx, id, normalizedPurpose, affectedBanks.map((bank) => bank.id));
       const folders = (await lockAllFolders(tx)).filter(
         (folder) => folder.purpose === normalizedPurpose,
       );
@@ -604,7 +691,7 @@ async function removeQuestionBankFolder(
         throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
 
-      await tx.$queryRaw`SELECT id FROM question_banks ORDER BY id FOR UPDATE`;
+      await lockBanks(tx, affectedBanks.map((bank) => bank.id));
       await tx.questionBank.updateMany({
         data: { folderId: current.parentId, updatedByUserId: actorId },
         where: { folderId: id, purpose: normalizedPurpose },
@@ -653,6 +740,8 @@ async function createQuestionBankCategory(nameInput: string, actorId: string) {
   const name = normalizeName(nameInput, "Nama kategori", 120);
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
       await lockAllCategories(tx);
       const created = await tx.questionBankCategory.create({
         data: { createdByUserId: actorId, name, updatedByUserId: actorId },
@@ -683,6 +772,8 @@ async function renameQuestionBankCategory(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
       await lockAllCategories(tx);
       const current = await tx.questionBankCategory.findUnique({
         where: { id },
@@ -718,7 +809,15 @@ async function removeQuestionBankCategory(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
+      const affectedBanks = await tx.questionBankCategoryAssignment.findMany({ where: { categoryId: id }, select: { questionBankId: true }, orderBy: { questionBankId: "asc" } });
+      const affectedBankIds = affectedBanks.map((assignment) => assignment.questionBankId);
+      assertAffectedBankCount(affectedBankIds);
+      await lockBankClaims(tx, affectedBankIds);
+      await revalidateCategoryBankMembership(tx, id, affectedBankIds);
       await lockAllCategories(tx);
+      await lockBanks(tx, affectedBankIds);
       const current = await tx.questionBankCategory.findUnique({
         where: { id },
       });
@@ -748,6 +847,10 @@ async function setQuestionBankCategories(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
+      assertAffectedBankCount([bankId]);
+      await lockBankClaims(tx, [bankId]);
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
       const bank = await tx.questionBank.findUnique({
@@ -811,6 +914,10 @@ async function assignQuestionBankCategories(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
+      assertAffectedBankCount([bankId]);
+      await lockBankClaims(tx, [bankId]);
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
       const bank = await tx.questionBank.findUnique({
@@ -869,6 +976,10 @@ async function removeQuestionBankCategoryAssignment(
   assertUuid(categoryId, "Kategori");
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
+      assertAffectedBankCount([bankId]);
+      await lockBankClaims(tx, [bankId]);
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
       const bank = await tx.questionBank.findUnique({
@@ -924,6 +1035,10 @@ async function moveQuestionBanksToFolder(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await prepareOrganizationTransaction(tx);
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
+      assertAffectedBankCount(uniqueBankIds);
+      await lockBankClaims(tx, uniqueBankIds);
       const folders = (await lockAllFolders(tx)).filter(
         (folder) => folder.purpose === normalizedPurpose,
       );

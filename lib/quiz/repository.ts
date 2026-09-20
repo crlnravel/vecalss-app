@@ -1724,45 +1724,6 @@ async function ensureStandaloneQuizDraftItems(
   });
 }
 
-async function replaceStandaloneQuizItemMaterialized(
-  tx: Prisma.TransactionClient,
-  itemId: string,
-  materialized: VersionedMaterializedQuizQuestion,
-) {
-  await tx.standaloneQuizItem.update({
-    where: { id: itemId },
-    data: {
-      difficulty: materialized.difficulty,
-      explanation: materialized.explanation,
-      explanationAssetId: materialized.explanationAssetId,
-      prompt: materialized.prompt,
-      promptAssetId: materialized.promptAssetId,
-      questionType:
-        answerModeForQuestionType(materialized.questionType) ?? "single_choice",
-      sourceContentDigest: materialized.sourceContentDigest,
-      sourceQuestionId: materialized.sourceQuestionId,
-      sourceQuestionRevisionId: materialized.sourceQuestionRevisionId,
-      sourceRevisionProvenance: materialized.sourceRevisionProvenance,
-      subtestId: materialized.subtestId,
-    },
-  });
-  await tx.standaloneQuizItemOption.deleteMany({
-    where: { quizItemId: itemId },
-  });
-  await tx.standaloneQuizItemOption.createMany({
-    data: materialized.options.map((option) => ({
-      assetId: option.assetId,
-      choiceKey: option.choiceKey,
-      content: option.content,
-      isCorrect: option.isCorrect,
-      quizItemId: itemId,
-      sortOrder: option.sortOrder,
-      sourceQuestionOptionId: null,
-      sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
-    })),
-  });
-}
-
 function bankSourceRevisionChanged(
   item: Pick<
     Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>,
@@ -1789,12 +1750,24 @@ function bankSourceRevisionChanged(
   );
 }
 
-async function syncVersionedQuizBankRevisions(
-  tx: Prisma.TransactionClient,
-  bankId: string,
-  sourceById: ReadonlyMap<string, QuizBankSourceRecord>,
-) {
-  const records = await tx.standaloneQuiz.findMany({
+async function syncStandaloneQuizBankRevisions(bankId: string) {
+  // Bank writes no longer mutate Kuis snapshots implicitly. This retained
+  // compatibility name is a read-only detector for an explicit acceptance
+  // workflow; callers must persist any accepted source update separately.
+  const sources = await prisma.question.findMany({
+    where: {
+      currentRevision: { status: QuestionRevisionStatus.ready },
+      questionBankId: bankId,
+      questionBank: {
+        purpose: QuestionBankPurpose.quiz,
+        status: { not: ContentStatus.archived },
+      },
+      status: ContentStatus.published,
+    },
+    include: quizSourceInclude,
+  });
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  const records = await prisma.standaloneQuiz.findMany({
     where: {
       OR: [
         { sourceBankId: bankId },
@@ -1803,157 +1776,27 @@ async function syncVersionedQuizBankRevisions(
     },
     include: versionedQuizInclude,
   });
-  let updatedQuestionCount = 0;
-
+  const quizIds = new Set<string>();
+  let detectedQuestionCount = 0;
   for (const record of records) {
-    if (!record.versions.length) continue;
     if (record.status === ContentStatus.archived) continue;
     const active = activeVersionFor(record);
-    let draft = draftVersionFor(record);
-    if (active?.assemblyPackageVersionId || draft?.assemblyPackageVersionId) {
-      continue;
-    }
-
-    // A draft with revision 0 and no items is the lazy bootstrap placeholder;
-    // inspect the active snapshot before creating a mutable draft so publishing
-    // an unchanged Bank Soal does not create needless Kuis versions.
-    const candidateItems =
-      draft && ((draft.draftRevision ?? 0) > 0 || draft.items.length)
-        ? draft.items
-        : (active?.items ?? []);
-    const hasChangedSource = candidateItems.some((item) =>
-      bankSourceRevisionChanged(
+    const draft = draftVersionFor(record);
+    const items = draft?.items.length ? draft.items : active?.items.length ? active.items : record.items;
+    if (items.some((item) => bankSourceRevisionChanged(
+      item,
+      item.sourceQuestionId ? sourceById.get(item.sourceQuestionId) : undefined,
+      record.subtest.code,
+    ))) {
+      quizIds.add(record.id);
+      detectedQuestionCount += items.filter((item) => bankSourceRevisionChanged(
         item,
-        item.sourceQuestionId
-          ? sourceById.get(item.sourceQuestionId)
-          : undefined,
+        item.sourceQuestionId ? sourceById.get(item.sourceQuestionId) : undefined,
         record.subtest.code,
-      ),
-    );
-    if (!hasChangedSource) continue;
-
-    draft = await ensureStandaloneQuizDraftItems(
-      tx,
-      record,
-      draft ?? (await ensureStandaloneQuizDraft(tx, record)),
-    );
-    let changed = false;
-    for (const item of draft.items) {
-      const source = item.sourceQuestionId
-        ? sourceById.get(item.sourceQuestionId)
-        : undefined;
-      if (
-        !bankSourceRevisionChanged(item, source, record.subtest.code) ||
-        !source
-      )
-        continue;
-      await replaceStandaloneQuizItemMaterialized(
-        tx,
-        item.id,
-        materializedQuizQuestion(source),
-      );
-      changed = true;
-      updatedQuestionCount += 1;
-    }
-    if (!changed) continue;
-
-    const updatedItems = await tx.standaloneQuizItem.findMany({
-      where: { quizVersionId: draft.id },
-      include: { options: { orderBy: { sortOrder: "asc" } } },
-      orderBy: { sortOrder: "asc" },
-    });
-    const questions = updatedItems.map(toSnapshot);
-    await tx.standaloneQuizVersion.update({
-      where: { id: draft.id },
-      data: {
-        definitionDigest: versionedDefinitionDigest(
-          versionedDefinitionInputFromVersion(draft, questions),
-        ),
-        draftRevision: (draft.draftRevision ?? 0) + 1,
-        state: StandaloneQuizVersionState.draft,
-      },
-    });
-    await tx.standaloneQuiz.update({
-      where: { id: record.id },
-      data: { revision: { increment: 1 } },
-    });
-  }
-
-  return updatedQuestionCount;
-}
-
-async function syncLegacyQuizBankRevisions(
-  tx: Prisma.TransactionClient,
-  bankId: string,
-  sourceById: ReadonlyMap<string, QuizBankSourceRecord>,
-) {
-  const records = await tx.standaloneQuiz.findMany({
-    where: {
-      sourceBankId: bankId,
-      status: ContentStatus.draft,
-      participations: { none: {} },
-      versions: { none: {} },
-    },
-    include: {
-      items: { include: { options: true }, orderBy: { sortOrder: "asc" } },
-      subtest: true,
-    },
-  });
-  let updatedQuestionCount = 0;
-
-  for (const record of records) {
-    let changed = false;
-    for (const item of record.items) {
-      const source = item.sourceQuestionId
-        ? sourceById.get(item.sourceQuestionId)
-        : undefined;
-      if (
-        !bankSourceRevisionChanged(item, source, record.subtest.code) ||
-        !source
-      )
-        continue;
-      await replaceStandaloneQuizItemMaterialized(
-        tx,
-        item.id,
-        materializedQuizQuestion(source),
-      );
-      changed = true;
-      updatedQuestionCount += 1;
-    }
-    if (changed) {
-      await tx.standaloneQuiz.update({
-        where: { id: record.id },
-        data: { revision: { increment: 1 } },
-      });
+      )).length;
     }
   }
-
-  return updatedQuestionCount;
-}
-
-async function syncStandaloneQuizBankRevisions(bankId: string) {
-  return prisma.$transaction(async (tx) => {
-    const sources = await tx.question.findMany({
-      where: {
-        currentRevision: { status: QuestionRevisionStatus.ready },
-        questionBankId: bankId,
-        questionBank: {
-          purpose: QuestionBankPurpose.quiz,
-          status: { not: ContentStatus.archived },
-        },
-        status: ContentStatus.published,
-      },
-      include: quizSourceInclude,
-    });
-    const sourceById = new Map(sources.map((source) => [source.id, source]));
-    const versioned = await syncVersionedQuizBankRevisions(
-      tx,
-      bankId,
-      sourceById,
-    );
-    const legacy = await syncLegacyQuizBankRevisions(tx, bankId, sourceById);
-    return { updatedQuestionCount: versioned + legacy };
-  });
+  return { detectedQuestionCount, quizIds: [...quizIds].sort(), updatedQuestionCount: 0 };
 }
 
 function localSnapshotsFromVersion(
@@ -5532,7 +5375,6 @@ export {
   startStandaloneQuiz,
   studentAvailabilityWhere,
   submitStandaloneQuiz,
-  syncStandaloneQuizBankRevisions,
   terminalStandaloneQuizAttemptStatuses,
   transitionStandaloneQuizSourceMode,
   updateStandaloneQuizLifecycle,

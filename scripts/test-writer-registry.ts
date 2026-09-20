@@ -10,6 +10,7 @@ import {
 import {
   PRODUCTION_SOURCE_ROOTS,
   assertProductionRootCovered,
+  isExplicitlyExcludedProductionPath,
   productionRootForPath,
   productionScriptSourcePaths,
 } from "../lib/serialization/production-manifest";
@@ -20,9 +21,29 @@ function sourceText(relativePath: string) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 }
 
+function productionSourceFiles() {
+  const files: string[] = [];
+  const visit = (relativeDirectory: string) => {
+    const absoluteDirectory = path.join(projectRoot, relativeDirectory);
+    for (const entry of fs.readdirSync(absoluteDirectory, { withFileTypes: true })) {
+      const relativePath = path.posix.join(relativeDirectory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+        visit(relativePath);
+        continue;
+      }
+      if (!/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(entry.name)) continue;
+      if (isExplicitlyExcludedProductionPath(relativePath)) continue;
+      if (productionRootForPath(relativePath)) files.push(relativePath);
+    }
+  };
+  for (const root of PRODUCTION_SOURCE_ROOTS) visit(root.slice(0, -3));
+  return files.sort();
+}
+
 function assertDescriptorSourcesExist() {
   for (const descriptor of AUTHORING_WRITER_REGISTRY) {
-    if (descriptor.planned) continue;
+    if ("planned" in descriptor && descriptor.planned) continue;
     assert.equal(
       fs.existsSync(path.join(projectRoot, descriptor.source)),
       true,
@@ -57,11 +78,13 @@ function exportedFunctionNames(text: string) {
 
 function assertRegisteredExports() {
   const sourceFiles = new Set(
-    AUTHORING_WRITER_REGISTRY.filter((entry) => !entry.planned).map((entry) => entry.source),
+    AUTHORING_WRITER_REGISTRY
+      .filter((entry) => !("planned" in entry && entry.planned))
+      .map((entry) => entry.source),
   );
   const bySource = new Map<string, Set<string>>();
   for (const descriptor of AUTHORING_WRITER_REGISTRY) {
-    if (descriptor.planned) continue;
+    if ("planned" in descriptor && descriptor.planned) continue;
     const names = bySource.get(descriptor.source) ?? new Set<string>();
     names.add(descriptor.name);
     bySource.set(descriptor.source, names);
@@ -82,7 +105,7 @@ function assertRegisteredExports() {
 
 function tryoutModelWrites(text: string) {
   return /(?:tx|input\.tx)\.(?:tryoutPackage|tryoutDeliverySession|tryoutAdmission|tryoutDeliveryAssignment|tryoutAttempt|tryoutAttemptTestRun|tryoutAttemptAnswer|tryoutIntegrityEvent|tryoutDeliveryAudit|adminPreviewTryoutRestart)\s*\.\s*(?:create|createMany|update|updateMany|upsert|delete|deleteMany)/.test(text)
-    || /(?:tryout_packages|tryout_delivery_sessions|tryout_admissions|tryout_delivery_assignments|tryout_attempts|tryout_attempt_test_runs|tryout_attempt_answers|tryout_integrity_events)\b[\s\S]{0,80}\b(?:INSERT|UPDATE|DELETE)/i.test(text);
+    || /(?:INSERT\s+INTO\s+(?:tryout_packages|tryout_delivery_sessions|tryout_admissions|tryout_delivery_assignments|tryout_attempts|tryout_attempt_test_runs|tryout_attempt_answers|tryout_integrity_events)|UPDATE\s+(?:tryout_packages|tryout_delivery_sessions|tryout_admissions|tryout_delivery_assignments|tryout_attempts|tryout_attempt_test_runs|tryout_attempt_answers|tryout_integrity_events)|DELETE\s+FROM\s+(?:tryout_packages|tryout_delivery_sessions|tryout_admissions|tryout_delivery_assignments|tryout_attempts|tryout_attempt_test_runs|tryout_attempt_answers|tryout_integrity_events))\b/i.test(text);
 }
 
 function assertExternalTryoutWritersRegistered() {
@@ -90,6 +113,17 @@ function assertExternalTryoutWritersRegistered() {
   assert.ok(external.some((entry) => entry.name === "restartAdminStudentPreviewTryout"));
   assert.ok(external.some((entry) => entry.name === "restartAdminStudentPreviewTryoutAction"));
   assert.equal(tryoutModelWrites(sourceText("lib/admin/student-preview-tryout.ts")), true);
+}
+
+function assertTryoutMutationSourcesRegistered(excluded = new Set<string>()) {
+  const registeredSources = new Set(AUTHORING_WRITER_REGISTRY.map((entry) => String(entry.source)));
+  const unregistered = productionSourceFiles().filter((source) => {
+    if (excluded.has(source)) return false;
+    return tryoutModelWrites(sourceText(source)) && !registeredSources.has(source);
+  });
+  if (unregistered.length) {
+    throw new Error(`Unregistered Tryout mutation sources: ${unregistered.join(", ")}`);
+  }
 }
 
 function assertPackageEntrypointsCovered() {
@@ -102,6 +136,11 @@ function assertPackageEntrypointsCovered() {
     () => assertProductionRootCovered("cli/future-production-entrypoint.ts"),
     /outside PRODUCTION_SOURCE_ROOTS/,
   );
+  assert.equal(fs.existsSync(path.join(projectRoot, "cli/__fixtures__/unregistered-production-root.ts")), true);
+  assert.throws(
+    () => assertProductionRootCovered("cli/__fixtures__/unregistered-production-root.ts"),
+    /outside PRODUCTION_SOURCE_ROOTS/,
+  );
 }
 
 function assertNegativeWorkerFixture() {
@@ -110,10 +149,16 @@ function assertNegativeWorkerFixture() {
   const fixtureText = sourceText(fixture);
   assert.equal(tryoutModelWrites(fixtureText), true);
   assert.equal(
-    AUTHORING_WRITER_REGISTRY.some((entry) => entry.source === fixture),
+    AUTHORING_WRITER_REGISTRY.some((entry) => String(entry.source) === fixture),
     false,
     "negative worker fixture must remain unregistered",
   );
+  const escapedFixture = fixture.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.throws(
+    () => assertTryoutMutationSourcesRegistered(),
+    new RegExp(escapedFixture),
+  );
+  assert.doesNotThrow(() => assertTryoutMutationSourcesRegistered(new Set([fixture])));
 }
 
 function main() {

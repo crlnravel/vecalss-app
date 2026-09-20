@@ -12,13 +12,17 @@ import {
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import {
+  acquireDomainMutex,
+  bankOrganizationFoldersMutexKey,
+  setTransactionLockTimeout,
+} from "@/lib/serialization/locks";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import {
   isQuestionBankMateri,
   normalizeQuestionBankMateri,
 } from "@/lib/question-bank/materi";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
-import { syncStandaloneQuizBankRevisions } from "@/lib/quiz/repository";
 import {
   getQuestionBankReadinessFromRevisions,
   getQuestionReadinessFromRevision,
@@ -988,6 +992,10 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
   const folderId = normalizeQuestionBankFolderId(input.folderId);
   const result = await prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
+    if (folderId !== undefined) {
+      await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(input.purpose));
+    }
     let bankId = input.id;
     const status: ContentStatus = ContentStatus.published;
     if (bankId) {
@@ -1198,14 +1206,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     ]);
     return toDto(saved, folderRows);
   });
-  try {
-    await syncStandaloneQuizBankRevisions(result.bank.id);
-  } catch (error) {
-    // The Bank save is already durable. Quiz source snapshots are updated by
-    // an idempotent follow-up, so a transient propagation failure must not
-    // make a successful Bank Soal save look like an error to the mentor.
-    console.error("Active Bank Soal revision sync failed", error);
-  }
   return result;
 }
 
