@@ -66,6 +66,7 @@ function ReferencePageHeader({
 }) {
   return (
     <header
+      data-slot="reference-page-header"
       className={cn(
         "flex flex-wrap items-start justify-between gap-4",
         className,
@@ -75,7 +76,7 @@ function ReferencePageHeader({
       <div className="min-w-0 max-w-3xl">
         <h1
           className={cn(
-            "font-heading text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-4xl",
+            "reference-page-title font-heading text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-4xl",
             titleClassName,
           )}
         >

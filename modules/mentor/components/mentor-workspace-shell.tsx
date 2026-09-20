@@ -428,7 +428,7 @@ function MentorWorkspaceShell({
 
             <ContentElement
               className={cn(
-                "mx-auto flex min-w-0 w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+                "mentor-workspace-content mx-auto flex min-w-0 w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
                 mainClassName,
               )}
             >
