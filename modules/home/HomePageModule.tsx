@@ -104,7 +104,7 @@ function Hero() {
           </p>
           <ActionButtonLink
             className="landing-elevated-button mt-7 h-12 min-w-36 px-5 text-sm"
-            href="/login"
+            href="https://linktr.ee/vecalss.academy"
             variant="marketing"
           >
             Mulai belajar
