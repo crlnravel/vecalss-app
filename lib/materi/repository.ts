@@ -9,6 +9,11 @@ import {
 } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  assertAuthoringEditLease,
+  withTransientAuthoringEditLeases,
+  type AuthoringEditLease,
+} from "@/lib/serialization/authoring-lease";
 
 import {
   MATERI_DOCUMENT_MIME_TYPE,
@@ -95,6 +100,7 @@ type SaveMateriLessonInput = {
   documentMimeType?: string;
   documentName?: string;
   documentUrl?: string;
+  editLease?: AuthoringEditLease;
   hostedPdfUrl?: string;
   managedAssetId?: string;
   subjectSlug: string;
@@ -451,41 +457,48 @@ async function reorderMateriSubject(subjectSlug: string, orderedCodes: string[],
 
   return prisma.$transaction(async (tx) => {
     await lockMateriSubjectScope(tx, subject.code);
-    const topics = await tx.topic.findMany({
-      where: { code: { in: getCanonicalTopicCodes(subject.slug) }, parentTopicId: null, subtest: { code: subject.code } },
-      orderBy: { code: "asc" },
-      select: { id: true },
-    });
-    if (topics.length !== 3) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+    return withTransientAuthoringEditLeases(
+      tx,
+      orderedCodes.map((resourceId) => ({ resourceId, resourceType: "materi" })),
+      tutorId,
+      async () => {
+        const topics = await tx.topic.findMany({
+          where: { code: { in: getCanonicalTopicCodes(subject.slug) }, parentTopicId: null, subtest: { code: subject.code } },
+          orderBy: { code: "asc" },
+          select: { id: true },
+        });
+        if (topics.length !== 3) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
 
-    // A deterministic lock order serializes overlapping subject reorders.
-    await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
-    const current = await tx.module.findMany({
-      where: { topicId: { in: topics.map((topic) => topic.id) } },
-      orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
-      select: { code: true, sequenceNo: true },
-    });
-    const currentCodes = current.map((lesson) => lesson.code);
-    const orderedCodeSet = new Set(orderedCodes);
-    if (currentCodes.length !== orderedCodes.length || currentCodes.some((code) => !orderedCodeSet.has(code))) {
-      throw new MateriValidationError("Urutan Materi sudah berubah. Muat ulang lalu coba lagi.");
-    }
+        // A deterministic lock order serializes overlapping subject reorders.
+        await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
+        const current = await tx.module.findMany({
+          where: { topicId: { in: topics.map((topic) => topic.id) } },
+          orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
+          select: { code: true, sequenceNo: true },
+        });
+        const currentCodes = current.map((lesson) => lesson.code);
+        const orderedCodeSet = new Set(orderedCodes);
+        if (currentCodes.length !== orderedCodes.length || currentCodes.some((code) => !orderedCodeSet.has(code))) {
+          throw new MateriValidationError("Urutan Materi sudah berubah. Muat ulang lalu coba lagi.");
+        }
 
-    const maxSequence = Math.max(0, ...current.map((lesson) => lesson.sequenceNo));
-    await Promise.all(
-      current.map((lesson, index) => tx.module.update({
-        where: { code: lesson.code },
-        data: { sequenceNo: maxSequence + current.length + index + 1 },
-      })),
+        const maxSequence = Math.max(0, ...current.map((lesson) => lesson.sequenceNo));
+        for (const [index, lesson] of current.entries()) {
+          await tx.module.update({
+            where: { code: lesson.code },
+            data: { sequenceNo: maxSequence + current.length + index + 1 },
+          });
+        }
+        for (const [index, code] of orderedCodes.entries()) {
+          await tx.module.update({
+            where: { code },
+            data: { sequenceNo: index + 1, updatedByUserId: tutorId },
+          });
+        }
+
+        return orderedCodes.map((code, index) => ({ code, sequenceNo: index + 1 }));
+      },
     );
-    await Promise.all(
-      orderedCodes.map((code, index) => tx.module.update({
-        where: { code },
-        data: { sequenceNo: index + 1, updatedByUserId: tutorId },
-      })),
-    );
-
-    return orderedCodes.map((code, index) => ({ code, sequenceNo: index + 1 }));
   });
 }
 
@@ -538,8 +551,14 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     // concurrent cross-subject save from changing the source while this
     // transaction is waiting for its ordering boundary.
     await lockMateriSubjectScopes(tx, materiSubjectCodes);
-    const current = code ? await tx.module.findUnique({ where: { code }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
+    let current = code ? await tx.module.findUnique({ where: { code }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
     if (code && !current) throw new MateriValidationError("Lesson tidak ditemukan.");
+    if (current) {
+      await assertAuthoringEditLease(tx, { resourceId: current.code, resourceType: "materi" }, tutorId, input.editLease);
+      await tx.$queryRaw`SELECT id FROM modules WHERE id = ${current.id}::uuid FOR UPDATE`;
+      current = await tx.module.findUnique({ where: { id: current.id }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } });
+      if (!current) throw new MateriValidationError("Lesson tidak ditemukan.");
+    }
     if (current?.status === ContentStatus.archived) {
       throw new MateriValidationError("Materi yang diarsipkan tidak dapat diedit. Pulihkan materi terlebih dahulu.");
     }
@@ -586,12 +605,12 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const modules = await tx.module.findMany({ where: { topicId: { in: topics.map((topic) => topic.id) } }, orderBy: [{ sequenceNo: "asc" }, { code: "asc" }], select: { code: true, sequenceNo: true, topicId: true } });
     const max = Math.max(0, ...modules.map((lesson) => Math.abs(lesson.sequenceNo)));
-    await Promise.all(
-      modules.map((lesson, index) => tx.module.update({
+    for (const [index, lesson] of modules.entries()) {
+      await tx.module.update({
         where: { code: lesson.code },
         data: { sequenceNo: max + modules.length + index + 1 },
-      })),
-    );
+      });
+    }
 
     const sourceCode = source?.code;
     const destinationTopics = topicBySubject.get(subject.code);
@@ -630,12 +649,14 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       orders.set(subject.code, original);
     } else orders.set(subject.code, destinationOrder);
 
-    await Promise.all(
-      [...orders.values()].flatMap((orderedCodes) => orderedCodes.map((moduleCode, index) => tx.module.update({
-        where: { code: moduleCode },
-        data: { sequenceNo: index + 1, updatedByUserId: tutorId },
-      }))),
-    );
+    for (const orderedCodes of orders.values()) {
+      for (const [index, moduleCode] of orderedCodes.entries()) {
+        await tx.module.update({
+          where: { code: moduleCode },
+          data: { sequenceNo: index + 1, updatedByUserId: tutorId },
+        });
+      }
+    }
     const saved = await tx.module.findUnique({ where: { code }, select: { id: true } });
     if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
 
@@ -647,12 +668,12 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       select: { assetType: true, id: true, sortOrder: true },
     });
     const maxSort = Math.max(0, ...allAssets.map((asset) => Math.abs(asset.sortOrder)));
-    await Promise.all(
-      allAssets.map((asset, index) => tx.moduleAsset.update({
+    for (const [index, asset] of allAssets.entries()) {
+      await tx.moduleAsset.update({
         where: { id: asset.id },
         data: { sortOrder: maxSort + allAssets.length + index + 100 },
-      })),
-    );
+      });
+    }
 
     const roleAssets = allAssets.filter((asset) => asset.assetType === ModuleAssetType.attachment || asset.assetType === ModuleAssetType.video);
     const unrelatedSorts = new Set(allAssets.reduce<number[]>((sorts, asset) => {
@@ -711,13 +732,10 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const duplicateVideoAssets = roleAssets.filter((asset) => asset.assetType === ModuleAssetType.video && asset.id !== videoAsset?.id);
     if (video && duplicateVideoAssets.length) await tx.moduleAsset.deleteMany({ where: { id: { in: duplicateVideoAssets.map((asset) => asset.id) } } });
-    const unrelatedAssetUpdates = allAssets.reduce<Promise<unknown>[]>((updates, asset) => {
-      if (!roleAssets.some((role) => role.id === asset.id)) {
-        updates.push(tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: asset.sortOrder } }));
-      }
-      return updates;
-    }, []);
-    await Promise.all(unrelatedAssetUpdates);
+    for (const asset of allAssets) {
+      if (roleAssets.some((role) => role.id === asset.id)) continue;
+      await tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: asset.sortOrder } });
+    }
   });
   const saved = await getMentorMateriByCode(code!);
   if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
@@ -738,6 +756,8 @@ type LockedMateriLifecycleLesson = {
 async function readLockedMateriLifecycleRecord(
   tx: Prisma.TransactionClient,
   code: string,
+  tutorId: string,
+  editLease: AuthoringEditLease | undefined,
 ): Promise<{ lesson: LockedMateriLifecycleLesson; subject: (typeof materiSubjects)[number] }> {
   // The code does not reveal its subject until the canonical module row is
   // read, so acquire every canonical subject scope first. The lock helper
@@ -767,6 +787,10 @@ async function readLockedMateriLifecycleRecord(
   ) {
     throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.");
   }
+
+  // The identity lookup above is deliberately non-locking. Assert the full
+  // current proof before the first canonical topic/module/resource row lock.
+  await assertAuthoringEditLease(tx, { resourceId: code, resourceType: "materi" }, tutorId, editLease);
 
   const topics = await tx.topic.findMany({
     where: {
@@ -906,9 +930,9 @@ function getMateriLifecycleTopicWhere(subject: (typeof materiSubjects)[number]) 
   };
 }
 
-async function publishMateriLesson(code: string, tutorId: string) {
+async function publishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
-    const locked = await readLockedMateriLifecycleRecord(tx, code);
+    const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
     if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.draft) {
@@ -935,9 +959,9 @@ async function publishMateriLesson(code: string, tutorId: string) {
   return getMentorMateriByCode(code);
 }
 
-async function unpublishMateriLesson(code: string, tutorId: string) {
+async function unpublishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
-    const locked = await readLockedMateriLifecycleRecord(tx, code);
+    const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
     if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.published) {
@@ -953,9 +977,9 @@ async function unpublishMateriLesson(code: string, tutorId: string) {
   return getMentorMateriByCode(code);
 }
 
-async function archiveMateriLesson(code: string, tutorId: string) {
+async function archiveMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
-    const locked = await readLockedMateriLifecycleRecord(tx, code);
+    const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
     if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status === ContentStatus.archived) throw new MateriValidationError("Lesson sudah diarsipkan.");
@@ -992,78 +1016,85 @@ async function bulkUpdateMateriLifecycle(
 
   await prisma.$transaction(async (tx) => {
     await lockMateriSubjectScope(tx, subject.code);
-    const topics = await tx.topic.findMany({
-      where: {
-        code: { in: getCanonicalTopicCodes(subject.slug) },
-        parentTopicId: null,
-        subtest: { code: subject.code },
-      },
-      orderBy: { code: "asc" },
-      select: { id: true },
-    });
-    if (topics.length !== 3) {
-      throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
-    }
-
-    // Use the same canonical-topic lock boundary as saves before validating
-    // readiness or changing lifecycle state.
-    await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
-    const topicIds = topics.map((topic) => topic.id);
-    const records = await tx.module.findMany({
-      where: {
-        code: { in: codes },
-        topicId: { in: topicIds },
-      },
-      select: {
-        assets: {
-          where: { assetType: { in: [ModuleAssetType.attachment, ModuleAssetType.video] } },
-          orderBy: [{ assetType: "asc" }, { sortOrder: "asc" }],
-          select: {
-            assetType: true,
-            durationSeconds: true,
-            managedAssetId: true,
-            managedAsset: { select: { libraryScope: true, mimeType: true, objectKey: true, originalName: true, state: true, trashedAt: true, url: true } },
-            mediaUrl: true,
-            mimeType: true,
-            originalName: true,
-            sourceKind: true,
+    await withTransientAuthoringEditLeases(
+      tx,
+      codes.map((resourceId) => ({ resourceId, resourceType: "materi" })),
+      tutorId,
+      async () => {
+        const topics = await tx.topic.findMany({
+          where: {
+            code: { in: getCanonicalTopicCodes(subject.slug) },
+            parentTopicId: null,
+            subtest: { code: subject.code },
           },
-        },
-        code: true,
-        status: true,
-        title: true,
-      },
-    });
-    if (records.length !== codes.length) {
-      throw new MateriValidationError("Sebagian lesson tidak lagi berada pada subject ini. Muat ulang halaman lalu coba lagi.");
-    }
-    if (records.some((record) => record.status !== requiredStatus)) {
-      throw new MateriValidationError(operation === "publish"
-        ? "Pilih hanya lesson draf yang siap diterbitkan."
-        : "Pilih hanya lesson yang sudah diterbitkan.");
-    }
-    if (operation === "publish" && records.some((record) => {
-      const resources = toMateriResourceRead(record.assets);
-      return !isMateriReady(record.title, resources);
-    })) {
-      throw new MateriValidationError("Pilih hanya lesson draf yang siap diterbitkan.");
-    }
+          orderBy: { code: "asc" },
+          select: { id: true },
+        });
+        if (topics.length !== 3) {
+          throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+        }
 
-    const updated = await tx.module.updateMany({
-      where: {
-        code: { in: codes },
-        status: requiredStatus,
-        topicId: { in: topicIds },
+        // Use the same canonical-topic lock boundary as saves before validating
+        // readiness or changing lifecycle state.
+        await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
+        const topicIds = topics.map((topic) => topic.id);
+        const records = await tx.module.findMany({
+          where: {
+            code: { in: codes },
+            topicId: { in: topicIds },
+          },
+          select: {
+            assets: {
+              where: { assetType: { in: [ModuleAssetType.attachment, ModuleAssetType.video] } },
+              orderBy: [{ assetType: "asc" }, { sortOrder: "asc" }],
+              select: {
+                assetType: true,
+                durationSeconds: true,
+                managedAssetId: true,
+                managedAsset: { select: { libraryScope: true, mimeType: true, objectKey: true, originalName: true, state: true, trashedAt: true, url: true } },
+                mediaUrl: true,
+                mimeType: true,
+                originalName: true,
+                sourceKind: true,
+              },
+            },
+            code: true,
+            status: true,
+            title: true,
+          },
+        });
+        if (records.length !== codes.length) {
+          throw new MateriValidationError("Sebagian lesson tidak lagi berada pada subject ini. Muat ulang halaman lalu coba lagi.");
+        }
+        if (records.some((record) => record.status !== requiredStatus)) {
+          throw new MateriValidationError(operation === "publish"
+            ? "Pilih hanya lesson draf yang siap diterbitkan."
+            : "Pilih hanya lesson yang sudah diterbitkan.");
+        }
+        if (operation === "publish" && records.some((record) => {
+          const resources = toMateriResourceRead(record.assets);
+          return !isMateriReady(record.title, resources);
+        })) {
+          throw new MateriValidationError("Pilih hanya lesson draf yang siap diterbitkan.");
+        }
+
+        const updated = await tx.module.updateMany({
+          where: {
+            code: { in: codes },
+            status: requiredStatus,
+            topicId: { in: topicIds },
+          },
+          data: {
+            ...(operation === "publish" ? { publishedAt: new Date() } : {}),
+            status: nextStatus,
+            updatedByUserId: tutorId,
+          },
+        });
+        if (updated.count !== codes.length) {
+          throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+        }
       },
-      data: {
-        ...(operation === "publish" ? { publishedAt: new Date() } : {}),
-        status: nextStatus,
-        updatedByUserId: tutorId,
-      },
-    });
-    if (updated.count !== codes.length) {
-      throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
-    }
+    );
   });
 
   return { codes, status: nextStatus };
@@ -1083,9 +1114,9 @@ async function bulkUnpublishMateriLessons(input: BulkMateriLifecycleInput, tutor
  * its stable public code, document/video resources, topic placement, and
  * subject-wide sequence.
  */
-async function returnMateriLessonToDraft(code: string, tutorId: string) {
+async function returnMateriLessonToDraft(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
-    const locked = await readLockedMateriLifecycleRecord(tx, code);
+    const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
     if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.scheduled && lesson.status !== ContentStatus.archived) {
