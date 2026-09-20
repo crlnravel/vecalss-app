@@ -127,6 +127,8 @@
     "test:question-bank-multiple-answer": "tsx scripts/test-question-bank-multiple-answer.ts",
     "test:question-bank-readiness": "tsx scripts/test-question-bank-readiness.ts",
     "test:question-bank-csv": "tsx scripts/test-question-bank-csv.ts",
+    "test:question-bank-csv-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-csv-db.ts",
+    "test:question-bank-csv-routes": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-csv-routes.ts",
     "test:package-lifecycle": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-package-lifecycle.ts",
     "test:package-atomic-save": "node scripts/test-package-atomic-save.mjs",
     "test:package-atomic-save-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-package-atomic-save-db.ts",

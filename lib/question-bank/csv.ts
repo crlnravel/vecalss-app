@@ -338,7 +338,7 @@ function validateHeader(header: readonly string[]) {
     ? "duplicate"
     : header.some((name) => !expected.includes(name as (typeof QUESTION_BANK_CSV_HEADER)[number]))
       ? "unknown"
-      : header.some((name) => !header.includes(name))
+      : expected.some((name) => !header.includes(name))
         ? "missing"
         : header.some((name, index) => name !== expected[index])
           ? "reordered"
@@ -434,7 +434,7 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
   };
 
   if (errors.length) return { errors, row: null };
-  const normalizedOptions: QuestionBankCsvOption[] = optionsRaw.slice(0, optionCount).map(([label, content, assetId], index) => ({
+  const normalizedOptions: QuestionBankCsvOption[] = optionsRaw.slice(0, optionCount).map(([label, content], index) => ({
     assetId: media[`option${label}MediaAssetId` as keyof typeof media] ?? null,
     content,
     isCorrect: correctOptions.includes(label),
@@ -444,7 +444,7 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
   const row: QuestionBankCsvRow = {
     correctOptions,
     difficulty: difficulty as QuestionBankCsvRow["difficulty"],
-    explanation: explanation || null,
+    explanation: explanation.trim() ? explanation : null,
     explanationMediaAssetId: media.explanationMediaAssetId,
     materi,
     optionA: optionsRaw[0]![1],
@@ -642,11 +642,13 @@ const parseBankSoalCsv = parseQuestionBankCsv;
 const serializeBankSoalCsv = serializeQuestionBankCsv;
 const encodeCsvFormula = encodeSpreadsheetFormula;
 const decodeCsvFormula = decodeSpreadsheetFormula;
+const createQuestionBankCsvDraftPayload = toQuestionBankCsvDraftPayload;
 
 export {
   QUESTION_BANK_CSV_HEADER,
   QUESTION_BANK_CSV_MAX_BYTES,
   QUESTION_BANK_CSV_MAX_ROWS,
+  createQuestionBankCsvDraftPayload,
   decodeCsvFormula,
   decodeSpreadsheetFormula,
   encodeCsvFormula,

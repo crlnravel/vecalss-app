@@ -8,6 +8,7 @@ import {
   encodeSpreadsheetFormula,
   parseQuestionBankCsv,
   serializeQuestionBankCsv,
+  toQuestionBankCsvDraftPayload,
 } from "../lib/question-bank/csv";
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -53,10 +54,27 @@ assert.equal(parsed.normalizedRows[0]?.prompt, "=SUM(A1)");
 assert.equal(parsed.normalizedRows[0]?.options[1]?.content, "Dua, dengan koma");
 assert.equal(parsed.normalizedRows[0]?.options[2]?.content, 'Tiga "kutip"');
 assert.equal(parsed.normalizedRows[0]?.explanation, "Penjelasan\nbaris dua");
+const draft = toQuestionBankCsvDraftPayload(parsed, "bank-fixture");
+assert.equal(draft.questions.length, 1);
+assert.equal(draft.questions[0]?.bankId, "bank-fixture");
+assert.equal(draft.questions[0]?.choices[0]?.id, "csv-row-1-A");
+assert.equal(draft.questions[0]?.correctChoiceId, "csv-row-1-B");
+assert.deepEqual(draft.summary, parsed.summary);
 
 const roundTrip = serializeQuestionBankCsv(parsed.normalizedRows);
 assert.equal(roundTrip, csv([row()]));
 assert.equal(roundTrip, serializeQuestionBankCsv(parseQuestionBankCsv(roundTrip).normalizedRows));
+const bomBytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(roundTrip)]);
+assert.equal(parseQuestionBankCsv(bomBytes).summary.acceptedRows, 1);
+
+const invalidHeaders = [
+  QUESTION_BANK_CSV_HEADER.map((name, index) => index === 0 ? "unknown" : name),
+  QUESTION_BANK_CSV_HEADER.map((name, index) => index === 0 ? QUESTION_BANK_CSV_HEADER[1] : name),
+  [...QUESTION_BANK_CSV_HEADER].reverse(),
+];
+for (const header of invalidHeaders) {
+  assert.equal(parseQuestionBankCsv(csv([row()], "\r\n").replace(QUESTION_BANK_CSV_HEADER.join(","), header.join(","))).structuralErrors[0]?.code, "header_invalid");
+}
 
 for (const value of ["'hello", "=A1", "+A1", "-12", "@user", "\tlead", "\nlead", "plain"]) {
   assert.equal(decodeSpreadsheetFormula(encodeSpreadsheetFormula(value)), value.replace(/\r\n?/gu, "\n"));
@@ -68,6 +86,12 @@ assert.equal(invalidUtf8.structuralErrors[0]?.code, "invalid_utf8");
 
 const malformed = parseQuestionBankCsv(`${QUESTION_BANK_CSV_HEADER.join(",")}\r\n"unterminated`);
 assert.equal(malformed.structuralErrors[0]?.code, "malformed_quotes");
+const forbiddenControl = row();
+forbiddenControl[5] = "has\u0000nul";
+assert.ok(parseQuestionBankCsv(csv([forbiddenControl])).rowErrors.some((error) => error.code === "control_character"));
+const allowedTab = row();
+allowedTab[5] = "\tleading tab";
+assert.equal(parseQuestionBankCsv(csv([allowedTab])).summary.acceptedRows, 1);
 
 const rowWithErrors = row();
 rowWithErrors[1] = "BAD";

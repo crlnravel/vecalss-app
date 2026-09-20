@@ -57,8 +57,8 @@ const AUTHORING_WRITER_REGISTRY = [
 
   // Bank aggregate and organization writers.
   { name: "saveQuestionBank", source: "lib/question-bank/repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
-  { name: "appendQuestionBankCsv", source: "lib/question-bank/csv-repository.ts", planned: true, classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
-  { name: "overwriteQuestionBankCsv", source: "lib/question-bank/csv-repository.ts", planned: true, classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
+  { name: "appendQuestionBankCsv", source: "lib/question-bank/csv-repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },
+  { name: "overwriteQuestionBankCsv", source: "lib/question-bank/csv-repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },
   { name: "updateQuestionBankLifecycle", source: "lib/question-bank/repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
   { name: "deleteQuestionBank", source: "lib/question-bank/repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
   { name: "updateQuestionRevisionLifecycle", source: "lib/question-bank/repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },
