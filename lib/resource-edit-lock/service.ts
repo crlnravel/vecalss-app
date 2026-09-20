@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { Prisma } from "@/generated/prisma/client";
 import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
@@ -50,6 +50,12 @@ type ProofEditLeaseInput = CanonicalResource & {
   generation: number;
   holderUserId: string;
   token: string;
+};
+
+type TransientEditLeaseInput = {
+  holderUserId: string;
+  resourceId: unknown;
+  resourceType: unknown;
 };
 
 type RawLeaseRow = {
@@ -566,6 +572,135 @@ async function assertEditLease(
   });
 }
 
+/**
+ * Acquire server-owned one-shot edit claims inside an already-open mutation
+ * transaction. Callers must hold every required Level-0 domain mutex before
+ * entering this helper. Resource edit keys are acquired in canonical order,
+ * and the claims are released before the callback returns. A callback error
+ * is intentionally allowed to abort the enclosing transaction so no claim or
+ * domain write can escape partially.
+ *
+ * Tokens never leave this function. The callback receives only canonical
+ * resource identities; the helper asserts each newly granted proof before it
+ * invokes the callback, so the first domain row lock is fenced by the same
+ * lease boundary as a dedicated editor mutation.
+ */
+async function withTransientEditLeases<T>(
+  tx: Prisma.TransactionClient,
+  inputs: readonly TransientEditLeaseInput[],
+  callback: (resources: readonly CanonicalResource[]) => Promise<T>,
+) {
+  const resources = inputs
+    .map((input) => {
+      ensureHolderId(input.holderUserId);
+      return {
+        ...canonicalResource(input.resourceType, input.resourceId),
+        holderUserId: input.holderUserId,
+      };
+    })
+    .sort((left, right) => left.resourceKey.localeCompare(right.resourceKey));
+  const holderUserId = resources[0]?.holderUserId;
+  if (resources.some((resource) => resource.holderUserId !== holderUserId)) {
+    throw new EditLeaseServiceError("invalid_proof", 422, "Resource edit proof tidak valid.");
+  }
+  for (let index = 1; index < resources.length; index += 1) {
+    if (resources[index - 1]!.resourceKey === resources[index]!.resourceKey) {
+      throw new EditLeaseServiceError("invalid_proof", 422, "Resource edit proof tidak valid.");
+    }
+  }
+
+  return withSerializationLockTimeout(tx, async () => {
+    const claims: Array<{
+      generation: number;
+      resource: CanonicalResource;
+      token: string;
+    }> = [];
+
+    for (const prepared of resources) {
+      await acquireResourceBoundary(tx, prepared);
+      await assertResourceAccessible(tx, prepared, prepared.holderUserId);
+      const serverNow = await databaseNow(tx);
+      const current = await readLease(tx, prepared);
+      if (activeLease(current, serverNow)) {
+        throw new EditLeaseServiceError("resource_locked", 409, "Resource sedang diedit pengguna lain.");
+      }
+
+      const token = randomBytes(32).toString("base64url");
+      const generation = (current?.generation ?? 0) + 1;
+      const expiresAt = new Date(serverNow.getTime() + EDIT_LEASE_DURATION_MS);
+      await tx.$executeRaw`
+        INSERT INTO "edit_leases" (
+          "resource_type", "resource_id", "holder_user_id", "token_digest",
+          "generation", "acquired_at", "heartbeat_at", "expires_at", "released_at"
+        ) VALUES (
+          ${prepared.resourceType}::edit_lease_resource_type,
+          ${prepared.resourceId},
+          ${prepared.holderUserId}::uuid,
+          ${digestLeaseToken(token)},
+          ${generation},
+          ${serverNow},
+          ${serverNow},
+          ${expiresAt},
+          NULL
+        )
+        ON CONFLICT ("resource_type", "resource_id") DO UPDATE SET
+          "holder_user_id" = EXCLUDED."holder_user_id",
+          "token_digest" = EXCLUDED."token_digest",
+          "generation" = EXCLUDED."generation",
+          "acquired_at" = EXCLUDED."acquired_at",
+          "heartbeat_at" = EXCLUDED."heartbeat_at",
+          "expires_at" = EXCLUDED."expires_at",
+          "released_at" = NULL
+      `;
+      const granted = await readLease(tx, prepared);
+      if (
+        !granted
+        || granted.holderUserId !== prepared.holderUserId
+        || granted.generation !== generation
+        || !sameDigest(granted.tokenDigest, digestLeaseToken(token))
+        || !activeLease(granted, serverNow)
+      ) {
+        throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+      }
+      claims.push({ generation, resource: prepared, token });
+    }
+
+    // The generated proofs are deliberately asserted before callback control
+    // reaches any family repository row lock or write.
+    for (const claim of claims) {
+      const serverNow = await databaseNow(tx);
+      const current = await readLease(tx, claim.resource);
+      if (
+        !current
+        || current.holderUserId !== claim.resource.holderUserId
+        || current.generation !== claim.generation
+        || !sameDigest(current.tokenDigest, digestLeaseToken(claim.token))
+        || current.releasedAt !== null
+        || current.expiresAt.getTime() <= serverNow.getTime()
+      ) {
+        throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+      }
+    }
+
+    const result = await callback(resources.map(({ holderUserId: _holderUserId, ...resource }) => resource));
+    for (const claim of claims) {
+      const serverNow = await databaseNow(tx);
+      await tx.$executeRaw`
+        UPDATE "edit_leases"
+        SET "released_at" = ${serverNow}
+        WHERE "resource_type" = ${claim.resource.resourceType}::edit_lease_resource_type
+          AND "resource_id" = ${claim.resource.resourceId}
+          AND "holder_user_id" = ${claim.resource.holderUserId}::uuid
+          AND "token_digest" = ${digestLeaseToken(claim.token)}
+          AND "generation" = ${claim.generation}
+          AND "released_at" IS NULL
+          AND "expires_at" > ${serverNow}
+      `;
+    }
+    return result;
+  });
+}
+
 async function deleteEditLeaseForResource(resourceType: unknown, resourceId: unknown) {
   const resource = canonicalResource(resourceType, resourceId);
   return prisma.$transaction(async (tx) => withSerializationLockTimeout(tx, async () => {
@@ -631,6 +766,7 @@ export {
   renewEditLease,
   releaseEditLease,
   rotateEditLease,
+  withTransientEditLeases,
 };
 
 export type {
@@ -638,4 +774,5 @@ export type {
   EditLeaseErrorCode,
   ProofEditLeaseInput,
   RotateEditLeaseInput,
+  TransientEditLeaseInput,
 };
