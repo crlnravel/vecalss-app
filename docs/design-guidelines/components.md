@@ -16,6 +16,12 @@ the user's job; it is not chosen ad hoc by route.
   Sea-Glass Wash hover state. Compact utilities may use 40px or 36px only
   when the surrounding density makes the reduced target clear; important
   actions stay at least 44px.
+- **Primary action depth:** Workspace and admin primary actions across Student,
+  Mentor, Admin, and Affiliator surfaces use the shared elevated `brand`
+  variant. Its restrained offset edge, soft lift on hover, and press response
+  make the action feel pressable without turning secondary links, outline
+  controls, or section navigation into primary actions. Route modules should
+  consume the shared variant rather than recreating its shadow.
 - **Marketing / onboarding:** Use the pill silhouette for high-confidence
   entry and conversion actions. Marketing hero actions are typically 56px;
   compact header actions are 44px. Onboarding uses Warm Sun with Warm-Sun Ink
@@ -66,19 +72,36 @@ introducing a third treatment.
 - **Variant 1 — compact filter tabs:** Use a fit-content, horizontal row of
   pill-shaped triggers for filters or categories within one collection, as on
   `/tryout` (“Semua”, “Tryout saya”, “Selesai”, “Latihan”). The active trigger
-  uses Voyage Deep with white text; inactive triggers use the quiet context
-  treatment. Let the row scroll horizontally on narrow screens instead of
-  forcing each filter to equal width.
+  uses Voyage Deep with white text and the shared sunken inset effect; inactive
+  triggers use the quiet context treatment. The recessed depth is reserved for
+  the active compact filter state. Let the row scroll horizontally on narrow
+  screens instead of forcing each filter to equal width.
 - **Variant 2 — full-width line tabs:** Prefer this variant whenever the tab
   bar should span the available width or switch between peer workspace areas,
   as on `/vera-ai` (“Percakapan”, “Konteks”, “Studio”). Use equal-width
   triggers, a transparent background, muted inactive text, and a visible
-  Voyage Deep underline for the active tab. Icons are allowed when they help
+  Voyage Deep underline for the active tab; keep this variant flat rather than
+  applying the compact tab's sunken inset. Icons are allowed when they help
   distinguish workspace areas, but they must remain secondary to the label.
 - **Shared behavior:** Use semantic tabs with one clearly selected state,
   visible keyboard focus, readable labels, and a minimum 44px touch target.
   Variant 2 is the preferred default for full-width layouts; Variant 1 is for
   compact, content-sized filtering.
+
+## Tooltips
+
+- **Shared tooltip surface:** Use the shared `Tooltip`, `TooltipTrigger`, and
+  `TooltipContent` primitives. The content uses a pale Voyage Surface fill, a
+  1px Voyage Deep outline, Voyage Deep text, a soft green shadow, and a
+  matching outlined arrow. Do not use a solid dark-green tooltip background.
+- **Chart hover summaries:** `ChartTooltipContent` follows the same pale
+  surface, green outline, green text, and soft green shadow so chart hover
+  summaries do not introduce a second tooltip language. The chart summary
+  does not need the standard tooltip arrow.
+- **Scope:** This applies to compact icon actions, collapsed navigation labels,
+  contextual hints, and chart summaries across Student, Mentor, Admin, and
+  Affiliator surfaces. Keep tooltip copy concise and never use it as the only
+  label for an unfamiliar or high-consequence action.
 
 ## Student status tokens
 
@@ -131,6 +154,12 @@ outer card contract should not.
 - **Error / Disabled:** Keep the same geometry, reduce opacity only for
   disabled controls, and use a clear message plus an additional state cue for
   errors.
+- **Required / optional labeling:** Mandatory fields show a red `*` in the
+  visible label through the shared `FieldLabel required` contract, with an
+  assistive-text equivalent for screen readers. Do not add `(optional)` helper
+  text: the absence of the red asterisk communicates that a field is optional.
+  Keep the visual marker, native `required` attribute, and validation rules in
+  sync.
 
 ### Settings-style field labels and control families
 

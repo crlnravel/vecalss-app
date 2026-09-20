@@ -116,7 +116,9 @@ The system is soft-lifted. Most surfaces are white or pale mint with a quiet
 border and a diffuse shadow; hover states lift by a few pixels. Stronger
 offset/bottom-edge shadows are reserved for playful learning nodes, progress
 controls, and pressable actions where the physical cue helps the user
-understand state.
+understand state. Workspace and admin primary buttons are pressable actions too:
+use their shared restrained elevated treatment, while keeping secondary and
+navigation controls quiet.
 
 ### Shadow Vocabulary
 
@@ -133,6 +135,16 @@ understand state.
 
 **The Soft-Lift Rule.** Resting surfaces should feel light; motion and shadow
 should explain affordance, state, or progress rather than decorate every edge.
+
+**The Primary Action Depth Rule.** Across Student, Mentor, Admin, and Affiliator
+surfaces, a primary button uses the shared elevated action variant so its offset
+edge, hover lift, and press response remain consistent. Do not reproduce those
+shadows in route-local classes or apply them to secondary actions.
+
+**The Sunken Filter Rule.** The active trigger in a compact filter-tab row uses
+an inset, recessed depth to communicate selection. Full-width line tabs stay
+flat and use their Voyage Deep underline; the two tab variants must not be
+blended.
 
 ## Shapes
 
@@ -151,4 +163,3 @@ semantic metadata such as categories, filters, progress, or short status labels.
 Borders are thin, low-contrast, and green-tinted. Focus rings are visible and
 slightly stronger than resting borders. Avoid sharp corners on primary learning
 surfaces unless a document preview or native media frame requires them.
-

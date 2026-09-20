@@ -49,7 +49,7 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
               className="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end"
             >
               {/* Tooltip on hover */}
-              <div className="absolute -top-8 hidden group-hover:flex z-10 whitespace-nowrap rounded-lg bg-secondary-900 px-2 py-1 text-[10px] text-white shadow-md">
+              <div className="absolute -top-9 z-10 hidden whitespace-nowrap rounded-xl border border-voyage-deep/20 bg-voyage-surface px-2.5 py-1.5 text-ui-xs text-voyage-deep shadow-[0_12px_28px_-18px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)] group-hover:flex">
                 Pukul {item.hourLabel}: {item.lockCount} siswa terkunci
               </div>
 
@@ -64,7 +64,7 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
               />
 
               {item.hour % 3 === 0 && (
-                <span className="text-[10px] text-secondary-500 font-mono mt-1">
+                <span className="mt-1 font-mono text-ui-xs text-secondary-500">
                   {String(item.hour).padStart(2, "0")}
                 </span>
               )}

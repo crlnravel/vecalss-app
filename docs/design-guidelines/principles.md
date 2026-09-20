@@ -34,6 +34,15 @@ Use this file before introducing a new pattern or visual exception.
 - **Do** choose the button family from the surface: pill for marketing and
   onboarding, compact rounded controls for workspace/admin, and tactile
   larger-corner controls for learning progress.
+- **Do** use the shared elevated primary action in workspace, Mentor, Admin,
+  and Affiliator surfaces; keep secondary and navigation controls visually
+  quieter.
+- **Do** use a red asterisk for mandatory field labels and omit `(optional)`
+  helper text; no asterisk communicates an optional field.
+- **Do** use the pale, green-outlined tooltip treatment for shared tooltips and
+  chart hover summaries, including collapsed navigation hints.
+- **Do** give active compact filter tabs the sunken inset treatment, while
+  keeping full-width line tabs flat with a Voyage Deep underline.
 - **Do** keep button colors, borders, focus rings, and disabled states on named
   tokens or shared variants; if a new exception is needed, name it first.
 
@@ -69,6 +78,8 @@ Use this file before introducing a new pattern or visual exception.
   learning controls without replacing them with an equally clear state signal.
 - **Don't** use marketing pills as the default shape for admin, Kapten, or
   student workspace actions.
+- **Don't** use a solid dark-green tooltip background or create a route-local
+  tooltip style that bypasses the shared green-outlined treatment.
 - **Don't** make a secondary action look like a primary by mixing strong dark
   borders, solid fills, and equal emphasis in the same action group.
 - **Don't** hard-code route-specific button hex values when an existing family
