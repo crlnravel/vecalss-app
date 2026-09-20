@@ -210,7 +210,10 @@ function KaptenMateriPageModule({
       sidebarAppearance="reference"
     >
       <div className="space-y-8">
-        <ReferencePageHeader title="Materi" />
+        <ReferencePageHeader
+          title="Materi"
+          titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
+        />
 
         {subjects.length ? (
           <section

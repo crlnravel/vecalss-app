@@ -56,11 +56,13 @@ function ReferencePageHeader({
   className,
   description,
   title,
+  titleClassName,
   ...props
 }: React.ComponentProps<"header"> & {
   actions?: ReactNode;
   description?: ReactNode;
   title: ReactNode;
+  titleClassName?: string;
 }) {
   return (
     <header
@@ -71,7 +73,12 @@ function ReferencePageHeader({
       {...props}
     >
       <div className="min-w-0 max-w-3xl">
-        <h1 className="font-heading text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-4xl">
+        <h1
+          className={cn(
+            "font-heading text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-4xl",
+            titleClassName,
+          )}
+        >
           {title}
         </h1>
         {description ? (
