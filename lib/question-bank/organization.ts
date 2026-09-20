@@ -11,12 +11,12 @@ import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
 import {
   LOCK_LEVEL,
   acquireDomainMutex,
-  acquireEditKeys,
   bankOrganizationCategoriesMutexKey,
   bankOrganizationFoldersMutexKey,
   lockOrderedRows,
   setTransactionLockTimeout,
 } from "@/lib/serialization/locks";
+import { withTransientAuthoringEditLeases } from "@/lib/serialization/authoring-lease";
 
 import { questionBankFolderLabel } from "./labels";
 import {
@@ -226,8 +226,21 @@ async function prepareOrganizationTransaction(tx: Prisma.TransactionClient) {
   await setTransactionLockTimeout(tx);
 }
 
-async function lockBankClaims(tx: Prisma.TransactionClient, ids: readonly string[]) {
-  await acquireEditKeys(tx, ids.map((resourceId) => ({ resourceId, resourceType: "question-bank" })));
+async function withBankClaims<T>(
+  tx: Prisma.TransactionClient,
+  ids: readonly string[],
+  actorId: string,
+  callback: () => Promise<T>,
+) {
+  return withTransientAuthoringEditLeases(
+    tx,
+    [...new Set(ids)].sort().map((resourceId) => ({
+      resourceId,
+      resourceType: "question_bank" as const,
+    })),
+    actorId,
+    async () => callback(),
+  );
 }
 
 function assertAffectedBankCount(ids: readonly string[]) {
@@ -680,28 +693,30 @@ async function removeQuestionBankFolder(
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
       const affectedBanks = await tx.questionBank.findMany({ where: { folderId: id, purpose: normalizedPurpose }, select: { id: true }, orderBy: { id: "asc" } });
-      assertAffectedBankCount(affectedBanks.map((bank) => bank.id));
-      await lockBankClaims(tx, affectedBanks.map((bank) => bank.id));
-      await revalidateFolderBankMembership(tx, id, normalizedPurpose, affectedBanks.map((bank) => bank.id));
-      const folders = (await lockAllFolders(tx)).filter(
-        (folder) => folder.purpose === normalizedPurpose,
-      );
-      const current = folders.find((folder) => folder.id === id);
-      if (!current)
-        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
-      assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
+      const affectedBankIds = affectedBanks.map((bank) => bank.id);
+      assertAffectedBankCount(affectedBankIds);
+      return withBankClaims(tx, affectedBankIds, actorId, async () => {
+        await revalidateFolderBankMembership(tx, id, normalizedPurpose, affectedBankIds);
+        const folders = (await lockAllFolders(tx)).filter(
+          (folder) => folder.purpose === normalizedPurpose,
+        );
+        const current = folders.find((folder) => folder.id === id);
+        if (!current)
+          throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+        assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
 
-      await lockBanks(tx, affectedBanks.map((bank) => bank.id));
-      await tx.questionBank.updateMany({
-        data: { folderId: current.parentId, updatedByUserId: actorId },
-        where: { folderId: id, purpose: normalizedPurpose },
+        await lockBanks(tx, affectedBankIds);
+        await tx.questionBank.updateMany({
+          data: { folderId: current.parentId, updatedByUserId: actorId },
+          where: { folderId: id, purpose: normalizedPurpose },
+        });
+        await tx.questionBankFolder.updateMany({
+          data: { parentId: current.parentId, updatedByUserId: actorId },
+          where: { parentId: id, purpose: normalizedPurpose },
+        });
+        await tx.questionBankFolder.delete({ where: { id } });
+        return { id, parentId: current.parentId };
       });
-      await tx.questionBankFolder.updateMany({
-        data: { parentId: current.parentId, updatedByUserId: actorId },
-        where: { parentId: id, purpose: normalizedPurpose },
-      });
-      await tx.questionBankFolder.delete({ where: { id } });
-      return { id, parentId: current.parentId };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
@@ -814,21 +829,22 @@ async function removeQuestionBankCategory(
       const affectedBanks = await tx.questionBankCategoryAssignment.findMany({ where: { categoryId: id }, select: { questionBankId: true }, orderBy: { questionBankId: "asc" } });
       const affectedBankIds = affectedBanks.map((assignment) => assignment.questionBankId);
       assertAffectedBankCount(affectedBankIds);
-      await lockBankClaims(tx, affectedBankIds);
-      await revalidateCategoryBankMembership(tx, id, affectedBankIds);
-      await lockAllCategories(tx);
-      await lockBanks(tx, affectedBankIds);
-      const current = await tx.questionBankCategory.findUnique({
-        where: { id },
+      return withBankClaims(tx, affectedBankIds, actorId, async () => {
+        await revalidateCategoryBankMembership(tx, id, affectedBankIds);
+        await lockAllCategories(tx);
+        await lockBanks(tx, affectedBankIds);
+        const current = await tx.questionBankCategory.findUnique({
+          where: { id },
+        });
+        if (!current)
+          throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
+        assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
+        await tx.questionBankCategoryAssignment.deleteMany({
+          where: { categoryId: id },
+        });
+        await tx.questionBankCategory.delete({ where: { id } });
+        return { id };
       });
-      if (!current)
-        throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
-      assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
-      await tx.questionBankCategoryAssignment.deleteMany({
-        where: { categoryId: id },
-      });
-      await tx.questionBankCategory.delete({ where: { id } });
-      return { id };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
@@ -850,52 +866,53 @@ async function setQuestionBankCategories(
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
       assertAffectedBankCount([bankId]);
-      await lockBankClaims(tx, [bankId]);
-      await lockAllCategories(tx);
-      await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({
-        where: { id: bankId },
-        select: { id: true, revision: true, status: true, updatedAt: true },
-      });
-      if (!bank)
-        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
-      assertExpectedBankVersion(bank, options);
-      if (bank.status === ContentStatus.archived)
-        throw new QuestionBankOrganizationError(
-          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
-        );
-
-      const categories = await tx.questionBankCategory.findMany({
-        where: { id: { in: uniqueCategoryIds } },
-        select: { id: true },
-      });
-      if (categories.length !== uniqueCategoryIds.length)
-        throw new QuestionBankOrganizationError(
-          "Sebagian kategori tidak ditemukan.",
-        );
-      await tx.questionBankCategoryAssignment.deleteMany({
-        where: { questionBankId: bankId },
-      });
-      if (uniqueCategoryIds.length) {
-        await tx.questionBankCategoryAssignment.createMany({
-          data: uniqueCategoryIds.map((categoryId) => ({
-            assignedByUserId: actorId,
-            categoryId,
-            questionBankId: bankId,
-          })),
+      return withBankClaims(tx, [bankId], actorId, async () => {
+        await lockAllCategories(tx);
+        await lockBanks(tx, [bankId]);
+        const bank = await tx.questionBank.findUnique({
+          where: { id: bankId },
+          select: { id: true, revision: true, status: true, updatedAt: true },
         });
-      }
-      const updated = await tx.questionBank.update({
-        where: { id: bankId },
-        data: { updatedByUserId: actorId },
-        select: { revision: true, updatedAt: true },
+        if (!bank)
+          throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+        assertExpectedBankVersion(bank, options);
+        if (bank.status === ContentStatus.archived)
+          throw new QuestionBankOrganizationError(
+            "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+          );
+
+        const categories = await tx.questionBankCategory.findMany({
+          where: { id: { in: uniqueCategoryIds } },
+          select: { id: true },
+        });
+        if (categories.length !== uniqueCategoryIds.length)
+          throw new QuestionBankOrganizationError(
+            "Sebagian kategori tidak ditemukan.",
+          );
+        await tx.questionBankCategoryAssignment.deleteMany({
+          where: { questionBankId: bankId },
+        });
+        if (uniqueCategoryIds.length) {
+          await tx.questionBankCategoryAssignment.createMany({
+            data: uniqueCategoryIds.map((categoryId) => ({
+              assignedByUserId: actorId,
+              categoryId,
+              questionBankId: bankId,
+            })),
+          });
+        }
+        const updated = await tx.questionBank.update({
+          where: { id: bankId },
+          data: { updatedByUserId: actorId },
+          select: { revision: true, updatedAt: true },
+        });
+        return {
+          bankId,
+          categoryIds: uniqueCategoryIds,
+          revision: updated.revision,
+          updatedAt: updated.updatedAt.toISOString(),
+        };
       });
-      return {
-        bankId,
-        categoryIds: uniqueCategoryIds,
-        revision: updated.revision,
-        updatedAt: updated.updatedAt.toISOString(),
-      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
@@ -917,49 +934,50 @@ async function assignQuestionBankCategories(
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
       assertAffectedBankCount([bankId]);
-      await lockBankClaims(tx, [bankId]);
-      await lockAllCategories(tx);
-      await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({
-        where: { id: bankId },
-        select: { id: true, revision: true, status: true, updatedAt: true },
-      });
-      if (!bank)
-        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
-      assertExpectedBankVersion(bank, options);
-      if (bank.status === ContentStatus.archived)
-        throw new QuestionBankOrganizationError(
-          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
-        );
-      const categories = await tx.questionBankCategory.findMany({
-        where: { id: { in: uniqueCategoryIds } },
-        select: { id: true },
-      });
-      if (categories.length !== uniqueCategoryIds.length)
-        throw new QuestionBankOrganizationError(
-          "Sebagian kategori tidak ditemukan.",
-        );
-      if (uniqueCategoryIds.length) {
-        await tx.questionBankCategoryAssignment.createMany({
-          data: uniqueCategoryIds.map((categoryId) => ({
-            assignedByUserId: actorId,
-            categoryId,
-            questionBankId: bankId,
-          })),
-          skipDuplicates: true,
+      return withBankClaims(tx, [bankId], actorId, async () => {
+        await lockAllCategories(tx);
+        await lockBanks(tx, [bankId]);
+        const bank = await tx.questionBank.findUnique({
+          where: { id: bankId },
+          select: { id: true, revision: true, status: true, updatedAt: true },
         });
-      }
-      const updated = await tx.questionBank.update({
-        where: { id: bankId },
-        data: { updatedByUserId: actorId },
-        select: { revision: true, updatedAt: true },
+        if (!bank)
+          throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+        assertExpectedBankVersion(bank, options);
+        if (bank.status === ContentStatus.archived)
+          throw new QuestionBankOrganizationError(
+            "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+          );
+        const categories = await tx.questionBankCategory.findMany({
+          where: { id: { in: uniqueCategoryIds } },
+          select: { id: true },
+        });
+        if (categories.length !== uniqueCategoryIds.length)
+          throw new QuestionBankOrganizationError(
+            "Sebagian kategori tidak ditemukan.",
+          );
+        if (uniqueCategoryIds.length) {
+          await tx.questionBankCategoryAssignment.createMany({
+            data: uniqueCategoryIds.map((categoryId) => ({
+              assignedByUserId: actorId,
+              categoryId,
+              questionBankId: bankId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+        const updated = await tx.questionBank.update({
+          where: { id: bankId },
+          data: { updatedByUserId: actorId },
+          select: { revision: true, updatedAt: true },
+        });
+        return {
+          bankId,
+          categoryIds: uniqueCategoryIds,
+          revision: updated.revision,
+          updatedAt: updated.updatedAt.toISOString(),
+        };
       });
-      return {
-        bankId,
-        categoryIds: uniqueCategoryIds,
-        revision: updated.revision,
-        updatedAt: updated.updatedAt.toISOString(),
-      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
@@ -979,40 +997,41 @@ async function removeQuestionBankCategoryAssignment(
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
       assertAffectedBankCount([bankId]);
-      await lockBankClaims(tx, [bankId]);
-      await lockAllCategories(tx);
-      await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findUnique({
-        where: { id: bankId },
-        select: { id: true, revision: true, status: true, updatedAt: true },
+      return withBankClaims(tx, [bankId], actorId, async () => {
+        await lockAllCategories(tx);
+        await lockBanks(tx, [bankId]);
+        const bank = await tx.questionBank.findUnique({
+          where: { id: bankId },
+          select: { id: true, revision: true, status: true, updatedAt: true },
+        });
+        if (!bank)
+          throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
+        assertExpectedBankVersion(bank, options);
+        if (bank.status === ContentStatus.archived)
+          throw new QuestionBankOrganizationError(
+            "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
+          );
+        const category = await tx.questionBankCategory.findUnique({
+          where: { id: categoryId },
+          select: { id: true },
+        });
+        if (!category)
+          throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
+        await tx.questionBankCategoryAssignment.deleteMany({
+          where: { categoryId, questionBankId: bankId },
+        });
+        const updated = await tx.questionBank.update({
+          where: { id: bankId },
+          data: { updatedByUserId: actorId },
+          select: { revision: true, updatedAt: true },
+        });
+        return {
+          bankId,
+          categoryId,
+          revision: updated.revision,
+          updatedAt: updated.updatedAt.toISOString(),
+        };
       });
-      if (!bank)
-        throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
-      assertExpectedBankVersion(bank, options);
-      if (bank.status === ContentStatus.archived)
-        throw new QuestionBankOrganizationError(
-          "Bank Soal yang diarsipkan tidak dapat dikategorikan.",
-        );
-      const category = await tx.questionBankCategory.findUnique({
-        where: { id: categoryId },
-        select: { id: true },
-      });
-      if (!category)
-        throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
-      await tx.questionBankCategoryAssignment.deleteMany({
-        where: { categoryId, questionBankId: bankId },
-      });
-      const updated = await tx.questionBank.update({
-        where: { id: bankId },
-        data: { updatedByUserId: actorId },
-        select: { revision: true, updatedAt: true },
-      });
-      return {
-        bankId,
-        categoryId,
-        revision: updated.revision,
-        updatedAt: updated.updatedAt.toISOString(),
-      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
@@ -1038,56 +1057,57 @@ async function moveQuestionBanksToFolder(
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
       assertAffectedBankCount(uniqueBankIds);
-      await lockBankClaims(tx, uniqueBankIds);
-      const folders = (await lockAllFolders(tx)).filter(
-        (folder) => folder.purpose === normalizedPurpose,
-      );
-      if (folderId && !folders.some((folder) => folder.id === folderId))
-        throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
-      await lockBanks(tx, uniqueBankIds);
-      const banks = await tx.questionBank.findMany({
-        where: { id: { in: uniqueBankIds } },
-        select: {
-          id: true,
-          purpose: true,
-          revision: true,
-          status: true,
-          updatedAt: true,
-        },
-      });
-      if (banks.length !== uniqueBankIds.length)
-        throw new QuestionBankOrganizationError(
-          "Sebagian Bank Soal tidak ditemukan.",
+      return withBankClaims(tx, uniqueBankIds, actorId, async () => {
+        const folders = (await lockAllFolders(tx)).filter(
+          (folder) => folder.purpose === normalizedPurpose,
         );
-      if (banks.some((bank) => bank.purpose !== normalizedPurpose)) {
-        throw new QuestionBankOrganizationError(
-          `Bank Soal hanya dapat dipindahkan di pohon Bank Soal ${questionBankPurposeLabel(normalizedPurpose)}.`,
+        if (folderId && !folders.some((folder) => folder.id === folderId))
+          throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
+        await lockBanks(tx, uniqueBankIds);
+        const banks = await tx.questionBank.findMany({
+          where: { id: { in: uniqueBankIds } },
+          select: {
+            id: true,
+            purpose: true,
+            revision: true,
+            status: true,
+            updatedAt: true,
+          },
+        });
+        if (banks.length !== uniqueBankIds.length)
+          throw new QuestionBankOrganizationError(
+            "Sebagian Bank Soal tidak ditemukan.",
+          );
+        if (banks.some((bank) => bank.purpose !== normalizedPurpose)) {
+          throw new QuestionBankOrganizationError(
+            `Bank Soal hanya dapat dipindahkan di pohon Bank Soal ${questionBankPurposeLabel(normalizedPurpose)}.`,
+          );
+        }
+        banks.forEach((bank) =>
+          assertExpectedBankVersion(bank, options?.expected?.[bank.id]),
         );
-      }
-      banks.forEach((bank) =>
-        assertExpectedBankVersion(bank, options?.expected?.[bank.id]),
-      );
-      if (banks.some((bank) => bank.status === ContentStatus.archived))
-        throw new QuestionBankOrganizationError(
-          "Bank Soal yang diarsipkan tidak dapat dipindahkan.",
-        );
-      await tx.questionBank.updateMany({
-        data: { folderId, updatedByUserId: actorId },
-        where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
+        if (banks.some((bank) => bank.status === ContentStatus.archived))
+          throw new QuestionBankOrganizationError(
+            "Bank Soal yang diarsipkan tidak dapat dipindahkan.",
+          );
+        await tx.questionBank.updateMany({
+          data: { folderId, updatedByUserId: actorId },
+          where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
+        });
+        const updatedBanks = await tx.questionBank.findMany({
+          where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
+          select: { id: true, revision: true, updatedAt: true },
+        });
+        return {
+          bankIds: uniqueBankIds,
+          folderId,
+          versions: updatedBanks.map((bank) => ({
+            id: bank.id,
+            revision: bank.revision,
+            updatedAt: bank.updatedAt.toISOString(),
+          })),
+        };
       });
-      const updatedBanks = await tx.questionBank.findMany({
-        where: { id: { in: uniqueBankIds }, purpose: normalizedPurpose },
-        select: { id: true, revision: true, updatedAt: true },
-      });
-      return {
-        bankIds: uniqueBankIds,
-        folderId,
-        versions: updatedBanks.map((bank) => ({
-          id: bank.id,
-          revision: bank.revision,
-          updatedAt: bank.updatedAt.toISOString(),
-        })),
-      };
     });
   } catch (error) {
     return rethrowOrganizationError(error);
