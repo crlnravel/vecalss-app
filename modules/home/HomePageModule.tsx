@@ -228,7 +228,7 @@ function MentorField() {
         </p>
         <Link
           className="landing-elevated-button mt-7 inline-flex min-h-10 items-center rounded-full bg-[var(--voyage-deep)] px-5 text-xs font-semibold text-white transition-colors hover:bg-[var(--voyage-deep-hover)]"
-          href="/about"
+          href="#"
         >
           Kenali para Kapten
         </Link>
@@ -670,7 +670,7 @@ function LandingFooter() {
           </p>
           <ActionButtonLink
             className="landing-elevated-button mt-7 h-12 px-5 text-sm"
-            href="/login"
+            href="https://linktr.ee/vecalss.academy"
             variant="marketing"
           >
             Mulai misimu
