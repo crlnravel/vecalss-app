@@ -557,7 +557,6 @@ function MateriSubjectCatalogueScreen({
         </span>
       ),
       headerClassName: "min-w-[20rem]",
-      hideable: false,
       id: "materi",
       label: "Materi",
       sortKey: "title",
@@ -705,7 +704,6 @@ function MateriSubjectCatalogueScreen({
               placeholder: "Cari judul atau status...",
               value: query,
             }}
-            showColumnVisibility={false}
             showRowNumbers
             sort={{
               direction: sortDirection,

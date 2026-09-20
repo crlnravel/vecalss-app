@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
+import { DataTableFilterMenu, type DataTableFilterMenuItem } from "@/components/ui/data-table-filter-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   AUDIT_LOG_TARGET_TYPES,
@@ -170,34 +171,51 @@ function AuditFilterPanel({
   }
 
   return (
-    <ReferenceSurface className="p-2" variant="inset">
-      <form className="grid gap-2" onSubmit={handleSubmit}>
-        <fieldset className="grid gap-0.5">
-          <legend className="px-2 pb-1 text-xs font-semibold text-secondary-900">Target</legend>
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60">
-            <input
-              className="size-4 accent-primary-700"
-              defaultChecked={!targetType}
-              name="targetType"
-              type="radio"
-              value="all"
-            />
-             <span>Semua target</span>
-          </label>
-          {AUDIT_LOG_TARGET_TYPES.map((value) => (
-            <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60" key={value}>
-              <input
-                className="size-4 accent-primary-700"
-                defaultChecked={targetType === value}
-                name="targetType"
-                type="radio"
-                value={value}
-              />
-              <span>{auditTargetTypeLabels[value]}</span>
-            </label>
-          ))}
-        </fieldset>
-        <div className="flex w-full items-center gap-1.5 pt-1">
+    <form onSubmit={handleSubmit}>
+      <DataTableFilterMenu
+        filters={[
+          {
+            content: (
+              <fieldset className="grid gap-0.5">
+                <legend className="px-1 pb-1 text-xs font-semibold text-secondary-900">
+                  Target
+                </legend>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60">
+                  <input
+                    className="size-4 accent-primary-700"
+                    defaultChecked={!targetType}
+                    name="targetType"
+                    type="radio"
+                    value="all"
+                  />
+                  <span>Semua target</span>
+                </label>
+                {AUDIT_LOG_TARGET_TYPES.map((value) => (
+                  <label
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60"
+                    key={value}
+                  >
+                    <input
+                      className="size-4 accent-primary-700"
+                      defaultChecked={targetType === value}
+                      name="targetType"
+                      type="radio"
+                      value={value}
+                    />
+                    <span>{auditTargetTypeLabels[value]}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ),
+            id: "target-type",
+            label: "Target",
+            summary: targetType
+              ? auditTargetTypeLabels[targetType]
+              : "Semua target",
+          } satisfies DataTableFilterMenuItem,
+        ]}
+      >
+        <div className="flex w-full items-center gap-1.5 pb-1">
           <Link
             className={cn(
               buttonVariants({ size: "sm", variant: "ghost" }),
@@ -205,14 +223,14 @@ function AuditFilterPanel({
             )}
             href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
           >
-             Hapus filter
+            Hapus filter
           </Link>
           <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">
-             Terapkan
+            Terapkan
           </Button>
         </div>
-      </form>
-    </ReferenceSurface>
+      </DataTableFilterMenu>
+    </form>
   );
 }
 
@@ -350,7 +368,6 @@ function AuditLogsPageModule({
         </span>
       ),
       headerClassName: "w-[45%] rounded-l-xl",
-      hideable: false,
       id: "event",
       label: "Event",
       sortKey: "event",
@@ -364,7 +381,6 @@ function AuditLogsPageModule({
       ),
       cellClassName: "text-secondary-700",
       headerClassName: "w-[30%]",
-      hideable: false,
       id: "time",
        label: "Waktu",
       sortKey: "time",
@@ -386,7 +402,6 @@ function AuditLogsPageModule({
       ),
       cellClassName: "min-w-0",
       headerClassName: "w-[25%] rounded-r-xl",
-      hideable: false,
       id: "user",
        label: "Pengguna",
       sortKey: "user",

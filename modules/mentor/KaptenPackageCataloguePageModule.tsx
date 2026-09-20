@@ -54,7 +54,6 @@ const packageCatalogueColumns: DataTableColumn<PackageItem>[] = [
     cell: (item) => <div className="min-w-0 max-w-full"><Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link></div>,
     cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
     headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden rounded-l-xl px-1.5 sm:px-5 lg:min-w-[12rem]",
-    hideable: false,
     id: "package",
     label: "Paket Soal",
     width: 38,

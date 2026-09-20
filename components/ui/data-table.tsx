@@ -22,7 +22,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -37,7 +36,6 @@ import {
   LoaderCircle,
   MoreHorizontal,
   Search,
-  TableIcon,
   X,
 } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -48,12 +46,10 @@ import { resolveDataTableClassName } from "./data-table-utils";
 type DataTableColumn<T> = {
   cell: (row: T) => ReactNode;
   cellClassName?: string;
-  defaultVisible?: boolean;
   headerClassName?: string;
   id: string;
   label: string;
   sortKey?: string;
-  hideable?: boolean;
   width?: number;
 };
 
@@ -104,7 +100,6 @@ type DataTableProps<T> = {
   onRowClick?: (row: T) => void;
   rowNumberOffset?: number;
   search?: DataTableSearch;
-  showColumnVisibility?: boolean;
   showRowNumbers?: boolean;
   sort?: DataTableSort;
   selection?: boolean;
@@ -158,18 +153,6 @@ function DataTableFilterChips({
       ) : null}
     </div>
   );
-}
-
-function getDefaultVisibleColumnIds<T>(columns: readonly DataTableColumn<T>[]) {
-  const ids = new Set<string>();
-
-  for (const column of columns) {
-    if (column.defaultVisible !== false) {
-      ids.add(column.id);
-    }
-  }
-
-  return ids;
 }
 
 type DataTableGridProps<T> = {
@@ -483,37 +466,23 @@ function DataTableSearchForm({
   );
 }
 
-function DataTableActionMenu<T>({
-  columns,
-  hasCustomColumnVisibility,
+function DataTableActionMenu({
   hasSelection,
   moreMenu,
-  resetColumns,
   selectionActionMenu,
   setSelectedIds,
-  setVisibleColumnIds,
-  showColumnVisibility,
-  visibleColumnIds,
-  visibleColumns,
 }: {
-  columns: readonly DataTableColumn<T>[];
-  hasCustomColumnVisibility: boolean;
   hasSelection: boolean;
   moreMenu?: ReactNode;
-  resetColumns: () => void;
   selectionActionMenu: ReactNode;
   setSelectedIds: (ids: Set<string>) => void;
-  setVisibleColumnIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-  showColumnVisibility: boolean;
-  visibleColumnIds: Set<string>;
-  visibleColumns: readonly DataTableColumn<T>[];
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={hasSelection ? "Buka aksi massal" : showColumnVisibility ? "Pilih kolom tabel" : "Buka aksi tabel"}
+            aria-label={hasSelection ? "Buka aksi massal" : "Buka aksi tabel"}
             className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl text-secondary-500 motion-reduce:transition-none"
             size="icon-sm"
             type="button"
@@ -521,7 +490,7 @@ function DataTableActionMenu<T>({
           />
         }
       >
-        {hasSelection || !showColumnVisibility ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
+        <MoreHorizontal aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
         {hasSelection ? (
@@ -532,53 +501,7 @@ function DataTableActionMenu<T>({
             <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
           </>
         ) : (
-          <>
-            {showColumnVisibility ? (
-              <>
-                <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
-                {columns.reduce<ReactNode[]>((items, column) => {
-                  if (column.hideable === false) {
-                    return items;
-                  }
-
-                  items.push(
-                    <DropdownMenuCheckboxItem
-                      checked={visibleColumnIds.has(column.id)}
-                      key={column.id}
-                      onCheckedChange={(checked) => {
-                        if (!checked && visibleColumns.length <= 1) {
-                          return;
-                        }
-
-                        setVisibleColumnIds((current) => {
-                          const next = new Set(current);
-                          if (checked) {
-                            next.add(column.id);
-                          } else {
-                            next.delete(column.id);
-                          }
-                          return next;
-                        });
-                      }}
-                    >
-                      {column.label}
-                    </DropdownMenuCheckboxItem>,
-                  );
-                  return items;
-                }, [])}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
-                  Atur ulang kolom
-                </DropdownMenuItem>
-              </>
-            ) : null}
-            {moreMenu ? (
-              <>
-                {showColumnVisibility ? <DropdownMenuSeparator /> : null}
-                {moreMenu}
-              </>
-            ) : null}
-          </>
+          moreMenu
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -586,61 +509,47 @@ function DataTableActionMenu<T>({
 }
 
 type DataTableToolbarFlags = {
-  hasCustomColumnVisibility: boolean;
   hasSelection: boolean;
   hasTableMenu: boolean;
   isSearchDebouncing: boolean;
   isSearchPending: boolean;
-  showColumnVisibility: boolean;
   tableIsLoading: boolean;
 };
 
-function DataTableToolbar<T>({
+function DataTableToolbar({
   cancelPendingSearch,
-  columns,
   filterPanel,
   filters,
   flags,
   handleSearchChange,
   handleSearchSubmit,
   moreMenu,
-  resetColumns,
   search,
   searchId,
   searchValue,
   selectionActionMenu,
   setSelectedIds,
-  setVisibleColumnIds,
-  visibleColumnIds,
-  visibleColumns,
   toolbarBelowSearch,
 }: {
   cancelPendingSearch: () => void;
-  columns: readonly DataTableColumn<T>[];
   filterPanel?: ReactNode;
   filters: readonly DataTableFilter[];
   flags: DataTableToolbarFlags;
   handleSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
   moreMenu?: ReactNode;
-  resetColumns: () => void;
   search?: DataTableSearch;
   searchId: string;
   searchValue: string;
   selectionActionMenu: ReactNode;
   setSelectedIds: (ids: Set<string>) => void;
-  setVisibleColumnIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-  visibleColumnIds: Set<string>;
-  visibleColumns: readonly DataTableColumn<T>[];
   toolbarBelowSearch?: ReactNode;
 }) {
   const {
-    hasCustomColumnVisibility,
     hasSelection,
     hasTableMenu,
     isSearchDebouncing,
     isSearchPending,
-    showColumnVisibility,
     tableIsLoading,
   } = flags;
 
@@ -693,17 +602,10 @@ function DataTableToolbar<T>({
 
           {hasTableMenu ? (
             <DataTableActionMenu
-              columns={columns}
-              hasCustomColumnVisibility={hasCustomColumnVisibility}
               hasSelection={hasSelection}
               moreMenu={moreMenu}
-              resetColumns={resetColumns}
               selectionActionMenu={selectionActionMenu}
               setSelectedIds={setSelectedIds}
-              setVisibleColumnIds={setVisibleColumnIds}
-              showColumnVisibility={showColumnVisibility}
-              visibleColumnIds={visibleColumnIds}
-              visibleColumns={visibleColumns}
             />
           ) : null}
         </div>
@@ -733,7 +635,6 @@ function DataTable<T>({
   rows,
   rowNumberOffset = 0,
   search,
-  showColumnVisibility = true,
   showRowNumbers = false,
   sort,
   selection = false,
@@ -748,22 +649,15 @@ function DataTable<T>({
   const [isSearchDebouncing, setIsSearchDebouncing] = useState(false);
   const [isSearchPending, startSearchTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [visibleColumnIds, setVisibleColumnIds] = useState<Set<string>>(
-    () => getDefaultVisibleColumnIds(columns),
-  );
 
   const visibleIds = rows.map((row) => getRowId(row));
   const tableIsLoading = isLoading || isSearchDebouncing || isSearchPending;
-  const visibleColumns = columns.filter((column) => visibleColumnIds.has(column.id));
+  const visibleColumns = columns;
   const visibleColumnWidthTotal = visibleColumns.reduce((total, column) => total + (column.width ?? 1), 0);
   const selectedVisibleCount = visibleIds.filter((id) => selectedIds.has(id)).length;
   const selectedRows = rows.filter((row) => selectedIds.has(getRowId(row)));
   const areAllVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
   const hasPartialSelection = selectedVisibleCount > 0 && !areAllVisibleSelected;
-  const hasCustomColumnVisibility = columns.some((column) => {
-    const isVisible = visibleColumnIds.has(column.id);
-    return isVisible !== (column.defaultVisible !== false);
-  });
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((current) => {
@@ -791,13 +685,9 @@ function DataTable<T>({
     });
   };
 
-  const resetColumns = () => {
-    setVisibleColumnIds(getDefaultVisibleColumnIds(columns));
-  };
-
   const rowIsClickable = Boolean(onRowClick);
   const hasSelection = selection && selectedVisibleCount > 0;
-  const hasTableMenu = selection || showColumnVisibility || Boolean(moreMenu);
+  const hasTableMenu = selection || Boolean(moreMenu);
   const selectionActionMenu = hasSelection
     ? selectionActions?.({
         ids: selectedRows.map((row) => getRowId(row)),
@@ -868,30 +758,23 @@ function DataTable<T>({
     <>
       <DataTableToolbar
         cancelPendingSearch={cancelPendingSearch}
-        columns={columns}
         filterPanel={filterPanel}
         filters={filters}
         flags={{
-          hasCustomColumnVisibility,
           hasSelection,
           hasTableMenu,
           isSearchDebouncing,
           isSearchPending,
-          showColumnVisibility,
           tableIsLoading,
         }}
         handleSearchChange={handleSearchChange}
         handleSearchSubmit={handleSearchSubmit}
         moreMenu={moreMenu}
-        resetColumns={resetColumns}
         search={search}
         searchId={searchId}
         searchValue={searchValue}
         selectionActionMenu={selectionActionMenu}
         setSelectedIds={setSelectedIds}
-        setVisibleColumnIds={setVisibleColumnIds}
-        visibleColumnIds={visibleColumnIds}
-        visibleColumns={visibleColumns}
         toolbarBelowSearch={toolbarBelowSearch}
       />
 

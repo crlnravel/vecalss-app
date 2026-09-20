@@ -366,7 +366,6 @@ function KaptenDirectoryTable({
         </span>
       ),
       headerClassName: "w-[28%]",
-      hideable: false,
       id: "kapten",
       label: "Kapten",
       sortKey: "student",

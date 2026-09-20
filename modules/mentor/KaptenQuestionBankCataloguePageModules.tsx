@@ -414,7 +414,6 @@ function createQuestionBankCatalogueColumns({
           </div>
         ),
       headerClassName: "min-w-0 lg:min-w-[18rem]",
-      hideable: false,
       id: "name",
       label: "Nama",
       width: 34,
@@ -2009,7 +2008,6 @@ function QuestionBankCataloguePageContent({
             placeholder: "Cari judul, folder, subject, atau materi…",
             value: initialSearch,
           }}
-          showColumnVisibility={false}
           tableClassName="min-w-0"
           wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
         />

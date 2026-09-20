@@ -655,7 +655,6 @@ function StudentDirectoryTable({
         </span>
       ),
       headerClassName: "w-[26%]",
-      hideable: false,
       id: "student",
        label: "Siswa",
       sortKey: "student",
