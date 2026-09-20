@@ -13,6 +13,7 @@ export default async function NotFound() {
   const session = await getReadOnlySessionContext();
   const dashboardHref = session ? getDefaultHomePath(session.user) : null;
   const hasDashboardAction = Boolean(dashboardHref && dashboardHref !== "/login");
+  const actionHref = hasDashboardAction ? dashboardHref! : "/";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-white text-[var(--voyage-ink)]">
@@ -118,23 +119,14 @@ export default async function NotFound() {
                 Maaf, sepertinya kamu salah kapal.
               </h1>
 
-              {hasDashboardAction ? (
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <ActionButtonLink href={dashboardHref!}>
-                    Kembali ke dashboard
-                    <LayoutDashboard aria-hidden="true" className="size-5" />
-                  </ActionButtonLink>
-                  <ActionButtonLink href="/" variant="marketingOutline">
-                    Kembali ke beranda
-                    <ArrowRight aria-hidden="true" className="size-5" />
-                  </ActionButtonLink>
-                </div>
-              ) : (
-                <ActionButtonLink className="mt-8" href="/">
-                  Kembali ke beranda
+              <ActionButtonLink className="mt-8" href={actionHref}>
+                {hasDashboardAction ? "Kembali ke dashboard" : "Kembali ke beranda"}
+                {hasDashboardAction ? (
+                  <LayoutDashboard aria-hidden="true" className="size-5" />
+                ) : (
                   <ArrowRight aria-hidden="true" className="size-5" />
-                </ActionButtonLink>
-              )}
+                )}
+              </ActionButtonLink>
             </div>
           </div>
         </div>
