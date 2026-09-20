@@ -37,6 +37,11 @@ import {
   type KuisAssemblyMaterialization,
 } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
+import {
+  assertAuthoringEditLease,
+  type AuthoringEditLease,
+  withTransientAuthoringEditLeases,
+} from "@/lib/serialization/authoring-lease";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type {
   QuizCorrectAnswerVisibility,
@@ -99,6 +104,7 @@ type SaveStandaloneQuizInput = {
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   description: string;
   durationSeconds?: number | null;
+  editLease?: AuthoringEditLease;
   expectedDraftRevision?: number | null;
   formBehavior?: QuizFormBehavior;
   id?: string;
@@ -1155,8 +1161,7 @@ async function writeStandaloneQuizItems(
       );
     }
     await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
-    await Promise.all(
-      input.questions.map(async (submitted, index) => {
+    for (const [index, submitted] of input.questions.entries()) {
         const choices = submitted.choices.map((choice, choiceIndex) => ({
           ...choice,
           id: choice.id || String.fromCharCode(97 + choiceIndex),
@@ -1210,8 +1215,7 @@ async function writeStandaloneQuizItems(
             sourceQuestionRevisionOptionId: null,
           })),
         });
-      }),
-    );
+    }
     return;
   }
 
@@ -1262,8 +1266,7 @@ async function writeStandaloneQuizItems(
     selectedItems.map(({ existing }) => existing),
   );
   await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
-  await Promise.all(
-    selectedItems.map(async ({ existing }, index) => {
+  for (const [index, { existing }] of selectedItems.entries()) {
       const persistedSnapshot = toSnapshot(existing);
       const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
       const item = await tx.standaloneQuizItem.create({
@@ -1310,8 +1313,7 @@ async function writeStandaloneQuizItems(
           };
         }),
       });
-    }),
-  );
+  }
 }
 
 type VersionedQuizItemInput = {
@@ -1340,8 +1342,7 @@ async function writeStandaloneQuizVersionItems(
         "Kuis lokal tidak boleh menyimpan atribusi Bank Soal.",
       );
     }
-    await Promise.all(
-      input.questions.map(async (submitted, index) => {
+    for (const [index, submitted] of input.questions.entries()) {
         const choices = submitted.choices.map((choice, choiceIndex) => ({
           ...choice,
           id: choice.id || String.fromCharCode(97 + choiceIndex),
@@ -1396,8 +1397,7 @@ async function writeStandaloneQuizVersionItems(
             sourceQuestionRevisionOptionId: null,
           })),
         });
-      }),
-    );
+    }
   } else {
     if (!input.sourceBankId)
       throw new QuizValidationError(
@@ -1443,8 +1443,7 @@ async function writeStandaloneQuizVersionItems(
       input.sourceBankId,
       selectedItems.map(({ existing }) => existing),
     );
-    await Promise.all(
-      selectedItems.map(async ({ existing }, index) => {
+    for (const [index, { existing }] of selectedItems.entries()) {
         const persistedSnapshot = toSnapshot(existing);
         const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
         const item = await tx.standaloneQuizItem.create({
@@ -1494,8 +1493,7 @@ async function writeStandaloneQuizVersionItems(
             };
           }),
         });
-      }),
-    );
+    }
   }
 
   const savedItems = await tx.standaloneQuizItem.findMany({
@@ -1539,8 +1537,7 @@ async function writeStandaloneQuizVersionMaterializedItems(
   await tx.standaloneQuizItem.deleteMany({
     where: { quizVersionId: input.quizVersionId },
   });
-  await Promise.all(
-    input.questions.map(async (question, index) => {
+  for (const [index, question] of input.questions.entries()) {
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: question.difficulty,
@@ -1572,8 +1569,7 @@ async function writeStandaloneQuizVersionMaterializedItems(
           sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
         })),
       });
-    }),
-  );
+  }
   const savedItems = await tx.standaloneQuizItem.findMany({
     where: { quizVersionId: input.quizVersionId },
     include: { options: { orderBy: { sortOrder: "asc" } } },
@@ -1634,8 +1630,7 @@ async function cloneStandaloneQuizVersionItems(
   await tx.standaloneQuizItem.deleteMany({
     where: { quizVersionId: input.quizVersionId },
   });
-  await Promise.all(
-    input.sourceItems.map(async (source, index) => {
+  for (const [index, source] of input.sourceItems.entries()) {
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: source.difficulty,
@@ -1666,8 +1661,7 @@ async function cloneStandaloneQuizVersionItems(
           sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
         })),
       });
-    }),
-  );
+  }
   return tx.standaloneQuizItem.findMany({
     where: { quizVersionId: input.quizVersionId },
     include: { options: { orderBy: { sortOrder: "asc" } } },
@@ -1898,6 +1892,18 @@ async function saveStandaloneQuizVersioned(
   return prisma.$transaction(async (tx) => {
     let record: VersionedQuizRecord | null = null;
     if (input.id) {
+      const ownedQuiz = await tx.standaloneQuiz.findFirst({
+        where: { id: input.id, createdByUserId: tutorId },
+        select: { id: true },
+      });
+      if (ownedQuiz) {
+        await assertAuthoringEditLease(
+          tx,
+          { resourceId: input.id, resourceType: "quiz" },
+          tutorId,
+          input.editLease,
+        );
+      }
       await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.id}::uuid FOR UPDATE`;
       record = await tx.standaloneQuiz.findFirst({
         where: { id: input.id, createdByUserId: tutorId },
@@ -2221,6 +2227,18 @@ async function saveStandaloneQuiz(
       };
     }> | null = null;
     if (id) {
+      const ownedQuiz = await tx.standaloneQuiz.findFirst({
+        where: { id, createdByUserId: tutorId },
+        select: { id: true },
+      });
+      if (ownedQuiz) {
+        await assertAuthoringEditLease(
+          tx,
+          { resourceId: id, resourceType: "quiz" },
+          tutorId,
+          input.editLease,
+        );
+      }
       await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
       current = await tx.standaloneQuiz.findFirst({
         where: { id, createdByUserId: tutorId },
@@ -2362,6 +2380,7 @@ type TransitionStandaloneQuizSourceModeInput = {
   bankId?: string | null;
   expectedSources?: readonly QuizBankImportSelection[];
   expectedDraftRevision?: number | null;
+  editLease?: AuthoringEditLease;
   mode: "local" | "bank";
   questionIds?: readonly string[];
   quizId: string;
@@ -2373,6 +2392,12 @@ async function transitionStandaloneQuizSourceModeVersioned(
   tutorId: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: input.quizId, resourceType: "quiz" },
+      tutorId,
+      input.editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: input.quizId, createdByUserId: tutorId },
@@ -2489,6 +2514,12 @@ async function transitionStandaloneQuizSourceMode(
   if (isStandaloneQuizVersioningCutoverEnabled())
     return transitionStandaloneQuizSourceModeVersioned(input, tutorId);
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: input.quizId, resourceType: "quiz" },
+      tutorId,
+      input.editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: input.quizId, createdByUserId: tutorId },
@@ -2514,32 +2545,26 @@ async function transitionStandaloneQuizSourceMode(
     if (input.mode === "local") {
       // This is the only command allowed to clear lineage. The copied prompt,
       // options, order, and media remain exactly where the author placed them.
-      await Promise.all(
-        record.items.map((item) =>
-          tx.standaloneQuizItem.update({
-            where: { id: item.id },
+      for (const item of record.items) {
+        await tx.standaloneQuizItem.update({
+          where: { id: item.id },
+          data: {
+            sourceContentDigest: null,
+            sourceQuestionId: null,
+            sourceQuestionRevisionId: null,
+            sourceRevisionProvenance: null,
+          },
+        });
+        for (const option of item.options) {
+          await tx.standaloneQuizItemOption.update({
+            where: { id: option.id },
             data: {
-              sourceContentDigest: null,
-              sourceQuestionId: null,
-              sourceQuestionRevisionId: null,
-              sourceRevisionProvenance: null,
+              sourceQuestionOptionId: null,
+              sourceQuestionRevisionOptionId: null,
             },
-          }),
-        ),
-      );
-      await Promise.all(
-        record.items.flatMap((item) =>
-          item.options.map((option) =>
-            tx.standaloneQuizItemOption.update({
-              where: { id: option.id },
-              data: {
-                sourceQuestionOptionId: null,
-                sourceQuestionRevisionOptionId: null,
-              },
-            }),
-          ),
-        ),
-      );
+          });
+        }
+      }
       const saved = await tx.standaloneQuiz.update({
         where: { id: input.quizId },
         data: { sourceBankId: null, revision: { increment: 1 } },
@@ -2561,8 +2586,7 @@ async function transitionStandaloneQuizSourceMode(
       subtestCode: input.subtestCode ?? record.subtest.code,
     });
     await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
-    await Promise.all(
-      materialized.map(async (question, index) => {
+    for (const [index, question] of materialized.entries()) {
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,
@@ -2595,8 +2619,7 @@ async function transitionStandaloneQuizSourceMode(
               option.sourceQuestionRevisionOptionId,
           })),
         });
-      }),
-    );
+    }
     const saved = await tx.standaloneQuiz.update({
       where: { id: input.quizId },
       data: {
@@ -2624,6 +2647,7 @@ async function importStandaloneQuizBankQuestions(
 }
 
 type AcceptStandaloneQuizQuestionUpdateInput = {
+  editLease?: AuthoringEditLease;
   expectedCurrentContentDigest: string;
   expectedCurrentRevisionId: string;
   quizId: string;
@@ -2648,6 +2672,12 @@ async function acceptStandaloneQuizQuestionUpdateVersioned(
   }
 
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: input.quizId, resourceType: "quiz" },
+      tutorId,
+      input.editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: input.quizId, createdByUserId: tutorId },
@@ -2819,6 +2849,12 @@ async function acceptStandaloneQuizQuestionUpdate(
   }
 
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: input.quizId, resourceType: "quiz" },
+      tutorId,
+      input.editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: input.quizId, createdByUserId: tutorId },
@@ -3006,8 +3042,15 @@ async function attachStandaloneQuizAssemblyVersioned(
   quizId: string,
   versionId: string,
   tutorId: string,
+  editLease?: AuthoringEditLease,
 ) {
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: quizId, resourceType: "quiz" },
+      tutorId,
+      editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: quizId, createdByUserId: tutorId },
@@ -3105,10 +3148,17 @@ async function attachStandaloneQuizAssembly(
   quizId: string,
   versionId: string,
   tutorId: string,
+  editLease?: AuthoringEditLease,
 ) {
   if (isStandaloneQuizVersioningCutoverEnabled())
-    return attachStandaloneQuizAssemblyVersioned(quizId, versionId, tutorId);
+    return attachStandaloneQuizAssemblyVersioned(quizId, versionId, tutorId, editLease);
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: quizId, resourceType: "quiz" },
+      tutorId,
+      editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: quizId, createdByUserId: tutorId },
@@ -3131,8 +3181,7 @@ async function attachStandaloneQuizAssembly(
       record.subtestId,
     );
     await tx.standaloneQuizItem.deleteMany({ where: { quizId } });
-    await Promise.all(
-      materialization.items.map(async (question, index) => {
+    for (const [index, question] of materialization.items.entries()) {
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,
@@ -3165,8 +3214,7 @@ async function attachStandaloneQuizAssembly(
               option.sourceQuestionRevisionOptionId,
           })),
         });
-      }),
-    );
+    }
     const saved = await tx.standaloneQuiz.update({
       where: { id: quizId },
       data: {
@@ -3186,8 +3234,15 @@ async function attachStandaloneQuizAssembly(
 async function detachStandaloneQuizAssemblyVersioned(
   quizId: string,
   tutorId: string,
+  editLease?: AuthoringEditLease,
 ) {
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: quizId, resourceType: "quiz" },
+      tutorId,
+      editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: quizId, createdByUserId: tutorId },
@@ -3276,10 +3331,20 @@ async function detachStandaloneQuizAssemblyVersioned(
   });
 }
 
-async function detachStandaloneQuizAssembly(quizId: string, tutorId: string) {
+async function detachStandaloneQuizAssembly(
+  quizId: string,
+  tutorId: string,
+  editLease?: AuthoringEditLease,
+) {
   if (isStandaloneQuizVersioningCutoverEnabled())
-    return detachStandaloneQuizAssemblyVersioned(quizId, tutorId);
+    return detachStandaloneQuizAssemblyVersioned(quizId, tutorId, editLease);
   return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: quizId, resourceType: "quiz" },
+      tutorId,
+      editLease,
+    );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
       where: { id: quizId, createdByUserId: tutorId },
@@ -3550,18 +3615,20 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
   return prisma.$transaction(async (tx) => {
     const uniqueIds = [...new Set(ids)];
     const sortedIds = [...uniqueIds].sort();
-    await Promise.all(
-      sortedIds.map(
-        (id) =>
-          tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`,
-      ),
-    );
-    const records = await tx.standaloneQuiz.findMany({
-      where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-      include: versionedQuizInclude,
-    });
-    if (records.length !== uniqueIds.length)
-      throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
+    return withTransientAuthoringEditLeases(
+      tx,
+      sortedIds.map((resourceId) => ({ resourceId, resourceType: "quiz" as const })),
+      tutorId,
+      async () => {
+        for (const id of sortedIds) {
+          await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
+        }
+        const records = await tx.standaloneQuiz.findMany({
+          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
+          include: versionedQuizInclude,
+        });
+        if (records.length !== uniqueIds.length)
+          throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
 
     if (operation === "publish") {
       for (const record of records) {
@@ -3659,11 +3726,13 @@ async function bulkUpdateStandaloneQuizLifecycleVersioned(
         data: { revision: { increment: 1 }, status: ContentStatus.draft },
       });
     }
-    return {
-      ids,
-      status:
-        operation === "publish" ? ("published" as const) : ("draft" as const),
-    };
+        return {
+          ids,
+          status:
+            operation === "publish" ? ("published" as const) : ("draft" as const),
+        };
+      },
+    );
   });
 }
 
@@ -3677,21 +3746,22 @@ async function bulkUpdateStandaloneQuizLifecycle(
   return prisma.$transaction(async (tx) => {
     const uniqueIds = [...new Set(ids)];
     const sortedIds = [...uniqueIds].sort();
-    await Promise.all(
-      sortedIds.map(
-        (id) =>
-          tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`,
-      ),
-    );
-    const records = await tx.standaloneQuiz.findMany({
-      where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-      include: quizInclude,
-    });
-    if (records.length !== uniqueIds.length)
-      throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
-    if (operation === "publish") {
-      await Promise.all(
-        records.map(async (record) => {
+    return withTransientAuthoringEditLeases(
+      tx,
+      sortedIds.map((resourceId) => ({ resourceId, resourceType: "quiz" as const })),
+      tutorId,
+      async () => {
+        for (const id of sortedIds) {
+          await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
+        }
+        const records = await tx.standaloneQuiz.findMany({
+          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
+          include: quizInclude,
+        });
+        if (records.length !== uniqueIds.length)
+          throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
+        if (operation === "publish") {
+          for (const record of records) {
           let publicationQuestions = record.items.map(toSnapshot);
           if (record.assemblyPackageVersionId) {
             try {
@@ -3734,22 +3804,23 @@ async function bulkUpdateStandaloneQuizLifecycle(
             record.closesAt,
             { materializedAssembly: Boolean(record.assemblyPackageVersionId) },
           );
-        }),
-      );
-    }
-    const status =
-      operation === "publish" ? ContentStatus.published : ContentStatus.draft;
-    await tx.standaloneQuiz.updateMany({
-      where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-      data: { status },
-    });
-    return {
-      ids,
-      status:
-        status === ContentStatus.published
-          ? ("published" as const)
-          : ("draft" as const),
-    };
+          }
+        }
+        const status =
+          operation === "publish" ? ContentStatus.published : ContentStatus.draft;
+        await tx.standaloneQuiz.updateMany({
+          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
+          data: { status },
+        });
+        return {
+          ids,
+          status:
+            status === ContentStatus.published
+              ? ("published" as const)
+              : ("draft" as const),
+        };
+      },
+    );
   });
 }
 async function bulkPublishStandaloneQuizzes(ids: string[], tutorId: string) {
@@ -3762,31 +3833,41 @@ async function updateStandaloneQuizLifecycle(
   id: string,
   tutorId: string,
   operation: "archive" | "restore",
+  editLease?: AuthoringEditLease,
 ) {
-  const record = await prisma.standaloneQuiz.findFirst({
-    where: { id, createdByUserId: tutorId },
-    include: quizInclude,
-  });
-  if (!record)
-    throw new QuizValidationError(
-      "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
+  return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: id, resourceType: "quiz" },
+      tutorId,
+      editLease,
     );
-  if (operation === "archive" && record.status === ContentStatus.archived)
-    throw new QuizValidationError("Quiz sudah diarsipkan.");
-  if (operation === "restore" && record.status !== ContentStatus.archived)
-    throw new QuizValidationError(
-      "Hanya Quiz yang diarsipkan dapat dipulihkan.",
-    );
-  const saved = await prisma.standaloneQuiz.update({
-    where: { id },
-    data: {
-      status:
-        operation === "archive" ? ContentStatus.archived : ContentStatus.draft,
-      revision: { increment: 1 },
-    },
-    include: quizInclude,
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id, createdByUserId: tutorId },
+      include: quizInclude,
+    });
+    if (!record)
+      throw new QuizValidationError(
+        "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
+      );
+    if (operation === "archive" && record.status === ContentStatus.archived)
+      throw new QuizValidationError("Quiz sudah diarsipkan.");
+    if (operation === "restore" && record.status !== ContentStatus.archived)
+      throw new QuizValidationError(
+        "Hanya Quiz yang diarsipkan dapat dipulihkan.",
+      );
+    const saved = await tx.standaloneQuiz.update({
+      where: { id },
+      data: {
+        status:
+          operation === "archive" ? ContentStatus.archived : ContentStatus.draft,
+        revision: { increment: 1 },
+      },
+      include: quizInclude,
+    });
+    return toKaptenQuiz(saved);
   });
-  return toKaptenQuiz(saved);
 }
 function studentAvailabilityWhere(now = new Date()) {
   return {

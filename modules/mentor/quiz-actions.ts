@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   acceptStandaloneQuizQuestionUpdate,
   bulkPublishStandaloneQuizzes,
@@ -118,10 +119,14 @@ async function bulkUnpublishStandaloneQuizzesAction(ids: string[]) {
   }
 }
 
-async function updateStandaloneQuizLifecycleAction(id: string, operation: "archive" | "restore") {
+async function updateStandaloneQuizLifecycleAction(
+  id: string,
+  operation: "archive" | "restore",
+  editLease?: AuthoringEditLease,
+) {
   const session = await requireTutorSession();
   try {
-    const quiz = await updateStandaloneQuizLifecycle(id, session.user.id, operation);
+    const quiz = await updateStandaloneQuizLifecycle(id, session.user.id, operation, editLease);
     revalidateQuizPaths();
     revalidatePath(`/mentor/quiz/${quiz.id}`);
     return { ok: true as const, quiz };
