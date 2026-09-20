@@ -25,10 +25,10 @@ colors:
 typography:
   display:
     fontFamily: "Manrope, Plus Jakarta Sans, sans-serif"
-    fontSize: "clamp(2.25rem, 4vw, 3.5rem)"
+    fontSize: "clamp(2.25rem, 4vw, 3rem)"
     fontWeight: 800
-    lineHeight: 0.98
-    letterSpacing: "-0.045em"
+    lineHeight: 1.25
+    letterSpacing: "-0.04em"
   marketing-display:
     fontFamily: "Manrope, Plus Jakarta Sans, sans-serif"
     fontSize: "clamp(3.25rem, 7vw, 6rem)"
@@ -302,12 +302,15 @@ hierarchy without a verified contrast pairing.
 
 The frontmatter carries the shared type scale. Use the hierarchy, readable
 measures, and concise page-title rule in
-[Foundations](docs/design-guidelines/foundations.md). Marketing statements may
-use the lighter Marketing Display role: Manrope at 600 weight, tightly tracked,
-with a compact 0.9 line height and a balanced measure around 10–20 characters.
-Body copy remains Plus Jakarta Sans at 14–16px, 1.5–1.75 line height, and no
-wider than roughly 62 characters. Sports World is a brand asset, reserved for
-the Vecalss wordmark rather than headings or interface labels.
+[Foundations](docs/design-guidelines/foundations.md). Route-level page titles
+use the Display role: Manrope at 800 weight, `2.25rem` on compact screens and
+`3rem` from the medium breakpoint onward, with `1.25` line height,
+`-0.04em` tracking, Voyage Ink, and balanced wrapping. Marketing statements
+may use the lighter Marketing Display role: Manrope at 600 weight, tightly
+tracked, with a compact 0.9 line height and a balanced measure around 10–20
+characters. Body copy remains Plus Jakarta Sans at 14–16px, 1.5–1.75 line
+height, and no wider than roughly 62 characters. Sports World is a brand asset,
+reserved for the Vecalss wordmark rather than headings or interface labels.
 
 **The Statement-and-Support Rule.** Let one large, short statement carry each
 marketing story beat; supporting copy stays modest, high-contrast, and comfortably

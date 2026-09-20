@@ -65,8 +65,8 @@ face stays calm enough for instructions, metadata, and long-form reading.
 
 ### Hierarchy
 
-- **Display** (800, `3.5rem` max, `0.98`): page-level
-  statements, route titles, and high-confidence moments.
+- **Display** (800, `2.25rem–3rem`, `1.25`, `-0.04em`): route-level page titles
+  and high-confidence moments. Use Manrope with balanced wrapping and Voyage Ink.
 - **Headline** (800, `2.25rem` max, `1.05`): catalogue
   headings and prominent learning content titles.
 - **Title** (800, `1.25rem`, `1.2`): course cards, lesson nodes, and component
@@ -88,6 +88,13 @@ title, naming the current workspace or destination directly (for example,
 subtitle or description below it by default. If guidance is necessary, place
 it in the task content instead of turning the title block into a multi-line
 introduction.
+
+Student and Mentor route headers use the Display treatment consistently: the
+title is `2.25rem` on compact screens and `3rem` from the medium breakpoint
+onward, with 800 weight, `1.25` line height, `-0.04em` tracking, Voyage Ink,
+and balanced wrapping. Keep this treatment for the page-level destination;
+editable entity names, toolbar labels, and section headings use their own
+smaller hierarchy.
 
 ## Layout
 
