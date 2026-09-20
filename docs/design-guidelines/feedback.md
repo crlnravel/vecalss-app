@@ -54,6 +54,12 @@ placement is floating and centered at the bottom of the viewport; use
 `toast.success(...)`, `toast.error(...)`, or `showToast(..., { variant })`
 instead of building a page-local in-content toast.
 
+- **Mentor lifecycle actions:** Publish, unpublish, archive, restore, open,
+  admission, scheduling, invitation, and similar user-triggered status
+  mutations use the shared toast for transient success and failure. Keep field
+  validation, readiness blockers, search/load errors, persistent recovery
+  instructions, and destructive confirmation copy in the page or dialog flow.
+
 - **Variants:** The shared component provides `default`, `success`, `error`,
   `info`, and `warning` variants. Success uses the student-status success
   tokens; error uses the student-status danger tokens; info and warning remain
@@ -68,4 +74,3 @@ instead of building a page-local in-content toast.
   close label, visible keyboard focus, and reduced-motion behavior. Keep field
   validation, persistent recovery instructions, destructive confirmations,
   empty states, and content users must read in the page flow.
-
