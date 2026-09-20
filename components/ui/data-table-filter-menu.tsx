@@ -36,8 +36,13 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
             <div
               className="relative"
               key={filter.id}
-              onFocusCapture={() => setActiveFilterId(filter.id)}
-              onMouseEnter={() => setActiveFilterId(filter.id)}
+              onMouseMove={(event) => {
+                if (event.nativeEvent.movementX === 0 && event.nativeEvent.movementY === 0) {
+                  return;
+                }
+
+                setActiveFilterId(filter.id);
+              }}
             >
               <button
                 aria-controls={panelId}

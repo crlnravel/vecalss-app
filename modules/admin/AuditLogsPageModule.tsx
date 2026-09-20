@@ -151,20 +151,16 @@ function AuditFilterPanel({
   targetType: AuditLogTargetType | null;
 }) {
   const router = useRouter();
+  const [draftTargetType, setDraftTargetType] = useState<AuditLogTargetType | null>(targetType);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const nextTargetType = String(formData.get("targetType") ?? "all");
-    const nextType = nextTargetType === "all" ? null : nextTargetType;
     const nextHref = auditLogHref({
       direction,
       page: 1,
       query,
       sort,
-      targetType: (AUDIT_LOG_TARGET_TYPES as readonly string[]).includes(nextType ?? "")
-        ? nextType as AuditLogTargetType
-        : null,
+      targetType: draftTargetType,
     });
 
     router.replace(nextHref, { scroll: false });
@@ -177,14 +173,13 @@ function AuditFilterPanel({
           {
             content: (
               <fieldset className="grid gap-0.5">
-                <legend className="px-1 pb-1 text-xs font-semibold text-secondary-900">
-                  Target
-                </legend>
+                <legend className="sr-only">Target</legend>
                 <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60">
                   <input
                     className="size-4 accent-primary-700"
-                    defaultChecked={!targetType}
+                    checked={draftTargetType === null}
                     name="targetType"
+                    onChange={() => setDraftTargetType(null)}
                     type="radio"
                     value="all"
                   />
@@ -197,8 +192,9 @@ function AuditFilterPanel({
                   >
                     <input
                       className="size-4 accent-primary-700"
-                      defaultChecked={targetType === value}
+                      checked={draftTargetType === value}
                       name="targetType"
+                      onChange={() => setDraftTargetType(value)}
                       type="radio"
                       value={value}
                     />
@@ -209,13 +205,13 @@ function AuditFilterPanel({
             ),
             id: "target-type",
             label: "Target",
-            summary: targetType
-              ? auditTargetTypeLabels[targetType]
+            summary: draftTargetType
+              ? auditTargetTypeLabels[draftTargetType]
               : "Semua target",
           } satisfies DataTableFilterMenuItem,
         ]}
       >
-        <div className="flex w-full items-center gap-1.5 pb-1">
+        <div className="flex w-full items-center gap-1.5 pt-4 pb-1">
           <Link
             className={cn(
               buttonVariants({ size: "sm", variant: "ghost" }),
@@ -429,7 +425,15 @@ function AuditLogsPageModule({
             clearFiltersHref={clearFiltersHref}
             columns={columns}
             emptyState={AUDIT_LOGS_EMPTY_STATE}
-            filterPanel={<AuditFilterPanel direction={direction} query={query} sort={sort} targetType={targetType} />}
+            filterPanel={
+              <AuditFilterPanel
+                direction={direction}
+                key={`${targetType ?? "all"}:${query}:${sort}:${direction}`}
+                query={query}
+                sort={sort}
+                targetType={targetType}
+              />
+            }
             filters={filters}
             getRowId={(entry) => entry.id}
             onRowClick={setSelectedAudit}
