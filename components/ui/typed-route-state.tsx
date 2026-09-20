@@ -28,6 +28,7 @@ export type RouteStateKind =
 
 type TypedRouteStateProps = {
   as?: "main" | "section";
+  additionalActions?: ReactNode;
   children?: ReactNode;
   className?: string;
   context?: string;
@@ -75,6 +76,7 @@ function iconClasses(kind: RouteStateKind) {
 }
 
 function TypedRouteStateContent({
+  additionalActions,
   children,
   context,
   description,
@@ -85,7 +87,7 @@ function TypedRouteStateContent({
   returnLabel,
   retryLabel,
   title,
-}: Pick<TypedRouteStateProps, "children" | "context" | "description" | "icon" | "kind" | "onRetry" | "returnHref" | "returnLabel" | "retryLabel" | "title">) {
+}: Pick<TypedRouteStateProps, "additionalActions" | "children" | "context" | "description" | "icon" | "kind" | "onRetry" | "returnHref" | "returnLabel" | "retryLabel" | "title">) {
   const Icon = icon ?? defaultIcons[kind];
 
   return (
@@ -103,7 +105,7 @@ function TypedRouteStateContent({
           <span className="h-3 w-1/2 animate-pulse rounded-full bg-primary-100" />
         </div>
       ) : null}
-      {onRetry || returnHref ? (
+      {onRetry || returnHref || additionalActions ? (
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {onRetry ? (
             <Button onClick={onRetry} type="button" variant="brand">
@@ -117,6 +119,7 @@ function TypedRouteStateContent({
               {returnLabel}
             </Button>
           ) : null}
+          {additionalActions}
         </div>
       ) : null}
     </div>
@@ -125,6 +128,7 @@ function TypedRouteStateContent({
 
 export function TypedRouteState({
   as = "main",
+  additionalActions,
   children,
   className,
   context,
@@ -138,7 +142,7 @@ export function TypedRouteState({
   title,
 }: TypedRouteStateProps) {
   const role: "alert" | "status" = isAlertState(kind) ? "alert" : "status";
-  const content = <TypedRouteStateContent context={context} description={description} icon={icon} kind={kind} onRetry={onRetry} returnHref={returnHref} returnLabel={returnLabel} retryLabel={retryLabel} title={title}>{children}</TypedRouteStateContent>;
+  const content = <TypedRouteStateContent additionalActions={additionalActions} context={context} description={description} icon={icon} kind={kind} onRetry={onRetry} returnHref={returnHref} returnLabel={returnLabel} retryLabel={retryLabel} title={title}>{children}</TypedRouteStateContent>;
 
   const containerClassName = cn(
     "grid min-h-[60svh] place-items-center bg-voyage-canvas px-4 py-10 text-voyage-ink sm:px-6",
