@@ -608,6 +608,7 @@ async function withTransientEditLeases<T>(
       throw new EditLeaseServiceError("invalid_proof", 422, "Resource edit proof tidak valid.");
     }
   }
+  const claimHolderUserId = holderUserId!;
 
   return withSerializationLockTimeout(tx, async () => {
     const claims: Array<{
@@ -672,7 +673,7 @@ async function withTransientEditLeases<T>(
       const current = await readLease(tx, claim.resource);
       if (
         !current
-        || current.holderUserId !== claim.resource.holderUserId
+        || current.holderUserId !== claimHolderUserId
         || current.generation !== claim.generation
         || !sameDigest(current.tokenDigest, digestLeaseToken(claim.token))
         || current.releasedAt !== null
@@ -690,7 +691,7 @@ async function withTransientEditLeases<T>(
         SET "released_at" = ${serverNow}
         WHERE "resource_type" = ${claim.resource.resourceType}::edit_lease_resource_type
           AND "resource_id" = ${claim.resource.resourceId}
-          AND "holder_user_id" = ${claim.resource.holderUserId}::uuid
+          AND "holder_user_id" = ${claimHolderUserId}::uuid
           AND "token_digest" = ${digestLeaseToken(claim.token)}
           AND "generation" = ${claim.generation}
           AND "released_at" IS NULL
