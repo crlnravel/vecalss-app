@@ -6,13 +6,16 @@ import { getReadOnlySessionContext } from "@/lib/auth/session";
 import { ArrowRight, LayoutDashboard } from "@/lib/icons";
 import { ActionButtonLink } from "@/modules/home/components/home-primitives";
 
+const VOYAGE_ROUTE_PATH =
+  "M-80 665c188-248 326-238 467-69 130 156 252 235 386 77 132-156 274-260 743-309";
+
 export default async function NotFound() {
   const session = await getReadOnlySessionContext();
   const dashboardHref = session ? getDefaultHomePath(session.user) : null;
   const hasDashboardAction = Boolean(dashboardHref && dashboardHref !== "/login");
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-white text-[#173C2D]">
+    <main className="relative min-h-screen overflow-hidden bg-white text-[var(--voyage-ink)]">
       <div
         aria-hidden="true"
         className="atlas-grid pointer-events-none absolute inset-0 z-0 opacity-[0.6]"
@@ -25,23 +28,42 @@ export default async function NotFound() {
         viewBox="0 0 1440 900"
       >
         <path
-          d="M-80 665c188-248 326-238 467-69 130 156 252 235 386 77 132-156 274-260 743-309"
-          stroke="#176B4D"
+          className="route-path-flow"
+          d={VOYAGE_ROUTE_PATH}
+          stroke="var(--voyage-forest)"
           strokeDasharray="8 13"
           strokeLinecap="round"
           strokeOpacity="0.34"
           strokeWidth="3"
         />
-        <circle cx="190" cy="565" fill="#FFD766" r="8" />
-        <circle cx="1145" cy="432" fill="#176B4D" opacity="0.72" r="9" />
+        <circle className="route-current" fill="var(--voyage-warm-sun)" r="6">
+          <animateMotion
+            dur="7s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
+        </circle>
+        <circle
+          className="route-current"
+          fill="var(--voyage-forest)"
+          opacity="0.8"
+          r="5"
+        >
+          <animateMotion
+            begin="-2.4s"
+            dur="5.8s"
+            path={VOYAGE_ROUTE_PATH}
+            repeatCount="indefinite"
+          />
+        </circle>
       </svg>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-56 right-[-8rem] z-0 size-[34rem] rounded-full bg-[#B7DDC3]/25 blur-3xl"
+        className="pointer-events-none absolute -top-56 right-[-8rem] z-0 size-[34rem] rounded-full bg-[var(--voyage-sea-glass)]/25 blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-[-12rem] left-[-8rem] z-0 size-[32rem] rounded-full bg-[#FFD766]/12 blur-3xl"
+        className="pointer-events-none absolute bottom-[-12rem] left-[-8rem] z-0 size-[32rem] rounded-full bg-[var(--voyage-warm-sun)]/12 blur-3xl"
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-7 sm:px-8 md:px-10 md:py-9">
@@ -79,32 +101,25 @@ export default async function NotFound() {
               >
                 404
               </div>
-              <div className="relative h-[230px] w-[230px] animate-float-slow motion-reduce:animate-none sm:h-[320px] sm:w-[320px] md:h-[390px] md:w-[390px] lg:h-[440px] lg:w-[440px]">
+              <div className="relative h-[230px] w-[230px] sm:h-[320px] sm:w-[320px] md:h-[390px] md:w-[390px] lg:h-[440px] lg:w-[440px]">
                 <Image
-                  alt="Maskot Vecalss"
+                  alt="Maskot Vecalss sedang pusing"
                   fill
                   className="object-contain drop-shadow-[0_30px_24px_rgba(0,31,23,0.18)]"
                   priority
                   sizes="(min-width: 1024px) 440px, (min-width: 768px) 390px, (min-width: 640px) 320px, 230px"
-                  src="/brand/mascot-vecalss.png"
+                  src="/mascot-dizzy.png"
                 />
               </div>
             </div>
 
             <div className="flex flex-col justify-center px-1 py-2 sm:px-4 lg:px-0 lg:py-12">
-              <p className="font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold tracking-[-0.065em] text-[#FFD766]">
-                404
-              </p>
               <h1 className="mt-5 max-w-[9ch] font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.9] font-extrabold tracking-[-0.065em] text-[#173C2D] sm:mt-7">
                 Maaf, sepertinya kamu salah kapal.
               </h1>
-              <p className="mt-6 max-w-[31ch] text-base leading-7 text-[#5F776A] md:text-lg">
-                Halaman yang kamu cari tidak berlabuh di sini. Yuk, kembali ke
-                rute utama.
-              </p>
 
               {hasDashboardAction ? (
-                <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <ActionButtonLink href={dashboardHref!}>
                     Kembali ke dashboard
                     <LayoutDashboard aria-hidden="true" className="size-5" />
@@ -115,7 +130,7 @@ export default async function NotFound() {
                   </ActionButtonLink>
                 </div>
               ) : (
-                <ActionButtonLink className="mt-7 sm:mt-8" href="/">
+                <ActionButtonLink className="mt-8" href="/">
                   Kembali ke beranda
                   <ArrowRight aria-hidden="true" className="size-5" />
                 </ActionButtonLink>
