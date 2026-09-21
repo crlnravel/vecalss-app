@@ -15,18 +15,21 @@ import {
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
-import { canonicalJson, VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
+import { assertMvpFeatureEnabled, canonicalJson, VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import { assertNormalizedStudioPayload } from "./studio-contracts";
 
 type DbClient = typeof defaultPrisma;
 
-export const VERA_APPLY_REGISTRY_KEYS = [
+/** Compatibility vocabulary for persisted legacy rows; never admission-enabled. */
+export const VERA_LEGACY_APPLY_REGISTRY_KEYS = [
   "learning_recommendation.v1",
   "adaptive_practice_session.v1",
   "ptn_strategy_session.v1",
 ] as const;
-export type VeraApplyRegistryKey = (typeof VERA_APPLY_REGISTRY_KEYS)[number];
+export type VeraApplyRegistryKey = (typeof VERA_LEGACY_APPLY_REGISTRY_KEYS)[number];
+/** New MVP provider/apply registry: artifact mutations are intentionally closed. */
+export const VERA_APPLY_REGISTRY_KEYS: readonly VeraApplyRegistryKey[] = [];
 
 const VERA_APPLY_TARGET_TYPES: Readonly<Record<VeraApplyRegistryKey, string>> = {
   "learning_recommendation.v1": "LearningRecommendation",
@@ -235,6 +238,7 @@ export class VeraArtifactCommandService {
     targetId: string;
     expectedTargetRevision: number;
   }) {
+    assertMvpFeatureEnabled("artifact_apply", "artifact-command.apply");
     assertArtifactClientRequestId(input.clientRequestId);
     try {
       return await this.applyOnce(input);
@@ -321,6 +325,7 @@ export class VeraArtifactCommandService {
   }
 
   async materializeLearningRecommendation(input: { studentId: string; artifactRevisionId: string; clientRequestId: string; expectedArtifactRevision: number; materializationSchemaVersion: "1" }) {
+    assertMvpFeatureEnabled("artifact_materialize", "artifact-command.materialize");
     assertArtifactClientRequestId(input.clientRequestId);
     try {
       return await this.materializeLearningRecommendationOnce(input);

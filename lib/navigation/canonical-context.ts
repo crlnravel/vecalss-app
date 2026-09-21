@@ -71,8 +71,11 @@ export type TryoutWorkspace = (typeof TRYOUT_WORKSPACES)[number];
 export const TRYOUT_DELIVERIES = ["policy", "sessions", "participants"] as const;
 export type TryoutDelivery = (typeof TRYOUT_DELIVERIES)[number];
 
-export const VERA_TOOL_IDS = ["analysis", "route", "drill", "review", "ptn", "summary"] as const;
-export type VeraToolId = (typeof VERA_TOOL_IDS)[number];
+/** MVP query registry. Legacy values remain a type-only compatibility union. */
+export const VERA_TOOL_IDS = ["analysis", "route", "review"] as const;
+export const VERA_LEGACY_TOOL_IDS = ["drill", "ptn", "summary"] as const;
+export type VeraMvpToolId = (typeof VERA_TOOL_IDS)[number];
+export type VeraToolId = VeraMvpToolId | (typeof VERA_LEGACY_TOOL_IDS)[number];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9:_-]{1,180}$/u;
@@ -427,8 +430,8 @@ export function buildMentorQuizEditorHref(quizId: string, subjectCode?: string) 
   return appendQuery(`/mentor/quiz/${encodeSegment(quizId)}/editor`, params);
 }
 
-export function isVeraToolId(value: string | undefined | null): value is VeraToolId {
-  return typeof value === "string" && VERA_TOOL_IDS.includes(value as VeraToolId);
+export function isVeraToolId(value: string | undefined | null): value is VeraMvpToolId {
+  return typeof value === "string" && VERA_TOOL_IDS.includes(value as VeraMvpToolId);
 }
 
 export function buildStudentReturnHref(returnTo?: string | null) {

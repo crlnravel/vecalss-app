@@ -9,6 +9,7 @@ import {
 import {
   VERA_MAX_CONTEXT_SOURCES,
   VERA_MAX_CONVERSATION_PAGE_SIZE,
+  assertMvpFeatureEnabled,
   VeraContractError,
   normalizeSelection,
   selectionDigest,
@@ -147,6 +148,14 @@ export class ConversationService {
     title?: string | null;
     now?: Date;
   }): Promise<{ conversation: ConversationRecord; replayed: boolean }> {
+    const feature = input.conversationType === "vera_chat"
+      ? "chat"
+      : input.conversationType === "weakness_analysis"
+        ? "analysis"
+        : input.conversationType;
+    // Keep this guard before idempotency.begin: disabled legacy mutations must
+    // have zero durable admission even when a caller reuses an old key.
+    assertMvpFeatureEnabled(feature, "conversation-service.create");
     const operation: VeraOperation = "conversation_create";
     const begin = await this.idempotency.begin({
       studentId: input.studentId,

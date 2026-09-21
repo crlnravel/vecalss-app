@@ -2,70 +2,165 @@ import "server-only";
 
 import { AiConversationType } from "@/generated/prisma/client";
 
-import { canonicalJson, sha256Hex } from "./contracts";
+import {
+  assertMvpFeatureEnabled,
+  canonicalJson,
+  sha256Hex,
+  VeraContractError,
+} from "./contracts";
 import { VeraOutputValidationError } from "./output-validator";
 import type { VeraStudioIdentityAuthority } from "./studio-authority";
 
-export const VERA_STUDIO_TOOL_IDS = ["analysis", "route", "review", "ptn", "summary", "drill"] as const;
-export type VeraStudioToolId = (typeof VERA_STUDIO_TOOL_IDS)[number];
+export const VERA_STUDIO_TOOL_IDS = ["analysis", "route", "review"] as const;
+export const VERA_DEFERRED_STUDIO_TOOL_IDS = ["ptn", "summary", "drill"] as const;
+export type VeraMvpStudioToolId = (typeof VERA_STUDIO_TOOL_IDS)[number];
+/** Compatibility input type. Deferred values are rejected by the server gate. */
+export type VeraStudioToolId = VeraMvpStudioToolId | (typeof VERA_DEFERRED_STUDIO_TOOL_IDS)[number];
 
 export type VeraStudioFeatureContract = {
   toolId: VeraStudioToolId;
   requestType: AiConversationType;
-  featureKey: `vera.${VeraStudioToolId}`;
+  featureKey: string;
   behaviorVersion: "1";
-  outputSchemaVersion: "1";
+  outputSchemaVersion: "1" | "2";
   contextPackVersion: "1";
-  schemaId: `vera.${VeraStudioToolId}.schema.v1`;
+  contextMode: "chat_review" | "analysis_route";
+  schemaId: string;
   schemaHash: string;
 };
 
-const featureSeed = (toolId: VeraStudioToolId, requestType: AiConversationType): VeraStudioFeatureContract => {
-  const schemaId = `vera.${toolId}.schema.v1` as const;
-  return {
-    toolId,
-    requestType,
-    featureKey: `vera.${toolId}`,
+const featureSeed = (
+  toolId: VeraMvpStudioToolId,
+  requestType: AiConversationType,
+  schemaId: VeraStudioFeatureContract["schemaId"],
+  outputSchemaVersion: VeraStudioFeatureContract["outputSchemaVersion"],
+  contextMode: VeraStudioFeatureContract["contextMode"],
+): VeraStudioFeatureContract => ({
+  toolId,
+  requestType,
+  featureKey: `vera.${toolId}`,
+  behaviorVersion: "1",
+  outputSchemaVersion,
+  contextPackVersion: "1",
+  contextMode,
+  schemaId,
+  schemaHash: sha256Hex(`strict-json-schema:${schemaId}`),
+});
+
+/** The only provider-backed Studio registry in the MVP. */
+export const VERA_MVP_STUDIO_FEATURES: Readonly<Record<VeraMvpStudioToolId, VeraStudioFeatureContract>> = {
+  analysis: featureSeed("analysis", AiConversationType.weakness_analysis, "vera.analysis.v1", "1", "analysis_route"),
+  route: featureSeed("route", AiConversationType.vera_chat, "vera.route.v1", "1", "analysis_route"),
+  review: featureSeed("review", AiConversationType.vera_chat, "vera.review.v2", "2", "chat_review"),
+};
+
+/**
+ * Compatibility export for older callers and persisted payload tooling. This
+ * is not a provider/query/durable allow-list: deferred entries are gated by
+ * getVeraFeatureContract/validateStudioOutput before they can be used.
+ */
+export const VERA_STUDIO_FEATURES: Readonly<Record<VeraStudioToolId, VeraStudioFeatureContract>> = {
+  ...VERA_MVP_STUDIO_FEATURES,
+  ptn: {
+    toolId: "ptn",
+    requestType: AiConversationType.ptn_strategy,
+    featureKey: "vera.ptn",
     behaviorVersion: "1",
     outputSchemaVersion: "1",
     contextPackVersion: "1",
-    schemaId,
-    schemaHash: sha256Hex(`strict-json-schema:${schemaId}`),
-  };
+    contextMode: "analysis_route",
+    schemaId: "vera.ptn.schema.v1",
+    schemaHash: sha256Hex("strict-json-schema:vera.ptn.schema.v1"),
+  },
+  summary: {
+    toolId: "summary",
+    requestType: AiConversationType.vera_chat,
+    featureKey: "vera.summary",
+    behaviorVersion: "1",
+    outputSchemaVersion: "1",
+    contextPackVersion: "1",
+    contextMode: "chat_review",
+    schemaId: "vera.summary.schema.v1",
+    schemaHash: sha256Hex("strict-json-schema:vera.summary.schema.v1"),
+  },
+  drill: {
+    toolId: "drill",
+    requestType: AiConversationType.smart_drill,
+    featureKey: "vera.drill",
+    behaviorVersion: "1",
+    outputSchemaVersion: "1",
+    contextPackVersion: "1",
+    contextMode: "analysis_route",
+    schemaId: "vera.drill.schema.v1",
+    schemaHash: sha256Hex("strict-json-schema:vera.drill.schema.v1"),
+  },
 };
 
-export const VERA_STUDIO_FEATURES: Readonly<Record<VeraStudioToolId, VeraStudioFeatureContract>> = {
-  analysis: featureSeed("analysis", AiConversationType.weakness_analysis),
-  route: featureSeed("route", AiConversationType.vera_chat),
-  review: featureSeed("review", AiConversationType.vera_chat),
-  ptn: featureSeed("ptn", AiConversationType.ptn_strategy),
-  summary: featureSeed("summary", AiConversationType.vera_chat),
-  drill: featureSeed("drill", AiConversationType.smart_drill),
+const chatContract = {
+  toolId: null,
+  requestType: AiConversationType.vera_chat,
+  featureKey: "vera.chat" as const,
+  behaviorVersion: "1" as const,
+  outputSchemaVersion: "freeform-1" as const,
+  contextPackVersion: "1" as const,
+  contextMode: "chat_review" as const,
+  schemaId: "vera.chat.freeform.v1" as const,
+  schemaHash: sha256Hex("vera.chat.freeform.v1"),
 };
 
-export function isVeraStudioToolId(value: unknown): value is VeraStudioToolId {
+export function isVeraStudioToolId(value: unknown): value is VeraMvpStudioToolId {
   return typeof value === "string" && (VERA_STUDIO_TOOL_IDS as readonly string[]).includes(value);
+}
+
+function disabled(operation: string, surface: string): never {
+  assertMvpFeatureEnabled(operation, surface);
+  throw new VeraContractError("feature_disabled", "Fitur Vera belum tersedia di MVP.", 410, { operation, surface });
 }
 
 export function getVeraFeatureContract(kind: "chat" | "studio", toolId: string | null | undefined) {
   if (kind === "chat") {
-    if (toolId !== null && toolId !== undefined) throw new VeraOutputValidationError("Chat cannot select a Studio tool.");
-    return {
-      toolId: null,
-      requestType: AiConversationType.vera_chat,
-      featureKey: "vera.chat" as const,
-      behaviorVersion: "1" as const,
-      outputSchemaVersion: "freeform-1" as const,
-      contextPackVersion: "1" as const,
-      schemaId: "vera.chat.freeform.v1" as const,
-      schemaHash: sha256Hex("vera.chat.freeform.v1"),
-    };
+    if (toolId !== null && toolId !== undefined) return disabled(toolId, "studio-contract");
+    assertMvpFeatureEnabled("chat", "studio-contract");
+    return chatContract;
   }
-  if (!isVeraStudioToolId(toolId)) throw new VeraOutputValidationError("Unknown Studio tool.");
-  return VERA_STUDIO_FEATURES[toolId];
+  if (!isVeraStudioToolId(toolId)) return disabled(typeof toolId === "string" ? toolId : "unmapped", "studio-contract");
+  assertMvpFeatureEnabled(toolId, "studio-contract");
+  return VERA_MVP_STUDIO_FEATURES[toolId];
 }
 
 type JsonRecord = Record<string, unknown>;
+
+/**
+ * Kept as a compatibility type for old persisted route rows. New MVP route
+ * output never contains a save projection and all apply/materialize commands
+ * are feature-gated.
+ */
+export type VeraRouteSaveProjection = {
+  sourceActivityOrdinal: number;
+  targetKind: "topic" | "module";
+  targetId: string;
+  topicId: string | null;
+  moduleId: string | null;
+  priority: number;
+  rationale: string;
+  rationaleDigest: string;
+};
+
+export type NormalizedStudioPayload = {
+  toolId: VeraStudioToolId;
+  schemaId: string;
+  schemaHash: string;
+  title: string;
+  markdown: string;
+  citationKeys: string[];
+  payload: JsonRecord;
+  saveProjection: VeraRouteSaveProjection | null;
+  digest: string;
+};
+
+function fail(message: string): never {
+  throw new VeraOutputValidationError(message);
+}
 
 function record(value: unknown, allowed: readonly string[], label: string): JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object.`);
@@ -75,12 +170,12 @@ function record(value: unknown, allowed: readonly string[], label: string): Json
   return candidate;
 }
 
-function text(value: unknown, label: string, max = 2_000, nullable = false): string | null {
+function text(value: unknown, label: string, maxBytes: number, nullable = false): string | null {
   if (nullable && value === null) return null;
   if (typeof value !== "string") fail(`${label} must be text.`);
   const normalized = value.normalize("NFC").trim();
-  if (!normalized || normalized.length > max || Buffer.byteLength(normalized, "utf8") > max * 4) fail(`${label} is outside bounds.`);
-  if (/<\/?[a-z][^>]*>|!\[[^\]]*\]\([^)]*\)|(?:javascript|data|vbscript):|https?:\/\//iu.test(normalized)) fail(`${label} contains unsafe Markdown.`);
+  if (!normalized || Buffer.byteLength(normalized, "utf8") > maxBytes) fail(`${label} is outside bounds.`);
+  if (/<\/?[^>]+>|!\[[^\]]*\]\([^)]*\)|(?:javascript|data|vbscript):|https?:\/\//iu.test(normalized)) fail(`${label} contains unsafe Markdown.`);
   return normalized;
 }
 
@@ -105,46 +200,23 @@ function list<T>(value: unknown, label: string, min: number, max: number, parser
   return value.map(parser);
 }
 
-function citationList(value: unknown, allowed: Set<string>, label: string, min = 0): string[] {
-  const citations = list(value, label, min, 12, (item) => {
-    if (typeof item !== "string" || !/^(?:src|materi|kuis|tryout)_[A-Za-z0-9_-]{1,72}$/.test(item) || !allowed.has(item)) fail(`${label} contains an unauthorized citation.`);
+function citationList(value: unknown, allowed: Set<string>, label: string, min = 0, max = 8): string[] {
+  const citations = list(value, label, min, max, (item) => {
+    if (typeof item !== "string" || !/^(?:src|materi|kuis|tryout)_[A-Za-z0-9_-]{1,120}$/u.test(item) || !allowed.has(item)) fail(`${label} contains an unauthorized citation.`);
     return item;
   });
   if (new Set(citations).size !== citations.length) fail(`${label} contains duplicate citations.`);
   return [...citations].sort();
 }
 
-function fail(message: string): never {
-  throw new VeraOutputValidationError(message);
+function withDigest(input: Omit<NormalizedStudioPayload, "digest">): NormalizedStudioPayload {
+  return { ...input, digest: sha256Hex(canonicalJson(input)) };
 }
-
-export type VeraRouteSaveProjection = {
-  sourceActivityOrdinal: number;
-  targetKind: "topic" | "module";
-  targetId: string;
-  topicId: string | null;
-  moduleId: string | null;
-  priority: number;
-  rationale: string;
-  rationaleDigest: string;
-};
-
-export type NormalizedStudioPayload = {
-  toolId: VeraStudioToolId;
-  schemaId: string;
-  schemaHash: string;
-  title: string;
-  markdown: string;
-  citationKeys: string[];
-  payload: JsonRecord;
-  saveProjection: VeraRouteSaveProjection | null;
-  digest: string;
-};
 
 export function assertNormalizedStudioPayload(value: unknown): NormalizedStudioPayload {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("Normalized Studio result is missing.");
   const candidate = value as Partial<NormalizedStudioPayload>;
-  if (!isVeraStudioToolId(candidate.toolId)) fail("Normalized Studio tool is invalid.");
+  if (!isVeraStudioToolId(candidate.toolId)) fail("Normalized Studio tool is disabled or invalid.");
   const contract = VERA_STUDIO_FEATURES[candidate.toolId];
   if (candidate.schemaId !== contract.schemaId || candidate.schemaHash !== contract.schemaHash) fail("Normalized Studio schema identity drifted.");
   if (typeof candidate.title !== "string" || typeof candidate.markdown !== "string" || !Array.isArray(candidate.citationKeys)
@@ -155,22 +227,21 @@ export function assertNormalizedStudioPayload(value: unknown): NormalizedStudioP
   return candidate as NormalizedStudioPayload;
 }
 
-function withDigest(input: Omit<NormalizedStudioPayload, "digest">): NormalizedStudioPayload {
-  return { ...input, digest: sha256Hex(canonicalJson(input)) };
-}
-
 export function validateStudioOutput(input: {
   toolId: VeraStudioToolId;
   structured: unknown;
   allowedCitationKeys: Iterable<string>;
   identityAuthority: VeraStudioIdentityAuthority;
 }): NormalizedStudioPayload {
+  if (!isVeraStudioToolId(input.toolId)) return disabled(input.toolId, "studio-output");
+  assertMvpFeatureEnabled(input.toolId, "studio-output");
   const allowed = new Set(input.allowedCitationKeys);
-  const contract = VERA_STUDIO_FEATURES[input.toolId];
+  const contract = VERA_MVP_STUDIO_FEATURES[input.toolId];
   const finalize = (payload: NormalizedStudioPayload) => {
     assertStudioPayloadAuthority(payload, input.identityAuthority);
     return payload;
   };
+
   switch (input.toolId) {
     case "analysis": {
       const root = record(input.structured, ["title", "summaryMarkdown", "topics"], "analysis");
@@ -186,7 +257,7 @@ export function validateStudioOutput(input: {
           rank,
           weaknessScore: decimal(row.weaknessScore, "analysis.weaknessScore", 0, 100),
           confidence: decimal(row.confidence, "analysis.confidence", 0, 1),
-          evidenceCitationKeys: citationList(row.evidenceCitationKeys, allowed, "analysis.evidenceCitationKeys", 1),
+          evidenceCitationKeys: citationList(row.evidenceCitationKeys, allowed, "analysis.evidenceCitationKeys", 1, 4),
           limitations: text(row.limitations, "analysis.limitations", 600)!,
           nextStep: text(row.nextStep, "analysis.nextStep", 600)!,
         };
@@ -197,117 +268,73 @@ export function validateStudioOutput(input: {
       return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown: summaryMarkdown, citationKeys, payload, saveProjection: null }));
     }
     case "route": {
-      const root = record(input.structured, ["title", "goal", "activities", "saveProjection"], "route");
-      const title = text(root.title, "route.title", 180)!;
-      const goal = text(root.goal, "route.goal", 1_000)!;
-      const activities = list(root.activities, "route.activities", 1, 20, (item, index) => {
-        const row = record(item, ["ordinal", "action", "estimatedMinutes", "topicIds", "moduleIds", "sourceIds", "citationKeys"], `route.activities[${index}]`);
-        const ordinal = integer(row.ordinal, "route.ordinal", 1, 20);
-        if (ordinal !== index + 1) fail("Route ordinals must be contiguous.");
-        const ids = (value: unknown, label: string) => list(value, label, 0, 12, (entry) => uuid(entry, label)!).filter((entry, pos, all) => all.indexOf(entry) === pos).sort();
+      const root = record(input.structured, ["schema", "activities", "limitations"], "route");
+      if (root.schema !== "vera.route.v1") fail("route.schema is invalid.");
+      const activities = list(root.activities, "route.activities", 0, 3, (item, index) => {
+        const row = record(item, ["startDay", "endDay", "title", "rationale", "sourceKeys"], `route.activities[${index}]`);
+        const startDay = integer(row.startDay, "route.startDay", 1, 7);
+        const endDay = integer(row.endDay, "route.endDay", startDay, 7);
         return {
-          ordinal,
-          action: text(row.action, "route.action", 800)!,
-          estimatedMinutes: integer(row.estimatedMinutes, "route.estimatedMinutes", 1, 480),
-          topicIds: ids(row.topicIds, "route.topicIds"),
-          moduleIds: ids(row.moduleIds, "route.moduleIds"),
-          sourceIds: ids(row.sourceIds, "route.sourceIds"),
-          citationKeys: citationList(row.citationKeys, allowed, "route.citationKeys"),
+          startDay,
+          endDay,
+          title: text(row.title, "route.title", 160)!,
+          rationale: text(row.rationale, "route.rationale", 500)!,
+          sourceKeys: citationList(row.sourceKeys, allowed, "route.sourceKeys", 0, 4),
         };
       });
-      let saveProjection: VeraRouteSaveProjection | null = null;
-      if (root.saveProjection !== null) {
-        const save = record(root.saveProjection, ["sourceActivityOrdinal", "targetKind", "targetId", "priority", "rationale"], "route.saveProjection");
-        const sourceActivityOrdinal = integer(save.sourceActivityOrdinal, "route.saveProjection.sourceActivityOrdinal", 1, activities.length);
-        if (save.targetKind !== "topic" && save.targetKind !== "module") fail("Route save target kind is invalid.");
-        const targetId = uuid(save.targetId, "route.saveProjection.targetId")!;
-        const activity = activities[sourceActivityOrdinal - 1]!;
-        const candidates = save.targetKind === "topic" ? activity.topicIds : activity.moduleIds;
-        if (!candidates.includes(targetId)) fail("Route save target is not present on the selected activity.");
-        const rationale = text(save.rationale, "route.saveProjection.rationale", 1_200)!;
-        saveProjection = {
-          sourceActivityOrdinal,
-          targetKind: save.targetKind,
-          targetId,
-          topicId: save.targetKind === "topic" ? targetId : null,
-          moduleId: save.targetKind === "module" ? targetId : null,
-          priority: integer(save.priority, "route.saveProjection.priority", 0, 100),
-          rationale,
-          rationaleDigest: sha256Hex(rationale),
-        };
-      }
-      const citationKeys = [...new Set(activities.flatMap((activity) => activity.citationKeys))].sort();
-      const markdown = [goal, ...activities.map((activity) => `${activity.ordinal}. ${activity.action} (${activity.estimatedMinutes} menit)`)].join("\n\n");
-      const payload = { title, goal, activities, saveProjection };
-      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys, payload, saveProjection }));
+      const ordered = [...activities].sort((left, right) => left.startDay - right.startDay || left.endDay - right.endDay);
+      if (canonicalJson(ordered) !== canonicalJson(activities)) fail("Route activities must be sorted by day span.");
+      const limitations = list(root.limitations, "route.limitations", 0, 3, (item) => text(item, "route.limitation", 240)!);
+      const citationKeys = [...new Set(activities.flatMap((activity) => activity.sourceKeys))].sort();
+      const title = "Rute belajar 7 hari";
+      const markdown = activities.length
+        ? activities.map((activity) => `Hari ${activity.startDay}-${activity.endDay}: ${activity.title}\n${activity.rationale}`).join("\n\n")
+        : limitations.join("\n\n");
+      const payload = { schema: "vera.route.v1" as const, activities, limitations };
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys, payload, saveProjection: null }));
     }
     case "review": {
-      const root = record(input.structured, ["title", "questionId", "questionRevisionId", "misconception", "explanationSteps", "citationKeys"], "review");
-      const title = text(root.title, "review.title", 180)!;
-      const payload = {
-        title,
-        questionId: uuid(root.questionId, "review.questionId")!,
-        questionRevisionId: uuid(root.questionRevisionId, "review.questionRevisionId")!,
-        misconception: text(root.misconception, "review.misconception", 1_000)!,
-        explanationSteps: list(root.explanationSteps, "review.explanationSteps", 1, 12, (item) => text(item, "review.explanationStep", 800)!),
-        citationKeys: citationList(root.citationKeys, allowed, "review.citationKeys", 1),
-      };
-      const markdown = [payload.misconception, ...payload.explanationSteps.map((step, index) => `${index + 1}. ${step}`)].join("\n\n");
-      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
-    }
-    case "ptn": {
-      const root = record(input.structured, ["title", "universityId", "majorId", "scoreEvidence", "assumptions", "actions", "disclaimer", "citationKeys"], "ptn");
-      const title = text(root.title, "ptn.title", 180)!;
-      const payload = {
-        title,
-        universityId: root.universityId === undefined ? null : uuid(root.universityId, "ptn.universityId", true),
-        majorId: root.majorId === undefined ? null : uuid(root.majorId, "ptn.majorId", true),
-        scoreEvidence: decimal(root.scoreEvidence, "ptn.scoreEvidence", 0, 1_000),
-        assumptions: list(root.assumptions, "ptn.assumptions", 1, 10, (item) => text(item, "ptn.assumption", 600)!),
-        actions: list(root.actions, "ptn.actions", 1, 12, (item) => text(item, "ptn.action", 700)!),
-        disclaimer: text(root.disclaimer, "ptn.disclaimer", 1_000)!,
-        citationKeys: citationList(root.citationKeys, allowed, "ptn.citationKeys"),
-      };
-      const markdown = [...payload.actions.map((action, index) => `${index + 1}. ${action}`), payload.disclaimer].join("\n\n");
-      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
-    }
-    case "summary": {
-      const root = record(input.structured, ["title", "focus", "decisions", "nextActions", "limitations", "citationKeys"], "summary");
-      const title = text(root.title, "summary.title", 180)!;
-      const payload = {
-        title,
-        focus: text(root.focus, "summary.focus", 1_200)!,
-        decisions: list(root.decisions, "summary.decisions", 1, 12, (item) => text(item, "summary.decision", 700)!),
-        nextActions: list(root.nextActions, "summary.nextActions", 1, 12, (item) => text(item, "summary.nextAction", 700)!),
-        limitations: text(root.limitations, "summary.limitations", 800)!,
-        citationKeys: citationList(root.citationKeys, allowed, "summary.citationKeys"),
-      };
-      const markdown = [payload.focus, ...payload.decisions.map((value) => `- ${value}`), ...payload.nextActions.map((value) => `- ${value}`), payload.limitations].join("\n\n");
-      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
-    }
-    case "drill": {
-      const root = record(input.structured, ["title", "topicId", "items"], "drill");
-      const title = text(root.title, "drill.title", 180)!;
-      const topicId = uuid(root.topicId, "drill.topicId")!;
-      const items = list(root.items, "drill.items", 1, 20, (item, index) => {
-        const row = record(item, ["ordinal", "questionId", "questionRevisionId", "topicId", "difficulty", "explanationPlan"], `drill.items[${index}]`);
-        const ordinal = integer(row.ordinal, "drill.ordinal", 1, 20);
-        if (ordinal !== index + 1) fail("Drill ordinals must be contiguous.");
-        if (!(["easy", "medium", "hard"] as unknown[]).includes(row.difficulty)) fail("Drill difficulty is invalid.");
-        return {
-          ordinal,
-          questionId: uuid(row.questionId, "drill.questionId")!,
-          questionRevisionId: uuid(row.questionRevisionId, "drill.questionRevisionId")!,
-          topicId: uuid(row.topicId, "drill.item.topicId")!,
-          difficulty: row.difficulty as "easy" | "medium" | "hard",
-          explanationPlan: text(row.explanationPlan, "drill.explanationPlan", 800)!,
-        };
+      if (!input.structured || typeof input.structured !== "object" || Array.isArray(input.structured)) fail("review must be an object.");
+      const base = input.structured as JsonRecord;
+      if (base.schema !== "vera.review.v2") fail("review.schema is invalid.");
+      if (base.variant === "full") {
+        const root = record(input.structured, ["schema", "variant", "questionId", "questionRevisionId", "misconception", "explanationSteps", "citations"], "review.full");
+        const questionId = uuid(root.questionId, "review.questionId")!;
+        const questionRevisionId = uuid(root.questionRevisionId, "review.questionRevisionId")!;
+        const misconception = text(root.misconception, "review.misconception", 1_000)!;
+        const explanationSteps = list(root.explanationSteps, "review.explanationSteps", 1, 5, (item, index) => {
+          const step = record(item, ["title", "body"], `review.explanationSteps[${index}]`);
+          return { title: text(step.title, "review.explanationStep.title", 120)!, body: text(step.body, "review.explanationStep.body", 1_000)! };
+        });
+        const citations = list(root.citations, "review.citations", 1, 8, (item, index) => {
+          const citation = record(item, ["citationKey", "title"], `review.citations[${index}]`);
+          const citationKey = citationList([citation.citationKey], allowed, "review.citationKey", 1, 1)[0]!;
+          return { citationKey, title: text(citation.title, "review.citation.title", 240)! };
+        });
+        if (new Set(citations.map((citation) => citation.citationKey)).size !== citations.length) fail("review.citations contains duplicate citations.");
+        const citationKeys = citations.map((citation) => citation.citationKey).sort();
+        const payload = { schema: "vera.review.v2" as const, variant: "full" as const, questionId, questionRevisionId, misconception, explanationSteps, citations };
+        const markdown = [misconception, ...explanationSteps.map((step, index) => `${index + 1}. ${step.title}: ${step.body}`)].join("\n\n");
+        return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title: "Bahas soal", markdown, citationKeys, payload, saveProjection: null }));
+      }
+      if (base.variant !== "evidence_limited") fail("review.variant is invalid.");
+      const root = record(input.structured, ["schema", "variant", "limitations", "releasedEvidence", "safeNextStep"], "review.evidence_limited");
+      const limitations = list(root.limitations, "review.limitations", 1, 3, (item) => text(item, "review.limitation", 240)!);
+      const releasedEvidence = list(root.releasedEvidence, "review.releasedEvidence", 1, 4, (item, index) => {
+        const evidence = record(item, ["citationKey", "title", "kind", "description", "score", "digest"], `review.releasedEvidence[${index}]`);
+        const citationKey = citationList([evidence.citationKey], allowed, "review.releasedEvidence.citationKey", 1, 1)[0]!;
+        if (evidence.kind !== "materi" && evidence.kind !== "quiz" && evidence.kind !== "tryout") fail("review.releasedEvidence.kind is invalid.");
+        const description = evidence.description === null ? null : text(evidence.description, "review.releasedEvidence.description", 1_000, true);
+        const score = evidence.score === null ? null : decimal(evidence.score, "review.releasedEvidence.score", -1_000_000, 1_000_000);
+        const digest = evidence.digest === null ? null : text(evidence.digest, "review.releasedEvidence.digest", 128, true);
+        if (description === null && digest === null) fail("review.releasedEvidence needs description or digest.");
+        return { citationKey, title: text(evidence.title, "review.releasedEvidence.title", 240)!, kind: evidence.kind, description, score, digest };
       });
-      if (new Set(items.map((item) => item.questionRevisionId)).size !== items.length) fail("Drill revisions must be unique.");
-      if (items.some((item) => item.topicId !== topicId)) fail("Drill items must use the session topic.");
-      const payload = { title, topicId, items };
-      const markdown = `Drill siap dengan ${items.length} soal yang telah dirilis.`;
-      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: [], payload, saveProjection: null }));
+      const safeNextStep = text(root.safeNextStep, "review.safeNextStep", 500)!;
+      const citationKeys = releasedEvidence.map((evidence) => evidence.citationKey).sort();
+      const payload = { schema: "vera.review.v2" as const, variant: "evidence_limited" as const, limitations, releasedEvidence, safeNextStep };
+      const markdown = ["Bukti terbatas.", ...limitations, safeNextStep].join("\n\n");
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title: "Bukti terbatas", markdown, citationKeys, payload, saveProjection: null }));
     }
   }
 }
@@ -319,9 +346,6 @@ export function assertStudioPayloadAuthority(
   const payload = normalized.payload;
   const allowedTopics = new Set(authority.topicIds);
   const allowedModules = new Set(authority.moduleIds);
-  const allowedSources = new Set(authority.sourceIds);
-  const allowedUniversities = new Set(authority.universityIds);
-  const allowedMajors = new Set(authority.majorIds);
   const allowedQuestions = new Set(authority.questions.map((question) => `${question.questionId}:${question.questionRevisionId}`));
   const requireAllowed = (value: unknown, allowed: Set<string>, label: string) => {
     if (typeof value !== "string" || !allowed.has(value)) fail(`${label} is not authorized for this request.`);
@@ -339,29 +363,12 @@ export function assertStudioPayloadAuthority(
       }
       break;
     case "route":
-      for (const activity of payload.activities as Array<Record<string, unknown>>) {
-        for (const topicId of activity.topicIds as unknown[]) requireAllowed(topicId, allowedTopics, "route.topicId");
-        for (const moduleId of activity.moduleIds as unknown[]) requireAllowed(moduleId, allowedModules, "route.moduleId");
-        for (const sourceId of activity.sourceIds as unknown[]) requireAllowed(sourceId, allowedSources, "route.sourceId");
-      }
-      if (normalized.saveProjection?.topicId) requireAllowed(normalized.saveProjection.topicId, allowedTopics, "route.saveProjection.topicId");
-      if (normalized.saveProjection?.moduleId) requireAllowed(normalized.saveProjection.moduleId, allowedModules, "route.saveProjection.moduleId");
+      // Route source keys have already been checked against the released
+      // citation set before this authority pass. The route schema intentionally
+      // carries no mutable topic/module IDs or save target.
       break;
     case "review":
-      requireQuestion(payload.questionId, payload.questionRevisionId, "review.questionRevisionId");
-      break;
-    case "ptn":
-      if (payload.universityId !== null) requireAllowed(payload.universityId, allowedUniversities, "ptn.universityId");
-      if (payload.majorId !== null) requireAllowed(payload.majorId, allowedMajors, "ptn.majorId");
-      break;
-    case "drill":
-      requireAllowed(payload.topicId, allowedTopics, "drill.topicId");
-      for (const item of payload.items as Array<Record<string, unknown>>) {
-        requireQuestion(item.questionId, item.questionRevisionId, "drill.questionRevisionId");
-        requireAllowed(item.topicId, allowedTopics, "drill.topicId");
-      }
-      break;
-    case "summary":
+      if (payload.variant === "full") requireQuestion(payload.questionId, payload.questionRevisionId, "review.questionRevisionId");
       break;
   }
 }

@@ -14,8 +14,8 @@ import {
 import {
   VeraPrismaAdmissionService,
 } from "./admission-service";
-import { VeraContractError } from "./contracts";
-import { prepareContextPack, type VeraContextResolver } from "./context-pack";
+import { VeraContractError, VERA_MAX_HISTORY_PAIRS } from "./contracts";
+import { prepareContextPack, type VeraContextResolver, type VeraPriorMessage } from "./context-pack";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootKeyProvider, type AiEncryptedPayload } from "./envelope";
 import { IdempotencyService, InMemoryIdempotencyStore } from "./idempotency";
 import {
@@ -188,9 +188,70 @@ export class VeraPrismaChatOrchestrator {
     return new IORedisVeraLeaseStore(url);
   }
 
+  /**
+   * Load only completed request pairs strictly before this admission's
+   * monotonic cutoff. The current schema has no sequence column, so
+   * (createdAt,id) is the stable server ordering and the assigned sequence is
+   * an in-memory boundary marker; no client-supplied sequence is trusted.
+   */
+  private async loadCompletedHistory(
+    studentId: string,
+    conversationId: string,
+    cutoff: Date,
+  ): Promise<VeraPriorMessage[]> {
+    try {
+      const rows = await this.db.aiRequest.findMany({
+        where: {
+          studentId,
+          conversationId,
+          createdAt: { lt: cutoff },
+          status: { in: [AiRequestLifecycleState.succeeded, AiRequestLifecycleState.fallback] },
+          userMessageId: { not: null },
+          assistantMessageId: { not: null },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: VERA_MAX_HISTORY_PAIRS,
+        select: {
+          createdAt: true,
+          id: true,
+          userMessage: { select: { conversationId: true, role: true, contentEnvelope: true, contentState: true } },
+          assistantMessage: { select: { conversationId: true, role: true, contentEnvelope: true, contentState: true } },
+        },
+      });
+      const history: VeraPriorMessage[] = [];
+      for (const row of [...rows].reverse()) {
+        const user = row.userMessage;
+        const assistant = row.assistantMessage;
+        if (!user || !assistant
+          || user.conversationId !== conversationId || assistant.conversationId !== conversationId
+          || user.role !== "user" || assistant.role !== "assistant"
+          || user.contentState !== "encrypted" || assistant.contentState !== "encrypted"
+          || !user.contentEnvelope || !assistant.contentEnvelope) continue;
+        try {
+          const [userText, assistantText] = await Promise.all([
+            this.envelope.decryptTextAsync(user.contentEnvelope as unknown as AiEncryptedPayload),
+            this.envelope.decryptTextAsync(assistant.contentEnvelope as unknown as AiEncryptedPayload),
+          ]);
+          if (!userText || !assistantText) continue;
+          const sequence = history.length;
+          history.push({ role: "user", text: userText, sequence });
+          history.push({ role: "assistant", text: assistantText, sequence: sequence + 1 });
+        } catch {
+          // A single unavailable historical pair must not make the current
+          // request fail; the context pack remains single-turn for that gap.
+        }
+      }
+      return history;
+    } catch {
+      // History is an optional context source. Fail closed to no history if a
+      // legacy database/client cannot project the relation shape.
+      return [];
+    }
+  }
+
   private async prepareAdmission(input: VeraAdmissionInput): Promise<TransportAdmission> {
-    const now = await this.admission.databaseNow();
     const feature = getVeraFeatureContract(input.kind ?? "chat", input.toolId);
+    const now = await this.admission.databaseNow();
     if (input.retryOfRequestId) {
       await this.admission.assertRetryTargetEligible({
         requestId: input.retryOfRequestId,
@@ -298,6 +359,8 @@ export class VeraPrismaChatOrchestrator {
           studentId: input.studentId,
           selection: input.selection ?? [],
           userText: input.text,
+          priorMessages: await this.loadCompletedHistory(input.studentId, input.conversationId, now),
+          mode: feature.contextMode,
           policyVersion: policy.bundleVersion,
           promptTemplateHash: `${feature.featureKey}-prompt-v1`,
           toolSchemaHash: feature.schemaHash,

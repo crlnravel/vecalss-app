@@ -1,6 +1,7 @@
 import { AiConversationType } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, getSessionContext } from "@/lib/auth/session";
 import { isSafeClientRequestId, readJsonBody, VERA_HTTP_HEADERS, VeraHttpError } from "@/lib/vera-ai/http";
+import { assertMvpFeatureEnabled } from "@/lib/vera-ai/contracts";
 import { mapLearnerServiceError } from "@/lib/vera-ai/learner-service";
 import { getVeraLearnerService } from "@/lib/vera-ai/route-support";
 
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
       || typeof body.conversationType !== "string"
       || !Object.values(AiConversationType).includes(body.conversationType as AiConversationType)
       || (body.title !== undefined && body.title !== null && typeof body.title !== "string")) throw new VeraHttpError("invalid_request", 400);
+    const operation = body.conversationType === AiConversationType.vera_chat
+      ? "chat"
+      : body.conversationType === AiConversationType.weakness_analysis
+        ? "analysis"
+        : body.conversationType;
+    assertMvpFeatureEnabled(operation, "conversation-http");
     const result = await getVeraLearnerService().createConversation({
       studentId: session.user.id,
       clientRequestId: body.clientRequestId,

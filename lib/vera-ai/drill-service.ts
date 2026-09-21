@@ -5,7 +5,7 @@ import { createHmac } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
-import { canonicalJson } from "./contracts";
+import { assertMvpFeatureEnabled, canonicalJson } from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 
 type DbClient = typeof defaultPrisma;
@@ -64,6 +64,7 @@ export class VeraDrillService {
   }
 
   async answer(input: { studentId: string; sessionId: string; clientAnswerId: string; expectedSessionRevision: number; adaptivePracticeItemId: string; itemRevisionToken: string; selectedOptionKey: string }) {
+    assertMvpFeatureEnabled("drill", "adaptive-practice.answer");
     if (!/^[A-Za-z0-9._:-]{1,120}$/u.test(input.clientAnswerId) || !/^[A-Za-z0-9_-]{1,16}$/u.test(input.selectedOptionKey)
       || input.itemRevisionToken.length > 120 || !Number.isInteger(input.expectedSessionRevision) || input.expectedSessionRevision < 0) throw new VeraDrillError("invalid_request", 400);
     const fingerprint = this.fingerprint({ sessionId: input.sessionId, expectedSessionRevision: input.expectedSessionRevision, itemId: input.adaptivePracticeItemId, selectedOptionKey: input.selectedOptionKey, itemRevisionToken: input.itemRevisionToken });
@@ -92,6 +93,7 @@ export class VeraDrillService {
   }
 
   async submit(input: { studentId: string; sessionId: string; clientSubmissionId: string; expectedSessionRevision: number }) {
+    assertMvpFeatureEnabled("drill", "adaptive-practice.submit");
     if (!/^[A-Za-z0-9._:-]{1,120}$/u.test(input.clientSubmissionId) || !Number.isInteger(input.expectedSessionRevision) || input.expectedSessionRevision < 0) throw new VeraDrillError("invalid_request", 400);
     const fingerprint = this.fingerprint({ sessionId: input.sessionId, expectedSessionRevision: input.expectedSessionRevision });
     return this.db.$transaction(async (tx) => {

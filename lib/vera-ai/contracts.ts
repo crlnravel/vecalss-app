@@ -13,9 +13,84 @@ export const VERA_QUOTA_POLICY_VERSION = "vera-quota-v1-2026-08-24";
 export const VERA_POLICY_EFFECTIVE_AT = "2026-09-01T00:00:00+07:00";
 export const VERA_FINGERPRINT_KEY_VERSION = "vera-hmac-v1";
 export const VERA_CONTEXT_PACK_VERSION = "1";
-export const VERA_MAX_CONTEXT_SOURCES = 6;
+export const VERA_MAX_CONTEXT_SOURCES = 4;
+export const VERA_MAX_CONTEXT_BLOCK_BYTES = 6_000;
+export const VERA_MAX_HISTORY_PAIRS = 3;
+export const VERA_MAX_HISTORY_MESSAGES = VERA_MAX_HISTORY_PAIRS * 2;
+export const VERA_MAX_HISTORY_MESSAGE_BYTES = 1_500;
+export const VERA_MAX_HISTORY_BYTES = 9_000;
 export const VERA_MAX_CONVERSATION_PAGE_SIZE = 50;
 export const VERA_MAX_PROVIDER_ATTEMPTS = 2;
+
+export const VERA_INPUT_CERTIFIER_ID = "openrouter-utf8-byte-upper-bound-v1";
+export const VERA_INPUT_SERIALIZER_ID = "vera-openrouter-chat-input-v1";
+export const VERA_FIXED_FRAMING_TOKEN_BOUND = 512;
+
+export const VERA_CONTEXT_MODE_BUDGETS = {
+  chat_review: {
+    maxSources: VERA_MAX_CONTEXT_SOURCES,
+    maxBlockBytes: VERA_MAX_CONTEXT_BLOCK_BYTES,
+    maxFinalInputBytes: 5_488,
+    inputTokenCap: 6_000,
+    outputTokenCap: 800,
+  },
+  analysis_route: {
+    maxSources: VERA_MAX_CONTEXT_SOURCES,
+    maxBlockBytes: VERA_MAX_CONTEXT_BLOCK_BYTES,
+    maxFinalInputBytes: 9_488,
+    inputTokenCap: 10_000,
+    outputTokenCap: 1_200,
+  },
+} as const;
+
+export type VeraContextMode = keyof typeof VERA_CONTEXT_MODE_BUDGETS;
+
+export type VeraMvpFeature = "chat" | "review" | "analysis" | "route";
+
+/**
+ * The MVP allow-list is deliberately server-only and operation-based.  A
+ * caller may pass a legacy/deferred operation here to get the same typed
+ * 410 rejection at every boundary instead of relying on UI visibility.
+ */
+export function assertMvpFeatureEnabled(
+  operation: string,
+  surface: string,
+): asserts operation is VeraMvpFeature {
+  if (!(Object.keys(VERA_MVP_FEATURES) as string[]).includes(operation)) {
+    throw new VeraContractError(
+      "feature_disabled",
+      `Fitur Vera ${operation || "tidak dikenal"} belum tersedia di MVP.`,
+      410,
+      { operation, surface },
+    );
+  }
+}
+
+export const VERA_MVP_FEATURES: Readonly<Record<VeraMvpFeature, {
+  conversationType: "vera_chat" | "weakness_analysis";
+  contextMode: VeraContextMode;
+}>> = {
+  chat: { conversationType: "vera_chat", contextMode: "chat_review" },
+  review: { conversationType: "vera_chat", contextMode: "chat_review" },
+  analysis: { conversationType: "weakness_analysis", contextMode: "analysis_route" },
+  route: { conversationType: "vera_chat", contextMode: "analysis_route" },
+};
+
+export function mvpFeatureForConversationType(value: unknown): VeraMvpFeature | null {
+  if (value === "vera_chat") return "chat";
+  if (value === "weakness_analysis") return "analysis";
+  return null;
+}
+
+export function mvpFeatureForToolId(value: unknown): VeraMvpFeature | null {
+  if (value === "analysis" || value === "route" || value === "review") return value;
+  return null;
+}
+
+export function contextModeForFeatureKey(featureKey: string): VeraContextMode {
+  if (featureKey === "vera.analysis" || featureKey === "vera.route") return "analysis_route";
+  return "chat_review";
+}
 
 export type VeraOperation =
   | "conversation_create"
@@ -47,11 +122,14 @@ export type VeraContextSelection = {
 };
 
 export type VeraErrorCode =
+  | "feature_disabled"
   | "idempotency_conflict"
   | "conversation_version_conflict"
   | "context_version_conflict"
+  | "context_limit_exceeded"
   | "context_release_unavailable"
   | "document_phase_disabled"
+  | "document_sources_disabled"
   | "idempotency_key_expired"
   | "legacy_context_rejected"
   | "unsupported_target"
@@ -212,9 +290,9 @@ export function normalizeSelection(selection: VeraContextSelection[]): VeraConte
 
   if (selection.some(({ sourceType }) => sourceType === "document")) {
     throw new VeraContractError(
-      "document_phase_disabled",
+      "document_sources_disabled",
       "Dokumen belum tersedia sebagai sumber Vera.",
-      409,
+      410,
     );
   }
 

@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import {
   VERA_FINGERPRINT_KEY_VERSION,
   VeraContractError,
+  assertMvpFeatureEnabled,
+  contextModeForFeatureKey,
   type VeraContextSelection,
   type VeraRequestState,
 } from "./contracts";
@@ -209,7 +211,7 @@ function assertRequestInput(input: VeraAdmissionInput): void {
   if (typeof input.text !== "string" || input.text.length < 1 || Buffer.byteLength(input.text, "utf8") > 40_000) {
     throw new VeraAdmissionError({ code: "invalid_request", status: 400 });
   }
-  if ((input.selection?.length ?? 0) > 6) {
+  if ((input.selection?.length ?? 0) > 4) {
     throw new VeraAdmissionError({ code: "context_release_unavailable", status: 422 });
   }
 }
@@ -327,6 +329,8 @@ export class VeraAdmissionService {
 
   async admit(input: VeraAdmissionInput): Promise<VeraAdmissionResponse> {
     assertRequestInput(input);
+    const operation = input.toolId ?? (input.kind === "studio" ? "unmapped" : "chat");
+    assertMvpFeatureEnabled(operation, "admission");
     const now = input.now ?? this.now();
     const lockKey = `${input.studentId}:ai_request:${input.clientRequestId}`;
     return this.withLock(this.keyLocks, lockKey, async () => this.admitLocked(input, now));
@@ -430,6 +434,7 @@ export class VeraAdmissionService {
         promptTemplateHash: "vera-chat-prompt-v1",
         toolSchemaHash: "vera-chat-tools-v1",
         systemPolicyHash: snapshot.policy.validationDigest,
+        mode: contextModeForFeatureKey(this.featureKey),
       }, this.options.contextResolver);
       const providerTask: ProviderTask = {
         featureKey: this.featureKey,

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isUuid } from "@/lib/admin/operations/validation";
+import { assertMvpFeatureEnabled, VERA_MAX_CONTEXT_SOURCES } from "./contracts";
 import { isVeraStudioToolId } from "./studio-contracts";
 
 export { isUuid } from "@/lib/admin/operations/validation";
@@ -55,7 +56,7 @@ export function parseVeraRequestBody(value: unknown): {
   if (!isSafeClientRequestId(candidate.clientRequestId) || !isSafeText(candidate.text)) throw new VeraHttpError("invalid_request", 400);
   const kind = candidate.kind === undefined ? "chat" : candidate.kind;
   if (kind !== "chat" && kind !== "studio") throw new VeraHttpError("invalid_request", 400);
-  const sources = candidate.sources === undefined ? [] : Array.isArray(candidate.sources) && candidate.sources.length <= 6
+  const sources = candidate.sources === undefined ? [] : Array.isArray(candidate.sources) && candidate.sources.length <= VERA_MAX_CONTEXT_SOURCES
     ? candidate.sources.map((value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
       const source = value as Record<string, unknown>;
@@ -77,7 +78,18 @@ export function parseVeraRequestBody(value: unknown): {
     ? null
     : typeof candidate.toolId === "string" && candidate.toolId.length <= 80 ? candidate.toolId : null;
   if (candidate.toolId !== undefined && candidate.toolId !== null && toolId === null) throw new VeraHttpError("invalid_request", 400);
-  if ((kind === "chat" && toolId !== null) || (kind === "studio" && !isVeraStudioToolId(toolId))) throw new VeraHttpError("invalid_request", 400);
+  if (kind === "chat" && toolId !== null) {
+    // A client cannot smuggle a deferred Studio operation through the chat
+    // parser.  Active Studio ids still fail as an ordinary shape error after
+    // the server-side feature gate has made the decision explicit.
+    assertMvpFeatureEnabled(toolId, "http-parser");
+    throw new VeraHttpError("invalid_request", 400);
+  }
+  if (kind === "studio") {
+    if (toolId === null) throw new VeraHttpError("invalid_request", 400);
+    assertMvpFeatureEnabled(toolId, "http-parser");
+    if (!isVeraStudioToolId(toolId)) throw new VeraHttpError("invalid_request", 400);
+  }
   const retryOfRequestId = candidate.retryOfRequestId === undefined || candidate.retryOfRequestId === null
     ? null
     : typeof candidate.retryOfRequestId === "string" && isUuid(candidate.retryOfRequestId) ? candidate.retryOfRequestId : null;

@@ -12,7 +12,16 @@ import {
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
 import { VeraAdmissionError } from "./admission";
-import { canonicalJson, normalizeSelection, selectionDigest, sha256Hex, type VeraContextSelection } from "./contracts";
+import {
+  assertMvpFeatureEnabled,
+  canonicalJson,
+  normalizeSelection,
+  selectionDigest,
+  sha256Hex,
+  VERA_MAX_CONTEXT_SOURCES,
+  VeraContractError,
+  type VeraContextSelection,
+} from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 
 type DbClient = typeof defaultPrisma;
@@ -193,6 +202,12 @@ export class VeraLearnerService {
   }
 
   async createConversation(input: { studentId: string; clientRequestId: string; conversationType: AiConversationType; title?: string | null }) {
+    const operation = input.conversationType === AiConversationType.vera_chat
+      ? "chat"
+      : input.conversationType === AiConversationType.weakness_analysis
+        ? "analysis"
+        : input.conversationType;
+    assertMvpFeatureEnabled(operation, "learner.createConversation");
     if (!isSafeClientRequestId(input.clientRequestId)) throw new VeraLearnerServiceError("invalid_request", 400);
     const title = normalizeTitle(input.title);
     const fingerprint = createHmac("sha256", this.fingerprintSecret).update(canonicalJson({
@@ -325,14 +340,14 @@ export class VeraLearnerService {
       contextVersion: conversation.contextVersion,
       selectionDigest: selectionDigest(conversation.sources.map((source) => ({ sourceType: source.sourceType, sourceId: source.sourceId }))),
       sources: conversation.sources.map((source) => ({ sourceType: source.sourceType, sourceId: source.sourceId, title: source.titleSnapshot, displayOrder: source.sortOrder })),
-      maxSources: 6,
+      maxSources: VERA_MAX_CONTEXT_SOURCES,
       documentPhase: "disabled" as const,
     };
   }
 
   async replaceContext(input: { studentId: string; conversationId: string; expectedContextVersion: number; sources: VeraContextSelection[] }) {
     const normalized = normalizeSelection(input.sources);
-    if (!Number.isInteger(input.expectedContextVersion) || input.expectedContextVersion < 0 || normalized.length > 6
+    if (!Number.isInteger(input.expectedContextVersion) || input.expectedContextVersion < 0 || normalized.length > VERA_MAX_CONTEXT_SOURCES
       || normalized.some((source) => source.sourceType === "document")) throw new VeraLearnerServiceError("invalid_request", 400);
     return this.db.$transaction(async (tx) => {
       const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
@@ -386,7 +401,7 @@ export class VeraLearnerService {
         contextVersion: updated.contextVersion,
         selectionDigest: digest,
         sources: resolved.map((source, displayOrder) => ({ sourceType: source.sourceType, sourceId: source.sourceId, title: source.title, displayOrder })),
-        maxSources: 6,
+        maxSources: VERA_MAX_CONTEXT_SOURCES,
         documentPhase: "disabled" as const,
       };
     });
@@ -485,37 +500,11 @@ export class VeraLearnerService {
     const contextAvailable = contentAvailable && artifact.request?.contextPack?.provenanceState === "reconstructable"
       && artifact.request.contextPack.purgeState === "available";
     const normalized = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : null;
-    const saveProjection = normalized?.saveProjection && typeof normalized.saveProjection === "object" ? normalized.saveProjection : null;
-    const targetCandidates = artifact.lifecycle.state === "visible"
-      ? artifact.artifactType === "route"
-        ? (await this.db.learningRecommendation.findMany({
-          where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
-          select: { id: true, revision: true, lifecycleState: true, deletionState: true },
-        })).map((target) => ({ registryKey: "learning_recommendation.v1", ...target, label: `Rekomendasi ${target.id.slice(0, 8)}` }))
-        : artifact.artifactType === "drill"
-          ? (await this.db.adaptivePracticeSession.findMany({
-            where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
-            orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
-            select: { id: true, revision: true, lifecycleState: true, deletionState: true },
-          })).map((target) => ({ registryKey: "adaptive_practice_session.v1", ...target, label: `Drill ${target.id.slice(0, 8)}` }))
-          : artifact.artifactType === "ptn"
-            ? (await this.db.ptnStrategySession.findMany({
-              where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
-              orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
-              select: { id: true, revision: true, lifecycleState: true, deletionState: true },
-            })).map((target) => ({ registryKey: "ptn_strategy_session.v1", ...target, label: `Strategi PTN ${target.id.slice(0, 8)}` }))
-            : []
-      : [];
-    const applyCapabilities = artifact.lifecycle.state === "visible" ? {
-      materializeLearningRecommendation: artifact.artifactType === "route" && Boolean(saveProjection),
-      registryKeys: artifact.artifactType === "route" && Boolean(saveProjection)
-        ? ["learning_recommendation.v1"]
-        : artifact.artifactType === "drill"
-          ? ["adaptive_practice_session.v1"]
-          : artifact.artifactType === "ptn" ? ["ptn_strategy_session.v1"] : [],
-      targets: targetCandidates,
-    } : { materializeLearningRecommendation: false, registryKeys: [], targets: [] };
+    // Deferred mutation registries remain readable through historical artifact
+    // payloads, but no new result advertises an apply/materialize capability.
+    // The corresponding command services and routes fail with feature_disabled
+    // before they can begin an idempotency transaction.
+    const applyCapabilities = { materializeLearningRecommendation: false, registryKeys: [], targets: [] };
     return {
       id: artifact.id,
       artifactType: artifact.artifactType,
@@ -550,5 +539,6 @@ export class VeraLearnerService {
 export function mapLearnerServiceError(error: unknown): { code: string; status: number; details?: Record<string, unknown> } {
   if (error instanceof VeraLearnerServiceError) return { code: error.code, status: error.status, details: error.details };
   if (error instanceof VeraAdmissionError) return { code: error.code, status: error.status, details: error.details };
+  if (error instanceof VeraContractError) return { code: error.code, status: error.status, details: error.details };
   return { code: "vera_unavailable", status: 503 };
 }

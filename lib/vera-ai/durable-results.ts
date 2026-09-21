@@ -10,7 +10,7 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 
-import { canonicalJson, type VeraContextSelection } from "./contracts";
+import { assertMvpFeatureEnabled, canonicalJson, type VeraContextSelection } from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import { lockAndRevalidateDrillCandidates, type FrozenDrillAuthority } from "./drill-candidates";
 import type { NormalizedVeraResult } from "./output-validator";
@@ -128,16 +128,18 @@ function registryKey(tuple: Omit<DurableCallbackEntry, "toolId">): string {
 const chatContract = getVeraFeatureContract("chat", null);
 const callbackEntries: DurableCallbackEntry[] = [
   { toolId: null, requestType: chatContract.requestType, featureKey: chatContract.featureKey, behaviorVersion: chatContract.behaviorVersion, outputSchemaVersion: chatContract.outputSchemaVersion, outputSchemaId: chatContract.schemaId, outputSchemaHash: chatContract.schemaHash, contextPackVersion: chatContract.contextPackVersion },
-  ...(["analysis", "route", "review", "ptn", "summary", "drill"] as const).map((toolId) => {
+  ...(["analysis", "route", "review"] as const).map((toolId) => {
     const contract = VERA_STUDIO_FEATURES[toolId];
     return { toolId, requestType: contract.requestType, featureKey: contract.featureKey, behaviorVersion: contract.behaviorVersion, outputSchemaVersion: contract.outputSchemaVersion, outputSchemaId: contract.schemaId, outputSchemaHash: contract.schemaHash, contextPackVersion: contract.contextPackVersion };
   }),
 ];
 
-/** Closed callback registry: exactly chat plus the six approved Studio tools. */
+/** Closed callback registry: exactly chat plus the three MVP Studio tools. */
 export const VERA_DURABLE_CALLBACK_REGISTRY = new Map(callbackEntries.map(({ toolId, ...tuple }) => [registryKey(tuple), { toolId, ...tuple }] as const));
 
 function callbackForRequest(request: LockedRequestTuple): DurableCallbackEntry {
+  const operation = request.featureKey.startsWith("vera.") ? request.featureKey.slice("vera.".length) : request.featureKey;
+  assertMvpFeatureEnabled(operation, "durable-publication");
   if (!request.outputSchemaId || !request.outputSchemaHash) throw new VeraDurableResultError("durable_callback_missing");
   const key = registryKey({
     requestType: request.requestType,

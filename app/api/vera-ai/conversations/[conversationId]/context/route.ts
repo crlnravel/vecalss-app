@@ -1,5 +1,6 @@
 import { getReadOnlySessionContext, getSessionContext } from "@/lib/auth/session";
 import { isUuid, readJsonBody, VERA_HTTP_HEADERS, VeraHttpError } from "@/lib/vera-ai/http";
+import { VERA_MAX_CONTEXT_SOURCES } from "@/lib/vera-ai/contracts";
 import { mapLearnerServiceError } from "@/lib/vera-ai/learner-service";
 import { getVeraLearnerService } from "@/lib/vera-ai/route-support";
 
@@ -33,7 +34,7 @@ export async function PUT(request: Request, context: { params: Promise<{ convers
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
     const body = value as Record<string, unknown>;
     if (Object.keys(body).some((key) => !["expectedContextVersion", "sources"].includes(key))
-      || !Number.isInteger(body.expectedContextVersion) || !Array.isArray(body.sources) || body.sources.length > 6) throw new VeraHttpError("invalid_request", 400);
+      || !Number.isInteger(body.expectedContextVersion) || !Array.isArray(body.sources) || body.sources.length > VERA_MAX_CONTEXT_SOURCES) throw new VeraHttpError("invalid_request", 400);
     const sources = body.sources.map((value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
       const source = value as Record<string, unknown>;
