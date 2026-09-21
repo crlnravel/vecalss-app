@@ -17,17 +17,21 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import { saveReusableQuestionPackageMetadataAction } from "@/modules/mentor/tryout-actions";
+import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
+import { ResourceEditLockProvider, useResourceEditLock } from "@/modules/mentor/resource-edit-lock-provider";
 
 type PackageMetadata = { description: string; id: string; sourceBankName: string; subtest: string; title: string };
 
-function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadata: PackageMetadata }) {
+function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: PackageMetadata }) {
+  const resourceLock = useResourceEditLock();
   const [description, setDescription] = useState(initialMetadata.description);
   const [title, setTitle] = useState(initialMetadata.title);
   const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (!resourceLock.canEdit || saving) return;
     setSaving(true);
     try {
-      const result = await saveReusableQuestionPackageMetadataAction({ description, id: initialMetadata.id, title });
+      const result = await saveReusableQuestionPackageMetadataAction({ description, editLease: resourceLock.proof ?? undefined, id: initialMetadata.id, title });
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -48,9 +52,10 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
   };
   return (
     <div className="space-y-5">
+      <ResourceAuthoringLockBanner hasLocalChanges={description !== initialMetadata.description || title !== initialMetadata.title} onRetry={resourceLock.retry} resourceLabel="Paket Soal" state={resourceLock.state} />
       <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
       <ReferencePageHeader
-        actions={<Button disabled={saving} onClick={() => void save()} size="sm" variant="reference"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
+        actions={<Button disabled={saving || !resourceLock.canEdit} onClick={() => void save()} size="sm" variant="reference"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
         description="Ubah judul dan deskripsi Paket. Bank, Subtest, soal, urutan, dan poin dikelola saat membuat versi baru."
         title="Edit Paket Soal"
       />
@@ -59,11 +64,11 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
         <div className="grid gap-5">
           <Field>
             <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-title" required>Judul Paket</FieldLabel>
-            <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} id="package-title" onChange={(event) => setTitle(event.target.value)} value={title} />
+            <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!resourceLock.canEdit} id="package-title" onChange={(event) => setTitle(event.target.value)} value={title} />
           </Field>
           <Field>
             <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-description">Deskripsi singkat</FieldLabel>
-            <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} id="package-description" onChange={(event) => setDescription(event.target.value)} value={description} />
+            <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!resourceLock.canEdit} id="package-description" onChange={(event) => setDescription(event.target.value)} value={description} />
           </Field>
         </div>
         <ReferenceSurface className="p-4" variant="inset">
@@ -75,6 +80,10 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
       </ReferenceSurface>
     </div>
   );
+}
+
+function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadata: PackageMetadata }) {
+  return <ResourceEditLockProvider resourceId={initialMetadata.id} resourceType="question_package"><PackageMetadataEditorContent initialMetadata={initialMetadata} /></ResourceEditLockProvider>;
 }
 
 export { KaptenPackageMetadataEditorModule };

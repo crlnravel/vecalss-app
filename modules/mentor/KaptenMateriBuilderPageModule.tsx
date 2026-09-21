@@ -59,6 +59,14 @@ import {
 import type { MediaAssetDto } from "@/lib/media/types";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
+import {
   archiveMateriLessonAction,
   publishMateriLessonAction,
   returnMateriLessonToDraftAction,
@@ -903,7 +911,7 @@ function useMateriNavigationGuards({
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 }
 
-function KaptenMateriBuilderPageModule({
+function MateriBuilderContent({
   initialMateri = null,
   initialPreview = false,
   initialSubjectSlug,
@@ -923,6 +931,7 @@ function KaptenMateriBuilderPageModule({
   subjects: KaptenMateriSubjectView[];
 }) {
   const router = useRouter();
+  const resourceLock = useResourceEditLock();
   const [builderState, setBuilderState] = useState(() =>
     getInitialState(initialMateri, initialSubjectSlug, subjects),
   );
@@ -959,6 +968,8 @@ function KaptenMateriBuilderPageModule({
       : "/mentor/materi");
   const materiStatus = savedMateri?.status ?? "draft";
   const isArchived = materiStatus === "archived";
+  const lockState: AuthoringLockState = mode === "create" ? "owned" : resourceLock.state;
+  const isEditLocked = mode === "edit" && !resourceLock.canEdit;
   const readiness =
     Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
       ? "ready"
@@ -1025,10 +1036,12 @@ function KaptenMateriBuilderPageModule({
   }
 
   async function saveLesson() {
-    if (isArchived) {
+    if (isArchived || isEditLocked) {
       updateEditor({
         saveError:
-          "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit.",
+          isArchived
+            ? "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit."
+            : "Izin edit Materi belum tersedia. Draf lokal tetap tersimpan.",
       });
       return;
     }
@@ -1048,6 +1061,7 @@ function KaptenMateriBuilderPageModule({
       const result = await saveMateriLessonAction({
         code: savedMateri?.code,
         document: toDocumentInput(builderState),
+        editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
         subjectSlug: builderState.subjectSlug,
         title: builderState.title,
         videoDuration: builderState.videoDuration,
@@ -1095,16 +1109,16 @@ function KaptenMateriBuilderPageModule({
 
   async function updateLifecycle(operation: "archive" | "publish" | "restore") {
     const code = savedMateri?.code;
-    if (!code || hasUnsavedChanges) return;
+    if (!code || hasUnsavedChanges || isEditLocked) return;
 
     updateEditor({ isLifecycleSaving: true, saveError: null });
     try {
       const result =
         operation === "archive"
-          ? await archiveMateriLessonAction(code)
+          ? await archiveMateriLessonAction(code, resourceLock.proof ?? undefined)
           : operation === "publish"
-            ? await publishMateriLessonAction(code)
-            : await returnMateriLessonToDraftAction(code);
+            ? await publishMateriLessonAction(code, resourceLock.proof ?? undefined)
+            : await returnMateriLessonToDraftAction(code, resourceLock.proof ?? undefined);
       if (!result.ok) {
         toast.error(result.message);
         return;
@@ -1149,6 +1163,15 @@ function KaptenMateriBuilderPageModule({
           parentHref={parentHref}
         />
 
+        {mode === "edit" ? (
+          <ResourceAuthoringLockBanner
+            hasLocalChanges={hasUnsavedChanges}
+            onRetry={resourceLock.retry}
+            resourceLabel="Materi"
+            state={lockState}
+          />
+        ) : null}
+
         {!isPreviewOpen && saveError ? (
           <ReferenceSurface
             className="flex items-start gap-2 px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
@@ -1163,7 +1186,7 @@ function KaptenMateriBuilderPageModule({
           builderState={builderState}
           errors={errors}
           hasUnsavedChanges={hasUnsavedChanges}
-          isArchived={isArchived}
+          isArchived={isArchived || isEditLocked}
           isPreviewOpen={isPreviewOpen}
           isSaving={isSaving || isLifecycleSaving}
           mode={mode}
@@ -1186,20 +1209,41 @@ function KaptenMateriBuilderPageModule({
         allowedMimeTypes={["application/pdf"]}
         onOpenChange={(open) => updateEditor({ isPickerOpen: open })}
         onSelect={selectManagedDocument}
-        open={isPickerOpen && !isArchived}
+        open={isPickerOpen && !isArchived && !isEditLocked}
         selectedAssetId={builderState.documentAssetId || null}
         title="Pilih PDF Materi"
       />
 
       {hasUnsavedChanges ? (
         <MateriUnsavedChangesBar
-          isArchived={isArchived}
+        isArchived={isArchived || isEditLocked}
           isSaving={isSaving}
           onReset={resetChanges}
           onSave={() => void saveLesson()}
         />
       ) : null}
     </MentorWorkspaceShell>
+  );
+}
+
+function KaptenMateriBuilderPageModule(props: {
+  initialMateri?: KaptenMateriView | null;
+  initialPreview?: boolean;
+  initialSubjectSlug?: string;
+  materiId?: string;
+  mode: "create" | "edit";
+  returnTo?: string;
+  session: SessionContext;
+  subjects: KaptenMateriSubjectView[];
+}) {
+  return (
+    <ResourceEditLockProvider
+      enabled={props.mode === "edit" && Boolean(props.materiId)}
+      resourceId={props.materiId ?? "materi-placeholder"}
+      resourceType="materi"
+    >
+      <MateriBuilderContent {...props} />
+    </ResourceEditLockProvider>
   );
 }
 

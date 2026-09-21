@@ -91,6 +91,7 @@ function useMediaLibraryScreenState({
   isMinimalGallery,
   isPicker,
   isReference,
+  mutationsDisabled,
   moveRequest,
   selectedAssetId,
   snapshot,
@@ -99,6 +100,7 @@ function useMediaLibraryScreenState({
   isMinimalGallery: boolean;
   isPicker: boolean;
   isReference: boolean;
+  mutationsDisabled?: boolean;
   moveRequest: MoveRequest | null;
   selectedAssetId?: string | null;
   snapshot: MediaLibrarySnapshot | null;
@@ -136,15 +138,22 @@ function useMediaLibraryScreenState({
           Pilih
         </DropdownMenuItem>
       ) : null}
-      <DropdownMenuItem onClick={() => actions.openRename(item)}>
+      <DropdownMenuItem
+        disabled={mutationsDisabled}
+        onClick={() => actions.openRename(item)}
+      >
         <Pencil />
         Ganti nama
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => actions.openMove(item)}>
+      <DropdownMenuItem
+        disabled={mutationsDisabled}
+        onClick={() => actions.openMove(item)}
+      >
         <FolderInput />
         Pindahkan
       </DropdownMenuItem>
       <DropdownMenuItem
+        disabled={mutationsDisabled}
         onClick={() => actions.setTrashRequest(item)}
         variant="destructive"
       >
@@ -472,6 +481,7 @@ type MediaLibraryScreenProps = {
   mediaLabel: string;
   moveRequest: MoveRequest | null;
   moveTargetId: string;
+  mutationsDisabled?: boolean;
   mutationPending: MediaMutation | null;
   newFolderName: string;
   notice: string | null;
@@ -529,6 +539,7 @@ function MediaLibraryItemsPane({
     moveRequest,
     moveTargetId,
     moveTargetOptions,
+    mutationsDisabled,
     mutationPending,
     newFolderName,
     previewAsset,
@@ -626,6 +637,7 @@ function MediaLibraryItemsPane({
         moveTargetId={moveTargetId}
         moveTargetOptions={moveTargetOptions}
         mutationPending={mutationPending}
+        mutationsDisabled={mutationsDisabled}
         newFolderName={newFolderName}
         previewAsset={previewAsset}
         trashRequest={trashRequest}
@@ -1469,6 +1481,7 @@ export function MediaLibraryScreen(props: MediaLibraryScreenProps) {
     isMinimalGallery,
     isPicker,
     isReference,
+    mutationsDisabled: props.mutationsDisabled,
     moveRequest,
     selectedAssetId,
     snapshot,

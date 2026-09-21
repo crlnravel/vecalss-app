@@ -47,6 +47,7 @@ export function MediaLibraryModals({
   moveRequest,
   moveTargetId,
   moveTargetOptions,
+  mutationsDisabled,
   mutationPending,
   newFolderName,
   previewAsset,
@@ -61,6 +62,7 @@ export function MediaLibraryModals({
   moveRequest: MoveRequest | null;
   moveTargetId: string;
   moveTargetOptions: readonly ReferenceSelectOption[];
+  mutationsDisabled?: boolean;
   mutationPending: MediaMutation | null;
   newFolderName: string;
   previewAsset: MediaAssetDto | null;
@@ -86,11 +88,11 @@ export function MediaLibraryModals({
           <DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi file di R2.</DialogDescription></DialogHeader>
           <Field>
             <FieldLabel htmlFor="rename-media-item">Nama</FieldLabel>
-            <FieldInput autoFocus disabled={isMutationPending("rename")} id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} />
+            <FieldInput autoFocus disabled={mutationsDisabled || isMutationPending("rename")} id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} />
           </Field>
           <DialogFooter>
             <Button disabled={isMutationPending("rename")} onClick={() => actions.setEditingItem(null)} variant="brandOutline">Batal</Button>
-            <Button disabled={!editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="brand">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button>
+            <Button disabled={mutationsDisabled || !editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="brand">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -101,7 +103,7 @@ export function MediaLibraryModals({
             <FieldLabel htmlFor="move-media-item">Folder tujuan</FieldLabel>
             <ReferenceSelect
               aria-label="Folder tujuan"
-              disabled={isMutationPending("move")}
+              disabled={mutationsDisabled || isMutationPending("move")}
               id="move-media-item"
               onValueChange={actions.setMoveTargetId}
               options={[
@@ -114,7 +116,7 @@ export function MediaLibraryModals({
           </Field>
           <DialogFooter>
             <Button disabled={isMutationPending("move")} onClick={() => actions.setMoveRequest(null)} variant="brandOutline">Batal</Button>
-            <Button disabled={isMutationPending("move")} onClick={() => void actions.handleMove()} variant="brand">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button>
+            <Button disabled={mutationsDisabled || isMutationPending("move")} onClick={() => void actions.handleMove()} variant="brand">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -127,7 +129,7 @@ export function MediaLibraryModals({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isMutationPending("trash")}>Batal</AlertDialogCancel>
-            <AlertDialogAction disabled={isMutationPending("trash")} onClick={() => void actions.handleTrash()} variant="destructive">{isMutationPending("trash") ? "Memproses…" : "Masukkan Sampah"}</AlertDialogAction>
+            <AlertDialogAction disabled={mutationsDisabled || isMutationPending("trash")} onClick={() => void actions.handleTrash()} variant="destructive">{isMutationPending("trash") ? "Memproses…" : "Masukkan Sampah"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
