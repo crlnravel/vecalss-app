@@ -219,17 +219,53 @@ type VeraBackendArtifactDetail = {
   } | null;
 };
 
+type VeraUsageWindow = {
+  periodKind: "day" | "iso_week" | "month";
+  windowKey: string;
+  windowStart: string;
+  windowEnd: string;
+  resetAt: string;
+  creditLimit: number;
+  consumedCredits: number;
+  reservedCredits: number;
+  remainingCredits: number;
+  costLimitUsdMicros: string;
+  reservedUsdMicros: string;
+  settledUsdMicros: string;
+  unknownUsdMicros: string;
+  overrunUsdMicros: string;
+  monetaryDebtState: "clear" | "debt";
+};
+
+type VeraProviderSpend = {
+  costLimitUsdMicros: string;
+  settledUsdMicros: string;
+  reservedUsdMicros: string;
+  unknownUsdMicros: string;
+  overrunUsdMicros: string;
+  exposureUsdMicros: string;
+  remainingUsdMicros: string;
+};
+
 type VeraBackendUsage = {
-  usageDate?: string;
+  ledgerVersion?: string;
   quotaTimezone?: string;
   quotaTimezonePolicyVersion?: string;
   policyBundleVersion?: string;
-  quotaLimitUnits: number;
-  usedQuotaUnits: number;
-  reservedQuotaUnits: number;
-  quotaDebtUnits: number;
-  quotaOverrunLockUntil: string | null;
-  rawTokenUsageState: string;
+  creditLimit?: number;
+  consumedCredits?: number;
+  reservedCredits?: number;
+  remainingCredits?: number;
+  monetaryDebtState?: "clear" | "debt";
+  providerSpend?: VeraProviderSpend;
+  windows?: VeraUsageWindow[];
+  usageDate?: string;
+  quotaLimitUnits?: number;
+  usedQuotaUnits?: number;
+  reservedQuotaUnits?: number;
+  quotaDebtUnits?: number;
+  quotaOverrunLockUntil?: string | null;
+  rawTokenUsageState?: string;
   providerAvailable: boolean;
   redisAvailable: boolean;
 };
@@ -1854,28 +1890,90 @@ function VeraTopBar({
 }
 
 function getVeraUsageSummary(usage: VeraBackendUsage | null) {
-  const usedUnits = usage?.usedQuotaUnits ?? null;
-  const limitUnits = usage?.quotaLimitUnits ?? null;
-  const usagePercent = usage && limitUnits && limitUnits > 0
-    ? Math.min(100, Math.round((usage.usedQuotaUnits / limitUnits) * 100))
+  const consumedCredits = usage?.consumedCredits ?? usage?.usedQuotaUnits ?? null;
+  const reservedCredits = usage?.reservedCredits ?? usage?.reservedQuotaUnits ?? 0;
+  const creditLimit = usage?.creditLimit ?? usage?.quotaLimitUnits ?? null;
+  const remainingCredits = usage?.remainingCredits ?? (
+    creditLimit !== null && consumedCredits !== null
+      ? Math.max(0, creditLimit - consumedCredits - reservedCredits)
+      : null
+  );
+  const committedCredits = consumedCredits === null
+    ? null
+    : consumedCredits + reservedCredits;
+  const usagePercent = committedCredits !== null && creditLimit && creditLimit > 0
+    ? Math.min(100, Math.round((committedCredits / creditLimit) * 100))
     : null;
   let usageState = "Data penggunaan belum tersedia dari server.";
 
   if (usage) {
     if (!usage.redisAvailable) usageState = "Pembatas permintaan tidak tersedia";
     else if (!usage.providerAvailable) usageState = "Penyedia AI tidak tersedia";
-    else if (usage.quotaDebtUnits > 0) usageState = `Overrun ${usage.quotaDebtUnits} unit`;
-    else if (usage.usedQuotaUnits + usage.reservedQuotaUnits >= usage.quotaLimitUnits) usageState = "Kuota habis";
-    else if (usage.reservedQuotaUnits > 0) usageState = `${usage.reservedQuotaUnits} unit sedang diproses`;
-    else if (usage.rawTokenUsageState === "unknown") usageState = "Penggunaan token belum diketahui";
+    else if (usage.monetaryDebtState === "debt" || (usage.quotaDebtUnits ?? 0) > 0) {
+      usageState = "Batas biaya bulanan tercapai";
+    } else if (remainingCredits === 0) {
+      usageState = "Kredit habis";
+    } else if (reservedCredits > 0) {
+      usageState = `${reservedCredits} kredit sedang diproses`;
+    } else if (usage.rawTokenUsageState === "unknown") {
+      usageState = "Penggunaan provider belum diketahui";
+    }
     else usageState = "Tersedia";
   }
 
-  return { limitUnits, usagePercent, usageState, usedUnits };
+  return {
+    committedCredits,
+    consumedCredits,
+    creditLimit,
+    remainingCredits,
+    reservedCredits,
+    usagePercent,
+    usageState,
+  };
+}
+
+const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> = {
+  day: "Hari ini",
+  iso_week: "Minggu ini",
+  month: "Bulan ini",
+};
+
+function formatVeraUsdMicros(value: string | undefined) {
+  if (!value || !/^\d+$/.test(value)) return "—";
+  const amount = Number(value) / 1_000_000;
+  if (!Number.isFinite(amount)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 4,
+    style: "currency",
+  }).format(amount);
+}
+
+function formatVeraResetAt(value: string | undefined, timeZone: string | undefined) {
+  if (!value) return "reset belum tersedia";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "reset belum tersedia";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    timeZone: timeZone || "Asia/Jakarta",
+  }).format(date);
 }
 
 function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
-  const { limitUnits, usagePercent, usageState, usedUnits } = getVeraUsageSummary(usage);
+  const {
+    committedCredits,
+    consumedCredits,
+    creditLimit,
+    remainingCredits,
+    reservedCredits,
+    usagePercent,
+    usageState,
+  } = getVeraUsageSummary(usage);
+  const windows = usage?.windows ?? [];
 
   return (
     <Popover>
@@ -1884,7 +1982,7 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
           <Button
             aria-label={usagePercent === null
               ? "Penggunaan Vera belum tersedia"
-              : `Penggunaan Vera ${usagePercent} persen`}
+              : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`}
             className="rounded-full px-2.5"
             size="default"
             variant="ghost"
@@ -1904,17 +2002,69 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
           </PopoverDescription>
         </PopoverHeader>
 
-        {usage && usagePercent !== null && usedUnits !== null && limitUnits !== null ? (
+        {usage && usagePercent !== null && consumedCredits !== null && creditLimit !== null ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="font-semibold text-secondary-800">Unit periode ini</span>
+              <span className="font-semibold text-secondary-800">Kredit bulan ini</span>
               <span className="tabular-nums text-secondary-500">
-                {usedUnits.toLocaleString("id-ID")} / {limitUnits.toLocaleString("id-ID")}
+                {committedCredits?.toLocaleString("id-ID")} / {creditLimit.toLocaleString("id-ID")}
               </span>
             </div>
-            <Progress aria-label="Penggunaan token Vera" value={usagePercent} />
+            <Progress aria-label="Penggunaan kredit Vera" value={usagePercent} />
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="text-secondary-400">Terpakai</p>
+                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
+                  {consumedCredits.toLocaleString("id-ID")}
+                </p>
+              </div>
+              <div>
+                <p className="text-secondary-400">Diproses</p>
+                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
+                  {reservedCredits.toLocaleString("id-ID")}
+                </p>
+              </div>
+              <div>
+                <p className="text-secondary-400">Tersisa</p>
+                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
+                  {remainingCredits?.toLocaleString("id-ID") ?? "—"}
+                </p>
+              </div>
+            </div>
+            {windows.length > 0 ? (
+              <div className="flex flex-col gap-2 border-t border-primary-100 pt-3">
+                {windows.map((window) => (
+                  <div className="flex items-center justify-between gap-3 text-xs" key={window.periodKind}>
+                    <span className="text-secondary-600">
+                      {VERA_USAGE_WINDOW_LABELS[window.periodKind]}
+                    </span>
+                    <span className="text-right tabular-nums text-secondary-500">
+                      {window.consumedCredits + window.reservedCredits} / {window.creditLimit}
+                      <span className="block text-[0.7rem] text-secondary-400">
+                        reset {formatVeraResetAt(window.resetAt, usage.quotaTimezone)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {usage.providerSpend ? (
+              <div className="border-t border-primary-100 pt-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-secondary-600">Biaya provider</span>
+                  <span className="tabular-nums text-secondary-500">
+                    {formatVeraUsdMicros(usage.providerSpend.exposureUsdMicros)} / {formatVeraUsdMicros(usage.providerSpend.costLimitUsdMicros)}
+                  </span>
+                </div>
+                {usage.providerSpend.unknownUsdMicros !== "0" ? (
+                  <p className="mt-1 text-secondary-400">
+                    {formatVeraUsdMicros(usage.providerSpend.unknownUsdMicros)} masih menunggu rekonsiliasi.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <p className="text-xs leading-5 text-secondary-500">
-              Periode {usage.usageDate ?? "belum tersedia"} · zona {usage.quotaTimezone ?? "belum tersedia"}
+              Zona {usage.quotaTimezone ?? "belum tersedia"}. Kredit analisis dan rute memakai 2 kredit; chat dan review 1 kredit.
             </p>
           </div>
         ) : (
