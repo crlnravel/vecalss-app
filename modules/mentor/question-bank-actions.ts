@@ -10,6 +10,7 @@ import {
   createQuestionBankFolder,
   deleteQuestionBank,
   getQuestionBankFolderPath,
+  getQuestionBankForEdit,
   listQuestionBankCategories,
   listQuestionBankFolderTree,
   listQuestionBankFolders,
@@ -72,6 +73,11 @@ async function saveQuestionBankAction(input: SaveBankInput) {
   const session = await requireTutorSession();
   try { const result = await saveQuestionBank(input, session.user.id); refresh(); return { ok: true as const, result }; }
   catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini."); }
+}
+
+async function getQuestionBankForEditAction(id: string) {
+  await requireTutorSession();
+  return getQuestionBankForEdit(id);
 }
 
 async function updateQuestionBankLifecycleAction(id: string, operation: "archive" | "restore", options: QuestionBankLifecycleOptions) {
@@ -206,6 +212,7 @@ export {
   assignQuestionBankCategoriesAction,
   createQuestionBankCategoryAction,
   createQuestionBankFolderAction,
+  getQuestionBankForEditAction,
   deleteQuestionBankAction,
   getQuestionBankFolderPathAction,
   listQuestionBankCategoriesAction,

@@ -8,14 +8,6 @@ import {
   ShieldCheck,
   ShieldAlert,
 } from "@/lib/icons";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,27 +35,27 @@ const AUTHORING_LOCK_STATE_COPY: Record<
 > = {
   acquiring: {
     description:
-      "Perubahan dinonaktifkan sementara. Soal, preview, dan Ekspor CSV tetap dapat digunakan.",
+      "Perubahan dinonaktifkan sementara. Konten, preview, dan ekspor yang tersedia tetap dapat digunakan.",
     title: "Menyiapkan izin edit…",
   },
   owned: {
     description:
-      "Anda memegang izin edit untuk Bank Soal ini. Perubahan lokal tetap berada di layar sampai disimpan.",
+      "Anda memegang izin edit untuk {resource}. Perubahan lokal tetap berada di layar sampai disimpan.",
     title: "Izin edit aktif",
   },
   locked: {
     description:
-      "Perubahan dinonaktifkan sementara. Anda tetap dapat melihat soal, membuka preview, dan mengekspor CSV.",
+      "Perubahan dinonaktifkan sementara. Anda tetap dapat melihat {resource}, membuka preview, dan memakai ekspor yang tersedia.",
     title: "Sedang diedit oleh {holder}",
   },
   uncertain: {
     description:
-      "Koneksi ke izin edit sedang diverifikasi. Perubahan dibekukan agar draf lokal tidak tertimpa.",
+      "Koneksi ke izin edit sedang diverifikasi. Perubahan {resource} dibekukan agar draf lokal tidak tertimpa.",
     title: "Izin edit belum pasti",
   },
   lost: {
     description:
-      "Izin edit berakhir. Perubahan lokal tetap tersimpan di layar, tetapi simpan dan mutasi dinonaktifkan sampai izin diperoleh lagi.",
+      "Izin edit berakhir. Perubahan lokal pada {resource} tetap tersimpan di layar, tetapi simpan dan mutasi dinonaktifkan sampai izin diperoleh lagi.",
     title: "Izin edit berakhir",
   },
 };
@@ -81,23 +73,22 @@ function ResourceAuthoringLockBanner({
   hasLocalChanges = false,
   holderName = "Kapten lain",
   onRetry,
-  onStateChange,
   remainingSeconds = 90,
-  showScenarioPicker = false,
+  resourceLabel = "ruang kerja ini",
   state,
 }: {
   className?: string;
   hasLocalChanges?: boolean;
   holderName?: string;
   onRetry?: () => void;
-  onStateChange?: (state: AuthoringLockState) => void;
   remainingSeconds?: number;
-  showScenarioPicker?: boolean;
+  resourceLabel?: string;
   state: AuthoringLockState;
 }) {
   const readOnly = state !== "owned";
   const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
   const title = stateCopy.title.replace("{holder}", holderName);
+  const description = stateCopy.description.replace("{resource}", resourceLabel);
   const toneClass =
     state === "owned"
       ? "border-primary-200 bg-primary-50/70 text-primary-950"
@@ -128,7 +119,7 @@ function ResourceAuthoringLockBanner({
             className="mt-1 max-w-[70ch] text-sm leading-6 text-current/85"
             id="resource-authoring-lock-description"
           >
-            {stateCopy.description}
+            {description}
             {state === "locked"
               ? ` Perkiraan izin tersedia lagi dalam ${remainingSeconds} detik.`
               : null}
@@ -151,45 +142,6 @@ function ResourceAuthoringLockBanner({
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
-        ) : null}
-        {showScenarioPicker && onStateChange ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Simulasikan status edit"
-              render={
-                <Button
-                  className="min-h-10 bg-white/80"
-                  data-authoring-lock-scenario-picker="true"
-                  size="sm"
-                  type="button"
-                  variant="reference"
-                />
-              }
-            >
-              Pratinjau status
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Simulasikan status edit</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                onValueChange={(value) => {
-                  if (
-                    AUTHORING_LOCK_STATES.includes(
-                      value as AuthoringLockState,
-                    )
-                  ) {
-                    onStateChange(value as AuthoringLockState);
-                  }
-                }}
-                value={state}
-              >
-                {AUTHORING_LOCK_STATES.map((option) => (
-                  <DropdownMenuRadioItem key={option} value={option}>
-                    {AUTHORING_LOCK_STATE_LABELS[option]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
         ) : null}
       </div>
     </section>

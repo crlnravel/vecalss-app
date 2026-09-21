@@ -62,7 +62,7 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import {
   QuestionBankCsvExportAction,
   QuestionBankCsvImportControl,
-  type QuestionBankCsvImportSummary,
+  type QuestionBankCsvImportResult,
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
   ResourceAuthoringLockBanner,
@@ -74,8 +74,13 @@ import type {
 } from "@/modules/mentor/mock-data";
 import {
   saveQuestionBankAction,
+  getQuestionBankForEditAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 type ConfirmationRequest = {
   actionVariant?: "brand" | "destructive";
@@ -195,14 +200,12 @@ function QuestionBankArchiveSection({
   bank,
   handleLifecycle,
   isReadOnly,
-  onExport,
   isSavingLifecycle,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
   isReadOnly: boolean;
-  onExport: () => void;
   isSavingLifecycle: boolean;
   requestArchive: () => void;
 }) {
@@ -215,7 +218,7 @@ function QuestionBankArchiveSection({
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <QuestionBankCsvExportAction onExport={onExport} />
+          <QuestionBankCsvExportAction bankId={bank.id} />
           <QuestionBankLifecycleActions
             bank={bank}
             handleLifecycle={handleLifecycle}
@@ -710,6 +713,8 @@ function QuestionBankEditorButton({
 function QuestionBankQuestionsSection({
   bank,
   bankId,
+  editLease,
+  expectedRevision,
   isReadOnly,
   onImport,
   questions,
@@ -717,8 +722,10 @@ function QuestionBankQuestionsSection({
 }: {
   bank: KaptenQuestionBank;
   bankId: string;
+  editLease: import("@/lib/resource-edit-lock/types").EditLeaseProof | null;
+  expectedRevision: number;
   isReadOnly: boolean;
-  onImport: (summary: QuestionBankCsvImportSummary) => void;
+  onImport: (result: QuestionBankCsvImportResult) => Promise<void> | void;
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
@@ -743,8 +750,11 @@ function QuestionBankQuestionsSection({
             <QuestionBankEditorButton bank={bank} bankId={bankId} />
           </div>
           <QuestionBankCsvImportControl
+            bankId={bankId}
             disabled={isReadOnly}
-            onApply={onImport}
+            editLease={editLease}
+            expectedRevision={expectedRevision}
+            onApplied={onImport}
           />
         </div>
       </QuestionBankReadOnlyContext.Provider>
@@ -822,7 +832,7 @@ function QuestionBankArchiveConfirmationDialog({
   );
 }
 
-function KaptenQuestionBankDetailPageModule({
+function QuestionBankDetailContent({
   bankId,
   initialBank,
   initialQuestions = [],
@@ -838,10 +848,11 @@ function KaptenQuestionBankDetailPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
+  const resourceLock = useResourceEditLock();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
   const [activeTab, setActiveTab] =
     useState<QuestionBankDetailTab>(initialTab);
-  const [questions] = useState<BankQuestion[]>(initialQuestions);
+  const [questions, setQuestions] = useState<BankQuestion[]>(initialQuestions);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(bank.title);
@@ -856,11 +867,11 @@ function KaptenQuestionBankDetailPageModule({
   const [isSavingLifecycle, setIsSavingLifecycle] = useState(false);
   const [confirmationRequest, setConfirmationRequest] =
     useState<ConfirmationRequest | null>(null);
-  const [lockState, setLockState] = useState<AuthoringLockState>("owned");
-
-  const readiness =
-    initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
-  const isReadOnly = lockState !== "owned";
+  const [readiness, setReadiness] = useState<QuestionBankReadiness>(
+    initialReadiness ?? getQuestionBankReadinessFromDrafts(initialQuestions),
+  );
+  const lockState: AuthoringLockState = resourceLock.state;
+  const isReadOnly = !resourceLock.canEdit;
   const isMetadataLocked = bank.status === "archived" || isReadOnly;
 
   const folderLabel = questionBankFolderLabel(
@@ -905,6 +916,7 @@ function KaptenQuestionBankDetailPageModule({
     try {
       const result = await saveQuestionBankAction({
         description: bank.description,
+        editLease: resourceLock.proof ?? undefined,
         id: bank.id,
         purpose: bank.purpose ?? "quiz",
         questions,
@@ -945,6 +957,7 @@ function KaptenQuestionBankDetailPageModule({
     try {
       const result = await saveQuestionBankAction({
         description: trimmed,
+        editLease: resourceLock.proof ?? undefined,
         id: bank.id,
         purpose: bank.purpose ?? "quiz",
         questions,
@@ -986,6 +999,7 @@ function KaptenQuestionBankDetailPageModule({
         bank.id,
         operation,
         {
+          editLease: resourceLock.proof ?? undefined,
           expectedRevision: bank.revision ?? 1,
         },
       );
@@ -1046,9 +1060,8 @@ function KaptenQuestionBankDetailPageModule({
 
         <ResourceAuthoringLockBanner
           hasLocalChanges={isEditingTitle || isEditingDescription}
-          onRetry={() => setLockState("owned")}
-          onStateChange={setLockState}
-          showScenarioPicker
+          onRetry={resourceLock.retry}
+          resourceLabel="Bank Soal"
           state={lockState}
         />
 
@@ -1097,12 +1110,23 @@ function KaptenQuestionBankDetailPageModule({
             <QuestionBankQuestionsSection
               bank={bank}
               bankId={bankId}
+              editLease={resourceLock.proof}
+              expectedRevision={bank.revision ?? 1}
               isReadOnly={isReadOnly}
-              onImport={(summary) => {
-                showToast(
-                  `Mock impor ${summary.mode === "append" ? "tambahan" : "timpa"} untuk ${summary.rowCount} soal (${summary.fileName}).`,
-                  { variant: "info" },
-                );
+              onImport={async () => {
+                try {
+                  const refreshed = await getQuestionBankForEditAction(bank.id);
+                  if (refreshed) {
+                    setBank(refreshed.bank as KaptenQuestionBank);
+                    setQuestions(refreshed.questions as BankQuestion[]);
+                    setReadiness(refreshed.readiness);
+                    return;
+                  }
+                } catch {
+                  // The import already committed; refresh the authoritative route
+                  // instead of turning a successful write into a retryable failure.
+                }
+                router.refresh();
               }}
               questions={questions}
               readiness={readiness}
@@ -1113,9 +1137,6 @@ function KaptenQuestionBankDetailPageModule({
               bank={bank}
               handleLifecycle={handleLifecycle}
               isReadOnly={isReadOnly}
-              onExport={() =>
-                showToast("Mock ekspor CSV diminta.", { variant: "info" })
-              }
               isSavingLifecycle={isSavingLifecycle}
               requestArchive={requestArchive}
             />
@@ -1128,6 +1149,21 @@ function KaptenQuestionBankDetailPageModule({
         onClose={() => setConfirmationRequest(null)}
       />
     </MentorWorkspaceShell>
+  );
+}
+
+function KaptenQuestionBankDetailPageModule(props: {
+  bankId: string;
+  initialBank: KaptenQuestionBank;
+  initialQuestions?: BankQuestion[];
+  initialReadiness?: QuestionBankReadiness | null;
+  initialTab?: QuestionBankDetailTab;
+  session: SessionContext;
+}) {
+  return (
+    <ResourceEditLockProvider resourceId={props.bankId} resourceType="question_bank">
+      <QuestionBankDetailContent {...props} />
+    </ResourceEditLockProvider>
   );
 }
 
