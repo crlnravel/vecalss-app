@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, LayoutDashboard, Server, ShieldCheck } from "@/lib/icons";
+import { BarChart3, LayoutDashboard, Server } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 export type AiControlPlaneTab =
   | "overview"
   | "usage"
-  | "reliability"
   | "providers"
+  | "reliability"
   | "policies";
 
 const TABS: Array<{
@@ -20,18 +20,14 @@ const TABS: Array<{
 }> = [
   { id: "overview", label: "Ringkasan", href: "/admin/ai", icon: LayoutDashboard },
   { id: "usage", label: "Pemakaian", href: "/admin/ai/usage", icon: BarChart3 },
-  { id: "reliability", label: "Keandalan", href: "/admin/ai/reliability", icon: Activity },
   { id: "providers", label: "Providers", href: "/admin/ai/providers", icon: Server },
-  { id: "policies", label: "Policy", href: "/admin/ai/policies", icon: ShieldCheck },
 ];
 
 function resolveActiveTab(pathname: string, activeTab?: AiControlPlaneTab) {
   if (activeTab) return activeTab;
   if (pathname === "/admin/ai") return "overview";
   if (pathname.startsWith("/admin/ai/usage")) return "usage";
-  if (pathname.startsWith("/admin/ai/reliability")) return "reliability";
   if (pathname.startsWith("/admin/ai/providers")) return "providers";
-  if (pathname.startsWith("/admin/ai/policies")) return "policies";
   return "overview";
 }
 

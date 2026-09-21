@@ -1,6 +1,6 @@
-type VeraToolId = "analysis" | "route" | "drill" | "review" | "ptn" | "summary";
+type VeraToolId = "analysis" | "route" | "review";
 
-type VeraContextTypeId = "practice" | "material" | "document";
+type VeraContextTypeId = "practice" | "material";
 
 type VeraContextType = {
   id: VeraContextTypeId;
@@ -110,21 +110,6 @@ const veraContextSources: VeraContextSource[] = [
     title: "Pembahasan Konsep Grafik",
     type: "material",
   },
-  {
-    id: "personal-summary",
-    title: "Rangkuman PK Pribadi",
-    type: "document",
-  },
-  {
-    id: "external-notes",
-    title: "Catatan UTBK Mingguan",
-    type: "document",
-  },
-  {
-    id: "geometry-notes",
-    title: "Catatan Geometri UTBK",
-    type: "document",
-  },
 ];
 
 const veraContextTypes: VeraContextType[] = [
@@ -138,12 +123,6 @@ const veraContextTypes: VeraContextType[] = [
     label: "Materi",
     description:
       "Modul resmi Vecalss, video, teks pembelajaran, contoh soal, pembahasan konsep.",
-  },
-  {
-    id: "document",
-    label: "Dokumen",
-    description:
-      "PDF, TXT, catatan siswa, file tambahan, rangkuman pribadi, materi eksternal.",
   },
 ];
 
@@ -218,11 +197,6 @@ const veraMaterialHistory: VeraMaterialHistory[] = [
 
 const veraQuickPrompts: VeraQuickPrompt[] = [
   {
-    id: "prompt-drill",
-    label: "Buat drill dari soal salah",
-    mode: "drill",
-  },
-  {
     id: "prompt-route",
     label: "Susun rute belajar minggu ini",
     mode: "route",
@@ -249,15 +223,6 @@ const veraStudioTools: VeraStudioTool[] = [
     tone: "mint",
   },
   {
-    id: "drill",
-    title: "Drill Adaptif",
-    badge: "Smart",
-    outputTitle: "Drill adaptif dibuat",
-    outputBody:
-      "8 soal rasio bertingkat dan 6 soal simpulan implisit siap dijadikan sesi fokus.",
-    tone: "green",
-  },
-  {
     id: "review",
     title: "Bahas Soal Salah",
     badge: "Core",
@@ -265,24 +230,6 @@ const veraStudioTools: VeraStudioTool[] = [
     outputBody:
       "3 soal terbaru diprioritaskan: PU nomor 17, PK nomor 08, dan LBI nomor 12.",
     tone: "cream",
-  },
-  {
-    id: "ptn",
-    title: "Strategi PTN",
-    badge: "Smart",
-    outputTitle: "Strategi PTN diperbarui",
-    outputBody:
-      "Target Ilmu Komputer UI membutuhkan kenaikan stabil di PK dan PU selama 14 hari.",
-    tone: "sky",
-  },
-  {
-    id: "summary",
-    title: "Ringkasan Belajar",
-    badge: "Core",
-    outputTitle: "Ringkasan sesi disiapkan",
-    outputBody:
-      "Vera merangkum fokus hari ini, konteks yang dipakai, dan tugas belajar berikutnya.",
-    tone: "rose",
   },
 ];
 
@@ -325,25 +272,6 @@ const veraToolModes: Record<VeraToolId, VeraToolMode> = {
     primaryAction: "Simpan rute belajar",
     followUp: "Minta Vera menyesuaikan rute kalau kamu hanya punya 20 menit.",
   },
-  drill: {
-    id: "drill",
-    eyebrow: "Mode generator drill",
-    title: "Drill adaptif siap dibuat dari soal salah.",
-    description:
-      "Pilih fokus, jumlah soal, lalu Vera menyiapkan latihan yang mengikuti kelemahan terdekat tanpa perlu cari soal manual.",
-    highlights: [
-      "8 soal PK rasio dan persentase, level adaptive.",
-      "6 soal PU simpulan implisit, level medium.",
-      "Pembahasan akan muncul setelah drill selesai dikerjakan.",
-    ],
-    metrics: [
-      { label: "Soal", value: "14" },
-      { label: "Topik", value: "2" },
-      { label: "Status", value: "Siap" },
-    ],
-    primaryAction: "Generate drill",
-    followUp: "Tanya Vera untuk mengubah tingkat kesulitan sebelum mulai.",
-  },
   review: {
     id: "review",
     eyebrow: "Mode pembahasan",
@@ -362,44 +290,6 @@ const veraToolModes: Record<VeraToolId, VeraToolMode> = {
     ],
     primaryAction: "Mulai bahas soal",
     followUp: "Minta Vera menjelaskan dengan analogi yang lebih sederhana.",
-  },
-  ptn: {
-    id: "ptn",
-    eyebrow: "Mode strategi PTN",
-    title: "Strategi menuju Ilmu Komputer UI.",
-    description:
-      "Vera membaca gap skor dan membuat prioritas yang realistis untuk menjaga peluang tanpa mengorbankan topik yang sudah stabil.",
-    highlights: [
-      "Skor saat ini 676, target aman 715.",
-      "Gap 39 poin lebih mungkin dikejar dari PK dan PU.",
-      "LBI cukup dijaga dengan review ringan mingguan.",
-    ],
-    metrics: [
-      { label: "Target", value: "UI" },
-      { label: "Gap", value: "39 poin" },
-      { label: "Horizon", value: "14 hari" },
-    ],
-    primaryAction: "Susun strategi 14 hari",
-    followUp: "Tanya Vera untuk membandingkan target cadangan.",
-  },
-  summary: {
-    id: "summary",
-    eyebrow: "Mode ringkasan",
-    title: "Ringkasan belajar yang bisa dibawa ke sesi berikutnya.",
-    description:
-      "Vera menyimpan konteks penting supaya percakapan berikutnya langsung mulai dari keputusan belajar terbaru.",
-    highlights: [
-      "Fokus hari ini: simpulan implisit dan rasio dua langkah.",
-      "Tindakan berikutnya: drill 14 soal sebelum modul baru.",
-      "Catatan strategi: jaga LBI, dorong PK dan PU.",
-    ],
-    metrics: [
-      { label: "Catatan", value: "3 poin" },
-      { label: "Konteks", value: "Tersimpan" },
-      { label: "Berikutnya", value: "Drill" },
-    ],
-    primaryAction: "Simpan ringkasan",
-    followUp: "Minta Vera membuat versi singkat untuk reminder harian.",
   },
 };
 

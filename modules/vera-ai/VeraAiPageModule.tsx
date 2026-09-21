@@ -20,11 +20,9 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Dumbbell,
   FileQuestion,
   FileText,
   Gauge,
-  GraduationCap,
   House,
   LibraryBig,
   ListChecks,
@@ -41,7 +39,6 @@ import {
   SendHorizontal,
   Sparkles,
   Trash2,
-  Upload,
   X,
   type AppIcon,
 } from "@/lib/icons";
@@ -49,15 +46,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import {
-  Attachment,
-  AttachmentAction,
-  AttachmentActions,
-  AttachmentContent,
-  AttachmentDescription,
-  AttachmentMedia,
-  AttachmentTitle,
-} from "@/components/ui/attachment";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
@@ -104,7 +92,7 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
-import { buildStudentReturnHref, isVeraToolId } from "@/lib/navigation/canonical-context";
+import { buildStudentReturnHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
@@ -454,102 +442,21 @@ const studioToolIds: VeraToolId[] = [
   "analysis",
   "route",
   "review",
-  "summary",
-  "drill",
 ];
 
-const MAX_CONTEXTS_PER_SESSION = 6;
+const MAX_CONTEXTS_PER_SESSION = 4;
 const CONTEXT_PAGE_SIZE = 3;
 
 const toolIcons: Record<VeraToolId, AppIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
   route: ListChecks,
-  drill: Dumbbell,
   review: FileQuestion,
-  ptn: GraduationCap,
-  summary: FileText,
 };
 
 const contextTypeIcons: Record<VeraContextTypeId, AppIcon> = {
   practice: ChartNoAxesColumnIncreasing,
   material: BookOpen,
-  document: FileText,
 };
-
-const initialMessages: VeraMessage[] = [
-  {
-    id: "ratio-welcome",
-    role: "vera",
-    body: "Aku sudah membaca Tryout SNBT 04, Modul Rasio Dasar, dan catatan pribadimu. Dari ketiganya, pola yang paling dekat untuk kita bereskan adalah rasio dua langkah dan simpulan implisit.",
-    createdAt: "Baru saja",
-    citations: ["Tryout SNBT 04", "Modul Rasio Dasar", "Rangkuman PK Pribadi"],
-  },
-  {
-    id: "ratio-next",
-    role: "vera",
-    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan latihan adaptif yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
-    createdAt: "Baru saja",
-  },
-];
-
-const initialSessions: StudySession[] = [
-  {
-    id: "ratio-review",
-    title: "Tinjauan Rasio Hari Ini",
-    updatedAt: "Baru saja",
-    sourceIds: ["tryout-04", "module-ratio", "personal-summary"],
-    generatedTools: ["analysis", "summary"],
-    messages: initialMessages,
-  },
-  {
-    id: "wrong-answer-review",
-    title: "Tinjauan Jawaban Salah",
-    updatedAt: "Kemarin",
-    sourceIds: ["tryout-04", "quiz-pk-02"],
-    generatedTools: ["review"],
-    messages: [
-      {
-        id: "wrong-answer-welcome",
-        role: "vera",
-        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Kuis PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
-        createdAt: "Kemarin",
-        citations: ["Tryout SNBT 04", "Kuis PK Modul 02"],
-      },
-    ],
-  },
-  {
-    id: "snbt-analysis",
-    title: "Analisis SNBT 04",
-    updatedAt: "4 Jul",
-    sourceIds: ["tryout-04", "personal-summary"],
-    generatedTools: ["analysis", "route"],
-    messages: [
-      {
-        id: "snbt-welcome",
-        role: "vera",
-        body: "Skor 676 sudah memberi kita cukup data untuk memilih prioritas. Aku akan bantu memisahkan topik yang perlu dikejar dari topik yang cukup dipertahankan.",
-        createdAt: "4 Jul",
-        citations: ["Tryout SNBT 04", "Rangkuman PK Pribadi"],
-      },
-    ],
-  },
-  {
-    id: "geometry-practice",
-    title: "Latihan Geometri",
-    updatedAt: "2 Jul",
-    sourceIds: ["geometry-notes"],
-    generatedTools: ["drill"],
-    messages: [
-      {
-        id: "geometry-welcome",
-        role: "vera",
-        body: "Catatan geometri sudah terpasang. Kirim satu soal yang terasa membingungkan, lalu kita petakan konsep mana yang sebenarnya sedang diuji.",
-        createdAt: "2 Jul",
-        citations: ["Catatan Geometri UTBK"],
-      },
-    ],
-  },
-];
 
 const emptyStudySession: StudySession = {
   id: "",
@@ -563,10 +470,7 @@ const emptyStudySession: StudySession = {
 const toolRequestLabels: Record<VeraToolId, string> = {
   analysis: "Analisis kelemahanku dari konteks sesi ini.",
   route: "Susun rute belajar dari konteks sesi ini.",
-  drill: "Buat latihan adaptif dari kelemahanku.",
   review: "Jelaskan jawaban salah yang paling penting.",
-  ptn: "Bantu susun strategi PTN dari progresku.",
-  summary: "Buat ringkasan sesi belajar ini.",
 };
 
 const VERA_ARTIFACT_TYPE_LABELS: Record<string, string> = {
@@ -631,14 +535,8 @@ function formatVeraState(value: string | null | undefined) {
 function isToolId(value: string | null): value is VeraToolId {
   return Boolean(
     value &&
-      ["analysis", "route", "drill", "review", "ptn", "summary"].includes(
-        value,
-      ),
+      ["analysis", "route", "review"].includes(value),
   );
-}
-
-function moveItemToFront<T extends string>(items: T[], nextItem: T) {
-  return [nextItem, ...items.filter((item) => item !== nextItem)];
 }
 
 type VeraAiWorkspaceProps = {
@@ -677,8 +575,6 @@ type VeraAiWorkspaceProps = {
   onSessionSidebarCollapsedChange: (collapsed: boolean) => void;
   onSetWorkspaceTab: (tab: WorkspaceTab) => void;
   onToggleContext: (sourceId: string, active: boolean) => void;
-  onMaterializeArtifact: () => void;
-  onApplyArtifact: (target: VeraBackendArtifactTarget) => void;
   session: SessionContext;
   sessionSidebarCollapsed: boolean;
   sessions: StudySession[];
@@ -724,8 +620,6 @@ function VeraAiWorkspace({
   onSessionSidebarCollapsedChange,
   onSetWorkspaceTab,
   onToggleContext,
-  onMaterializeArtifact,
-  onApplyArtifact,
   progress,
   provisionalText,
   session,
@@ -816,13 +710,10 @@ function VeraAiWorkspace({
                       className="flex h-full rounded-none border-0 shadow-none"
                       generatedArtifacts={generatedArtifacts}
                       generatedArtifactSummaries={generatedArtifactSummaries}
-                      busy={busy}
                       onCloseArtifact={onCloseArtifact}
                       onExpandArtifact={onExpandArtifact}
                       onGenerateTool={onGenerateTool}
                       onOpenArtifact={onOpenArtifact}
-                      onMaterializeArtifact={onMaterializeArtifact}
-                      onApplyArtifact={onApplyArtifact}
                     />
                   </TabsContent>
                 </WorkspacePanel>
@@ -894,41 +785,17 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
-  const requestedTool = isVeraToolId(requestedArtifact)
+  const requestedTool = isToolId(requestedArtifact)
     ? requestedArtifact
-    : isVeraToolId(requestedToolParam)
+    : isToolId(requestedToolParam)
       ? requestedToolParam
       : null;
-  const [sessions, setSessions] = useState<StudySession[]>(() =>
-    requestedTool
-      ? initialSessions.map((item, index) =>
-          index === 0
-            ? {
-                ...item,
-                generatedTools: moveItemToFront(
-                  item.generatedTools,
-                  requestedTool,
-                ),
-              }
-            : item,
-        )
-      : initialSessions,
-  );
-  const [activeSessionId, setActiveSessionId] = useState(initialSessions[0].id);
+  const [sessions, setSessions] = useState<StudySession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState("");
   const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
     requestedTool,
   );
-  const [contextSources, setContextSources] = useState<VeraContextSource[]>(
-    () => {
-      const addedSourceIds = new Set(
-        initialSessions.flatMap((item) => item.sourceIds),
-      );
-
-      return veraContextSources.filter((source) =>
-        addedSourceIds.has(source.id),
-      );
-    },
-  );
+  const [contextSources, setContextSources] = useState<VeraContextSource[]>([]);
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
   const [contextDialogOpen, setContextDialogOpen] = useState(false);
@@ -1755,62 +1622,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     );
   }
 
-  async function handleMaterializeArtifact() {
-    if (
-      !activeArtifactDetail ||
-      !activeArtifactDetail.applyCapabilities.materializeLearningRecommendation
-    ) {
-      return;
-    }
-
-    try {
-      setBusy(true);
-      setError(null);
-      await requestJson(
-        `/api/vera-ai/artifacts/${activeArtifactDetail.id}/materialize/learning-recommendation`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            clientRequestId: crypto.randomUUID(),
-            expectedArtifactRevision: activeArtifactDetail.revision,
-            materializationSchemaVersion: "1",
-          }),
-        },
-      );
-      setNotice("Rute berhasil disimpan sebagai rekomendasi belajar.");
-    } catch (caught) {
-      setError(veraErrorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleApplyArtifact(target: VeraBackendArtifactTarget) {
-    if (!activeArtifactDetail) {
-      return;
-    }
-
-    try {
-      setBusy(true);
-      setError(null);
-      await requestJson(`/api/vera-ai/artifacts/${activeArtifactDetail.id}/apply`, {
-        method: "POST",
-        body: JSON.stringify({
-          clientRequestId: crypto.randomUUID(),
-          registryKey: target.registryKey,
-          targetId: target.id,
-          expectedTargetRevision: target.revision,
-        }),
-      });
-      setNotice(`Hasil diterapkan ke ${target.label}.`);
-      await openBackendArtifact(activeArtifactDetail.id);
-    } catch (caught) {
-      setError(veraErrorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return {
     activeArtifact,
     activeArtifactDetail,
@@ -1827,7 +1638,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     generatedArtifactSummaries: backendArtifacts,
     notice,
     notificationFeed,
-    onApplyArtifact: handleApplyArtifact,
     onCancelRequest: handleCancelRequest,
     onCloseArtifact: () => {
       setActiveArtifactId(null);
@@ -1838,7 +1648,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     onDraftChange: setDraft,
     onExpandArtifact: setFullscreenArtifactId,
     onGenerateTool: handleToolRequest,
-    onMaterializeArtifact: handleMaterializeArtifact,
     onNewSession: handleNewSession,
     onOpenAddContext: () => setContextDialogOpen(true),
     onOpenArtifact: handleOpenArtifact,
@@ -2370,7 +2179,6 @@ function ChatWorkspace({
 const contextTypeLabels: Record<VeraContextTypeId, string> = {
   practice: "Hasil latihan",
   material: "Materi",
-  document: "Dokumen",
 };
 
 function contextMetadataForSource(source: VeraContextSource) {
@@ -2405,9 +2213,7 @@ function contextMetadataForSource(source: VeraContextSource) {
       : "Materi belajar";
   }
 
-  return source.id.startsWith("uploaded-")
-    ? "Dokumen tambahan"
-    : "Dokumen pribadi";
+  return "Materi belajar";
 }
 
 function ContextWorkspace({
@@ -2996,28 +2802,22 @@ function ChatComposer({
 function StudioPanel({
   activeArtifact,
   activeArtifactDetail,
-  busy,
   className,
   generatedArtifacts,
   generatedArtifactSummaries,
   onCloseArtifact,
   onExpandArtifact,
   onGenerateTool,
-  onMaterializeArtifact,
-  onApplyArtifact,
   onOpenArtifact,
 }: {
   activeArtifact: VeraStudioTool | null;
   activeArtifactDetail: VeraBackendArtifactDetail | null;
-  busy: boolean;
   className?: string;
   generatedArtifacts: VeraStudioTool[];
   generatedArtifactSummaries: VeraBackendArtifactSummary[];
   onCloseArtifact: () => void;
   onExpandArtifact: (toolId: VeraToolId) => void;
   onGenerateTool: (toolId: VeraToolId) => void;
-  onMaterializeArtifact: () => void;
-  onApplyArtifact: (target: VeraBackendArtifactTarget) => void;
   onOpenArtifact: (toolId: VeraToolId) => void;
 }) {
   if (activeArtifact) {
@@ -3045,46 +2845,6 @@ function StudioPanel({
             backendArtifact={activeArtifactDetail}
             tool={activeArtifact}
           />
-          {activeArtifactDetail ? (
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pb-4">
-              {activeArtifactDetail.applyCapabilities
-                .materializeLearningRecommendation ? (
-                <Button
-                  className="rounded-full"
-                  disabled={busy}
-                  onClick={onMaterializeArtifact}
-                  variant="brand"
-                >
-                  Simpan sebagai rekomendasi belajar
-                </Button>
-              ) : null}
-              {activeArtifactDetail.applyCapabilities.targets.length > 0 ? (
-                <div className="border-t border-primary-100 pt-3">
-                  <p className="mb-2 text-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-                    Terapkan ke target yang ada
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    {activeArtifactDetail.applyCapabilities.targets.map(
-                      (target) => (
-                        <Button
-                          className="justify-between rounded-2xl"
-                          disabled={busy}
-                          key={`${target.registryKey}:${target.id}`}
-                          onClick={() => onApplyArtifact(target)}
-                          variant="outline"
-                        >
-                          <span className="truncate">{target.label}</span>
-                          <span className="text-xs text-secondary-500">
-                            Revisi {target.revision}
-                          </span>
-                        </Button>
-                      ),
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </WorkspacePanel>
     );
@@ -3434,20 +3194,6 @@ function AddContextDialog({
   const [materialQuery, setMaterialQuery] = useState("");
   const [practicePage, setPracticePage] = useState(1);
   const [materialPage, setMaterialPage] = useState(1);
-  const selectedSourceIdSet = useMemo(
-    () => new Set(selectedSourceIds),
-    [selectedSourceIds],
-  );
-  const existingUploadedSource = availableSources.find(
-    (source) =>
-      selectedSourceIdSet.has(source.id) &&
-      (source.id === "external-notes" || source.id.startsWith("uploaded-")),
-  );
-  const [uploadedSource, setUploadedSource] =
-    useState<VeraContextSource | null>(existingUploadedSource ?? null);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(
-    existingUploadedSource?.title ?? null,
-  );
   const availableSourceIdSet = useMemo(
     () => new Set(availableSources.map((source) => source.id)),
     [availableSources],
@@ -3609,13 +3355,9 @@ function AddContextDialog({
           }}
           onPracticePageChange={setPracticePage}
           onToggleSource={toggleSource}
-          onUploadedSourceChange={setUploadedSource}
-          onUploadedFileNameChange={setUploadedFileName}
           practicePage={practicePage}
           practicePageCount={practicePageCount}
           pendingAddedSourceIdSet={pendingAddedSourceIdSet}
-          uploadedFileName={uploadedFileName}
-          uploadedSource={uploadedSource}
           backendMode={backendMode}
           backendCatalogSources={backendCatalogSources}
           backendMaterialSources={backendMaterialSources}
@@ -3643,7 +3385,7 @@ function AddContextDialog({
               </p>
             ) : limitReached ? (
               <p className="text-xs text-secondary-400">
-                Batas 6 yang dipakai tercapai. Konteks tambahan tetap bisa
+                Batas 4 yang dipakai tercapai. Konteks tambahan tetap bisa
                 ditambahkan.
               </p>
             ) : null}
@@ -3668,10 +3410,7 @@ function AddContextDialog({
                   .filter(
                     (source): source is VeraContextSource => Boolean(source),
                   );
-                const addedSources = [
-                  ...catalogSources,
-                  ...(uploadedSource ? [uploadedSource] : []),
-                ].filter(
+                const addedSources = catalogSources.filter(
                   (source, index, sources) =>
                     pendingAddedSourceIdSet.has(source.id) &&
                     !availableSourceIdSet.has(source.id) &&
@@ -3878,124 +3617,6 @@ function AddContextMaterialTab({
   );
 }
 
-function AddContextDocumentTab({
-  backendMode,
-  draftSourceIds,
-  onToggleSource,
-  onUploadedFileNameChange,
-  onUploadedSourceChange,
-  uploadedFileName,
-  uploadedSource,
-}: {
-  backendMode: boolean;
-  draftSourceIds: string[];
-  onToggleSource: (sourceId: string) => void;
-  onUploadedFileNameChange: (name: string | null) => void;
-  onUploadedSourceChange: (source: VeraContextSource | null) => void;
-  uploadedFileName: string | null;
-  uploadedSource: VeraContextSource | null;
-}) {
-  return (
-    <TabsContent className="min-h-0 overflow-hidden" value="document">
-      <ScrollArea className="h-full">
-        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-          {backendMode ? (
-            <div className="flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-background p-6 text-center">
-              <FileText className="size-6 text-secondary-400" />
-              <p className="mt-3 text-sm font-semibold text-secondary-900">
-                Dokumen belum tersedia
-              </p>
-              <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
-                Vera saat ini hanya dapat memakai materi dan hasil latihan
-                yang sudah dirilis.
-              </p>
-            </div>
-          ) : (
-            <>
-              <label
-                className={cn(
-                  "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors motion-reduce:transition-none",
-                  "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
-                )}
-              >
-                <input
-                  accept=".pdf,.txt,text/plain,application/pdf"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-
-                    if (file) {
-                      const previousSourceId = uploadedSource?.id;
-                      const nextSource: VeraContextSource = {
-                        id: `uploaded-${Date.now()}`,
-                        title: file.name,
-                        type: "document",
-                      };
-
-                      if (previousSourceId) {
-                        onToggleSource(previousSourceId);
-                      }
-
-                      onUploadedSourceChange(nextSource);
-                      onUploadedFileNameChange(file.name);
-                      onToggleSource(nextSource.id);
-                    }
-                  }}
-                  type="file"
-                />
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
-                  <Upload className="size-4" />
-                </span>
-                <span className="mt-3 text-sm font-semibold text-secondary-950">
-                  Upload dokumen belajar
-                </span>
-                <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
-                  Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
-                  TXT untuk catatan, rangkuman, dan materi eksternal.
-                </span>
-                <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
-                  Pilih file
-                </span>
-              </label>
-              {uploadedSource ? (
-                <Attachment className="mt-3 w-full" state="done">
-                  <AttachmentMedia>
-                    <FileText />
-                  </AttachmentMedia>
-                  <AttachmentContent>
-                    <AttachmentTitle>
-                      {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
-                    </AttachmentTitle>
-                    <AttachmentDescription>
-                      {draftSourceIds.includes(uploadedSource.id)
-                        ? "Dipakai di sesi ini"
-                        : "Ditambahkan ke perpustakaan — pakai dari tab Konteks"}
-                    </AttachmentDescription>
-                  </AttachmentContent>
-                  <AttachmentActions>
-                    <AttachmentAction
-                      aria-label="Lepas dokumen"
-                      onClick={() => {
-                        if (draftSourceIds.includes(uploadedSource.id)) {
-                          onToggleSource(uploadedSource.id);
-                        }
-                        onUploadedSourceChange(null);
-                        onUploadedFileNameChange(null);
-                      }}
-                    >
-                      <X />
-                    </AttachmentAction>
-                  </AttachmentActions>
-                </Attachment>
-              ) : null}
-            </>
-          )}
-        </div>
-      </ScrollArea>
-    </TabsContent>
-  );
-}
-
 function AddContextTabs({
   activeTab,
   backendCatalogSources,
@@ -4011,13 +3632,9 @@ function AddContextTabs({
   onMaterialQueryChange,
   onPracticePageChange,
   onToggleSource,
-  onUploadedSourceChange,
-  onUploadedFileNameChange,
   practicePage,
   practicePageCount,
   pendingAddedSourceIdSet,
-  uploadedFileName,
-  uploadedSource,
   visibleMaterialItems,
   visiblePracticeItems,
 }: {
@@ -4035,13 +3652,9 @@ function AddContextTabs({
   onMaterialQueryChange: (query: string) => void;
   onPracticePageChange: (page: number) => void;
   onToggleSource: (sourceId: string) => void;
-  onUploadedSourceChange: (source: VeraContextSource | null) => void;
-  onUploadedFileNameChange: (name: string | null) => void;
   practicePage: number;
   practicePageCount: number;
   pendingAddedSourceIdSet: Set<string>;
-  uploadedFileName: string | null;
-  uploadedSource: VeraContextSource | null;
   visibleMaterialItems: VeraMaterialHistory[];
   visiblePracticeItems: VeraPracticeHistory[];
 }) {
@@ -4068,14 +3681,6 @@ function AddContextTabs({
           >
             <BookOpen data-icon="inline-start" />
             Materi
-          </FullWidthLineTabsTrigger>
-          <FullWidthLineTabsTrigger
-            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
-            disabled={backendMode}
-            value="document"
-          >
-            <FileText data-icon="inline-start" />
-            Dokumen
           </FullWidthLineTabsTrigger>
         </FullWidthLineTabsList>
       </div>
@@ -4107,15 +3712,6 @@ function AddContextTabs({
         visibleMaterialItems={visibleMaterialItems}
       />
 
-      <AddContextDocumentTab
-        backendMode={backendMode}
-        draftSourceIds={draftSourceIds}
-        onToggleSource={onToggleSource}
-        onUploadedFileNameChange={onUploadedFileNameChange}
-        onUploadedSourceChange={onUploadedSourceChange}
-        uploadedFileName={uploadedFileName}
-        uploadedSource={uploadedSource}
-      />
     </Tabs>
   );
 }
