@@ -184,6 +184,10 @@ export type PreparedProviderTask = {
   preparedTask: ProviderTask;
   certifiedEstimate: CertifiedQuotaEstimate;
   manifestDigest: string;
+  priceSnapshot?: ProviderPriceSnapshot;
+  pricePolicyVersion?: string;
+  certifierId?: string;
+  certifierVersion?: string;
   routingOptions: ProviderRoutingOptions;
   providerRequestKey?: string;
   finalPayloadHash?: string;
@@ -288,6 +292,20 @@ export type ProviderDispatchHooks = {
   onDispatchEvidence?: (evidence: ProviderDispatchEvidence) => void | Promise<void>;
 };
 
+export type ProviderFailureEvidence = {
+  state: "unknown" | "overrun";
+  settlementOutcome?: "known" | "unknown";
+  reason: string;
+  generationId: string | null;
+  providerRequestId: string | null;
+  upstreamId: string | null;
+  providerName: string | null;
+  reportedCostMicros: string | null;
+  recomputedCostMicros: string | null;
+  rawReportedCostDecimal: string | null;
+  canonicalReportedCostDecimal: string | null;
+};
+
 export class ProviderSafetyError extends Error {
   constructor(message: string) {
     super(message);
@@ -299,13 +317,15 @@ export class ProviderExecutionError extends Error {
   readonly retryableBeforeAcceptance: boolean;
   readonly ambiguousPostSend: boolean;
   readonly code: string;
+  readonly evidence?: ProviderFailureEvidence;
 
-  constructor(input: { code: string; retryableBeforeAcceptance?: boolean; ambiguousPostSend?: boolean; message?: string }) {
+  constructor(input: { code: string; retryableBeforeAcceptance?: boolean; ambiguousPostSend?: boolean; message?: string; evidence?: ProviderFailureEvidence }) {
     super(input.message ?? input.code);
     this.name = "ProviderExecutionError";
     this.code = input.code;
     this.retryableBeforeAcceptance = input.retryableBeforeAcceptance ?? false;
     this.ambiguousPostSend = input.ambiguousPostSend ?? false;
+    this.evidence = input.evidence;
   }
 }
 
@@ -1540,11 +1560,23 @@ export async function executeOpenRouterPaidTransport(
     observedAt: new Date().toISOString(),
     reason: reconciliation.reason,
   });
+  const failureEvidence: ProviderFailureEvidence = {
+    state: reconciliation.state === "overrun" ? "overrun" : "unknown",
+    reason: reconciliation.reason ?? "generation_unknown",
+    generationId: reconciliation.generationId,
+    providerRequestId: reconciliation.providerRequestId,
+    upstreamId: reconciliation.upstreamId,
+    providerName: reconciliation.providerName,
+    reportedCostMicros: reconciliation.reportedCostMicros?.toString() ?? null,
+    recomputedCostMicros: reconciliation.recomputedCostMicros?.toString() ?? null,
+    rawReportedCostDecimal: reconciliation.rawReportedCostDecimal,
+    canonicalReportedCostDecimal: reconciliation.canonicalReportedCostDecimal,
+  };
   if (reconciliation.state === "overrun") {
-    throw new ProviderExecutionError({ code: "provider_pricing_violation", ambiguousPostSend: false });
+    throw new ProviderExecutionError({ code: "provider_pricing_violation", ambiguousPostSend: false, evidence: failureEvidence });
   }
   if (reconciliation.state !== "known") {
-    throw new ProviderExecutionError({ code: `provider_${reconciliation.reason ?? "generation_unknown"}`, ambiguousPostSend: true });
+    throw new ProviderExecutionError({ code: `provider_${reconciliation.reason ?? "generation_unknown"}`, ambiguousPostSend: true, evidence: failureEvidence });
   }
   return {
     kind: "text",
@@ -1691,6 +1723,10 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       preparedTask: task,
       certifiedEstimate,
       manifestDigest: manifest.manifestDigest,
+      priceSnapshot: manifest.priceSnapshot,
+      pricePolicyVersion: manifest.pricePolicyVersion,
+      certifierId: manifest.inputCertifierId,
+      certifierVersion: manifest.inputCertifierVersion,
       routingOptions: manifest.routingOptions,
       providerRequestKey: task.providerRequestKey,
       finalPayloadHash: task.finalPayloadHash,

@@ -56,7 +56,7 @@ import {
   type QuotaWindowSnapshot,
 } from "./quota-v2";
 import type { NormalizedVeraResult } from "./output-validator";
-import type { PreparedProviderTask, ProviderResult } from "./provider";
+import type { PreparedProviderTask, ProviderFailureEvidence, ProviderResult } from "./provider";
 import {
   VeraDurableResultError,
   createVeraDurableResultCallback,
@@ -126,6 +126,19 @@ export type VeraV2QuotaSettlement = {
 
 function json(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
+}
+
+function parseMicrosString(value: string | null | undefined): bigint | null {
+  if (typeof value !== "string" || !/^(?:0|[1-9][0-9]*)$/u.test(value)) return null;
+  try {
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
+
+function providerRequestKeyFor(requestId: string, attemptNo: number): string {
+  return sha256Hex(`vera-provider-request-key-v1:${requestId}:${attemptNo}`);
 }
 
 function dateOnly(value: string): Date {
@@ -217,11 +230,175 @@ function v2ReservationState(input: {
   unknownUsdMicros: bigint;
   overrunUsdMicros: bigint;
   outcome: "known" | "unknown" | "released";
+  forceOverrun?: boolean;
 }): AiReservationState {
+  if (input.forceOverrun) return AiReservationState.overrun;
   if (input.overrunUsdMicros > 0n) return AiReservationState.overrun;
   if (input.outcome === "unknown") return AiReservationState.unknown;
   if (input.outcome === "released") return AiReservationState.released;
   return AiReservationState.settled;
+}
+
+type V2AdmissionReservationInput = {
+  studentId: string;
+  requestId: string;
+  now: Date;
+  quotaTimezone: string;
+  policyBundleVersion: string;
+  quotaPolicyVersion: string;
+  creditCost: number;
+  maxProviderCostUsdMicros: bigint;
+};
+
+/**
+ * Reserve the v2 windows inside an already-open admission transaction. The
+ * public reserveV2Quota method below is useful to workers and callers that
+ * already have a durable request; admission needs this transaction-bound
+ * variant so request creation and quota reservation commit (or roll back)
+ * together.
+ */
+async function reserveV2QuotaInAdmissionTransaction(
+  tx: Prisma.TransactionClient,
+  input: V2AdmissionReservationInput,
+): Promise<string[]> {
+  if (!Number.isSafeInteger(input.creditCost) || input.creditCost < 1) {
+    throw new VeraAdmissionError({ code: "invalid_credit_cost", status: 422 });
+  }
+  if (input.maxProviderCostUsdMicros < 0n) {
+    throw new VeraAdmissionError({ code: "invalid_provider_cost_reservation", status: 422 });
+  }
+
+  // First-use calendar bootstrap is serialized per student and ledger. The
+  // caller already owns the idempotency/request/conversation rows.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.studentId} || ':' || ${VERA_CREDIT_USD_V2}, 0))`;
+  await tx.aiQuotaCalendar.upsert({
+    where: { studentId_ledgerVersion: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2 } },
+    create: {
+      studentId: input.studentId,
+      ledgerVersion: VERA_CREDIT_USD_V2,
+      quotaTimezone: input.quotaTimezone,
+      effectiveFrom: VERA_CREDIT_USD_V2_EFFECTIVE_FROM,
+    },
+    update: {},
+  });
+  await tx.$queryRaw`SELECT id FROM ai_quota_calendars WHERE student_id = ${input.studentId}::uuid AND ledger_version = 'vera_credit_usd_v2'::ai_usage_ledger_version FOR UPDATE`;
+  const calendar = await tx.aiQuotaCalendar.findUnique({
+    where: { studentId_ledgerVersion: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2 } },
+  });
+  if (!calendar) throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+
+  const target = deriveV2WindowKeys(input.now, calendar.quotaTimezone);
+  let monthly = calendar.currentMonthlyWindowId
+    ? await tx.aiUsageWindow.findUnique({ where: { id: calendar.currentMonthlyWindowId } })
+    : null;
+  if (monthly && monthly.periodKind !== AiUsageWindowPeriodKind.month) {
+    throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+  }
+  if (monthly && monthly.windowKey > target.month.key) {
+    throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+  }
+  const monthlyData = (window: { key: string; start: Date; end: Date }) => ({
+    studentId: input.studentId,
+    ledgerVersion: VERA_CREDIT_USD_V2,
+    periodKind: AiUsageWindowPeriodKind.month,
+    windowKey: window.key,
+    windowStart: window.start,
+    windowEnd: window.end,
+    quotaTimezone: calendar!.quotaTimezone,
+    policyBundleVersion: input.policyBundleVersion,
+    quotaPolicyVersion: input.quotaPolicyVersion,
+    creditLimit: VERA_MONTHLY_CREDIT_LIMIT,
+    costLimitUsdMicros: VERA_MONTHLY_COST_LIMIT_USD_MICROS,
+  });
+  if (!monthly) {
+    monthly = await tx.aiUsageWindow.create({ data: monthlyData(target.month) });
+  } else {
+    let cursor = parseMonthWindowKey(monthly.windowKey);
+    while (monthly.windowKey < target.month.key) {
+      await tx.aiUsageWindow.update({
+        where: { id: monthly.id },
+        data: { state: AiUsageWindowState.closed, closedAt: monthly.windowEnd },
+      });
+      cursor = nextMonthWindow(cursor.year, cursor.month);
+      const next = deriveV2MonthWindow(cursor.year, cursor.month, calendar.quotaTimezone);
+      monthly = await tx.aiUsageWindow.upsert({
+        where: { studentId_ledgerVersion_periodKind_windowKey: {
+          studentId: input.studentId,
+          ledgerVersion: VERA_CREDIT_USD_V2,
+          periodKind: AiUsageWindowPeriodKind.month,
+          windowKey: next.key,
+        } },
+        create: monthlyData(next),
+        update: {},
+      });
+    }
+  }
+  await tx.aiQuotaCalendar.update({ where: { id: calendar.id }, data: { currentMonthlyWindowId: monthly.id } });
+
+  const day = await tx.aiUsageWindow.upsert({
+    where: { studentId_ledgerVersion_periodKind_windowKey: {
+      studentId: input.studentId,
+      ledgerVersion: VERA_CREDIT_USD_V2,
+      periodKind: AiUsageWindowPeriodKind.day,
+      windowKey: target.day.key,
+    } },
+    create: { ...monthlyData(target.day), periodKind: AiUsageWindowPeriodKind.day, creditLimit: VERA_DAILY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
+    update: {},
+  });
+  const isoWeek = await tx.aiUsageWindow.upsert({
+    where: { studentId_ledgerVersion_periodKind_windowKey: {
+      studentId: input.studentId,
+      ledgerVersion: VERA_CREDIT_USD_V2,
+      periodKind: AiUsageWindowPeriodKind.iso_week,
+      windowKey: target.isoWeek.key,
+    } },
+    create: { ...monthlyData(target.isoWeek), periodKind: AiUsageWindowPeriodKind.iso_week, creditLimit: VERA_WEEKLY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
+    update: {},
+  });
+
+  const ids = [day.id, isoWeek.id, monthly.id];
+  for (const id of ids) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+  const rows = await tx.aiUsageWindow.findMany({ where: { id: { in: ids } } });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const lockedDay = byId.get(day.id);
+  const lockedWeek = byId.get(isoWeek.id);
+  const lockedMonth = byId.get(monthly.id);
+  if (!lockedDay || !lockedWeek || !lockedMonth) throw new VeraAdmissionError({ code: "quota_window_missing", status: 503 });
+  for (const window of [lockedDay, lockedWeek, lockedMonth]) {
+    if (window.monetaryDebtState === AiMonetaryDebtState.debt) throw new VeraAdmissionError({ code: "quota_exhausted_monetary", status: 409 });
+    if (window.consumedCredits + window.reservedCredits + input.creditCost > window.creditLimit) {
+      throw new VeraAdmissionError({ code: `quota_exhausted_${window.periodKind}`, status: 409 });
+    }
+  }
+  const monthlyExposure = lockedMonth.reservedUsdMicros + lockedMonth.settledUsdMicros + lockedMonth.unknownUsdMicros;
+  if (monthlyExposure + input.maxProviderCostUsdMicros > lockedMonth.costLimitUsdMicros) {
+    throw new VeraAdmissionError({
+      code: "quota_exhausted_monetary",
+      status: 409,
+      details: { monthlyExposureUsdMicros: monthlyExposure.toString(), requestedUsdMicros: input.maxProviderCostUsdMicros.toString() },
+    });
+  }
+  await tx.aiUsageWindow.update({ where: { id: lockedDay.id }, data: { reservedCredits: { increment: input.creditCost } } });
+  await tx.aiUsageWindow.update({ where: { id: lockedWeek.id }, data: { reservedCredits: { increment: input.creditCost } } });
+  await tx.aiUsageWindow.update({ where: { id: lockedMonth.id }, data: { reservedCredits: { increment: input.creditCost }, reservedUsdMicros: { increment: input.maxProviderCostUsdMicros } } });
+  const created: string[] = [];
+  for (const reservation of [
+    { usageWindowId: lockedDay.id, reservedUsdMicros: 0n },
+    { usageWindowId: lockedWeek.id, reservedUsdMicros: 0n },
+    { usageWindowId: lockedMonth.id, reservedUsdMicros: input.maxProviderCostUsdMicros },
+  ]) {
+    const row = await tx.aiRequestUsageReservation.create({
+      data: {
+        requestId: input.requestId,
+        usageWindowId: reservation.usageWindowId,
+        reservedCredits: input.creditCost,
+        reservedUsdMicros: reservation.reservedUsdMicros,
+      },
+      select: { id: true },
+    });
+    created.push(row.id);
+  }
+  return created;
 }
 
 /**
@@ -434,10 +611,12 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     outcome: "known" | "unknown" | "released";
     chargedUsdMicros?: bigint;
+    forceOverrun?: boolean;
     now?: Date;
+    transaction?: Prisma.TransactionClient;
   }): Promise<VeraV2QuotaSettlement> {
     const now = input.now ?? await this.databaseNow();
-    return this.db.$transaction(async (tx) => {
+    const settle = async (tx: Prisma.TransactionClient): Promise<VeraV2QuotaSettlement> => {
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: input.requestId }, select: { id: true, ledgerVersion: true, creditCost: true, billingState: true } });
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
@@ -452,7 +631,7 @@ export class VeraPrismaAdmissionService {
       let unknownUsdMicros = 0n;
       let overrunUsdMicros = 0n;
       let consumedCredits = 0;
-      let requestState: VeraV2QuotaSettlement["state"] = input.outcome;
+      let requestState: VeraV2QuotaSettlement["state"] = input.forceOverrun ? "overrun" : input.outcome;
       if (rows.every((row) => row.state !== AiReservationState.reserved)) {
         requestState = rows.some((row) => row.state === AiReservationState.overrun)
           ? "overrun"
@@ -492,7 +671,7 @@ export class VeraPrismaAdmissionService {
           unresolvedUsdMicros: input.outcome === "unknown" && window.periodKind === AiUsageWindowPeriodKind.month ? row.reservedUsdMicros : 0n,
         });
         assertReservationConservation(next);
-        const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome });
+        const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome, forceOverrun: input.forceOverrun });
         await tx.aiRequestUsageReservation.update({ where: { id: row.id }, data: {
           consumedCredits: next.consumedCredits,
           releasedCredits: next.releasedCredits,
@@ -533,7 +712,8 @@ export class VeraPrismaAdmissionService {
         overrunUsdMicros,
       } });
       return { requestId: request.id, state: requestState, consumedCredits, chargedUsdMicros, unknownUsdMicros, overrunUsdMicros };
-    });
+    };
+    return input.transaction ? settle(input.transaction) : this.db.$transaction(settle);
   }
 
   /**
@@ -927,62 +1107,74 @@ export class VeraPrismaAdmissionService {
           expiresAt: new Date(input.now.getTime() + input.policy.policy.retentionConfig.rejectedKeyTtlHours * 60 * 60_000),
         },
       });
-      // Lock order starts with the idempotency row, then the local-day row.
+      // Lock order starts with the idempotency row. The pre-cutover ledger
+      // keeps its historical token reservation; v2 admits against the
+      // weighted day/week/month credit ledger instead.
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${idempotencyKey.id}::uuid FOR UPDATE`;
 
+      const isV2 = input.policy.ledgerVersion === VERA_CREDIT_USD_V2;
       const localDay = quotaDateAndDayEnd(input.now, input.policy.timezone);
       const usageDate = dateOnly(localDay.usageDate);
-      const ledger = await tx.aiUsageDaily.upsert({
-        where: {
-          studentId_usageDate_ledgerVersion: {
+      const reservation = isV2 ? input.policy.creditCost : input.preparedProviderTask.certifiedEstimate.reservationBound;
+      assertPositiveInteger(reservation, isV2 ? "creditCost" : "reservationBound");
+      let ledger: Awaited<ReturnType<typeof tx.aiUsageDaily.upsert>> | null = null;
+      if (!isV2) {
+        ledger = await tx.aiUsageDaily.upsert({
+          where: {
+            studentId_usageDate_ledgerVersion: {
+              studentId: input.studentId,
+              usageDate,
+              ledgerVersion: AiUsageLedgerVersion.vera_quota_v1,
+            },
+          },
+          create: {
             studentId: input.studentId,
             usageDate,
             ledgerVersion: AiUsageLedgerVersion.vera_quota_v1,
+            policyBundleVersion: input.policy.bundleVersion,
+            quotaLimitUnitsSnapshot: input.policy.quotaLimitUnits,
+            quotaTimezone: input.policy.timezone,
+            quotaTimezonePolicyVersion: input.policy.timezonePolicyVersion,
           },
-        },
-        create: {
-          studentId: input.studentId,
-          usageDate,
-          ledgerVersion: AiUsageLedgerVersion.vera_quota_v1,
-          policyBundleVersion: input.policy.bundleVersion,
-          quotaLimitUnitsSnapshot: input.policy.quotaLimitUnits,
-          quotaTimezone: input.policy.timezone,
-          quotaTimezonePolicyVersion: input.policy.timezonePolicyVersion,
-        },
-        update: {},
-      });
-      await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${ledger.id}::uuid FOR UPDATE`;
-      if (ledger.quotaOverrunLockUntil && ledger.quotaOverrunLockUntil > input.now) {
-        await this.rejectAdmissionKey(tx, idempotencyKey, "quota_overrun_lock", input.now);
-        await this.createAdmissionEvent(tx, {
-          studentId: input.studentId,
-          idempotencyKeyId: idempotencyKey.id,
-          featureKey: input.featureKey,
-          policy: input.policy,
-          usageDate: localDay.usageDate,
-          reason: "quota_overrun_lock",
-          now: input.now,
+          update: {},
         });
-        return { accepted: false, requestId: "", idempotencyKeyId: idempotencyKey.id, userMessageId: "", contextPackId: "", usageDate: localDay.usageDate, quotaUnitsReserved: 0, rejectionCode: "quota_overrun_lock" };
-      }
-      const reservation = input.preparedProviderTask.certifiedEstimate.reservationBound;
-      assertPositiveInteger(reservation, "reservationBound");
-      if (ledger.usedQuotaUnits + ledger.reservedQuotaUnits + reservation > ledger.quotaLimitUnitsSnapshot + ledger.quotaDebtUnits) {
-        await this.rejectAdmissionKey(tx, idempotencyKey, "quota", input.now);
-        await this.createAdmissionEvent(tx, {
-          studentId: input.studentId,
-          idempotencyKeyId: idempotencyKey.id,
-          featureKey: input.featureKey,
-          policy: input.policy,
-          usageDate: localDay.usageDate,
-          reason: "quota",
-          now: input.now,
-        });
-        return { accepted: false, requestId: "", idempotencyKeyId: idempotencyKey.id, userMessageId: "", contextPackId: "", usageDate: localDay.usageDate, quotaUnitsReserved: 0, rejectionCode: "quota" };
+        await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${ledger.id}::uuid FOR UPDATE`;
+        if (ledger.quotaOverrunLockUntil && ledger.quotaOverrunLockUntil > input.now) {
+          await this.rejectAdmissionKey(tx, idempotencyKey, "quota_overrun_lock", input.now);
+          await this.createAdmissionEvent(tx, {
+            studentId: input.studentId,
+            idempotencyKeyId: idempotencyKey.id,
+            featureKey: input.featureKey,
+            policy: input.policy,
+            usageDate: localDay.usageDate,
+            reason: "quota_overrun_lock",
+            now: input.now,
+          });
+          return { accepted: false, requestId: "", idempotencyKeyId: idempotencyKey.id, userMessageId: "", contextPackId: "", usageDate: localDay.usageDate, quotaUnitsReserved: 0, rejectionCode: "quota_overrun_lock" };
+        }
+        if (ledger.usedQuotaUnits + ledger.reservedQuotaUnits + reservation > ledger.quotaLimitUnitsSnapshot + ledger.quotaDebtUnits) {
+          await this.rejectAdmissionKey(tx, idempotencyKey, "quota", input.now);
+          await this.createAdmissionEvent(tx, {
+            studentId: input.studentId,
+            idempotencyKeyId: idempotencyKey.id,
+            featureKey: input.featureKey,
+            policy: input.policy,
+            usageDate: localDay.usageDate,
+            reason: "quota",
+            now: input.now,
+          });
+          return { accepted: false, requestId: "", idempotencyKeyId: idempotencyKey.id, userMessageId: "", contextPackId: "", usageDate: localDay.usageDate, quotaUnitsReserved: 0, rejectionCode: "quota" };
+        }
       }
 
       const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active" }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });
+      await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${conversation.id}::uuid FOR UPDATE`;
+      const sequenceRows = await tx.$queryRaw<Array<{ next_request_sequence: number }>>`
+        SELECT next_request_sequence FROM ai_conversations WHERE id = ${conversation.id}::uuid FOR UPDATE
+      `;
+      const conversationSequence = (sequenceRows[0]?.next_request_sequence ?? 0) + 1;
+      await tx.aiConversation.update({ where: { id: conversation.id }, data: { nextRequestSequence: conversationSequence } });
       const retryTarget = input.retryOfRequestId
         ? await tx.aiRequest.findFirst({
           where: { id: input.retryOfRequestId, studentId: input.studentId, conversationId: input.conversationId },
@@ -1042,6 +1234,22 @@ export class VeraPrismaAdmissionService {
       const contextPurgeAt = new Date(
         input.now.getTime() + input.policy.policy.retentionConfig.contextEvidenceTtlDays * 24 * 60 * 60_000,
       );
+      const attemptNo = 1;
+      const providerRequestKey = input.preparedProviderTask.providerRequestKey?.trim()
+        || providerRequestKeyFor(requestId, attemptNo);
+      const dispatchDeadlineAt = input.policy.settlementDeadlineAt;
+      const providerTaskForDispatch: PreparedProviderTask = {
+        ...input.preparedProviderTask,
+        providerRequestKey,
+        dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
+        preparedTask: {
+          ...input.preparedProviderTask.preparedTask,
+          requestId,
+          attemptNo,
+          providerRequestKey,
+          dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
+        },
+      };
       // AiContextPack and AiRequestSource have immediate parent FKs to the
       // request. Create the request parent first; the whole sequence remains
       // inside this transaction so any later snapshot failure rolls back the
@@ -1079,6 +1287,17 @@ export class VeraPrismaAdmissionService {
           maxProviderAttempts: 2,
           quotaUnitsReserved: reservation,
           quotaUnitsConsumed: 0,
+          providerRequestKey,
+          dispatchDeadlineAt,
+          certifierId: providerTaskForDispatch.certifierId ?? null,
+          certifierVersion: providerTaskForDispatch.certifierVersion ?? null,
+          priceSnapshot: providerTaskForDispatch.priceSnapshot ? json(providerTaskForDispatch.priceSnapshot) : undefined,
+          ledgerVersion: input.policy.ledgerVersion,
+          creditCost: isV2 ? input.policy.creditCost : 0,
+          creditReservationState: isV2 ? AiReservationState.reserved : undefined,
+          billingState: isV2 ? AiRequestBillingState.prepared : undefined,
+          conversationSequence,
+          historyCutoffSequence: conversationSequence,
           tokenUsageState: AiTokenUsageState.unknown,
           usageAccountingState: AiUsageAccountingState.unknown,
           startedAt: input.now,
@@ -1086,6 +1305,40 @@ export class VeraPrismaAdmissionService {
           retryOfRequestId: input.retryOfRequestId ?? undefined,
         },
       });
+      await tx.aiRequestAttempt.create({
+        data: {
+          requestId: request.id,
+          attemptNo,
+          gateway: providerTaskForDispatch.gateway,
+          upstreamProvider: providerTaskForDispatch.upstreamProvider,
+          upstreamProviderSlug: providerTaskForDispatch.upstreamProviderSlug,
+          model: providerTaskForDispatch.model,
+          providerRequestKey,
+          state: AiAttemptState.reserved,
+          creditCost: isV2 ? input.policy.creditCost : reservation,
+          tokenUsageState: AiTokenUsageState.unknown,
+          finalPayloadHash: providerTaskForDispatch.finalPayloadHash ?? null,
+          dispatchDeadlineAt,
+          certifierId: providerTaskForDispatch.certifierId ?? null,
+          certifierVersion: providerTaskForDispatch.certifierVersion ?? null,
+          priceSnapshot: providerTaskForDispatch.priceSnapshot ? json(providerTaskForDispatch.priceSnapshot) : undefined,
+          finalMeasuredBytes: input.pack.byteCount,
+          finalMeasuredTokenUpperBound: providerTaskForDispatch.inputQuotaUnitsUpperBound,
+          releaseManifestDigest: providerTaskForDispatch.manifestDigest,
+        },
+      });
+      if (isV2) {
+        await reserveV2QuotaInAdmissionTransaction(tx, {
+          studentId: input.studentId,
+          requestId: request.id,
+          now: input.now,
+          quotaTimezone: input.policy.timezone,
+          policyBundleVersion: input.policy.bundleVersion,
+          quotaPolicyVersion: input.policy.policy.quotaConfig.quotaVersion,
+          creditCost: input.policy.creditCost,
+          maxProviderCostUsdMicros: input.policy.maxProviderCostUsdMicros,
+        });
+      }
       await tx.aiContextPack.create({
         data: {
           id: contextPackId,
@@ -1144,13 +1397,15 @@ export class VeraPrismaAdmissionService {
           });
         }),
       );
-      await tx.aiUsageDaily.update({ where: { id: ledger.id }, data: { reservedQuotaUnits: { increment: reservation }, acceptedRequestCount: { increment: 1 } } });
+      if (ledger) {
+        await tx.aiUsageDaily.update({ where: { id: ledger.id }, data: { reservedQuotaUnits: { increment: reservation }, acceptedRequestCount: { increment: 1 } } });
+      }
       const acceptedKey = await tx.aiIdempotencyKey.updateMany({
         where: { id: idempotencyKey.id, version: idempotencyKey.version, state: AiIdempotencyState.rejected },
         data: { state: AiIdempotencyState.accepted, resultKind: AiIdempotencyResultKind.request, resultId: request.id, acceptedAt: input.now, settlementDeadlineAt: input.policy.settlementDeadlineAt, expiresAt: new Date(input.now.getTime() + input.policy.policy.retentionConfig.acceptedKeyTtlDays * 24 * 60 * 60_000), rejectionClass: null, rejectionCode: null, version: { increment: 1 } },
       });
       if (acceptedKey.count !== 1) throw new VeraAdmissionError({ code: "idempotency_cas_conflict", status: 409 });
-      return { accepted: true, requestId: request.id, idempotencyKeyId: idempotencyKey.id, userMessageId: durableUserMessageId, contextPackId, usageDate: localDay.usageDate, quotaUnitsReserved: reservation, preparedProviderTask: input.preparedProviderTask };
+      return { accepted: true, requestId: request.id, idempotencyKeyId: idempotencyKey.id, userMessageId: durableUserMessageId, contextPackId, usageDate: localDay.usageDate, quotaUnitsReserved: reservation, preparedProviderTask: providerTaskForDispatch };
       });
     } catch (error) {
       // Two absent-key admissions can both observe no row. PostgreSQL rejects
@@ -1172,6 +1427,50 @@ export class VeraPrismaAdmissionService {
         details: { winnerRequestId: winner.resultId ?? null },
       });
     }
+  }
+
+  /**
+   * Write the provider dispatch intent before any network I/O. A process
+   * crash after this CAS leaves the attempt provider-exposed and therefore
+   * eligible for Generation API reconciliation; it is never silently
+   * released as an unused reservation.
+   */
+  async beginProviderDispatch(input: { requestId: string; now?: Date }): Promise<void> {
+    const now = input.now ?? await this.databaseNow();
+    await this.db.$transaction(async (tx) => {
+      const request = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: { id: true, status: true, version: true, ledgerVersion: true, providerRequestKey: true, dispatchDeadlineAt: true },
+      });
+      if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${request.id}::uuid FOR UPDATE`;
+      const attempt = await tx.aiRequestAttempt.findFirst({ where: { requestId: request.id, attemptNo: 1 } });
+      if (!attempt) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
+      await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${attempt.id}::uuid FOR UPDATE`;
+      if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) return;
+      if (attempt.state !== AiAttemptState.reserved) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
+      const dispatching = await tx.aiRequestAttempt.updateMany({
+        where: { id: attempt.id, state: AiAttemptState.reserved },
+        data: {
+          state: AiAttemptState.dispatching,
+          sendStartedAt: now,
+          startedAt: now,
+          errorCode: null,
+        },
+      });
+      if (dispatching.count !== 1) throw new VeraAdmissionError({ code: "provider_attempt_cas_conflict", status: 409 });
+      await tx.aiRequest.updateMany({
+        where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+        data: {
+          billingState: request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2 ? AiRequestBillingState.dispatching : undefined,
+          sendStartedAt: now,
+          providerRequestKey: request.providerRequestKey ?? attempt.providerRequestKey,
+          dispatchDeadlineAt: request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000),
+          version: { increment: 1 },
+        },
+      });
+    });
   }
 
   async stageResult(input: {
@@ -1252,31 +1551,96 @@ export class VeraPrismaAdmissionService {
         const resolvedProvider = input.providerResult.providerMetadata?.providerIdentity
           ?? input.providerResult.attempts.find((attempt) => attempt.observedUpstreamProviderSlug)?.observedUpstreamProviderSlug
           ?? null;
-        await tx.aiRequestAttempt.createMany({
-          data: input.providerResult.attempts.map((attempt) => ({
-            requestId: input.requestId,
-            attemptNo: attempt.attemptNo,
-            gateway: input.preparedProviderTask!.gateway,
-            upstreamProvider: input.preparedProviderTask!.upstreamProvider,
-            upstreamProviderSlug: input.preparedProviderTask!.upstreamProviderSlug,
-            model: resolvedModel,
-            providerIdempotencyKey: null,
-            observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? resolvedProvider,
-            state: attempt.state as AiAttemptState,
-            resultKind: input.result.kind === "discarded" ? AiAttemptResultKind.discarded : AiAttemptResultKind.success,
-            providerRequestRef: attempt.providerRequestRef,
-            inputTokens: attempt.usage.inputTokens,
-            outputTokens: attempt.usage.outputTokens,
-            quotaUnitsConsumed: attempt.usage.quotaUnitsConsumed,
-            tokenUsageState: attempt.usage.tokenUsageState as AiTokenUsageState,
-            errorCode: attempt.errorCode,
-            releaseManifestDigest: null,
-            privacyEvidenceDigest: null,
-            startedAt: now,
-            completedAt: attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.failed || attempt.state === AiAttemptState.ambiguous ? now : null,
-          })),
-          skipDuplicates: true,
-        });
+        const reportedCostUsdMicros = parseMicrosString(input.providerResult.usage.reportedCostMicros);
+        const recomputedCostUsdMicros = parseMicrosString(input.providerResult.usage.recomputedCostMicros);
+        for (const attempt of input.providerResult.attempts) {
+          const attemptProviderRequestKey = attempt.providerRequestKey?.trim()
+            || (attempt.attemptNo === 1 ? input.preparedProviderTask.providerRequestKey : providerRequestKeyFor(input.requestId, attempt.attemptNo));
+          const attemptReportedCostUsdMicros = parseMicrosString(attempt.reportedCostMicros ?? attempt.usage.reportedCostMicros);
+          const attemptRecomputedCostUsdMicros = parseMicrosString(attempt.recomputedCostMicros ?? attempt.usage.recomputedCostMicros);
+          const attemptDispatchDeadlineAt = attempt.dispatchDeadlineAt ? new Date(attempt.dispatchDeadlineAt) : input.preparedProviderTask.dispatchDeadlineAt ? new Date(input.preparedProviderTask.dispatchDeadlineAt) : null;
+          const completed = new Set<string>(["completed", "known", "failed", "ambiguous", "unknown", "overrun", "released"]).has(attempt.state);
+          await tx.aiRequestAttempt.upsert({
+            where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: attempt.attemptNo } },
+            create: {
+              requestId: input.requestId,
+              attemptNo: attempt.attemptNo,
+              gateway: input.preparedProviderTask.gateway,
+              upstreamProvider: input.preparedProviderTask.upstreamProvider,
+              upstreamProviderSlug: input.preparedProviderTask.upstreamProviderSlug,
+              model: resolvedModel,
+              providerRequestKey: attemptProviderRequestKey,
+              generationId: attempt.generationId ?? null,
+              upstreamId: attempt.upstreamId ?? null,
+              providerRequestId: attempt.providerRequestId ?? null,
+              providerName: input.providerResult.providerMetadata?.providerIdentity ?? null,
+              observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? resolvedProvider,
+              state: attempt.state as AiAttemptState,
+              resultKind: input.result.kind === "discarded" ? AiAttemptResultKind.discarded : AiAttemptResultKind.success,
+              providerRequestRef: attempt.providerRequestRef,
+              inputTokens: attempt.usage.inputTokens,
+              outputTokens: attempt.usage.outputTokens,
+              quotaUnitsConsumed: attempt.usage.quotaUnitsConsumed,
+              tokenUsageState: attempt.usage.tokenUsageState as AiTokenUsageState,
+              cachedTokens: attempt.usage.cachedTokens ?? null,
+              cacheWriteTokens: attempt.usage.cacheWriteTokens ?? null,
+              reasoningTokens: attempt.usage.reasoningTokens ?? null,
+              reportedProviderCostUsdMicros: attemptReportedCostUsdMicros,
+              recomputedProviderCostUsdMicros: attemptRecomputedCostUsdMicros,
+              chargedProviderCostUsdMicros: attemptReportedCostUsdMicros,
+              rawReportedCostDecimal: attempt.rawReportedCostDecimal ?? attempt.usage.rawReportedCostDecimal ?? null,
+              canonicalReportedCostDecimal: attempt.canonicalReportedCostDecimal ?? attempt.usage.canonicalReportedCostDecimal ?? null,
+              errorCode: attempt.errorCode,
+              finalPayloadHash: attempt.finalPayloadHash ?? input.preparedProviderTask.finalPayloadHash ?? null,
+              sendStartedAt: completed ? now : null,
+              dispatchDeadlineAt: attemptDispatchDeadlineAt,
+              finalMeasuredTokenUpperBound: input.preparedProviderTask.inputQuotaUnitsUpperBound,
+              releaseManifestDigest: input.preparedProviderTask.manifestDigest,
+              certifierId: input.preparedProviderTask.certifierId ?? null,
+              certifierVersion: input.preparedProviderTask.certifierVersion ?? null,
+              priceSnapshot: input.preparedProviderTask.priceSnapshot ? json(input.preparedProviderTask.priceSnapshot) : undefined,
+              startedAt: now,
+              completedAt: completed ? now : null,
+            },
+            update: {
+              gateway: input.preparedProviderTask.gateway,
+              upstreamProvider: input.preparedProviderTask.upstreamProvider,
+              upstreamProviderSlug: input.preparedProviderTask.upstreamProviderSlug,
+              model: resolvedModel,
+              providerRequestKey: attemptProviderRequestKey,
+              generationId: attempt.generationId ?? undefined,
+              upstreamId: attempt.upstreamId ?? undefined,
+              providerRequestId: attempt.providerRequestId ?? undefined,
+              providerName: input.providerResult.providerMetadata?.providerIdentity ?? undefined,
+              observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? resolvedProvider ?? undefined,
+              state: attempt.state as AiAttemptState,
+              resultKind: input.result.kind === "discarded" ? AiAttemptResultKind.discarded : AiAttemptResultKind.success,
+              providerRequestRef: attempt.providerRequestRef,
+              inputTokens: attempt.usage.inputTokens,
+              outputTokens: attempt.usage.outputTokens,
+              quotaUnitsConsumed: attempt.usage.quotaUnitsConsumed,
+              tokenUsageState: attempt.usage.tokenUsageState as AiTokenUsageState,
+              cachedTokens: attempt.usage.cachedTokens ?? undefined,
+              cacheWriteTokens: attempt.usage.cacheWriteTokens ?? undefined,
+              reasoningTokens: attempt.usage.reasoningTokens ?? undefined,
+              reportedProviderCostUsdMicros: attemptReportedCostUsdMicros ?? undefined,
+              recomputedProviderCostUsdMicros: attemptRecomputedCostUsdMicros ?? undefined,
+              chargedProviderCostUsdMicros: attemptReportedCostUsdMicros ?? undefined,
+              rawReportedCostDecimal: attempt.rawReportedCostDecimal ?? attempt.usage.rawReportedCostDecimal ?? undefined,
+              canonicalReportedCostDecimal: attempt.canonicalReportedCostDecimal ?? attempt.usage.canonicalReportedCostDecimal ?? undefined,
+              errorCode: attempt.errorCode,
+              finalPayloadHash: attempt.finalPayloadHash ?? input.preparedProviderTask.finalPayloadHash ?? undefined,
+              sendStartedAt: completed ? now : undefined,
+              dispatchDeadlineAt: attemptDispatchDeadlineAt ?? undefined,
+              finalMeasuredTokenUpperBound: input.preparedProviderTask.inputQuotaUnitsUpperBound,
+              releaseManifestDigest: input.preparedProviderTask.manifestDigest,
+              certifierId: input.preparedProviderTask.certifierId ?? undefined,
+              certifierVersion: input.preparedProviderTask.certifierVersion ?? undefined,
+              priceSnapshot: input.preparedProviderTask.priceSnapshot ? json(input.preparedProviderTask.priceSnapshot) : undefined,
+              completedAt: completed ? now : undefined,
+            },
+          });
+        }
         // The request's durable provider identity is updated only as provider
         // metadata, while lifecycle/accounting ownership remains with the
         // finalizer below. This records the free router's resolved model and
@@ -1287,6 +1651,17 @@ export class VeraPrismaAdmissionService {
             model: resolvedModel,
             observedUpstreamProviderSlug: resolvedProvider,
             providerRequestRef: input.providerResult.attempts[0]?.providerRequestRef ?? null,
+            generationId: input.providerResult.providerMetadata && "generationId" in input.providerResult.providerMetadata
+              ? input.providerResult.providerMetadata.generationId : undefined,
+            upstreamId: input.providerResult.providerMetadata && "upstreamId" in input.providerResult.providerMetadata
+              ? input.providerResult.providerMetadata.upstreamId : undefined,
+            providerRequestId: input.providerResult.providerMetadata && "providerRequestId" in input.providerResult.providerMetadata
+              ? input.providerResult.providerMetadata.providerRequestId : undefined,
+            reportedProviderCostUsdMicros: reportedCostUsdMicros ?? undefined,
+            recomputedProviderCostUsdMicros: recomputedCostUsdMicros ?? undefined,
+            chargedProviderCostUsdMicros: reportedCostUsdMicros ?? undefined,
+            rawReportedCostDecimal: input.providerResult.usage.rawReportedCostDecimal ?? undefined,
+            canonicalReportedCostDecimal: input.providerResult.usage.canonicalReportedCostDecimal ?? undefined,
           },
         });
       }
@@ -1328,6 +1703,8 @@ export class VeraPrismaAdmissionService {
       version: number;
       settlementDeadlineAt: Date | null;
       quotaUnitsReserved: number;
+      ledgerVersion: AiUsageLedgerVersion;
+      chargedProviderCostUsdMicros: bigint | null;
       assistantMessageId: string | null;
       idempotencyKey: { version: number; state: AiIdempotencyState; resultId: string | null } | null;
     };
@@ -1339,7 +1716,7 @@ export class VeraPrismaAdmissionService {
       quotaLimitUnitsSnapshot: number;
       quotaOverrunLockUntil: Date | null;
       quotaTimezone: string;
-    };
+    } | null;
     stage: {
       id: string;
       version: number;
@@ -1355,15 +1732,36 @@ export class VeraPrismaAdmissionService {
     const { tx, request, daily, stage, normalizedResult, now } = input;
     if (!request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
     const durable = await input.persistDurableResult(tx, normalizedResult);
+    const isV2 = request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2;
     const reserved = request.quotaUnitsReserved;
     const actual = stage.quotaUnitsConsumed ?? reserved;
-    const remainingReserved = daily.reservedQuotaUnits - reserved;
-    if (remainingReserved < 0) throw new VeraAdmissionError({ code: "quota_ledger_conflict", status: 409 });
-    const used = daily.usedQuotaUnits + actual;
-    const debt = Math.max(0, used + remainingReserved - daily.quotaLimitUnitsSnapshot);
-    const overrun = Math.max(0, actual - reserved);
-    const localDayEnd = quotaDateAndDayEnd(request.createdAt, daily.quotaTimezone).dayEnd;
-    const overrunLockUntil = overrun > 0 || debt > 0 ? localDayEnd : daily.quotaOverrunLockUntil;
+    let remainingReserved = 0;
+    let used = 0;
+    let debt = 0;
+    let overrun = 0;
+    let accounting: AiUsageAccountingState;
+    let v2Settlement: VeraV2QuotaSettlement | null = null;
+    if (isV2) {
+      const outcome = request.chargedProviderCostUsdMicros === null ? "unknown" : "known";
+      v2Settlement = await this.settleV2Quota({
+        requestId: request.id,
+        outcome,
+        chargedUsdMicros: request.chargedProviderCostUsdMicros ?? undefined,
+        now,
+        transaction: tx,
+      });
+      accounting = v2Settlement.state === "unknown"
+        ? AiUsageAccountingState.unknown
+        : v2Settlement.state === "overrun" ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.known;
+    } else {
+      if (!daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
+      remainingReserved = daily.reservedQuotaUnits - reserved;
+      if (remainingReserved < 0) throw new VeraAdmissionError({ code: "quota_ledger_conflict", status: 409 });
+      used = daily.usedQuotaUnits + actual;
+      debt = Math.max(0, used + remainingReserved - daily.quotaLimitUnitsSnapshot);
+      overrun = Math.max(0, actual - reserved);
+      accounting = stage.quotaUnitsConsumed === null ? AiUsageAccountingState.unknown : overrun > 0 || debt > 0 ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.known;
+    }
     const assistantMessageId = durable.assistantMessageId ?? (normalizedResult.text === null ? null : randomUUID());
     if (assistantMessageId && normalizedResult.text !== null) {
       const envelope = this.envelope
@@ -1383,8 +1781,11 @@ export class VeraPrismaAdmissionService {
       });
     }
     const requestState = normalizedResult.kind === "fallback" ? AiRequestLifecycleState.fallback : normalizedResult.kind === "discarded" ? AiRequestLifecycleState.failed : AiRequestLifecycleState.succeeded;
-    const accounting = stage.quotaUnitsConsumed === null ? AiUsageAccountingState.unknown : overrun > 0 || debt > 0 ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.known;
-    await tx.aiUsageDaily.update({ where: { id: daily.id }, data: { reservedQuotaUnits: remainingReserved, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil: overrunLockUntil, finalizedRequestCount: { increment: 1 } } });
+    if (daily) {
+      const localDayEnd = quotaDateAndDayEnd(request.createdAt, daily.quotaTimezone).dayEnd;
+      const overrunLockUntil = overrun > 0 || debt > 0 ? localDayEnd : daily.quotaOverrunLockUntil;
+      await tx.aiUsageDaily.update({ where: { id: daily.id }, data: { reservedQuotaUnits: remainingReserved, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil: overrunLockUntil, finalizedRequestCount: { increment: 1 } } });
+    }
     const consumed = await tx.aiRequestResultStage.updateMany({
       where: { id: stage.id, version: stage.version, state: AiResultStageState.available },
       data: { state: AiResultStageState.consumed, consumedAt: now, version: { increment: 1 } },
@@ -1392,9 +1793,29 @@ export class VeraPrismaAdmissionService {
     if (consumed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
     const finalized = await tx.aiRequest.updateMany({
       where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
-      data: { status: requestState, assistantMessageId, quotaUnitsConsumed: actual, quotaOverrunUnits: overrun, tokenUsageState: stage.tokenUsageState, usageAccountingState: accounting, completedAt: now, finalizedAt: now, version: { increment: 1 } },
+      data: {
+        status: requestState,
+        assistantMessageId,
+        quotaUnitsConsumed: isV2 ? v2Settlement!.consumedCredits : actual,
+        quotaOverrunUnits: isV2 ? (v2Settlement!.state === "overrun" ? reserved : 0) : overrun,
+        tokenUsageState: stage.tokenUsageState,
+        usageAccountingState: accounting,
+        completedAt: now,
+        finalizedAt: now,
+        version: { increment: 1 },
+      },
     });
     if (finalized.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+    const terminalAttemptState = isV2
+      ? v2Settlement!.state === "overrun" ? AiAttemptState.overrun : v2Settlement!.state === "unknown" ? AiAttemptState.unknown : AiAttemptState.known
+      : stage.tokenUsageState === AiTokenUsageState.unknown ? AiAttemptState.unknown : AiAttemptState.known;
+    await tx.aiRequestAttempt.updateMany({
+      where: {
+        requestId: request.id,
+        state: { in: [AiAttemptState.dispatching, AiAttemptState.sent, AiAttemptState.accepted, AiAttemptState.completed, AiAttemptState.ambiguous] },
+      },
+      data: { state: terminalAttemptState, completedAt: now },
+    });
     const terminalKey = await tx.aiIdempotencyKey.updateMany({
       where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
       data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },
@@ -1418,16 +1839,18 @@ export class VeraPrismaAdmissionService {
     return this.db.$transaction(async (tx) => {
       const initial = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
-        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
+        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true, ledgerVersion: true },
       });
       if (!initial || !initial.studentId || !initial.idempotencyKeyId) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
 
       // Lock order: idempotency -> frozen daily row -> request -> stage.
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
-      const dailyCandidates = await tx.aiUsageDaily.findMany({ where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 }, orderBy: { usageDate: "desc" } });
-      const daily = dailyCandidates.find((candidate) => quotaDateAndDayEnd(initial.createdAt, candidate.quotaTimezone).usageDate === candidate.usageDate.toISOString().slice(0, 10));
-      if (!daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
-      await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
+      const daily = initial.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2
+        ? null
+        : (await tx.aiUsageDaily.findMany({ where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 }, orderBy: { usageDate: "desc" } }))
+          .find((candidate) => quotaDateAndDayEnd(initial.createdAt, candidate.quotaTimezone).usageDate === candidate.usageDate.toISOString().slice(0, 10)) ?? null;
+      if (initial.ledgerVersion !== AiUsageLedgerVersion.vera_credit_usd_v2 && !daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
+      if (daily) await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
       if (!request || !request.studentId || !request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
@@ -1463,16 +1886,87 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     errorCode: string;
     usage: NormalizedVeraResult["usage"];
+    providerEvidence?: ProviderFailureEvidence;
     now?: Date;
   }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
     await this.db.$transaction(async (tx) => {
       const initial = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
-        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
+        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true, ledgerVersion: true },
       });
       if (!initial || !initial.studentId || !initial.idempotencyKeyId) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
+      if (initial.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2) {
+        await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
+        const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
+        if (!request || !request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+        if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
+        const evidence = input.providerEvidence;
+        const reportedCostUsdMicros = evidence?.reportedCostMicros ? parseMicrosString(evidence.reportedCostMicros) : null;
+        const settlementOutcome = evidence?.settlementOutcome
+          ?? (evidence?.state === "overrun" && reportedCostUsdMicros !== null ? "known" : "unknown");
+        const settlement = await this.settleV2Quota({
+          requestId: request.id,
+          outcome: settlementOutcome,
+          chargedUsdMicros: reportedCostUsdMicros ?? undefined,
+          forceOverrun: evidence?.state === "overrun",
+          now,
+          transaction: tx,
+        });
+        const tokenState = input.usage.tokenUsageState === "known"
+          ? AiTokenUsageState.known
+          : input.usage.tokenUsageState === "not_applicable" ? AiTokenUsageState.not_applicable : AiTokenUsageState.unknown;
+        await tx.aiRequest.updateMany({
+          where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+          data: {
+            status: AiRequestLifecycleState.failed,
+            errorCode: input.errorCode,
+            inputTokens: input.usage.inputTokens,
+            outputTokens: input.usage.outputTokens,
+            quotaUnitsConsumed: settlement.consumedCredits,
+            quotaOverrunUnits: settlement.state === "overrun" ? request.quotaUnitsReserved : 0,
+            tokenUsageState: tokenState,
+            usageAccountingState: settlement.state === "overrun" ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.unknown,
+            reportedProviderCostUsdMicros: reportedCostUsdMicros ?? undefined,
+            recomputedProviderCostUsdMicros: evidence?.recomputedCostMicros ? parseMicrosString(evidence.recomputedCostMicros) ?? undefined : undefined,
+            chargedProviderCostUsdMicros: settlement.chargedUsdMicros,
+            rawReportedCostDecimal: evidence?.rawReportedCostDecimal ?? undefined,
+            canonicalReportedCostDecimal: evidence?.canonicalReportedCostDecimal ?? undefined,
+            generationId: evidence?.generationId ?? undefined,
+            upstreamId: evidence?.upstreamId ?? undefined,
+            providerRequestId: evidence?.providerRequestId ?? undefined,
+            overrunUsdMicros: settlement.overrunUsdMicros,
+            completedAt: now,
+            finalizedAt: now,
+            version: { increment: 1 },
+          },
+        });
+        await tx.aiRequestAttempt.updateMany({
+          where: { requestId: request.id, state: { in: [AiAttemptState.dispatching, AiAttemptState.sent, AiAttemptState.accepted, AiAttemptState.completed, AiAttemptState.ambiguous] } },
+          data: {
+            state: settlement.state === "overrun" ? AiAttemptState.overrun : AiAttemptState.unknown,
+            errorCode: input.errorCode,
+            generationId: evidence?.generationId ?? undefined,
+            upstreamId: evidence?.upstreamId ?? undefined,
+            providerRequestId: evidence?.providerRequestId ?? undefined,
+            providerName: evidence?.providerName ?? undefined,
+            reportedProviderCostUsdMicros: reportedCostUsdMicros ?? undefined,
+            recomputedProviderCostUsdMicros: evidence?.recomputedCostMicros ? parseMicrosString(evidence.recomputedCostMicros) ?? undefined : undefined,
+            chargedProviderCostUsdMicros: settlement.chargedUsdMicros,
+            rawReportedCostDecimal: evidence?.rawReportedCostDecimal ?? undefined,
+            canonicalReportedCostDecimal: evidence?.canonicalReportedCostDecimal ?? undefined,
+            overrunUsdMicros: settlement.overrunUsdMicros,
+            completedAt: now,
+          },
+        });
+        const terminalKey = await tx.aiIdempotencyKey.updateMany({
+          where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
+          data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },
+        });
+        if (terminalKey.count !== 1) throw new VeraAdmissionError({ code: "idempotency_cas_conflict", status: 409 });
+        return;
+      }
       const dailyCandidates = await tx.aiUsageDaily.findMany({
         where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 },
         orderBy: { usageDate: "desc" },
@@ -1531,6 +2025,10 @@ export class VeraPrismaAdmissionService {
         },
       });
       if (failed.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+      await tx.aiRequestAttempt.updateMany({
+        where: { requestId: request.id, state: { in: [AiAttemptState.dispatching, AiAttemptState.sent, AiAttemptState.accepted, AiAttemptState.completed, AiAttemptState.ambiguous] } },
+        data: { state: input.usage.quotaUnitsConsumed === null ? AiAttemptState.unknown : overrun > 0 ? AiAttemptState.overrun : AiAttemptState.failed, errorCode: input.errorCode, completedAt: now },
+      });
       const terminalKey = await tx.aiIdempotencyKey.updateMany({
         where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
         data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },
@@ -1550,22 +2048,23 @@ export class VeraPrismaAdmissionService {
     await this.db.$transaction(async (tx) => {
       const initial = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
-        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
+        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true, ledgerVersion: true },
       });
       if (!initial || !initial.studentId || !initial.idempotencyKeyId) return;
 
       // The worker follows the same global lock order as admission/finalizer:
       // idempotency -> frozen daily row -> request -> stage.
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
-      const dailyCandidates = await tx.aiUsageDaily.findMany({
-        where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 },
-        orderBy: { usageDate: "desc" },
-      });
-      const daily = dailyCandidates.find((candidate) =>
-        quotaDateAndDayEnd(initial.createdAt, candidate.quotaTimezone).usageDate
-        === candidate.usageDate.toISOString().slice(0, 10));
-      if (!daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
-      await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
+      const daily = initial.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2
+        ? null
+        : (await tx.aiUsageDaily.findMany({
+          where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 },
+          orderBy: { usageDate: "desc" },
+        })).find((candidate) =>
+          quotaDateAndDayEnd(initial.createdAt, candidate.quotaTimezone).usageDate
+          === candidate.usageDate.toISOString().slice(0, 10)) ?? null;
+      if (initial.ledgerVersion !== AiUsageLedgerVersion.vera_credit_usd_v2 && !daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
+      if (daily) await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
       if (!request || !request.studentId || !request.idempotencyKeyId || !request.idempotencyKey) return;
@@ -1613,6 +2112,43 @@ export class VeraPrismaAdmissionService {
           }
         }
       }
+      if (request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2) {
+        const settlement = await this.settleV2Quota({ requestId: request.id, outcome: "unknown", now, transaction: tx });
+        const errorCode = input.errorCode ?? (input.missingStage ? "missing_stage_unknown" : stage ? "durable_recovery_failed" : "settlement_deadline_expired");
+        const finalized = await tx.aiRequest.updateMany({
+          where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+          data: {
+            status: AiRequestLifecycleState.failed,
+            errorCode,
+            quotaUnitsConsumed: settlement.consumedCredits,
+            quotaOverrunUnits: settlement.state === "overrun" ? request.quotaUnitsReserved : 0,
+            tokenUsageState: AiTokenUsageState.unknown,
+            usageAccountingState: settlement.state === "overrun" ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.unknown,
+            finalizedAt: now,
+            completedAt: now,
+            version: { increment: 1 },
+          },
+        });
+        if (finalized.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+        await tx.aiRequestAttempt.updateMany({
+          where: { requestId: request.id, state: { in: [AiAttemptState.dispatching, AiAttemptState.sent, AiAttemptState.accepted, AiAttemptState.completed, AiAttemptState.ambiguous] } },
+          data: { state: AiAttemptState.unknown, errorCode, completedAt: now },
+        });
+        if (stageCandidate?.state === AiResultStageState.available) {
+          const discarded = await tx.aiRequestResultStage.updateMany({
+            where: { id: stageCandidate.id, version: stageCandidate.version, state: AiResultStageState.available },
+            data: { state: AiResultStageState.consumed, resultKind: AiResultKind.discarded, consumedAt: now, version: { increment: 1 } },
+          });
+          if (discarded.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+        }
+        const terminalKey = await tx.aiIdempotencyKey.updateMany({
+          where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
+          data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },
+        });
+        if (terminalKey.count !== 1) throw new VeraAdmissionError({ code: "idempotency_cas_conflict", status: 409 });
+        return;
+      }
+      if (!daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
       const reserved = request.quotaUnitsReserved;
       const actual = reserved;
       const remainingReserved = daily.reservedQuotaUnits - reserved;
@@ -1651,6 +2187,10 @@ export class VeraPrismaAdmissionService {
         },
       });
       if (finalized.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+      await tx.aiRequestAttempt.updateMany({
+        where: { requestId: request.id, state: { in: [AiAttemptState.dispatching, AiAttemptState.sent, AiAttemptState.accepted, AiAttemptState.completed, AiAttemptState.ambiguous] } },
+        data: { state: AiAttemptState.unknown, errorCode, completedAt: now },
+      });
       if (stageCandidate?.state === AiResultStageState.available) {
         const discarded = await tx.aiRequestResultStage.updateMany({
           where: { id: stageCandidate.id, version: stageCandidate.version, state: AiResultStageState.available },

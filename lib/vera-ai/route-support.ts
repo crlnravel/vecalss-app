@@ -132,9 +132,29 @@ export async function readVeraUsageDto(studentId: string, db: typeof prisma = pr
   const now = nowRows[0]?.now ?? new Date();
   if (ledgerVersionFor(now) === "vera_credit_usd_v2") {
     const v2Usage = await new VeraPrismaAdmissionService(db).readV2Usage({ studentId, now });
-    if (v2Usage) return v2Usage as unknown as Record<string, unknown>;
-    const profile = await db.studentProfile.findUnique({ where: { userId: studentId }, select: { timezone: true } });
-    return emptyV2UsageDto(now, profile?.timezone ?? "Asia/Jakarta") as unknown as Record<string, unknown>;
+    const [profile, policy] = await Promise.all([
+      db.studentProfile.findUnique({ where: { userId: studentId }, select: { timezone: true } }),
+      db.aiPolicyBundle.findFirst({
+        where: { state: { in: ["active", "scheduled"] }, effectiveAt: { lte: now } },
+        orderBy: { effectiveAt: "desc" },
+        select: { bundleVersion: true },
+      }),
+    ]);
+    const usage = v2Usage ?? emptyV2UsageDto(now, profile?.timezone ?? "Asia/Jakarta");
+    return {
+      ...usage,
+      usageDate: formatLocalDateInTimezone(now, usage.quotaTimezone),
+      quotaTimezonePolicyVersion: "vera-timezone-v1",
+      policyBundleVersion: policy?.bundleVersion ?? null,
+      quotaLimitUnits: usage.creditLimit,
+      usedQuotaUnits: usage.consumedCredits,
+      reservedQuotaUnits: usage.reservedCredits,
+      quotaDebtUnits: usage.monetaryDebtState === "debt" ? 1 : 0,
+      quotaOverrunLockUntil: null,
+      rawTokenUsageState: usage.providerSpend.unknownUsdMicros === "0" ? "known" : "unknown",
+      providerAvailable: veraProviderAvailable(),
+      redisAvailable: Boolean(process.env.REDIS_URL),
+    };
   }
   return db.$transaction(async (tx) => {
     const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;

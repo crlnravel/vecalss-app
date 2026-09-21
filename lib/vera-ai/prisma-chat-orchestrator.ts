@@ -508,6 +508,13 @@ export class VeraPrismaChatOrchestrator {
     }
     let providerResult;
     try {
+      // Persist the provider-exposed dispatch intent before the adapter can
+      // write to the socket. Recovery can therefore reconcile a crash or
+      // ambiguous timeout through the durable attempt row.
+      await this.admission.beginProviderDispatch({
+        requestId: admission.requestId,
+        now: await this.admission.databaseNow(),
+      });
       providerResult = await this.provider.run(
         admission.preparedProviderTask,
         admission.feature.toolId
@@ -522,6 +529,7 @@ export class VeraPrismaChatOrchestrator {
         await this.admission.failAcceptedProviderResult({
           requestId: admission.requestId,
           errorCode: code,
+          providerEvidence: error.evidence,
           usage: {
             inputTokens: null,
             outputTokens: null,
@@ -568,6 +576,19 @@ export class VeraPrismaChatOrchestrator {
       await this.admission.failAcceptedProviderResult({
         requestId: admission.requestId,
         errorCode: code,
+        providerEvidence: {
+          state: providerResult.attempts.some((attempt) => attempt.state === "overrun") ? "overrun" : "unknown",
+          settlementOutcome: "known",
+          reason: code,
+          generationId: providerResult.providerMetadata && "generationId" in providerResult.providerMetadata ? providerResult.providerMetadata.generationId : providerResult.attempts[0]?.generationId ?? null,
+          providerRequestId: providerResult.providerMetadata && "providerRequestId" in providerResult.providerMetadata ? providerResult.providerMetadata.providerRequestId : providerResult.attempts[0]?.providerRequestId ?? null,
+          upstreamId: providerResult.providerMetadata && "upstreamId" in providerResult.providerMetadata ? providerResult.providerMetadata.upstreamId : providerResult.attempts[0]?.upstreamId ?? null,
+          providerName: providerResult.providerMetadata?.providerIdentity ?? providerResult.attempts[0]?.observedUpstreamProviderSlug ?? null,
+          reportedCostMicros: providerResult.usage.reportedCostMicros ?? providerResult.attempts[0]?.reportedCostMicros ?? null,
+          recomputedCostMicros: providerResult.usage.recomputedCostMicros ?? providerResult.attempts[0]?.recomputedCostMicros ?? null,
+          rawReportedCostDecimal: providerResult.usage.rawReportedCostDecimal ?? providerResult.attempts[0]?.rawReportedCostDecimal ?? null,
+          canonicalReportedCostDecimal: providerResult.usage.canonicalReportedCostDecimal ?? providerResult.attempts[0]?.canonicalReportedCostDecimal ?? null,
+        },
         usage: providerResult.usage,
       });
       write("request.failed", { requestId: admission.requestId, code, provisional: false });
