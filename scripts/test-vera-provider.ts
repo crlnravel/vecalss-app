@@ -2,9 +2,16 @@ import {
   APPROVED_MODEL,
   APPROVED_ROUTING_POLICY_VERSION,
   APPROVED_UPSTREAM_PROVIDER,
+  APPROVED_UPSTREAM_PROVIDER_SLUG,
+  OPENROUTER_MAX_PRICE,
   OpenRouterDecartAdapter,
   MockProviderAdapter,
   ProviderSafetyError,
+  VERA_CERTIFIER_EVIDENCE_REFERENCE,
+  VERA_PAID_CERTIFIER_ID,
+  VERA_PAID_CERTIFIER_VERSION,
+  VERA_PAID_PRICE_POLICY_VERSION,
+  VERA_PAID_SERIALIZER_ID,
   createDefaultProviderAdapter,
   estimateVeraQuotaUnits,
   manifestDigest,
@@ -14,32 +21,77 @@ import {
 import { assert, expectReject, runChecks } from "./vera-test-support";
 
 const manifestWithoutDigest: Omit<ProviderReleaseManifest, "manifestDigest"> = {
-  manifestVersion: "openrouter-decart-release-v1",
+  manifestVersion: "openrouter-relace-paid-release-v1",
   gateway: "openrouter",
-  upstreamProvider: "decart",
-  upstreamProviderSlug: "decart-approved-1",
+  upstreamProvider: APPROVED_UPSTREAM_PROVIDER,
+  upstreamProviderSlug: APPROVED_UPSTREAM_PROVIDER_SLUG,
   model: APPROVED_MODEL,
-  endpointMetadataDigest: "endpoint-digest-v1",
+  endpointMetadataDigest: "endpoint-digest-v2",
+  endpointDescriptorHash: "endpoint-descriptor-sha256",
   routingPolicyVersion: APPROVED_ROUTING_POLICY_VERSION,
   routingOptions: {
+    kind: "production",
     provider: {
-      only: ["decart-approved-1"],
-      order: ["decart-approved-1"],
+      only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+      order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
       allow_fallbacks: false,
       require_parameters: true,
       zdr: true,
       data_collection: "deny",
+      max_price: { ...OPENROUTER_MAX_PRICE },
     },
   },
+  maxPrice: { ...OPENROUTER_MAX_PRICE },
+  priceSnapshot: {
+    currency: "USD",
+    promptPriceUsdPerM: "0.04",
+    completionPriceUsdPerM: "0.16",
+    requestPriceUsdPerM: "0",
+    imagePriceUsdPerM: "0",
+    audioPriceUsdPerM: "0",
+    cacheReadPriceUsdPerM: "0.016",
+    cacheWritePriceUsdPerM: "0.04",
+    cacheWriteAccountingMode: "included_in_uncached_prompt",
+    reasoningTokenTreatment: "included_in_completion",
+    serverToolTreatment: "disabled",
+  },
+  pricePolicyVersion: VERA_PAID_PRICE_POLICY_VERSION,
+  sourceUrl: "https://openrouter.ai/deepseek/deepseek-v4-flash-0731",
+  maxPriceSchemaEvidenceReference: "evidence://openrouter-max-price-schema",
+  maxPriceSchemaEvidenceDigest: "sha256-max-price-schema",
+  canaryEvidenceReference: "evidence://openrouter-relace-canary",
+  canaryEvidenceDigest: "sha256-relace-canary",
+  inputCertifierId: VERA_PAID_CERTIFIER_ID,
+  inputCertifierVersion: VERA_PAID_CERTIFIER_VERSION,
+  finalInputBuilderHash: "sha256-input-builder",
+  certifierEvidenceReference: VERA_CERTIFIER_EVIDENCE_REFERENCE,
+  certifierEvidence: {
+    tokenizerRevision: "deepseek-tokenizer-0731",
+    tokenizerHash: "sha256-tokenizer",
+    chatTemplateHash: "sha256-chat-template",
+    byteFallbackProofReference: "evidence://deepseek-byte-fallback",
+    fixedFramingTokenBound: 512,
+    serializerId: VERA_PAID_SERIALIZER_ID,
+    serializerVersion: "1",
+    model: APPROVED_MODEL,
+    upstreamProviderSlug: APPROVED_UPSTREAM_PROVIDER_SLUG,
+    producer: "vera-release-certifier",
+    artifactHash: "sha256:13d78f2617dbafcba4319bfadcf9f2f338beeced4e6d8af91f96bbfcf51f44ec",
+    signature: "sig://vera-certifier/utf8-byte-bound-v1",
+    verifiedAt: "2026-09-01T00:00:00Z",
+    expiresAt: "2027-09-01T00:00:00Z",
+  },
+  aliasTableVersion: "relace-aliases-v1",
+  providerAliasTable: { relace: APPROVED_UPSTREAM_PROVIDER_SLUG },
   termsEvidenceReference: "terms://approved",
-  termsEvidenceDigest: "terms-digest",
+  termsEvidenceDigest: "sha256-relace-terms",
   privacyEvidenceReference: "privacy://approved",
-  privacyEvidenceDigest: "privacy-digest",
+  privacyEvidenceDigest: "sha256-relace-zdr",
   noTraining: true,
   noContentLogging: true,
   residencyDisclosure: "Provider residency is not guaranteed; Indonesia is the initial market.",
-  verifiedAt: "2026-08-23T00:00:00Z",
-  expiresAt: "2027-08-23T00:00:00Z",
+  verifiedAt: "2026-09-01T00:00:00Z",
+  expiresAt: "2027-09-01T00:00:00Z",
   approver: "release-approver",
   releaseState: "approved",
 };
@@ -49,7 +101,7 @@ await runChecks("vera-provider", [
   {
     name: "exact gateway/upstream/model/privacy tuple and release digest validate",
     run: () => {
-      const validated = validateProviderReleaseManifest(manifest, { expectedUpstreamProviderSlug: "decart-approved-1", expectedEndpointMetadataDigest: "endpoint-digest-v1" });
+      const validated = validateProviderReleaseManifest(manifest, { expectedUpstreamProviderSlug: "relace", expectedEndpointMetadataDigest: "endpoint-digest-v2" });
       assert(validated.manifestDigest === manifest.manifestDigest, "manifest digest changed");
     },
   },
@@ -57,7 +109,7 @@ await runChecks("vera-provider", [
     name: "missing/placeholder/expired/drifted manifest evidence fails closed",
     run: async () => {
       await expectReject(() => validateProviderReleaseManifest(null), "missing manifest accepted");
-      await expectReject(() => validateProviderReleaseManifest({ ...manifest, upstreamProviderSlug: "placeholder" }), "placeholder slug accepted");
+      await expectReject(() => validateProviderReleaseManifest({ ...manifest, upstreamProviderSlug: "placeholder" } as unknown as ProviderReleaseManifest), "placeholder slug accepted");
       await expectReject(() => validateProviderReleaseManifest({ ...manifest, expiresAt: "2020-01-01T00:00:00Z" }), "expired manifest accepted");
       await expectReject(() => validateProviderReleaseManifest(manifest, { expectedUpstreamProviderSlug: "different" }), "slug drift accepted");
       const driftedFallbackManifest = {

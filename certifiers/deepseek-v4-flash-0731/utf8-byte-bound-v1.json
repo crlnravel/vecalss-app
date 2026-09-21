@@ -1,0 +1,19 @@
+{
+  "schema": "vera.certifier.evidence.v1",
+  "certifierId": "openrouter-utf8-byte-upper-bound-v1",
+  "certifierVersion": "1",
+  "tokenizerRevision": "deepseek-tokenizer-0731",
+  "tokenizerHash": "sha256-tokenizer",
+  "chatTemplateHash": "sha256-chat-template",
+  "byteFallbackProofReference": "evidence://deepseek-byte-fallback",
+  "fixedFramingTokenBound": 512,
+  "serializerId": "vera-openrouter-chat-input-v1",
+  "serializerVersion": "1",
+  "model": "deepseek/deepseek-v4-flash-0731",
+  "upstreamProviderSlug": "relace",
+  "producer": "vera-release-certifier",
+  "artifactHash": "sha256:13d78f2617dbafcba4319bfadcf9f2f338beeced4e6d8af91f96bbfcf51f44ec",
+  "signature": "sig://vera-certifier/utf8-byte-bound-v1",
+  "verifiedAt": "2026-09-01T00:00:00Z",
+  "expiresAt": "2027-09-01T00:00:00Z"
+}

@@ -61,6 +61,7 @@
     "test:vera-encryption-context": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-encryption-context.ts",
     "test:vera-idempotency-conversation": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-idempotency-conversation.ts",
     "test:vera-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-provider.ts",
+    "test:vera-paid-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-paid-provider.ts",
     "test:vera-openrouter-poc": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-openrouter-poc.ts",
     "test:vera-openrouter-free-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-openrouter-free-provider.ts",
     "test:vera-sprint2": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sprint2.ts",

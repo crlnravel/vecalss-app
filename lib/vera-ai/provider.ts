@@ -1,14 +1,28 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { VERA_MAX_PROVIDER_ATTEMPTS, canonicalJson, sha256Hex } from "./contracts";
 
 export const OPENROUTER_GATEWAY = "openrouter";
-export const APPROVED_UPSTREAM_PROVIDER = "decart";
-export const APPROVED_MODEL = "z-ai/glm-5.2:free";
+export const APPROVED_UPSTREAM_PROVIDER = "relace" as const;
+export const APPROVED_UPSTREAM_PROVIDER_SLUG = "relace" as const;
+export const APPROVED_MODEL = "deepseek/deepseek-v4-flash-0731" as const;
 export const APPROVED_ROUTING_POLICY_VERSION = "openrouter-routing-v1";
 export const VERA_CERTIFIED_ESTIMATOR_VERSION = "universal-byte-bound-v1";
+export const VERA_PAID_CERTIFIER_ID = "openrouter-utf8-byte-upper-bound-v1";
+export const VERA_PAID_CERTIFIER_VERSION = "1";
+export const VERA_PAID_SERIALIZER_ID = "vera-openrouter-chat-input-v1";
+export const VERA_PAID_PRICE_POLICY_VERSION = "vera-openrouter-price-v1";
+export const VERA_CERTIFIER_EVIDENCE_REFERENCE = "certifiers/deepseek-v4-flash-0731/utf8-byte-bound-v1.json" as const;
+export const OPENROUTER_MAX_PRICE = {
+  prompt: "0.10",
+  completion: "0.30",
+  request: "0",
+  image: "0",
+} as const;
 export const OPENROUTER_FREE_POC_UPSTREAM_PROVIDER = "openrouter-free-poc";
 export const OPENROUTER_FREE_POC_UPSTREAM_PROVIDER_SLUG = "openrouter-free";
 export const OPENROUTER_FREE_POC_ROUTING_POLICY_VERSION = "openrouter-free-poc-v1";
@@ -31,6 +45,7 @@ export type ProductionProviderRoutingOptions = {
     require_parameters: true;
     zdr: true;
     data_collection: "deny";
+    max_price: typeof OPENROUTER_MAX_PRICE;
   };
 };
 
@@ -49,15 +64,71 @@ export type VeraOpenRouterFreePocRoutingOptions = {
 
 export type ProviderRoutingOptions = ProductionProviderRoutingOptions | VeraOpenRouterFreePocRoutingOptions;
 
+export type OpenRouterMaxPrice = {
+  prompt: string;
+  completion: string;
+  request: string;
+  image: string;
+};
+
+export type ProviderCacheWriteAccountingMode = "included_in_uncached_prompt" | "explicit" | "unsupported";
+
+export type ProviderPriceSnapshot = {
+  currency: "USD";
+  promptPriceUsdPerM: string;
+  completionPriceUsdPerM: string;
+  requestPriceUsdPerM: string;
+  imagePriceUsdPerM: string;
+  audioPriceUsdPerM: string;
+  cacheReadPriceUsdPerM: string;
+  cacheWritePriceUsdPerM: string;
+  cacheWriteAccountingMode: ProviderCacheWriteAccountingMode;
+  reasoningTokenTreatment: "included_in_completion";
+  serverToolTreatment: "disabled";
+};
+
+export type ProviderCertifierEvidence = {
+  tokenizerRevision: string;
+  tokenizerHash: string;
+  chatTemplateHash: string;
+  byteFallbackProofReference: string;
+  fixedFramingTokenBound: 512;
+  serializerId: typeof VERA_PAID_SERIALIZER_ID;
+  serializerVersion: string;
+  model: typeof APPROVED_MODEL;
+  upstreamProviderSlug: typeof APPROVED_UPSTREAM_PROVIDER_SLUG;
+  producer: string;
+  artifactHash: string;
+  signature: string;
+  verifiedAt: string;
+  expiresAt: string;
+};
+
 export type ProviderReleaseManifest = {
   manifestVersion: string;
   gateway: "openrouter";
-  upstreamProvider: "decart";
-  upstreamProviderSlug: string;
-  model: string;
+  upstreamProvider: typeof APPROVED_UPSTREAM_PROVIDER;
+  upstreamProviderSlug: typeof APPROVED_UPSTREAM_PROVIDER_SLUG;
+  model: typeof APPROVED_MODEL;
   endpointMetadataDigest: string;
+  endpointDescriptorHash: string;
   routingPolicyVersion: string;
   routingOptions: ProductionProviderRoutingOptions;
+  maxPrice: OpenRouterMaxPrice;
+  priceSnapshot: ProviderPriceSnapshot;
+  pricePolicyVersion: typeof VERA_PAID_PRICE_POLICY_VERSION;
+  sourceUrl: string;
+  maxPriceSchemaEvidenceReference: string;
+  maxPriceSchemaEvidenceDigest: string;
+  canaryEvidenceReference: string;
+  canaryEvidenceDigest: string;
+  inputCertifierId: typeof VERA_PAID_CERTIFIER_ID;
+  inputCertifierVersion: typeof VERA_PAID_CERTIFIER_VERSION;
+  finalInputBuilderHash: string;
+  certifierEvidenceReference: typeof VERA_CERTIFIER_EVIDENCE_REFERENCE;
+  certifierEvidence: ProviderCertifierEvidence;
+  aliasTableVersion: string;
+  providerAliasTable?: Record<string, typeof APPROVED_UPSTREAM_PROVIDER_SLUG>;
   termsEvidenceReference: string;
   termsEvidenceDigest: string;
   privacyEvidenceReference: string;
@@ -79,6 +150,12 @@ export type ProviderTask = {
   contextTaskDigest: string;
   hardOutputQuotaUnits: number;
   certifiedEstimate?: CertifiedQuotaEstimate;
+  /** Optional durable identity supplied by a write-ahead caller. */
+  requestId?: string;
+  attemptNo?: number;
+  providerRequestKey?: string;
+  finalPayloadHash?: string;
+  dispatchDeadlineAt?: Date | string;
 };
 
 export type CertifiedQuotaEstimate = {
@@ -108,6 +185,9 @@ export type PreparedProviderTask = {
   certifiedEstimate: CertifiedQuotaEstimate;
   manifestDigest: string;
   routingOptions: ProviderRoutingOptions;
+  providerRequestKey?: string;
+  finalPayloadHash?: string;
+  dispatchDeadlineAt?: string;
 };
 
 export type ProviderUsage = {
@@ -115,15 +195,35 @@ export type ProviderUsage = {
   outputTokens: number | null;
   quotaUnitsConsumed: number | null;
   tokenUsageState: "known" | "unknown" | "not_applicable";
+  cachedTokens?: number | null;
+  cacheWriteTokens?: number | null;
+  reasoningTokens?: number | null;
+  serverToolCost?: string | null;
+  rawReportedCostDecimal?: string | null;
+  canonicalReportedCostDecimal?: string | null;
+  reportedCostMicros?: string | null;
+  recomputedCostMicros?: string | null;
 };
 
 export type ProviderAttemptEvidence = {
   attemptNo: number;
-  state: "prepared" | "sent" | "accepted" | "completed" | "ambiguous" | "failed";
+  state: "prepared" | "reserved" | "dispatching" | "sent" | "accepted" | "completed" | "unknown" | "overrun" | "ambiguous" | "released" | "failed";
   providerRequestRef: string | null;
   observedUpstreamProviderSlug: string | null;
   errorCode: string | null;
   usage: ProviderUsage;
+  providerRequestKey?: string | null;
+  generationId?: string | null;
+  upstreamId?: string | null;
+  providerRequestId?: string | null;
+  finalPayloadHash?: string | null;
+  dispatchDeadlineAt?: string | null;
+  rawReportedCostDecimal?: string | null;
+  canonicalReportedCostDecimal?: string | null;
+  reportedCostMicros?: string | null;
+  recomputedCostMicros?: string | null;
+  selectedEndpointJsonPointer?: string | null;
+  evidenceObservedAt?: string | null;
 };
 
 export type ProviderResult = {
@@ -145,9 +245,48 @@ export type ProviderResultMetadata = {
   providerIdentity: string;
   dataCollection: "allow";
   zdr: false;
+} | {
+  kind: "openrouter_paid";
+  gateway: "openrouter";
+  upstreamProvider: typeof APPROVED_UPSTREAM_PROVIDER;
+  requestedModel: typeof APPROVED_MODEL;
+  selectedModel: typeof APPROVED_MODEL;
+  providerIdentity: typeof APPROVED_UPSTREAM_PROVIDER_SLUG;
+  dataCollection: "deny";
+  zdr: true;
+  strategy: "direct";
+  selectedEndpointJsonPointer: string;
+  generationId: string;
+  upstreamId: string;
+  providerRequestId: string;
 };
 
 export type ProviderDelta = { text: string; provisional: true };
+
+export type ProviderDispatchIntent = {
+  attemptNo: number;
+  providerRequestKey: string;
+  finalPayloadHash: string;
+  dispatchDeadlineAt: string;
+  gateway: typeof OPENROUTER_GATEWAY;
+  upstreamProviderSlug: typeof APPROVED_UPSTREAM_PROVIDER_SLUG;
+  model: typeof APPROVED_MODEL;
+};
+
+export type ProviderDispatchEvidence = ProviderDispatchIntent & {
+  state: "sent" | "unknown" | "failed";
+  generationId: string | null;
+  providerRequestId: string | null;
+  upstreamId: string | null;
+  observedUpstreamProviderSlug: string | null;
+  observedAt: string;
+  reason?: string;
+};
+
+export type ProviderDispatchHooks = {
+  onDispatchIntent?: (intent: ProviderDispatchIntent) => void | Promise<void>;
+  onDispatchEvidence?: (evidence: ProviderDispatchEvidence) => void | Promise<void>;
+};
 
 export class ProviderSafetyError extends Error {
   constructor(message: string) {
@@ -181,6 +320,358 @@ function isPlaceholder(value: string): boolean {
   return !value.trim() || /^(todo|placeholder|changeme|unknown|pending|example)/i.test(value.trim());
 }
 
+const JSON_NUMBER_RE = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+
+/** A JSON number kept as its original lexeme so billing never crosses a
+ * JavaScript floating-point boundary. */
+export class LosslessJsonNumber {
+  readonly raw: string;
+
+  constructor(raw: string) {
+    this.raw = raw;
+  }
+}
+
+export type LosslessJsonValue = null | boolean | string | LosslessJsonNumber | LosslessJsonValue[] | { [key: string]: LosslessJsonValue };
+
+class LosslessJsonParser {
+  private readonly input: string;
+  private position = 0;
+
+  constructor(input: string) {
+    this.input = input;
+  }
+
+  parse(): LosslessJsonValue {
+    const value = this.parseValue(0);
+    this.skipWhitespace();
+    if (this.position !== this.input.length) throw new ProviderSafetyError("The provider JSON response contains trailing data.");
+    return value;
+  }
+
+  private parseValue(depth: number): LosslessJsonValue {
+    if (depth > 80) throw new ProviderSafetyError("The provider JSON response is too deeply nested.");
+    this.skipWhitespace();
+    const char = this.input[this.position];
+    if (char === "{") return this.parseObject(depth + 1);
+    if (char === "[") return this.parseArray(depth + 1);
+    if (char === '"') return this.parseString();
+    if (this.input.startsWith("true", this.position)) {
+      this.position += 4;
+      return true;
+    }
+    if (this.input.startsWith("false", this.position)) {
+      this.position += 5;
+      return false;
+    }
+    if (this.input.startsWith("null", this.position)) {
+      this.position += 4;
+      return null;
+    }
+    JSON_NUMBER_RE.lastIndex = this.position;
+    const match = JSON_NUMBER_RE.exec(this.input);
+    if (match?.[0]) {
+      this.position += match[0].length;
+      return new LosslessJsonNumber(match[0]);
+    }
+    throw new ProviderSafetyError("The provider JSON response contains invalid JSON.");
+  }
+
+  private parseObject(depth: number): { [key: string]: LosslessJsonValue } {
+    this.position += 1;
+    const result: { [key: string]: LosslessJsonValue } = {};
+    const seen = new Set<string>();
+    this.skipWhitespace();
+    if (this.input[this.position] === "}") {
+      this.position += 1;
+      return result;
+    }
+    while (this.position < this.input.length) {
+      this.skipWhitespace();
+      if (this.input[this.position] !== '"') throw new ProviderSafetyError("The provider JSON object has an invalid key.");
+      const key = this.parseString();
+      if (seen.has(key)) throw new ProviderSafetyError(`The provider JSON object contains duplicate key ${key}.`);
+      seen.add(key);
+      this.skipWhitespace();
+      if (this.input[this.position] !== ":") throw new ProviderSafetyError("The provider JSON object is missing a colon.");
+      this.position += 1;
+      result[key] = this.parseValue(depth);
+      this.skipWhitespace();
+      if (this.input[this.position] === "}") {
+        this.position += 1;
+        return result;
+      }
+      if (this.input[this.position] !== ",") throw new ProviderSafetyError("The provider JSON object is missing a comma.");
+      this.position += 1;
+    }
+    throw new ProviderSafetyError("The provider JSON object is unterminated.");
+  }
+
+  private parseArray(depth: number): LosslessJsonValue[] {
+    this.position += 1;
+    const result: LosslessJsonValue[] = [];
+    this.skipWhitespace();
+    if (this.input[this.position] === "]") {
+      this.position += 1;
+      return result;
+    }
+    while (this.position < this.input.length) {
+      result.push(this.parseValue(depth));
+      this.skipWhitespace();
+      if (this.input[this.position] === "]") {
+        this.position += 1;
+        return result;
+      }
+      if (this.input[this.position] !== ",") throw new ProviderSafetyError("The provider JSON array is missing a comma.");
+      this.position += 1;
+    }
+    throw new ProviderSafetyError("The provider JSON array is unterminated.");
+  }
+
+  private parseString(): string {
+    const start = this.position;
+    this.position += 1;
+    let escaped = false;
+    while (this.position < this.input.length) {
+      const char = this.input[this.position];
+      if (!escaped && char === '"') {
+        const raw = this.input.slice(start, this.position + 1);
+        this.position += 1;
+        try {
+          return JSON.parse(raw) as string;
+        } catch {
+          throw new ProviderSafetyError("The provider JSON response contains an invalid string.");
+        }
+      }
+      if (!escaped && char.charCodeAt(0) < 0x20) throw new ProviderSafetyError("The provider JSON response contains a control character.");
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      this.position += 1;
+    }
+    throw new ProviderSafetyError("The provider JSON string is unterminated.");
+  }
+
+  private skipWhitespace(): void {
+    while (/\s/u.test(this.input[this.position] ?? "")) this.position += 1;
+  }
+}
+
+export function parseLosslessJson(input: string): LosslessJsonValue {
+  if (typeof input !== "string" || input.length === 0 || input.length > 4_194_304) {
+    throw new ProviderSafetyError("The provider JSON response is outside the bounded response contract.");
+  }
+  return new LosslessJsonParser(input).parse();
+}
+
+export function isLosslessJsonNumber(value: unknown): value is LosslessJsonNumber {
+  return value instanceof LosslessJsonNumber;
+}
+
+function losslessRecord(value: unknown): Record<string, LosslessJsonValue> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) && !(value instanceof LosslessJsonNumber)
+    ? value as Record<string, LosslessJsonValue>
+    : null;
+}
+
+function losslessString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function losslessNumberLexeme(value: unknown): string | null {
+  if (value instanceof LosslessJsonNumber) return value.raw;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "string") return value;
+  return null;
+}
+
+export type ParsedDecimal = {
+  raw: string;
+  coefficient: bigint;
+  scale: number;
+  canonical: string;
+  micros: bigint;
+};
+
+/** Parse an unsigned JSON decimal lexeme without floating-point arithmetic. */
+export function parseLosslessDecimal(raw: string, options: { maxFractionDigits?: number } = {}): ParsedDecimal {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 128 || !/^(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/u.test(raw)) {
+    throw new ProviderSafetyError("The provider cost is not a valid non-negative JSON decimal.");
+  }
+  if (raw.startsWith("-")) throw new ProviderSafetyError("Negative provider costs are not allowed.");
+  const exponentMarker = raw.search(/[eE]/u);
+  const base = exponentMarker === -1 ? raw : raw.slice(0, exponentMarker);
+  const exponent = exponentMarker === -1 ? 0 : Number(raw.slice(exponentMarker + 1));
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 18) throw new ProviderSafetyError("The provider cost exponent is outside the bounded range.");
+  const dot = base.indexOf(".");
+  const integerPart = dot === -1 ? base : base.slice(0, dot);
+  const fractionPart = dot === -1 ? "" : base.slice(dot + 1);
+  if (options.maxFractionDigits !== undefined && fractionPart.length > options.maxFractionDigits) {
+    throw new ProviderSafetyError("The provider price has too many fractional USD digits.");
+  }
+  const digits = `${integerPart}${fractionPart}`;
+  const nonZeroDigits = digits.replace(/^0+/u, "");
+  if (nonZeroDigits.length > 38) throw new ProviderSafetyError("The provider cost coefficient is too large.");
+  const coefficient = nonZeroDigits ? BigInt(nonZeroDigits) : BigInt(0);
+  if (coefficient === BigInt(0) && raw.startsWith("-")) throw new ProviderSafetyError("Negative zero provider costs are not allowed.");
+  const scale = fractionPart.length - exponent;
+  const normalizedCoefficient = scale < 0 ? coefficient * (BigInt(10) ** BigInt(-scale)) : coefficient;
+  const normalizedScale = Math.max(scale, 0);
+  let canonical = normalizedCoefficient.toString();
+  if (normalizedCoefficient === BigInt(0)) canonical = "0";
+  else if (normalizedScale > 0) {
+    canonical = canonical.padStart(normalizedScale + 1, "0");
+    const split = canonical.length - normalizedScale;
+    canonical = `${canonical.slice(0, split)}.${canonical.slice(split)}`.replace(/0+$/u, "").replace(/\.$/u, "");
+  }
+  const microsScale = normalizedScale - 6;
+  const numerator = normalizedCoefficient;
+  let micros: bigint;
+  if (microsScale <= 0) micros = numerator * (BigInt(10) ** BigInt(-microsScale));
+  else {
+    const denominator = BigInt(10) ** BigInt(microsScale);
+    micros = numerator / denominator + (numerator % denominator === BigInt(0) ? BigInt(0) : BigInt(1));
+  }
+  return { raw, coefficient: normalizedCoefficient, scale: normalizedScale, canonical, micros };
+}
+
+export function decimalMicros(raw: string, options: { maxFractionDigits?: number } = {}): bigint {
+  return parseLosslessDecimal(raw, options).micros;
+}
+
+function requireNonNegativeInteger(value: unknown, field: string): number {
+  const raw = losslessNumberLexeme(value);
+  if (!raw || !/^(?:0|[1-9]\d*)$/u.test(raw)) throw new ProviderSafetyError(`${field} is missing or invalid.`);
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed)) throw new ProviderSafetyError(`${field} is outside the safe integer range.`);
+  return parsed;
+}
+
+function asString(value: unknown, field: string): string {
+  const parsed = losslessString(value);
+  if (!parsed?.trim()) throw new ProviderSafetyError(`${field} is missing.`);
+  return parsed;
+}
+
+function exactMaxPrice(value: unknown): OpenRouterMaxPrice {
+  const object = value as Record<string, unknown> | null;
+  if (!object || Object.keys(object).sort().join(",") !== "completion,image,prompt,request") {
+    throw new ProviderSafetyError("OpenRouter max_price must contain only prompt, completion, request, and image.");
+  }
+  const result = {
+    prompt: asString(object.prompt, "max_price.prompt"),
+    completion: asString(object.completion, "max_price.completion"),
+    request: asString(object.request, "max_price.request"),
+    image: asString(object.image, "max_price.image"),
+  };
+  for (const [key, price] of Object.entries(result)) {
+    parseLosslessDecimal(price, { maxFractionDigits: 6 });
+    if (key === "request" || key === "image") {
+      if (price !== "0") throw new ProviderSafetyError(`max_price.${key} must be exactly zero for this release.`);
+    }
+  }
+  if (result.prompt !== OPENROUTER_MAX_PRICE.prompt || result.completion !== OPENROUTER_MAX_PRICE.completion) {
+    throw new ProviderSafetyError("OpenRouter max_price drifted from the approved paid release.");
+  }
+  return result;
+}
+
+const BUILTIN_PROVIDER_ALIASES: Record<string, typeof APPROVED_UPSTREAM_PROVIDER_SLUG> = {
+  relace: APPROVED_UPSTREAM_PROVIDER_SLUG,
+  "relace ai": APPROVED_UPSTREAM_PROVIDER_SLUG,
+  "relace (zdr)": APPROVED_UPSTREAM_PROVIDER_SLUG,
+};
+
+export function normalizeOpenRouterProviderAlias(value: unknown, manifest?: ProviderReleaseManifest): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const alias = value.trim().toLowerCase();
+  const table = manifest?.providerAliasTable ? { ...BUILTIN_PROVIDER_ALIASES, ...manifest.providerAliasTable } : BUILTIN_PROVIDER_ALIASES;
+  const normalized = table[alias];
+  return normalized === APPROVED_UPSTREAM_PROVIDER_SLUG ? normalized : null;
+}
+
+export type OpenRouterDirectMetadata = {
+  strategy: "direct";
+  pipeline: unknown;
+  selectedEndpointJsonPointer: string;
+  selectedProvider: typeof APPROVED_UPSTREAM_PROVIDER_SLUG;
+  selectedModel: typeof APPROVED_MODEL;
+};
+
+function metadataRoot(value: unknown): Record<string, unknown> | null {
+  const root = losslessRecord(value);
+  if (!root) return null;
+  const nested = losslessRecord(root.openrouter_metadata);
+  return nested ?? root as Record<string, unknown>;
+}
+
+function endpointProvider(value: Record<string, LosslessJsonValue>): unknown {
+  return value.provider ?? value.provider_slug ?? value.providerSlug ?? value.provider_name ?? value.upstream_provider ?? value.upstreamProvider ?? value.tag ?? value.slug ?? value.name;
+}
+
+function endpointModel(value: Record<string, LosslessJsonValue>): unknown {
+  return value.model ?? value.model_slug ?? value.modelSlug ?? value.model_id ?? value.modelId ?? value.requested_model ?? value.requestedModel;
+}
+
+/** Validate the post-response direct routing proof. Gateway metadata alone is
+ * not accepted as proof of the selected Relace endpoint. */
+export function validateOpenRouterDirectMetadata(value: unknown, manifest?: ProviderReleaseManifest): OpenRouterDirectMetadata {
+  const root = metadataRoot(value);
+  if (!root || root.strategy !== "direct") throw new ProviderSafetyError("OpenRouter response metadata is not a direct route proof.");
+  if (root.pipeline !== undefined && !(Array.isArray(root.pipeline) && root.pipeline.length === 0) && root.pipeline !== "") {
+    throw new ProviderSafetyError("OpenRouter response metadata contains a disallowed pipeline stage.");
+  }
+  for (const key of [
+    "guardrail",
+    "guardrails",
+    "plugin",
+    "plugins",
+    "server_tools",
+    "serverTools",
+    "response_healing",
+    "responseHealing",
+    "context_compression",
+    "contextCompression",
+  ]) {
+    const stage = root[key];
+    if (stage !== undefined && stage !== null && stage !== false && stage !== "" && !(Array.isArray(stage) && stage.length === 0)) {
+      throw new ProviderSafetyError(`OpenRouter response metadata contains a disallowed ${key} stage.`);
+    }
+  }
+  const endpoints = losslessRecord(root.endpoints);
+  const available = endpoints?.available;
+  if (!Array.isArray(available)) throw new ProviderSafetyError("OpenRouter selected endpoint metadata is missing.");
+  const selected = available.filter((entry) => losslessRecord(entry)?.selected === true);
+  if (selected.length !== 1) throw new ProviderSafetyError("OpenRouter metadata must identify exactly one selected endpoint.");
+  const selectedEntry = losslessRecord(selected[0]);
+  if (!selectedEntry) throw new ProviderSafetyError("OpenRouter selected endpoint metadata is malformed.");
+  const provider = normalizeOpenRouterProviderAlias(endpointProvider(selectedEntry), manifest);
+  const model = endpointModel(selectedEntry);
+  if (provider !== APPROVED_UPSTREAM_PROVIDER_SLUG || model !== APPROVED_MODEL) {
+    throw new ProviderSafetyError("OpenRouter selected endpoint does not match the approved model/provider pair.");
+  }
+  const attempts = root.attempts;
+  if (!Array.isArray(attempts) || attempts.length === 0) throw new ProviderSafetyError("OpenRouter response attempt metadata is missing.");
+  for (const entry of attempts) {
+    const attempt = losslessRecord(entry);
+    if (!attempt) throw new ProviderSafetyError("OpenRouter response attempt metadata is malformed.");
+    const failed = attempt.success === false || attempt.status === "failed" || attempt.state === "failed" || attempt.error !== undefined;
+    if (failed) continue;
+    const attemptProvider = normalizeOpenRouterProviderAlias(endpointProvider(attempt), manifest);
+    const attemptModel = endpointModel(attempt);
+    if (attemptProvider !== APPROVED_UPSTREAM_PROVIDER_SLUG || attemptModel !== APPROVED_MODEL) {
+      throw new ProviderSafetyError("OpenRouter successful attempt metadata drifted from the approved pair.");
+    }
+  }
+  const selectedIndex = available.indexOf(selected[0]);
+  return {
+    strategy: "direct",
+    pipeline: root.pipeline,
+    selectedEndpointJsonPointer: `/openrouter_metadata/endpoints/available/${selectedIndex}`,
+    selectedProvider: APPROVED_UPSTREAM_PROVIDER_SLUG,
+    selectedModel: APPROVED_MODEL,
+  };
+}
+
 export function manifestDigest(manifest: Omit<ProviderReleaseManifest, "manifestDigest">): string {
   return createHash("sha256").update(canonicalJson(manifest)).digest("hex");
 }
@@ -195,6 +686,18 @@ export function validateProviderReleaseManifest(
     manifest.manifestVersion,
     manifest.upstreamProviderSlug,
     manifest.endpointMetadataDigest,
+    manifest.endpointDescriptorHash,
+    manifest.sourceUrl,
+    manifest.maxPriceSchemaEvidenceReference,
+    manifest.maxPriceSchemaEvidenceDigest,
+    manifest.canaryEvidenceReference,
+    manifest.canaryEvidenceDigest,
+    manifest.pricePolicyVersion,
+    manifest.inputCertifierId,
+    manifest.inputCertifierVersion,
+    manifest.finalInputBuilderHash,
+    manifest.certifierEvidenceReference,
+    manifest.aliasTableVersion,
     manifest.termsEvidenceReference,
     manifest.termsEvidenceDigest,
     manifest.privacyEvidenceReference,
@@ -203,26 +706,122 @@ export function validateProviderReleaseManifest(
     manifest.approver,
     manifest.manifestDigest,
   ];
-  if (requiredText.some(isPlaceholder)) throw new ProviderSafetyError("Provider release evidence is missing or placeholder.");
+  if (requiredText.some((value) => typeof value !== "string" || isPlaceholder(value))) {
+    throw new ProviderSafetyError("Provider release evidence is missing or placeholder.");
+  }
   if (manifest.releaseState !== "approved") throw new ProviderSafetyError("Provider release is not approved.");
   if (manifest.gateway !== OPENROUTER_GATEWAY || manifest.upstreamProvider !== APPROVED_UPSTREAM_PROVIDER || manifest.model !== APPROVED_MODEL) {
     throw new ProviderSafetyError("Provider gateway/upstream/model tuple is not approved.");
   }
   if (manifest.routingPolicyVersion !== APPROVED_ROUTING_POLICY_VERSION) throw new ProviderSafetyError("Provider routing policy drifted.");
-  if (manifest.routingOptions.provider.allow_fallbacks !== false
+  if ((manifest.routingOptions.kind && manifest.routingOptions.kind !== "production")
+    || manifest.routingOptions.provider.only.length !== 1
+    || manifest.routingOptions.provider.order.length !== 1
+    || manifest.routingOptions.provider.allow_fallbacks !== false
     || manifest.routingOptions.provider.require_parameters !== true
     || manifest.routingOptions.provider.zdr !== true
     || manifest.routingOptions.provider.data_collection !== "deny"
-    || manifest.routingOptions.provider.only[0] !== manifest.upstreamProviderSlug
-    || manifest.routingOptions.provider.order[0] !== manifest.upstreamProviderSlug) {
+    || manifest.routingOptions.provider.only[0] !== APPROVED_UPSTREAM_PROVIDER_SLUG
+    || manifest.routingOptions.provider.order[0] !== APPROVED_UPSTREAM_PROVIDER_SLUG) {
     throw new ProviderSafetyError("Provider routing/privacy controls are not pinned.");
   }
+  const maxPrice = exactMaxPrice(manifest.maxPrice);
+  if (canonicalJson(manifest.routingOptions.provider.max_price) !== canonicalJson(maxPrice)) {
+    throw new ProviderSafetyError("Provider routing max_price does not match the release manifest.");
+  }
+  if (manifest.pricePolicyVersion !== VERA_PAID_PRICE_POLICY_VERSION) throw new ProviderSafetyError("Provider price policy drifted.");
+  const prices = manifest.priceSnapshot;
+  if (!prices || prices.currency !== "USD" || prices.cacheWriteAccountingMode !== "included_in_uncached_prompt"
+    || prices.reasoningTokenTreatment !== "included_in_completion" || prices.serverToolTreatment !== "disabled") {
+    throw new ProviderSafetyError("Provider billable-dimension policy is not pinned.");
+  }
+  const priceEntries: Array<[string, string]> = [
+    ["prompt", prices.promptPriceUsdPerM],
+    ["completion", prices.completionPriceUsdPerM],
+    ["request", prices.requestPriceUsdPerM],
+    ["image", prices.imagePriceUsdPerM],
+    ["audio", prices.audioPriceUsdPerM],
+    ["cacheRead", prices.cacheReadPriceUsdPerM],
+    ["cacheWrite", prices.cacheWritePriceUsdPerM],
+  ];
+  const parsedPrices = new Map<string, bigint>();
+  for (const [name, value] of priceEntries) {
+    if (typeof value !== "string" || isPlaceholder(value)) throw new ProviderSafetyError(`Provider ${name} price is missing.`);
+    parsedPrices.set(name, decimalMicros(value, { maxFractionDigits: 6 }));
+  }
+  if (parsedPrices.get("request") !== BigInt(0) || parsedPrices.get("image") !== BigInt(0) || parsedPrices.get("audio") !== BigInt(0)) {
+    throw new ProviderSafetyError("Request, image, and audio billing must be disabled for this release.");
+  }
+  const promptPrice = parsedPrices.get("prompt")!;
+  if (parsedPrices.get("cacheRead")! > promptPrice || parsedPrices.get("cacheWrite")! > promptPrice) {
+    throw new ProviderSafetyError("Cache prices cannot exceed the prompt price ceiling.");
+  }
+  if (manifest.inputCertifierId !== VERA_PAID_CERTIFIER_ID || manifest.inputCertifierVersion !== VERA_PAID_CERTIFIER_VERSION) {
+    throw new ProviderSafetyError("Provider input certifier is not approved.");
+  }
+  if (manifest.certifierEvidenceReference !== VERA_CERTIFIER_EVIDENCE_REFERENCE) {
+    throw new ProviderSafetyError("Provider certifier evidence reference is not the approved release artifact.");
+  }
+  const evidence = manifest.certifierEvidence;
+  if (!evidence || evidence.fixedFramingTokenBound !== 512 || evidence.serializerId !== VERA_PAID_SERIALIZER_ID
+    || evidence.model !== APPROVED_MODEL || evidence.upstreamProviderSlug !== APPROVED_UPSTREAM_PROVIDER_SLUG) {
+    throw new ProviderSafetyError("Provider certifier evidence does not identify the exact release tuple.");
+  }
+  for (const value of [
+    evidence.tokenizerRevision,
+    evidence.tokenizerHash,
+    evidence.chatTemplateHash,
+    evidence.byteFallbackProofReference,
+    evidence.serializerVersion,
+    evidence.producer,
+    evidence.artifactHash,
+    evidence.signature,
+  ]) {
+    if (typeof value !== "string" || isPlaceholder(value)) throw new ProviderSafetyError("Provider certifier evidence is missing or placeholder.");
+  }
   if (manifest.noTraining !== true || manifest.noContentLogging !== true) throw new ProviderSafetyError("Provider privacy evidence is insufficient.");
+
+  let artifact: Record<string, LosslessJsonValue> | null;
+  try {
+    artifact = losslessRecord(parseLosslessJson(readFileSync(resolve(process.cwd(), VERA_CERTIFIER_EVIDENCE_REFERENCE), "utf8")));
+  } catch {
+    throw new ProviderSafetyError("Provider certifier evidence artifact is missing or malformed.");
+  }
+  if (!artifact || losslessString(artifact.schema) !== "vera.certifier.evidence.v1"
+    || losslessString(artifact.certifierId) !== VERA_PAID_CERTIFIER_ID
+    || losslessString(artifact.certifierVersion) !== VERA_PAID_CERTIFIER_VERSION
+    || losslessString(artifact.tokenizerRevision) !== evidence.tokenizerRevision
+    || losslessString(artifact.tokenizerHash) !== evidence.tokenizerHash
+    || losslessString(artifact.chatTemplateHash) !== evidence.chatTemplateHash
+    || losslessString(artifact.byteFallbackProofReference) !== evidence.byteFallbackProofReference
+    || requireNonNegativeInteger(artifact.fixedFramingTokenBound, "certifier.fixedFramingTokenBound") !== evidence.fixedFramingTokenBound
+    || losslessString(artifact.serializerId) !== evidence.serializerId
+    || losslessString(artifact.serializerVersion) !== evidence.serializerVersion
+    || losslessString(artifact.model) !== evidence.model
+    || losslessString(artifact.upstreamProviderSlug) !== evidence.upstreamProviderSlug
+    || losslessString(artifact.producer) !== evidence.producer
+    || losslessString(artifact.artifactHash) !== evidence.artifactHash
+    || losslessString(artifact.signature) !== evidence.signature
+    || losslessString(artifact.verifiedAt) !== evidence.verifiedAt
+    || losslessString(artifact.expiresAt) !== evidence.expiresAt) {
+    throw new ProviderSafetyError("Provider certifier evidence artifact does not match the release manifest.");
+  }
+  const { artifactHash: claimedArtifactHash, signature: artifactSignature, ...artifactPayload } = artifact;
+  if (losslessString(artifactSignature) !== evidence.signature
+    || losslessString(claimedArtifactHash) !== `sha256:${sha256Hex(canonicalJson(plainJson(artifactPayload as LosslessJsonValue)))}`) {
+    throw new ProviderSafetyError("Provider certifier evidence artifact hash or signature is invalid.");
+  }
   const verifiedAt = new Date(manifest.verifiedAt);
   const expiresAt = new Date(manifest.expiresAt);
   if (Number.isNaN(verifiedAt.getTime()) || Number.isNaN(expiresAt.getTime())
     || expiresAt <= verifiedAt || expiresAt <= now || verifiedAt > now) {
     throw new ProviderSafetyError("Provider release evidence is expired, future-dated, or invalid.");
+  }
+  const certifierVerifiedAt = new Date(evidence.verifiedAt);
+  const certifierExpiresAt = new Date(evidence.expiresAt);
+  if (Number.isNaN(certifierVerifiedAt.getTime()) || Number.isNaN(certifierExpiresAt.getTime())
+    || certifierExpiresAt <= certifierVerifiedAt || certifierExpiresAt <= now || certifierVerifiedAt > now) {
+    throw new ProviderSafetyError("Provider certifier evidence is expired, future-dated, or invalid.");
   }
   if (input.expectedUpstreamProviderSlug && manifest.upstreamProviderSlug !== input.expectedUpstreamProviderSlug) throw new ProviderSafetyError("Upstream provider slug drifted.");
   if (input.expectedEndpointMetadataDigest && manifest.endpointMetadataDigest !== input.expectedEndpointMetadataDigest) throw new ProviderSafetyError("Endpoint metadata drifted.");
@@ -231,6 +830,285 @@ export function validateProviderReleaseManifest(
   if (manifestDigest(withoutDigest) !== suppliedDigest) throw new ProviderSafetyError("Provider release manifest digest mismatch.");
   return manifest;
 }
+
+export type ProviderManifestActivationEvidence = {
+  manifestDigest: string;
+  endpointDescriptorHash: string;
+  responseSchemaHash: string;
+  generationId: string;
+  selectedEndpointJsonPointer: string;
+  verifiedAt: string;
+};
+
+/** Optional operational activation check. Route construction is intentionally
+ * network-free; deployment tooling calls this function before marking a paid
+ * manifest active. */
+export async function verifyProviderReleaseManifestLive(input: {
+  manifest: ProviderReleaseManifest;
+  apiKey: string;
+  baseUrl?: string;
+  fetchImpl?: typeof fetch;
+  generationPollDelaysMs?: number[];
+  sleepImpl?: (milliseconds: number) => Promise<void>;
+}): Promise<ProviderManifestActivationEvidence> {
+  const manifest = validateProviderReleaseManifest(input.manifest);
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const baseUrl = (input.baseUrl ?? "https://openrouter.ai").replace(/\/$/u, "");
+  const headers = { authorization: `Bearer ${input.apiKey}`, accept: "application/json" };
+  const schemaResponse = await fetchImpl(`${baseUrl}/openapi.yaml`, { method: "GET", headers });
+  if (!schemaResponse.ok) throw new ProviderSafetyError("OpenRouter schema activation evidence is unavailable.");
+  const schemaText = await schemaResponse.text();
+  if (!/max_price/u.test(schemaText) || !/require_parameters/u.test(schemaText)) {
+    throw new ProviderSafetyError("OpenRouter schema does not support the approved provider policy.");
+  }
+  const endpointResponse = await fetchImpl(`${baseUrl}/api/v1/models/${encodeURIComponent(manifest.model)}/endpoints?providers=${encodeURIComponent(manifest.upstreamProviderSlug)}&zdr=true`, { method: "GET", headers });
+  if (!endpointResponse.ok) throw new ProviderSafetyError("OpenRouter endpoint activation evidence is unavailable.");
+  const endpointText = await endpointResponse.text();
+  if (sha256Hex(endpointText) !== manifest.endpointDescriptorHash) throw new ProviderSafetyError("OpenRouter endpoint descriptor drifted from the manifest.");
+  const endpointJson = parseLosslessJson(endpointText);
+  const endpointRoot = losslessRecord(endpointJson);
+  const endpointValues = [endpointRoot?.data, endpointRoot?.endpoints, endpointRoot?.available].flatMap((value) => Array.isArray(value) ? value : []);
+  if (!endpointValues.some((value) => normalizeOpenRouterProviderAlias(endpointProvider(losslessRecord(value) ?? {}), manifest) === APPROVED_UPSTREAM_PROVIDER_SLUG)) {
+    throw new ProviderSafetyError("The approved Relace endpoint is missing from live activation evidence.");
+  }
+  const canaryBody = {
+    model: APPROVED_MODEL,
+    messages: [{ role: "user", content: "Vera release canary. Reply with one token." }],
+    stream: false,
+    max_completion_tokens: 1,
+    provider: {
+      only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+      order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+      allow_fallbacks: false,
+      require_parameters: true,
+      data_collection: "deny",
+      zdr: true,
+      max_price: { ...OPENROUTER_MAX_PRICE },
+    },
+  };
+  const canaryResponse = await fetchImpl(`${baseUrl}/api/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+      "x-openrouter-metadata": "enabled",
+      "x-openrouter-cache": "false",
+    },
+    body: JSON.stringify(canaryBody),
+  });
+  if (!canaryResponse.ok) throw new ProviderSafetyError("OpenRouter paid canary was rejected.");
+  const canaryText = await canaryResponse.text();
+  const canaryJson = parseLosslessJson(canaryText);
+  const metadata = validateOpenRouterDirectMetadata(canaryJson, manifest);
+  const generationId = canaryResponse.headers.get("x-generation-id")?.trim();
+  if (!generationId) throw new ProviderSafetyError("OpenRouter paid canary did not return a Generation API identifier.");
+  const generation = await fetchGenerationEvidence({
+    generationId,
+    baseUrl,
+    apiKey: input.apiKey,
+    fetchImpl,
+    pollDelaysMs: input.generationPollDelaysMs ?? [0, 1_000, 2_000, 4_000, 8_000],
+    sleepImpl: input.sleepImpl ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))),
+    maxResponseBytes: 4_194_304,
+  });
+  if (!generation) throw new ProviderSafetyError("OpenRouter paid canary generation evidence is unresolved.");
+  const usage = usageFromValue(losslessRecord(canaryJson)?.usage);
+  const reconciliation = reconcileOpenRouterGeneration({ generation, usage, manifest, generationId });
+  if (reconciliation.state !== "known") throw new ProviderSafetyError(`OpenRouter paid canary settlement is ${reconciliation.state}.`);
+  return {
+    manifestDigest: manifest.manifestDigest,
+    endpointDescriptorHash: sha256Hex(endpointText),
+    responseSchemaHash: sha256Hex(canaryText),
+    generationId: reconciliation.generationId ?? generationId,
+    selectedEndpointJsonPointer: metadata.selectedEndpointJsonPointer,
+    verifiedAt: new Date().toISOString(),
+  };
+}
+
+export type OpenRouterUsageDetails = {
+  prompt_tokens: unknown;
+  completion_tokens: unknown;
+  prompt_tokens_details?: unknown;
+  cost?: unknown;
+  cost_details?: unknown;
+  usage_is_estimated?: unknown;
+};
+
+export type OpenRouterUsageCost = {
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  uncachedOrWriteTokens: number;
+  reasoningTokens: number;
+  recomputedCostMicros: bigint;
+};
+
+function priceSnapshotFor(manifestOrSnapshot: ProviderReleaseManifest | ProviderPriceSnapshot): ProviderPriceSnapshot {
+  return "priceSnapshot" in manifestOrSnapshot ? manifestOrSnapshot.priceSnapshot : manifestOrSnapshot;
+}
+
+/** Compute the exact release price using Relace's non-additive cache-write
+ * accounting. The one upward rounding is deliberately performed after all
+ * token dimensions have been summed. */
+export function calculateOpenRouterUsageCostMicros(input: {
+  usage: OpenRouterUsageDetails;
+  manifest: ProviderReleaseManifest | ProviderPriceSnapshot;
+}): OpenRouterUsageCost {
+  const prices = priceSnapshotFor(input.manifest);
+  const promptTokens = requireNonNegativeInteger(input.usage.prompt_tokens, "usage.prompt_tokens");
+  const completionTokens = requireNonNegativeInteger(input.usage.completion_tokens, "usage.completion_tokens");
+  const details = losslessRecord(input.usage.prompt_tokens_details);
+  if (!details) throw new ProviderSafetyError("usage.prompt_tokens_details is missing.");
+  const cachedTokens = requireNonNegativeInteger(details.cached_tokens, "usage.prompt_tokens_details.cached_tokens");
+  if (cachedTokens > promptTokens) throw new ProviderSafetyError("Cached prompt tokens exceed prompt tokens.");
+  const cacheWriteRaw = details.cache_write_tokens;
+  const cacheWriteTokens = cacheWriteRaw === undefined
+    ? 0
+    : requireNonNegativeInteger(cacheWriteRaw, "usage.prompt_tokens_details.cache_write_tokens");
+  const explicitUncachedRaw = details.uncached_tokens ?? details.uncached_prompt_tokens;
+  const reasoningTokens = details.reasoning_tokens === undefined
+    ? 0
+    : requireNonNegativeInteger(details.reasoning_tokens, "usage.prompt_tokens_details.reasoning_tokens");
+  let uncachedOrWriteTokens = promptTokens - cachedTokens;
+  if (prices.cacheWriteAccountingMode === "explicit") {
+    uncachedOrWriteTokens = explicitUncachedRaw === undefined
+      ? promptTokens - cachedTokens - cacheWriteTokens
+      : requireNonNegativeInteger(explicitUncachedRaw, "usage.prompt_tokens_details.uncached_tokens");
+    if (promptTokens !== uncachedOrWriteTokens + cachedTokens + cacheWriteTokens) {
+      throw new ProviderSafetyError("Explicit cache-write accounting does not reconcile prompt tokens.");
+    }
+  } else if (prices.cacheWriteAccountingMode === "included_in_uncached_prompt") {
+    if (cacheWriteTokens > uncachedOrWriteTokens) throw new ProviderSafetyError("Cache-write tokens exceed the uncached prompt quantity.");
+  } else if (cachedTokens > 0 || cacheWriteTokens > 0) {
+    throw new ProviderSafetyError("The provider reported unsupported cache tokens.");
+  }
+  const promptPriceMicros = decimalMicros(prices.promptPriceUsdPerM, { maxFractionDigits: 6 });
+  const completionPriceMicros = decimalMicros(prices.completionPriceUsdPerM, { maxFractionDigits: 6 });
+  const cacheReadPriceMicros = decimalMicros(prices.cacheReadPriceUsdPerM, { maxFractionDigits: 6 });
+  const cacheWritePriceMicros = decimalMicros(prices.cacheWritePriceUsdPerM, { maxFractionDigits: 6 });
+  let numerator = BigInt(uncachedOrWriteTokens) * promptPriceMicros
+    + BigInt(cachedTokens) * cacheReadPriceMicros
+    + BigInt(completionTokens) * completionPriceMicros;
+  if (prices.cacheWriteAccountingMode === "explicit") numerator += BigInt(cacheWriteTokens) * cacheWritePriceMicros;
+  const recomputedCostMicros = (numerator + BigInt(999_999)) / BigInt(1_000_000);
+  return { promptTokens, completionTokens, cachedTokens, cacheWriteTokens, uncachedOrWriteTokens, reasoningTokens, recomputedCostMicros };
+}
+
+export type OpenRouterGenerationReconciliation = {
+  state: "known" | "unknown" | "overrun";
+  reason?: string;
+  generationId: string | null;
+  providerRequestId: string | null;
+  upstreamId: string | null;
+  providerName: string | null;
+  reportedCostMicros: bigint | null;
+  recomputedCostMicros: bigint | null;
+  rawReportedCostDecimal: string | null;
+  canonicalReportedCostDecimal: string | null;
+  usage: OpenRouterUsageCost | null;
+};
+
+function generationDataRoot(value: unknown): Record<string, LosslessJsonValue> | null {
+  const root = losslessRecord(value);
+  const data = root ? losslessRecord(root.data) : null;
+  return data ?? root;
+}
+
+function directCostLexemes(usage: OpenRouterUsageDetails): string[] {
+  const values: string[] = [];
+  const direct = losslessNumberLexeme(usage.cost);
+  if (direct !== null) values.push(direct);
+  const details = losslessRecord(usage.cost_details);
+  if (details) {
+    for (const key of ["total_cost", "total", "cost"]) {
+      const candidate = losslessNumberLexeme(details[key]);
+      if (candidate !== null) values.push(candidate);
+    }
+  }
+  return values;
+}
+
+/** Reconcile a Generation API record against the direct usage object. Missing
+ * evidence remains unknown; a cost mismatch is an explicit pricing overrun. */
+export function reconcileOpenRouterGeneration(input: {
+  generation: unknown;
+  usage: OpenRouterUsageDetails | null;
+  manifest: ProviderReleaseManifest;
+  generationId?: string | null;
+}): OpenRouterGenerationReconciliation {
+  const data = generationDataRoot(input.generation);
+  const generationId = losslessString(data?.id) ?? null;
+  const providerName = losslessString(data?.provider_name);
+  const upstreamId = losslessString(data?.upstream_id);
+  const providerRequestId = losslessString(data?.request_id);
+  if (!data || !generationId || !providerName || !upstreamId || !providerRequestId) {
+    return { state: "unknown", reason: "generation_identity_missing", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  if (input.generationId && generationId !== input.generationId) {
+    return { state: "unknown", reason: "generation_id_mismatch", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  const generationTokenFields = [
+    "tokens_prompt",
+    "tokens_completion",
+    "native_tokens_prompt",
+    "native_tokens_completion",
+    "native_tokens_reasoning",
+  ] as const;
+  let generationTokens: Record<typeof generationTokenFields[number], number>;
+  try {
+    generationTokens = Object.fromEntries(generationTokenFields.map((field) => [field, requireNonNegativeInteger(data[field], `generation.${field}`)])) as Record<typeof generationTokenFields[number], number>;
+  } catch {
+    return { state: "unknown", reason: "generation_usage_fields_missing", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  const generationModel = losslessString(data.model) ?? losslessString(data.model_name);
+  if (generationModel !== null && generationModel !== APPROVED_MODEL) {
+    return { state: "overrun", reason: "generation_model_mismatch", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  if (normalizeOpenRouterProviderAlias(providerName, input.manifest) !== APPROVED_UPSTREAM_PROVIDER_SLUG) {
+    return { state: "overrun", reason: "provider_identity_mismatch", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  const rawCost = losslessNumberLexeme(data.total_cost);
+  if (!rawCost) {
+    return { state: "unknown", reason: "generation_total_cost_missing", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: null, canonicalReportedCostDecimal: null, usage: null };
+  }
+  let reported: ParsedDecimal;
+  try {
+    reported = parseLosslessDecimal(rawCost);
+  } catch {
+    return { state: "overrun", reason: "generation_total_cost_invalid", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: null, recomputedCostMicros: null, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: null, usage: null };
+  }
+  if (!input.usage) {
+    return { state: "unknown", reason: "direct_usage_missing", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: null, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage: null };
+  }
+  let usage: OpenRouterUsageCost;
+  try {
+    usage = calculateOpenRouterUsageCostMicros({ usage: input.usage, manifest: input.manifest });
+  } catch {
+    return { state: "overrun", reason: "usage_pricing_violation", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: null, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage: null };
+  }
+  usage = { ...usage, reasoningTokens: generationTokens.native_tokens_reasoning };
+  if (usage.promptTokens !== generationTokens.tokens_prompt || usage.completionTokens !== generationTokens.tokens_completion) {
+    return { state: "overrun", reason: "generation_usage_mismatch", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: usage.recomputedCostMicros, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage };
+  }
+  if (input.usage.usage_is_estimated === true) {
+    return { state: "unknown", reason: "usage_estimated", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: usage.recomputedCostMicros, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage };
+  }
+  const directCostMismatch = directCostLexemes(input.usage).some((lexeme) => {
+    try {
+      return parseLosslessDecimal(lexeme).micros !== reported.micros;
+    } catch {
+      return true;
+    }
+  });
+  if (directCostMismatch || usage.recomputedCostMicros !== reported.micros) {
+    return { state: "overrun", reason: "pricing_violation", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: usage.recomputedCostMicros, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage };
+  }
+  return { state: "known", generationId, providerRequestId, upstreamId, providerName, reportedCostMicros: reported.micros, recomputedCostMicros: usage.recomputedCostMicros, rawReportedCostDecimal: rawCost, canonicalReportedCostDecimal: reported.canonical, usage };
+}
+
+export const calculateProviderUsageCostMicros = calculateOpenRouterUsageCostMicros;
+export const parseOpenRouterGenerationEvidence = reconcileOpenRouterGeneration;
 
 export function estimateVeraQuotaUnits(input: {
   taskBytes: Uint8Array;
@@ -296,9 +1174,454 @@ export function certifyVeraProviderTask(task: ProviderTask): CertifiedQuotaEstim
   return deriveCertifiedEstimate(task);
 }
 
+export type OpenRouterPaidTransportOptions = {
+  apiKey: string;
+  manifest: ProviderReleaseManifest;
+  baseUrl?: string;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  generationPollDelaysMs?: number[];
+  sleepImpl?: (milliseconds: number) => Promise<void>;
+  dispatchHooks?: ProviderDispatchHooks;
+};
+
+type OpenRouterTransportResponse = {
+  text: string;
+  structured: unknown | null;
+  finishReason: string | null;
+  usage: OpenRouterUsageDetails | null;
+  body: LosslessJsonValue | null;
+  responseId: string | null;
+};
+
+function plainJson(value: LosslessJsonValue): unknown {
+  if (value instanceof LosslessJsonNumber) return Number(value.raw);
+  if (Array.isArray(value)) return value.map((item) => plainJson(item));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, plainJson(item)]));
+  }
+  return value;
+}
+
+function paidPromptFromTask(task: ProviderTask): string {
+  if (!(task.taskBytes instanceof Uint8Array) || task.taskBytes.byteLength < 1) {
+    throw new ProviderSafetyError("The paid provider task has no certified input bytes.");
+  }
+  let decoded: string;
+  try {
+    decoded = new TextDecoder("utf-8", { fatal: true }).decode(task.taskBytes);
+  } catch {
+    throw new ProviderSafetyError("The paid provider task is not valid UTF-8.");
+  }
+  try {
+    const parsed = JSON.parse(decoded) as Record<string, unknown>;
+    const prohibitedKeys = new Set([
+      "audio",
+      "audio_url",
+      "audioUrl",
+      "image",
+      "images",
+      "image_url",
+      "imageUrl",
+      "input_audio",
+      "input_image",
+      "tools",
+      "tool_choice",
+      "toolChoice",
+      "server_tools",
+      "serverTools",
+      "request_fee",
+      "requestFee",
+      "request_price",
+      "requestPrice",
+    ]);
+    const scanForProhibitedInput = (value: unknown, depth = 0): void => {
+      if (depth > 8 || value === null || typeof value !== "object") return;
+      if (Array.isArray(value)) {
+        for (const item of value) scanForProhibitedInput(item, depth + 1);
+        return;
+      }
+      for (const [key, nested] of Object.entries(value)) {
+        if (prohibitedKeys.has(key)) throw new ProviderSafetyError(`The paid provider task contains unsupported ${key} input.`);
+        if (key === "type" && typeof nested === "string" && /^(?:image|audio|input_image|input_audio|image_url|audio_url)$/u.test(nested)) {
+          throw new ProviderSafetyError(`The paid provider task contains unsupported ${nested} input.`);
+        }
+        scanForProhibitedInput(nested, depth + 1);
+      }
+    };
+    scanForProhibitedInput(parsed);
+    if (typeof parsed.userText === "string" && parsed.userText.trim()) return parsed.userText;
+  } catch {
+    // Opaque task bytes are retained for a direct task caller. Context-pack
+    // callers use the normalized userText property above.
+  }
+  if (!decoded.trim()) throw new ProviderSafetyError("The paid provider task is empty.");
+  return decoded;
+}
+
+function positiveOutputLimit(task: ProviderTask): number {
+  if (!Number.isSafeInteger(task.hardOutputQuotaUnits) || task.hardOutputQuotaUnits < 1) {
+    throw new ProviderSafetyError("The paid provider output cap is invalid.");
+  }
+  return task.hardOutputQuotaUnits;
+}
+
+function providerRequestKeyFor(prepared: PreparedProviderTask): string {
+  const task = prepared.preparedTask;
+  if (task.providerRequestKey?.trim()) return task.providerRequestKey.trim();
+  const requestIdentity = task.requestId?.trim() || prepared.providerTaskDigest;
+  const attemptNo = task.attemptNo ?? 1;
+  if (!Number.isSafeInteger(attemptNo) || attemptNo < 1 || attemptNo > VERA_MAX_PROVIDER_ATTEMPTS) {
+    throw new ProviderSafetyError("The paid provider attempt number is invalid.");
+  }
+  return sha256Hex(`vera-provider-request-key-v1:${requestIdentity}:${attemptNo}`);
+}
+
+function dispatchDeadlineFor(prepared: PreparedProviderTask, now = new Date()): string {
+  const fromTask = prepared.dispatchDeadlineAt ?? prepared.preparedTask.dispatchDeadlineAt;
+  if (fromTask) {
+    const parsed = new Date(fromTask);
+    if (!Number.isNaN(parsed.getTime()) && parsed > now) return parsed.toISOString();
+  }
+  return new Date(now.getTime() + 120 * 60 * 1000).toISOString();
+}
+
+export function buildOpenRouterPaidRequest(input: {
+  prepared: PreparedProviderTask;
+  providerRequestKey: string;
+}): Record<string, unknown> {
+  if (input.prepared.routingOptions.kind === "openrouter_free_poc"
+    || input.prepared.upstreamProvider !== APPROVED_UPSTREAM_PROVIDER
+    || input.prepared.upstreamProviderSlug !== APPROVED_UPSTREAM_PROVIDER_SLUG
+    || input.prepared.model !== APPROVED_MODEL) {
+    throw new ProviderSafetyError("The paid provider request routing tuple drifted.");
+  }
+  const provider = (input.prepared.routingOptions as ProductionProviderRoutingOptions).provider;
+  const body: Record<string, unknown> = {
+    model: APPROVED_MODEL,
+    messages: [{ role: "user", content: paidPromptFromTask(input.prepared.preparedTask) }],
+    stream: true,
+    max_completion_tokens: positiveOutputLimit(input.prepared.preparedTask),
+    stream_options: { include_usage: true },
+    provider: {
+      only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+      order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+      allow_fallbacks: false,
+      require_parameters: true,
+      data_collection: "deny",
+      zdr: true,
+      max_price: { ...OPENROUTER_MAX_PRICE },
+    },
+    metadata: { vera_provider_request_key: input.providerRequestKey },
+  };
+  if (provider.max_price && canonicalJson(provider.max_price) !== canonicalJson(OPENROUTER_MAX_PRICE)) {
+    throw new ProviderSafetyError("The paid provider request max_price drifted from the approved object.");
+  }
+  return body;
+}
+
+function appendBoundedChunk(buffer: string, chunk: string, maxBytes: number): string {
+  const next = `${buffer}${chunk}`;
+  if (new TextEncoder().encode(next).byteLength > maxBytes) throw new ProviderExecutionError({ code: "provider_response_too_large" });
+  return next;
+}
+
+function usageFromValue(value: unknown): OpenRouterUsageDetails | null {
+  const usage = losslessRecord(value);
+  if (!usage) return null;
+  return usage as unknown as OpenRouterUsageDetails;
+}
+
+async function readOpenRouterResponse(
+  response: Response,
+  input: { emit?: (delta: ProviderDelta) => void; maxResponseBytes: number },
+): Promise<OpenRouterTransportResponse> {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  let fullText = "";
+  let accumulatedText = "";
+  let usage: OpenRouterUsageDetails | null = null;
+  let body: LosslessJsonValue | null = null;
+  let responseMetadata: LosslessJsonValue | undefined;
+  let responseId: string | null = null;
+  let finishReason: string | null = null;
+  const handleJson = (json: string): void => {
+    if (json === "[DONE]") return;
+    const value = parseLosslessJson(json);
+    const object = losslessRecord(value);
+    if (!object) throw new ProviderSafetyError("The OpenRouter response frame is not an object.");
+    if (object.error !== undefined) throw new ProviderExecutionError({ code: "provider_error", ambiguousPostSend: true });
+    body = value;
+    if (object.openrouter_metadata !== undefined) responseMetadata = object.openrouter_metadata;
+    responseId = losslessString(object.id) ?? responseId;
+    usage = usageFromValue(object.usage) ?? usage;
+    const choices = object.choices;
+    if (Array.isArray(choices)) {
+      const choice = losslessRecord(choices[0]);
+      const delta = losslessRecord(choice?.delta);
+      const content = losslessString(delta?.content) ?? losslessString(choice?.content);
+      if (content) {
+        accumulatedText += content;
+        input.emit?.({ text: content, provisional: true });
+      }
+      finishReason = losslessString(choice?.finish_reason) ?? finishReason;
+    }
+  };
+
+  if (contentType.includes("text/event-stream") && response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let pending = "";
+    let sawDone = false;
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      const chunk = decoder.decode(next.value, { stream: true });
+      fullText = appendBoundedChunk(fullText, chunk, input.maxResponseBytes);
+      pending += chunk;
+      const frames = pending.split(/\r?\n\r?\n/u);
+      pending = frames.pop() ?? "";
+      for (const frame of frames) {
+        const dataLines = frame.split(/\r?\n/u).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart());
+        if (!dataLines.length) continue;
+        const data = dataLines.join("\n").trim();
+        if (data === "[DONE]") {
+          sawDone = true;
+          continue;
+        }
+        handleJson(data);
+      }
+    }
+    const tail = `${pending}${decoder.decode()}`;
+    if (tail.trim()) {
+      const dataLines = tail.split(/\r?\n/u).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart());
+      if (dataLines.length) handleJson(dataLines.join("\n").trim());
+    }
+    if (!sawDone && !body) throw new ProviderExecutionError({ code: "provider_stream_incomplete", ambiguousPostSend: true });
+  } else {
+    fullText = await response.text();
+    if (new TextEncoder().encode(fullText).byteLength > input.maxResponseBytes) throw new ProviderExecutionError({ code: "provider_response_too_large" });
+    handleJson(fullText);
+  }
+  if (responseMetadata !== undefined && losslessRecord(body)) {
+    body = { ...losslessRecord(body), openrouter_metadata: responseMetadata } as LosslessJsonValue;
+  }
+  return { text: accumulatedText, structured: null, finishReason, usage, body, responseId };
+}
+
+async function fetchGenerationEvidence(input: {
+  generationId: string;
+  baseUrl: string;
+  apiKey: string;
+  fetchImpl: typeof fetch;
+  pollDelaysMs: number[];
+  sleepImpl: (milliseconds: number) => Promise<void>;
+  maxResponseBytes: number;
+}): Promise<LosslessJsonValue | null> {
+  for (const delay of input.pollDelaysMs) {
+    if (delay > 0) await input.sleepImpl(delay);
+    let response: Response;
+    try {
+      response = await input.fetchImpl(`${input.baseUrl}/api/v1/generation?id=${encodeURIComponent(input.generationId)}`, {
+        method: "GET",
+        headers: { authorization: `Bearer ${input.apiKey}`, accept: "application/json" },
+      });
+    } catch {
+      continue;
+    }
+    if (response.status === 404 || response.status === 429 || response.status >= 500) continue;
+    if (!response.ok) return null;
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > input.maxResponseBytes) return null;
+    try {
+      return parseLosslessJson(text);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function emitDispatchEvidence(options: OpenRouterPaidTransportOptions, evidence: ProviderDispatchEvidence): Promise<void> {
+  try {
+    await options.dispatchHooks?.onDispatchEvidence?.(evidence);
+  } catch {
+    // Evidence sinks are best-effort hooks and cannot alter transport outcome.
+  }
+}
+
+export async function executeOpenRouterPaidTransport(
+  prepared: PreparedProviderTask,
+  options: OpenRouterPaidTransportOptions,
+  emit?: (delta: ProviderDelta) => void,
+): Promise<ProviderResult> {
+  if (!options.apiKey?.trim()) throw new ProviderSafetyError("OpenRouter API key is missing.");
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const baseUrl = (options.baseUrl ?? "https://openrouter.ai").replace(/\/$/u, "");
+  const maxResponseBytes = options.maxResponseBytes ?? 4_194_304;
+  const pollDelaysMs = options.generationPollDelaysMs ?? [1_000, 2_000, 4_000, 8_000];
+  const sleepImpl = options.sleepImpl ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const providerRequestKey = providerRequestKeyFor(prepared);
+  const payload = buildOpenRouterPaidRequest({ prepared, providerRequestKey });
+  const finalPayloadHash = prepared.finalPayloadHash ?? prepared.preparedTask.finalPayloadHash ?? sha256Hex(canonicalJson(payload));
+  const dispatchDeadlineAt = dispatchDeadlineFor(prepared);
+  const intent: ProviderDispatchIntent = {
+    attemptNo: prepared.preparedTask.attemptNo ?? 1,
+    providerRequestKey,
+    finalPayloadHash,
+    dispatchDeadlineAt,
+    gateway: OPENROUTER_GATEWAY,
+    upstreamProviderSlug: APPROVED_UPSTREAM_PROVIDER_SLUG,
+    model: APPROVED_MODEL,
+  };
+  try {
+    await options.dispatchHooks?.onDispatchIntent?.(intent);
+  } catch {
+    throw new ProviderExecutionError({ code: "provider_dispatch_intent_failed", retryableBeforeAcceptance: true });
+  }
+  const headers = {
+    authorization: `Bearer ${options.apiKey}`,
+    "content-type": "application/json",
+    accept: "text/event-stream",
+    "x-openrouter-metadata": "enabled",
+    "x-openrouter-cache": "false",
+    "x-vera-provider-request-key": providerRequestKey,
+  };
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}/api/v1/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
+    });
+  } catch {
+    await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId: null, providerRequestId: null, upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: "network_error" });
+    throw new ProviderExecutionError({ code: "provider_network_error", ambiguousPostSend: true });
+  }
+  if (!response.ok) {
+    const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
+    await emitDispatchEvidence(options, { ...intent, state: retryable ? "unknown" : "failed", generationId: null, providerRequestId: null, upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: `http_${response.status}` });
+    throw new ProviderExecutionError({ code: `provider_http_${response.status}`, retryableBeforeAcceptance: !retryable, ambiguousPostSend: retryable });
+  }
+  let parsed: OpenRouterTransportResponse;
+  try {
+    parsed = await readOpenRouterResponse(response, { emit, maxResponseBytes });
+  } catch (error) {
+    await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId: response.headers.get("x-generation-id"), providerRequestId: parsedRequestId(error), upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: "malformed_response" });
+    if (error instanceof ProviderExecutionError) throw error;
+    throw new ProviderExecutionError({ code: "provider_malformed_response", ambiguousPostSend: true });
+  }
+  const generationId = response.headers.get("x-generation-id")?.trim() || null;
+  if (!generationId) {
+    await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId: null, providerRequestId: parsed.responseId, upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: "generation_id_missing" });
+    throw new ProviderExecutionError({ code: "provider_generation_id_missing", ambiguousPostSend: true });
+  }
+  let directMetadata: OpenRouterDirectMetadata;
+  try {
+    directMetadata = validateOpenRouterDirectMetadata(parsed.body, options.manifest);
+  } catch {
+    await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId, providerRequestId: parsed.responseId, upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: "metadata_invalid" });
+    throw new ProviderExecutionError({ code: "provider_metadata_invalid", ambiguousPostSend: true });
+  }
+  const generation = await fetchGenerationEvidence({ generationId, baseUrl, apiKey: options.apiKey, fetchImpl, pollDelaysMs, sleepImpl, maxResponseBytes });
+  if (!generation) {
+    await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId, providerRequestId: parsed.responseId, upstreamId: null, observedUpstreamProviderSlug: directMetadata.selectedProvider, observedAt: new Date().toISOString(), reason: "generation_unresolved" });
+    throw new ProviderExecutionError({ code: "provider_generation_unresolved", ambiguousPostSend: true });
+  }
+  const reconciliation = reconcileOpenRouterGeneration({ generation, usage: parsed.usage, manifest: options.manifest, generationId });
+  await emitDispatchEvidence(options, {
+    ...intent,
+    state: reconciliation.state === "known" ? "sent" : reconciliation.state === "overrun" ? "failed" : "unknown",
+    generationId,
+    providerRequestId: reconciliation.providerRequestId ?? parsed.responseId,
+    upstreamId: reconciliation.upstreamId,
+    observedUpstreamProviderSlug: directMetadata.selectedProvider,
+    observedAt: new Date().toISOString(),
+    reason: reconciliation.reason,
+  });
+  if (reconciliation.state === "overrun") {
+    throw new ProviderExecutionError({ code: "provider_pricing_violation", ambiguousPostSend: false });
+  }
+  if (reconciliation.state !== "known") {
+    throw new ProviderExecutionError({ code: `provider_${reconciliation.reason ?? "generation_unknown"}`, ambiguousPostSend: true });
+  }
+  return {
+    kind: "text",
+    text: parsed.text,
+    structured: parsed.structured,
+    usage: reconciliation.usage ? {
+      inputTokens: reconciliation.usage.promptTokens,
+      outputTokens: reconciliation.usage.completionTokens,
+      quotaUnitsConsumed: reconciliation.usage.promptTokens + reconciliation.usage.completionTokens,
+      tokenUsageState: reconciliation.state === "known" ? "known" : "unknown",
+      cachedTokens: reconciliation.usage.cachedTokens,
+      cacheWriteTokens: reconciliation.usage.cacheWriteTokens,
+      reasoningTokens: reconciliation.usage.reasoningTokens,
+      rawReportedCostDecimal: reconciliation.rawReportedCostDecimal,
+      canonicalReportedCostDecimal: reconciliation.canonicalReportedCostDecimal,
+      reportedCostMicros: reconciliation.reportedCostMicros?.toString() ?? null,
+      recomputedCostMicros: reconciliation.recomputedCostMicros?.toString() ?? null,
+    } : { inputTokens: null, outputTokens: null, quotaUnitsConsumed: null, tokenUsageState: "unknown" },
+    finishReason: parsed.finishReason,
+    attempts: [{
+      attemptNo: intent.attemptNo,
+      state: reconciliation.state === "known" ? "completed" : reconciliation.state,
+      providerRequestRef: reconciliation.providerRequestId ?? parsed.responseId,
+      observedUpstreamProviderSlug: directMetadata.selectedProvider,
+      errorCode: reconciliation.reason ?? null,
+      usage: reconciliation.usage ? {
+        inputTokens: reconciliation.usage.promptTokens,
+        outputTokens: reconciliation.usage.completionTokens,
+        quotaUnitsConsumed: reconciliation.usage.promptTokens + reconciliation.usage.completionTokens,
+        tokenUsageState: reconciliation.state === "known" ? "known" : "unknown",
+        cachedTokens: reconciliation.usage.cachedTokens,
+        cacheWriteTokens: reconciliation.usage.cacheWriteTokens,
+        reasoningTokens: reconciliation.usage.reasoningTokens,
+        rawReportedCostDecimal: reconciliation.rawReportedCostDecimal,
+        canonicalReportedCostDecimal: reconciliation.canonicalReportedCostDecimal,
+        reportedCostMicros: reconciliation.reportedCostMicros?.toString() ?? null,
+        recomputedCostMicros: reconciliation.recomputedCostMicros?.toString() ?? null,
+      } : { inputTokens: null, outputTokens: null, quotaUnitsConsumed: null, tokenUsageState: "unknown" },
+      providerRequestKey,
+      generationId,
+      upstreamId: reconciliation.upstreamId,
+      providerRequestId: reconciliation.providerRequestId,
+      finalPayloadHash,
+      dispatchDeadlineAt,
+      rawReportedCostDecimal: reconciliation.rawReportedCostDecimal,
+      canonicalReportedCostDecimal: reconciliation.canonicalReportedCostDecimal,
+      reportedCostMicros: reconciliation.reportedCostMicros?.toString() ?? null,
+      recomputedCostMicros: reconciliation.recomputedCostMicros?.toString() ?? null,
+      selectedEndpointJsonPointer: directMetadata.selectedEndpointJsonPointer,
+      evidenceObservedAt: new Date().toISOString(),
+    }],
+    providerMetadata: {
+      kind: "openrouter_paid",
+      gateway: OPENROUTER_GATEWAY,
+      upstreamProvider: APPROVED_UPSTREAM_PROVIDER,
+      requestedModel: APPROVED_MODEL,
+      selectedModel: directMetadata.selectedModel,
+      providerIdentity: directMetadata.selectedProvider,
+      dataCollection: "deny",
+      zdr: true,
+      strategy: "direct",
+      selectedEndpointJsonPointer: directMetadata.selectedEndpointJsonPointer,
+      generationId,
+      upstreamId: reconciliation.upstreamId ?? "unknown",
+      providerRequestId: reconciliation.providerRequestId ?? parsed.responseId ?? "unknown",
+    },
+  };
+}
+
+function parsedRequestId(error: unknown): string | null {
+  return error instanceof ProviderExecutionError ? null : null;
+}
+
 export class OpenRouterDecartAdapter implements VeraProviderAdapter {
   readonly enabled: boolean;
   readonly disabledReason?: string;
+  private readonly transport?: (prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void) => Promise<ProviderResult>;
 
   constructor(
     private readonly input: {
@@ -308,14 +1631,35 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       expectedEndpointMetadataDigest?: string;
       liveEnabled?: boolean;
       transport?: (prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void) => Promise<ProviderResult>;
+      apiKey?: string;
+      baseUrl?: string;
+      fetchImpl?: typeof fetch;
+      timeoutMs?: number;
+      maxResponseBytes?: number;
+      generationPollDelaysMs?: number[];
+      sleepImpl?: (milliseconds: number) => Promise<void>;
+      dispatchHooks?: ProviderDispatchHooks;
     },
   ) {
+    this.transport = input.transport ?? (input.apiKey && input.manifest
+      ? (prepared, emit) => executeOpenRouterPaidTransport(prepared, {
+        apiKey: input.apiKey!,
+        manifest: input.manifest!,
+        baseUrl: input.baseUrl,
+        fetchImpl: input.fetchImpl,
+        timeoutMs: input.timeoutMs,
+        maxResponseBytes: input.maxResponseBytes,
+        generationPollDelaysMs: input.generationPollDelaysMs,
+        sleepImpl: input.sleepImpl,
+        dispatchHooks: input.dispatchHooks,
+      }, emit)
+      : undefined);
     try {
       validateProviderReleaseManifest(input.manifest, {
         expectedUpstreamProviderSlug: input.expectedUpstreamProviderSlug,
         expectedEndpointMetadataDigest: input.expectedEndpointMetadataDigest,
       });
-      this.enabled = input.liveEnabled === true && Boolean(input.transport);
+      this.enabled = input.liveEnabled === true && Boolean(this.transport);
       this.disabledReason = this.enabled ? undefined : "Live provider enablement is disabled by the release gate.";
     } catch (error) {
       this.enabled = false;
@@ -348,12 +1692,15 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       certifiedEstimate,
       manifestDigest: manifest.manifestDigest,
       routingOptions: manifest.routingOptions,
+      providerRequestKey: task.providerRequestKey,
+      finalPayloadHash: task.finalPayloadHash,
+      dispatchDeadlineAt: task.dispatchDeadlineAt ? new Date(task.dispatchDeadlineAt).toISOString() : undefined,
     };
   }
 
   async run(prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void): Promise<ProviderResult> {
-    if (!this.enabled || !this.input.transport) throw new ProviderSafetyError(this.disabledReason ?? "Provider is disabled.");
-    const result = await this.input.transport(prepared, emit);
+    if (!this.enabled || !this.transport) throw new ProviderSafetyError(this.disabledReason ?? "Provider is disabled.");
+    const result = await this.transport(prepared, emit);
     if (result.attempts.length === 0 || result.attempts.length > VERA_MAX_PROVIDER_ATTEMPTS) {
       throw new ProviderSafetyError("Provider attempt ceiling exceeded.");
     }
@@ -377,6 +1724,11 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
     return result;
   }
 }
+
+/** Name used by the paid release while retaining the historical class export
+ * for callers and dev-only contract tests. */
+export const OpenRouterPaidProviderAdapter = OpenRouterDecartAdapter;
+export const VeraOpenRouterPaidProviderAdapter = OpenRouterDecartAdapter;
 
 export type MockProviderFault = "outage" | "malformed" | "partial_usage" | "cancelled" | "pre_send_retry" | "ambiguous_timeout";
 
@@ -413,6 +1765,7 @@ export class MockProviderAdapter implements VeraProviderAdapter {
           require_parameters: true,
           zdr: true,
           data_collection: "deny",
+          max_price: { ...OPENROUTER_MAX_PRICE },
         },
       },
     };
@@ -471,7 +1824,25 @@ export class DisabledProviderAdapter implements VeraProviderAdapter {
   }
 }
 
+export function parseProviderReleaseManifest(raw: string | undefined): ProviderReleaseManifest | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as ProviderReleaseManifest;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createDefaultProviderAdapter(env: NodeJS.ProcessEnv = process.env): VeraProviderAdapter {
   if (env.VERA_LIVE_PROVIDER_ENABLED !== "true") return new DisabledProviderAdapter();
-  return new OpenRouterDecartAdapter({ manifest: null, quotaPolicyVersion: "disabled", liveEnabled: false });
+  const manifest = parseProviderReleaseManifest(env.VERA_PROVIDER_RELEASE_MANIFEST);
+  return new OpenRouterPaidProviderAdapter({
+    manifest,
+    quotaPolicyVersion: env.VERA_QUOTA_POLICY_VERSION?.trim() || "vera-openrouter-paid-v1",
+    expectedUpstreamProviderSlug: APPROVED_UPSTREAM_PROVIDER_SLUG,
+    liveEnabled: true,
+    apiKey: env.OPENROUTER_API_KEY,
+    baseUrl: env.OPENROUTER_BASE_URL,
+  });
 }

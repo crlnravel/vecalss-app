@@ -51,13 +51,19 @@ function formatLocalDateInTimezone(date: Date, timeZone: string): string {
 export function selectVeraChatProvider(env: NodeJS.ProcessEnv = process.env): VeraProviderAdapter {
   const poc = createVeraOpenRouterFreePocProviderAdapter({ env });
   if (poc.enabled) return poc;
+  // A live flag is an explicit production route selection. The paid adapter
+  // validates the release manifest and returns a disabled adapter when the
+  // manifest, API key, or transport gate is absent; it must not silently fall
+  // through to the mock provider.
+  if (env.VERA_LIVE_PROVIDER_ENABLED === "true") return createDefaultProviderAdapter(env);
   if (env.VERA_MOCK_PROVIDER_ENABLED === "true") return new MockProviderAdapter();
   return createDefaultProviderAdapter(env);
 }
 
 export function veraProviderAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
   if (evaluateVeraOpenRouterFreePocGate(env).enabled) return true;
-  return env.VERA_LIVE_PROVIDER_ENABLED === "true" && Boolean(env.VERA_PROVIDER_RELEASE_MANIFEST);
+  if (env.VERA_LIVE_PROVIDER_ENABLED !== "true") return false;
+  return createDefaultProviderAdapter(env).enabled;
 }
 
 export function getVeraLifecycleService(): VeraLifecycleService {
