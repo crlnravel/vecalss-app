@@ -18,6 +18,11 @@ import {
   AiTokenUsageState,
   AiUsageAccountingState,
   AiUsageLedgerVersion,
+  AiUsageWindowPeriodKind,
+  AiUsageWindowState,
+  AiMonetaryDebtState,
+  AiReservationState,
+  AiRequestBillingState,
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -28,6 +33,28 @@ import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import { VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
 import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraPolicyBundle, type VeraPolicySnapshot } from "./policy";
 import { quotaDateAndDayEnd } from "./quota";
+import {
+  assertReservationConservation,
+  correctUnknownReservation,
+  settleReservation,
+  type ReservationAmounts,
+} from "./billing";
+import {
+  deriveV2MonthWindow,
+  deriveV2WindowKeys,
+  ledgerVersionFor,
+  nextMonthWindow,
+  parseMonthWindowKey,
+  toVeraUsageDto,
+  VERA_CREDIT_USD_V2,
+  VERA_CREDIT_USD_V2_EFFECTIVE_FROM,
+  VERA_DAILY_CREDIT_LIMIT,
+  VERA_MONTHLY_CREDIT_LIMIT,
+  VERA_MONTHLY_COST_LIMIT_USD_MICROS,
+  VERA_WEEKLY_CREDIT_LIMIT,
+  type VeraUsageDto,
+  type QuotaWindowSnapshot,
+} from "./quota-v2";
 import type { NormalizedVeraResult } from "./output-validator";
 import type { PreparedProviderTask, ProviderResult } from "./provider";
 import {
@@ -79,6 +106,24 @@ export type PersistedAdmission = {
   preparedProviderTask?: PreparedProviderTask;
 };
 
+export type VeraV2QuotaReservation = {
+  ledgerVersion: typeof VERA_CREDIT_USD_V2;
+  requestId: string;
+  creditCost: number;
+  reservedUsdMicros: bigint;
+  reservationIds: string[];
+  usage: VeraUsageDto;
+};
+
+export type VeraV2QuotaSettlement = {
+  requestId: string;
+  state: "known" | "unknown" | "released" | "overrun";
+  consumedCredits: number;
+  chargedUsdMicros: bigint;
+  unknownUsdMicros: bigint;
+  overrunUsdMicros: bigint;
+};
+
 function json(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
@@ -105,6 +150,9 @@ function policySnapshotIdentity(snapshot: VeraPolicySnapshot): string {
     timezonePolicyVersion: snapshot.timezonePolicyVersion,
     hardOutputQuotaUnits: snapshot.hardOutputQuotaUnits,
     maxProviderAttempts: snapshot.maxProviderAttempts,
+    ledgerVersion: snapshot.ledgerVersion,
+    creditCost: snapshot.creditCost,
+    maxProviderCostUsdMicros: snapshot.maxProviderCostUsdMicros.toString(),
     policy: {
       configSchemaVersion: snapshot.policy.configSchemaVersion,
       state: snapshot.policy.state,
@@ -124,6 +172,58 @@ function assertPolicySnapshotStable(captured: VeraPolicySnapshot, current: VeraP
   }
 }
 
+type V2WindowRow = {
+  id: string;
+  periodKind: AiUsageWindowPeriodKind;
+  windowKey: string;
+  windowStart: Date;
+  windowEnd: Date;
+  quotaTimezone: string;
+  creditLimit: number;
+  consumedCredits: number;
+  reservedCredits: number;
+  costLimitUsdMicros: bigint;
+  reservedUsdMicros: bigint;
+  settledUsdMicros: bigint;
+  unknownUsdMicros: bigint;
+  overrunUsdMicros: bigint;
+  monetaryDebtState: AiMonetaryDebtState;
+};
+
+function v2WindowSnapshot(row: V2WindowRow): QuotaWindowSnapshot {
+  return {
+    id: row.id,
+    periodKind: row.periodKind,
+    windowKey: row.windowKey,
+    windowStart: row.windowStart,
+    windowEnd: row.windowEnd,
+    quotaTimezone: row.quotaTimezone,
+    creditLimit: row.creditLimit,
+    costLimitUsdMicros: row.costLimitUsdMicros,
+    consumedCredits: row.consumedCredits,
+    reservedCredits: row.reservedCredits,
+    releasedCredits: 0,
+    reservedUsdMicros: row.reservedUsdMicros,
+    settledUsdMicros: row.settledUsdMicros,
+    unknownUsdMicros: row.unknownUsdMicros,
+    releasedUsdMicros: 0n,
+    overrunUsdMicros: row.overrunUsdMicros,
+    monetaryDebtState: row.monetaryDebtState,
+  };
+}
+
+function v2ReservationState(input: {
+  settledUsdMicros: bigint;
+  unknownUsdMicros: bigint;
+  overrunUsdMicros: bigint;
+  outcome: "known" | "unknown" | "released";
+}): AiReservationState {
+  if (input.overrunUsdMicros > 0n) return AiReservationState.overrun;
+  if (input.outcome === "unknown") return AiReservationState.unknown;
+  if (input.outcome === "released") return AiReservationState.released;
+  return AiReservationState.settled;
+}
+
 /**
  * Prisma-backed persistence seam for tickets 5–6. All write methods execute
  * the same lock order as the executable in-memory contract and use the
@@ -134,6 +234,462 @@ export class VeraPrismaAdmissionService {
     private readonly db: DbClient = defaultPrisma,
     private readonly envelope?: EnvelopeService,
   ) {}
+
+  /**
+   * Reserve the v2 day/week/month ledger atomically for an already-created
+   * request. The request creation path can call this immediately before its
+   * final accepted-key CAS; the exact window ids are then the settlement
+   * lineage and are never reconstructed from a timestamp.
+   */
+  async reserveV2Quota(input: {
+    studentId: string;
+    conversationId?: string;
+    idempotencyKeyId?: string;
+    requestId: string;
+    now: Date;
+    quotaTimezone?: string | null;
+    policyBundleVersion?: string | null;
+    quotaPolicyVersion?: string | null;
+    creditCost: number;
+    maxProviderCostUsdMicros: bigint;
+    creditLimit?: number;
+    costLimitUsdMicros?: bigint;
+  }): Promise<VeraV2QuotaReservation> {
+    if (ledgerVersionFor(input.now) !== VERA_CREDIT_USD_V2 || input.now < VERA_CREDIT_USD_V2_EFFECTIVE_FROM) {
+      throw new VeraAdmissionError({ code: "v2_ledger_not_active", status: 409 });
+    }
+    if (!Number.isSafeInteger(input.creditCost) || input.creditCost < 1) {
+      throw new VeraAdmissionError({ code: "invalid_credit_cost", status: 422 });
+    }
+    if (input.maxProviderCostUsdMicros < 0n) throw new VeraAdmissionError({ code: "invalid_provider_cost_reservation", status: 422 });
+    const creditLimit = input.creditLimit ?? VERA_MONTHLY_CREDIT_LIMIT;
+    const costLimitUsdMicros = input.costLimitUsdMicros ?? VERA_MONTHLY_COST_LIMIT_USD_MICROS;
+    const quotaTimezone = input.quotaTimezone?.trim() || "Asia/Jakarta";
+
+    return this.db.$transaction(async (tx) => {
+      // Fixed lock order: idempotency/request key -> conversation -> calendar
+      // -> day -> ISO week -> month. The advisory lock covers first-use
+      // bootstrap, where there is no calendar row to lock yet.
+      if (input.idempotencyKeyId) {
+        await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${input.idempotencyKeyId}::uuid FOR UPDATE`;
+      }
+      if (input.conversationId) {
+        await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${input.conversationId}::uuid AND student_id = ${input.studentId}::uuid FOR UPDATE`;
+      }
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      const existingReservations = await tx.aiRequestUsageReservation.findMany({
+        where: { requestId: input.requestId },
+        orderBy: { createdAt: "asc" },
+      });
+      const lockedRequest = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: { ledgerVersion: true, creditCost: true },
+      });
+      if (!lockedRequest) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (existingReservations.length > 0 && lockedRequest.ledgerVersion !== VERA_CREDIT_USD_V2) {
+        throw new VeraAdmissionError({ code: "v2_lineage_conflict", status: 409 });
+      }
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.studentId} || ':' || ${VERA_CREDIT_USD_V2}, 0))`;
+      await tx.aiQuotaCalendar.upsert({
+        where: { studentId_ledgerVersion: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2 } },
+        create: {
+          studentId: input.studentId,
+          ledgerVersion: VERA_CREDIT_USD_V2,
+          quotaTimezone,
+          effectiveFrom: VERA_CREDIT_USD_V2_EFFECTIVE_FROM,
+        },
+        update: {},
+      });
+      await tx.$queryRaw`SELECT id FROM ai_quota_calendars WHERE student_id = ${input.studentId}::uuid AND ledger_version = 'vera_credit_usd_v2'::ai_usage_ledger_version FOR UPDATE`;
+      const calendar = await tx.aiQuotaCalendar.findUnique({
+        where: { studentId_ledgerVersion: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2 } },
+      });
+      if (!calendar) throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+      // A profile timezone edit never mutates an active ledger calendar; the
+      // stored snapshot remains authoritative for all derived windows.
+      const target = deriveV2WindowKeys(input.now, calendar.quotaTimezone);
+      let monthly = calendar.currentMonthlyWindowId
+        ? await tx.aiUsageWindow.findUnique({ where: { id: calendar.currentMonthlyWindowId } })
+        : null;
+      if (monthly && monthly.periodKind !== AiUsageWindowPeriodKind.month) throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+      if (monthly && monthly.windowKey > target.month.key) throw new VeraAdmissionError({ code: "quota_calendar_invalid", status: 503 });
+      const monthlyData = (window: { key: string; start: Date; end: Date }) => ({
+        studentId: input.studentId,
+        ledgerVersion: VERA_CREDIT_USD_V2,
+        periodKind: AiUsageWindowPeriodKind.month,
+        windowKey: window.key,
+        windowStart: window.start,
+        windowEnd: window.end,
+        quotaTimezone: calendar!.quotaTimezone,
+        policyBundleVersion: input.policyBundleVersion ?? null,
+        quotaPolicyVersion: input.quotaPolicyVersion ?? null,
+        creditLimit,
+        costLimitUsdMicros,
+      });
+      if (!monthly) {
+        monthly = await tx.aiUsageWindow.create({ data: monthlyData(target.month) });
+      } else {
+        const currentKey = parseMonthWindowKey(monthly.windowKey);
+        let cursor = currentKey;
+        while (monthly.windowKey < target.month.key) {
+          await tx.aiUsageWindow.update({ where: { id: monthly.id }, data: { state: AiUsageWindowState.closed, closedAt: monthly.windowEnd } });
+          cursor = nextMonthWindow(cursor.year, cursor.month);
+          const next = deriveV2MonthWindow(cursor.year, cursor.month, calendar.quotaTimezone);
+          monthly = await tx.aiUsageWindow.upsert({
+            where: { studentId_ledgerVersion_periodKind_windowKey: {
+              studentId: input.studentId,
+              ledgerVersion: VERA_CREDIT_USD_V2,
+              periodKind: AiUsageWindowPeriodKind.month,
+              windowKey: next.key,
+            } },
+            create: monthlyData(next),
+            update: {},
+          });
+        }
+      }
+      await tx.aiQuotaCalendar.update({ where: { id: calendar.id }, data: { currentMonthlyWindowId: monthly.id } });
+      const day = await tx.aiUsageWindow.upsert({
+        where: { studentId_ledgerVersion_periodKind_windowKey: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2, periodKind: AiUsageWindowPeriodKind.day, windowKey: target.day.key } },
+        create: { ...monthlyData(target.day), periodKind: AiUsageWindowPeriodKind.day, creditLimit: VERA_DAILY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
+        update: {},
+      });
+      const isoWeek = await tx.aiUsageWindow.upsert({
+        where: { studentId_ledgerVersion_periodKind_windowKey: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2, periodKind: AiUsageWindowPeriodKind.iso_week, windowKey: target.isoWeek.key } },
+        create: { ...monthlyData(target.isoWeek), periodKind: AiUsageWindowPeriodKind.iso_week, creditLimit: VERA_WEEKLY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
+        update: {},
+      });
+
+      const ids = [day.id, isoWeek.id, monthly.id];
+      for (const id of ids) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: ids } } });
+      const byId = new Map(windows.map((window) => [window.id, window]));
+      const lockedDay = byId.get(day.id);
+      const lockedWeek = byId.get(isoWeek.id);
+      const lockedMonth = byId.get(monthly.id);
+      if (!lockedDay || !lockedWeek || !lockedMonth) throw new VeraAdmissionError({ code: "quota_window_missing", status: 503 });
+      // A replay is already owned by this request's exact lineage. Return it
+      // before any current quota/debt checks so a later request cannot make a
+      // previously accepted idempotency key fail on retry.
+      if (existingReservations.length > 0) {
+        const snapshots = [lockedDay, lockedWeek, lockedMonth].map(v2WindowSnapshot);
+        return {
+          ledgerVersion: VERA_CREDIT_USD_V2,
+          requestId: input.requestId,
+          creditCost: lockedRequest.creditCost || existingReservations[0]?.reservedCredits || input.creditCost,
+          reservedUsdMicros: existingReservations.reduce((total, row) => total + row.reservedUsdMicros, 0n),
+          reservationIds: existingReservations.map((row) => row.id),
+          usage: toVeraUsageDto(snapshots, calendar.quotaTimezone),
+        };
+      }
+      for (const window of [lockedDay, lockedWeek, lockedMonth]) {
+        if (window.monetaryDebtState === AiMonetaryDebtState.debt) throw new VeraAdmissionError({ code: "quota_exhausted_monetary", status: 409 });
+        if (window.consumedCredits + window.reservedCredits + input.creditCost > window.creditLimit) {
+          throw new VeraAdmissionError({ code: `quota_exhausted_${window.periodKind}`, status: 409 });
+        }
+      }
+      const monthlyExposure = lockedMonth.reservedUsdMicros + lockedMonth.settledUsdMicros + lockedMonth.unknownUsdMicros;
+      if (monthlyExposure + input.maxProviderCostUsdMicros > lockedMonth.costLimitUsdMicros) {
+        throw new VeraAdmissionError({ code: "quota_exhausted_monetary", status: 409, details: { monthlyExposureUsdMicros: monthlyExposure.toString(), requestedUsdMicros: input.maxProviderCostUsdMicros.toString() } });
+      }
+      await tx.aiUsageWindow.update({ where: { id: lockedDay.id }, data: { reservedCredits: { increment: input.creditCost } } });
+      await tx.aiUsageWindow.update({ where: { id: lockedWeek.id }, data: { reservedCredits: { increment: input.creditCost } } });
+      await tx.aiUsageWindow.update({ where: { id: lockedMonth.id }, data: { reservedCredits: { increment: input.creditCost }, reservedUsdMicros: { increment: input.maxProviderCostUsdMicros } } });
+      const reservationInputs = [
+        { usageWindowId: lockedDay.id, reservedUsdMicros: 0n },
+        { usageWindowId: lockedWeek.id, reservedUsdMicros: 0n },
+        { usageWindowId: lockedMonth.id, reservedUsdMicros: input.maxProviderCostUsdMicros },
+      ];
+      const created = [] as Array<{ id: string }>;
+      for (const reservation of reservationInputs) {
+        created.push(await tx.aiRequestUsageReservation.create({ data: {
+          requestId: input.requestId,
+          usageWindowId: reservation.usageWindowId,
+          reservedCredits: input.creditCost,
+          reservedUsdMicros: reservation.reservedUsdMicros,
+        }, select: { id: true } }));
+      }
+      await tx.aiRequest.update({ where: { id: input.requestId }, data: {
+        ledgerVersion: VERA_CREDIT_USD_V2,
+        creditCost: input.creditCost,
+        creditReservationState: AiReservationState.reserved,
+        billingState: AiRequestBillingState.prepared,
+      } });
+      const afterRows = await tx.aiUsageWindow.findMany({ where: { id: { in: ids } } });
+      const afterById = new Map(afterRows.map((window) => [window.id, window]));
+      const after = [afterById.get(day.id), afterById.get(isoWeek.id), afterById.get(monthly.id)];
+      if (after.some((window) => !window)) throw new VeraAdmissionError({ code: "quota_window_missing", status: 503 });
+      return {
+        ledgerVersion: VERA_CREDIT_USD_V2,
+        requestId: input.requestId,
+        creditCost: input.creditCost,
+        reservedUsdMicros: input.maxProviderCostUsdMicros,
+        reservationIds: created.map((row) => row.id),
+        usage: toVeraUsageDto(after.map((window) => v2WindowSnapshot(window!)), calendar.quotaTimezone),
+      };
+    });
+  }
+
+  /** Settle the exact three lineage rows; retries are no-ops after terminal state. */
+  async settleV2Quota(input: {
+    requestId: string;
+    outcome: "known" | "unknown" | "released";
+    chargedUsdMicros?: bigint;
+    now?: Date;
+  }): Promise<VeraV2QuotaSettlement> {
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      const request = await tx.aiRequest.findUnique({ where: { id: input.requestId }, select: { id: true, ledgerVersion: true, creditCost: true, billingState: true } });
+      if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (request.ledgerVersion !== VERA_CREDIT_USD_V2) throw new VeraAdmissionError({ code: "v2_lineage_missing", status: 409 });
+      const rows = await tx.aiRequestUsageReservation.findMany({ where: { requestId: input.requestId }, orderBy: { createdAt: "asc" } });
+      if (rows.length === 0) throw new VeraAdmissionError({ code: "v2_lineage_missing", status: 409 });
+      const windowIds = rows.map((row) => row.usageWindowId);
+      for (const id of windowIds) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: windowIds } } });
+      const byWindow = new Map(windows.map((window) => [window.id, window]));
+      let chargedUsdMicros = 0n;
+      let unknownUsdMicros = 0n;
+      let overrunUsdMicros = 0n;
+      let consumedCredits = 0;
+      let requestState: VeraV2QuotaSettlement["state"] = input.outcome;
+      if (rows.every((row) => row.state !== AiReservationState.reserved)) {
+        requestState = rows.some((row) => row.state === AiReservationState.overrun)
+          ? "overrun"
+          : rows.some((row) => row.state === AiReservationState.unknown)
+            ? "unknown"
+            : rows.every((row) => row.state === AiReservationState.released)
+              ? "released"
+              : "known";
+      }
+      for (const row of rows) {
+        const window = byWindow.get(row.usageWindowId);
+        if (!window) throw new VeraAdmissionError({ code: "quota_window_missing", status: 503 });
+        const current: ReservationAmounts = {
+          reservedCredits: row.reservedCredits,
+          consumedCredits: row.consumedCredits,
+          releasedCredits: row.releasedCredits,
+          reservedUsdMicros: row.reservedUsdMicros,
+          settledUsdMicros: row.settledUsdMicros,
+          unknownUsdMicros: row.unknownUsdMicros,
+          releasedUsdMicros: row.releasedUsdMicros,
+          overrunUsdMicros: row.overrunUsdMicros,
+        };
+        assertReservationConservation(current);
+        if (row.state !== AiReservationState.reserved) {
+          consumedCredits += row.consumedCredits;
+          chargedUsdMicros += row.settledUsdMicros;
+          unknownUsdMicros += row.unknownUsdMicros;
+          overrunUsdMicros += row.overrunUsdMicros;
+          if (row.state === AiReservationState.overrun) requestState = "overrun";
+          else if (row.state === AiReservationState.unknown && requestState !== "overrun") requestState = "unknown";
+          continue;
+        }
+        const next = settleReservation({
+          current,
+          outcome: input.outcome,
+          chargedUsdMicros: input.outcome === "known" && window.periodKind === AiUsageWindowPeriodKind.month ? input.chargedUsdMicros ?? 0n : 0n,
+          unresolvedUsdMicros: input.outcome === "unknown" && window.periodKind === AiUsageWindowPeriodKind.month ? row.reservedUsdMicros : 0n,
+        });
+        assertReservationConservation(next);
+        const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome });
+        await tx.aiRequestUsageReservation.update({ where: { id: row.id }, data: {
+          consumedCredits: next.consumedCredits,
+          releasedCredits: next.releasedCredits,
+          settledUsdMicros: next.settledUsdMicros,
+          unknownUsdMicros: next.unknownUsdMicros,
+          releasedUsdMicros: next.releasedUsdMicros,
+          overrunUsdMicros: next.overrunUsdMicros,
+          state: nextState,
+          settledAt: now,
+        } });
+        const monetary = window.periodKind === AiUsageWindowPeriodKind.month;
+        await tx.aiUsageWindow.update({ where: { id: window.id }, data: {
+          reservedCredits: { decrement: row.reservedCredits },
+          consumedCredits: { increment: next.consumedCredits },
+          ...(monetary ? {
+            reservedUsdMicros: { decrement: row.reservedUsdMicros },
+            settledUsdMicros: { increment: next.settledUsdMicros },
+            unknownUsdMicros: { increment: next.unknownUsdMicros },
+            overrunUsdMicros: { increment: next.overrunUsdMicros },
+            monetaryDebtState: next.overrunUsdMicros > 0n ? AiMonetaryDebtState.debt : undefined,
+          } : {}),
+        } });
+        consumedCredits += next.consumedCredits;
+        chargedUsdMicros += next.settledUsdMicros;
+        unknownUsdMicros += next.unknownUsdMicros;
+        overrunUsdMicros += next.overrunUsdMicros;
+        if (nextState === AiReservationState.overrun) requestState = "overrun";
+        else if (nextState === AiReservationState.unknown && requestState !== "overrun") requestState = "unknown";
+      }
+      const finalBillingState = requestState === "known" ? AiRequestBillingState.known
+        : requestState === "unknown" ? AiRequestBillingState.unknown
+          : requestState === "released" ? AiRequestBillingState.released
+            : AiRequestBillingState.overrun;
+      await tx.aiRequest.update({ where: { id: request.id }, data: {
+        billingState: finalBillingState,
+        creditReservationState: requestState === "known" ? AiReservationState.settled : requestState === "unknown" ? AiReservationState.unknown : requestState === "released" ? AiReservationState.released : AiReservationState.overrun,
+        chargedProviderCostUsdMicros: chargedUsdMicros,
+        overrunUsdMicros,
+      } });
+      return { requestId: request.id, state: requestState, consumedCredits, chargedUsdMicros, unknownUsdMicros, overrunUsdMicros };
+    });
+  }
+
+  /**
+   * Move definitive late evidence from the unknown bucket to settled cost.
+   * The correction is tied to one attempt/generation and is audited before
+   * any lineage or window totals change. Replaying the same evidence hash is
+   * a no-op, which makes worker retries safe after a process crash.
+   */
+  async correctV2QuotaFromEvidence(input: {
+    requestId: string;
+    attemptId: string;
+    generationId: string;
+    evidenceHash: string;
+    chargedUsdMicros: bigint;
+    now?: Date;
+    actor?: string;
+  }): Promise<VeraV2QuotaSettlement> {
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${input.attemptId}::uuid FOR UPDATE`;
+      const request = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: {
+          id: true,
+          ledgerVersion: true,
+          creditCost: true,
+          billingState: true,
+          chargedProviderCostUsdMicros: true,
+          overrunUsdMicros: true,
+        },
+      });
+      const attempt = await tx.aiRequestAttempt.findUnique({
+        where: { id: input.attemptId },
+        select: { id: true, requestId: true, generationId: true, state: true },
+      });
+      if (!request || request.ledgerVersion !== VERA_CREDIT_USD_V2 || attempt?.requestId !== request.id || attempt.generationId !== input.generationId) {
+        throw new VeraAdmissionError({ code: "v2_generation_identity_mismatch", status: 409 });
+      }
+      const existingCorrection = await tx.aiBillingCorrectionEvent.findFirst({
+        where: { requestId: request.id, generationId: input.generationId, evidenceHash: input.evidenceHash },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existingCorrection) {
+        return {
+          requestId: request.id,
+          state: request.billingState === AiRequestBillingState.overrun ? "overrun" : "known",
+          consumedCredits: request.creditCost,
+          chargedUsdMicros: request.chargedProviderCostUsdMicros ?? 0n,
+          unknownUsdMicros: 0n,
+          overrunUsdMicros: request.overrunUsdMicros,
+        };
+      }
+      const rows = await tx.aiRequestUsageReservation.findMany({ where: { requestId: request.id }, orderBy: { createdAt: "asc" } });
+      if (rows.length === 0) throw new VeraAdmissionError({ code: "v2_lineage_missing", status: 409 });
+      const windowIds = rows.map((row) => row.usageWindowId);
+      for (const id of windowIds) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: windowIds } } });
+      const byWindow = new Map(windows.map((window) => [window.id, window]));
+      const monthlyRow = rows.find((row) => byWindow.get(row.usageWindowId)?.periodKind === AiUsageWindowPeriodKind.month);
+      const monthlyWindow = monthlyRow ? byWindow.get(monthlyRow.usageWindowId) : undefined;
+      if (!monthlyRow || !monthlyWindow) throw new VeraAdmissionError({ code: "v2_monthly_lineage_missing", status: 409 });
+      const current: ReservationAmounts = {
+        reservedCredits: monthlyRow.reservedCredits,
+        consumedCredits: monthlyRow.consumedCredits,
+        releasedCredits: monthlyRow.releasedCredits,
+        reservedUsdMicros: monthlyRow.reservedUsdMicros,
+        settledUsdMicros: monthlyRow.settledUsdMicros,
+        unknownUsdMicros: monthlyRow.unknownUsdMicros,
+        releasedUsdMicros: monthlyRow.releasedUsdMicros,
+        overrunUsdMicros: monthlyRow.overrunUsdMicros,
+      };
+      const next = correctUnknownReservation({ current, chargedUsdMicros: input.chargedUsdMicros });
+      if (current.unknownUsdMicros === 0n && next.settledUsdMicros === current.settledUsdMicros) {
+        return {
+          requestId: request.id,
+          state: request.billingState === AiRequestBillingState.overrun ? "overrun" : "known",
+          consumedCredits: request.creditCost,
+          chargedUsdMicros: request.chargedProviderCostUsdMicros ?? current.settledUsdMicros,
+          unknownUsdMicros: current.unknownUsdMicros,
+          overrunUsdMicros: current.overrunUsdMicros,
+        };
+      }
+      const nextState = next.overrunUsdMicros > 0n ? AiReservationState.overrun : AiReservationState.settled;
+      await tx.aiBillingCorrectionEvent.create({
+        data: {
+          requestId: request.id,
+          attemptId: attempt.id,
+          generationId: input.generationId,
+          oldAttemptState: attempt.state,
+          newAttemptState: nextState === AiReservationState.overrun ? AiAttemptState.overrun : AiAttemptState.known,
+          oldLineageState: monthlyRow.state,
+          newLineageState: nextState,
+          oldSettledUsdMicros: current.settledUsdMicros,
+          newSettledUsdMicros: next.settledUsdMicros,
+          oldUnknownUsdMicros: current.unknownUsdMicros,
+          newUnknownUsdMicros: next.unknownUsdMicros,
+          oldReleasedUsdMicros: current.releasedUsdMicros,
+          newReleasedUsdMicros: next.releasedUsdMicros,
+          oldOverrunUsdMicros: current.overrunUsdMicros,
+          newOverrunUsdMicros: next.overrunUsdMicros,
+          evidenceHash: input.evidenceHash,
+          reason: "late_generation_evidence",
+          actor: input.actor ?? "vera-ai-reconciliation-worker",
+        },
+      });
+      await tx.aiRequestUsageReservation.update({ where: { id: monthlyRow.id }, data: {
+        settledUsdMicros: next.settledUsdMicros,
+        unknownUsdMicros: next.unknownUsdMicros,
+        releasedUsdMicros: next.releasedUsdMicros,
+        overrunUsdMicros: next.overrunUsdMicros,
+        state: nextState,
+        settledAt: now,
+      } });
+      await tx.aiUsageWindow.update({ where: { id: monthlyWindow.id }, data: {
+        settledUsdMicros: { increment: next.settledUsdMicros - current.settledUsdMicros },
+        unknownUsdMicros: { decrement: current.unknownUsdMicros - next.unknownUsdMicros },
+        overrunUsdMicros: { increment: next.overrunUsdMicros - current.overrunUsdMicros },
+        monetaryDebtState: next.overrunUsdMicros > 0n ? AiMonetaryDebtState.debt : undefined,
+      } });
+      const state = nextState === AiReservationState.overrun ? "overrun" : "known";
+      await tx.aiRequest.update({ where: { id: request.id }, data: {
+        billingState: state === "overrun" ? AiRequestBillingState.overrun : AiRequestBillingState.known,
+        creditReservationState: state === "overrun" ? AiReservationState.overrun : AiReservationState.settled,
+        chargedProviderCostUsdMicros: next.settledUsdMicros,
+        overrunUsdMicros: next.overrunUsdMicros,
+      } });
+      return {
+        requestId: request.id,
+        state,
+        consumedCredits: request.creditCost,
+        chargedUsdMicros: next.settledUsdMicros,
+        unknownUsdMicros: next.unknownUsdMicros,
+        overrunUsdMicros: next.overrunUsdMicros,
+      };
+    });
+  }
+
+  async readV2Usage(input: { studentId: string; now?: Date }): Promise<VeraUsageDto | null> {
+    const now = input.now ?? new Date();
+    if (ledgerVersionFor(now) !== VERA_CREDIT_USD_V2) return null;
+    const calendar = await this.db.aiQuotaCalendar.findUnique({ where: { studentId_ledgerVersion: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2 } } });
+    if (!calendar?.currentMonthlyWindowId) return null;
+    const keys = deriveV2WindowKeys(now, calendar.quotaTimezone);
+    const windows = await this.db.aiUsageWindow.findMany({ where: {
+      studentId: input.studentId,
+      ledgerVersion: VERA_CREDIT_USD_V2,
+      OR: [
+        { periodKind: AiUsageWindowPeriodKind.day, windowKey: keys.day.key },
+        { periodKind: AiUsageWindowPeriodKind.iso_week, windowKey: keys.isoWeek.key },
+        { periodKind: AiUsageWindowPeriodKind.month, windowKey: keys.month.key },
+      ],
+    } });
+    if (windows.length !== 3) return null;
+    return toVeraUsageDto(windows.map(v2WindowSnapshot), calendar.quotaTimezone);
+  }
 
   async databaseNow(tx: Prisma.TransactionClient = this.db): Promise<Date> {
     const rows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;

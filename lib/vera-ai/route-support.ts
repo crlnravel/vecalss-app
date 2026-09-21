@@ -17,6 +17,7 @@ import { VeraLearnerService } from "./learner-service";
 import { VeraArtifactCommandService } from "./artifact-commands";
 import { VeraDrillService } from "./drill-service";
 import { VeraLifecycleService } from "./lifecycle-service";
+import { emptyV2UsageDto, ledgerVersionFor } from "./quota-v2";
 
 let cachedOrchestrator: VeraPrismaChatOrchestrator | null = null;
 const routeEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(prisma, environmentEnvelopeRootKeyProvider()));
@@ -127,6 +128,14 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
 }
 
 export async function readVeraUsageDto(studentId: string, db: typeof prisma = prisma): Promise<Record<string, unknown>> {
+  const nowRows = await db.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+  const now = nowRows[0]?.now ?? new Date();
+  if (ledgerVersionFor(now) === "vera_credit_usd_v2") {
+    const v2Usage = await new VeraPrismaAdmissionService(db).readV2Usage({ studentId, now });
+    if (v2Usage) return v2Usage as unknown as Record<string, unknown>;
+    const profile = await db.studentProfile.findUnique({ where: { userId: studentId }, select: { timezone: true } });
+    return emptyV2UsageDto(now, profile?.timezone ?? "Asia/Jakarta") as unknown as Record<string, unknown>;
+  }
   return db.$transaction(async (tx) => {
     const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
     const now = nowRows[0]?.now ?? new Date();

@@ -6,6 +6,12 @@ import {
   VERA_QUOTA_POLICY_VERSION,
   VeraContractError,
 } from "./contracts";
+import { maximumReservationUsdMicros, weightedCreditCost } from "./billing";
+import {
+  VERA_CREDIT_USD_V2,
+  VERA_CREDIT_USD_V2_EFFECTIVE_FROM,
+  VERA_MONTHLY_CREDIT_LIMIT,
+} from "./quota-v2";
 
 export type VeraModePolicy = {
   inputBound: number;
@@ -150,6 +156,9 @@ export type VeraPolicySnapshot = {
   settlementDeadlineAt: Date;
   hardOutputQuotaUnits: number;
   maxProviderAttempts: 2;
+  ledgerVersion: "vera_quota_v1" | typeof VERA_CREDIT_USD_V2;
+  creditCost: 1 | 2;
+  maxProviderCostUsdMicros: bigint;
 };
 
 const VALID_IANA_TIMEZONES = new Set(Intl.supportedValuesOf("timeZone"));
@@ -204,7 +213,13 @@ export function snapshotVeraPolicy(input: {
     throw new VeraContractError("vera_not_active", "Vera belum aktif pada waktu transaksi ini.", 422);
   }
   const feature = input.featureKey ?? "vera.chat";
-  const mode = input.policy.quotaConfig.modes[feature] ?? input.policy.quotaConfig.modes["vera.chat"];
+  const isV2 = input.now >= VERA_CREDIT_USD_V2_EFFECTIVE_FROM;
+  const v2Mode = feature === "vera.analysis" || feature === "vera.route"
+    ? { inputBound: 10_000, hardOutputCap: 1_200 }
+    : { inputBound: 6_000, hardOutputCap: 800 };
+  const mode = isV2
+    ? v2Mode
+    : input.policy.quotaConfig.modes[feature] ?? input.policy.quotaConfig.modes["vera.chat"];
   if (!mode) throw new VeraContractError("vera_not_active", "Mode Vera tidak tersedia dalam bundle.", 503);
   const timezone = assertTimezone(input.timezone ?? "Asia/Jakarta");
   const settlementDeadlineAt = new Date(
@@ -215,13 +230,20 @@ export function snapshotVeraPolicy(input: {
     policy: input.policy,
     planCode: input.billing?.planCode?.trim().toLowerCase() || null,
     planSource: resolved.source === "plan" ? "plan" : "billing_default",
-    quotaLimitUnits: resolved.limitUnits,
+    quotaLimitUnits: isV2 ? VERA_MONTHLY_CREDIT_LIMIT : resolved.limitUnits,
     timezone,
     timezonePolicyVersion: "vera-timezone-v1",
     acceptedAt: new Date(input.now),
     settlementDeadlineAt,
     hardOutputQuotaUnits: mode.hardOutputCap,
     maxProviderAttempts: 2,
+    ledgerVersion: isV2 ? VERA_CREDIT_USD_V2 : "vera_quota_v1",
+    creditCost: weightedCreditCost(feature.replace("vera.", "")),
+    maxProviderCostUsdMicros: maximumReservationUsdMicros({
+      inputTokens: mode.inputBound,
+      outputTokens: mode.hardOutputCap,
+      maxProviderAttempts: 2,
+    }),
   };
 }
 
@@ -234,6 +256,12 @@ export function resolveVeraQuotaLimit(input: {
   const policy = input.policy ?? defaultVeraPolicyBundle();
   if (input.now < policy.effectiveAt) {
     return { active: false, reason: "vera_not_active", limitUnits: 0, source: "policy" };
+  }
+
+  if (input.now >= VERA_CREDIT_USD_V2_EFFECTIVE_FROM) {
+    // v2 uses a fixed weighted-credit monthly allowance. Plan-specific v1
+    // daily token limits are retained for reporting only after cutover.
+    return { active: true, limitUnits: VERA_MONTHLY_CREDIT_LIMIT, source: "policy" };
   }
 
   const planLimitByCode = VERA_PLAN_LIMITS;

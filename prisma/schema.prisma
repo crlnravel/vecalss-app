@@ -476,8 +476,53 @@ enum AiUsageAccountingState {
 enum AiUsageLedgerVersion {
   legacy_raw_token_v0
   vera_quota_v1
+  vera_credit_usd_v2
 
   @@map("ai_usage_ledger_version")
+}
+
+enum AiUsageWindowPeriodKind {
+  day
+  iso_week
+  month
+
+  @@map("ai_usage_window_period_kind")
+}
+
+enum AiUsageWindowState {
+  open
+  closed
+
+  @@map("ai_usage_window_state")
+}
+
+enum AiMonetaryDebtState {
+  clear
+  debt
+
+  @@map("ai_monetary_debt_state")
+}
+
+enum AiRequestBillingState {
+  prepared
+  dispatching
+  sent
+  known
+  unknown
+  released
+  overrun
+
+  @@map("ai_request_billing_state")
+}
+
+enum AiReservationState {
+  reserved
+  settled
+  released
+  unknown
+  overrun
+
+  @@map("ai_reservation_state")
 }
 
 enum AiIdempotencyOperation {
@@ -595,11 +640,17 @@ enum AiPolicyAuditAction {
 
 enum AiAttemptState {
   prepared
+  reserved
+  dispatching
   sent
   accepted
   completed
   ambiguous
   failed
+  known
+  unknown
+  released
+  overrun
 
   @@map("ai_attempt_state")
 }
@@ -1223,6 +1274,8 @@ model User {
   aiConversations                        AiConversation[]
   aiRequests                             AiRequest[]
   aiUsageDaily                           AiUsageDaily[]
+  aiUsageWindows                         AiUsageWindow[]
+  aiQuotaCalendars                       AiQuotaCalendar[]
   weaknessAnalyses                       WeaknessAnalysis[]
   adaptivePracticeSessions               AdaptivePracticeSession[]
   ptnStrategySessions                    PtnStrategySession[]
@@ -3208,6 +3261,7 @@ model AiConversation {
   expiresAt           DateTime?          @map("expires_at") @db.Timestamptz
   version             Int                @default(0)
   contextVersion      Int                @default(0) @map("context_version")
+  nextRequestSequence Int                @default(0) @map("next_request_sequence")
   deletionState       AiDeletionState    @default(active) @map("deletion_state")
   deletionOperationId String?            @map("deletion_operation_id") @db.Uuid
   claimedVersion      Int?               @map("claimed_version")
@@ -3262,6 +3316,9 @@ model AiRequest {
   studentId                    String?                 @map("student_id") @db.Uuid
   conversationId               String?                 @map("conversation_id") @db.Uuid
   requestType                  AiConversationType      @map("request_type")
+  ledgerVersion                AiUsageLedgerVersion    @default(vera_quota_v1) @map("ledger_version")
+  conversationSequence         Int?                    @map("conversation_sequence")
+  historyCutoffSequence        Int?                    @map("history_cutoff_sequence")
   promptTemplate               String?                 @map("prompt_template") @db.VarChar(120)
   model                        String?                 @db.VarChar(120)
   inputTokens                  Int?                    @map("input_tokens")
@@ -3296,6 +3353,9 @@ model AiRequest {
   stageRetentionExpiresAt      DateTime?               @map("stage_retention_expires_at") @db.Timestamptz
   hardOutputQuotaUnits         Int?                    @map("hard_output_quota_units")
   maxProviderAttempts          Int                     @default(2) @map("max_provider_attempts")
+  creditCost                   Int                     @default(0) @map("credit_cost")
+  creditReservationState       AiReservationState     @default(reserved) @map("credit_reservation_state")
+  billingState                 AiRequestBillingState  @default(prepared) @map("billing_state")
   quotaUnitsReserved           Int                     @default(0) @map("quota_units_reserved")
   quotaUnitsConsumed           Int                     @default(0) @map("quota_units_consumed")
   quotaOverrunUnits            Int                     @default(0) @map("quota_overrun_units")
@@ -3307,6 +3367,24 @@ model AiRequest {
   timeToFirstTokenMs           Int?                    @map("time_to_first_token_ms")
   fallbackReason               String?                 @map("fallback_reason") @db.VarChar(120)
   providerRequestRef           String?                 @map("provider_request_ref") @db.VarChar(160)
+  providerRequestKey           String?                 @map("provider_request_key") @db.VarChar(160)
+  generationId                 String?                 @unique @map("generation_id") @db.VarChar(160)
+  upstreamId                   String?                 @map("upstream_id") @db.VarChar(160)
+  providerRequestId            String?                 @map("provider_request_id") @db.VarChar(160)
+  finalPayloadHash             String?                 @map("final_payload_hash") @db.VarChar(128)
+  sendStartedAt                DateTime?               @map("send_started_at") @db.Timestamptz
+  dispatchDeadlineAt           DateTime?               @map("dispatch_deadline_at") @db.Timestamptz
+  reportedProviderCostUsdMicros BigInt?                @map("reported_provider_cost_usd_micros")
+  recomputedProviderCostUsdMicros BigInt?              @map("recomputed_provider_cost_usd_micros")
+  chargedProviderCostUsdMicros BigInt?                 @map("charged_provider_cost_usd_micros")
+  rawReportedCostDecimal       String?                 @map("raw_reported_cost_decimal") @db.VarChar(128)
+  canonicalReportedCostDecimal String?                 @map("canonical_reported_cost_decimal") @db.VarChar(128)
+  overrunUsdMicros             BigInt                  @default(0) @map("overrun_usd_micros")
+  priceSnapshot                Json?                   @map("price_snapshot") @db.JsonB
+  certifierId                  String?                 @map("certifier_id") @db.VarChar(160)
+  certifierVersion             String?                 @map("certifier_version") @db.VarChar(80)
+  finalMeasuredBytes           Int?                    @map("final_measured_bytes")
+  finalMeasuredTokenUpperBound Int?                    @map("final_measured_token_upper_bound")
   userMessageId                String?                 @map("user_message_id") @db.Uuid
   assistantMessageId           String?                 @unique @map("assistant_message_id") @db.Uuid
   finalizedAt                  DateTime?               @map("finalized_at") @db.Timestamptz
@@ -3326,6 +3404,8 @@ model AiRequest {
   userMessage      AiMessage?            @relation("AiRequestUserMessage", fields: [userMessageId], references: [id])
   assistantMessage AiMessage?            @relation("AiRequestAssistantMessage", fields: [assistantMessageId], references: [id])
   attempts         AiRequestAttempt[]
+  usageReservations AiRequestUsageReservation[]
+  billingCorrections AiBillingCorrectionEvent[]
   resultStage      AiRequestResultStage?
   contextPack      AiContextPack?
   sources          AiRequestSource[]     @relation("AiRequestSources")
@@ -3339,6 +3419,8 @@ model AiRequest {
   @@index([createdAt, featureKey, status])
   @@index([createdAt, model, status])
   @@index([status, createdAt])
+  @@index([billingState, settlementDeadlineAt])
+  @@unique([conversationId, conversationSequence], map: "ai_requests_conversation_sequence_key")
   @@map("ai_requests")
 }
 
@@ -3368,6 +3450,119 @@ model AiUsageDaily {
 
   @@unique([studentId, usageDate, ledgerVersion])
   @@map("ai_usage_daily")
+}
+
+/// Immutable per-student calendar authority for one quota ledger version.
+/// The stored timezone is the source of truth for all derived windows.
+model AiQuotaCalendar {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId             String               @map("student_id") @db.Uuid
+  ledgerVersion         AiUsageLedgerVersion @map("ledger_version")
+  quotaTimezone         String               @map("quota_timezone") @db.VarChar(64)
+  effectiveFrom         DateTime             @map("effective_from") @db.Timestamptz
+  currentMonthlyWindowId String?             @unique @map("current_monthly_window_id") @db.Uuid
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student               User                 @relation(fields: [studentId], references: [id])
+  currentMonthlyWindow  AiUsageWindow?       @relation("AiQuotaCalendarCurrentMonthlyWindow", fields: [currentMonthlyWindowId], references: [id])
+
+  @@unique([studentId, ledgerVersion])
+  @@index([studentId, ledgerVersion])
+  @@map("ai_quota_calendars")
+}
+
+/// One immutable-timezone day, ISO week, or month window. Monetary exposure
+/// is authoritative only on month rows; day/week USD fields stay zero.
+model AiUsageWindow {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId              String                   @map("student_id") @db.Uuid
+  ledgerVersion          AiUsageLedgerVersion     @map("ledger_version")
+  periodKind             AiUsageWindowPeriodKind  @map("period_kind")
+  windowKey              String                   @map("window_key") @db.VarChar(20)
+  windowStart            DateTime                 @map("window_start") @db.Timestamptz
+  windowEnd              DateTime                 @map("window_end") @db.Timestamptz
+  quotaTimezone          String                   @map("quota_timezone") @db.VarChar(64)
+  policyBundleVersion    String?                  @map("policy_bundle_version") @db.VarChar(120)
+  quotaPolicyVersion     String?                  @map("quota_policy_version") @db.VarChar(80)
+  state                  AiUsageWindowState       @default(open)
+  closedAt               DateTime?                @map("closed_at") @db.Timestamptz
+  creditLimit            Int                      @default(0) @map("credit_limit")
+  consumedCredits        Int                      @default(0) @map("consumed_credits")
+  reservedCredits        Int                      @default(0) @map("reserved_credits")
+  costLimitUsdMicros     BigInt                   @default(0) @map("cost_limit_usd_micros")
+  reservedUsdMicros      BigInt                   @default(0) @map("reserved_usd_micros")
+  settledUsdMicros       BigInt                   @default(0) @map("settled_usd_micros")
+  unknownUsdMicros       BigInt                   @default(0) @map("unknown_usd_micros")
+  overrunUsdMicros       BigInt                   @default(0) @map("overrun_usd_micros")
+  monetaryDebtState      AiMonetaryDebtState      @default(clear) @map("monetary_debt_state")
+  updatedAt              DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student                User                     @relation(fields: [studentId], references: [id])
+  currentForCalendar     AiQuotaCalendar?         @relation("AiQuotaCalendarCurrentMonthlyWindow")
+  reservations           AiRequestUsageReservation[]
+
+  @@unique([studentId, ledgerVersion, periodKind, windowKey])
+  @@index([studentId, periodKind, windowKey])
+  @@index([studentId, ledgerVersion, periodKind, state])
+  @@map("ai_usage_windows")
+}
+
+/// Immutable request-to-window lineage. Settlement must use these exact
+/// window identities and preserve both conservation equations.
+model AiRequestUsageReservation {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId         String             @map("request_id") @db.Uuid
+  usageWindowId     String             @map("usage_window_id") @db.Uuid
+  reservedCredits   Int                @default(0) @map("reserved_credits")
+  consumedCredits   Int                @default(0) @map("consumed_credits")
+  releasedCredits   Int                @default(0) @map("released_credits")
+  reservedUsdMicros BigInt             @default(0) @map("reserved_usd_micros")
+  settledUsdMicros  BigInt             @default(0) @map("settled_usd_micros")
+  unknownUsdMicros  BigInt             @default(0) @map("unknown_usd_micros")
+  releasedUsdMicros BigInt             @default(0) @map("released_usd_micros")
+  overrunUsdMicros  BigInt             @default(0) @map("overrun_usd_micros")
+  state             AiReservationState @default(reserved)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  settledAt         DateTime?          @map("settled_at") @db.Timestamptz
+
+  request           AiRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  usageWindow       AiUsageWindow      @relation(fields: [usageWindowId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, usageWindowId])
+  @@index([usageWindowId, state])
+  @@index([requestId, usageWindowId])
+  @@map("ai_request_usage_reservations")
+}
+
+/// Append-only evidence/correction audit for late generation settlement.
+model AiBillingCorrectionEvent {
+  id                      String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId               String             @map("request_id") @db.Uuid
+  attemptId               String?            @map("attempt_id") @db.Uuid
+  generationId            String?            @map("generation_id") @db.VarChar(160)
+  oldAttemptState         String?            @map("old_attempt_state") @db.VarChar(40)
+  newAttemptState         String?            @map("new_attempt_state") @db.VarChar(40)
+  oldLineageState         String?            @map("old_lineage_state") @db.VarChar(40)
+  newLineageState         String?            @map("new_lineage_state") @db.VarChar(40)
+  oldSettledUsdMicros     BigInt             @default(0) @map("old_settled_usd_micros")
+  newSettledUsdMicros     BigInt             @default(0) @map("new_settled_usd_micros")
+  oldUnknownUsdMicros     BigInt             @default(0) @map("old_unknown_usd_micros")
+  newUnknownUsdMicros     BigInt             @default(0) @map("new_unknown_usd_micros")
+  oldReleasedUsdMicros    BigInt             @default(0) @map("old_released_usd_micros")
+  newReleasedUsdMicros    BigInt             @default(0) @map("new_released_usd_micros")
+  oldOverrunUsdMicros     BigInt             @default(0) @map("old_overrun_usd_micros")
+  newOverrunUsdMicros     BigInt             @default(0) @map("new_overrun_usd_micros")
+  evidenceHash            String             @map("evidence_hash") @db.VarChar(128)
+  reason                  String             @db.VarChar(160)
+  actor                   String             @db.VarChar(160)
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  request                 AiRequest          @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@index([generationId, createdAt])
+  @@index([requestId, createdAt])
+  @@map("ai_billing_correction_events")
 }
 
 model WeaknessAnalysis {
@@ -4112,6 +4307,11 @@ model AiRequestAttempt {
   upstreamProviderSlug         String?             @map("upstream_provider_slug") @db.VarChar(160)
   model                        String              @db.VarChar(120)
   providerIdempotencyKey       String?             @map("provider_idempotency_key") @db.VarChar(160)
+  providerRequestKey            String?             @map("provider_request_key") @db.VarChar(160)
+  generationId                  String?             @unique @map("generation_id") @db.VarChar(160)
+  upstreamId                    String?             @map("upstream_id") @db.VarChar(160)
+  providerRequestId             String?             @map("provider_request_id") @db.VarChar(160)
+  providerName                  String?             @map("provider_name") @db.VarChar(80)
   observedUpstreamProviderSlug String?             @map("observed_upstream_provider_slug") @db.VarChar(160)
   state                        AiAttemptState      @default(prepared)
   resultKind                   AiAttemptResultKind @default(none) @map("result_kind")
@@ -4119,7 +4319,31 @@ model AiRequestAttempt {
   inputTokens                  Int?                @map("input_tokens")
   outputTokens                 Int?                @map("output_tokens")
   quotaUnitsConsumed           Int?                @map("quota_units_consumed")
+  creditCost                   Int?                @map("credit_cost")
   tokenUsageState              AiTokenUsageState   @default(unknown) @map("token_usage_state")
+  usageIsEstimated             Boolean             @default(false) @map("usage_is_estimated")
+  cachedTokens                 Int?                @map("cached_tokens")
+  cacheWriteTokens             Int?                @map("cache_write_tokens")
+  reasoningTokens              Int?                @map("reasoning_tokens")
+  serverToolCost               BigInt?             @map("server_tool_cost")
+  reportedProviderCostUsdMicros BigInt?            @map("reported_provider_cost_usd_micros")
+  recomputedProviderCostUsdMicros BigInt?          @map("recomputed_provider_cost_usd_micros")
+  chargedProviderCostUsdMicros BigInt?             @map("charged_provider_cost_usd_micros")
+  rawReportedCostDecimal       String?             @map("raw_reported_cost_decimal") @db.VarChar(128)
+  canonicalReportedCostDecimal String?             @map("canonical_reported_cost_decimal") @db.VarChar(128)
+  overrunUsdMicros             BigInt              @default(0) @map("overrun_usd_micros")
+  priceSnapshot                Json?               @map("price_snapshot") @db.JsonB
+  finalPayloadHash             String?             @map("final_payload_hash") @db.VarChar(128)
+  sendStartedAt                DateTime?           @map("send_started_at") @db.Timestamptz
+  dispatchDeadlineAt           DateTime?           @map("dispatch_deadline_at") @db.Timestamptz
+  certifierId                  String?             @map("certifier_id") @db.VarChar(160)
+  certifierVersion             String?             @map("certifier_version") @db.VarChar(80)
+  finalMeasuredBytes           Int?                @map("final_measured_bytes")
+  finalMeasuredTokenUpperBound Int?                @map("final_measured_token_upper_bound")
+  reconciliationLeaseUntil    DateTime?           @map("reconciliation_lease_until") @db.Timestamptz
+  reconciliationClaimedBy     String?             @map("reconciliation_claimed_by") @db.VarChar(160)
+  lastEvidencePollAt          DateTime?           @map("last_evidence_poll_at") @db.Timestamptz
+  nextEvidencePollAt          DateTime?           @map("next_evidence_poll_at") @db.Timestamptz
   errorCode                    String?             @map("error_code") @db.VarChar(100)
   releaseManifestDigest        String?             @map("release_manifest_digest") @db.VarChar(128)
   privacyEvidenceDigest        String?             @map("privacy_evidence_digest") @db.VarChar(128)
@@ -4129,6 +4353,9 @@ model AiRequestAttempt {
   request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@unique([requestId, attemptNo])
+  @@index([state, startedAt])
+  @@index([state, dispatchDeadlineAt])
+  @@index([nextEvidencePollAt, reconciliationLeaseUntil])
   @@map("ai_request_attempts")
 }
 
