@@ -1,79 +1,114 @@
 # Current state and handoff
 
-> Snapshot recorded 31 August 2026. This page is a dated handoff; re-check
-> `git status`, the source tree, and the harness tracking files before starting
-> another implementation slice.
+> Snapshot recorded 22 September 2026 at `4bc2d93` (`fix(vera): wire v2
+> admission and provider reconciliation`). Re-check `git status`, the source
+> tree, migration status, and harness tracking before starting another
+> implementation slice. This page describes tracked source at that commit;
+> it does not absorb concurrent uncommitted product edits.
 
-## Completed or confirmed recent slices
+## Implemented or materially advanced
 
-| Slice | Current evidence | Status and boundary |
+| Area | Current source evidence | Status and boundary |
 | --- | --- | --- |
-| Vera AI admin control plane | `feat-022`–`feat-028`; admin AI route family and focused control-plane contracts | Backend/API capabilities and focused contracts are present. The canonical `/admin/ai/policies` page now loads actor-scoped metadata server-side and renders `modules/admin/AiPolicyPageModule.tsx`, whose draft, validation, preview, approval, scheduling, activation, rollback, and retention controls call the backend policy endpoints. Browser verification remains a separate permission-gated step. |
-| Mentor reference rollout | `feat-021`; mentor dashboard, Tryout, Quiz, Materi, Media, Settings, Packages, and Bank Soal adapters | Complete: document-flow scrolling and bounded pane exceptions are intentional; dense table/list internals were preserved. Browser QA for the expanded rollout was deferred. |
-| Kuis assembly binding | Existing `feat-017` evidence and migrations `20260823100000_*` / `20260823110000_*` | Complete: durable Set/Pool/Blueprint identity and server-owned Ready validation; CAT Pool remains rejected for Kuis. |
-| Kuis versioning contracts | Commit `13497c9` and `scripts/test-kuis-versioning.ts` | Complete contract foundation: semantic digest, lifecycle, editor/catalogue/student/results projections, and schedule transitions. Persistence/runtime delivery/UI cutover remains a separate follow-up. |
-| Kuis editor parity | Commit `4eaae2a`, `pnpm test:kuis-ui-first-workspace` evidence | Complete focused parity slice: Bank Soal-like inventory, issue markers, add control, preview switch, and editor action treatment. |
-| Vera regression alignment | Commit `3746e8d` | Complete focused Sprint 5 test alignment and revision-FK fixture restoration. |
-| Test-suite manifest | Commits `c47d620` and `5f18555` | Complete: package scripts expose `scripts/test-*` files and the manifest test checks registration and scope. |
-| Operational primitive migration | P1/P2 implementation confirmed complete by the Design Consistency Review agent after explicit user confirmation | P1 selects/tables, P2 onboarding and field wrappers, compact/full-width tab semantics, semantic operational badges, and shared `ModeCardTabs` are implemented. Rich searchable selectors and other custom chips remain deferred. Guarded TypeScript, targeted ESLint, focused media/mentor/authoring checks, static sweeps, and diff-check pass; browser QA was skipped. |
+| Vera learner MVP | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), `lib/vera-ai/contracts.ts`, `context-pack.ts`, `studio-contracts.ts`, `scripts/test-vera-mvp-contracts.ts` | Enabled features are `chat`, `review`, `analysis`, and `route`; context/history budgets and typed outputs are enforced. `ptn`, `summary`, and `drill` remain explicitly feature-disabled, and no provider-backed apply registry is enabled. |
+| Vera credit/USD admission | `lib/vera-ai/quota-v2.ts`, `billing.ts`, `admission-service.ts`, `prisma/schema.prisma` | Daily/ISO-week/month windows, weighted credits, USD-micro exposure, monetary debt, idempotent reservation settlement, and append-only billing corrections are implemented. The v2 ledger is scheduled for `2026-09-30T17:00:00Z`; before then the policy resolver selects `vera_quota_v1`. |
+| Vera paid provider | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), `lib/vera-ai/provider.ts`, `certifiers/`, `scripts/test-vera-paid-provider.ts` | Release-gated OpenRouter direct routing to Relace and `deepseek/deepseek-v4-flash-0731`, with privacy/max-price/certifier evidence checks and generation-cost reconciliation. A live flag or API key alone is insufficient. |
+| Vera reconciliation worker | `workers/vera-ai-reconciliation-worker.ts`, `package.json` | Lease-based claims, bounded concurrency, generation evidence polling, conservative unknown settlement, and correction lineage are implemented. Deployment/readiness and secret configuration still need environment-specific verification. |
+| Vera admin control plane | `/admin/ai/*`, `/admin/ai/policies`, `modules/admin/AiPolicyPageModule.tsx`, `/api/admin/ai-policy/*` | The canonical policy page is wired to actor-scoped backend metadata and draft/validate/preview/approve/schedule/activate/rollback/retention endpoints. Browser verification remains permission-gated. |
+| Admin-import worker | `workers/admin-import-worker.ts`, `lib/admin/imports/runtime.ts`, `dispatch.ts` | Readiness/heartbeat, bounded BullMQ dispatch, stale-claim/queue-job repair, row-claim reaping, and retention cleanup are implemented; worker credentials and disposable smoke URLs still require an approved environment. |
+| Kuis versioning | `StandaloneQuizVersion`, Kuis version migrations, `lib/quiz/repository.ts`, `lib/quiz/versioning-runtime.ts` | Persistence and default runtime cutover are now in place. Draft revision checks, semantic digests, idempotent publication, active/superseded versions, version-scoped items/participations, and historical attempt pinning are implemented. `KUIS_VERSIONING_CUTOVER=disabled` is an explicit rollback switch. |
+| Tryout lifecycle | `AssessmentRelease`, delivery/admission/attempt/result repositories | The release boundary remains immutable and deterministic: Ready assembly → release → admission/session → seven runs → scoring/result release. Preview reads and explicit preview restarts remain separate. |
+| Question-bank and commerce schema | September migrations for multiple-choice questions, CBT-only retirement, question Materi, auto-publish, affiliator attribution, and purchase evidence | The schema/migration path is present in the tracked tree. Verify the configured database and the owning feature contracts before calling these slices operationally complete. |
+| UI consistency | Recent mentor/admin commits and the P1/P2 operational-primitive closeout | Shared select/table/wrapper/tab/badge/mode-card conventions are present; rich searchable selectors and custom operational chips remain intentionally deferred. Browser QA was not run for that closeout. |
 
 ## Verification ledger
 
-The most recent confirmed operational-primitive closeout evidence is:
+The repository exposes focused evidence for the latest boundaries:
 
-- guarded TypeScript check: pass;
-- targeted ESLint: pass;
-- focused media-domain, mentor package/catalogue, Tryout authoring, and empty
-  value/form smoke contracts: pass;
-- static native-select, raw-table, and migrated operational-badge sweeps: pass;
-- `git diff --check`: pass;
-- broader admin-import UI contract: reaches its pre-existing English-copy
-  assertion (`No accounts were changed`), unrelated to the migration;
-- browser verification: not run because the required explicit permission was
-  not granted for this slice.
+- Kuis storage/runtime: `test:standalone-quiz-version-storage`,
+  `test:standalone-quiz-version-runtime`, `test:kuis-versioning`, and
+  `test:assessment-answer-contract`;
+- Vera MVP: `test:vera-mvp-contracts`;
+- Vera billing/worker: `test:vera-billing-v2`,
+  `vera:reconciliation-worker:check`;
+- Vera paid provider: `test:vera-paid-provider`;
+- Tryout release/scoring/participant contracts and the existing admin AI
+  control-plane suite;
+- focused operational-primitive, mentor, media, authoring, and suite-manifest
+  contracts documented in [`development-and-verification.md`](development-and-verification.md).
 
-This documentation task does not claim a fresh Prisma migration status, full
-production build, or browser result. Run those through the guarded workflow
-when the next implementation owner needs them.
+Guarded contract evidence recorded on 22 September 2026:
 
-## Working-tree ownership
+- **Passed Kuis version contracts:** `test:kuis-versioning`,
+  `test:standalone-quiz-version-storage`,
+  `test:standalone-quiz-version-runtime`, `test:assessment-answer-contract`,
+- plus the independent `test:random-assembly-release` assessment-release
+  contract.
+- **Kuis source/contract drift:** `test:kuis-ui-first-workspace` stops at
+  `scripts/test-kuis-ui-first-workspace.ts:61` because the expected
+  create-mode `useState(mode === "create" && hasQuizDraftContent(initialForm))`
+  shape does not match the current editor call, which also passes
+  `pristineSubjectCode`. `test:kuis-assembly-binding` stops at
+  `scripts/test-kuis-assembly-binding.ts:101` because the current editor does
+  not contain the asserted `Buka Bank Soal` copy. No source or test fix was
+  made during this verification pass.
+- **Passed Vera contracts:** `test:admin-ai-control-plane` (30 checks),
+  `test:vera-mvp-contracts`, `test:vera-billing-v2`,
+  `test:vera-paid-provider` (6 checks), and
+  `vera:reconciliation-worker:check` (worker typecheck).
 
-The shared tree contains product changes from several completed or closing
-agent sessions, including Vera AI, admin screens, mentor surfaces, media, and
-design primitives. This wiki and harness refresh must remain isolated to:
+Every command was launched serially through
+`_harness/resource-guard.sh run -- rtk pnpm ...`; the failures were
+source/contract drift, not resource or environment blockers. This run did not
+include full lint/build, Prisma status or migrations, live worker execution,
+or browser verification. Passing source contracts do not prove that a
+configured database has applied the 67 migration files, that provider secrets
+and release evidence are deployed, or that the live UI renders correctly.
 
-- `docs/wiki/*`;
-- `_harness/memory/project.md`;
-- `_harness/tracking/feature_list.json`;
-- `_harness/tracking/progress.md`;
-- `_harness/tracking/session-handoff.md`.
+## Shared-worktree ownership
 
-Do not stage unrelated dirty product files when committing this documentation
-slice.
+The tree is shared with concurrent product agents. At snapshot time, the
+uncommitted paths observed outside this wiki were:
 
-## Follow-up queue
+- `modules/mentor/KaptenQuestionBankBuilderPageModule.tsx`;
+- `modules/mentor/KaptenTryoutBuilderPageModule.tsx`;
+- `modules/mentor/KaptenTryoutCataloguePageModule.tsx`;
+- `modules/mentor/KaptenTryoutSettingsPageModule.tsx`;
+- `scripts/test-tryout-authoring-workspace.ts`;
+- `public/mascott.webm` and the untracked `public/mascot.webm`.
 
-1. If Kuis versioning is promoted beyond its contract foundation, add the
-   persistence, server mutation, runtime participation, and historical-results
-   cutover behind the existing digest/lifecycle contracts.
-2. Obtain explicit browser permission before validating the completed
-   operational-primitive migration (onboarding, admin mode-card dialogs, and
-   Tryout Delivery) or any deferred mentor rollout route. Record routes, role,
-   and checklist in the handoff.
-3. Re-run the broader admin-import contract after its independent English-copy
-   baseline is addressed; keep the baseline distinction in the evidence.
-4. Re-check configured-database migration status before any schema mutation;
-   the wiki records migration history, not an assertion that every local
-   database is current.
-5. Continue the deferred rich-searchable-selector and custom operational-chip
-   audit only as a separate behavior-preserving migration batch.
+This refresh edits only `docs/wiki/*`. Do not stage or reset the paths above;
+they belong to other work. Harness memory/tracking files were not changed by
+this wiki update.
+
+## Remaining work map
+
+1. **Environment and database proof.** Run the guarded Prisma status command
+   against the intended disposable/staging database, then apply or verify the
+   current migration set as an explicitly owned operation. Do not infer this
+   from migration filenames.
+2. **Vera worker readiness.** Supply the deployment-owned HMAC/encryption,
+   OpenRouter, generation-evidence, Redis, and disposable-test settings as
+   appropriate; run the worker typecheck and a controlled one-cycle/readiness
+   check. Confirm logs contain only operational counters, not payloads.
+3. **Paid-provider release operations.** Revalidate the manifest, certifier
+   artifact, privacy evidence, price snapshot, and expiry before enabling live
+   traffic. Keep the provider disabled when any evidence is missing.
+4. **Browser acceptance.** Request explicit permission with routes, role, and
+   checklist before checking `/admin/ai/policies`, `/vera-ai`, Kuis, Tryout
+   delivery, or the deferred mentor rollout surfaces. No browser result is
+   implied by this page.
+5. **Known deferred slices.** Keep the admin-import English-copy baseline,
+   rich searchable-selector/custom-chip migration, and any feature-specific
+   UI polish separate from the completed contracts above.
 
 ## Restart checklist
 
-1. Read [`AGENTS.md`](../../AGENTS.md), then the current
+1. Read [`AGENTS.md`](../../AGENTS.md) and the current
    [`_harness/tracking/session-handoff.md`](../../_harness/tracking/session-handoff.md).
-2. Run `git status --short --branch` and preserve existing ownership.
+2. Run `git status --short --branch` and preserve shared ownership.
 3. Read [`_harness/tracking/feature_list.json`](../../_harness/tracking/feature_list.json)
    and choose one explicit unfinished feature.
 4. Route to the relevant wiki page and source boundary before editing.
-5. Use the shared resource guard and update the handoff before yielding.
+5. Use the resource guard for all Node, pnpm, Prisma, test, build, and worker
+   commands; record new evidence here only after it is actually observed.

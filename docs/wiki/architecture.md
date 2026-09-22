@@ -19,8 +19,10 @@ flowchart LR
     Module --> Domain[lib/*\nrepositories, services, validation]
     Domain --> Prisma[Prisma Client\nPostgreSQL]
     Domain --> Redis[Redis\nioredis]
-    Worker[Admin import worker] --> Redis
-    Worker --> Prisma
+    ImportWorker[Admin import worker] --> Redis
+    ImportWorker --> Prisma
+    VeraWorker[Vera reconciliation worker] --> Prisma
+    VeraWorker --> Provider[OpenRouter Generation API]
     Domain --> Media[Private media / R2\nsigned URLs]
     Module --> UI[components/*\nshared primitives]
 ```
@@ -35,7 +37,7 @@ flowchart LR
 | `lib/auth/` | Opaque session resolution, role checks, authorized-home redirects, and preview capability gates | `lib/auth/session.ts`, `lib/auth/access.ts` |
 | `lib/<domain>/` | Server-only business boundaries and sanitised DTOs | `lib/tryout/*`, `lib/quiz/*`, `lib/vera-ai/*`, `lib/admin/*` |
 | `prisma/` | Schema, migrations, and seed/fixture scripts | `prisma/schema.prisma`, `prisma/migrations/` |
-| `workers/` | Background processing for operational workflows | `workers/admin-import-worker.ts` |
+| `workers/` | Background processing for operational workflows and provider accounting | `workers/admin-import-worker.ts`, `workers/vera-ai-reconciliation-worker.ts` |
 | `design-tokens/` | Generated theme output from source tokens | `design-tokens/generate-theme.mjs`, `app/generated-theme.css` |
 
 ## Request and authorization flow
@@ -62,6 +64,11 @@ reads and restart actions separate from normal student sessions.
 - PostgreSQL is the system of record through the Prisma PostgreSQL adapter.
 - Redis is used for server-side Redis access and queue coordination. The
   admin-import worker uses BullMQ-compatible infrastructure.
+- The Vera reconciliation worker claims provider attempts from PostgreSQL,
+  polls generation evidence when available, and settles or conservatively
+  marks unknown provider spend. It never logs prompts, response payloads, or
+  provider exception text; the worker's runbook and bounds are in
+  [`development-and-verification.md`](development-and-verification.md).
 - Media can be stored behind private object storage/R2 adapters; the app
   resolves signed URLs for allowed consumers.
 - `next.config.ts` enables standalone output, MDX page extensions, and narrow

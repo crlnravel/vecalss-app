@@ -1,8 +1,10 @@
 # Vecalss project wiki
 
-> Source snapshot: 30 August 2026. This wiki describes the repository as it
-> exists in the current working tree; source code, `PRODUCT.md`, `DESIGN.md`,
-> and the Prisma schema remain authoritative when this snapshot becomes stale.
+> Source snapshot: 22 September 2026 at commit `4bc2d93`. This wiki describes
+> the tracked repository state at that snapshot; source code, `PRODUCT.md`,
+> `DESIGN.md`, and the Prisma schema remain authoritative when this snapshot
+> becomes stale. The shared worktree also contains unrelated uncommitted
+> product edits that are intentionally not part of this wiki snapshot.
 
 Vecalss is a Next.js learning academy/LMS for Indonesian students preparing
 for PTN admission through Materi, Kuis, Tryout, progress, and human mentoring.
@@ -15,9 +17,10 @@ content author), and Administrator.
 - [Users, journeys, and routes](user-journeys.md) — role boundaries and the implemented route map.
 - [Domains and data](domains-and-data.md) — Prisma aggregates, assessment state, Kuis versioning, and Vera AI boundaries.
 - [Assessment lifecycle](assessment-lifecycle.md) — Kuis contracts, Tryout releases, delivery, attempts, results, and preview safety.
-- [Development and verification](development-and-verification.md) — setup, guarded commands, test suites, and known verification limits.
+- [Development and verification](development-and-verification.md) — setup, guarded commands, current contract suites, and known verification limits.
 - [Operations and security](operations-and-security.md) — authentication, preview safety, assessment releases, media, and AI privacy.
 - [Current state](current-state.md) — recent completed slices, evidence, caveats, and follow-up work.
+- [Vera AI MVP](../vera-ai/mvp.md) — launch features, context boundary, credit/USD budget, provider contract, and rollout checklist.
 
 ## Product at a glance
 
@@ -30,6 +33,7 @@ flowchart LR
     Kapten[Kapten\nContent author] --> Authoring[Materi, Kuis,\nBank Soal, Tryout, Media]
     Authoring --> Materi
     Admin[Administrator] --> Operations[Enrollment, imports,\nnotifications, audit, AI control plane]
+    Affiliator[Affiliator] --> Referrals[Referral codes and\nattributed purchases]
     Vera[Vera AI] --> Voyager
     Operations --> Vera
 ```
@@ -37,7 +41,8 @@ flowchart LR
 The student loop is intentionally connected to the content-authoring and
 assessment workspaces. The Kapten workspace is a CMS-like authoring surface,
 not a student-management dashboard. Administrator screens handle operations
-and governance, including the Vera AI control plane.
+and governance, including the Vera AI control plane; the separate Affiliator
+workspace handles referral attribution and purchase visibility.
 
 ## Source hierarchy
 
@@ -68,3 +73,6 @@ them. [`docs/tryout-creation-guide.md`](../tryout-creation-guide.md) remains
 the detailed Indonesian Tryout authoring guide, and
 [`docs/vera-ai/openrouter-free-poc.md`](../vera-ai/openrouter-free-poc.md)
 remains the provider POC note.
+The paid-MVP contract is in
+[`docs/vera-ai/mvp.md`](../vera-ai/mvp.md); the free POC is development-only
+and does not inherit the paid provider's privacy guarantees.

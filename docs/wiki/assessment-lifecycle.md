@@ -8,10 +8,10 @@
 
 ```mermaid
 flowchart LR
-    KuisAuthor[Kaptan Kuis authoring] --> KuisContract[Normalize + semantic digest]
-    KuisContract --> KuisPersist[StandaloneQuiz + assembly binding]
-    KuisPersist --> KuisLearner[Participation / attempt / result]
-    KuisContract -. follow-up .-> KuisRuntime[Persistence + runtime cutover]
+    KuisAuthor[Kapten Kuis authoring] --> KuisDraft[StandaloneQuizVersion draft]
+    KuisDraft --> KuisPublish[Digest + idempotent publication]
+    KuisPublish --> KuisActive[Active version]
+    KuisActive --> KuisLearner[Version-scoped participation / attempt / result]
 
     TryoutAuthor[Kapten Tryout builder] --> Assembly[Ready assembly validation]
     Assembly --> Release[Immutable AssessmentRelease]
@@ -25,18 +25,21 @@ flowchart LR
 ```
 
 There are two assessment branches. Kuis is the standalone practice flow and
-its current versioning work is a contract foundation. Tryout is the released,
-operational assessment flow: mutable authoring data is resolved into an
-immutable release before delivery. The admin preview branch may enter delivery
-only through an explicit restart; a preview read never enters the runtime.
+now uses persisted, version-scoped runtime records by default. `StandaloneQuiz`
+remains the stable catalogue/ownership identity while
+`StandaloneQuizVersion` carries the draft or published assessment snapshot.
+Tryout is the released, operational assessment flow: mutable authoring data is
+resolved into an immutable release before delivery. The admin preview branch
+may enter delivery only through an explicit restart; a preview read never
+enters the runtime.
 
 ## Stage map
 
 | Stage | Canonical route / UI | Server boundary | Durable identity | Guardrail |
 | --- | --- | --- | --- | --- |
-| Define Kuis | `/mentor/quiz/[quizId]`, `/mentor/quiz/[quizId]/editor` | `modules/mentor/KaptenQuizDetailPageModule.tsx`, `KaptenQuizEditorPageModule.tsx`, `modules/mentor/quiz-actions.ts`, `lib/quiz/repository.ts` | `StandaloneQuiz`, items/options, and durable assembly binding when used; participation/attempt records are runtime records | Tutor session gate; edits stay behind server actions and repository validation. |
-| Kuis version contract | Kuis editor/catalogue/result projections | `lib/quiz/versioning-digest.ts`, `versioning-lifecycle.ts`, `versioning-projections.ts`, `versioning-schedule.ts` | Semantic SHA-256 digest and monotonic `draft → active → superseded` identity | Generated IDs and operational schedule/visibility are excluded from the digest; explicit `null` attempt limits remain meaningful. This is contract-only until persistence/runtime cutover lands. |
-| Run Kuis | `/quiz/[slug]/[quizSlug]`, `/quiz/[slug]/[quizSlug]/result` | `modules/quiz/actions.ts`, `modules/quiz/server-data.ts`, `lib/quiz/repository.ts` (`start`, answer, submit, attempt, result operations) | `StandaloneQuizParticipation`, `StandaloneQuizAttempt`, answers, scoring/release state | Availability and attempt state are checked server-side; historical attempts are not rewritten by a replacement definition. |
+| Define Kuis | `/mentor/quiz/[quizId]`, `/mentor/quiz/[quizId]/editor` | `modules/mentor/KaptenQuizDetailPageModule.tsx`, `KaptenQuizEditorPageModule.tsx`, `modules/mentor/quiz-actions.ts`, `lib/quiz/repository.ts` | `StandaloneQuiz` stable catalogue plus a draft `StandaloneQuizVersion`; version-scoped items/options and durable assembly binding when used | Tutor session gate; edits stay behind server actions, ownership checks, and draft-revision validation. |
+| Publish Kuis version | Kuis editor publish action | `lib/quiz/repository.ts`, `lib/quiz/versioning-runtime.ts`, `versioning-digest.ts`, `versioning-lifecycle.ts` | `StandaloneQuizVersion` with semantic definition digest, `versionNo`, publication identity, and `draft → active → superseded` state | A transaction locks the stable quiz, compares `draftRevision`, reuses `publishRequestId` on retry, and supersedes the previous active version. `KUIS_VERSIONING_CUTOVER=disabled` is an explicit operator rollback switch. |
+| Run Kuis | `/quiz/[slug]/[quizSlug]`, `/quiz/[slug]/[quizSlug]/result` | `modules/quiz/actions.ts`, `modules/quiz/server-data.ts`, `lib/quiz/repository.ts` (`start`, answer, submit, attempt, result operations) | `StandaloneQuizParticipation` is unique per `(quizVersionId, studentId)`; attempts, answers, scoring, and release state retain the version identity | Runtime resolves the active version by default, checks availability and attempt state server-side, and preserves prior version history rather than rewriting it. |
 | Author Tryout and assembly | `/mentor/tryout`, `/mentor/tryout/[tryoutId]`, nested operations | `modules/mentor/KaptenTryoutBuilderPageModule.tsx`, `modules/mentor/tryout-actions.ts`, `modules/mentor/assembly-actions.ts`, `lib/tryout/repository.ts`, `assembly-repository.ts`, `assembly-validation.ts` | `TryoutPackage`, sections/items/options, reusable package/version and source revision identity | Only validated Ready assembly versions can feed a release; package modes and source/media/scope rules are resolved before runtime. |
 | Publish to release | Kapten Tryout publish action | `lib/tryout/assessment-release.ts` (`createOrReuseAssessmentRelease`) | Immutable `AssessmentRelease` with content, source IDs/digests, scoring/media, assembly provenance, and publication identity | Tryout must be published; the canonical seven sections must resolve; release creation is deterministic and reuses the same publication identity instead of creating a competing release. |
 | Admit and deliver | `/mentor/tryout/[tryoutId]/operations/*`, `/tryout/[tryoutId]`, `/tryout/[tryoutId]/waiting` | `lib/tryout/delivery-repository.ts`, `modules/mentor/tryout-actions.ts`, `participant-repository.ts` | `TryoutAdmission`, `TryoutDeliveryAssignment`, `TryoutDeliverySession` pointing at `assessmentReleaseId` | Management capabilities scope admission/delivery operations; transaction locks protect active-session and assignment transitions; mutable authoring rows are not used as runtime content. |
@@ -47,6 +50,30 @@ The reusable package routes under `/mentor/packages/*` and
 `/mentor/tryout/packages/*` are not an additional lifecycle branch. Their
 layouts return `notFound()` and the current authoring path is the Tryout
 workspace plus its nested assembly operations.
+
+## Kuis version boundary
+
+The Kuis cutover is default-on in `lib/quiz/versioning-runtime.ts`. A save
+creates or updates a draft version, materializes its version-scoped items, and
+computes both a full definition digest and the assessment digest used to decide
+whether a student snapshot changed. Editorial title/description changes do not
+activate a new student snapshot; question, answer, assembly, and assessment
+policy changes do.
+
+Publication is transactional and retry-safe: `FOR UPDATE` protects the stable
+quiz row, `expectedDraftRevision` prevents lost edits, and `publishRequestId`
+replays the same publication instead of creating a duplicate active version.
+At start time, the repository resolves the active version, creates or reuses a
+version-scoped participation, and pins `quizVersionId` through attempt,
+answer, scoring, and result projections. Legacy unversioned rows remain
+readable as compatibility data, but the normal path no longer depends on the
+old mutable quiz snapshot.
+
+The persisted contract is covered by
+`scripts/test-standalone-quiz-version-storage.ts` and the default-runtime
+contract by `scripts/test-standalone-quiz-version-runtime.ts`. These are
+source/schema contracts; they do not prove that a configured database has
+applied every migration or that the browser UI has been exercised.
 
 ## Tryout release and delivery boundary
 
@@ -116,7 +143,8 @@ focused contracts map to these boundaries:
 
 | Boundary | Focused checks |
 | --- | --- |
-| Kuis contract and assembly | `pnpm test:kuis-versioning`, `pnpm test:kuis-assembly-binding`, `pnpm test:kuis-ui-first-workspace` |
+| Kuis version storage/runtime | `pnpm test:kuis-versioning`, `pnpm test:standalone-quiz-version-storage`, `pnpm test:standalone-quiz-version-runtime`, `pnpm test:assessment-answer-contract` |
+| Kuis editor and assembly | `pnpm test:kuis-assembly-binding`, `pnpm test:kuis-ui-first-workspace`, `pnpm test:random-assembly-release` |
 | Tryout packages and release | `pnpm test:tryout-package-invariants`, `pnpm test:tryout-release-invariants`, `pnpm test:assessment-release-invariants` |
 | Scoring and result release | `pnpm test:assessment-scoring-release-invariants`, `pnpm test:assessment-participant-view` |
 | Delivery and projections | `pnpm test:tryout-workflow-projection`, `pnpm test:tryout-live-result-workspaces`, `pnpm test:tryout-realtime-hardening` |

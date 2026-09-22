@@ -12,11 +12,12 @@ or querying a model.
 | Enrollment and operations | `EnrollmentHandoff`, `EnrollmentImport`, `EnrollmentImportRow`, dispatch records, `AuditLog`, notifications | Admin-owned enrollment/import workflows and auditable operational commands. |
 | Taxonomy and Materi | `ExamProgram`, `ExamEvent`, `Subject`, `Subtest`, `Topic`, `Module`, `ModuleAsset`, `ModuleProgress` | Student content and progress are projected through Materi services; managed documents and media use private delivery boundaries. |
 | Question Bank | `QuestionBank`, `Question`, `QuestionRevision`, revision options, folders/categories, calibration rows | Ready/review/retired revision lifecycle and source-digest validation feed Kuis/Tryout assembly. |
-| Kuis | `StandaloneQuiz`, `StandaloneQuizItem`, participation/attempt/answer models, legacy `ModuleQuiz` models | Standalone Kuis keeps assessment snapshots and canonical attempt/scoring/release axes separate from legacy ModuleQuiz. |
+| Kuis | `StandaloneQuiz`, `StandaloneQuizVersion`, version-scoped items, `StandaloneQuizParticipation`, `StandaloneQuizAttempt`, `StandaloneQuizAnswer`, `StandaloneQuizStartCommand`, legacy `ModuleQuiz` models | `StandaloneQuiz` is the stable catalogue identity; the active/superseded version owns the student snapshot. Version-scoped participation and attempts preserve historical Kuis results while multiple-choice answer formats remain explicit. |
 | Reusable assessment packages | `ReusableQuestionPackage`, package versions/scopes/rules/items | Supports fixed sets, random pools, blueprints, and CAT pools; Ready identity is version-owned. |
 | Tryout | `TryoutPackage`, sections/items/options, admissions/assignments, delivery sessions, attempts/runs/answers, releases | Published content is pinned by immutable `AssessmentRelease`; operations read through safe participant projections. |
 | Learning signals | topic/subtest performance and recommendations | Feeds learner-facing progress and recommendation boundaries; do not infer product claims from fixture data. |
-| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, usage, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes, request idempotency/fingerprints, privacy-safe admin aggregates, and lifecycle governance. |
+| Commerce and referrals | `BillingAccount`, `PackagePurchase`, `AffiliatorProfile`, referral attribution and purchase-evidence routes | Succeeded package purchases retain provider reference/evidence and may be attributed to an active Affiliator referral identity. |
+| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, `AiRequestAttempt`, `AiQuotaCalendar`, `AiUsageWindow`, `AiRequestUsageReservation`, `AiBillingCorrectionEvent`, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes, request idempotency/fingerprints, versioned credit/USD reservations, append-only billing corrections, privacy-safe admin aggregates, and lifecycle governance. |
 | Media and CMS | `Asset`, `MediaFolder`, announcements, landing sections | Media scope/state and signed preview/thumbnail paths are validated before exposure. |
 
 ## Assessment invariants
@@ -66,13 +67,18 @@ stateDiagram-v2
     Superseded: Historical version
 ```
 
-The Kuis versioning contract layer in `lib/quiz/versioning-*` uses the states
-`draft`, `active`, and `superseded`. Its semantic SHA-256 digest includes
-versioned definition/question/choice/source identity while ignoring generated
-IDs and operational schedule/visibility fields. Explicit `null` attempts
-remain distinct from a numeric attempt limit. The latest contract slice is
-covered by `scripts/test-kuis-versioning.ts`; persistence/runtime delivery
-cutover is a separate follow-up.
+The Kuis versioning layer in `lib/quiz/versioning-*` and `lib/quiz/repository.ts`
+uses the states `draft`, `active`, and `superseded`. Its semantic SHA-256 digest
+includes versioned definition/question/choice/source identity while ignoring
+generated IDs and operational schedule/visibility fields. Explicit `null`
+attempts remain distinct from a numeric attempt limit. The default runtime
+stores version-scoped items and participations, resolves the active version at
+student start, and retains historical attempts under their original version.
+`KUIS_VERSIONING_CUTOVER=disabled` is an explicit rollback switch for an
+operator; it is not the normal deployment mode. Source/schema coverage is in
+`scripts/test-kuis-versioning.ts`,
+`scripts/test-standalone-quiz-version-storage.ts`, and
+`scripts/test-standalone-quiz-version-runtime.ts`.
 
 ## Assembly identity
 
@@ -96,3 +102,42 @@ request service tracks idempotency, fingerprints, retry state, provider/routing
 metadata, quota reservations, retention, and lifecycle operations. Changes to
 these boundaries belong in `lib/vera-ai/` and `lib/admin/ai/`, not in route
 components alone.
+
+### Learner MVP and provider boundary
+
+The current Vera learner contract enables `chat`, `review`, `analysis`, and
+`route`. `ptn`, `summary`, and `drill` remain explicitly deferred and return a
+feature-disabled response; the MVP has no provider-backed artifact-apply
+registry. Context selection is capped at four sources, history is bounded, and
+the context pack is certified before provider dispatch. The source of truth is
+`lib/vera-ai/contracts.ts`, `context-pack.ts`, and `studio-contracts.ts`.
+
+The paid provider path is release-gated. The approved manifest pins OpenRouter
+direct routing to the Relace upstream and model
+`deepseek/deepseek-v4-flash-0731`, with data collection denied, ZDR requested,
+an explicit max-price policy, and a checked certifier artifact under
+`certifiers/`. Live transport is not enabled merely by
+having a provider module: the live flag, API key, manifest, privacy evidence,
+and endpoint metadata must all validate.
+
+### Credit/USD quota ledger
+
+`lib/vera-ai/quota-v2.ts` defines the scheduled `vera_credit_usd_v2` ledger for
+`Asia/Jakarta`: chat/review consume one credit, analysis/route consume two;
+daily, ISO-week, and monthly windows are persisted through
+`AiQuotaCalendar`/`AiUsageWindow`; reservations are linked to each request by
+`AiRequestUsageReservation`. The v2 cutover is scheduled for
+`2026-09-30T17:00:00Z`; before that instant the policy resolver selects the
+legacy `vera_quota_v1` ledger. The v2 monthly guard combines credit limits with
+integer USD-micro exposure and monetary-debt state.
+
+Provider cost accounting parses decimal lexemes without JavaScript `Number`,
+rounds to integer USD micros once, and preserves reserved/settled/unknown/
+released/overrun conservation. `AiBillingCorrectionEvent` is append-only and
+records later evidence without rewriting the original request lineage.
+
+`workers/vera-ai-reconciliation-worker.ts` claims due attempts with leases,
+polls the generation endpoint when configured, and marks evidence unknown at
+the settlement deadline when it cannot be recovered. Its batch, lease,
+concurrency, timeout, and backoff bounds are part of the worker contract; it
+must not log prompts, provider URLs, or payloads.

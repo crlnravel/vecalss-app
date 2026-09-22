@@ -7,6 +7,7 @@
 | Student | Voyager | Learn, practise, take assessments, review progress, and use Vera AI | `/dashboard`, `/courses`, `/quiz`, `/tryout`, `/vera-ai`, `/settings`, `/notifications` |
 | Tutor/content author | Kapten | Create, organise, review, and publish Materi, Kuis, Bank Soal, Tryout, and Media | `/mentor/*` |
 | Administrator | Administrator | Manage enrollment/imports, notifications, audits, student preview, and AI operations | `/admin/*` |
+| Referral partner | Affiliator | Share referral codes and review attributed package purchases | `/affiliator/*` |
 
 Role names are product vocabulary, not a second authorization system. The
 server uses Prisma roles and `lib/auth/access.ts` to enforce access.
@@ -14,7 +15,7 @@ server uses Prisma roles and `lib/auth/access.ts` to enforce access.
 ## Canonical page route families
 
 The following is a maintainer-facing map of canonical page route families from
-the current `app/` tree. Compatibility, archived, and redirect-only routes
+the current `app/` tree at the wiki snapshot. Compatibility, archived, and redirect-only routes
 are called out below rather than treated as active destinations. API route
 handlers are listed separately.
 
@@ -22,7 +23,7 @@ handlers are listed separately.
 
 | Area | Routes |
 | --- | --- |
-| Public | `/`, `/about`, `/faq`, `/top-alumni`, `/invite/[token]` |
+| Public | `/`, `/faq`, `/top-alumni`, `/videos`, `/invite/[token]` |
 | Authentication | `/login`, `/forgot-password`, `/reset-password/[token]`, `/change-password` |
 | First access | `/onboarding` |
 
@@ -39,6 +40,16 @@ handlers are listed separately.
 `/tryout/[tryoutId]/register` is retained as a route-level compatibility
 redirect. Student pages use `requireStudentSession` or the shared session
 boundary before loading learner data.
+
+### Affiliator workspace
+
+| Area | Routes |
+| --- | --- |
+| Workspace | `/affiliator/dashboard`, `/affiliator/log-pembelian` |
+
+`/affiliator` is a convenience redirect to the dashboard. Affiliator pages
+use `requireAffiliatorSession`; purchase attribution is recorded against the
+referral identity and succeeded package-purchase evidence.
 
 ### Kapten authoring workspace
 
@@ -59,7 +70,7 @@ current workspace owns the canonical route.
 
 | Status | Examples | Meaning |
 | --- | --- | --- |
-| Canonical | `/mentor/tryout/[tryoutId]`, `/mentor/quiz/[quizId]`, `/admin/ai/policies` | Active page destinations and current workspace entry points. |
+| Canonical | `/mentor/tryout/[tryoutId]`, `/mentor/quiz/[quizId]`, `/admin/ai/policies`, `/admin/affiliators`, `/admin/student-banners` | Active page destinations and current workspace entry points. |
 | Redirect or compatibility | `/tryout/[tryoutId]/register`, `/admin/ai-policy`, `/admin/ai-usage`, `/admin/media` | Kept for existing links or migration compatibility; follow the redirect to the canonical surface. |
 | Archived / not found | `/mentor/packages/*`, `/mentor/tryout/packages/*` | The route remains in the tree for compatibility, but its layout authenticates and returns `notFound()`; it is not an active authoring destination. |
 
@@ -71,6 +82,7 @@ current workspace owns the canonical route.
 | Imports | `/admin/imports/[importId]` plus the `/api/admin/imports/*` command and row endpoints |
 | Student preview | `/admin/student-preview/[[...slug]]` |
 | Vera AI control plane | `/admin/ai`, `/admin/ai/usage`, `/admin/ai/reliability`, `/admin/ai/providers`, `/admin/ai/policies` |
+| Growth and merchandising | `/admin/affiliators`, `/admin/student-banners` |
 
 `/admin/ai-usage`, `/admin/ai-policy`, and `/admin/media` are retained as
 legacy redirects/compatibility routes. Administrator pages use
@@ -81,12 +93,14 @@ read-only session boundary.
 
 The current API tree includes:
 
-- Admin AI projections under `/api/admin/ai/*`; the active policy metadata and
+- Admin AI projections under `/api/admin/ai/*`; the policy metadata and
   lifecycle contract is under `/api/admin/ai-policy/*`. `/api/admin/ai-usage`
-  is the legacy compatibility route.
+  remains a legacy compatibility handler, while `/admin/ai/policies` is the
+  canonical page.
 - Enrollment/import/handoff commands under `/api/admin/*`.
-- Materi document/progress, notifications, media preview/thumbnail, invite,
-  health, and scalability endpoints.
+- Student-banner, purchase-attribution, Materi document/progress,
+  notifications, media preview/thumbnail, invite, health, and scalability
+  endpoints.
 - Vera AI conversations, requests, context, artifacts, exports, lifecycle,
   sources, usage, and adaptive-practice endpoints under `/api/vera-ai/*`.
 

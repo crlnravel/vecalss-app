@@ -43,7 +43,11 @@ hidden until the established release gates allow them.
 Kuis version digests include semantic question/choice/source identity and
 assembly identity while ignoring generated IDs and operational schedule
 fields. Version state transitions are monotonic (`draft → active →
-superseded`). A replacement must not rewrite historical attempts or results.
+superseded`). The default repository runtime resolves an active
+`StandaloneQuizVersion`, scopes participation to `(quizVersionId, studentId)`,
+and carries that identity into attempts and results. A replacement must not
+rewrite historical attempts or results; `KUIS_VERSIONING_CUTOVER=disabled` is
+the explicit rollback switch.
 
 ## Vera AI privacy and governance
 
@@ -64,6 +68,31 @@ activation, rollback, and retention-extension controls call the corresponding
 Browser verification remains a separate permission-gated step. Provider screens
 mask credential fingerprints. Any new AI metric or admin endpoint must preserve
 the admitted/rejected taxonomy and privacy-safe projection boundary.
+
+The learner boundary is deliberately narrower than the historical Vera model;
+the exact feature, budget, and rollout contract is recorded in
+[`docs/vera-ai/mvp.md`](../vera-ai/mvp.md):
+`chat`, `review`, `analysis`, and `route` are the enabled MVP features;
+`ptn`, `summary`, and `drill` are rejected as feature-disabled until their
+contracts are promoted. Context and history budgets are enforced before
+dispatch, and artifact apply has no enabled registry in the MVP.
+
+The `vera_credit_usd_v2` ledger reserves weighted credits and integer USD
+micros across daily, ISO-week, and monthly `Asia/Jakarta` windows. It is
+scheduled to become effective at `2026-09-30T17:00:00Z`; the policy resolver
+uses `vera_quota_v1` before that cutover. A request's provider attempt records
+retain dispatch/generation evidence, while reservation settlement preserves
+known, unknown, released, and overrun outcomes. The reconciliation worker is
+lease-based, bounded, and payload-free in logs; absent generation evidence is
+conservatively marked unknown at the fixed settlement deadline.
+
+The live paid-provider path is gated by a validated release manifest and
+certifier evidence. It pins the approved OpenRouter/Relace route and model,
+privacy flags, and max-price policy; a live flag alone cannot bypass the
+manifest or evidence checks. See the MVP contract and
+[`domains-and-data.md`](domains-and-data.md) for the data model and
+[`development-and-verification.md`](development-and-verification.md) for the
+worker and contract commands.
 
 ## Media, workers, and headers
 
