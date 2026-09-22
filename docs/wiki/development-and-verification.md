@@ -96,11 +96,11 @@ release manifest/certifier. `VERA_DISPOSABLE_DB_ACK=1`,
 guarded disposable tests. Keep values in `.env`, CI secrets, or the deployment
 secret store; never add them to the wiki.
 
-At the snapshot commit, `prisma/migrations/` contains 68 migration files,
+At the snapshot commit, `prisma/migrations/` contains 70 migration files,
 including Kuis version storage/runtime scoping, CBT-only schema retirement,
 question-bank purpose/materi changes, affiliator attribution, auto-publish,
 and the Vera usage-window/cost/reservation ledger. This is migration history,
-not proof that a configured local or production database has applied all 68;
+not proof that a configured local or production database has applied all 70;
 use the guarded Prisma status command before any mutation.
 
 The reconciliation worker's fixed safety envelope is batch 50, a 30-second

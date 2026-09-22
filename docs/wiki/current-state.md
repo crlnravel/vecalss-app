@@ -65,7 +65,7 @@ Every command was launched serially through
 source/contract drift, not resource or environment blockers. This run did not
 include full lint/build, Prisma status or migrations, live worker execution,
 or browser verification. Passing source contracts do not prove that a
-configured database has applied the 68 migration files, that provider secrets
+configured database has applied the 70 migration files, that provider secrets
 and release evidence are deployed, or that the live UI renders correctly.
 
 ## Shared-worktree ownership
