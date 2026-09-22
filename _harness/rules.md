@@ -202,6 +202,7 @@ The project is currently in an **active pre-release phase**. Agents must apply t
 - Preserve the shared topic taxonomy across learning modules, quizzes, tryouts, analytics, and AI features
 - Product-facing "Kapten" maps to the tutor role and `/mentor` routes — do not rename without an explicit migration plan
 - Student-facing copy should use natural Bahasa Indonesia. Preserve established admin and technical terminology unless feature requirements say otherwise
+- For all copywriting, marketing text, UI copy, and Indonesian content editing, agents must apply the `tutur-humanizer` skill (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` to keep copy human, natural, and free from AI clichés
 
 ## Code quality policy
 

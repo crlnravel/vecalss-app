@@ -90,6 +90,11 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Do not deviate from its tokens, patterns, or guidelines without explicit user approval.
 - `DESIGN.md` is a protected file — propose changes rather than editing directly.
 
+### Copywriting and Indonesian content policy
+
+- **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
+- Student-facing and marketing copy in Vecalss must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
+
 ### Browser verification policy
 
 - **Always ask for explicit user permission before performing any verification using a browser (`ego-browser`).**
@@ -106,6 +111,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
+- Copywriting & Indonesian content → `.agents/skills/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`
 
 ### Loading Principles

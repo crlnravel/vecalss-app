@@ -84,6 +84,13 @@ Route to the minimum files needed for each task type. Read this file first to de
 2. Read `_harness/resource-guard.sh` for this repository's configured runtime
 3. Read `_harness/resource-policy.md` when setup has generated a local policy
 
+## Copywriting & Indonesian content
+
+1. Read `.agents/skills/tutur-humanizer/SKILL.md`
+2. Read `.agents/rules/copywriting.md`
+3. Read `.agents/skills/tutur-humanizer/references/register-map.md` for register decisions
+4. Audit text against `.agents/skills/tutur-humanizer/references/pattern-bank.md` to remove AI clichés and tells
+
 ## Task-to-directory quick reference
 
 | Task area | Primary directories |
@@ -105,3 +112,4 @@ Route to the minimum files needed for each task type. Read this file first to de
 | Seeds & fixtures | `prisma/seed.mjs`, `prisma/seed-assessment.mjs`, `prisma/materi-seed.mjs` |
 | Background workers | `workers/` |
 | Shared UI primitives | `components/ui/` |
+| Copywriting & text content | `content/`, `modules/home/`, `.agents/skills/tutur-humanizer/` |
