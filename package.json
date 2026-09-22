@@ -64,6 +64,7 @@
     "test:admin-import-processing-db": "tsx scripts/test-admin-import-processing-db.ts",
     "test:admin-import-ui": "tsx scripts/test-admin-import-ui.ts",
     "test:vera-schema-preflight": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-schema-preflight.ts",
+    "test:vera-auto-context-foundation": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-auto-context-foundation.ts",
     "test:vera-mvp-contracts": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-mvp-contracts.ts",
     "test:vera-encryption-context": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-encryption-context.ts",
     "test:vera-idempotency-conversation": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-idempotency-conversation.ts",

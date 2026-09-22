@@ -26,6 +26,7 @@ export type KuisResultProjection = {
   reviewAvailable: boolean;
   releaseState: "released" | "unreleased";
   scoringState: "scored" | "pending";
+  correctAnswerVisibility?: "show" | "hide";
   resultSummary: string;
   wrongCorrectPattern: string;
   questionTopicIdentity: string[];
@@ -38,6 +39,7 @@ export function resolveCompletedKuis(input: KuisResultProjection, studentId: str
   if (!input.reviewAvailable || input.releaseState !== "released" || input.scoringState !== "scored") {
     unavailable("review_release_or_scoring");
   }
+  if (input.correctAnswerVisibility === "hide") unavailable("correct_answer_hidden");
   return {
     sourceType: "practice",
     sourceId: input.sourceId,
@@ -65,6 +67,7 @@ export type TryoutResultProjection = {
   releasedBreakdown: string[];
   timingSummary: string;
   wrongAnswerReferences: string[];
+  releaseBindingValid?: boolean;
 } & Record<string, unknown>;
 
 export function resolveCompletedTryout(input: TryoutResultProjection, studentId: string): ResolvedContextBlock {
@@ -73,6 +76,7 @@ export function resolveCompletedTryout(input: TryoutResultProjection, studentId:
   if (!input.scoreVisible || input.releaseState !== "released" || input.scoringState !== "scored" || input.readiness !== "ready") {
     unavailable("score_release_or_readiness");
   }
+  if (input.releaseBindingValid === false) unavailable("release_binding");
   return {
     sourceType: "practice",
     sourceId: input.sourceId,

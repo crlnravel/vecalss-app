@@ -3,10 +3,13 @@ import "server-only";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import {
   VERA_CONTEXT_MODE_BUDGETS,
+  VERA_AUTOMATIC_CONTEXT_BUDGETS,
   VERA_CONTEXT_PACK_VERSION,
+  VERA_LEGACY_CONTEXT_PACK_VERSION,
   VERA_FIXED_FRAMING_TOKEN_BOUND,
   VERA_INPUT_CERTIFIER_ID,
   VERA_INPUT_SERIALIZER_ID,
+  VERA_LEGACY_INPUT_SERIALIZER_ID,
   VERA_MAX_HISTORY_BYTES,
   VERA_MAX_HISTORY_MESSAGE_BYTES,
   VERA_MAX_HISTORY_MESSAGES,
@@ -21,6 +24,7 @@ import {
   type VeraContextSelection,
   type VeraContextSourceType,
 } from "./contracts";
+import { parseContextToolResult, type ContextToolResult, type ContextToolSource } from "./context-tool-contracts";
 
 export type ResolvedContextBlock = {
   sourceType: Exclude<VeraContextSourceType, "document">;
@@ -67,6 +71,11 @@ export type PreparedContextPack = {
   toolSchemaHash: string;
   contextMode: VeraContextMode;
   inputCertification: VeraInputCertification;
+  toolCallDigest?: string;
+  toolResultDigest?: string;
+  registryVersion?: string;
+  resolverVersion?: string;
+  sourceManifestDigest?: string;
 };
 
 export type VeraPriorMessage = {
@@ -78,7 +87,7 @@ export type VeraPriorMessage = {
 
 export type VeraInputCertification = {
   certifierId: typeof VERA_INPUT_CERTIFIER_ID;
-  serializerId: typeof VERA_INPUT_SERIALIZER_ID;
+  serializerId: typeof VERA_INPUT_SERIALIZER_ID | typeof VERA_LEGACY_INPUT_SERIALIZER_ID;
   fixedFramingTokenBound: typeof VERA_FIXED_FRAMING_TOKEN_BOUND;
   measuredBytes: number;
   certifiedTokenUpperBound: number;
@@ -150,6 +159,7 @@ export function selectRecentCompletedHistory(messages: readonly VeraPriorMessage
 export function certifyFinalSerializedInput(
   bytes: Uint8Array,
   mode: VeraContextMode,
+  serializerId: VeraInputCertification["serializerId"] = VERA_INPUT_SERIALIZER_ID,
 ): VeraInputCertification {
   const budget = VERA_CONTEXT_MODE_BUDGETS[mode];
   if (!(bytes instanceof Uint8Array) || !Number.isInteger(bytes.byteLength) || bytes.byteLength < 0) {
@@ -166,7 +176,7 @@ export function certifyFinalSerializedInput(
   }
   return {
     certifierId: VERA_INPUT_CERTIFIER_ID,
-    serializerId: VERA_INPUT_SERIALIZER_ID,
+    serializerId,
     fixedFramingTokenBound: VERA_FIXED_FRAMING_TOKEN_BOUND,
     measuredBytes: bytes.byteLength,
     certifiedTokenUpperBound,
@@ -272,7 +282,7 @@ export async function prepareContextPack(
     digest: sha256Hex(`${message.role}:${normalizeText(message.text)}`),
   }));
   const buildTask = (boundedHistory: typeof history) => ({
-    contextPackVersion: VERA_CONTEXT_PACK_VERSION,
+    contextPackVersion: VERA_LEGACY_CONTEXT_PACK_VERSION,
     policyVersion: input.policyVersion,
     userText: normalizeText(input.userText),
     // Provider input carries the bounded role/text pairs only. The digest
@@ -296,12 +306,12 @@ export async function prepareContextPack(
     );
   }
   const canonicalTaskBytes = initialBytes;
-  const inputCertification = certifyFinalSerializedInput(canonicalTaskBytes, mode);
+  const inputCertification = certifyFinalSerializedInput(canonicalTaskBytes, mode, VERA_LEGACY_INPUT_SERIALIZER_ID);
   const packDigest = sha256Hex(canonicalTaskBytes);
   const contextTaskDigest = sha256Hex(`${packDigest}:${input.promptTemplateHash}:${input.toolSchemaHash}:${inputCertification.certifierId}:${inputCertification.serializerId}`);
 
   return {
-    contextPackVersion: VERA_CONTEXT_PACK_VERSION,
+    contextPackVersion: VERA_LEGACY_CONTEXT_PACK_VERSION,
     selectionDigest: selectionDigest(selection),
     blocks,
     messageManifest: boundedHistory.map(({ ordinal, digest }) => ({ ordinal, digest })),
@@ -319,6 +329,264 @@ export async function prepareContextPack(
     inputCertification,
   };
 }
+
+export type AutomaticContextPackSource = ContextToolSource & {
+  sourceId?: string;
+  sourceVersionId?: string;
+};
+
+export type AutomaticContextPackInput = {
+  feature: "chat" | "review" | "analysis" | "route";
+  userText: string;
+  priorMessages?: VeraPriorMessage[];
+  mode?: VeraContextMode;
+  policyVersion: string;
+  promptTemplateHash: string;
+  toolSchemaHash: string;
+  systemPolicyHash: string;
+  toolCallDigest: string;
+  toolResult: ContextToolResult;
+  registryVersion: string;
+  resolverVersion: string;
+  sources?: readonly AutomaticContextPackSource[];
+  taskAuthority?: Record<string, unknown>;
+  maxSourceBytes?: number;
+  maxTaskBytes?: number;
+};
+
+export type AutomaticContextSourceAllocation = {
+  citationKey: string;
+  evidenceSegments: string[];
+  truncated: boolean;
+};
+
+function isSha256Digest(value: string): boolean {
+  return /^[a-f0-9]{64}$/u.test(value);
+}
+
+/**
+ * Allocate whole, already-delimited evidence segments in ranked order. A
+ * round-robin pass keeps one verbose source from consuming the entire budget;
+ * ties are resolved by the input order frozen by the registry.
+ */
+export function allocateAutomaticContextSourceBytes(
+  sources: readonly AutomaticContextPackSource[],
+  buildTask: (allocation: readonly AutomaticContextSourceAllocation[]) => Uint8Array,
+  maxTaskBytes: number,
+  maxSourceBytes = 6_000,
+): { allocation: AutomaticContextSourceAllocation[]; truncatedOrdinals: number[]; bytes: Uint8Array } {
+  const allocation: AutomaticContextSourceAllocation[] = sources.map((source) => ({
+    citationKey: source.citationKey,
+    evidenceSegments: [],
+    truncated: false,
+  }));
+  const cursors = sources.map(() => 0);
+  const sourceBytes = sources.map(() => 0);
+  const boundedSegments = sources.map((source) => source.evidenceSegments.map((segment) => {
+    const redacted = redact(segment);
+    const bounded = boundedUtf8(redacted.text, maxSourceBytes);
+    return { text: bounded, truncated: bounded !== redacted.text };
+  }));
+  let bytes = buildTask(allocation);
+  const truncatedOrdinals = new Set<number>();
+  let madeProgress = true;
+  while (madeProgress) {
+    madeProgress = false;
+    for (let index = 0; index < sources.length; index += 1) {
+      const nextEntry = boundedSegments[index]?.[cursors[index] ?? 0];
+      if (nextEntry === undefined) continue;
+      cursors[index] = (cursors[index] ?? 0) + 1;
+      const candidate = allocation[index];
+      if (!candidate || !nextEntry.text) continue;
+      if (nextEntry.truncated) {
+        candidate.truncated = true;
+        truncatedOrdinals.add(index + 1);
+      }
+      const next = nextEntry.text;
+      const nextByteCount = Buffer.byteLength(next, "utf8");
+      const separatorBytes = candidate.evidenceSegments.length > 0 ? 2 : 0;
+      if ((sourceBytes[index] ?? 0) + separatorBytes + nextByteCount > maxSourceBytes) {
+        candidate.truncated = true;
+        truncatedOrdinals.add(index + 1);
+        continue;
+      }
+      const nextAllocation = allocation.map((entry, candidateIndex) => candidateIndex === index
+        ? { ...entry, evidenceSegments: [...entry.evidenceSegments, next] }
+        : { ...entry, evidenceSegments: [...entry.evidenceSegments] });
+      const nextBytes = buildTask(nextAllocation);
+      if (nextBytes.byteLength <= maxTaskBytes) {
+        candidate.evidenceSegments.push(next);
+        sourceBytes[index] = (sourceBytes[index] ?? 0) + separatorBytes + nextByteCount;
+        bytes = nextBytes;
+        madeProgress = true;
+      } else {
+        candidate.truncated = true;
+        truncatedOrdinals.add(index + 1);
+      }
+    }
+  }
+  return { allocation, truncatedOrdinals: [...truncatedOrdinals].sort((left, right) => left - right), bytes };
+}
+
+/**
+ * v2 automatic-context packer. The exact final serialized bytes are built
+ * before dispatch; no provider tokenizer estimate is used for admission.
+ */
+export function prepareAutomaticContextPack(input: AutomaticContextPackInput): PreparedContextPack {
+  const mode = input.mode ?? "chat_review";
+  const budget = VERA_AUTOMATIC_CONTEXT_BUDGETS[mode];
+  const parsedResult = parseContextToolResult(input.toolResult);
+  if (!isSha256Digest(input.toolCallDigest) || parsedResult.resultDigest !== input.toolResult.resultDigest) {
+    throw new VeraContractError("context_tool_invalid", "Digest tool otomatis tidak valid.", 422);
+  }
+  if (input.registryVersion !== parsedResult.registryVersion || !input.resolverVersion.trim()) {
+    throw new VeraContractError("context_tool_invalid", "Versi registry/resolver tidak cocok.", 422);
+  }
+  const maxSourceBytes = input.maxSourceBytes === undefined ? budget.maxSourceBytes : Math.min(input.maxSourceBytes, budget.maxSourceBytes);
+  const maxTaskBytes = input.maxTaskBytes === undefined ? budget.exactFinalSerializedInputByteCap : Math.min(input.maxTaskBytes, budget.exactFinalSerializedInputByteCap);
+  if (!Number.isSafeInteger(maxSourceBytes) || maxSourceBytes < 1 || !Number.isSafeInteger(maxTaskBytes) || maxTaskBytes < 1) {
+    throw new VeraContractError("context_limit_exceeded", "Batas byte context pack otomatis tidak valid.", 422);
+  }
+  const sources: AutomaticContextPackSource[] = [...(input.sources ?? parsedResult.sources)];
+  const sourceManifestMatches = sources.length === parsedResult.sources.length && sources.every((source, index) => {
+    const parsedSource = parsedResult.sources[index];
+    if (!parsedSource) return false;
+    return source.citationKey === parsedSource.citationKey
+      && source.kind === parsedSource.kind
+      && source.title === parsedSource.title
+      && source.releaseMetadata.releasedAt === parsedSource.releaseMetadata.releasedAt
+      && source.releaseMetadata.versionDigest === parsedSource.releaseMetadata.versionDigest
+      && canonicalJson(source.evidenceSegments) === canonicalJson(parsedSource.evidenceSegments)
+      && canonicalJson(source.limitations) === canonicalJson(parsedSource.limitations);
+  });
+  if (!sourceManifestMatches) {
+    throw new VeraContractError("context_tool_invalid", "Manifest sumber tidak cocok dengan hasil tool.", 422);
+  }
+  const priorMessages = selectRecentCompletedHistory(input.priorMessages ?? []);
+  const history = priorMessages.map((message, index) => ({
+    ordinal: index + 1,
+    role: message.role,
+    text: message.text,
+    digest: sha256Hex(`${message.role}:${normalizeText(message.text)}`),
+  }));
+  const normalizedSources = sources.map((source) => ({
+    ...source,
+    title: normalizeText(source.title),
+    evidenceSegments: source.evidenceSegments.map((segment) => normalizeText(segment)),
+    limitations: source.limitations.map((limitation) => normalizeText(limitation)),
+  }));
+  const sourceManifest = normalizedSources.map((source) => ({
+    citationKey: source.citationKey,
+    kind: source.kind,
+    title: source.title,
+    releaseMetadata: source.releaseMetadata,
+    limitations: source.limitations,
+  }));
+  const buildTask = (boundedHistory: typeof history, allocation: readonly AutomaticContextSourceAllocation[]) => ({
+    contextPackVersion: VERA_CONTEXT_PACK_VERSION,
+    feature: input.feature,
+    policyVersion: normalizeText(input.policyVersion),
+    userText: normalizeText(input.userText),
+    history: boundedHistory.map(({ ordinal, role, text }) => ({ ordinal, role, text })),
+    toolCallDigest: input.toolCallDigest,
+    toolResultDigest: parsedResult.resultDigest,
+    registryVersion: input.registryVersion,
+    resolverVersion: input.resolverVersion,
+    toolResult: {
+      schema: parsedResult.schema,
+      registryVersion: parsedResult.registryVersion,
+      sources: sourceManifest.map((manifest, index) => ({
+        ...manifest,
+        evidenceSegments: allocation[index]?.evidenceSegments ?? [],
+      })),
+      limitations: parsedResult.limitations,
+      truncationCount: parsedResult.truncationCount,
+    },
+    promptTemplateHash: input.promptTemplateHash,
+    systemPolicyHash: input.systemPolicyHash,
+    toolSchemaHash: input.toolSchemaHash,
+    ...(input.taskAuthority ? { authority: input.taskAuthority } : {}),
+  });
+  const emptyAllocation = normalizedSources.map((source) => ({ citationKey: source.citationKey, evidenceSegments: [], truncated: false }));
+  let boundedHistory = history;
+  let baseBytes = Buffer.from(canonicalJson(buildTask(boundedHistory, emptyAllocation)), "utf8");
+  while (baseBytes.byteLength > maxTaskBytes && boundedHistory.length >= 2) {
+    boundedHistory = boundedHistory.slice(2);
+    baseBytes = Buffer.from(canonicalJson(buildTask(boundedHistory, emptyAllocation)), "utf8");
+  }
+  if (baseBytes.byteLength > maxTaskBytes) {
+    throw new VeraContractError("context_limit_exceeded", "Intent dan kebijakan melebihi batas input otomatis.", 422, { maxTaskBytes, mode });
+  }
+  const allocationResult = allocateAutomaticContextSourceBytes(
+    normalizedSources,
+    (allocation) => Buffer.from(canonicalJson(buildTask(boundedHistory, allocation)), "utf8"),
+    maxTaskBytes,
+    maxSourceBytes,
+  );
+  const canonicalTaskBytes = allocationResult.bytes;
+  const inputCertification = certifyFinalSerializedInput(canonicalTaskBytes, mode);
+  const sourceManifestDigest = sha256Hex(canonicalJson(sourceManifest));
+  const packDigest = sha256Hex(canonicalJson({
+    canonicalTask: Buffer.from(canonicalTaskBytes).toString("base64url"),
+    inputCertification,
+    sourceManifestDigest,
+    toolCallDigest: input.toolCallDigest,
+    toolResultDigest: parsedResult.resultDigest,
+  }));
+  const blocks: PreparedContextBlock[] = normalizedSources.map((source, index) => {
+    const sourceAllocation = allocationResult.allocation[index] ?? { citationKey: source.citationKey, evidenceSegments: [], truncated: true };
+    const sourceType: Exclude<VeraContextSourceType, "document"> = source.kind === "materi" ? "material" : "practice";
+    const content = sourceAllocation.evidenceSegments.join("\n\n");
+    return {
+      ordinal: index + 1,
+      sourceType,
+      sourceId: source.sourceId ?? source.citationKey,
+      citationKey: source.citationKey,
+      titleSnapshot: source.title,
+      citationLabel: source.title,
+      contentDigest: source.releaseMetadata.versionDigest,
+      content,
+      redacted: content !== source.evidenceSegments.join("\n\n"),
+      truncated: sourceAllocation.truncated || allocationResult.truncatedOrdinals.includes(index + 1),
+    };
+  });
+  const contextTaskDigest = sha256Hex(canonicalJson({
+    packDigest,
+    promptTemplateHash: input.promptTemplateHash,
+    toolSchemaHash: input.toolSchemaHash,
+    systemPolicyHash: input.systemPolicyHash,
+    toolCallDigest: input.toolCallDigest,
+    toolResultDigest: parsedResult.resultDigest,
+    registryVersion: input.registryVersion,
+    resolverVersion: input.resolverVersion,
+    certifier: inputCertification,
+  }));
+  return {
+    contextPackVersion: VERA_CONTEXT_PACK_VERSION,
+    selectionDigest: sourceManifestDigest,
+    blocks,
+    messageManifest: boundedHistory.map(({ ordinal, digest }) => ({ ordinal, digest })),
+    history: boundedHistory,
+    canonicalTaskBytes,
+    packDigest,
+    contextTaskDigest,
+    byteCount: canonicalTaskBytes.byteLength,
+    truncation: { maxBlockBytes: maxSourceBytes, truncatedOrdinals: allocationResult.truncatedOrdinals },
+    redactionPolicyVersion: "vera-redaction-v1",
+    systemPolicyHash: input.systemPolicyHash,
+    promptTemplateHash: input.promptTemplateHash,
+    toolSchemaHash: input.toolSchemaHash,
+    contextMode: mode,
+    inputCertification,
+    toolCallDigest: input.toolCallDigest,
+    toolResultDigest: parsedResult.resultDigest,
+    registryVersion: input.registryVersion,
+    resolverVersion: input.resolverVersion,
+    sourceManifestDigest,
+  };
+}
+
+export const prepareV2ContextPack = prepareAutomaticContextPack;
 
 export function encryptPreparedContextPack(
   pack: PreparedContextPack,
@@ -373,7 +641,7 @@ export function assertPackInvariant(
   if (pack.canonicalTaskBytes.byteLength !== pack.byteCount) throw new Error("Context pack byte count mismatch.");
   if (pack.inputCertification.measuredBytes !== pack.byteCount
     || pack.inputCertification.certifierId !== VERA_INPUT_CERTIFIER_ID
-    || pack.inputCertification.serializerId !== VERA_INPUT_SERIALIZER_ID
+    || ![VERA_INPUT_SERIALIZER_ID, VERA_LEGACY_INPUT_SERIALIZER_ID].includes(pack.inputCertification.serializerId)
     || pack.inputCertification.certifiedTokenUpperBound
       !== pack.byteCount + VERA_FIXED_FRAMING_TOKEN_BOUND) {
     throw new Error("Context pack input certification mismatch.");

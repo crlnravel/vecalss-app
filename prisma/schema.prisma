@@ -613,6 +613,16 @@ enum AiContextProvenanceState {
   @@map("ai_context_provenance_state")
 }
 
+enum AiContextToolInvocationState {
+  planned
+  executing
+  completed
+  failed
+  unavailable
+
+  @@map("ai_context_tool_invocation_state")
+}
+
 enum AiPurgeState {
   available
   purging
@@ -673,6 +683,13 @@ enum AiAttemptResultKind {
   discarded
 
   @@map("ai_attempt_result_kind")
+}
+
+enum AiRequestAttemptStagePurpose {
+  context_selection
+  answer
+
+  @@map("ai_request_attempt_stage_purpose")
 }
 
 enum AiResultStageState {
@@ -3443,6 +3460,7 @@ model AiRequest {
   billingCorrections AiBillingCorrectionEvent[]
   resultStage      AiRequestResultStage?
   contextPack      AiContextPack?
+  contextToolInvocation AiContextToolInvocation?
   sources          AiRequestSource[]     @relation("AiRequestSources")
   artifacts        AiArtifact[]
 
@@ -4280,6 +4298,11 @@ model AiContextPack {
   systemPolicyHash                      String                   @map("system_policy_hash") @db.VarChar(128)
   promptTemplateHash                    String                   @map("prompt_template_hash") @db.VarChar(128)
   toolSchemaHash                        String                   @map("tool_schema_hash") @db.VarChar(128)
+  toolCallDigest                        String?                  @map("tool_call_digest") @db.VarChar(128)
+  toolResultDigest                      String?                  @map("tool_result_digest") @db.VarChar(128)
+  registryVersion                       String?                  @map("registry_version") @db.VarChar(120)
+  resolverVersion                       String?                  @map("resolver_version") @db.VarChar(120)
+  sourceManifestDigest                  String?                  @map("source_manifest_digest") @db.VarChar(128)
   providerTaskDigest                    String?                  @map("provider_task_digest") @db.VarChar(128)
   provenanceState                       AiContextProvenanceState @default(reconstructable) @map("provenance_state")
   purgeState                            AiPurgeState             @default(available) @map("purge_state")
@@ -4296,6 +4319,51 @@ model AiContextPack {
   sources AiRequestSource[]
 
   @@map("ai_context_packs")
+}
+
+/// One server-executed automatic-context call. Arguments and the returned
+/// manifest are envelope ciphertexts; digests and bounded aggregates remain
+/// available for replay/audit without exposing learner content.
+model AiContextToolInvocation {
+  id                              String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId                       String                        @unique @map("request_id") @db.Uuid
+  toolName                        String                        @map("tool_name") @db.VarChar(120)
+  toolSchemaVersion               String                        @map("tool_schema_version") @db.VarChar(80)
+  registryVersion                 String                        @map("registry_version") @db.VarChar(120)
+  resolverVersion                 String                        @map("resolver_version") @db.VarChar(120)
+  canonicalArgumentsCiphertext    Json?                         @map("canonical_arguments_ciphertext") @db.JsonB
+  argumentsDigest                 String?                       @map("arguments_digest") @db.VarChar(128)
+  resultManifestCiphertext        Json?                         @map("result_manifest_ciphertext") @db.JsonB
+  resultManifestDigest             String?                       @map("result_manifest_digest") @db.VarChar(128)
+  resultDigest                    String?                       @map("result_digest") @db.VarChar(128)
+  state                           AiContextToolInvocationState  @default(planned)
+  selectedSourceCount             Int                           @default(0) @map("selected_source_count")
+  resultByteCount                 Int                           @default(0) @map("result_byte_count")
+  truncationCount                 Int                           @default(0) @map("truncation_count")
+  selectorLatencyMs               Int?                          @map("selector_latency_ms")
+  registryLatencyMs               Int?                          @map("registry_latency_ms")
+  errorCode                       String?                       @map("error_code") @db.VarChar(100)
+  plannedAt                       DateTime                      @default(now()) @map("planned_at") @db.Timestamptz
+  executingAt                     DateTime?                     @map("executing_at") @db.Timestamptz
+  completedAt                     DateTime?                     @map("completed_at") @db.Timestamptz
+  failedAt                        DateTime?                     @map("failed_at") @db.Timestamptz
+  retentionClass                  String                        @map("retention_class") @db.VarChar(80)
+  retentionPolicyVersion          String                        @map("retention_policy_version") @db.VarChar(80)
+  purgeState                      AiPurgeState                  @default(available) @map("purge_state")
+  purgeAt                         DateTime                      @map("purge_at") @db.Timestamptz
+  purgeStartedAt                  DateTime?                     @map("purge_started_at") @db.Timestamptz
+  purgedAt                        DateTime?                     @map("purged_at") @db.Timestamptz
+  purgeReason                     String?                       @map("purge_reason") @db.VarChar(160)
+  contentKeyLineageDigest         String?                       @map("content_key_lineage_digest") @db.VarChar(128)
+  createdAt                       DateTime                      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                       DateTime                      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([state, createdAt])
+  @@index([purgeState, purgeAt])
+  @@index([registryVersion, createdAt])
+  @@map("ai_context_tool_invocations")
 }
 
 model AiRequestSource {
@@ -4341,6 +4409,7 @@ model AiRequestAttempt {
   upstreamProvider             String              @map("upstream_provider") @db.VarChar(80)
   upstreamProviderSlug         String?             @map("upstream_provider_slug") @db.VarChar(160)
   model                        String              @db.VarChar(120)
+  stagePurpose                 AiRequestAttemptStagePurpose @default(answer) @map("stage_purpose")
   providerIdempotencyKey       String?             @map("provider_idempotency_key") @db.VarChar(160)
   providerRequestKey            String?             @map("provider_request_key") @db.VarChar(160)
   generationId                  String?             @unique @map("generation_id") @db.VarChar(160)

@@ -12,7 +12,8 @@ export const VERA_POLICY_BUNDLE_VERSION = "vera-policy-bundle-v1-2026-08-24";
 export const VERA_QUOTA_POLICY_VERSION = "vera-quota-v1-2026-08-24";
 export const VERA_POLICY_EFFECTIVE_AT = "2026-09-01T00:00:00+07:00";
 export const VERA_FINGERPRINT_KEY_VERSION = "vera-hmac-v1";
-export const VERA_CONTEXT_PACK_VERSION = "1";
+export const VERA_LEGACY_CONTEXT_PACK_VERSION = "1";
+export const VERA_CONTEXT_PACK_VERSION = "2";
 export const VERA_MAX_CONTEXT_SOURCES = 4;
 export const VERA_MAX_CONTEXT_BLOCK_BYTES = 6_000;
 export const VERA_MAX_HISTORY_PAIRS = 3;
@@ -23,7 +24,8 @@ export const VERA_MAX_CONVERSATION_PAGE_SIZE = 50;
 export const VERA_MAX_PROVIDER_ATTEMPTS = 2;
 
 export const VERA_INPUT_CERTIFIER_ID = "openrouter-utf8-byte-upper-bound-v1";
-export const VERA_INPUT_SERIALIZER_ID = "vera-openrouter-chat-input-v1";
+export const VERA_LEGACY_INPUT_SERIALIZER_ID = "vera-openrouter-chat-input-v1";
+export const VERA_INPUT_SERIALIZER_ID = "vera-openrouter-chat-input-v2";
 export const VERA_FIXED_FRAMING_TOKEN_BOUND = 512;
 
 export const VERA_CONTEXT_MODE_BUDGETS = {
@@ -42,6 +44,48 @@ export const VERA_CONTEXT_MODE_BUDGETS = {
     outputTokenCap: 1_200,
   },
 } as const;
+
+/**
+ * Immutable automatic-context budgets. The legacy map above intentionally
+ * keeps its v1 shape for existing callers; automatic orchestration imports
+ * this map so selector and registry ceilings cannot drift independently.
+ */
+export const VERA_AUTOMATIC_CONTEXT_BUDGETS = Object.freeze({
+  chat_review: Object.freeze({
+    credits: 1,
+    maxProviderDispatches: 2,
+    selectorInputTokenCap: 3_000,
+    selectorOutputTokenCap: 256,
+    finalInputTokenCap: 6_000,
+    finalOutputTokenCap: 800,
+    maxSources: 4,
+    maxSourceBytes: 6_000,
+    exactFinalSerializedInputByteCap: 5_488,
+    completedHistoryPairs: 3,
+    selectorTimeoutMs: 15_000,
+    registryTimeoutMs: 1_500,
+    finalProviderTimeoutMs: 90_000,
+    logicalDeadlineMs: 110_000,
+  }),
+  analysis_route: Object.freeze({
+    credits: 2,
+    maxProviderDispatches: 2,
+    selectorInputTokenCap: 3_000,
+    selectorOutputTokenCap: 256,
+    finalInputTokenCap: 10_000,
+    finalOutputTokenCap: 1_200,
+    maxSources: 4,
+    maxSourceBytes: 6_000,
+    exactFinalSerializedInputByteCap: 9_488,
+    completedHistoryPairs: 3,
+    selectorTimeoutMs: 15_000,
+    registryTimeoutMs: 1_500,
+    finalProviderTimeoutMs: 90_000,
+    logicalDeadlineMs: 110_000,
+  }),
+} as const);
+export const VERA_AUTOMATIC_CONTEXT_BUDGET_MAP = VERA_AUTOMATIC_CONTEXT_BUDGETS;
+export type VeraAutomaticContextBudget = (typeof VERA_AUTOMATIC_CONTEXT_BUDGETS)[keyof typeof VERA_AUTOMATIC_CONTEXT_BUDGETS];
 
 export type VeraContextMode = keyof typeof VERA_CONTEXT_MODE_BUDGETS;
 
@@ -135,6 +179,11 @@ export type VeraErrorCode =
   | "unsupported_target"
   | "target_unavailable"
   | "artifact_unavailable"
+  | "context_tool_invalid"
+  | "context_selection_failed"
+  | "context_registry_unavailable"
+  | "context_no_match"
+  | "context_final_tool_violation"
   | "vera_not_active";
 
 export class VeraContractError extends Error {
@@ -214,7 +263,15 @@ export function canonicalOperationPayload(
       selected.kind = payload.kind ?? null;
       selected.toolId = payload.toolId ?? null;
       selected.text = payload.text ?? null;
-      selected.sourceIds = normalizeSourceIds(payload.sourceIds);
+      selected.contextMode = payload.contextMode ?? null;
+      selected.behaviorVersion = payload.behaviorVersion ?? null;
+      selected.policyVersion = payload.policyVersion ?? null;
+      // Automatic context is server-selected. Browser source IDs are retained
+      // only for the legacy/manual contract and are never part of an
+      // automatic request fingerprint.
+      if (typeof payload.contextMode !== "string" || !payload.contextMode.startsWith("automatic")) {
+        selected.sourceIds = normalizeSourceIds(payload.sourceIds);
+      }
       selected.options = payload.options ?? {};
       selected.retryOfRequestId = payload.retryOfRequestId ?? null;
       break;

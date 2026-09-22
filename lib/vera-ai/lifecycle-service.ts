@@ -583,6 +583,9 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
   const packs = requestIds.length > 0
     ? await tx.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedTaskCiphertext: true, canonicalBytesCiphertext: true, conversationMessageManifestCiphertext: true, contentKeyLineageDigest: true } })
     : [];
+  const toolInvocations = requestIds.length > 0
+    ? await tx.aiContextToolInvocation.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, canonicalArgumentsCiphertext: true, resultManifestCiphertext: true, contentKeyLineageDigest: true } })
+    : [];
   const sources = requestIds.length > 0
     ? await tx.aiRequestSource.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, boundedSnapshotCiphertext: true, contentKeyLineageDigest: true } })
     : [];
@@ -613,6 +616,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...messages.flatMap(({ contentEnvelope, metadataEnvelope }) => [contentEnvelope, metadataEnvelope]),
     ...stages.map(({ normalizedResultCiphertext }) => normalizedResultCiphertext),
     ...packs.flatMap(({ normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => [normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]),
+    ...toolInvocations.flatMap(({ canonicalArgumentsCiphertext, resultManifestCiphertext }) => [canonicalArgumentsCiphertext, resultManifestCiphertext]),
     ...sources.map(({ boundedSnapshotCiphertext }) => boundedSnapshotCiphertext),
     // A ready export is the account-cleanup handoff's one-time grant target.
     // Its parts and object-scoped keys remain retention-managed until the
@@ -627,6 +631,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...stages.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
     ...adaptiveItems.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
     ...packs.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
+    ...toolInvocations.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
     ...sources.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
   ].filter((value): value is string => Boolean(value));
   const ownershipMarkers = [
@@ -640,6 +645,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...recommendations.map(({ id }) => id),
     ...messages.map(({ id }) => id),
     ...packs.map(({ id }) => id),
+    ...toolInvocations.map(({ id }) => id),
     ...sources.map(({ id }) => id),
   ];
   const activeKeyRows = await tx.aiEnvelopeKey.findMany({ where: { state: "active" }, select: { keyRef: true, objectId: true } });
@@ -658,6 +664,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...requestIds.map((objectId) => ({ objectType: "ai_request", objectId })),
     ...stages.map(({ id, normalizedResultCiphertext }) => ({ objectType: "ai_request_result_stage", objectId: id, keyRefs: envelopeKeyRefs([normalizedResultCiphertext]) })),
     ...packs.map(({ id, normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => ({ objectType: "ai_context_pack", objectId: id, keyRefs: envelopeKeyRefs([normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]) })),
+    ...toolInvocations.map(({ id, canonicalArgumentsCiphertext, resultManifestCiphertext }) => ({ objectType: "ai_context_tool_invocation", objectId: id, keyRefs: envelopeKeyRefs([canonicalArgumentsCiphertext, resultManifestCiphertext]) })),
     ...sources.map(({ id, boundedSnapshotCiphertext }) => ({ objectType: "ai_request_source", objectId: id, keyRefs: envelopeKeyRefs([boundedSnapshotCiphertext]) })),
     ...analyses.map(({ id, resultEnvelope }) => ({ objectType: "weakness_analysis", objectId: id, keyRefs: envelopeKeyRefs([resultEnvelope]) })),
     ...adaptiveSessions.map(({ id, resultEnvelope, appliedPlanEnvelope }) => ({ objectType: "adaptive_practice_session", objectId: id, keyRefs: envelopeKeyRefs([resultEnvelope, appliedPlanEnvelope]) })),
@@ -674,6 +681,7 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
   if (requestIds.length > 0) {
     await tx.aiRequestResultStage.updateMany({ where: { requestId: { in: requestIds }, purgeState: "available" }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
     await tx.aiContextPack.updateMany({ where: { requestId: { in: requestIds }, purgeState: "available" }, data: { provenanceState: "unavailable", purgeState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
+    await tx.aiContextToolInvocation.updateMany({ where: { requestId: { in: requestIds }, purgeState: "available" }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup", state: "unavailable" } });
     await tx.aiRequestSource.updateMany({ where: { requestId: { in: requestIds }, snapshotState: "available" }, data: { snapshotState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
     await tx.aiRequestAttempt.updateMany({ where: { requestId: { in: requestIds } }, data: { errorCode: "account_deleted" } });
   }
@@ -2259,10 +2267,14 @@ export class VeraLifecycleService {
           ? tx.adaptivePracticeItem.findMany({ where: { adaptiveSessionId: { in: adaptiveSessions.map(({ id }) => id) } }, select: { id: true, promptSnapshotCiphertext: true, optionSnapshotCiphertext: true, scoringSnapshotCiphertext: true } })
           : [],
       ]);
+      const toolInvocations = requestIds.length > 0
+        ? await tx.aiContextToolInvocation.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, canonicalArgumentsCiphertext: true, resultManifestCiphertext: true } })
+        : [];
       if (requestIds.length > 0) {
         await Promise.all([
           tx.aiRequestResultStage.updateMany({ where: { requestId: { in: requestIds } }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } }),
           tx.aiContextPack.updateMany({ where: { requestId: { in: requestIds } }, data: { provenanceState: "unavailable", purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete" } }),
+          tx.aiContextToolInvocation.updateMany({ where: { requestId: { in: requestIds } }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "conversation_delete", state: "unavailable" } }),
         ]);
       }
       const artifactIds = artifacts.map(({ id }) => id);
@@ -2286,6 +2298,7 @@ export class VeraLifecycleService {
         ...artifacts.flatMap(({ titleCiphertext, contentMarkdownCiphertext, payloadCiphertext }) => [titleCiphertext, contentMarkdownCiphertext, payloadCiphertext]),
         ...stages.map(({ normalizedResultCiphertext }) => normalizedResultCiphertext),
         ...packs.flatMap(({ normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => [normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]),
+        ...toolInvocations.flatMap(({ canonicalArgumentsCiphertext, resultManifestCiphertext }) => [canonicalArgumentsCiphertext, resultManifestCiphertext]),
         ...sources.map(({ boundedSnapshotCiphertext }) => boundedSnapshotCiphertext),
         ...analyses.map(({ resultEnvelope }) => resultEnvelope),
         ...adaptiveSessions.flatMap(({ resultEnvelope, appliedPlanEnvelope }) => [resultEnvelope, appliedPlanEnvelope]),
@@ -2299,6 +2312,7 @@ export class VeraLifecycleService {
         ...requestIds.map((objectId) => ({ objectType: "ai_request", objectId })),
         ...stages.map(({ id, normalizedResultCiphertext }) => ({ objectType: "ai_request_result_stage", objectId: id, keyRefs: envelopeKeyRefs([normalizedResultCiphertext]) })),
         ...packs.map(({ id, normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => ({ objectType: "ai_context_pack", objectId: id, keyRefs: envelopeKeyRefs([normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]) })),
+        ...toolInvocations.map(({ id, canonicalArgumentsCiphertext, resultManifestCiphertext }) => ({ objectType: "ai_context_tool_invocation", objectId: id, keyRefs: envelopeKeyRefs([canonicalArgumentsCiphertext, resultManifestCiphertext]) })),
         ...sources.map(({ id, boundedSnapshotCiphertext }) => ({ objectType: "ai_request_source", objectId: id, keyRefs: envelopeKeyRefs([boundedSnapshotCiphertext]) })),
         ...analyses.map(({ id, resultEnvelope }) => ({ objectType: "weakness_analysis", objectId: id, keyRefs: envelopeKeyRefs([resultEnvelope]) })),
         ...adaptiveSessions.map(({ id, resultEnvelope, appliedPlanEnvelope }) => ({ objectType: "adaptive_practice_session", objectId: id, keyRefs: envelopeKeyRefs([resultEnvelope, appliedPlanEnvelope]) })),
@@ -2401,6 +2415,7 @@ export class VeraLifecycleService {
       await tx.ptnStrategySession.deleteMany({ where: { conversationId: marker.conversationId } });
       if (marker.requestIds.length > 0) {
         await tx.aiRequestSource.deleteMany({ where: { requestId: { in: marker.requestIds } } });
+        await tx.aiContextToolInvocation.deleteMany({ where: { requestId: { in: marker.requestIds } } });
         await tx.aiRequestAttempt.deleteMany({ where: { requestId: { in: marker.requestIds } } });
         await tx.aiRequestResultStage.deleteMany({ where: { requestId: { in: marker.requestIds } } });
         await tx.aiContextPack.deleteMany({ where: { requestId: { in: marker.requestIds } } });
