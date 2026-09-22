@@ -6,7 +6,8 @@
 
 This page is the concise product and operations contract for the first paid
 Vera release. The MVP uses published Vecalss materials and practice evidence;
-it is not an upload-first or open-ended research assistant.
+it is not an upload-first or open-ended research assistant. Automatic context
+is implemented behind a rollout gate and remains off in development.
 
 ## Launch scope
 
@@ -27,8 +28,12 @@ questions are outside this release.
 - Context may contain only server-resolved, released/owned `material` and
   `practice` sources. `document` sources and user-upload workflows are disabled
   for the MVP.
-- A request selects at most four sources. Each source block is bounded to
-  6,000 UTF-8 bytes and is redacted/truncated before serialization.
+- In the legacy cohort, a request may select at most four sources. In the
+  automatic cohort, the browser sends no source IDs: the server executes the
+  single `retrieve_released_learning_context` tool over released authority
+  projections and freezes the result into request evidence. Each source block
+  is bounded to 6,000 UTF-8 bytes and is redacted/truncated before
+  serialization.
 - The final serialized input is capped at 5,488 bytes for chat/review and
   9,488 bytes for analysis/route. The certified input-token caps are 6,000 and
   10,000 respectively, including a fixed 512-token framing bound.
@@ -37,6 +42,9 @@ questions are outside this release.
 - Outputs are validated against feature schemas and citation/identity
   authority before they are exposed to the learner. Route output carries no
   mutable save target.
+
+See [Automatic context](./automatic-context.md) for the two-stage provider
+contract, rollout gates, invocation retention, and verification matrix.
 
 ## Budget contract
 
@@ -106,11 +114,11 @@ evidence all validate together.
   it stays on the local mock/outage path. Paid routing remains an explicit
   non-development release operation.
 
-The follow-up plan for replacing the manual `Konteks` catalog with one
-application-executed context-retrieval tool is tracked in the Traycer artifact
-[`epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/specs/vera-automatic-context-tools/index.md`](epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/specs/vera-automatic-context-tools/index.md).
-It is a separate ticketed rollout; this MVP keeps the existing manual context
-contract and its four-source cap.
+The automatic-context technical plan and ticket history are retained in the
+Traycer artifact at
+`epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/specs/vera-automatic-context-tools/index.md`.
+The implementation is shipped behind the rollout gate: development remains
+free/mock-only, while the legacy manual path remains the rollback path.
 
 ## Rollout checklist
 
@@ -138,6 +146,10 @@ Focused checks:
 pnpm test:vera-mvp-contracts
 pnpm test:vera-billing-v2
 pnpm test:vera-paid-provider
+pnpm test:vera-auto-context-foundation
+pnpm test:vera-auto-context-orchestrator
+pnpm test:vera-auto-context-ui
+pnpm test:vera-auto-context-observability
 pnpm vera:reconciliation-worker:check
 ```
 

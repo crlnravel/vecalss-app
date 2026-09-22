@@ -17,7 +17,7 @@ or querying a model.
 | Tryout | `TryoutPackage`, sections/items/options, admissions/assignments, delivery sessions, attempts/runs/answers, releases | Published content is pinned by immutable `AssessmentRelease`; operations read through safe participant projections. |
 | Learning signals | topic/subtest performance and recommendations | Feeds learner-facing progress and recommendation boundaries; do not infer product claims from fixture data. |
 | Commerce and referrals | `BillingAccount`, `PackagePurchase`, `AffiliatorProfile`, referral attribution and purchase-evidence routes | Succeeded package purchases retain provider reference/evidence and may be attributed to an active Affiliator referral identity. |
-| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, `AiRequestAttempt`, `AiQuotaCalendar`, `AiUsageWindow`, `AiRequestUsageReservation`, `AiBillingCorrectionEvent`, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes, request idempotency/fingerprints, versioned credit/USD reservations, append-only billing corrections, privacy-safe admin aggregates, and lifecycle governance. |
+| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, `AiRequestAttempt`, `AiContextToolInvocation`, `AiRequestSource`, `AiContextPack`, `AiQuotaCalendar`, `AiUsageWindow`, `AiRequestUsageReservation`, `AiBillingCorrectionEvent`, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes and automatic-tool traces, request idempotency/fingerprints, versioned credit/USD reservations, append-only billing corrections, immutable request evidence, privacy-safe admin aggregates, and lifecycle governance. |
 | Media and CMS | `Asset`, `MediaFolder`, announcements, landing sections | Media scope/state and signed preview/thumbnail paths are validated before exposure. |
 
 ## Assessment invariants
@@ -108,9 +108,14 @@ components alone.
 The current Vera learner contract enables `chat`, `review`, `analysis`, and
 `route`. `ptn`, `summary`, and `drill` remain explicitly deferred and return a
 feature-disabled response; the MVP has no provider-backed artifact-apply
-registry. Context selection is capped at four sources, history is bounded, and
-the context pack is certified before provider dispatch. The source of truth is
-`lib/vera-ai/contracts.ts`, `context-pack.ts`, and `studio-contracts.ts`.
+registry. The legacy cohort may select released/owned context, while the
+automatic cohort sends no source IDs and uses one closed
+`retrieve_released_learning_context` call. Documents and uploads remain
+rejected. History is bounded, the context pack is certified before provider
+dispatch, and automatic invocation arguments/results are encrypted. The source
+of truth is `lib/vera-ai/contracts.ts`, `context-pack.ts`,
+`context-tool-contracts.ts`, `context-query-registry.ts`, and
+`context-tool-invocation.ts`.
 
 The paid provider path is release-gated. The approved manifest pins OpenRouter
 direct routing to the Relace upstream and model

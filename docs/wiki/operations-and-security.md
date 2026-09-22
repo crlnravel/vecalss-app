@@ -75,7 +75,12 @@ the exact feature, budget, and rollout contract is recorded in
 `chat`, `review`, `analysis`, and `route` are the enabled MVP features;
 `ptn`, `summary`, and `drill` are rejected as feature-disabled until their
 contracts are promoted. Context and history budgets are enforced before
-dispatch, and artifact apply has no enabled registry in the MVP.
+dispatch, and artifact apply has no enabled registry in the MVP. In the
+automatic-context cohort, the browser supplies no source IDs: the server
+executes one closed released-learning-context tool, persists encrypted
+invocation evidence, and disables tools on the final answer turn. The rollout
+is off in development and can only advance through the approved cohort gates;
+the legacy manual path remains the rollback path.
 
 The `vera_credit_usd_v2` ledger reserves weighted credits and integer USD
 micros across daily, ISO-week, and monthly `Asia/Jakarta` windows. It is
@@ -92,7 +97,11 @@ privacy flags, and max-price policy; a live flag alone cannot bypass the
 manifest or evidence checks. See the MVP contract and
 [`domains-and-data.md`](domains-and-data.md) for the data model and
 [`development-and-verification.md`](development-and-verification.md) for the
-worker and contract commands.
+worker and contract commands. Automatic context additionally requires the
+function-tool canary, serializer/input-bound evidence, exact provider identity,
+and two-stage usage/cost reconciliation. Capability, privacy, citation, or
+unknown-settlement drift blocks new automatic admissions rather than falling
+back to an uncertified provider or ungrounded answer.
 
 ## Media, workers, and headers
 

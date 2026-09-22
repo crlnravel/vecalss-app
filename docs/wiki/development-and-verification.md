@@ -71,6 +71,10 @@ access.
 | Mentor IA | `pnpm test:mentor-dashboard-ia` | Mentor dashboard/reference surface contracts |
 | Vera AI control plane | `pnpm test:admin-ai-control-plane` | Admin AI metric/privacy/governance contracts |
 | Vera learner MVP | `pnpm test:vera-mvp-contracts` | Feature gates, context/history budgets, typed studio output, and disabled apply registry |
+| Vera automatic context foundation | `pnpm test:vera-auto-context-foundation` | Strict tool/result contracts, released-source authority, deterministic registry projections, identity-bearing pack manifests, encryption, and purge markers |
+| Vera automatic context orchestrator | `pnpm test:vera-auto-context-orchestrator` | Two-stage dispatch state machine, single tool execution, frozen evidence, replay/crash boundaries, final-turn tool disablement, and citation validation |
+| Vera automatic context UI | `pnpm test:vera-auto-context-ui` | Enabled/legacy cohort rendering, absence of manual context APIs in automatic mode, committed source summaries, and reconnect/empty-evidence states |
+| Vera automatic context operations | `pnpm test:vera-auto-context-observability` | Rollout policy, emergency off, aggregate-only telemetry, capability/canary gates, privacy checks, and release verification |
 | Vera v2 billing | `pnpm test:vera-billing-v2` | Exact decimal/USD-micro accounting, reservation conservation, cutover windows, schema markers, and worker bounds |
 | Vera paid provider | `pnpm test:vera-paid-provider` | Release manifest, Relace/OpenRouter route, privacy/max-price gates, SSE mapping, and generation reconciliation |
 | Vera reconciliation worker | `pnpm vera:reconciliation-worker:check`; run `pnpm vera:reconciliation-worker` only in an approved worker environment | TypeScript worker contract and bounded lease/claim/evidence-settlement loop; `VERA_RECONCILIATION_ONCE=1` runs one cycle |
@@ -92,11 +96,11 @@ release manifest/certifier. `VERA_DISPOSABLE_DB_ACK=1`,
 guarded disposable tests. Keep values in `.env`, CI secrets, or the deployment
 secret store; never add them to the wiki.
 
-At the snapshot commit, `prisma/migrations/` contains 67 migration files,
+At the snapshot commit, `prisma/migrations/` contains 68 migration files,
 including Kuis version storage/runtime scoping, CBT-only schema retirement,
 question-bank purpose/materi changes, affiliator attribution, auto-publish,
 and the Vera usage-window/cost/reservation ledger. This is migration history,
-not proof that a configured local or production database has applied all 67;
+not proof that a configured local or production database has applied all 68;
 use the guarded Prisma status command before any mutation.
 
 The reconciliation worker's fixed safety envelope is batch 50, a 30-second

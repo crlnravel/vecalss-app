@@ -10,7 +10,7 @@
 
 | Area | Current source evidence | Status and boundary |
 | --- | --- | --- |
-| Vera learner MVP | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), `lib/vera-ai/contracts.ts`, `context-pack.ts`, `studio-contracts.ts`, `scripts/test-vera-mvp-contracts.ts` | Enabled features are `chat`, `review`, `analysis`, and `route`; context/history budgets and typed outputs are enforced. `ptn`, `summary`, and `drill` remain explicitly feature-disabled, and no provider-backed apply registry is enabled. |
+| Vera learner MVP | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), [`docs/vera-ai/automatic-context.md`](../vera-ai/automatic-context.md), `lib/vera-ai/contracts.ts`, `context-pack.ts`, `studio-contracts.ts` | Enabled features are `chat`, `review`, `analysis`, and `route`; context/history budgets and typed outputs are enforced. Automatic context is implemented behind an off-by-default rollout gate; the legacy manual path remains available while the gate is off. `ptn`, `summary`, and `drill` remain explicitly feature-disabled, and no provider-backed apply registry is enabled. |
 | Vera conversation lifecycle | `modules/vera-ai/VeraAiPageModule.tsx`, `lib/vera-ai/learner-service.ts`, `app/api/vera-ai/conversations/` | Session titles are renamed inline from the `Sesi` sidebar. Sessions can be reversibly archived/restored; delete continues through the idempotent lifecycle purge path. Local development ignores the paid provider flag and uses the gated free POC or local mock path. |
 | Vera credit/USD admission | `lib/vera-ai/quota-v2.ts`, `billing.ts`, `admission-service.ts`, `prisma/schema.prisma` | Daily/ISO-week/month windows, weighted credits, USD-micro exposure, monetary debt, idempotent reservation settlement, and append-only billing corrections are implemented. The v2 ledger is scheduled for `2026-09-30T17:00:00Z`; before then the policy resolver selects `vera_quota_v1`. |
 | Vera paid provider | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), `lib/vera-ai/provider.ts`, `certifiers/`, `scripts/test-vera-paid-provider.ts` | Release-gated OpenRouter direct routing to Relace and `deepseek/deepseek-v4-flash-0731`, with privacy/max-price/certifier evidence checks and generation-cost reconciliation. A live flag or API key alone is insufficient. |
@@ -29,7 +29,9 @@ The repository exposes focused evidence for the latest boundaries:
 - Kuis storage/runtime: `test:standalone-quiz-version-storage`,
   `test:standalone-quiz-version-runtime`, `test:kuis-versioning`, and
   `test:assessment-answer-contract`;
-- Vera MVP: `test:vera-mvp-contracts`;
+- Vera MVP: `test:vera-mvp-contracts`, `test:vera-auto-context-foundation`,
+  `test:vera-auto-context-orchestrator`, `test:vera-auto-context-ui`, and
+  `test:vera-auto-context-observability`;
 - Vera billing/worker: `test:vera-billing-v2`,
   `vera:reconciliation-worker:check`;
 - Vera paid provider: `test:vera-paid-provider`;
@@ -63,7 +65,7 @@ Every command was launched serially through
 source/contract drift, not resource or environment blockers. This run did not
 include full lint/build, Prisma status or migrations, live worker execution,
 or browser verification. Passing source contracts do not prove that a
-configured database has applied the 67 migration files, that provider secrets
+configured database has applied the 68 migration files, that provider secrets
 and release evidence are deployed, or that the live UI renders correctly.
 
 ## Shared-worktree ownership
