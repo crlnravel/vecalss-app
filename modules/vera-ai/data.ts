@@ -246,7 +246,7 @@ const veraToolModes: Record<VeraToolId, VeraToolMode> = {
       "LBI: akurasi naik, tempo membaca tabel masih perlu dijaga.",
     ],
     metrics: [
-      { label: "Sumber", value: "6 konteks" },
+      { label: "Sumber", value: "Hingga 4 sumber" },
       { label: "Prioritas", value: "PU + PK" },
       { label: "Estimasi", value: "28 menit" },
     ],

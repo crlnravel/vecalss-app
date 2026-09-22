@@ -110,6 +110,17 @@ import {
   type VeraStudioTool,
   type VeraToolId,
 } from "./data";
+import {
+  isVeraAutomaticContextEnabled,
+  readVeraAutomaticContextProgress,
+  readVeraContextAuthority,
+  readVeraRequestEvidenceState,
+  readVeraRequestSources,
+  type VeraAutomaticContextAuthority,
+  type VeraAutomaticContextEvidenceState,
+  type VeraAutomaticContextProgress,
+  type VeraRequestSourceSummary,
+} from "./automatic-context";
 
 type WorkspaceTab = "chat" | "context" | "studio";
 type VeraDataState = "loading" | "live" | "unavailable";
@@ -141,10 +152,35 @@ type VeraBackendMessage = {
   text: string | null;
   contentState: string;
   createdAt: string;
+  citationKeys?: string[];
+  citations?: string[];
+  contextMode?: unknown;
+  contextState?: unknown;
+  evidenceState?: unknown;
+  sourceOutcome?: unknown;
+  requestSources?: unknown[];
+  sources?: unknown[];
   request?: {
     id: string;
     status: string;
     errorCode: string | null;
+    contextMode?: unknown;
+    citationKeys?: string[];
+    contextState?: unknown;
+    evidenceState?: unknown;
+    sourceOutcome?: unknown;
+    requestSources?: unknown[];
+    sources?: unknown[];
+    result?: {
+      text?: string | null;
+      citationKeys?: string[];
+      contextMode?: unknown;
+      contextState?: unknown;
+      evidenceState?: unknown;
+      sourceOutcome?: unknown;
+      requestSources?: unknown[];
+      sources?: unknown[];
+    } | null;
   } | null;
 };
 
@@ -272,6 +308,13 @@ type VeraBackendUsage = {
   redisAvailable: boolean;
 };
 
+type VeraBackendInitialLoad = {
+  conversations: VeraBackendConversation[];
+  defaultConversationId: string | null;
+  contextMode?: unknown;
+  automaticContext?: unknown;
+};
+
 type VeraRequestStatus = {
   requestId: string;
   conversationId: string;
@@ -279,7 +322,22 @@ type VeraRequestStatus = {
   state: string;
   resultState: string;
   errorCode: string | null;
-  result: { text: string | null; citationKeys: string[] } | null;
+  contextMode?: unknown;
+  contextState?: unknown;
+  evidenceState?: unknown;
+  sourceOutcome?: unknown;
+  requestSources?: unknown[];
+  sources?: unknown[];
+  result: {
+    text: string | null;
+    citationKeys: string[];
+    contextMode?: unknown;
+    contextState?: unknown;
+    evidenceState?: unknown;
+    sourceOutcome?: unknown;
+    requestSources?: unknown[];
+    sources?: unknown[];
+  } | null;
   artifact?: { id: string; artifactType: string; revision: number } | null;
   usage?: {
     quotaUnitsReserved: number;
@@ -424,14 +482,42 @@ function mapBackendConversation(conversation: VeraBackendConversation): StudySes
 }
 
 function mapBackendMessage(message: VeraBackendMessage): VeraMessage {
+  const request = message.request;
+  const requestResult = request?.result;
+  const requestSources = [
+    readVeraRequestSources(request),
+    readVeraRequestSources(requestResult),
+    readVeraRequestSources(message),
+  ].find((sources) => sources.length > 0) ?? [];
+  const evidenceState =
+    readVeraRequestEvidenceState(request) ??
+    readVeraRequestEvidenceState(requestResult) ??
+    readVeraRequestEvidenceState(message);
+  const requestContextMode =
+    request?.contextMode ?? requestResult?.contextMode ?? message.contextMode;
+
   return {
     id: message.id,
     role: message.role === "assistant" ? "vera" : "student",
     body: message.text ?? "Konten tidak tersedia.",
     contentState: message.contentState,
     createdAt: relativeTime(message.createdAt),
-    requestErrorCode: message.request?.errorCode ?? null,
-    requestState: message.request?.status ?? null,
+    citations:
+      requestResult?.citationKeys ??
+      request?.citationKeys ??
+      message.citationKeys ??
+      message.citations,
+    requestContextMode:
+      requestContextMode === "automatic"
+        ? "automatic"
+        : requestContextMode === "legacy"
+          ? "legacy"
+          : null,
+    requestErrorCode: request?.errorCode ?? null,
+    requestEvidenceState: evidenceState,
+    requestSources,
+    requestId: request?.id ?? null,
+    requestState: request?.status ?? null,
   };
 }
 
@@ -451,6 +537,126 @@ function isTerminalRequestState(state: string) {
   );
 }
 
+function buildVeraRequestPayload({
+  authority,
+  clientRequestId,
+  kind,
+  retryOfRequestId,
+  sources,
+  text,
+  toolId,
+}: {
+  authority: VeraAutomaticContextAuthority;
+  clientRequestId: string;
+  kind: "chat" | "studio";
+  retryOfRequestId: string | null;
+  sources: Array<{ sourceType: "material" | "practice"; sourceId: string }>;
+  text: string;
+  toolId: VeraToolId | null;
+}) {
+  const automatic = isVeraAutomaticContextEnabled(authority);
+
+  const base = {
+    clientRequestId,
+    kind,
+    toolId,
+    text,
+    options: {},
+    retryOfRequestId,
+  };
+
+  return automatic
+    ? { ...base, contextMode: "automatic" as const }
+    : { ...base, sources };
+}
+
+function automaticProgressFromEvent(
+  event: string | undefined,
+  value: unknown,
+): VeraAutomaticContextProgress | null {
+  const parsed = readVeraAutomaticContextProgress(value);
+  if (parsed) return parsed;
+
+  const normalizedEvent = event?.toLowerCase() ?? "";
+  if (normalizedEvent.includes("selector") || normalizedEvent.includes("selection")) {
+    return { phase: "selecting", progress: null };
+  }
+  if (normalizedEvent.includes("retriev") || normalizedEvent.includes("registry")) {
+    return { phase: "retrieving", progress: null };
+  }
+  if (
+    normalizedEvent.includes("answer") ||
+    normalizedEvent.includes("final") ||
+    normalizedEvent.includes("first_token")
+  ) {
+    return { phase: "answering", progress: null };
+  }
+  if (normalizedEvent.includes("committed")) {
+    return { phase: "complete", progress: 100 };
+  }
+
+  switch (event) {
+    case "context.selection.started":
+    case "context.selection.updated":
+      return { phase: "selecting", progress: null };
+    case "context.retrieval.started":
+    case "context.retrieval.updated":
+      return { phase: "retrieving", progress: null };
+    case "context.answer.started":
+    case "message.delta":
+    case "message.generated":
+      return { phase: "answering", progress: null };
+    case "message.committed":
+      return { phase: "complete", progress: 100 };
+    case "request.completed":
+      return { phase: "complete", progress: 100 };
+    default:
+      return null;
+  }
+}
+
+function automaticTerminalProgress(
+  value: unknown,
+): VeraAutomaticContextProgress | null {
+  const status =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const result =
+    status?.result && typeof status.result === "object" && !Array.isArray(status.result)
+      ? status.result
+      : null;
+
+  const evidence =
+    readVeraRequestEvidenceState(result) ?? readVeraRequestEvidenceState(value);
+  if (evidence) {
+    if (evidence === "no_match") return { phase: "no_match", progress: 100 };
+    if (evidence === "evidence_limited") {
+      return { phase: "evidence_limited", progress: 100 };
+    }
+    if (evidence === "unavailable" || evidence === "failed") {
+      return { phase: "unavailable", progress: 100 };
+    }
+  }
+
+  const resultState = readVeraAutomaticContextProgress({
+    state: status?.resultState,
+  });
+  if (resultState && resultState.phase !== "complete") {
+    return { ...resultState, progress: resultState.progress ?? 100 };
+  }
+
+  const parsed = readVeraAutomaticContextProgress(value);
+  if (parsed) return parsed;
+  if (status?.state === "failed" || status?.state === "rejected" || status?.state === "expired") {
+    return { phase: "unavailable", progress: 100 };
+  }
+  if (status?.state === "succeeded" || status?.state === "fallback") {
+    return { phase: "complete", progress: 100 };
+  }
+  return null;
+}
+
 function sourceForTitle(title: string) {
   return veraContextSources.find((source) => source.title === title);
 }
@@ -462,7 +668,11 @@ type VeraMessage = {
   contentState?: string;
   createdAt: string;
   citations?: string[];
+  requestContextMode?: "legacy" | "automatic" | null;
   requestErrorCode?: string | null;
+  requestEvidenceState?: VeraAutomaticContextEvidenceState | null;
+  requestId?: string | null;
+  requestSources?: VeraRequestSourceSummary[];
   requestState?: string | null;
 };
 
@@ -507,6 +717,8 @@ const emptyStudySession: StudySession = {
   generatedTools: [],
   messages: [],
 };
+
+const legacyVeraContextAuthority = readVeraContextAuthority(null);
 
 const toolRequestLabels: Record<VeraToolId, string> = {
   analysis: "Analisis kelemahanku dari konteks sesi ini.",
@@ -584,6 +796,8 @@ type VeraAiWorkspaceProps = {
   activeArtifact: VeraStudioTool | null;
   activeArtifactDetail: VeraBackendArtifactDetail | null;
   activeSession: StudySession;
+  automaticContext: VeraAutomaticContextAuthority;
+  automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
   contextDialogOpen: boolean;
   contextSources: VeraContextSource[];
@@ -633,6 +847,8 @@ function VeraAiWorkspace({
   activeArtifact,
   activeArtifactDetail,
   activeSession,
+  automaticContext,
+  automaticProgress,
   backendMode,
   busy,
   contextDialogOpen,
@@ -721,6 +937,7 @@ function VeraAiWorkspace({
                 value={workspaceTab}
               >
                 <VeraStatusBanner
+                  automaticProgress={automaticProgress}
                   busy={busy}
                   error={error}
                   notice={notice}
@@ -729,10 +946,15 @@ function VeraAiWorkspace({
                   progress={progress}
                 />
                 <WorkspacePanel className="flex flex-1">
-                  <WorkspaceTabs onChange={onSetWorkspaceTab} />
+                  <WorkspaceTabs
+                    automaticContextEnabled={isVeraAutomaticContextEnabled(automaticContext)}
+                    onChange={onSetWorkspaceTab}
+                  />
                   <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="chat">
                     <ChatWorkspace
                       activeSession={activeSession}
+                      automaticProgress={automaticProgress}
+                      automaticContextEnabled={isVeraAutomaticContextEnabled(automaticContext)}
                       busy={busy}
                       className="flex h-full rounded-none border-0 shadow-none"
                       draft={draft}
@@ -742,17 +964,19 @@ function VeraAiWorkspace({
                       provisionalText={provisionalText}
                     />
                   </TabsContent>
-                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="context">
-                    <ContextWorkspace
-                      activeSourceIds={activeSession.sourceIds}
-                      className="flex h-full rounded-none border-0 shadow-none"
-                      key={`${activeSession.id}-${workspaceTab}`}
-                      onOpenAddContext={onOpenAddContext}
-                      onRemoveContexts={onRemoveContexts}
-                      onToggleContext={onToggleContext}
-                      sources={contextSources}
-                    />
-                  </TabsContent>
+                  {!isVeraAutomaticContextEnabled(automaticContext) ? (
+                    <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="context">
+                      <ContextWorkspace
+                        activeSourceIds={activeSession.sourceIds}
+                        className="flex h-full rounded-none border-0 shadow-none"
+                        key={`${activeSession.id}-${workspaceTab}`}
+                        onOpenAddContext={onOpenAddContext}
+                        onRemoveContexts={onRemoveContexts}
+                        onToggleContext={onToggleContext}
+                        sources={contextSources}
+                      />
+                    </TabsContent>
+                  ) : null}
                   <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="studio">
                     <StudioPanel
                       activeArtifact={activeArtifact}
@@ -811,7 +1035,9 @@ function VeraAiWorkspace({
         </Dialog>
       ) : null}
 
-      {contextDialogOpen && dataState === "live" ? (
+      {contextDialogOpen &&
+      dataState === "live" &&
+      !isVeraAutomaticContextEnabled(automaticContext) ? (
         <AddContextDialog
           onOpenChange={onContextDialogOpenChange}
           onSave={onSaveContext}
@@ -857,6 +1083,8 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
   const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
     useState(true);
+  const [automaticContext, setAutomaticContext] =
+    useState<VeraAutomaticContextAuthority>(legacyVeraContextAuthority);
   const [backendMode, setBackendMode] = useState(false);
   const [dataState, setDataState] = useState<VeraDataState>("loading");
   const [backendError, setBackendError] = useState<string | null>(null);
@@ -870,6 +1098,8 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [usage, setUsage] = useState<VeraBackendUsage | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const [automaticProgress, setAutomaticProgress] =
+    useState<VeraAutomaticContextProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
@@ -898,21 +1128,27 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       ? activeArtifactDetail
       : null;
 
-  const loadConversation = useCallback(async (conversationId: string) => {
-    const [detail, messagePage, contextDto, artifactPage] = await Promise.all([
+  const loadConversation = useCallback(async (
+    conversationId: string,
+    authority: VeraAutomaticContextAuthority,
+    committedStatus: VeraRequestStatus | null = null,
+  ) => {
+    const [detail, messagePage, artifactPage] = await Promise.all([
       requestJson<{ conversation: VeraBackendConversation }>(
         `/api/vera-ai/conversations/${conversationId}`,
       ),
       requestJson<{ messages: VeraBackendMessage[] }>(
         `/api/vera-ai/conversations/${conversationId}/messages?limit=50`,
       ),
-      requestJson<VeraBackendContext>(
-        `/api/vera-ai/conversations/${conversationId}/context`,
-      ),
       requestJson<{ artifacts: VeraBackendArtifactSummary[] }>(
         `/api/vera-ai/conversations/${conversationId}/artifacts?limit=50`,
       ),
     ]);
+    const contextDto = isVeraAutomaticContextEnabled(authority)
+      ? null
+      : await requestJson<VeraBackendContext>(
+          `/api/vera-ai/conversations/${conversationId}/context`,
+        );
     const generatedTools = artifactPage.artifacts.reduce<VeraToolId[]>((acc, artifact) => {
       if (isToolId(artifact.artifactType)) acc.push(artifact.artifactType);
       return acc;
@@ -920,29 +1156,70 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
     setBackendContext(contextDto);
     setBackendArtifacts(artifactPage.artifacts);
-    setContextSources((current) => {
-      const merged = new Map(current.map((source) => [source.id, source]));
+    if (contextDto) {
+      setContextSources((current) => {
+        const merged = new Map(current.map((source) => [source.id, source]));
 
-      contextDto.sources.forEach((source) => {
-        if (!merged.has(source.sourceId)) {
-          merged.set(source.sourceId, {
-            id: source.sourceId,
-            title: source.title ?? "Sumber belajar",
-            type: source.sourceType,
-          });
-        }
+        contextDto.sources.forEach((source) => {
+          if (!merged.has(source.sourceId)) {
+            merged.set(source.sourceId, {
+              id: source.sourceId,
+              title: source.title ?? "Sumber belajar",
+              type: source.sourceType,
+            });
+          }
+        });
+
+        return [...merged.values()];
       });
+    } else {
+      setContextSources([]);
+    }
+    const mappedMessages = messagePage.messages.map(mapBackendMessage);
+    if (
+      committedStatus &&
+      isTerminalRequestState(committedStatus.state)
+    ) {
+      const statusSources = [
+        readVeraRequestSources(committedStatus),
+        readVeraRequestSources(committedStatus.result),
+      ].find((sources) => sources.length > 0) ?? [];
+      const statusEvidence =
+        readVeraRequestEvidenceState(committedStatus) ??
+        readVeraRequestEvidenceState(committedStatus.result);
+      const statusContextMode =
+        committedStatus.contextMode ?? committedStatus.result?.contextMode;
+      const messageIndex = mappedMessages.findIndex(
+        (message) => message.requestId === committedStatus.requestId,
+      );
 
-      return [...merged.values()];
-    });
+      if (messageIndex >= 0) {
+        mappedMessages[messageIndex] = {
+          ...mappedMessages[messageIndex],
+          requestContextMode:
+            statusContextMode === "automatic"
+              ? "automatic"
+              : statusContextMode === "legacy"
+                ? "legacy"
+                : mappedMessages[messageIndex].requestContextMode,
+          requestEvidenceState:
+            statusEvidence ?? mappedMessages[messageIndex].requestEvidenceState,
+          requestSources:
+            statusSources.length > 0
+              ? statusSources
+              : mappedMessages[messageIndex].requestSources,
+        };
+      }
+    }
+
     setSessions((current) =>
       current.map((item) =>
         item.id === conversationId
           ? {
               ...mapBackendConversation(detail.conversation),
-              sourceIds: contextDto.sources.map((source) => source.sourceId),
+              sourceIds: contextDto?.sources.map((source) => source.sourceId) ?? [],
               generatedTools,
-              messages: messagePage.messages.map(mapBackendMessage),
+              messages: mappedMessages,
             }
           : item,
       ),
@@ -953,20 +1230,20 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     try {
       setDataState("loading");
       setBackendError(null);
-      const [conversationResult, sourceResult, usageResult] = await Promise.allSettled([
-        requestJson<{
-          conversations: VeraBackendConversation[];
-          defaultConversationId: string | null;
-        }>("/api/vera-ai/conversations?limit=50&includeArchived=true"),
-        requestJson<{ sources: VeraBackendSource[] }>(
-          "/api/vera-ai/sources?limit=50",
-        ),
+      const conversationPage = await requestJson<VeraBackendInitialLoad>(
+        "/api/vera-ai/conversations?limit=50&includeArchived=true",
+      );
+      const authority = readVeraContextAuthority(conversationPage);
+      const automaticEnabled = isVeraAutomaticContextEnabled(authority);
+      const [sourceResult, usageResult] = await Promise.allSettled([
+        automaticEnabled
+          ? Promise.resolve({ sources: [] as VeraBackendSource[] })
+          : requestJson<{ sources: VeraBackendSource[] }>(
+              "/api/vera-ai/sources?limit=50",
+            ),
         requestJson<VeraBackendUsage>("/api/vera-ai/usage"),
       ]);
-      if (conversationResult.status === "rejected") {
-        throw conversationResult.reason;
-      }
-      if (sourceResult.status === "rejected") {
+      if (sourceResult.status === "rejected" && !automaticEnabled) {
         throw new VeraRequestError("sources_unavailable", {
           cause: sourceResult.reason,
         });
@@ -976,8 +1253,9 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
           cause: usageResult.reason,
         });
       }
-      const conversationPage = conversationResult.value;
-      const sourcePage = sourceResult.value;
+      const sourcePage = sourceResult.status === "fulfilled"
+        ? sourceResult.value
+        : { sources: [] as VeraBackendSource[] };
       const usageDto = usageResult.value;
       const mappedSessions = conversationPage.conversations.map(
         mapBackendConversation,
@@ -988,12 +1266,17 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         "";
 
       setSessions(mappedSessions);
+      setAutomaticContext(authority);
+      if (automaticEnabled) {
+        setWorkspaceTab("chat");
+      }
       setContextSources(sourcePage.sources.map(mapBackendSource));
       setUsage(usageDto);
       setActiveSessionId(defaultConversationId);
+      setAutomaticProgress(null);
 
       if (defaultConversationId) {
-        await loadConversation(defaultConversationId);
+        await loadConversation(defaultConversationId, authority);
       } else {
         setBackendContext(null);
         setBackendArtifacts([]);
@@ -1001,6 +1284,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setBackendMode(true);
       setDataState("live");
     } catch (caught) {
+      setAutomaticContext(legacyVeraContextAuthority);
       setBackendMode(false);
       setDataState("unavailable");
       setSessions([]);
@@ -1010,6 +1294,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setActiveArtifactDetail(null);
       setBackendContext(null);
       setBackendArtifacts([]);
+      setAutomaticProgress(null);
       setUsage(null);
       setLastFailed(null);
       setBackendError(veraErrorMessage(caught));
@@ -1065,9 +1350,21 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     setBackendContext(null);
     setError(null);
     setNotice(null);
-    void loadConversation(nextSessionId).catch((caught) => {
+    void loadConversation(nextSessionId, automaticContext).catch((caught) => {
       setError(veraErrorMessage(caught));
     });
+  }
+
+  function handleSetWorkspaceTab(nextTab: WorkspaceTab) {
+    if (
+      nextTab === "context" &&
+      isVeraAutomaticContextEnabled(automaticContext)
+    ) {
+      setWorkspaceTab("chat");
+      return;
+    }
+
+    setWorkspaceTab(nextTab);
   }
 
   function handleNewSession() {
@@ -1101,6 +1398,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   function handleSaveContext(
     nextSourceIds: string[],
   ) {
+    if (isVeraAutomaticContextEnabled(automaticContext)) {
+      return;
+    }
+
     const limitedSourceIds = nextSourceIds.slice(
       0,
       MAX_CONTEXTS_PER_SESSION,
@@ -1115,7 +1416,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   }
 
   function handleRemoveContexts(sourceIds: string[]) {
-    if (dataState !== "live" || !backendMode) {
+    if (
+      isVeraAutomaticContextEnabled(automaticContext) ||
+      dataState !== "live" ||
+      !backendMode
+    ) {
       return;
     }
 
@@ -1127,7 +1432,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   }
 
   function handleToggleContext(sourceId: string, active: boolean) {
-    if (dataState !== "live" || !backendMode) {
+    if (
+      isVeraAutomaticContextEnabled(automaticContext) ||
+      dataState !== "live" ||
+      !backendMode
+    ) {
       return;
     }
 
@@ -1212,7 +1521,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setBackendContext(null);
       setBackendArtifacts([]);
       setWorkspaceTab("chat");
-      await loadConversation(result.conversation.id);
+      await loadConversation(result.conversation.id, automaticContext);
     } catch (caught) {
       setError(veraErrorMessage(caught));
     } finally {
@@ -1393,7 +1702,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   }
 
   async function replaceBackendContext(nextSourceIds: string[]) {
-    if (!activeSession.id || !backendContext) {
+    if (
+      isVeraAutomaticContextEnabled(automaticContext) ||
+      !activeSession.id ||
+      !backendContext
+    ) {
       return;
     }
 
@@ -1446,7 +1759,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
             : item,
         ),
       );
-      await loadConversation(activeSession.id);
+      await loadConversation(activeSession.id, automaticContext);
     } catch (caught) {
       const authoritative =
         caught instanceof VeraRequestError &&
@@ -1473,7 +1786,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         setNotice(
           "Konteks berubah di perangkat lain. Pilihan terbaru sudah dimuat.",
         );
-        await loadConversation(activeSession.id).catch(() => undefined);
+        await loadConversation(activeSession.id, automaticContext).catch(() => undefined);
       }
 
       setError(veraErrorMessage(caught));
@@ -1525,6 +1838,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     const sources = (backendContext?.sources ?? [])
       .map(({ sourceType, sourceId }) => ({ sourceType, sourceId }))
       .slice(0, MAX_CONTEXTS_PER_SESSION);
+    const automaticEnabled = isVeraAutomaticContextEnabled(automaticContext);
 
     abortRef.current = controller;
     setBusy(true);
@@ -1532,7 +1846,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     setNotice(null);
     setLastFailed(null);
     setProvisionalText(kind === "chat" ? "" : null);
-    setProgress(toolId ? 5 : null);
+    setProgress(automaticEnabled ? null : toolId ? 5 : null);
+    setAutomaticProgress(
+      automaticEnabled ? { phase: "selecting", progress: 0 } : null,
+    );
     updateActiveSession((current) => ({
       ...current,
       updatedAt: "Baru saja",
@@ -1556,15 +1873,17 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientRequestId,
-            kind,
-            toolId,
-            text,
-            sources,
-            options: {},
-            retryOfRequestId,
-          }),
+          body: JSON.stringify(
+            buildVeraRequestPayload({
+              authority: automaticContext,
+              clientRequestId,
+              kind,
+              retryOfRequestId,
+              sources,
+              text,
+              toolId,
+            }),
+          ),
           signal: controller.signal,
         },
       );
@@ -1632,6 +1951,12 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
               code?: string;
               state?: string;
               progress?: number;
+              phase?: string;
+              stage?: string;
+              contextState?: string;
+              evidenceState?: string;
+              sourceOutcome?: string;
+              contextProgress?: unknown;
               artifactRevisionId?: string;
               artifactType?: string;
             };
@@ -1640,6 +1965,21 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
               data = JSON.parse(dataText) as typeof data;
             } catch {
               throw new VeraRequestError("invalid_response");
+            }
+
+            if (automaticEnabled) {
+              const automaticProgressEvent = automaticProgressFromEvent(
+                event,
+                data.contextProgress ?? data,
+              );
+              if (automaticProgressEvent) {
+                setAutomaticProgress(automaticProgressEvent);
+              } else if (event === "progress.updated" && typeof data.progress === "number") {
+                setAutomaticProgress((current) => ({
+                  phase: current?.phase ?? "answering",
+                  progress: Math.max(0, Math.min(100, Math.round(data.progress ?? 0))),
+                }));
+              }
             }
 
             if (event === "request.started" && data.requestId) {
@@ -1670,6 +2010,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
             }
             if (
               event === "progress.updated" &&
+              !automaticEnabled &&
               typeof data.progress === "number"
             ) {
               setProgress(data.progress);
@@ -1685,6 +2026,9 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
             }
             if (event === "request.failed") {
               terminalSeen = true;
+              if (automaticEnabled) {
+                setAutomaticProgress({ phase: "unavailable", progress: 100 });
+              }
               setError(
                 veraErrorMessage(
                   new VeraRequestError(data.code ?? "request_failed"),
@@ -1703,6 +2047,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         finalStatus = (await response.json()) as VeraRequestStatus;
         attempt.requestId = finalStatus.requestId;
         attempt.artifactId = finalStatus.artifact?.id ?? null;
+        if (automaticEnabled) {
+          const statusProgress = automaticTerminalProgress(finalStatus);
+          if (statusProgress) setAutomaticProgress(statusProgress);
+        }
         terminalSeen = isTerminalRequestState(finalStatus.state);
         if (["failed", "rejected", "expired"].includes(finalStatus.state)) {
           setError(
@@ -1721,6 +2069,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
           );
           attempt.requestId = finalStatus.requestId;
           attempt.artifactId = finalStatus.artifact?.id ?? attempt.artifactId;
+          if (automaticEnabled) {
+            const statusProgress = automaticTerminalProgress(finalStatus);
+            if (statusProgress) setAutomaticProgress(statusProgress);
+          }
 
           if (isTerminalRequestState(finalStatus.state)) {
             break;
@@ -1748,7 +2100,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
       setDraft("");
       await Promise.all([
-        loadConversation(conversationId),
+        loadConversation(conversationId, automaticContext, finalStatus),
         requestJson<VeraBackendUsage>("/api/vera-ai/usage").then(setUsage),
       ]);
 
@@ -1768,6 +2120,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       abortRef.current = null;
       setBusy(false);
       setProgress(null);
+      setAutomaticProgress(null);
       setProvisionalText(null);
     }
   }
@@ -1801,6 +2154,8 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     activeArtifact,
     activeArtifactDetail,
     activeSession,
+    automaticContext,
+    automaticProgress,
     backendMode,
     busy,
     contextDialogOpen,
@@ -1836,7 +2191,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     onSelectSession: handleSelectSession,
     onSend: handleSend,
     onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
-    onSetWorkspaceTab: setWorkspaceTab,
+    onSetWorkspaceTab: handleSetWorkspaceTab,
     onToggleContext: handleToggleContext,
     progress,
     provisionalText,
@@ -1856,6 +2211,7 @@ function VeraAiPageModule({ notificationFeed, returnToHref, session }: { notific
 }
 
 function VeraStatusBanner({
+  automaticProgress,
   busy,
   error,
   notice,
@@ -1863,6 +2219,7 @@ function VeraStatusBanner({
   onRetry,
   progress,
 }: {
+  automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
   error: string | null;
   notice: string | null;
@@ -1870,11 +2227,28 @@ function VeraStatusBanner({
   onRetry: () => void;
   progress: number | null;
 }) {
-  if (!busy && !error && !notice) {
+  if (
+    !busy &&
+    !error &&
+    !notice &&
+    (!automaticProgress || automaticProgress.phase === "complete")
+  ) {
     return null;
   }
 
-  const statusText = error ?? notice ?? (progress !== null
+  const automaticStatusText = automaticProgress
+    ? {
+        selecting: "Mencari sumber belajar…",
+        retrieving: "Mencari sumber belajar…",
+        answering: "Menyusun jawaban…",
+        complete: "Jawaban sudah tersimpan.",
+        no_match: "Tidak ada sumber belajar yang cocok.",
+        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
+        unavailable: "Sumber belajar belum tersedia.",
+      }[automaticProgress.phase]
+    : null;
+  const automaticPercent = automaticProgress?.progress;
+  const statusText = error ?? notice ?? automaticStatusText ?? (progress !== null
     ? `Vera sedang menyusun hasil… ${progress}%`
     : "Vera sedang menyusun jawaban…");
 
@@ -1889,9 +2263,21 @@ function VeraStatusBanner({
       )}
       role={error ? "alert" : "status"}
     >
-      <span className="min-w-0 truncate">
-        {statusText}
-      </span>
+      <div className="min-w-0 flex-1">
+        <span className="block truncate">
+          {statusText}
+          {automaticPercent !== null && automaticPercent !== undefined
+            ? ` ${automaticPercent}%`
+            : ""}
+        </span>
+        {automaticPercent !== null && automaticPercent !== undefined ? (
+          <Progress
+            aria-label="Kemajuan pencarian sumber belajar"
+            className="mt-1 h-1.5"
+            value={automaticPercent}
+          />
+        ) : null}
+      </div>
       {busy ? (
         <Button
           className="shrink-0 rounded-full"
@@ -2221,8 +2607,10 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
 }
 
 function WorkspaceTabs({
+  automaticContextEnabled,
   onChange,
 }: {
+  automaticContextEnabled: boolean;
   onChange: (value: WorkspaceTab) => void;
 }) {
   return (
@@ -2237,13 +2625,15 @@ function WorkspaceTabs({
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
         </FullWidthLineTabsTrigger>
-        <FullWidthLineTabsTrigger
-          onClick={() => onChange("context")}
-          value="context"
-        >
-          <LibraryBig data-icon="inline-start" />
-          Konteks
-        </FullWidthLineTabsTrigger>
+        {!automaticContextEnabled ? (
+          <FullWidthLineTabsTrigger
+            onClick={() => onChange("context")}
+            value="context"
+          >
+            <LibraryBig data-icon="inline-start" />
+            Konteks
+          </FullWidthLineTabsTrigger>
+        ) : null}
         <FullWidthLineTabsTrigger
           onClick={() => onChange("studio")}
           value="studio"
@@ -2590,6 +2980,8 @@ function SessionPanel({
 
 function ChatWorkspace({
   activeSession,
+  automaticContextEnabled,
+  automaticProgress,
   busy,
   className,
   draft,
@@ -2599,6 +2991,8 @@ function ChatWorkspace({
   provisionalText,
 }: {
   activeSession: StudySession;
+  automaticContextEnabled: boolean;
+  automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
   className?: string;
   draft: string;
@@ -2617,8 +3011,12 @@ function ChatWorkspace({
               message={message}
             />
           ))}
-          {provisionalText !== null ? (
-            <ProvisionalMessageCard body={provisionalText} />
+          {provisionalText !== null ||
+          (automaticContextEnabled && busy && automaticProgress !== null) ? (
+            <ProvisionalMessageCard
+              automaticProgress={automaticProgress}
+              body={provisionalText ?? ""}
+            />
           ) : null}
         </div>
       </div>
@@ -2915,8 +3313,7 @@ function ContextWorkspace({
                   Konteks tidak ditemukan
                 </p>
                 <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
-                  Coba kata kunci lain atau tambahkan dokumen baru ke perpustakaan
-                  konteksmu.
+                  Coba kata kunci lain atau pilih sumber belajar yang tersedia.
                 </p>
               </div>
             )}
@@ -3038,12 +3435,61 @@ function ContextCard({
   );
 }
 
+function isCommittedVeraMessage(message: VeraMessage) {
+  return (
+    message.contentState === "committed" ||
+    message.requestState === "succeeded" ||
+    message.requestState === "fallback" ||
+    message.requestState === "completed" ||
+    message.requestState === "committed"
+  );
+}
+
+function automaticEvidenceLabel(
+  state: VeraAutomaticContextEvidenceState | null | undefined,
+) {
+  switch (state) {
+    case "no_match":
+      return "Tidak ada sumber belajar yang cocok untuk pertanyaan ini.";
+    case "evidence_limited":
+      return "Sumber belajar yang ditemukan terbatas; jawaban mungkin belum lengkap.";
+    case "unavailable":
+      return "Sumber belajar belum tersedia untuk permintaan ini.";
+    case "failed":
+      return "Sumber belajar gagal dimuat untuk permintaan ini.";
+    default:
+      return null;
+  }
+}
+
+function automaticSourceKindLabel(kind: VeraRequestSourceSummary["kind"]) {
+  return {
+    materi: "Materi",
+    kuis: "Kuis",
+    tryout: "Tryout",
+  }[kind];
+}
+
+function automaticSourceReleaseLabel(releasedAt: string | null) {
+  if (!releasedAt) return null;
+  const date = new Date(releasedAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return `Dirilis ${DATA_TIMESTAMP_FORMATTER.format(date)}`;
+}
+
 function MessageCard({
   message,
 }: {
   message: VeraMessage;
 }) {
   const isStudent = message.role === "student";
+  const committedAutomaticRequest =
+    !isStudent &&
+    message.requestContextMode === "automatic" &&
+    isCommittedVeraMessage(message);
+  const evidenceLabel = committedAutomaticRequest
+    ? automaticEvidenceLabel(message.requestEvidenceState)
+    : null;
   const stateNotice = [
     message.contentState && message.contentState !== "encrypted"
       ? `Konten: ${formatVeraState(message.contentState)}`
@@ -3100,7 +3546,52 @@ function MessageCard({
         <BubbleContent className="mt-2 max-w-[68ch] text-base leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
-        {message.citations && message.citations.length > 0 ? (
+        {evidenceLabel ? (
+          <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
+            {evidenceLabel}
+          </p>
+        ) : null}
+        {committedAutomaticRequest ? (
+          <details className="mt-3 max-w-[68ch] rounded-2xl border border-primary-100 bg-primary-50/35 px-3 py-2">
+            <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
+              Sumber yang dipakai
+            </summary>
+            {message.requestSources && message.requestSources.length > 0 ? (
+              <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
+                {message.requestSources.map((source) => {
+                  const releaseLabel = automaticSourceReleaseLabel(source.releasedAt);
+
+                  return (
+                    <li className="flex items-start gap-2 text-sm text-secondary-700" key={source.citationKey}>
+                      <FileText className="mt-0.5 size-3.5 shrink-0 text-primary-700" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block font-medium text-secondary-900">{source.title}</span>
+                        <span className="mt-0.5 block text-xs text-secondary-500">
+                          {[automaticSourceKindLabel(source.kind), releaseLabel]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </span>
+                        {source.limitations.length > 0 ? (
+                          <span className="mt-0.5 block text-xs text-primary-800">
+                            Terbatas: {source.limitations.join(", ")}
+                          </span>
+                        ) : null}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-2 border-t border-primary-100 pt-2 text-xs leading-5 text-secondary-600">
+                Ringkasan sumber belum tersedia untuk permintaan ini.
+              </p>
+            )}
+          </details>
+        ) : null}
+        {message.requestContextMode !== "automatic" &&
+        (!message.requestSources || message.requestSources.length === 0) &&
+        message.citations &&
+        message.citations.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {message.citations.map((citation) => (
               <span
@@ -3118,7 +3609,25 @@ function MessageCard({
   );
 }
 
-function ProvisionalMessageCard({ body }: { body: string }) {
+function ProvisionalMessageCard({
+  automaticProgress,
+  body,
+}: {
+  automaticProgress: VeraAutomaticContextProgress | null;
+  body: string;
+}) {
+  const progressLabel = automaticProgress
+    ? {
+        selecting: "Mencari sumber belajar…",
+        retrieving: "Mencari sumber belajar…",
+        answering: "Menyusun jawaban…",
+        complete: "Jawaban sudah tersimpan.",
+        no_match: "Tidak ada sumber belajar yang cocok.",
+        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
+        unavailable: "Sumber belajar belum tersedia.",
+      }[automaticProgress.phase]
+    : null;
+
   return (
     <article className="flex items-start gap-3.5">
       <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
@@ -3136,8 +3645,11 @@ function ProvisionalMessageCard({ body }: { body: string }) {
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
           <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
         </div>
-        <BubbleContent className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700">
-          {body || "Vera sedang menyusun jawaban…"}
+        <BubbleContent
+          aria-live="polite"
+          className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
+        >
+          {body || progressLabel || "Vera sedang menyusun jawaban…"}
         </BubbleContent>
       </Bubble>
     </article>
