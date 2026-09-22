@@ -7,6 +7,7 @@ import {
   createVeraAutomaticTelemetryEvent,
   evaluateVeraAutomaticContextAlerts,
   evaluateVeraAutomaticContextGate,
+  evaluateVeraAutomaticContextRollout,
   readVeraAutomaticContextRolloutConfig,
   stableVeraAutomaticContextBasisPoints,
 } from "@/lib/vera-ai/automatic-context-operations";
@@ -95,6 +96,24 @@ const unknownCostAlerts = evaluateVeraAutomaticContextAlerts({
 });
 assert.equal(unknownCostAlerts.some((alert) => alert.code === "unknown_cost" && alert.failClosed), true);
 assert.equal(automaticContextMustFailClosed(unknownCostAlerts), true);
+assert.equal(evaluateVeraAutomaticContextRollout({
+  current: "internal",
+  target: "5%",
+  aggregate,
+  providerCapabilityReady: true,
+  capabilityEvidence: base.capabilityEvidence,
+  canaryExpiresAt: canary.canaryExpiresAt,
+  now: new Date("2026-09-23T00:00:00.000Z"),
+}).allowed, true);
+assert.equal(evaluateVeraAutomaticContextRollout({
+  current: "25%",
+  target: "on",
+  aggregate,
+  providerCapabilityReady: true,
+  capabilityEvidence: base.capabilityEvidence,
+  canaryExpiresAt: canary.canaryExpiresAt,
+  now: new Date("2026-09-23T00:00:00.000Z"),
+}).blockers.includes("legacy_retirement_not_reviewed"), true);
 assert.equal(readVeraAutomaticContextRolloutConfig({ VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF: "unexpected" }).emergencyOff, true);
 assert.deepEqual(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "production", VERA_AUTOMATIC_CONTEXT_STATE: "bad", VERA_AUTOMATIC_CONTEXT_ROLLOUT_BASIS_POINTS: "12000" }), {
   state: "off",

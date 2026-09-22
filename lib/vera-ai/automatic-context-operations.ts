@@ -7,6 +7,17 @@ import { VERA_AUTOMATIC_CONTEXT_BUDGETS, canonicalJson, sha256Hex } from "./cont
 export const VERA_AUTOMATIC_ROLLOUT_STATES = ["off", "internal", "cohort", "on"] as const;
 export type VeraAutomaticRolloutState = (typeof VERA_AUTOMATIC_ROLLOUT_STATES)[number];
 
+export const VERA_AUTOMATIC_ROLLOUT_STAGES = ["off", "internal", "5%", "25%", "on"] as const;
+export type VeraAutomaticRolloutStage = (typeof VERA_AUTOMATIC_ROLLOUT_STAGES)[number];
+
+export const VERA_AUTOMATIC_ROLLOUT_BASIS_POINTS: Record<VeraAutomaticRolloutStage, number> = {
+  off: 0,
+  internal: 0,
+  "5%": 500,
+  "25%": 2_500,
+  on: 10_000,
+};
+
 export const VERA_AUTOMATIC_OUTCOMES = [
   "completed",
   "no_match",
@@ -86,6 +97,7 @@ export type VeraAutomaticTelemetryEvent = {
   replayCount: number;
   unknownUsage: boolean;
   unknownCost: boolean;
+  duplicateDispatches: number;
   chargedUsdMicros: string | null;
   queryDigest: string | null;
   resultDigest: string | null;
@@ -110,6 +122,7 @@ export type VeraAutomaticTelemetryAggregate = {
   replayCount: number;
   unknownUsageCount: number;
   unknownCostCount: number;
+  duplicateDispatches: number;
   chargedUsdMicros: string;
   policyVersions: string[];
 };
@@ -121,6 +134,7 @@ export type VeraAutomaticContextAlertCode =
   | "unknown_usage"
   | "unknown_cost"
   | "source_authorization"
+  | "duplicate_dispatch"
   | "citation_validation"
   | "latency_budget"
   | "spend_exposure";
@@ -300,6 +314,7 @@ export function createVeraAutomaticTelemetryEvent(input: Partial<VeraAutomaticTe
     replayCount: boundedNonNegativeInteger(input.replayCount),
     unknownUsage: input.unknownUsage === true,
     unknownCost: input.unknownCost === true || chargedUsdMicros === null,
+    duplicateDispatches: boundedNonNegativeInteger(input.duplicateDispatches),
     chargedUsdMicros,
     queryDigest: boundedDigest(input.queryDigest),
     resultDigest: boundedDigest(input.resultDigest),
@@ -333,6 +348,7 @@ export function aggregateVeraAutomaticTelemetry(events: readonly VeraAutomaticTe
     replayCount: sum((event) => event.replayCount),
     unknownUsageCount: safeEvents.filter((event) => event.unknownUsage).length,
     unknownCostCount: safeEvents.filter((event) => event.unknownCost).length,
+    duplicateDispatches: sum((event) => event.duplicateDispatches),
     chargedUsdMicros,
     policyVersions: [...new Set(safeEvents.map((event) => event.policyVersion))].sort(),
   };
@@ -362,6 +378,7 @@ export function evaluateVeraAutomaticContextAlerts(input: {
   if (input.aggregate.unknownUsageCount > 0) alerts.push({ code: "unknown_usage", severity: "critical", failClosed: true });
   if (input.aggregate.unknownCostCount > 0) alerts.push({ code: "unknown_cost", severity: "critical", failClosed: true });
   if (input.aggregate.sourceAuthorizationFailures > 0) alerts.push({ code: "source_authorization", severity: "critical", failClosed: true });
+  if (input.aggregate.duplicateDispatches > 0) alerts.push({ code: "duplicate_dispatch", severity: "critical", failClosed: true });
   if (input.aggregate.citationValidationFailures > 0) alerts.push({ code: "citation_validation", severity: "critical", failClosed: true });
   const latencyBreached = (input.aggregate.selectorLatencyP95Ms ?? 0) > (input.selectorLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.selectorTimeoutMs)
     || (input.aggregate.registryLatencyP95Ms ?? 0) > (input.registryLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.registryTimeoutMs)
@@ -370,6 +387,63 @@ export function evaluateVeraAutomaticContextAlerts(input: {
   if (latencyBreached) alerts.push({ code: "latency_budget", severity: "warning", failClosed: false });
   if (input.spendLimitUsdMicros !== undefined && BigInt(input.aggregate.chargedUsdMicros) > input.spendLimitUsdMicros) alerts.push({ code: "spend_exposure", severity: "critical", failClosed: true });
   return alerts;
+}
+
+export type VeraAutomaticRolloutVerification = {
+  allowed: boolean;
+  target: VeraAutomaticRolloutStage;
+  targetBasisPoints: number;
+  blockers: readonly string[];
+};
+
+/**
+ * Evaluates one-way rollout promotion. Emergency rollback is intentionally
+ * handled by the gate's `emergencyOff` switch, so promotion cannot use this
+ * helper to widen access or budgets accidentally.
+ */
+export function evaluateVeraAutomaticContextRollout(input: {
+  current: VeraAutomaticRolloutStage;
+  target: VeraAutomaticRolloutStage;
+  aggregate: VeraAutomaticTelemetryAggregate;
+  providerCapabilityReady: boolean;
+  capabilityEvidence: VeraAutomaticContextCapabilityEvidence | null | undefined;
+  canaryExpiresAt: string | null;
+  now?: Date;
+  noMatchRateLimit?: number;
+  legacyRetirementReviewed?: boolean;
+}): VeraAutomaticRolloutVerification {
+  const blockers: string[] = [];
+  const targetBasisPoints = VERA_AUTOMATIC_ROLLOUT_BASIS_POINTS[input.target];
+  const currentIndex = VERA_AUTOMATIC_ROLLOUT_STAGES.indexOf(input.current);
+  const targetIndex = VERA_AUTOMATIC_ROLLOUT_STAGES.indexOf(input.target);
+
+  if (input.target === "off") {
+    return { allowed: true, target: input.target, targetBasisPoints, blockers };
+  }
+  if (targetIndex !== currentIndex + 1) blockers.push("rollout_must_advance_one_stage");
+  if (!input.providerCapabilityReady) blockers.push("provider_capability_unready");
+  if (!veraAutomaticContextCapabilityEvidenceReady(input.capabilityEvidence)) blockers.push("capability_evidence_unready");
+  const now = input.now ?? new Date();
+  const expiry = input.canaryExpiresAt ? new Date(input.canaryExpiresAt) : null;
+  if (!expiry || Number.isNaN(expiry.getTime()) || expiry <= now) blockers.push("canary_expired");
+  if (input.aggregate.state !== "ready") blockers.push("telemetry_suppressed");
+  if (input.aggregate.sampleCount < MIN_REPORT_GROUP_SIZE) blockers.push("insufficient_evidence");
+  if (input.aggregate.sourceAuthorizationFailures > 0) blockers.push("source_authorization_failures");
+  if (input.aggregate.duplicateDispatches > 0) blockers.push("duplicate_dispatches");
+  if (input.aggregate.citationValidationFailures > 0) blockers.push("citation_validation_failures");
+  if (input.aggregate.unknownUsageCount > 0) blockers.push("unknown_usage");
+  if (input.aggregate.unknownCostCount > 0) blockers.push("unknown_cost");
+
+  if (input.target === "25%" || input.target === "on") {
+    const noMatchRate = input.aggregate.sampleCount === 0 ? 1 : input.aggregate.noMatchCount / input.aggregate.sampleCount;
+    if (noMatchRate > (input.noMatchRateLimit ?? 0.5)) blockers.push("no_match_rate");
+    if ((input.aggregate.selectorLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.selectorTimeoutMs) blockers.push("selector_latency_budget");
+    if ((input.aggregate.registryLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.registryTimeoutMs) blockers.push("registry_latency_budget");
+    if ((input.aggregate.finalLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.finalProviderTimeoutMs) blockers.push("final_latency_budget");
+    if ((input.aggregate.totalLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.logicalDeadlineMs) blockers.push("total_latency_budget");
+  }
+  if (input.target === "on" && input.legacyRetirementReviewed !== true) blockers.push("legacy_retirement_not_reviewed");
+  return { allowed: blockers.length === 0, target: input.target, targetBasisPoints, blockers };
 }
 
 export function automaticContextMustFailClosed(alerts: readonly VeraAutomaticContextAlert[]): boolean {
