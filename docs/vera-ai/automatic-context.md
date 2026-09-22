@@ -61,8 +61,11 @@ context routes remain available for the legacy cohort and old conversations
 remain readable.
 
 The automatic gate also requires the approved paid provider, the function-tool
-capability flag, and a non-expired canary. Development, the free POC, and the
-mock provider are always fail-closed for automatic mode.
+capability evidence bound to the canonical tool schema and selector/final
+serializer hashes, and a non-expired two-turn canary. Development, the free
+POC, and the mock provider are always fail-closed for automatic mode. The
+current capability signature is a release-evidence reference; public-key
+verification remains a release-operations follow-up.
 
 Automatic mode cannot activate on the free POC provider. A paid route requires
 the separately certified model/provider manifest, function-tool canary,
