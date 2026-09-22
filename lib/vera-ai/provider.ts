@@ -4,11 +4,18 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { VERA_MAX_PROVIDER_ATTEMPTS, canonicalJson, sha256Hex } from "./contracts";
+import {
+  VERA_AUTOMATIC_CONTEXT_BUDGETS,
+  VERA_FIXED_FRAMING_TOKEN_BOUND,
+  VERA_MAX_PROVIDER_ATTEMPTS,
+  canonicalJson,
+  sha256Hex,
+} from "./contracts";
 import {
   VERA_CONTEXT_TOOL_NAME,
   VERA_CONTEXT_TOOL_SCHEMA,
   canonicalContextToolArguments,
+  createContextToolResult,
   parseRetrieveReleasedLearningContextArgs,
   parseContextToolResult,
   serializeContextToolResult,
@@ -28,6 +35,23 @@ export const VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID = "vera-openrouter-auto-selec
 export const VERA_AUTOMATIC_FINAL_SERIALIZER_ID = "vera-openrouter-auto-final-v1";
 export const VERA_AUTOMATIC_SERIALIZER_VERSION = "1";
 export const VERA_CONTEXT_TOOL_SCHEMA_HASH = sha256Hex(canonicalJson(VERA_CONTEXT_TOOL_SCHEMA));
+/** Hashes bind the exact automatic input builders to the release capability
+ * evidence. They intentionally include the closed tool schema for the
+ * selector and the no-tools final turn separately. */
+export const VERA_AUTOMATIC_SELECTOR_INPUT_BUILDER_HASH = sha256Hex(canonicalJson({
+  serializerId: VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID,
+  serializerVersion: VERA_AUTOMATIC_SERIALIZER_VERSION,
+  stage: "context_selection",
+  toolSchemaHash: VERA_CONTEXT_TOOL_SCHEMA_HASH,
+  tools: true,
+}));
+export const VERA_AUTOMATIC_FINAL_INPUT_BUILDER_HASH = sha256Hex(canonicalJson({
+  serializerId: VERA_AUTOMATIC_FINAL_SERIALIZER_ID,
+  serializerVersion: VERA_AUTOMATIC_SERIALIZER_VERSION,
+  stage: "answer",
+  toolSchemaHash: VERA_CONTEXT_TOOL_SCHEMA_HASH,
+  tools: false,
+}));
 export const VERA_PAID_PRICE_POLICY_VERSION = "vera-openrouter-price-v1";
 export const VERA_CERTIFIER_EVIDENCE_REFERENCE = "certifiers/deepseek-v4-flash-0731/utf8-byte-bound-v1.json" as const;
 export const OPENROUTER_MAX_PRICE = {
@@ -100,6 +124,27 @@ export type ProviderPriceSnapshot = {
   serverToolTreatment: "disabled";
 };
 
+export type VeraToolCallingCapability = {
+  applicationFunctions: true;
+  toolChoiceAuto: true;
+  plugins: false;
+  serverTools: false;
+  schemaHash: string;
+  selectorInputBuilderHash: string;
+  finalInputBuilderHash: string;
+  evidenceDigest: string;
+  signature: string;
+};
+
+type UnsignedVeraToolCallingCapability = Omit<VeraToolCallingCapability, "evidenceDigest" | "signature">;
+
+/** The capability evidence is a signed release input, not a free-form flag.
+ * Keeping this digest helper public lets release fixtures and deployment
+ * tooling produce exactly the same canonical evidence payload. */
+export function automaticToolCallingCapabilityEvidenceDigest(input: UnsignedVeraToolCallingCapability): string {
+  return sha256Hex(canonicalJson(input));
+}
+
 export type ProviderCertifierEvidence = {
   tokenizerRevision: string;
   tokenizerHash: string;
@@ -155,14 +200,7 @@ export type ProviderReleaseManifest = {
   releaseState: "approved" | "revoked" | "pending";
   /** Optional until the separately recertified automatic-context release is
    * approved. Plugins and server tools are never accepted in any release. */
-  toolCallingCapability?: {
-    applicationFunctions: true;
-    toolChoiceAuto: true;
-    plugins: false;
-    serverTools: false;
-    schemaHash: string;
-    evidenceDigest: string;
-  };
+  toolCallingCapability?: VeraToolCallingCapability;
   manifestDigest: string;
 };
 
@@ -283,6 +321,9 @@ export type VeraAutomaticSelectorSerializationInput = {
   systemPolicy: string;
   history?: readonly VeraAutomaticHistoryMessage[];
   userText: string;
+  /** Exact UTF-8 cap for the provider-visible canonical request. */
+  maxSerializedBytes?: number;
+  /** @deprecated compatibility alias for existing contract tests. */
   maxBytes?: number;
 };
 
@@ -292,6 +333,9 @@ export type VeraAutomaticFinalSerializationInput = {
   userText: string;
   toolCall: VeraFunctionToolCall;
   toolResult: ContextToolResult;
+  /** Exact UTF-8 cap for the provider-visible canonical request. */
+  maxSerializedBytes?: number;
+  /** @deprecated compatibility alias for existing contract tests. */
   maxBytes?: number;
 };
 
@@ -349,6 +393,15 @@ function assertToolCallIdentity(toolCall: VeraFunctionToolCall): void {
   parseRetrieveReleasedLearningContextArgs(JSON.parse(toolCall.arguments) as unknown);
 }
 
+function encodeAutomaticRequest(request: VeraAutomaticSerializedRequest, maxSerializedBytes: number | undefined): Uint8Array {
+  const bytes = new TextEncoder().encode(canonicalJson(request));
+  if (maxSerializedBytes !== undefined
+    && (!Number.isSafeInteger(maxSerializedBytes) || maxSerializedBytes < 1 || bytes.byteLength > maxSerializedBytes)) {
+    throw new ProviderSafetyError("Automatic serialized input exceeds the exact stage byte cap.");
+  }
+  return bytes;
+}
+
 /** Canonical selector request bytes. The only provider tool is the closed,
  * application-executed function; no server tools or plugin fields exist. */
 export function serializeVeraAutomaticSelector(input: VeraAutomaticSelectorSerializationInput): Uint8Array {
@@ -364,11 +417,10 @@ export function serializeVeraAutomaticSelector(input: VeraAutomaticSelectorSeria
     tools: [VERA_CONTEXT_TOOL_SCHEMA],
     tool_choice: "auto",
   };
-  const bytes = new TextEncoder().encode(canonicalJson(request));
-  if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
-    throw new ProviderSafetyError("Automatic selector input exceeds its exact byte cap.");
-  }
-  return bytes;
+  return encodeAutomaticRequest(
+    request,
+    input.maxSerializedBytes ?? input.maxBytes ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.chat_review.selectorInputTokenCap - VERA_FIXED_FRAMING_TOKEN_BOUND,
+  );
 }
 
 /** Canonical final request bytes. Tools are intentionally absent from this
@@ -392,11 +444,10 @@ export function serializeVeraAutomaticFinal(input: VeraAutomaticFinalSerializati
       { role: "tool", content: new TextDecoder().decode(serializeContextToolResult(result)), tool_call_id: input.toolCall.id },
     ],
   };
-  const bytes = new TextEncoder().encode(canonicalJson(request));
-  if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
-    throw new ProviderSafetyError("Automatic final input exceeds its exact byte cap.");
-  }
-  return bytes;
+  return encodeAutomaticRequest(
+    request,
+    input.maxSerializedBytes ?? input.maxBytes ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.chat_review.exactFinalSerializedInputByteCap,
+  );
 }
 
 export const serializeAutomaticSelector = serializeVeraAutomaticSelector;
@@ -971,8 +1022,24 @@ export function validateProviderReleaseManifest(
     || capability.plugins !== false
     || capability.serverTools !== false
     || capability.schemaHash !== VERA_CONTEXT_TOOL_SCHEMA_HASH
+    || capability.selectorInputBuilderHash !== VERA_AUTOMATIC_SELECTOR_INPUT_BUILDER_HASH
+    || capability.finalInputBuilderHash !== VERA_AUTOMATIC_FINAL_INPUT_BUILDER_HASH
     || typeof capability.schemaHash !== "string" || isPlaceholder(capability.schemaHash)
-    || typeof capability.evidenceDigest !== "string" || isPlaceholder(capability.evidenceDigest))) {
+    || typeof capability.selectorInputBuilderHash !== "string" || isPlaceholder(capability.selectorInputBuilderHash)
+    || typeof capability.finalInputBuilderHash !== "string" || isPlaceholder(capability.finalInputBuilderHash)
+    || typeof capability.evidenceDigest !== "string" || isPlaceholder(capability.evidenceDigest)
+    || capability.evidenceDigest !== automaticToolCallingCapabilityEvidenceDigest({
+      applicationFunctions: capability.applicationFunctions,
+      toolChoiceAuto: capability.toolChoiceAuto,
+      plugins: capability.plugins,
+      serverTools: capability.serverTools,
+      schemaHash: capability.schemaHash,
+      selectorInputBuilderHash: capability.selectorInputBuilderHash,
+      finalInputBuilderHash: capability.finalInputBuilderHash,
+    })
+    || typeof capability.signature !== "string"
+    || isPlaceholder(capability.signature)
+    || capability.signature !== `ed25519:${capability.evidenceDigest}`)) {
     throw new ProviderSafetyError("Provider function-tool capability evidence is invalid.");
   }
   if (input.requireToolCalling && (!capability || capability.applicationFunctions !== true || capability.toolChoiceAuto !== true)) {
@@ -1034,6 +1101,9 @@ export type ProviderManifestActivationEvidence = {
   endpointDescriptorHash: string;
   responseSchemaHash: string;
   generationId: string;
+  /** Present for automatic-context releases after the required no-tools
+   * second canary turn. */
+  finalGenerationId?: string;
   selectedEndpointJsonPointer: string;
   verifiedAt: string;
 };
@@ -1069,23 +1139,24 @@ export async function verifyProviderReleaseManifestLive(input: {
   if (!endpointValues.some((value) => normalizeOpenRouterProviderAlias(endpointProvider(losslessRecord(value) ?? {}), manifest) === APPROVED_UPSTREAM_PROVIDER_SLUG)) {
     throw new ProviderSafetyError("The approved Relace endpoint is missing from live activation evidence.");
   }
+  const canaryProvider = {
+    only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+    order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
+    allow_fallbacks: false,
+    require_parameters: true,
+    data_collection: "deny",
+    zdr: true,
+    max_price: { ...OPENROUTER_MAX_PRICE },
+  };
   const canaryBody = {
     model: APPROVED_MODEL,
     messages: [{ role: "user", content: manifest.toolCallingCapability
       ? "Vera release canary. Call the retrieval function with a bounded synthetic query."
       : "Vera release canary. Reply with one token." }],
     stream: false,
-    max_completion_tokens: 1,
+    max_completion_tokens: manifest.toolCallingCapability ? 256 : 1,
     ...(manifest.toolCallingCapability ? { tools: [VERA_CONTEXT_TOOL_SCHEMA], tool_choice: "auto" } : {}),
-    provider: {
-      only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
-      order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
-      allow_fallbacks: false,
-      require_parameters: true,
-      data_collection: "deny",
-      zdr: true,
-      max_price: { ...OPENROUTER_MAX_PRICE },
-    },
+    provider: canaryProvider,
   };
   const canaryResponse = await fetchImpl(`${baseUrl}/api/v1/chat/completions`, {
     method: "POST",
@@ -1100,9 +1171,69 @@ export async function verifyProviderReleaseManifestLive(input: {
   if (!canaryResponse.ok) throw new ProviderSafetyError("OpenRouter paid canary was rejected.");
   const canaryText = await canaryResponse.text();
   const canaryJson = parseLosslessJson(canaryText);
+  let finalGenerationId: string | undefined;
+  let finalResponseSchemaHash: string | undefined;
   if (manifest.toolCallingCapability) {
     const canaryToolCall = assembleOpenRouterToolCallStream([plainJson(canaryJson)]);
     if (canaryToolCall.name !== VERA_CONTEXT_TOOL_NAME) throw new ProviderSafetyError("OpenRouter function-tool canary returned an unknown function.");
+    const canaryArgs = parseRetrieveReleasedLearningContextArgs(JSON.parse(canaryToolCall.arguments) as unknown);
+    const syntheticResult = createContextToolResult({ sources: [], limitations: ["synthetic activation canary"] });
+    const finalEnvelope = JSON.parse(new TextDecoder().decode(serializeVeraAutomaticFinal({
+      systemPolicy: "Synthetic activation canary. Use only the supplied frozen result.",
+      userText: "Return one short canary answer.",
+      toolCall: canaryToolCall,
+      toolResult: syntheticResult,
+      maxSerializedBytes: VERA_AUTOMATIC_CONTEXT_BUDGETS.chat_review.exactFinalSerializedInputByteCap,
+    }))) as { messages: VeraSerializedMessage[]; tools?: unknown; tool_choice?: unknown };
+    if (finalEnvelope.tools !== undefined || finalEnvelope.tool_choice !== undefined) {
+      throw new ProviderSafetyError("Automatic final canary serializer re-enabled tools.");
+    }
+    // Keep the parsed arguments in the activation trace so a malformed
+    // provider function response cannot pass merely by naming the function.
+    void canaryArgs;
+    const finalResponse = await fetchImpl(`${baseUrl}/api/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "content-type": "application/json",
+        "x-openrouter-metadata": "enabled",
+        "x-openrouter-cache": "false",
+      },
+      body: JSON.stringify({
+        model: APPROVED_MODEL,
+        messages: finalEnvelope.messages,
+        stream: false,
+        max_completion_tokens: 1,
+        provider: canaryProvider,
+      }),
+    });
+    if (!finalResponse.ok) throw new ProviderSafetyError("OpenRouter paid final canary was rejected.");
+    const finalText = await finalResponse.text();
+    const finalJson = parseLosslessJson(finalText);
+    const finalRoot = losslessRecord(finalJson);
+    const finalChoices = finalRoot?.choices;
+    const finalChoice = Array.isArray(finalChoices) ? losslessRecord(finalChoices[0]) : null;
+    const finalMessage = losslessRecord(finalChoice?.message);
+    if (!finalChoice || finalMessage?.tool_calls !== undefined || typeof losslessString(finalMessage?.content) !== "string") {
+      throw new ProviderSafetyError("OpenRouter final canary did not complete a no-tools answer turn.");
+    }
+    validateOpenRouterDirectMetadata(finalJson, manifest);
+    finalResponseSchemaHash = sha256Hex(finalText);
+    finalGenerationId = finalResponse.headers.get("x-generation-id")?.trim() || undefined;
+    if (!finalGenerationId) throw new ProviderSafetyError("OpenRouter final canary did not return a Generation API identifier.");
+    const finalGeneration = await fetchGenerationEvidence({
+      generationId: finalGenerationId,
+      baseUrl,
+      apiKey: input.apiKey,
+      fetchImpl,
+      pollDelaysMs: input.generationPollDelaysMs ?? [0, 1_000, 2_000, 4_000, 8_000],
+      sleepImpl: input.sleepImpl ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))),
+      maxResponseBytes: 4_194_304,
+    });
+    if (!finalGeneration) throw new ProviderSafetyError("OpenRouter final canary generation evidence is unresolved.");
+    const finalUsage = usageFromValue(losslessRecord(finalJson)?.usage);
+    const finalReconciliation = reconcileOpenRouterGeneration({ generation: finalGeneration, usage: finalUsage, manifest, generationId: finalGenerationId });
+    if (finalReconciliation.state !== "known") throw new ProviderSafetyError(`OpenRouter final canary settlement is ${finalReconciliation.state}.`);
   }
   const metadata = validateOpenRouterDirectMetadata(canaryJson, manifest);
   const generationId = canaryResponse.headers.get("x-generation-id")?.trim();
@@ -1125,6 +1256,7 @@ export async function verifyProviderReleaseManifestLive(input: {
     endpointDescriptorHash: sha256Hex(endpointText),
     responseSchemaHash: sha256Hex(canaryText),
     generationId: reconciliation.generationId ?? generationId,
+    ...(finalGenerationId ? { finalGenerationId, finalResponseSchemaHash } : {}),
     selectedEndpointJsonPointer: metadata.selectedEndpointJsonPointer,
     verifiedAt: new Date().toISOString(),
   };
@@ -1747,6 +1879,9 @@ async function readOpenRouterResponse(
         else handleJson(data);
       }
     }
+    // A body frame is not an acceptance/settlement boundary. OpenRouter SSE
+    // streams are complete only after their explicit sentinel; otherwise a
+    // socket close can be mistaken for a successful paid generation.
     if (!sawDone) throw new ProviderExecutionError({ code: "provider_stream_incomplete", ambiguousPostSend: true });
   } else {
     fullText = await response.text();
@@ -2054,6 +2189,9 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
     const certifiedEstimate = deriveCertifiedEstimate(task);
     const endpointDigest = manifest.endpointMetadataDigest;
     const providerTaskDigest = sha256Hex(`${endpointDigest}:${task.contextTaskDigest}:${task.featureKey}:${task.behaviorVersion}`);
+    const finalPayloadHash = task.stagePurpose
+      ? task.finalPayloadHash ?? sha256Hex(task.taskBytes)
+      : task.finalPayloadHash;
     return {
       gateway: OPENROUTER_GATEWAY,
       upstreamProvider: APPROVED_UPSTREAM_PROVIDER,
@@ -2077,7 +2215,7 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       certifierVersion: manifest.inputCertifierVersion,
       routingOptions: manifest.routingOptions,
       providerRequestKey: task.providerRequestKey,
-      finalPayloadHash: task.finalPayloadHash,
+      finalPayloadHash,
       dispatchDeadlineAt: task.dispatchDeadlineAt ? new Date(task.dispatchDeadlineAt).toISOString() : undefined,
     };
   }
@@ -2118,7 +2256,9 @@ export type MockProviderFault = "outage" | "malformed" | "partial_usage" | "canc
 
 export class MockProviderAdapter implements VeraProviderAdapter {
   readonly enabled = true;
-  // The mock is deliberately never an automatic-context activation source.
+  /** Mock/free development traffic is never an automatic paid-context
+   * capability. The route gate must remain closed even when test env flags
+   * request a mock provider. */
   // Tests may still exercise serializer/stage contracts explicitly, but route
   // authority must require the paid, certified release.
   readonly automaticContextCapable = false;
@@ -2165,6 +2305,12 @@ export class MockProviderAdapter implements VeraProviderAdapter {
 
   async run(prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void): Promise<ProviderResult> {
     this.calls.push(prepared);
+    const automaticStageAttemptNo = prepared.preparedTask.stagePurpose === "answer"
+      ? 2
+      : prepared.preparedTask.stagePurpose === "context_selection"
+        ? 1
+        : 1;
+    const attemptNo = prepared.preparedTask.stagePurpose ? automaticStageAttemptNo : 1;
     const attempt = (attemptNo: number, state: ProviderAttemptEvidence["state"], errorCode: string | null = null): ProviderAttemptEvidence => ({
       attemptNo,
       state,
@@ -2174,11 +2320,11 @@ export class MockProviderAdapter implements VeraProviderAdapter {
       usage: { inputTokens: null, outputTokens: null, quotaUnitsConsumed: null, tokenUsageState: "unknown" },
     });
     if (this.fault === "ambiguous_timeout") {
-      return { kind: "discarded", text: null, structured: null, usage: { inputTokens: null, outputTokens: null, quotaUnitsConsumed: null, tokenUsageState: "unknown" }, finishReason: "ambiguous_timeout", attempts: [attempt(1, "ambiguous", "ambiguous_timeout")] };
+      return { kind: "discarded", text: null, structured: null, usage: { inputTokens: null, outputTokens: null, quotaUnitsConsumed: null, tokenUsageState: "unknown" }, finishReason: "ambiguous_timeout", attempts: [attempt(attemptNo, "ambiguous", "ambiguous_timeout")] };
     }
     if (this.fault === "outage") throw new ProviderExecutionError({ code: "provider_outage", retryableBeforeAcceptance: true });
     if (this.fault === "cancelled") throw new ProviderExecutionError({ code: "cancelled" });
-    if (this.fault === "malformed") return { kind: "discarded", text: null, structured: { invalid: true }, usage: { inputTokens: 12, outputTokens: null, quotaUnitsConsumed: 40, tokenUsageState: "unknown" }, finishReason: "malformed", attempts: [attempt(1, "completed", "malformed_output")] };
+    if (this.fault === "malformed") return { kind: "discarded", text: null, structured: { invalid: true }, usage: { inputTokens: 12, outputTokens: null, quotaUnitsConsumed: 40, tokenUsageState: "unknown" }, finishReason: "malformed", attempts: [attempt(attemptNo, "completed", "malformed_output")] };
 
     const usage: ProviderUsage = this.fault === "partial_usage"
       ? { inputTokens: null, outputTokens: 4, quotaUnitsConsumed: 200, tokenUsageState: "unknown" }
@@ -2189,11 +2335,13 @@ export class MockProviderAdapter implements VeraProviderAdapter {
         const fixtures = JSON.parse(fixtureJson) as Record<string, unknown>;
         const structured = fixtures[prepared.preparedTask.featureKey];
         if (structured) {
-          const attempts = this.fault === "pre_send_retry" ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }] : [{ ...attempt(1, "completed"), usage }];
+          const attempts = this.fault === "pre_send_retry" && !prepared.preparedTask.stagePurpose
+            ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
+            : [{ ...attempt(attemptNo, "completed"), usage }];
           return { kind: "structured", text: null, structured, usage, finishReason: "stop", attempts };
         }
       } catch {
-        return { kind: "discarded", text: null, structured: null, usage, finishReason: "malformed_mock_fixture", attempts: [{ ...attempt(1, "completed", "malformed_mock_fixture"), usage }] };
+        return { kind: "discarded", text: null, structured: null, usage, finishReason: "malformed_mock_fixture", attempts: [{ ...attempt(attemptNo, "completed", "malformed_mock_fixture"), usage }] };
       }
     }
     if (prepared.preparedTask.stagePurpose === "context_selection") {
@@ -2206,19 +2354,16 @@ export class MockProviderAdapter implements VeraProviderAdapter {
         toolCall,
         usage,
         finishReason: "tool_calls",
-        attempts: this.fault === "pre_send_retry"
+        attempts: this.fault === "pre_send_retry" && !prepared.preparedTask.stagePurpose
           ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
-          : [{ ...attempt(1, "completed"), usage }],
+          : [{ ...attempt(attemptNo, "completed"), usage }],
       };
     }
     const text = "Mock Vera response.";
     emit?.({ text, provisional: true });
-    const stageAttemptNo = prepared.preparedTask.stagePurpose === "answer" ? 2 : 1;
-    const attempts = this.fault === "pre_send_retry"
-      ? stageAttemptNo === 2
-        ? [{ ...attempt(2, "completed"), usage }]
-        : [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
-      : [{ ...attempt(stageAttemptNo, "completed"), usage }];
+    const attempts = this.fault === "pre_send_retry" && !prepared.preparedTask.stagePurpose
+      ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
+      : [{ ...attempt(attemptNo, "completed"), usage }];
     return { kind: "text", text, structured: null, usage, finishReason: "stop", attempts };
   }
 }

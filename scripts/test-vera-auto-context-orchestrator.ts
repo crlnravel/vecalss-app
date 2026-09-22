@@ -1,5 +1,6 @@
 import {
   assembleOpenRouterToolCallStream,
+  MockProviderAdapter,
   serializeVeraAutomaticFinal,
   serializeVeraAutomaticSelector,
   type VeraFunctionToolCall,
@@ -73,6 +74,48 @@ await runChecks("vera-auto-context-orchestrator", [
         toolResult,
         maxBytes: 32,
       })), "final serializer exceeded its exact byte cap");
+    },
+  },
+  {
+    name: "automatic serializer caps and provider stage attempts are exact",
+    run: async () => {
+      await expectReject(() => Promise.resolve(serializeVeraAutomaticSelector({ systemPolicy: "policy", userText: "question", maxSerializedBytes: 1 })), "selector byte cap was bypassed");
+      await expectReject(() => Promise.resolve(serializeVeraAutomaticFinal({ systemPolicy: "policy", userText: "question", toolCall, toolResult, maxSerializedBytes: 1 })), "final byte cap was bypassed");
+      const mock = new MockProviderAdapter();
+      const selectorPrepared = await mock.prepare({ featureKey: "vera.chat", behaviorVersion: "1", taskBytes: new Uint8Array([1]), contextTaskDigest: "selector", hardOutputQuotaUnits: 256, stagePurpose: "context_selection", attemptNo: 1 });
+      const finalPrepared = await mock.prepare({ featureKey: "vera.chat", behaviorVersion: "1", taskBytes: new Uint8Array([1]), contextTaskDigest: "final", hardOutputQuotaUnits: 800, stagePurpose: "answer", attemptNo: 2 });
+      const selectorResult = await mock.run(selectorPrepared);
+      const finalResult = await mock.run(finalPrepared);
+      assert(selectorResult.attempts[0]?.attemptNo === 1 && finalResult.attempts[0]?.attemptNo === 2, "automatic stage attempt numbers collided");
+      assert(mock.automaticContextCapable === false, "mock provider advertised automatic capability");
+    },
+  },
+  {
+    name: "concurrent runner ownership prevents duplicate selector, registry, and answer callbacks",
+    run: async () => {
+      const store = new InMemoryVeraAutomaticStateStore();
+      const requestId = "77777777-7777-4777-8777-777777777777";
+      let selectorCalls = 0;
+      let registryCalls = 0;
+      let answerCalls = 0;
+      let selectorEntered!: () => void;
+      let releaseSelector!: () => void;
+      const entered = new Promise<void>((resolve) => { selectorEntered = resolve; });
+      const hold = new Promise<void>((resolve) => { releaseSelector = resolve; });
+      const run = () => runVeraAutomaticContext({
+        requestId,
+        store,
+        selector: async () => { selectorCalls += 1; selectorEntered(); await hold; return selectorOutcome(); },
+        registry: async () => { registryCalls += 1; return registryOutcome(); },
+        answer: async () => { answerCalls += 1; return { text: "Jawaban [^materi_linear]", usage }; },
+      });
+      const first = run();
+      await entered;
+      const replay = await run();
+      assert(replay.state.stages.context_selection.state === "dispatching" && selectorCalls === 1 && registryCalls === 0 && answerCalls === 0, "concurrent replay stole selector ownership");
+      releaseSelector();
+      const completed = await first;
+      assert(completed.state.settlement === "known" && `${selectorCalls},${registryCalls},${answerCalls}` === "1,1,1", "concurrent runner duplicated a stage callback");
     },
   },
   {

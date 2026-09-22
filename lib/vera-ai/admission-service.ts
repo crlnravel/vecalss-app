@@ -29,7 +29,7 @@ import {
 import { prisma as defaultPrisma } from "@/lib/prisma";
 
 import { VeraAdmissionError } from "./admission";
-import { encryptPreparedContextPackAsync, type PreparedContextPack } from "./context-pack";
+import { encryptPreparedContextPackAsync, type AutomaticContextPackSource, type PreparedContextPack } from "./context-pack";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import { VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
 import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraPolicyBundle, type VeraPolicySnapshot } from "./policy";
@@ -738,7 +738,7 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     toolArguments: unknown;
     now?: Date;
-  }): Promise<{ argumentsDigest: string; replayed: boolean }> {
+  }): Promise<{ argumentsDigest: string; replayed: boolean; state: "executing" | "completed" }> {
     if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
@@ -751,7 +751,7 @@ export class VeraPrismaAdmissionService {
       });
       if (invocation.state === "executing" || invocation.state === "completed") {
         if (invocation.argumentsDigest !== encrypted.argumentsDigest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
-        return { argumentsDigest: encrypted.argumentsDigest, replayed: true };
+        return { argumentsDigest: encrypted.argumentsDigest, replayed: true, state: invocation.state === "completed" ? "completed" : "executing" };
       }
       if (invocation.state !== "planned") throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
       const changed = await tx.aiContextToolInvocation.updateMany({
@@ -760,12 +760,75 @@ export class VeraPrismaAdmissionService {
           state: "executing",
           canonicalArgumentsCiphertext: json(encrypted.canonicalArgumentsCiphertext),
           argumentsDigest: encrypted.argumentsDigest,
+          errorCode: null,
           executingAt: now,
         },
       });
       if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
-      return { argumentsDigest: encrypted.argumentsDigest, replayed: false };
+      return { argumentsDigest: encrypted.argumentsDigest, replayed: false, state: "executing" };
     });
+  }
+
+  /** Claim the registry callback after selector arguments have been durably
+   * recorded. The errorCode marker is a small CAS-owned substate available in
+   * the existing invocation row; a late worker must observe it and return
+   * recovery rather than execute the registry twice. */
+  async claimAutomaticRegistryExecution(input: { requestId: string }): Promise<{ claimed: boolean; replayed: boolean }> {
+    const invocation = await this.db.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId }, select: { id: true, state: true, errorCode: true } });
+    if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+    if (invocation.state === "completed") return { claimed: false, replayed: true };
+    if (invocation.state !== "executing") throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
+    if (invocation.errorCode === "registry_dispatching") return { claimed: false, replayed: true };
+    const changed = await this.db.aiContextToolInvocation.updateMany({
+      where: { id: invocation.id, requestId: input.requestId, state: "executing", errorCode: null },
+      data: { errorCode: "registry_dispatching" },
+    });
+    if (changed.count === 1) return { claimed: true, replayed: false };
+    return { claimed: false, replayed: true };
+  }
+
+  /** Read the encrypted request-owned invocation for a reconnect worker. This
+   * never returns internal source UUIDs; the result manifest is the same
+   * identity-free ContextToolResult that the final serializer consumes. */
+  async readAutomaticInvocation(input: { requestId: string }): Promise<{
+    state: "planned" | "executing" | "completed" | "failed" | "unavailable";
+    toolArguments: unknown | null;
+    result: ContextToolResult | null;
+    sources: AutomaticContextPackSource[];
+  }> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const invocation = await this.db.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+    if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+    let toolArguments: unknown | null = null;
+    let result: ContextToolResult | null = null;
+    const sourceRows = await this.db.aiRequestSource.findMany({ where: { requestId: input.requestId }, orderBy: { ordinal: "asc" } });
+    try {
+      if (invocation.canonicalArgumentsCiphertext) {
+        toolArguments = JSON.parse(await this.envelope.decryptTextAsync(invocation.canonicalArgumentsCiphertext as unknown as AiEncryptedPayload)) as unknown;
+      }
+      if (invocation.resultManifestCiphertext) {
+        result = JSON.parse(await this.envelope.decryptTextAsync(invocation.resultManifestCiphertext as unknown as AiEncryptedPayload)) as ContextToolResult;
+      }
+      if (toolArguments !== null && invocation.argumentsDigest && result !== null) {
+        verifyContextToolInvocationDigests({
+          toolArguments,
+          result,
+          argumentsDigest: invocation.argumentsDigest,
+          resultDigest: invocation.resultDigest,
+          resultManifestDigest: invocation.resultManifestDigest,
+        });
+      }
+    } catch {
+      throw new VeraAdmissionError({ code: "context_tool_recovery_unavailable", status: 503 });
+    }
+    return {
+      state: invocation.state,
+      toolArguments,
+      result,
+      sources: result && sourceRows.length === result.sources.length
+        ? result.sources.map((source, index) => ({ ...source, sourceId: sourceRows[index]!.sourceId }))
+        : [],
+    };
   }
 
   /** Complete the one invocation with an encrypted identity-free result
@@ -833,6 +896,7 @@ export class VeraPrismaAdmissionService {
           resultByteCount: input.resultByteCount,
           truncationCount: input.truncationCount,
           registryLatencyMs: input.registryLatencyMs,
+          errorCode: null,
           completedAt: now,
         },
       });
@@ -967,7 +1031,7 @@ export class VeraPrismaAdmissionService {
     const now = input.now ?? await this.databaseNow();
     if (input.providerResult.attempts.length !== 1 || input.providerResult.attempts[0]?.attemptNo !== 1) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
     const attempt = input.providerResult.attempts[0];
-    await this.db.$transaction(async (tx) => {
+    return this.db.$transaction(async (tx) => {
       const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
       if (!existing || existing.stagePurpose !== AiRequestAttemptStagePurpose.context_selection) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       await tx.aiRequestAttempt.update({
@@ -1740,22 +1804,26 @@ export class VeraPrismaAdmissionService {
    * eligible for Generation API reconciliation; it is never silently
    * released as an unused reservation.
    */
-  async beginProviderDispatch(input: { requestId: string; attemptNo?: number; now?: Date }): Promise<{ claimed: boolean }> {
+  async beginProviderDispatch(input: { requestId: string; attemptNo?: number; now?: Date }): Promise<{ claimed: boolean; replayed: boolean; state: AiAttemptState }> {
     const now = input.now ?? await this.databaseNow();
-    await this.db.$transaction(async (tx) => {
+    return this.db.$transaction(async (tx) => {
       const request = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
         select: { id: true, status: true, version: true, ledgerVersion: true, providerRequestKey: true, dispatchDeadlineAt: true },
       });
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
-      if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return { claimed: false };
+      if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) {
+        return { claimed: false, replayed: true, state: AiAttemptState.completed };
+      }
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${request.id}::uuid FOR UPDATE`;
       const attemptNo = input.attemptNo ?? 1;
       if (!Number.isSafeInteger(attemptNo) || attemptNo < 1 || attemptNo > 2) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: request.id, attemptNo } } });
       if (!attempt) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${attempt.id}::uuid FOR UPDATE`;
-      if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) return { claimed: false };
+      if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) {
+        return { claimed: false, replayed: true, state: attempt.state };
+      }
       if (attempt.state !== AiAttemptState.reserved) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
       const dispatching = await tx.aiRequestAttempt.updateMany({
         where: { id: attempt.id, state: AiAttemptState.reserved },
@@ -1777,7 +1845,7 @@ export class VeraPrismaAdmissionService {
           version: { increment: 1 },
         },
       });
-      return { claimed: true };
+      return { claimed: true, replayed: false, state: AiAttemptState.dispatching };
     });
   }
 
@@ -1793,6 +1861,12 @@ export class VeraPrismaAdmissionService {
     now?: Date;
   }): Promise<{ id: string; replayed: boolean }> {
     const now = input.now ?? await this.databaseNow();
+    if (input.stagePurpose && input.providerResult) {
+      const expectedAttemptNo = input.stagePurpose === AiRequestAttemptStagePurpose.context_selection ? 1 : 2;
+      if (input.providerResult.attempts.length !== 1 || input.providerResult.attempts[0]?.attemptNo !== expectedAttemptNo) {
+        throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
+      }
+    }
     return this.db.$transaction(async (tx) => {
       const initial = await tx.aiRequest.findUnique({
         where: { id: input.requestId },

@@ -38,6 +38,10 @@ export type VeraAutomaticDurableState = {
     resultDigest: string | null;
     sourceManifestDigest: string | null;
     selectedSourceCount: number;
+    /** CAS ownership for the server registry callback. This is intentionally
+     * separate from `state=executing`: a reconnect may observe the invocation
+     * while another worker is already executing it. */
+    registryClaimed?: boolean;
     errorCode: string | null;
   };
   stages: Record<VeraAutomaticStagePurpose, VeraAutomaticStageRecord>;
@@ -68,6 +72,7 @@ function initialState(requestId: string): VeraAutomaticDurableState {
       resultDigest: null,
       sourceManifestDigest: null,
       selectedSourceCount: 0,
+      registryClaimed: false,
       errorCode: null,
     },
     stages: {
@@ -172,6 +177,16 @@ export class VeraAutomaticContextStateMachine {
     const next = cloneState(current);
     next.invocation = { ...next.invocation, state: "executing", argumentsDigest };
     next.stageUsage.context_selection = usageState;
+    return { state: this.store.write(this.requestId, current.version, next), replayed: false };
+  }
+
+  claimRegistryExecution(): { state: VeraAutomaticDurableState; replayed: boolean } {
+    const current = stateFor(this.store, this.requestId);
+    if (current.invocation.state === "completed") return { state: current, replayed: true };
+    if (current.invocation.state !== "executing") throw new VeraAutomaticStateError("automatic_tool_not_executing");
+    if (current.invocation.registryClaimed === true) return { state: current, replayed: true };
+    const next = cloneState(current);
+    next.invocation = { ...next.invocation, registryClaimed: true };
     return { state: this.store.write(this.requestId, current.version, next), replayed: false };
   }
 
@@ -312,14 +327,16 @@ export async function runVeraAutomaticContext(input: VeraAutomaticRunInput): Pro
   let selectorStartedHere = false;
   if (state.invocation.state === "planned") {
     if (state.stages.context_selection.state !== "planned") {
-      // A persisted dispatch with no tool-call boundary is provider-exposed;
-      // it is ambiguous after reconnect and must not be retried.
-      state = machine.markUnknown("context_selection", "context_selection_unknown");
+      // A live/replayed dispatch is owned by the worker that persisted it. A
+      // reconnect worker must not terminalize that worker or issue a second
+      // provider call. Explicit recovery code owns the eventual unknown mark.
       return { state, result: null, toolResult: null };
     }
     const selectorIntent = input.intentDigest ?? sha256Hex(`selector:${input.requestId}`);
-    machine.persistDispatchIntent("context_selection", selectorIntent);
-    selectorStartedHere = true;
+    const dispatch = machine.persistDispatchIntent("context_selection", selectorIntent);
+    state = dispatch.state;
+    selectorStartedHere = !dispatch.replayed;
+    if (dispatch.replayed) return { state, result: null, toolResult: null };
   }
 
   if (selectorStartedHere) {
@@ -345,6 +362,8 @@ export async function runVeraAutomaticContext(input: VeraAutomaticRunInput): Pro
       return { state, result: null, toolResult: null };
     }
     try {
+      const registryClaim = machine.claimRegistryExecution();
+      if (registryClaim.replayed) return { state: registryClaim.state, result: null, toolResult: null };
       const registryResult = await input.registry(args);
       frozenResult = parseContextToolResult(registryResult.result);
       machine.completeToolExecution({ result: frozenResult, sourceManifestDigest: registryResult.sourceManifestDigest });
@@ -358,6 +377,8 @@ export async function runVeraAutomaticContext(input: VeraAutomaticRunInput): Pro
     // server registry execution; the selector provider call is forbidden.
     const args = parseRetrieveReleasedLearningContextArgs(input.replayToolArguments);
     try {
+      const registryClaim = machine.claimRegistryExecution();
+      if (registryClaim.replayed) return { state: registryClaim.state, result: null, toolResult: null };
       const registryResult = await input.registry(args);
       frozenResult = parseContextToolResult(registryResult.result);
       machine.completeToolExecution({ result: frozenResult, sourceManifestDigest: registryResult.sourceManifestDigest });
@@ -382,10 +403,13 @@ export async function runVeraAutomaticContext(input: VeraAutomaticRunInput): Pro
   let answerStartedHere = false;
   if (state.stages.answer.state === "planned") {
     const answerIntent = input.answerIntentDigest ?? sha256Hex(`answer:${input.requestId}:${state.invocation.resultDigest}`);
-    machine.persistDispatchIntent("answer", answerIntent);
-    answerStartedHere = true;
+    const dispatch = machine.persistDispatchIntent("answer", answerIntent);
+    state = dispatch.state;
+    answerStartedHere = !dispatch.replayed;
+    if (dispatch.replayed) return { state, result: null, toolResult: frozenResult };
   } else if (state.stages.answer.state === "dispatching") {
-    state = machine.markUnknown("answer", "answer_unknown");
+    // The dispatching worker owns this stage. Do not turn an in-flight
+    // request into unknown merely because a reconnect observed it.
     return { state, result: null, toolResult: frozenResult };
   }
   if (!answerStartedHere) return { state: machine.snapshot(), result: null, toolResult: frozenResult };

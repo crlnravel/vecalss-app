@@ -11,6 +11,9 @@ import {
   VERA_PAID_PRICE_POLICY_VERSION,
   VERA_PAID_SERIALIZER_ID,
   VERA_CONTEXT_TOOL_SCHEMA_HASH,
+  VERA_AUTOMATIC_SELECTOR_INPUT_BUILDER_HASH,
+  VERA_AUTOMATIC_FINAL_INPUT_BUILDER_HASH,
+  automaticToolCallingCapabilityEvidenceDigest,
   calculateOpenRouterUsageCostMicros,
   createDefaultProviderAdapter,
   decimalMicros,
@@ -104,14 +107,19 @@ const manifestWithoutDigest: Omit<ProviderReleaseManifest, "manifestDigest"> = {
 const manifest: ProviderReleaseManifest = { ...manifestWithoutDigest, manifestDigest: manifestDigest(manifestWithoutDigest) };
 const toolCallingManifestWithoutDigest = {
   ...manifestWithoutDigest,
-  toolCallingCapability: {
+  toolCallingCapability: (() => {
+    const unsigned = {
     applicationFunctions: true,
     toolChoiceAuto: true,
     plugins: false,
     serverTools: false,
     schemaHash: VERA_CONTEXT_TOOL_SCHEMA_HASH,
-    evidenceDigest: "sha256-tool-calling-evidence",
-  } as const,
+    selectorInputBuilderHash: VERA_AUTOMATIC_SELECTOR_INPUT_BUILDER_HASH,
+    finalInputBuilderHash: VERA_AUTOMATIC_FINAL_INPUT_BUILDER_HASH,
+    } as const;
+    const evidenceDigest = automaticToolCallingCapabilityEvidenceDigest(unsigned);
+    return { ...unsigned, evidenceDigest, signature: `ed25519:${evidenceDigest}` } as const;
+  })(),
 };
 const toolCallingManifest: ProviderReleaseManifest = {
   ...toolCallingManifestWithoutDigest,
@@ -148,6 +156,11 @@ function paidSuccessResponse(): Response {
   ];
   const body = `${frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("")}data: [DONE]\n\n`;
   return new Response(body, { status: 200, headers: { "content-type": "text/event-stream", "x-generation-id": "gen-123" } });
+}
+
+function paidIncompleteResponse(): Response {
+  const frame = { ...metadata(), id: "resp-incomplete", choices: [{ delta: { content: "partial" }, finish_reason: "stop" }] };
+  return new Response(`data: ${JSON.stringify(frame)}\n\n`, { status: 200, headers: { "content-type": "text/event-stream", "x-generation-id": "gen-incomplete" } });
 }
 
 function generationSuccessResponse(): Response {
@@ -188,6 +201,8 @@ await runChecks("vera-provider", [
       await expectReject(() => validateProviderReleaseManifest({ ...manifest, routingOptions: { ...manifest.routingOptions, provider: { ...manifest.routingOptions.provider, data_collection: "allow" } } } as unknown as ProviderReleaseManifest), "data collection allow accepted");
       const wrongSchemaWithoutDigest = { ...toolCallingManifestWithoutDigest, toolCallingCapability: { ...toolCallingManifestWithoutDigest.toolCallingCapability, schemaHash: "sha256-wrong-context-tool-schema" } };
       await expectReject(() => validateProviderReleaseManifest({ ...wrongSchemaWithoutDigest, manifestDigest: manifestDigest(wrongSchemaWithoutDigest) }), "context tool schema hash drift accepted");
+      const wrongBuilderWithoutDigest = { ...toolCallingManifestWithoutDigest, toolCallingCapability: { ...toolCallingManifestWithoutDigest.toolCallingCapability, finalInputBuilderHash: "sha256-wrong-final-builder" } };
+      await expectReject(() => validateProviderReleaseManifest({ ...wrongBuilderWithoutDigest, manifestDigest: manifestDigest(wrongBuilderWithoutDigest) }), "automatic final input builder hash drift accepted");
       const capabilityValidated = validateProviderReleaseManifest(toolCallingManifest, { requireToolCalling: true });
       assert(capabilityValidated.toolCallingCapability?.schemaHash === VERA_CONTEXT_TOOL_SCHEMA_HASH, "function-tool capability schema hash is not canonical");
     },
@@ -280,6 +295,23 @@ await runChecks("vera-provider", [
       assert(!gated.enabled && gated.disabledReason, "release gate did not block live provider");
       void ProviderSafetyError;
       void estimateVeraQuotaUnits;
+    },
+  },
+  {
+    name: "paid SSE without the explicit DONE sentinel is ambiguous",
+    run: async () => {
+      const adapter = new OpenRouterPaidProviderAdapter({
+        manifest,
+        quotaPolicyVersion: "quota-v2",
+        liveEnabled: true,
+        apiKey: "paid-test-key",
+        baseUrl: "https://router.test",
+        fetchImpl: async () => paidIncompleteResponse(),
+        generationPollDelaysMs: [0],
+        sleepImpl: async () => undefined,
+      });
+      const prepared = await adapter.prepare(task);
+      await expectReject(() => adapter.run(prepared), "an incomplete paid SSE stream was accepted");
     },
   },
 ]);
