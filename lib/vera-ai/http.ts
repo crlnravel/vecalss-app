@@ -44,6 +44,7 @@ export function parseVeraRequestBody(value: unknown): {
   kind: "chat" | "studio";
   text: string;
   sources: Array<{ sourceType: "material" | "practice"; sourceId: string }>;
+  contextMode: "legacy" | "automatic";
   options: Record<string, unknown>;
   toolId: string | null;
   retryOfRequestId: string | null;
@@ -51,11 +52,16 @@ export function parseVeraRequestBody(value: unknown): {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
   const candidate = value as Record<string, unknown>;
   const keys = Object.keys(candidate);
-  const allowed = new Set(["clientRequestId", "kind", "text", "sources", "options", "toolId", "retryOfRequestId"]);
+  const allowed = new Set(["clientRequestId", "kind", "text", "sources", "options", "toolId", "retryOfRequestId", "contextMode"]);
   if (keys.some((key) => !allowed.has(key))) throw new VeraHttpError("invalid_request", 400);
   if (!isSafeClientRequestId(candidate.clientRequestId) || !isSafeText(candidate.text)) throw new VeraHttpError("invalid_request", 400);
   const kind = candidate.kind === undefined ? "chat" : candidate.kind;
   if (kind !== "chat" && kind !== "studio") throw new VeraHttpError("invalid_request", 400);
+  const contextMode = candidate.contextMode === undefined ? "legacy" : candidate.contextMode;
+  if (contextMode !== "legacy" && contextMode !== "automatic") throw new VeraHttpError("invalid_request", 400);
+  if (contextMode === "automatic" && Object.prototype.hasOwnProperty.call(candidate, "sources")) {
+    throw new VeraHttpError("invalid_request", 400);
+  }
   const sources = candidate.sources === undefined ? [] : Array.isArray(candidate.sources) && candidate.sources.length <= VERA_MAX_CONTEXT_SOURCES
     ? candidate.sources.map((value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
@@ -94,5 +100,5 @@ export function parseVeraRequestBody(value: unknown): {
     ? null
     : typeof candidate.retryOfRequestId === "string" && isUuid(candidate.retryOfRequestId) ? candidate.retryOfRequestId : null;
   if (candidate.retryOfRequestId !== undefined && candidate.retryOfRequestId !== null && retryOfRequestId === null) throw new VeraHttpError("invalid_request", 400);
-  return { clientRequestId: candidate.clientRequestId, kind, text: candidate.text, sources, options, toolId, retryOfRequestId };
+  return { clientRequestId: candidate.clientRequestId, kind, text: candidate.text, sources, contextMode, options, toolId, retryOfRequestId };
 }

@@ -53,6 +53,42 @@ export type VeraConversationDto = {
   createdAt: string;
   updatedAt: string;
   messagePreview: { role: "user" | "assistant"; text: string | null; createdAt: string } | null;
+  contextMode: "legacy" | "automatic";
+  automaticContext: VeraAutomaticContextAuthorityDto;
+};
+
+export type VeraAutomaticContextAuthorityDto = {
+  enabled: boolean;
+  state: "off" | "internal" | "cohort" | "on";
+  policyVersion: string | null;
+};
+
+export type VeraRequestSourceDto = {
+  citationKey: string;
+  kind: "materi" | "kuis" | "tryout";
+  title: string;
+  releasedAt: string | null;
+  limitations: string[];
+  /** Legacy aliases retained for older clients; no source identity is exposed. */
+  sourceType?: string;
+  citationLabel?: string | null;
+  snapshotState?: string;
+};
+
+export type VeraLearnerRequestDto = {
+  id: string;
+  status: string;
+  errorCode: string | null;
+  contextMode: "legacy" | "automatic";
+  automaticContext: VeraAutomaticContextAuthorityDto;
+  requestSources: VeraRequestSourceDto[];
+  evidenceState: "available" | "no_match" | "evidence_limited" | "unavailable" | "failed";
+};
+
+const DEFAULT_AUTOMATIC_CONTEXT_AUTHORITY: VeraAutomaticContextAuthorityDto = {
+  enabled: false,
+  state: "off",
+  policyVersion: null,
 };
 
 function normalizeTitle(value: string | null | undefined): string | null {
@@ -74,6 +110,37 @@ function boundedPreview(value: string | null, maxBytes = 320): string | null {
   let end = maxBytes;
   while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1;
   return `${bytes.subarray(0, end).toString("utf8").trimEnd()}…`;
+}
+
+function contextKindForSourceType(sourceType: string): "materi" | "kuis" | "tryout" {
+  return sourceType === "material" ? "materi" : "kuis";
+}
+
+function safeAutomaticResult(value: string | null): Array<{ citationKey: string; kind: "materi" | "kuis" | "tryout"; title: string; releasedAt: string | null; limitations: string[] }> {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as { sources?: unknown };
+    if (!Array.isArray(parsed.sources)) return [];
+    return parsed.sources.flatMap((candidate) => {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+      const source = candidate as Record<string, unknown>;
+      const release = source.releaseMetadata && typeof source.releaseMetadata === "object" && !Array.isArray(source.releaseMetadata)
+        ? source.releaseMetadata as Record<string, unknown>
+        : {};
+      if (typeof source.citationKey !== "string" || typeof source.kind !== "string" || typeof source.title !== "string") return [];
+      const kind = source.kind === "materi" || source.kind === "kuis" || source.kind === "tryout" ? source.kind : null;
+      if (!kind) return [];
+      return [{
+        citationKey: source.citationKey,
+        kind,
+        title: source.title,
+        releasedAt: typeof release.releasedAt === "string" ? release.releasedAt : null,
+        limitations: Array.isArray(source.limitations) ? source.limitations.filter((item): item is string => typeof item === "string") : [],
+      }];
+    });
+  } catch {
+    return [];
+  }
 }
 
 function limitValue(value: string | null, fallback: number): number {
@@ -102,17 +169,30 @@ function learnerPayload(value: unknown): unknown {
 }
 
 export class VeraLearnerService {
+  private readonly automaticContext: VeraAutomaticContextAuthorityDto;
+
   constructor(
     private readonly db: DbClient,
     private readonly envelope: EnvelopeService,
     private readonly cursorSecret: string,
     private readonly fingerprintSecret: string,
+    automaticContext?: Partial<VeraAutomaticContextAuthorityDto>,
   ) {
     if (!cursorSecret.trim() || !fingerprintSecret.trim()) throw new VeraLearnerServiceError("vera_config_missing", 503);
+    const enabled = automaticContext?.enabled === true;
+    this.automaticContext = {
+      enabled,
+      state: enabled
+        ? automaticContext?.state === "on" || automaticContext?.state === "internal" || automaticContext?.state === "cohort"
+          ? automaticContext.state
+          : "cohort"
+        : "off",
+      policyVersion: enabled ? automaticContext?.policyVersion ?? null : null,
+    };
   }
 
-  static withDefaults(input: { envelope: EnvelopeService; db?: DbClient; cursorSecret: string; fingerprintSecret: string }) {
-    return new VeraLearnerService(input.db ?? defaultPrisma, input.envelope, input.cursorSecret, input.fingerprintSecret);
+  static withDefaults(input: { envelope: EnvelopeService; db?: DbClient; cursorSecret: string; fingerprintSecret: string; automaticContext?: Partial<VeraAutomaticContextAuthorityDto> }) {
+    return new VeraLearnerService(input.db ?? defaultPrisma, input.envelope, input.cursorSecret, input.fingerprintSecret, input.automaticContext);
   }
 
   parseLimit(url: URL, fallback: number) {
@@ -180,6 +260,8 @@ export class VeraLearnerService {
         text: boundedPreview(await this.decryptText(latest.contentEnvelope)),
         createdAt: latest.createdAt.toISOString(),
       } : null,
+      contextMode: this.automaticContext.enabled ? "automatic" : "legacy",
+      automaticContext: { ...this.automaticContext },
     };
   }
 
@@ -200,6 +282,8 @@ export class VeraLearnerService {
     const tail = rows.length > input.limit ? page.at(-1) : null;
     return {
       conversations,
+      contextMode: this.automaticContext.enabled ? "automatic" as const : "legacy" as const,
+      automaticContext: { ...this.automaticContext },
       nextCursor: tail ? this.signCursor({ v: "1", scope: "conversation-list", studentId: input.studentId, createdAt: tail.updatedAt.toISOString(), id: tail.id }) : null,
       defaultConversationId: conversations.find((conversation) => conversation.archivedAt === null)?.id ?? null,
     };
@@ -337,7 +421,38 @@ export class VeraLearnerService {
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: input.limit + 1,
-      include: { userRequests: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, errorCode: true } }, assistantRequest: { select: { id: true, status: true, errorCode: true } } },
+      include: {
+        userRequests: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            errorCode: true,
+            createdAt: true,
+            contextToolInvocation: { select: { state: true, resultManifestCiphertext: true } },
+            contextPack: { select: { provenanceState: true, purgeState: true } },
+            sources: {
+              orderBy: { ordinal: "asc" },
+              select: { citationKey: true, sourceType: true, titleSnapshot: true, citationLabel: true, snapshotState: true },
+            },
+          },
+        },
+        assistantRequest: {
+          select: {
+            id: true,
+            status: true,
+            errorCode: true,
+            createdAt: true,
+            contextToolInvocation: { select: { state: true, resultManifestCiphertext: true } },
+            contextPack: { select: { provenanceState: true, purgeState: true } },
+            sources: {
+              orderBy: { ordinal: "asc" },
+              select: { citationKey: true, sourceType: true, titleSnapshot: true, citationLabel: true, snapshotState: true },
+            },
+          },
+        },
+      },
     });
     const page = rows.slice(0, input.limit);
     const messages = await Promise.all(page.map(async (row) => ({
@@ -346,7 +461,43 @@ export class VeraLearnerService {
       text: await this.decryptText(row.contentEnvelope),
       contentState: row.contentState,
       createdAt: row.createdAt.toISOString(),
-      request: row.assistantRequest ?? row.userRequests[0] ?? null,
+      request: await (async () => {
+        const request = row.assistantRequest ?? row.userRequests[0] ?? null;
+        if (!request) return null;
+        const automatic = Boolean(request.contextToolInvocation);
+        const fallbackSources = request.sources.map((source) => ({
+          citationKey: source.citationKey,
+          kind: contextKindForSourceType(source.sourceType),
+          title: source.titleSnapshot ?? source.citationLabel ?? source.citationKey,
+          releasedAt: request.createdAt.toISOString(),
+          limitations: source.snapshotState === "available" ? [] : ["Bukti rilis tidak lagi tersedia."],
+          sourceType: source.sourceType,
+          citationLabel: source.citationLabel,
+          snapshotState: source.snapshotState,
+        }));
+        const automaticSources = request.contextToolInvocation
+          ? safeAutomaticResult(request.contextToolInvocation.resultManifestCiphertext
+            ? await this.decryptText(request.contextToolInvocation.resultManifestCiphertext)
+            : null)
+          : [];
+        const requestSources = automaticSources.length > 0 ? automaticSources : fallbackSources;
+        const evidenceState = requestSources.length === 0
+          ? automatic ? "no_match" as const : "unavailable" as const
+          : request.contextPack?.provenanceState === "reconstructable"
+            && request.contextPack.purgeState === "available"
+            && request.sources.every((source) => source.snapshotState === "available")
+            ? "available" as const
+            : "evidence_limited" as const;
+        return {
+          id: request.id,
+          status: request.status,
+          errorCode: request.errorCode,
+          contextMode: automatic ? "automatic" as const : "legacy" as const,
+          automaticContext: automatic ? { ...this.automaticContext } : { ...DEFAULT_AUTOMATIC_CONTEXT_AUTHORITY },
+          requestSources,
+          evidenceState,
+        } satisfies VeraLearnerRequestDto;
+      })(),
     })));
     const tail = rows.length > input.limit ? page.at(-1) : null;
     return {

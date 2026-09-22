@@ -10,6 +10,7 @@ import {
   VERA_PAID_CERTIFIER_VERSION,
   VERA_PAID_PRICE_POLICY_VERSION,
   VERA_PAID_SERIALIZER_ID,
+  VERA_CONTEXT_TOOL_SCHEMA_HASH,
   calculateOpenRouterUsageCostMicros,
   createDefaultProviderAdapter,
   decimalMicros,
@@ -101,6 +102,21 @@ const manifestWithoutDigest: Omit<ProviderReleaseManifest, "manifestDigest"> = {
   releaseState: "approved",
 };
 const manifest: ProviderReleaseManifest = { ...manifestWithoutDigest, manifestDigest: manifestDigest(manifestWithoutDigest) };
+const toolCallingManifestWithoutDigest = {
+  ...manifestWithoutDigest,
+  toolCallingCapability: {
+    applicationFunctions: true,
+    toolChoiceAuto: true,
+    plugins: false,
+    serverTools: false,
+    schemaHash: VERA_CONTEXT_TOOL_SCHEMA_HASH,
+    evidenceDigest: "sha256-tool-calling-evidence",
+  } as const,
+};
+const toolCallingManifest: ProviderReleaseManifest = {
+  ...toolCallingManifestWithoutDigest,
+  manifestDigest: manifestDigest(toolCallingManifestWithoutDigest),
+};
 
 const task = {
   featureKey: "vera.chat",
@@ -170,6 +186,10 @@ await runChecks("vera-provider", [
       await expectReject(() => validateProviderReleaseManifest({ ...manifest, certifierEvidenceReference: "certifiers/missing.json" } as unknown as ProviderReleaseManifest), "missing certifier artifact reference accepted");
       await expectReject(() => validateProviderReleaseManifest({ ...manifest, certifierEvidence: { ...manifest.certifierEvidence, artifactHash: "sha256-different-artifact" } }), "mismatched certifier artifact identity accepted");
       await expectReject(() => validateProviderReleaseManifest({ ...manifest, routingOptions: { ...manifest.routingOptions, provider: { ...manifest.routingOptions.provider, data_collection: "allow" } } } as unknown as ProviderReleaseManifest), "data collection allow accepted");
+      const wrongSchemaWithoutDigest = { ...toolCallingManifestWithoutDigest, toolCallingCapability: { ...toolCallingManifestWithoutDigest.toolCallingCapability, schemaHash: "sha256-wrong-context-tool-schema" } };
+      await expectReject(() => validateProviderReleaseManifest({ ...wrongSchemaWithoutDigest, manifestDigest: manifestDigest(wrongSchemaWithoutDigest) }), "context tool schema hash drift accepted");
+      const capabilityValidated = validateProviderReleaseManifest(toolCallingManifest, { requireToolCalling: true });
+      assert(capabilityValidated.toolCallingCapability?.schemaHash === VERA_CONTEXT_TOOL_SCHEMA_HASH, "function-tool capability schema hash is not canonical");
     },
   },
   {
@@ -200,6 +220,16 @@ await runChecks("vera-provider", [
       assert(checked.selectedEndpointJsonPointer === "/openrouter_metadata/endpoints/available/0", "selected endpoint pointer changed");
       await expectReject(() => validateOpenRouterDirectMetadata({ openrouter_metadata: { ...metadata().openrouter_metadata as Record<string, unknown>, endpoints: { available: [{ selected: true, provider: "relace", model: APPROVED_MODEL }, { selected: true, provider: "relace", model: APPROVED_MODEL }] } } }, manifest), "multiple selected endpoints accepted");
       await expectReject(() => validateOpenRouterDirectMetadata({ openrouter_metadata: { ...metadata().openrouter_metadata as Record<string, unknown>, pipeline: ["guardrail"] } }, manifest), "metadata pipeline stage accepted");
+    },
+  },
+  {
+    name: "automatic paid preparation fails closed without a function-tool capability manifest",
+    run: async () => {
+      const adapter = new OpenRouterPaidProviderAdapter({ manifest, quotaPolicyVersion: "quota-v2", liveEnabled: true, apiKey: "paid-test-key" });
+      await expectReject(() => adapter.prepare({ ...task, stagePurpose: "context_selection" }), "automatic paid preparation accepted a manifest without function tools");
+      const capable = new OpenRouterPaidProviderAdapter({ manifest: toolCallingManifest, quotaPolicyVersion: "quota-v2", liveEnabled: true, apiKey: "paid-test-key" });
+      const prepared = await capable.prepare({ ...task, stagePurpose: "context_selection" });
+      assert(prepared.stagePurpose === "context_selection", "capable automatic task did not preserve stage purpose");
     },
   },
   {

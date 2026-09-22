@@ -42,6 +42,7 @@ export async function POST(
       kind: body.kind,
       text: body.text,
       selection: body.sources,
+      contextMode: body.contextMode,
       options: body.options,
       toolId: body.toolId,
       retryOfRequestId: body.retryOfRequestId,

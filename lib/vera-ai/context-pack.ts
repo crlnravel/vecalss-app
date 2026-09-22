@@ -618,9 +618,14 @@ export function encryptPreparedContextPack(
   pack: PreparedContextPack,
   envelope: EnvelopeService,
   objectId: string,
-): { normalizedTaskCiphertext: AiEncryptedPayload; sourceSnapshots: Array<AiEncryptedPayload> } {
+): { normalizedTaskCiphertext: AiEncryptedPayload; canonicalBytesCiphertext: AiEncryptedPayload; sourceSnapshots: Array<AiEncryptedPayload> } {
+  const canonicalBytesCiphertext = envelope.encrypt(pack.canonicalTaskBytes, `${objectId}:task`);
   return {
-    normalizedTaskCiphertext: envelope.encrypt(pack.canonicalTaskBytes, `${objectId}:task`),
+    normalizedTaskCiphertext: canonicalBytesCiphertext,
+    // Both columns are projections of the same canonical task bytes. Keep an
+    // explicit alias so callers cannot accidentally substitute an unrelated
+    // payload when a final-stage pack replaces the selector pack.
+    canonicalBytesCiphertext,
     sourceSnapshots: pack.blocks.map((block) => envelope.encrypt(
       JSON.stringify({
         sourceType: block.sourceType,
@@ -637,7 +642,7 @@ export async function encryptPreparedContextPackAsync(
   pack: PreparedContextPack,
   envelope: EnvelopeService,
   objectId: string,
-): Promise<{ normalizedTaskCiphertext: AiEncryptedPayload; sourceSnapshots: Array<AiEncryptedPayload> }> {
+): Promise<{ normalizedTaskCiphertext: AiEncryptedPayload; canonicalBytesCiphertext: AiEncryptedPayload; sourceSnapshots: Array<AiEncryptedPayload> }> {
   const [normalizedTaskCiphertext, sourceSnapshots] = await Promise.all([
     envelope.encryptAsync(pack.canonicalTaskBytes, `${objectId}:task`),
     Promise.all(pack.blocks.map((block) => envelope.encryptAsync(
@@ -650,7 +655,7 @@ export async function encryptPreparedContextPackAsync(
       `${objectId}:source:${block.ordinal}`,
     ))),
   ]);
-  return { normalizedTaskCiphertext, sourceSnapshots };
+  return { normalizedTaskCiphertext, canonicalBytesCiphertext: normalizedTaskCiphertext, sourceSnapshots };
 }
 
 export function assertPackInvariant(

@@ -5,6 +5,15 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { VERA_MAX_PROVIDER_ATTEMPTS, canonicalJson, sha256Hex } from "./contracts";
+import {
+  VERA_CONTEXT_TOOL_NAME,
+  VERA_CONTEXT_TOOL_SCHEMA,
+  canonicalContextToolArguments,
+  parseRetrieveReleasedLearningContextArgs,
+  parseContextToolResult,
+  serializeContextToolResult,
+  type ContextToolResult,
+} from "./context-tool-contracts";
 
 export const OPENROUTER_GATEWAY = "openrouter";
 export const APPROVED_UPSTREAM_PROVIDER = "relace" as const;
@@ -15,6 +24,10 @@ export const VERA_CERTIFIED_ESTIMATOR_VERSION = "universal-byte-bound-v1";
 export const VERA_PAID_CERTIFIER_ID = "openrouter-utf8-byte-upper-bound-v1";
 export const VERA_PAID_CERTIFIER_VERSION = "1";
 export const VERA_PAID_SERIALIZER_ID = "vera-openrouter-chat-input-v1";
+export const VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID = "vera-openrouter-auto-selector-v1";
+export const VERA_AUTOMATIC_FINAL_SERIALIZER_ID = "vera-openrouter-auto-final-v1";
+export const VERA_AUTOMATIC_SERIALIZER_VERSION = "1";
+export const VERA_CONTEXT_TOOL_SCHEMA_HASH = sha256Hex(canonicalJson(VERA_CONTEXT_TOOL_SCHEMA));
 export const VERA_PAID_PRICE_POLICY_VERSION = "vera-openrouter-price-v1";
 export const VERA_CERTIFIER_EVIDENCE_REFERENCE = "certifiers/deepseek-v4-flash-0731/utf8-byte-bound-v1.json" as const;
 export const OPENROUTER_MAX_PRICE = {
@@ -140,6 +153,16 @@ export type ProviderReleaseManifest = {
   expiresAt: string;
   approver: string;
   releaseState: "approved" | "revoked" | "pending";
+  /** Optional until the separately recertified automatic-context release is
+   * approved. Plugins and server tools are never accepted in any release. */
+  toolCallingCapability?: {
+    applicationFunctions: true;
+    toolChoiceAuto: true;
+    plugins: false;
+    serverTools: false;
+    schemaHash: string;
+    evidenceDigest: string;
+  };
   manifestDigest: string;
 };
 
@@ -149,6 +172,8 @@ export type ProviderTask = {
   taskBytes: Uint8Array;
   contextTaskDigest: string;
   hardOutputQuotaUnits: number;
+  /** Automatic context uses one immutable dispatch per purpose. */
+  stagePurpose?: "context_selection" | "answer";
   certifiedEstimate?: CertifiedQuotaEstimate;
   /** Optional durable identity supplied by a write-ahead caller. */
   requestId?: string;
@@ -182,6 +207,7 @@ export type PreparedProviderTask = {
   hardOutputQuotaUnits: number;
   maxProviderAttempts: 2;
   preparedTask: ProviderTask;
+  stagePurpose?: "context_selection" | "answer";
   certifiedEstimate: CertifiedQuotaEstimate;
   manifestDigest: string;
   priceSnapshot?: ProviderPriceSnapshot;
@@ -234,11 +260,137 @@ export type ProviderResult = {
   kind: "text" | "structured" | "fallback" | "discarded";
   text: string | null;
   structured: unknown | null;
+  /** Present only for the selector stage. The result is identity-free. */
+  toolCall?: VeraFunctionToolCall;
   usage: ProviderUsage;
   finishReason: string | null;
   attempts: ProviderAttemptEvidence[];
   providerMetadata?: ProviderResultMetadata;
 };
+
+export type VeraFunctionToolCall = {
+  id: string;
+  name: typeof VERA_CONTEXT_TOOL_NAME;
+  arguments: string;
+};
+
+export type VeraAutomaticHistoryMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+export type VeraAutomaticSelectorSerializationInput = {
+  systemPolicy: string;
+  history?: readonly VeraAutomaticHistoryMessage[];
+  userText: string;
+};
+
+export type VeraAutomaticFinalSerializationInput = {
+  systemPolicy: string;
+  history?: readonly VeraAutomaticHistoryMessage[];
+  userText: string;
+  toolCall: VeraFunctionToolCall;
+  toolResult: ContextToolResult;
+};
+
+type VeraSerializedMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: typeof VERA_CONTEXT_TOOL_NAME; arguments: string };
+  }>;
+  tool_call_id?: string;
+};
+
+type VeraAutomaticSerializedRequest = {
+  serializerId: typeof VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID | typeof VERA_AUTOMATIC_FINAL_SERIALIZER_ID;
+  serializerVersion: typeof VERA_AUTOMATIC_SERIALIZER_VERSION;
+  stage: "context_selection" | "answer";
+  messages: VeraSerializedMessage[];
+  tools?: [typeof VERA_CONTEXT_TOOL_SCHEMA];
+  tool_choice?: "auto";
+};
+
+function boundedAutomaticText(value: string, field: string): string {
+  if (typeof value !== "string" || !value.trim() || value.length > 40_000 || Buffer.byteLength(value, "utf8") > 40_000) {
+    throw new ProviderSafetyError(`Automatic ${field} is outside the bounded serializer contract.`);
+  }
+  return value.normalize("NFC").replace(/\r\n?/gu, "\n");
+}
+
+function automaticHistoryMessages(history: readonly VeraAutomaticHistoryMessage[] | undefined): VeraSerializedMessage[] {
+  if (!history) return [];
+  if (history.length > 6) throw new ProviderSafetyError("Automatic history exceeds the completed-pair cap.");
+  return history.map((message) => ({
+    role: message.role,
+    content: boundedAutomaticText(message.text, "history message"),
+  }));
+}
+
+function selectorSystemPolicy(value: string): string {
+  const policy = boundedAutomaticText(value, "system policy");
+  if (policy.length > 16_000) throw new ProviderSafetyError("Automatic selector policy is too large.");
+  return policy;
+}
+
+function assertToolCallIdentity(toolCall: VeraFunctionToolCall): void {
+  if (!toolCall || typeof toolCall !== "object"
+    || typeof toolCall.id !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/u.test(toolCall.id)
+    || toolCall.name !== VERA_CONTEXT_TOOL_NAME
+    || typeof toolCall.arguments !== "string" || Buffer.byteLength(toolCall.arguments, "utf8") > 8_192) {
+    throw new ProviderSafetyError("Automatic tool-call identity is invalid.");
+  }
+  // Canonical parsing is deliberately performed before a final serializer can
+  // place the call in a provider message.
+  parseRetrieveReleasedLearningContextArgs(JSON.parse(toolCall.arguments) as unknown);
+}
+
+/** Canonical selector request bytes. The only provider tool is the closed,
+ * application-executed function; no server tools or plugin fields exist. */
+export function serializeVeraAutomaticSelector(input: VeraAutomaticSelectorSerializationInput): Uint8Array {
+  const request: VeraAutomaticSerializedRequest = {
+    serializerId: VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID,
+    serializerVersion: VERA_AUTOMATIC_SERIALIZER_VERSION,
+    stage: "context_selection",
+    messages: [
+      { role: "system", content: selectorSystemPolicy(input.systemPolicy) },
+      ...automaticHistoryMessages(input.history),
+      { role: "user", content: boundedAutomaticText(input.userText, "user text") },
+    ],
+    tools: [VERA_CONTEXT_TOOL_SCHEMA],
+    tool_choice: "auto",
+  };
+  return new TextEncoder().encode(canonicalJson(request));
+}
+
+/** Canonical final request bytes. Tools are intentionally absent from this
+ * turn, so retrieved content cannot initiate another provider call. */
+export function serializeVeraAutomaticFinal(input: VeraAutomaticFinalSerializationInput): Uint8Array {
+  assertToolCallIdentity(input.toolCall);
+  const result = parseContextToolResult(input.toolResult);
+  const request: VeraAutomaticSerializedRequest = {
+    serializerId: VERA_AUTOMATIC_FINAL_SERIALIZER_ID,
+    serializerVersion: VERA_AUTOMATIC_SERIALIZER_VERSION,
+    stage: "answer",
+    messages: [
+      { role: "system", content: selectorSystemPolicy(input.systemPolicy) },
+      ...automaticHistoryMessages(input.history),
+      { role: "user", content: boundedAutomaticText(input.userText, "user text") },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ id: input.toolCall.id, type: "function", function: { name: VERA_CONTEXT_TOOL_NAME, arguments: canonicalContextToolArguments(JSON.parse(input.toolCall.arguments) as unknown) } }],
+      },
+      { role: "tool", content: new TextDecoder().decode(serializeContextToolResult(result)), tool_call_id: input.toolCall.id },
+    ],
+  };
+  return new TextEncoder().encode(canonicalJson(request));
+}
+
+export const serializeAutomaticSelector = serializeVeraAutomaticSelector;
+export const serializeAutomaticFinal = serializeVeraAutomaticFinal;
 
 export type ProviderResultMetadata = {
   kind: "openrouter_free_poc";
@@ -331,6 +483,9 @@ export class ProviderExecutionError extends Error {
 
 export interface VeraProviderAdapter {
   readonly enabled: boolean;
+  /** Only certified application-function releases and the mock contract may
+   * participate in automatic context. */
+  readonly automaticContextCapable?: boolean;
   readonly disabledReason?: string;
   prepare(task: ProviderTask): Promise<PreparedProviderTask>;
   run(prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void): Promise<ProviderResult>;
@@ -698,7 +853,7 @@ export function manifestDigest(manifest: Omit<ProviderReleaseManifest, "manifest
 
 export function validateProviderReleaseManifest(
   manifest: ProviderReleaseManifest | null,
-  input: { now?: Date; expectedUpstreamProviderSlug?: string; expectedEndpointMetadataDigest?: string } = {},
+  input: { now?: Date; expectedUpstreamProviderSlug?: string; expectedEndpointMetadataDigest?: string; requireToolCalling?: boolean } = {},
 ): ProviderReleaseManifest {
   if (!manifest) throw new ProviderSafetyError("Provider release manifest is missing.");
   const now = input.now ?? new Date();
@@ -800,6 +955,19 @@ export function validateProviderReleaseManifest(
     if (typeof value !== "string" || isPlaceholder(value)) throw new ProviderSafetyError("Provider certifier evidence is missing or placeholder.");
   }
   if (manifest.noTraining !== true || manifest.noContentLogging !== true) throw new ProviderSafetyError("Provider privacy evidence is insufficient.");
+  const capability = manifest.toolCallingCapability;
+  if (capability && (capability.applicationFunctions !== true
+    || capability.toolChoiceAuto !== true
+    || capability.plugins !== false
+    || capability.serverTools !== false
+    || capability.schemaHash !== VERA_CONTEXT_TOOL_SCHEMA_HASH
+    || typeof capability.schemaHash !== "string" || isPlaceholder(capability.schemaHash)
+    || typeof capability.evidenceDigest !== "string" || isPlaceholder(capability.evidenceDigest))) {
+    throw new ProviderSafetyError("Provider function-tool capability evidence is invalid.");
+  }
+  if (input.requireToolCalling && (!capability || capability.applicationFunctions !== true || capability.toolChoiceAuto !== true)) {
+    throw new ProviderSafetyError("Provider release does not include the approved application function-tool capability.");
+  }
 
   let artifact: Record<string, LosslessJsonValue> | null;
   try {
@@ -893,9 +1061,12 @@ export async function verifyProviderReleaseManifestLive(input: {
   }
   const canaryBody = {
     model: APPROVED_MODEL,
-    messages: [{ role: "user", content: "Vera release canary. Reply with one token." }],
+    messages: [{ role: "user", content: manifest.toolCallingCapability
+      ? "Vera release canary. Call the retrieval function with a bounded synthetic query."
+      : "Vera release canary. Reply with one token." }],
     stream: false,
     max_completion_tokens: 1,
+    ...(manifest.toolCallingCapability ? { tools: [VERA_CONTEXT_TOOL_SCHEMA], tool_choice: "auto" } : {}),
     provider: {
       only: [APPROVED_UPSTREAM_PROVIDER_SLUG],
       order: [APPROVED_UPSTREAM_PROVIDER_SLUG],
@@ -919,6 +1090,10 @@ export async function verifyProviderReleaseManifestLive(input: {
   if (!canaryResponse.ok) throw new ProviderSafetyError("OpenRouter paid canary was rejected.");
   const canaryText = await canaryResponse.text();
   const canaryJson = parseLosslessJson(canaryText);
+  if (manifest.toolCallingCapability) {
+    const canaryToolCall = assembleOpenRouterToolCallStream([plainJson(canaryJson)]);
+    if (canaryToolCall.name !== VERA_CONTEXT_TOOL_NAME) throw new ProviderSafetyError("OpenRouter function-tool canary returned an unknown function.");
+  }
   const metadata = validateOpenRouterDirectMetadata(canaryJson, manifest);
   const generationId = canaryResponse.headers.get("x-generation-id")?.trim();
   if (!generationId) throw new ProviderSafetyError("OpenRouter paid canary did not return a Generation API identifier.");
@@ -1209,6 +1384,7 @@ export type OpenRouterPaidTransportOptions = {
 type OpenRouterTransportResponse = {
   text: string;
   structured: unknown | null;
+  toolCall?: VeraFunctionToolCall;
   finishReason: string | null;
   usage: OpenRouterUsageDetails | null;
   body: LosslessJsonValue | null;
@@ -1224,7 +1400,12 @@ function plainJson(value: LosslessJsonValue): unknown {
   return value;
 }
 
-function paidPromptFromTask(task: ProviderTask): string {
+type DecodedProviderTaskPayload = {
+  prompt: string;
+  automaticRequest: VeraAutomaticSerializedRequest | null;
+};
+
+function decodeProviderTaskPayload(task: ProviderTask): DecodedProviderTaskPayload {
   if (!(task.taskBytes instanceof Uint8Array) || task.taskBytes.byteLength < 1) {
     throw new ProviderSafetyError("The paid provider task has no certified input bytes.");
   }
@@ -1236,6 +1417,9 @@ function paidPromptFromTask(task: ProviderTask): string {
   }
   try {
     const parsed = JSON.parse(decoded) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new ProviderSafetyError("The paid provider task envelope is not an object.");
+    const stage = parsed.stage;
+    const automatic = stage === "context_selection" || stage === "answer";
     const prohibitedKeys = new Set([
       "audio",
       "audio_url",
@@ -1246,38 +1430,63 @@ function paidPromptFromTask(task: ProviderTask): string {
       "imageUrl",
       "input_audio",
       "input_image",
-      "tools",
-      "tool_choice",
       "toolChoice",
       "server_tools",
       "serverTools",
+      "plugins",
+      "plugin",
       "request_fee",
       "requestFee",
       "request_price",
       "requestPrice",
     ]);
-    const scanForProhibitedInput = (value: unknown, depth = 0): void => {
+    const scanForProhibitedInput = (value: unknown, depth = 0, root = false): void => {
       if (depth > 8 || value === null || typeof value !== "object") return;
       if (Array.isArray(value)) {
-        for (const item of value) scanForProhibitedInput(item, depth + 1);
+        for (const item of value) scanForProhibitedInput(item, depth + 1, false);
         return;
       }
       for (const [key, nested] of Object.entries(value)) {
+        if (key === "tools" || key === "tool_choice") {
+          if (!automatic || !root || (key === "tools" && stage !== "context_selection") || (key === "tool_choice" && stage !== "context_selection")) {
+            throw new ProviderSafetyError(`The paid provider task contains unsupported ${key} input.`);
+          }
+          continue;
+        }
         if (prohibitedKeys.has(key)) throw new ProviderSafetyError(`The paid provider task contains unsupported ${key} input.`);
         if (key === "type" && typeof nested === "string" && /^(?:image|audio|input_image|input_audio|image_url|audio_url)$/u.test(nested)) {
           throw new ProviderSafetyError(`The paid provider task contains unsupported ${nested} input.`);
         }
-        scanForProhibitedInput(nested, depth + 1);
+        scanForProhibitedInput(nested, depth + 1, false);
       }
     };
-    scanForProhibitedInput(parsed);
-    if (typeof parsed.userText === "string" && parsed.userText.trim()) return parsed.userText;
-  } catch {
+    scanForProhibitedInput(parsed, 0, true);
+    if (automatic) {
+      if (parsed.serializerId !== VERA_AUTOMATIC_SELECTOR_SERIALIZER_ID && parsed.serializerId !== VERA_AUTOMATIC_FINAL_SERIALIZER_ID) {
+        throw new ProviderSafetyError("Automatic provider serializer identity is not approved.");
+      }
+      if (parsed.serializerVersion !== VERA_AUTOMATIC_SERIALIZER_VERSION) throw new ProviderSafetyError("Automatic provider serializer version drifted.");
+      const messages = parsed.messages;
+      if (!Array.isArray(messages) || messages.length < 2) throw new ProviderSafetyError("Automatic provider messages are missing.");
+      if (stage === "answer" && ("tools" in parsed || "tool_choice" in parsed)) throw new ProviderSafetyError("Final automatic provider input must disable tools.");
+      if (stage === "context_selection") {
+        if (canonicalJson(parsed.tools) !== canonicalJson([VERA_CONTEXT_TOOL_SCHEMA]) || parsed.tool_choice !== "auto") {
+          throw new ProviderSafetyError("Automatic selector tool capability drifted.");
+        }
+      }
+      return { prompt: "", automaticRequest: parsed as unknown as VeraAutomaticSerializedRequest };
+    }
+    if (typeof parsed.userText === "string" && parsed.userText.trim()) return { prompt: parsed.userText, automaticRequest: null };
+  } catch (error) {
+    if (error instanceof ProviderSafetyError) throw error;
+    if (/^\s*\{[\s\S]*"stage"\s*:\s*"(?:context_selection|answer)"/u.test(decoded)) {
+      throw new ProviderSafetyError("Automatic provider task envelope is malformed.");
+    }
     // Opaque task bytes are retained for a direct task caller. Context-pack
     // callers use the normalized userText property above.
   }
   if (!decoded.trim()) throw new ProviderSafetyError("The paid provider task is empty.");
-  return decoded;
+  return { prompt: decoded, automaticRequest: null };
 }
 
 function positiveOutputLimit(task: ProviderTask): number {
@@ -1318,9 +1527,15 @@ export function buildOpenRouterPaidRequest(input: {
     throw new ProviderSafetyError("The paid provider request routing tuple drifted.");
   }
   const provider = (input.prepared.routingOptions as ProductionProviderRoutingOptions).provider;
+  const decoded = decodeProviderTaskPayload(input.prepared.preparedTask);
+  const stagePurpose = input.prepared.stagePurpose ?? input.prepared.preparedTask.stagePurpose;
+  const automaticRequest = decoded.automaticRequest;
+  if (automaticRequest && stagePurpose !== automaticRequest.stage) {
+    throw new ProviderSafetyError("Automatic provider stage purpose does not match the serialized request.");
+  }
   const body: Record<string, unknown> = {
     model: APPROVED_MODEL,
-    messages: [{ role: "user", content: paidPromptFromTask(input.prepared.preparedTask) }],
+    messages: automaticRequest?.messages ?? [{ role: "user", content: decoded.prompt }],
     stream: true,
     max_completion_tokens: positiveOutputLimit(input.prepared.preparedTask),
     stream_options: { include_usage: true },
@@ -1335,6 +1550,15 @@ export function buildOpenRouterPaidRequest(input: {
     },
     metadata: { vera_provider_request_key: input.providerRequestKey },
   };
+  if (automaticRequest?.stage === "context_selection") {
+    body.tools = automaticRequest.tools;
+    body.tool_choice = automaticRequest.tool_choice;
+  } else if (automaticRequest?.stage === "answer") {
+    // Explicitly omit both fields from the final turn. A hidden provider-side
+    // tool capability must never widen the server-owned protocol.
+    delete body.tools;
+    delete body.tool_choice;
+  }
   if (provider.max_price && canonicalJson(provider.max_price) !== canonicalJson(OPENROUTER_MAX_PRICE)) {
     throw new ProviderSafetyError("The paid provider request max_price drifted from the approved object.");
   }
@@ -1353,9 +1577,86 @@ function usageFromValue(value: unknown): OpenRouterUsageDetails | null {
   return usage as unknown as OpenRouterUsageDetails;
 }
 
+export type VeraStreamingToolCallDelta = {
+  index?: number;
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
+};
+
+/** Assemble OpenRouter's fragmented function deltas without accepting a
+ * parallel call, a second index, or a different function. */
+export function assembleVeraStreamingToolCall(deltas: readonly VeraStreamingToolCallDelta[]): VeraFunctionToolCall {
+  if (!Array.isArray(deltas) || deltas.length === 0) throw new ProviderSafetyError("The selector emitted no tool call.");
+  const byIndex = new Map<number, { id: string; name: string; arguments: string }>();
+  for (const delta of deltas) {
+    const index = delta.index ?? 0;
+    if (!Number.isSafeInteger(index) || index !== 0) throw new ProviderSafetyError("Parallel automatic tool calls are not supported.");
+    const current = byIndex.get(index) ?? { id: "", name: "", arguments: "" };
+    if (typeof delta.id === "string" && delta.id) {
+      if (current.id && current.id !== delta.id) throw new ProviderSafetyError("Automatic tool-call identity changed mid-stream.");
+      current.id = delta.id;
+    }
+    if (delta.type !== undefined && delta.type !== "function") throw new ProviderSafetyError("Automatic selector emitted a non-function tool call.");
+    const functionDelta = delta.function ?? {};
+    if (typeof functionDelta.name === "string" && functionDelta.name) {
+      if (current.name && current.name !== functionDelta.name) throw new ProviderSafetyError("Automatic tool name changed mid-stream.");
+      current.name = functionDelta.name;
+    }
+    if (functionDelta.arguments !== undefined) {
+      if (typeof functionDelta.arguments !== "string") throw new ProviderSafetyError("Automatic tool arguments are not text.");
+      current.arguments = appendBoundedChunk(current.arguments, functionDelta.arguments, 8_192);
+    }
+    byIndex.set(index, current);
+    if (byIndex.size > 1) throw new ProviderSafetyError("Parallel automatic tool calls are not supported.");
+  }
+  const assembled = byIndex.get(0);
+  if (!assembled || !assembled.id || assembled.name !== VERA_CONTEXT_TOOL_NAME || !assembled.arguments) {
+    throw new ProviderSafetyError("The selector tool call is incomplete or unknown.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(assembled.arguments) as unknown;
+  } catch {
+    throw new ProviderSafetyError("The selector tool arguments are malformed JSON.");
+  }
+  const args = parseRetrieveReleasedLearningContextArgs(parsed);
+  return { id: assembled.id, name: VERA_CONTEXT_TOOL_NAME, arguments: canonicalContextToolArguments(args) };
+}
+
+export function assembleOpenRouterToolCallStream(frames: readonly unknown[]): VeraFunctionToolCall {
+  const deltas: VeraStreamingToolCallDelta[] = [];
+  for (const frame of frames) {
+    const root = frame && typeof frame === "object" ? frame as Record<string, unknown> : {};
+    const choices = Array.isArray(root.choices) ? root.choices : [];
+    const choice = choices[0] && typeof choices[0] === "object" ? choices[0] as Record<string, unknown> : {};
+    const delta = choice.delta && typeof choice.delta === "object" ? choice.delta as Record<string, unknown> : {};
+    const message = choice.message && typeof choice.message === "object" ? choice.message as Record<string, unknown> : {};
+    const toolCalls = Array.isArray(delta.tool_calls)
+      ? delta.tool_calls
+      : Array.isArray(message.tool_calls) ? message.tool_calls : [];
+    for (const value of toolCalls) {
+      const call = value && typeof value === "object" ? value as Record<string, unknown> : {};
+      const fn = call.function && typeof call.function === "object" ? call.function as Record<string, unknown> : undefined;
+      deltas.push({
+        index: typeof call.index === "number" ? call.index : undefined,
+        id: typeof call.id === "string" ? call.id : undefined,
+        type: typeof call.type === "string" ? call.type : undefined,
+        function: fn ? {
+          name: typeof fn.name === "string" ? fn.name : undefined,
+          arguments: typeof fn.arguments === "string" ? fn.arguments : undefined,
+        } : undefined,
+      });
+    }
+  }
+  return assembleVeraStreamingToolCall(deltas);
+}
+
+export const assembleFragmentedToolCall = assembleVeraStreamingToolCall;
+
 async function readOpenRouterResponse(
   response: Response,
-  input: { emit?: (delta: ProviderDelta) => void; maxResponseBytes: number },
+  input: { emit?: (delta: ProviderDelta) => void; maxResponseBytes: number; stagePurpose?: "context_selection" | "answer" },
 ): Promise<OpenRouterTransportResponse> {
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   let fullText = "";
@@ -1365,6 +1666,7 @@ async function readOpenRouterResponse(
   let responseMetadata: LosslessJsonValue | undefined;
   let responseId: string | null = null;
   let finishReason: string | null = null;
+  const toolCallDeltas: VeraStreamingToolCallDelta[] = [];
   const handleJson = (json: string): void => {
     if (json === "[DONE]") return;
     const value = parseLosslessJson(json);
@@ -1379,10 +1681,24 @@ async function readOpenRouterResponse(
     if (Array.isArray(choices)) {
       const choice = losslessRecord(choices[0]);
       const delta = losslessRecord(choice?.delta);
-      const content = losslessString(delta?.content) ?? losslessString(choice?.content);
+      const message = losslessRecord(choice?.message);
+      const content = losslessString(delta?.content) ?? losslessString(choice?.content) ?? losslessString(message?.content);
       if (content) {
         accumulatedText += content;
         input.emit?.({ text: content, provisional: true });
+      }
+      const toolCalls = delta?.tool_calls ?? message?.tool_calls;
+      if (Array.isArray(toolCalls)) {
+        for (const value of toolCalls) {
+          const call = losslessRecord(value);
+          const fn = losslessRecord(call?.function);
+          toolCallDeltas.push({
+            index: losslessNumberLexeme(call?.index) === null ? undefined : Number(losslessNumberLexeme(call?.index)),
+            id: losslessString(call?.id) ?? undefined,
+            type: losslessString(call?.type) ?? undefined,
+            function: fn ? { name: losslessString(fn.name) ?? undefined, arguments: losslessString(fn.arguments) ?? undefined } : undefined,
+          });
+        }
       }
       finishReason = losslessString(choice?.finish_reason) ?? finishReason;
     }
@@ -1426,7 +1742,15 @@ async function readOpenRouterResponse(
   if (responseMetadata !== undefined && losslessRecord(body)) {
     body = { ...losslessRecord(body), openrouter_metadata: responseMetadata } as LosslessJsonValue;
   }
-  return { text: accumulatedText, structured: null, finishReason, usage, body, responseId };
+  let toolCall: VeraFunctionToolCall | undefined;
+  if (toolCallDeltas.length > 0) {
+    toolCall = assembleVeraStreamingToolCall(toolCallDeltas);
+    if (input.stagePurpose === "answer") throw new ProviderExecutionError({ code: "context_final_tool_violation", ambiguousPostSend: false });
+    if (input.stagePurpose === "context_selection" && accumulatedText.trim()) throw new ProviderExecutionError({ code: "context_selection_failed", ambiguousPostSend: false });
+  } else if (input.stagePurpose === "context_selection") {
+    throw new ProviderExecutionError({ code: "context_selection_failed", ambiguousPostSend: false });
+  }
+  return { text: accumulatedText, structured: toolCall ?? null, finishReason, usage, body, responseId, toolCall };
 }
 
 async function fetchGenerationEvidence(input: {
@@ -1526,7 +1850,11 @@ export async function executeOpenRouterPaidTransport(
   }
   let parsed: OpenRouterTransportResponse;
   try {
-    parsed = await readOpenRouterResponse(response, { emit, maxResponseBytes });
+    parsed = await readOpenRouterResponse(response, {
+      emit,
+      maxResponseBytes,
+      stagePurpose: prepared.preparedTask.stagePurpose ?? prepared.stagePurpose,
+    });
   } catch (error) {
     await emitDispatchEvidence(options, { ...intent, state: "unknown", generationId: response.headers.get("x-generation-id"), providerRequestId: parsedRequestId(error), upstreamId: null, observedUpstreamProviderSlug: null, observedAt: new Date().toISOString(), reason: "malformed_response" });
     if (error instanceof ProviderExecutionError) throw error;
@@ -1582,6 +1910,7 @@ export async function executeOpenRouterPaidTransport(
     kind: "text",
     text: parsed.text,
     structured: parsed.structured,
+    toolCall: parsed.toolCall,
     usage: reconciliation.usage ? {
       inputTokens: reconciliation.usage.promptTokens,
       outputTokens: reconciliation.usage.completionTokens,
@@ -1652,6 +1981,7 @@ function parsedRequestId(error: unknown): string | null {
 
 export class OpenRouterDecartAdapter implements VeraProviderAdapter {
   readonly enabled: boolean;
+  readonly automaticContextCapable: boolean;
   readonly disabledReason?: string;
   private readonly transport?: (prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void) => Promise<ProviderResult>;
 
@@ -1692,9 +2022,11 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
         expectedEndpointMetadataDigest: input.expectedEndpointMetadataDigest,
       });
       this.enabled = input.liveEnabled === true && Boolean(this.transport);
+      this.automaticContextCapable = this.enabled && input.manifest?.toolCallingCapability?.applicationFunctions === true && input.manifest.toolCallingCapability.toolChoiceAuto === true;
       this.disabledReason = this.enabled ? undefined : "Live provider enablement is disabled by the release gate.";
     } catch (error) {
       this.enabled = false;
+      this.automaticContextCapable = false;
       this.disabledReason = error instanceof Error ? error.message : "Provider release gate failed.";
     }
   }
@@ -1703,6 +2035,7 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
     const manifest = validateProviderReleaseManifest(this.input.manifest, {
       expectedUpstreamProviderSlug: this.input.expectedUpstreamProviderSlug,
       expectedEndpointMetadataDigest: this.input.expectedEndpointMetadataDigest,
+      requireToolCalling: task.stagePurpose !== undefined,
     });
     const certifiedEstimate = deriveCertifiedEstimate(task);
     const endpointDigest = manifest.endpointMetadataDigest;
@@ -1721,6 +2054,7 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       hardOutputQuotaUnits: task.hardOutputQuotaUnits,
       maxProviderAttempts: 2,
       preparedTask: task,
+      stagePurpose: task.stagePurpose,
       certifiedEstimate,
       manifestDigest: manifest.manifestDigest,
       priceSnapshot: manifest.priceSnapshot,
@@ -1770,10 +2104,14 @@ export type MockProviderFault = "outage" | "malformed" | "partial_usage" | "canc
 
 export class MockProviderAdapter implements VeraProviderAdapter {
   readonly enabled = true;
+  readonly automaticContextCapable = true;
   readonly disabledReason = undefined;
   readonly calls: PreparedProviderTask[] = [];
 
-  constructor(private readonly fault: MockProviderFault | null = null) {}
+  constructor(
+    private readonly fault: MockProviderFault | null = null,
+    private readonly automaticToolArguments: unknown = { query: "Matematika", kinds: ["materi"], maxSources: 2 },
+  ) {}
 
   async prepare(task: ProviderTask): Promise<PreparedProviderTask> {
     const certifiedEstimate = deriveCertifiedEstimate(task);
@@ -1791,6 +2129,7 @@ export class MockProviderAdapter implements VeraProviderAdapter {
       hardOutputQuotaUnits: task.hardOutputQuotaUnits,
       maxProviderAttempts: 2,
       preparedTask: task,
+      stagePurpose: task.stagePurpose,
       certifiedEstimate,
       manifestDigest: "mock-release",
       routingOptions: {
@@ -1840,6 +2179,21 @@ export class MockProviderAdapter implements VeraProviderAdapter {
         return { kind: "discarded", text: null, structured: null, usage, finishReason: "malformed_mock_fixture", attempts: [{ ...attempt(1, "completed", "malformed_mock_fixture"), usage }] };
       }
     }
+    if (prepared.preparedTask.stagePurpose === "context_selection") {
+      const argumentsJson = canonicalContextToolArguments(this.automaticToolArguments);
+      const toolCall: VeraFunctionToolCall = { id: "mock-context-call-1", name: VERA_CONTEXT_TOOL_NAME, arguments: argumentsJson };
+      return {
+        kind: "structured",
+        text: null,
+        structured: null,
+        toolCall,
+        usage,
+        finishReason: "tool_calls",
+        attempts: this.fault === "pre_send_retry"
+          ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
+          : [{ ...attempt(1, "completed"), usage }],
+      };
+    }
     const text = "Mock Vera response.";
     emit?.({ text, provisional: true });
     const attempts = this.fault === "pre_send_retry" ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }] : [{ ...attempt(1, "completed"), usage }];
@@ -1849,6 +2203,7 @@ export class MockProviderAdapter implements VeraProviderAdapter {
 
 export class DisabledProviderAdapter implements VeraProviderAdapter {
   readonly enabled = false;
+  readonly automaticContextCapable = false;
   readonly disabledReason = "Live provider is disabled until the release manifest gate passes.";
 
   async prepare(): Promise<PreparedProviderTask> {

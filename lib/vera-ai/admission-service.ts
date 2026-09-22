@@ -23,6 +23,7 @@ import {
   AiMonetaryDebtState,
   AiReservationState,
   AiRequestBillingState,
+  AiRequestAttemptStagePurpose,
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -58,6 +59,14 @@ import {
 import type { NormalizedVeraResult } from "./output-validator";
 import type { PreparedProviderTask, ProviderFailureEvidence, ProviderResult } from "./provider";
 import {
+  VERA_CONTEXT_REGISTRY_VERSION,
+  VERA_CONTEXT_RESOLVER_VERSION,
+  VERA_CONTEXT_TOOL_NAME,
+  VERA_CONTEXT_TOOL_SCHEMA_ID,
+  type ContextToolResult,
+} from "./context-tool-contracts";
+import { encryptContextToolInvocationAsync, verifyContextToolInvocationDigests } from "./context-tool-invocation";
+import {
   VeraDurableResultError,
   createVeraDurableResultCallback,
   type VeraDurableCallbackResult,
@@ -92,6 +101,10 @@ export type PersistPreparedAdmissionInput = {
   now: Date;
   retentionPolicyVersion?: string;
   stageRetentionExpiresAt?: Date;
+  /** When true, admission creates the one request-owned invocation row in the
+   * same transaction as the reservation and selector dispatch row. */
+  automaticContext?: boolean;
+  stagePurpose?: AiRequestAttemptStagePurpose;
 };
 
 export type PersistedAdmission = {
@@ -716,6 +729,272 @@ export class VeraPrismaAdmissionService {
     return input.transaction ? settle(input.transaction) : this.db.$transaction(settle);
   }
 
+  /** Persist the selector's canonical arguments exactly once. The request FK
+   * owns this row; callers cannot create an invocation detached from a request
+   * or replace an already executing/completed tool call. */
+  async markAutomaticInvocationExecuting(input: {
+    requestId: string;
+    toolArguments: unknown;
+    now?: Date;
+  }): Promise<{ argumentsDigest: string; replayed: boolean }> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+      if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      const encrypted = await encryptContextToolInvocationAsync({
+        toolArguments: input.toolArguments,
+        envelope: this.envelope!.forClient(tx),
+        objectId: invocation.id,
+      });
+      if (invocation.state === "executing" || invocation.state === "completed") {
+        if (invocation.argumentsDigest !== encrypted.argumentsDigest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+        return { argumentsDigest: encrypted.argumentsDigest, replayed: true };
+      }
+      if (invocation.state !== "planned") throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
+      const changed = await tx.aiContextToolInvocation.updateMany({
+        where: { id: invocation.id, requestId: input.requestId, state: "planned" },
+        data: {
+          state: "executing",
+          canonicalArgumentsCiphertext: json(encrypted.canonicalArgumentsCiphertext),
+          argumentsDigest: encrypted.argumentsDigest,
+          executingAt: now,
+        },
+      });
+      if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+      return { argumentsDigest: encrypted.argumentsDigest, replayed: false };
+    });
+  }
+
+  /** Complete the one invocation with an encrypted identity-free result
+   * manifest. Source UUIDs are frozen separately into AiRequestSource rows. */
+  async completeAutomaticInvocation(input: {
+    requestId: string;
+    result: ContextToolResult;
+    selectedSourceCount: number;
+    resultByteCount: number;
+    truncationCount: number;
+    registryLatencyMs?: number;
+    now?: Date;
+  }): Promise<{ resultDigest: string; replayed: boolean }> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+      if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!invocation.canonicalArgumentsCiphertext || !invocation.argumentsDigest) {
+        throw new VeraAdmissionError({ code: "context_tool_arguments_missing", status: 409 });
+      }
+      // The invocation's encrypted arguments are the source of truth on a
+      // reconnect. Never re-encrypt a placeholder object: the helper enforces
+      // the selector schema and the stored digest must remain unchanged.
+      let toolArguments: unknown;
+      try {
+        toolArguments = JSON.parse(await this.envelope!.forClient(tx).decryptTextAsync(
+          invocation.canonicalArgumentsCiphertext as unknown as AiEncryptedPayload,
+        )) as unknown;
+      } catch {
+        throw new VeraAdmissionError({ code: "context_tool_arguments_unavailable", status: 409 });
+      }
+      const encrypted = await encryptContextToolInvocationAsync({
+        toolArguments,
+        result: input.result,
+        envelope: this.envelope!.forClient(tx),
+        objectId: invocation.id,
+      });
+      try {
+        verifyContextToolInvocationDigests({
+          toolArguments,
+          result: input.result,
+          argumentsDigest: invocation.argumentsDigest,
+          resultDigest: encrypted.resultDigest,
+          resultManifestDigest: encrypted.resultManifestDigest,
+        });
+      } catch {
+        throw new VeraAdmissionError({ code: "context_tool_digest_conflict", status: 409 });
+      }
+      const resultDigest = encrypted.resultDigest;
+      if (!resultDigest) throw new VeraAdmissionError({ code: "context_tool_invalid", status: 422 });
+      if (invocation.state === "completed") {
+        if (invocation.resultDigest !== resultDigest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+        return { resultDigest, replayed: true };
+      }
+      if (invocation.state !== "executing") throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
+      const changed = await tx.aiContextToolInvocation.updateMany({
+        where: { id: invocation.id, requestId: input.requestId, state: "executing" },
+        data: {
+          state: "completed",
+          resultManifestCiphertext: encrypted.resultManifestCiphertext ? json(encrypted.resultManifestCiphertext) : undefined,
+          resultManifestDigest: encrypted.resultManifestDigest,
+          resultDigest,
+          selectedSourceCount: input.selectedSourceCount,
+          resultByteCount: input.resultByteCount,
+          truncationCount: input.truncationCount,
+          registryLatencyMs: input.registryLatencyMs,
+          completedAt: now,
+        },
+      });
+      if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+      return { resultDigest, replayed: false };
+    });
+  }
+
+  async failAutomaticInvocation(input: { requestId: string; errorCode: string; now?: Date }): Promise<void> {
+    const now = input.now ?? await this.databaseNow();
+    await this.db.aiContextToolInvocation.updateMany({
+      where: { requestId: input.requestId, state: { in: ["planned", "executing"] } },
+      data: { state: "failed", errorCode: input.errorCode, failedAt: now },
+    });
+  }
+
+  /** Freeze the final context pack and write the answer attempt before any
+   * final transport. This is the second and last provider dispatch slot. */
+  async prepareAutomaticAnswerStage(input: {
+    requestId: string;
+    pack: PreparedContextPack;
+    preparedProviderTask: PreparedProviderTask;
+    now?: Date;
+  }): Promise<PreparedProviderTask> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      const request = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        include: { contextPack: true },
+      });
+      if (!request || !request.contextPack) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+      if (!invocation || invocation.state !== "completed") throw new VeraAdmissionError({ code: "context_tool_invalid", status: 409 });
+      const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 2 } } });
+      const providerRequestKey = input.preparedProviderTask.providerRequestKey?.trim() || providerRequestKeyFor(input.requestId, 2);
+      const dispatchDeadlineAt = request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000);
+      const preparedProviderTask: PreparedProviderTask = {
+        ...input.preparedProviderTask,
+        providerRequestKey,
+        dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
+        preparedTask: {
+          ...input.preparedProviderTask.preparedTask,
+          requestId: input.requestId,
+          attemptNo: 2,
+          providerRequestKey,
+          dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
+          stagePurpose: "answer",
+        },
+        stagePurpose: "answer",
+      };
+      if (existing) {
+        if (existing.stagePurpose !== AiRequestAttemptStagePurpose.answer || existing.finalPayloadHash !== (preparedProviderTask.finalPayloadHash ?? null)) {
+          throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+        }
+        return preparedProviderTask;
+      }
+      const encrypted = await encryptPreparedContextPackAsync(input.pack, this.envelope!.forClient(tx), `ai-pack:${input.requestId}`);
+      await tx.aiContextPack.update({
+        where: { id: request.contextPack.id },
+        data: {
+          contextPackVersion: input.pack.contextPackVersion,
+          orderedBlockManifestJson: json(input.pack.blocks.map((block) => ({ ordinal: block.ordinal, sourceType: block.sourceType, sourceId: block.sourceId, citationKey: block.citationKey, titleSnapshot: block.titleSnapshot, citationLabel: block.citationLabel, contentDigest: block.contentDigest, redacted: block.redacted, truncated: block.truncated }))),
+          normalizedTaskCiphertext: json(encrypted.normalizedTaskCiphertext),
+          canonicalBytesCiphertext: json(encrypted.canonicalBytesCiphertext),
+          byteCount: input.pack.byteCount,
+          packDigest: input.pack.packDigest,
+          truncationJson: json(input.pack.truncation),
+          toolCallDigest: input.pack.toolCallDigest,
+          toolResultDigest: input.pack.toolResultDigest,
+          registryVersion: input.pack.registryVersion,
+          resolverVersion: input.pack.resolverVersion,
+          sourceManifestDigest: input.pack.sourceManifestDigest,
+          providerTaskDigest: preparedProviderTask.providerTaskDigest,
+        },
+      });
+      await tx.aiRequestSource.deleteMany({ where: { requestId: input.requestId } });
+      await Promise.all(input.pack.blocks.map((block, index) => {
+        const snapshot = encrypted.sourceSnapshots[index];
+        return tx.aiRequestSource.create({
+          data: {
+            id: randomUUID(),
+            contextPackId: request.contextPack!.id,
+            requestId: input.requestId,
+            ordinal: block.ordinal,
+            sourceType: block.sourceType,
+            sourceId: block.sourceId,
+            citationKey: block.citationKey,
+            titleSnapshot: block.titleSnapshot,
+            citationLabel: block.citationLabel,
+            contentDigest: block.contentDigest,
+            boundedSnapshotCiphertext: snapshot ? json(snapshot) : undefined,
+            snapshotBytes: Buffer.byteLength(block.content, "utf8"),
+            truncationJson: json({ truncated: block.truncated }),
+            redactionPolicyVersion: input.pack.redactionPolicyVersion,
+            retentionPolicyVersion: request.retentionPolicyVersion ?? "unknown",
+            purgeAt: request.contextPack!.purgeAt,
+          },
+        });
+      }));
+      await tx.aiRequest.update({ where: { id: request.id }, data: { contextPackVersion: input.pack.contextPackVersion, providerTaskDigest: preparedProviderTask.providerTaskDigest, providerRequestKey, finalPayloadHash: preparedProviderTask.finalPayloadHash ?? null } });
+      await tx.aiRequestAttempt.create({
+        data: {
+          requestId: request.id,
+          attemptNo: 2,
+          gateway: preparedProviderTask.gateway,
+          upstreamProvider: preparedProviderTask.upstreamProvider,
+          upstreamProviderSlug: preparedProviderTask.upstreamProviderSlug,
+          model: preparedProviderTask.model,
+          stagePurpose: AiRequestAttemptStagePurpose.answer,
+          providerRequestKey,
+          state: AiAttemptState.reserved,
+          tokenUsageState: AiTokenUsageState.unknown,
+          finalPayloadHash: preparedProviderTask.finalPayloadHash ?? null,
+          dispatchDeadlineAt,
+          certifierId: preparedProviderTask.certifierId ?? null,
+          certifierVersion: preparedProviderTask.certifierVersion ?? null,
+          priceSnapshot: preparedProviderTask.priceSnapshot ? json(preparedProviderTask.priceSnapshot) : undefined,
+          finalMeasuredBytes: input.pack.byteCount,
+          finalMeasuredTokenUpperBound: preparedProviderTask.inputQuotaUnitsUpperBound,
+          releaseManifestDigest: preparedProviderTask.manifestDigest,
+        },
+      });
+      return preparedProviderTask;
+    });
+  }
+
+  /** Record selector provider evidence without creating the final result
+   * stage. Automatic requests accept exactly one attempt for this purpose. */
+  async recordAutomaticStageResult(input: { requestId: string; preparedProviderTask: PreparedProviderTask; providerResult: ProviderResult; now?: Date }): Promise<void> {
+    const now = input.now ?? await this.databaseNow();
+    if (input.providerResult.attempts.length !== 1 || input.providerResult.attempts[0]?.attemptNo !== 1) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
+    const attempt = input.providerResult.attempts[0];
+    await this.db.$transaction(async (tx) => {
+      const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
+      if (!existing || existing.stagePurpose !== AiRequestAttemptStagePurpose.context_selection) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
+      await tx.aiRequestAttempt.update({
+        where: { id: existing.id },
+        data: {
+          state: attempt.state as AiAttemptState,
+          resultKind: AiAttemptResultKind.success,
+          providerRequestRef: attempt.providerRequestRef,
+          inputTokens: attempt.usage.inputTokens,
+          outputTokens: attempt.usage.outputTokens,
+          quotaUnitsConsumed: attempt.usage.quotaUnitsConsumed,
+          tokenUsageState: attempt.usage.tokenUsageState as AiTokenUsageState,
+          cachedTokens: attempt.usage.cachedTokens ?? null,
+          cacheWriteTokens: attempt.usage.cacheWriteTokens ?? null,
+          reasoningTokens: attempt.usage.reasoningTokens ?? null,
+          reportedProviderCostUsdMicros: parseMicrosString(attempt.reportedCostMicros ?? attempt.usage.reportedCostMicros),
+          recomputedProviderCostUsdMicros: parseMicrosString(attempt.recomputedCostMicros ?? attempt.usage.recomputedCostMicros),
+          chargedProviderCostUsdMicros: parseMicrosString(attempt.reportedCostMicros ?? attempt.usage.reportedCostMicros),
+          errorCode: attempt.errorCode,
+          generationId: attempt.generationId ?? null,
+          upstreamId: attempt.upstreamId ?? null,
+          providerRequestId: attempt.providerRequestId ?? null,
+          observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? null,
+          completedAt: now,
+        },
+      });
+    });
+  }
+
   /**
    * Move definitive late evidence from the unknown bucket to settled cost.
    * The correction is tied to one attempt/generation and is audited before
@@ -1313,6 +1592,7 @@ export class VeraPrismaAdmissionService {
           upstreamProvider: providerTaskForDispatch.upstreamProvider,
           upstreamProviderSlug: providerTaskForDispatch.upstreamProviderSlug,
           model: providerTaskForDispatch.model,
+          stagePurpose: input.stagePurpose ?? (input.automaticContext ? AiRequestAttemptStagePurpose.context_selection : AiRequestAttemptStagePurpose.answer),
           providerRequestKey,
           state: AiAttemptState.reserved,
           creditCost: isV2 ? input.policy.creditCost : reservation,
@@ -1327,6 +1607,23 @@ export class VeraPrismaAdmissionService {
           releaseManifestDigest: providerTaskForDispatch.manifestDigest,
         },
       });
+      if (input.automaticContext) {
+        // requestId is the lifecycle owner and the unique request FK makes
+        // duplicate/replayed admission unable to create a second invocation.
+        await tx.aiContextToolInvocation.create({
+          data: {
+            requestId: request.id,
+            toolName: VERA_CONTEXT_TOOL_NAME,
+            toolSchemaVersion: VERA_CONTEXT_TOOL_SCHEMA_ID,
+            registryVersion: VERA_CONTEXT_REGISTRY_VERSION,
+            resolverVersion: VERA_CONTEXT_RESOLVER_VERSION,
+            state: "planned",
+            retentionClass: "vera-context-tool",
+            retentionPolicyVersion: input.retentionPolicyVersion ?? input.policy.bundleVersion,
+            purgeAt: contextPurgeAt,
+          },
+        });
+      }
       if (isV2) {
         await reserveV2QuotaInAdmissionTransaction(tx, {
           studentId: input.studentId,
@@ -1357,7 +1654,7 @@ export class VeraPrismaAdmissionService {
             truncated: block.truncated,
           }))),
           normalizedTaskCiphertext: encrypted ? json(encrypted.normalizedTaskCiphertext) : undefined,
-          canonicalBytesCiphertext: encrypted ? json(encrypted.normalizedTaskCiphertext) : undefined,
+          canonicalBytesCiphertext: encrypted ? json(encrypted.canonicalBytesCiphertext) : undefined,
           byteCount: input.pack.byteCount,
           packDigest: input.pack.packDigest,
           truncationJson: json(input.pack.truncation),
@@ -1440,7 +1737,7 @@ export class VeraPrismaAdmissionService {
    * eligible for Generation API reconciliation; it is never silently
    * released as an unused reservation.
    */
-  async beginProviderDispatch(input: { requestId: string; now?: Date }): Promise<void> {
+  async beginProviderDispatch(input: { requestId: string; attemptNo?: number; now?: Date }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
     await this.db.$transaction(async (tx) => {
       const request = await tx.aiRequest.findUnique({
@@ -1450,7 +1747,9 @@ export class VeraPrismaAdmissionService {
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${request.id}::uuid FOR UPDATE`;
-      const attempt = await tx.aiRequestAttempt.findFirst({ where: { requestId: request.id, attemptNo: 1 } });
+      const attemptNo = input.attemptNo ?? 1;
+      if (!Number.isSafeInteger(attemptNo) || attemptNo < 1 || attemptNo > 2) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
+      const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: request.id, attemptNo } } });
       if (!attempt) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${attempt.id}::uuid FOR UPDATE`;
       if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) return;
@@ -1470,8 +1769,8 @@ export class VeraPrismaAdmissionService {
         data: {
           billingState: request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2 ? AiRequestBillingState.dispatching : undefined,
           sendStartedAt: now,
-          providerRequestKey: request.providerRequestKey ?? attempt.providerRequestKey,
-          dispatchDeadlineAt: request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000),
+          providerRequestKey: attempt.providerRequestKey ?? request.providerRequestKey,
+          dispatchDeadlineAt: attempt.dispatchDeadlineAt ?? request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000),
           version: { increment: 1 },
         },
       });
@@ -1486,6 +1785,7 @@ export class VeraPrismaAdmissionService {
     providerResult?: ProviderResult;
     outputSchemaId?: string;
     outputSchemaHash?: string;
+    stagePurpose?: AiRequestAttemptStagePurpose;
     now?: Date;
   }): Promise<{ id: string; replayed: boolean }> {
     const now = input.now ?? await this.databaseNow();
@@ -1574,6 +1874,7 @@ export class VeraPrismaAdmissionService {
               upstreamProvider: input.preparedProviderTask.upstreamProvider,
               upstreamProviderSlug: input.preparedProviderTask.upstreamProviderSlug,
               model: resolvedModel,
+              stagePurpose: input.stagePurpose ?? AiRequestAttemptStagePurpose.answer,
               providerRequestKey: attemptProviderRequestKey,
               generationId: attempt.generationId ?? null,
               upstreamId: attempt.upstreamId ?? null,
@@ -1612,6 +1913,7 @@ export class VeraPrismaAdmissionService {
               upstreamProvider: input.preparedProviderTask.upstreamProvider,
               upstreamProviderSlug: input.preparedProviderTask.upstreamProviderSlug,
               model: resolvedModel,
+              stagePurpose: input.stagePurpose ?? AiRequestAttemptStagePurpose.answer,
               providerRequestKey: attemptProviderRequestKey,
               generationId: attempt.generationId ?? undefined,
               upstreamId: attempt.upstreamId ?? undefined,
@@ -1669,6 +1971,18 @@ export class VeraPrismaAdmissionService {
             canonicalReportedCostDecimal: input.providerResult.usage.canonicalReportedCostDecimal ?? undefined,
           },
         });
+        const automaticAttempts = await tx.aiRequestAttempt.findMany({
+          where: { requestId: input.requestId, stagePurpose: { in: [AiRequestAttemptStagePurpose.context_selection, AiRequestAttemptStagePurpose.answer] } },
+          select: { stagePurpose: true, state: true, chargedProviderCostUsdMicros: true, reportedProviderCostUsdMicros: true, recomputedProviderCostUsdMicros: true },
+        });
+        if (automaticAttempts.some((attempt) => attempt.stagePurpose === AiRequestAttemptStagePurpose.context_selection)) {
+          const unresolved = automaticAttempts.length < 2 || automaticAttempts.some((attempt) => !([AiAttemptState.completed, AiAttemptState.known] as string[]).includes(attempt.state));
+          const completeCosts = !unresolved && automaticAttempts.every((attempt) => attempt.chargedProviderCostUsdMicros !== null);
+          const charged = completeCosts ? automaticAttempts.reduce((sum, attempt) => sum + (attempt.chargedProviderCostUsdMicros ?? 0n), 0n) : null;
+          const reported = completeCosts ? automaticAttempts.reduce((sum, attempt) => sum + (attempt.reportedProviderCostUsdMicros ?? 0n), 0n) : null;
+          const recomputed = completeCosts ? automaticAttempts.reduce((sum, attempt) => sum + (attempt.recomputedProviderCostUsdMicros ?? 0n), 0n) : null;
+          await tx.aiRequest.updateMany({ where: { id: input.requestId, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } }, data: { chargedProviderCostUsdMicros: charged, reportedProviderCostUsdMicros: reported, recomputedProviderCostUsdMicros: recomputed } });
+        }
       }
       // Staging is deliberately side-effect free for request lifecycle and
       // quota accounting. Only the shared finalizer/overdue settlement owns

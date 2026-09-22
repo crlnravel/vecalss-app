@@ -6,6 +6,7 @@ import { VeraAdmissionError } from "./admission";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootKeyProvider } from "./envelope";
 import { VeraPrismaAdmissionService } from "./admission-service";
 import { createPrismaVeraContextResolver } from "./prisma-context-resolver";
+import { createPrismaContextRegistry } from "./context-query-registry";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "./prisma-chat-orchestrator";
 import { createDefaultProviderAdapter, MockProviderAdapter } from "./provider";
 import { createVeraOpenRouterFreePocProviderAdapter } from "./openrouter-free-poc-provider";
@@ -77,6 +78,15 @@ export function veraProviderAvailable(env: NodeJS.ProcessEnv = process.env): boo
   return createDefaultProviderAdapter(env).enabled;
 }
 
+/** One server-owned rollout decision shared by admission and learner DTOs.
+ * Client `contextMode` is only an intent; development and the free POC never
+ * make this effective gate true. */
+export function veraAutomaticContextEnabledForServer(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV?.toLowerCase() === "development") return false;
+  if (env.VERA_AUTOMATIC_CONTEXT_ENABLED !== "true") return false;
+  return selectVeraChatProvider(env).automaticContextCapable === true;
+}
+
 export function getVeraLifecycleService(): VeraLifecycleService {
   if (cachedLifecycleService) return cachedLifecycleService;
   const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
@@ -106,7 +116,24 @@ export function getVeraLearnerService(): VeraLearnerService {
   const cursorSecret = process.env.VERA_CURSOR_HMAC_SECRET ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
   const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
   if (!cursorSecret?.trim() || !fingerprintSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
-  cachedLearnerService = VeraLearnerService.withDefaults({ db: prisma, envelope: routeEnvelope, cursorSecret, fingerprintSecret });
+  const automaticContextEnabled = veraAutomaticContextEnabledForServer();
+  cachedLearnerService = VeraLearnerService.withDefaults({
+    db: prisma,
+    envelope: routeEnvelope,
+    cursorSecret,
+    fingerprintSecret,
+    automaticContext: {
+      enabled: automaticContextEnabled,
+      state: automaticContextEnabled
+        ? process.env.VERA_AUTOMATIC_CONTEXT_STATE === "internal"
+          ? "internal"
+          : process.env.VERA_AUTOMATIC_CONTEXT_STATE === "on"
+            ? "on"
+            : "cohort"
+        : "off",
+      policyVersion: automaticContextEnabled ? process.env.VERA_AUTOMATIC_CONTEXT_POLICY_VERSION?.trim() || null : null,
+    },
+  });
   return cachedLearnerService;
 }
 
@@ -129,6 +156,8 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
     leaseStore: disposableRouteLease,
     envelope: routeEnvelope,
     hmacSecret,
+    automaticContextEnabled: veraAutomaticContextEnabledForServer(),
+    automaticRegistry: createPrismaContextRegistry(prisma),
     assertConversationOwner: async (studentId, conversationId) => {
       const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active", archivedAt: null }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });

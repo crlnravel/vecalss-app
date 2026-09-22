@@ -1,7 +1,7 @@
 import { getReadOnlySessionContext } from "@/lib/auth/session";
 import { VERA_HTTP_HEADERS, VeraHttpError } from "@/lib/vera-ai/http";
 import { mapLearnerServiceError } from "@/lib/vera-ai/learner-service";
-import { getVeraLearnerService } from "@/lib/vera-ai/route-support";
+import { getVeraLearnerService, veraAutomaticContextEnabledForServer } from "@/lib/vera-ai/route-support";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +10,9 @@ export async function GET(request: Request) {
   const session = await getReadOnlySessionContext();
   if (!session) return Response.json({ error: "unauthenticated" }, { status: 401, headers: VERA_HTTP_HEADERS });
   try {
+    if (veraAutomaticContextEnabledForServer()) {
+      return Response.json({ error: "legacy_context_route_disabled" }, { status: 410, headers: VERA_HTTP_HEADERS });
+    }
     const url = new URL(request.url);
     const type = url.searchParams.get("type");
     if (type !== null && type !== "material" && type !== "practice") throw new VeraHttpError("invalid_request", 400);

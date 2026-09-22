@@ -285,7 +285,7 @@ await runChecks("vera-auto-context-foundation", [
       };
       await Promise.all([
         expectReject(() => Promise.resolve(resolveAutomaticKuis({ ...kuis, correctAnswerVisibility: undefined } as Parameters<typeof resolveAutomaticKuis>[0], "student-1")), "automatic Kuis accepted missing visibility"),
-        expectReject(() => Promise.resolve(resolveAutomaticTryout({ ...tryout, releaseBindingValid: undefined } as Parameters<typeof resolveAutomaticTryout>[0], "student-1")), "automatic Tryout accepted missing binding"),
+        expectReject(() => Promise.resolve(resolveAutomaticTryout({ ...tryout, releaseBindingValid: undefined } as unknown as Parameters<typeof resolveAutomaticTryout>[0], "student-1")), "automatic Tryout accepted missing binding"),
       ]);
     },
   },

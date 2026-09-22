@@ -59,6 +59,10 @@ export type VeraAdmissionInput = {
   kind?: "chat" | "studio";
   text: string;
   selection?: VeraContextSelection[];
+  /** Effective server gate. Legacy callers omit this and retain the manual
+   * source parser/authority path. */
+  contextMode?: "legacy" | "automatic";
+  automaticContext?: boolean;
   options?: Record<string, unknown>;
   toolId?: string | null;
   retryOfRequestId?: string | null;
@@ -139,6 +143,19 @@ export type VeraRequestStatusDto = {
   resultState: "pending" | "staged" | "committed" | "unavailable" | "rejected" | "expired";
   errorCode: string | null;
   result: { text: string | null; citationKeys: string[] } | null;
+  /** Server-owned request mode; source UUIDs are intentionally omitted. */
+  contextMode?: "legacy" | "automatic";
+  requestSources?: Array<{
+    citationKey: string;
+    kind: "materi" | "kuis" | "tryout";
+    title: string;
+    releasedAt: string | null;
+    limitations: string[];
+    sourceType?: string;
+    citationLabel?: string | null;
+    snapshotState?: string;
+  }>;
+  evidenceState?: "available" | "no_match" | "evidence_limited" | "unavailable" | "failed";
   artifact?: { id: string; artifactType: string; revision: number } | null;
   usage: {
     quotaUnitsReserved: number;
