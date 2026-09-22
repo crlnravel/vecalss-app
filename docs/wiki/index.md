@@ -1,6 +1,7 @@
 # Vecalss project wiki
 
-> Source snapshot: 22 September 2026 at commit `4bc2d93`. This wiki describes
+> Source snapshot: 23 September 2026 after the automatic-context rollout and
+> gate-snapshot migration work. This wiki describes
 > the tracked repository state at that snapshot; source code, `PRODUCT.md`,
 > `DESIGN.md`, and the Prisma schema remain authoritative when this snapshot
 > becomes stale. The shared worktree also contains unrelated uncommitted

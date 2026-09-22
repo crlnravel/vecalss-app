@@ -57,6 +57,7 @@ import {
   type QuotaWindowSnapshot,
 } from "./quota-v2";
 import type { NormalizedVeraResult } from "./output-validator";
+import type { VeraAutomaticContextGateSnapshot } from "./automatic-context-operations";
 import type { PreparedProviderTask, ProviderFailureEvidence, ProviderResult } from "./provider";
 import {
   VERA_CONTEXT_REGISTRY_VERSION,
@@ -104,6 +105,7 @@ export type PersistPreparedAdmissionInput = {
   /** When true, admission creates the one request-owned invocation row in the
    * same transaction as the reservation and selector dispatch row. */
   automaticContext?: boolean;
+  automaticContextGateSnapshot?: VeraAutomaticContextGateSnapshot;
   stagePurpose?: AiRequestAttemptStagePurpose;
 };
 
@@ -1558,6 +1560,7 @@ export class VeraPrismaAdmissionService {
           providerTaskDigest: input.preparedProviderTask.providerTaskDigest,
           quotaPolicyVersion: input.policy.policy.quotaConfig.quotaVersion,
           policyBundleVersion: input.policy.bundleVersion,
+          automaticContextGateSnapshot: input.automaticContextGateSnapshot ? json(input.automaticContextGateSnapshot) : undefined,
           retentionPolicyVersion: input.retentionPolicyVersion ?? "vera-retention-v1",
           settlementDeadlineAt: input.policy.settlementDeadlineAt,
           stageRetentionExpiresAt: input.stageRetentionExpiresAt

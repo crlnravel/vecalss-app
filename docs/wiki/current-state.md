@@ -1,10 +1,9 @@
 # Current state and handoff
 
-> Snapshot recorded 22 September 2026 at `4bc2d93` (`fix(vera): wire v2
-> admission and provider reconciliation`). Re-check `git status`, the source
-> tree, migration status, and harness tracking before starting another
-> implementation slice. This page describes tracked source at that commit;
-> it does not absorb concurrent uncommitted product edits.
+> Snapshot recorded 23 September 2026 after the automatic-context rollout,
+> per-student gate, and gate-snapshot migration work. Re-check `git status`,
+> migration status, and harness tracking before another implementation slice.
+> This page does not absorb concurrent uncommitted product edits.
 
 ## Implemented or materially advanced
 
@@ -31,7 +30,7 @@ The repository exposes focused evidence for the latest boundaries:
   `test:assessment-answer-contract`;
 - Vera MVP: `test:vera-mvp-contracts`, `test:vera-auto-context-foundation`,
   `test:vera-auto-context-orchestrator`, `test:vera-auto-context-ui`, and
-  `test:vera-auto-context-observability`;
+  `test:vera-auto-context-operations`;
 - Vera billing/worker: `test:vera-billing-v2`,
   `vera:reconciliation-worker:check`;
 - Vera paid provider: `test:vera-paid-provider`;
@@ -65,7 +64,7 @@ Every command was launched serially through
 source/contract drift, not resource or environment blockers. This run did not
 include full lint/build, Prisma status or migrations, live worker execution,
 or browser verification. Passing source contracts do not prove that a
-configured database has applied the 70 migration files, that provider secrets
+configured database has applied the 71 migration files, that provider secrets
 and release evidence are deployed, or that the live UI renders correctly.
 
 ## Shared-worktree ownership

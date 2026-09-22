@@ -46,11 +46,16 @@ answer.
 ## Rollout and rollback
 
 The rollout sequence is `off -> internal -> 5% -> 25% -> on`, with a stable
-student/policy cohort. The gate snapshot is immutable for an admitted request.
+student/policy cohort. The server evaluates that cohort per authenticated
+student and persists a content-free gate snapshot on an admitted request.
 Emergency off blocks new automatic admissions but does not rewrite an admitted
 request or completed evidence. While the gate is off, the existing manual
 context routes remain available for the legacy cohort and old conversations
 remain readable.
+
+The automatic gate also requires the approved paid provider, the function-tool
+capability flag, and a non-expired canary. Development, the free POC, and the
+mock provider are always fail-closed for automatic mode.
 
 Automatic mode cannot activate on the free POC provider. A paid route requires
 the separately certified model/provider manifest, function-tool canary,
@@ -64,7 +69,7 @@ Run focused suites through the shared resource guard:
 pnpm test:vera-auto-context-foundation
 pnpm test:vera-auto-context-orchestrator
 pnpm test:vera-auto-context-ui
-pnpm test:vera-auto-context-observability
+pnpm test:vera-auto-context-operations
 ```
 
 Browser verification remains separately permission-gated by the repository

@@ -19,6 +19,11 @@ import { VeraArtifactCommandService } from "./artifact-commands";
 import { VeraDrillService } from "./drill-service";
 import { VeraLifecycleService } from "./lifecycle-service";
 import { emptyV2UsageDto, ledgerVersionFor } from "./quota-v2";
+import {
+  evaluateVeraAutomaticContextGate,
+  readVeraAutomaticContextRolloutConfig,
+  type VeraAutomaticContextGate,
+} from "./automatic-context-operations";
 
 let cachedOrchestrator: VeraPrismaChatOrchestrator | null = null;
 const routeEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(prisma, environmentEnvelopeRootKeyProvider()));
@@ -78,13 +83,53 @@ export function veraProviderAvailable(env: NodeJS.ProcessEnv = process.env): boo
   return createDefaultProviderAdapter(env).enabled;
 }
 
+function veraPaidAutomaticProviderReady(env: NodeJS.ProcessEnv): boolean {
+  if (env.NODE_ENV?.toLowerCase() === "development") return false;
+  if (env.VERA_LIVE_PROVIDER_ENABLED !== "true") return false;
+  if (env.VERA_MOCK_PROVIDER_ENABLED === "true") return false;
+  if (evaluateVeraOpenRouterFreePocGate(env).enabled) return false;
+  const provider = selectVeraChatProvider(env);
+  return provider.enabled === true && provider.automaticContextCapable === true;
+}
+
+/** Resolve the effective student-scoped rollout. The legacy boolean remains
+ * an explicit compatibility requirement; the operations policy adds stable
+ * cohorts, canary freshness, provider capability, and emergency-off checks. */
+export function veraAutomaticContextGateForStudent(
+  studentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+  now = new Date(),
+): VeraAutomaticContextGate {
+  const providerReady = veraPaidAutomaticProviderReady(env)
+    && env.VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY === "true";
+  const config = readVeraAutomaticContextRolloutConfig({
+    ...env,
+    VERA_AUTOMATIC_CONTEXT_STATE: env.VERA_AUTOMATIC_CONTEXT_ENABLED === "true" ? env.VERA_AUTOMATIC_CONTEXT_STATE : "off",
+    VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY: providerReady ? "true" : "false",
+  });
+  return evaluateVeraAutomaticContextGate({
+    studentId,
+    now,
+    config,
+    isDevelopment: env.NODE_ENV?.toLowerCase() === "development",
+  });
+}
+
+export function veraAutomaticContextAuthorityForStudent(studentId: string, env: NodeJS.ProcessEnv = process.env) {
+  const gate = veraAutomaticContextGateForStudent(studentId, env);
+  return {
+    enabled: gate.enabled,
+    state: gate.state,
+    policyVersion: gate.enabled ? gate.policyVersion : null,
+  } as const;
+}
+
 /** One server-owned rollout decision shared by admission and learner DTOs.
  * Client `contextMode` is only an intent; development and the free POC never
  * make this effective gate true. */
 export function veraAutomaticContextEnabledForServer(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.NODE_ENV?.toLowerCase() === "development") return false;
-  if (env.VERA_AUTOMATIC_CONTEXT_ENABLED !== "true") return false;
-  return selectVeraChatProvider(env).automaticContextCapable === true;
+  return veraAutomaticContextGateForStudent("__server_probe__", env).enabled;
+}
 }
 
 export function getVeraLifecycleService(): VeraLifecycleService {
@@ -116,23 +161,17 @@ export function getVeraLearnerService(): VeraLearnerService {
   const cursorSecret = process.env.VERA_CURSOR_HMAC_SECRET ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
   const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
   if (!cursorSecret?.trim() || !fingerprintSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
-  const automaticContextEnabled = veraAutomaticContextEnabledForServer();
   cachedLearnerService = VeraLearnerService.withDefaults({
     db: prisma,
     envelope: routeEnvelope,
     cursorSecret,
     fingerprintSecret,
     automaticContext: {
-      enabled: automaticContextEnabled,
-      state: automaticContextEnabled
-        ? process.env.VERA_AUTOMATIC_CONTEXT_STATE === "internal"
-          ? "internal"
-          : process.env.VERA_AUTOMATIC_CONTEXT_STATE === "on"
-            ? "on"
-            : "cohort"
-        : "off",
-      policyVersion: automaticContextEnabled ? process.env.VERA_AUTOMATIC_CONTEXT_POLICY_VERSION?.trim() || null : null,
+      enabled: false,
+      state: "off",
+      policyVersion: null,
     },
+    automaticContextResolver: (studentId) => veraAutomaticContextAuthorityForStudent(studentId),
   });
   return cachedLearnerService;
 }
@@ -156,7 +195,8 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
     leaseStore: disposableRouteLease,
     envelope: routeEnvelope,
     hmacSecret,
-    automaticContextEnabled: veraAutomaticContextEnabledForServer(),
+    automaticContextEnabled: false,
+    automaticContextGateForStudent: (studentId, now) => veraAutomaticContextGateForStudent(studentId, process.env, now),
     automaticRegistry: createPrismaContextRegistry(prisma),
     assertConversationOwner: async (studentId, conversationId) => {
       const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active", archivedAt: null }, select: { id: true } });

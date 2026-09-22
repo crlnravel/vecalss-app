@@ -16,7 +16,7 @@ import {
 } from "@/lib/vera-ai/automatic-context-orchestrator";
 import { finalAutomaticOutputQuotaUnits } from "@/lib/vera-ai/prisma-chat-orchestrator";
 import { parseVeraRequestBody } from "@/lib/vera-ai/http";
-import { selectVeraChatProvider, veraAutomaticContextEnabledForServer } from "@/lib/vera-ai/route-support";
+import { selectVeraChatProvider, veraAutomaticContextEnabledForServer, veraAutomaticContextGateForStudent } from "@/lib/vera-ai/route-support";
 import { canonicalJson, sha256Hex, VERA_AUTOMATIC_CONTEXT_BUDGETS } from "@/lib/vera-ai/contracts";
 import { assert, expectReject, runChecks } from "./vera-test-support";
 
@@ -213,6 +213,17 @@ await runChecks("vera-auto-context-orchestrator", [
       const provider = selectVeraChatProvider(development);
       assert(provider.constructor.name === "MockProviderAdapter", "development selected a paid provider");
       assert(!veraAutomaticContextEnabledForServer(development), "development automatic gate opened");
+      const productionMock = {
+        NODE_ENV: "production",
+        VERA_LIVE_PROVIDER_ENABLED: "false",
+        VERA_MOCK_PROVIDER_ENABLED: "true",
+        VERA_AUTOMATIC_CONTEXT_ENABLED: "true",
+        VERA_AUTOMATIC_CONTEXT_STATE: "on",
+        VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY: "true",
+        VERA_AUTOMATIC_CONTEXT_CANARY_VERIFIED_AT: "2026-09-20T00:00:00.000Z",
+        VERA_AUTOMATIC_CONTEXT_CANARY_EXPIRES_AT: "2026-10-20T00:00:00.000Z",
+      };
+      assert(!veraAutomaticContextGateForStudent("student-1", productionMock, new Date("2026-09-23T00:00:00.000Z")).enabled, "mock provider opened the automatic paid gate");
     },
   },
 ]);

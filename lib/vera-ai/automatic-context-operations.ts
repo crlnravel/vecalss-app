@@ -43,6 +43,12 @@ export type VeraAutomaticContextGate = {
   cohortBasisPoints: number | null;
 };
 
+/** Content-free rollout authority captured when an automatic request is
+ * admitted. Existing requests keep this snapshot if policy later changes. */
+export type VeraAutomaticContextGateSnapshot = VeraAutomaticContextGate & {
+  evaluatedAt: string;
+};
+
 export type VeraAutomaticTelemetryEvent = {
   policyVersion: string;
   gateState: VeraAutomaticRolloutState;

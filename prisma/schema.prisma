@@ -3400,6 +3400,7 @@ model AiRequest {
   providerTaskDigest           String?                 @map("provider_task_digest") @db.VarChar(128)
   quotaPolicyVersion           String?                 @map("quota_policy_version") @db.VarChar(80)
   policyBundleVersion          String?                 @map("policy_bundle_version") @db.VarChar(120)
+  automaticContextGateSnapshot Json?                   @map("automatic_context_gate_snapshot") @db.JsonB
   retentionPolicyVersion       String?                 @map("retention_policy_version") @db.VarChar(80)
   settlementDeadlineAt         DateTime?               @map("settlement_deadline_at") @db.Timestamptz
   stageRetentionExpiresAt      DateTime?               @map("stage_retention_expires_at") @db.Timestamptz

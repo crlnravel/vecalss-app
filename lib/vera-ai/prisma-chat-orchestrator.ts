@@ -42,6 +42,7 @@ import {
 import { VERA_AUTOMATIC_CONTEXT_BUDGETS, sha256Hex } from "./contracts";
 import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
 import { prepareStudioAuthority, type VeraStudioIdentityAuthority } from "./studio-authority";
+import type { VeraAutomaticContextGateSnapshot } from "./automatic-context-operations";
 import type { VeraSseEvent, VeraSseEventName } from "./chat-orchestrator";
 
 type PrismaChatDb = typeof defaultPrisma;
@@ -57,6 +58,10 @@ export type PrismaVeraChatOrchestratorOptions = {
   /** Server-owned rollout decision. Client `contextMode` is only an intent
    * hint and cannot enable this path by itself. */
   automaticContextEnabled?: boolean;
+  automaticContextGateForStudent?: (
+    studentId: string,
+    now: Date,
+  ) => VeraAutomaticContextGateSnapshot | Omit<VeraAutomaticContextGateSnapshot, "evaluatedAt">;
   automaticRegistry?: ContextRegistrySource;
   assertConversationOwner?: (studentId: string, conversationId: string) => Promise<void>;
 };
@@ -82,6 +87,7 @@ type PreparedAdmission = {
     toolSchemaHash: string;
     systemPolicyHash: string;
     finalOutputQuotaUnits: number;
+    gateSnapshot: VeraAutomaticContextGateSnapshot;
   };
 };
 
@@ -117,7 +123,7 @@ function statusForRejection(input: VeraAdmissionInput, code: string): VeraReques
     resultState: "rejected",
     errorCode: code,
     result: null,
-    contextMode: "legacy",
+    contextMode: input.contextMode === "automatic" || input.automaticContext === true ? "automatic" : "legacy",
     requestSources: [],
     evidenceState: "unavailable",
     usage: {
@@ -295,19 +301,18 @@ export class VeraPrismaChatOrchestrator {
     const feature = getVeraFeatureContract(input.kind ?? "chat", input.toolId);
     const automaticRequested = input.contextMode === "automatic" || input.automaticContext === true;
     const now = await this.admission.databaseNow();
-    if (automaticRequested) {
-      if (this.options.automaticContextEnabled !== true) {
-        throw new VeraContractError("feature_disabled", "Automatic context is not enabled for this server cohort.", 410);
-      }
-      if (process.env.NODE_ENV?.toLowerCase() === "development" || this.provider.automaticContextCapable !== true) {
-        throw new VeraContractError("feature_disabled", "Automatic context requires the certified application-function provider gate.", 410);
-      }
-      if (!this.options.automaticRegistry) {
-        throw new VeraContractError("context_registry_unavailable", "Automatic context registry is unavailable.", 503);
-      }
-      if ((input.selection?.length ?? 0) > 0) {
-        throw new VeraContractError("legacy_context_rejected", "Automatic context requests cannot supply source IDs.", 400);
-      }
+    const gateSnapshot: VeraAutomaticContextGateSnapshot = {
+      ...(this.options.automaticContextGateForStudent?.(input.studentId, now) ?? {
+        enabled: this.options.automaticContextEnabled === true,
+        state: this.options.automaticContextEnabled === true ? "on" : "off",
+        policyVersion: this.options.automaticContextEnabled === true ? "legacy-test-gate" : "vera-auto-context-off",
+        reason: this.options.automaticContextEnabled === true ? "on" : "disabled",
+        cohortBasisPoints: null,
+      } as const),
+      evaluatedAt: now.toISOString(),
+    };
+    if (automaticRequested && (input.selection?.length ?? 0) > 0) {
+      throw new VeraContractError("legacy_context_rejected", "Automatic context requests cannot supply source IDs.", 400);
     }
     if (input.retryOfRequestId) {
       await this.admission.assertRetryTargetEligible({
@@ -330,6 +335,21 @@ export class VeraPrismaChatOrchestrator {
       const status = await readPrismaVeraRequestStatus(this.db, input, { admission: this.admission, envelope: this.envelope });
       if (existing.state === "accepted" || existing.rejectionClass === "terminal" || status?.state !== "rejected") {
         if (status) return { kind: "json", status };
+      }
+    }
+
+    // Replay an already-admitted request before evaluating the current
+    // rollout. Emergency-off and cohort changes stop new admissions but must
+    // not turn a durable request's reconnect into a feature-disabled error.
+    if (automaticRequested) {
+      if (!gateSnapshot.enabled) {
+        throw new VeraContractError("feature_disabled", "Automatic context is not enabled for this server cohort.", 410);
+      }
+      if (process.env.NODE_ENV?.toLowerCase() === "development" || this.provider.automaticContextCapable !== true) {
+        throw new VeraContractError("feature_disabled", "Automatic context requires the certified application-function provider gate.", 410);
+      }
+      if (!this.options.automaticRegistry) {
+        throw new VeraContractError("context_registry_unavailable", "Automatic context registry is unavailable.", 503);
       }
     }
 
@@ -500,6 +520,7 @@ export class VeraPrismaChatOrchestrator {
           retentionPolicyVersion: policy.bundleVersion,
           stageRetentionExpiresAt: new Date(now.getTime() + policy.policy.retentionConfig.stageTtlHours * 60 * 60_000),
           automaticContext: automaticRequested,
+          automaticContextGateSnapshot: automaticRequested ? gateSnapshot : undefined,
           stagePurpose: automaticRequested ? "context_selection" : undefined,
         });
         if (!persisted.accepted) {
@@ -525,6 +546,7 @@ export class VeraPrismaChatOrchestrator {
             toolSchemaHash: feature.schemaHash,
             systemPolicyHash: policy.policy.validationDigest,
             finalOutputQuotaUnits: finalAutomaticOutputQuotaUnits(policy.hardOutputQuotaUnits, feature.contextMode),
+            gateSnapshot,
           } : undefined,
           studentId: input.studentId,
         };

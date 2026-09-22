@@ -63,6 +63,8 @@ export type VeraAutomaticContextAuthorityDto = {
   policyVersion: string | null;
 };
 
+export type VeraAutomaticContextAuthorityResolver = (studentId: string) => VeraAutomaticContextAuthorityDto;
+
 export type VeraRequestSourceDto = {
   citationKey: string;
   kind: "materi" | "kuis" | "tryout";
@@ -177,6 +179,7 @@ export class VeraLearnerService {
     private readonly cursorSecret: string,
     private readonly fingerprintSecret: string,
     automaticContext?: Partial<VeraAutomaticContextAuthorityDto>,
+    private readonly automaticContextResolver?: VeraAutomaticContextAuthorityResolver,
   ) {
     if (!cursorSecret.trim() || !fingerprintSecret.trim()) throw new VeraLearnerServiceError("vera_config_missing", 503);
     const enabled = automaticContext?.enabled === true;
@@ -191,8 +194,13 @@ export class VeraLearnerService {
     };
   }
 
-  static withDefaults(input: { envelope: EnvelopeService; db?: DbClient; cursorSecret: string; fingerprintSecret: string; automaticContext?: Partial<VeraAutomaticContextAuthorityDto> }) {
-    return new VeraLearnerService(input.db ?? defaultPrisma, input.envelope, input.cursorSecret, input.fingerprintSecret, input.automaticContext);
+  private authorityFor(studentId: string): VeraAutomaticContextAuthorityDto {
+    const resolved = this.automaticContextResolver?.(studentId);
+    return resolved ? { ...resolved } : { ...this.automaticContext };
+  }
+
+  static withDefaults(input: { envelope: EnvelopeService; db?: DbClient; cursorSecret: string; fingerprintSecret: string; automaticContext?: Partial<VeraAutomaticContextAuthorityDto>; automaticContextResolver?: VeraAutomaticContextAuthorityResolver }) {
+    return new VeraLearnerService(input.db ?? defaultPrisma, input.envelope, input.cursorSecret, input.fingerprintSecret, input.automaticContext, input.automaticContextResolver);
   }
 
   parseLimit(url: URL, fallback: number) {
@@ -233,6 +241,7 @@ export class VeraLearnerService {
 
   private async conversationDto(row: {
     id: string;
+    studentId: string;
     conversationType: AiConversationType;
     title: string | null;
     archivedAt: Date | null;
@@ -241,6 +250,7 @@ export class VeraLearnerService {
     createdAt: Date;
     updatedAt: Date;
   }): Promise<VeraConversationDto> {
+    const authority = this.authorityFor(row.studentId);
     const latest = await this.db.aiMessage.findFirst({
       where: { conversationId: row.id, role: { in: ["user", "assistant"] }, contentState: "encrypted" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -260,8 +270,8 @@ export class VeraLearnerService {
         text: boundedPreview(await this.decryptText(latest.contentEnvelope)),
         createdAt: latest.createdAt.toISOString(),
       } : null,
-      contextMode: this.automaticContext.enabled ? "automatic" : "legacy",
-      automaticContext: { ...this.automaticContext },
+      contextMode: authority.enabled ? "automatic" : "legacy",
+      automaticContext: authority,
     };
   }
 
@@ -280,10 +290,11 @@ export class VeraLearnerService {
     const page = rows.slice(0, input.limit);
     const conversations = await Promise.all(page.map((row) => this.conversationDto(row)));
     const tail = rows.length > input.limit ? page.at(-1) : null;
+    const authority = this.authorityFor(input.studentId);
     return {
       conversations,
-      contextMode: this.automaticContext.enabled ? "automatic" as const : "legacy" as const,
-      automaticContext: { ...this.automaticContext },
+      contextMode: authority.enabled ? "automatic" as const : "legacy" as const,
+      automaticContext: authority,
       nextCursor: tail ? this.signCursor({ v: "1", scope: "conversation-list", studentId: input.studentId, createdAt: tail.updatedAt.toISOString(), id: tail.id }) : null,
       defaultConversationId: conversations.find((conversation) => conversation.archivedAt === null)?.id ?? null,
     };
@@ -488,12 +499,13 @@ export class VeraLearnerService {
             && request.sources.every((source) => source.snapshotState === "available")
             ? "available" as const
             : "evidence_limited" as const;
+        const authority = this.authorityFor(input.studentId);
         return {
           id: request.id,
           status: request.status,
           errorCode: request.errorCode,
           contextMode: automatic ? "automatic" as const : "legacy" as const,
-          automaticContext: automatic ? { ...this.automaticContext } : { ...DEFAULT_AUTOMATIC_CONTEXT_AUTHORITY },
+          automaticContext: automatic ? authority : { ...DEFAULT_AUTOMATIC_CONTEXT_AUTHORITY },
           requestSources,
           evidenceState,
         } satisfies VeraLearnerRequestDto;

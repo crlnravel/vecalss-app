@@ -1,8 +1,7 @@
 # Vera AI MVP
 
-> Implementation contract snapshot: 22 September 2026 at commit `4bc2d93`.
-> Source code and the Prisma schema remain authoritative if this page becomes
-> stale.
+> Implementation contract snapshot: 23 September 2026. Source code and the
+> Prisma schema remain authoritative if this page becomes stale.
 
 This page is the concise product and operations contract for the first paid
 Vera release. The MVP uses published Vecalss materials and practice evidence;
@@ -149,7 +148,7 @@ pnpm test:vera-paid-provider
 pnpm test:vera-auto-context-foundation
 pnpm test:vera-auto-context-orchestrator
 pnpm test:vera-auto-context-ui
-pnpm test:vera-auto-context-observability
+pnpm test:vera-auto-context-operations
 pnpm vera:reconciliation-worker:check
 ```
 
