@@ -569,7 +569,7 @@ async function openStudio(requireComposer = true) {
         continue
       }
       if (attempt === 8 && !pendingCancelIssued) {
-        const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button[aria-label=\\"Buat sesi belajar baru\\"]")].find(visible); if (!node) return false; node.click(); return true; })()')
+        const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button[aria-label=\\"Buat sesi baru\\"]")].find(visible); if (!node) return false; node.click(); return true; })()')
         if (!clicked) throw new Error('learner browser fixture did not expose a visible new-conversation control: ' + JSON.stringify(readiness) + ' controls=' + JSON.stringify(await visibleControls()))
       }
       await new Promise((resolve) => setTimeout(resolve, 500))

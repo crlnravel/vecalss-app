@@ -36,12 +36,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ conve
     const value = await readJsonBody(request, 8 * 1024);
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new VeraHttpError("invalid_request", 400);
     const body = value as Record<string, unknown>;
-    if (Object.keys(body).some((key) => !["title", "expectedVersion"].includes(key))
-      || typeof body.title !== "string" || !Number.isInteger(body.expectedVersion)) throw new VeraHttpError("invalid_request", 400);
-    return Response.json(await getVeraLearnerService().renameConversation({
+    if (Object.keys(body).some((key) => !["title", "archived", "expectedVersion"].includes(key))
+      || !Number.isInteger(body.expectedVersion)
+      || (typeof body.title !== "string" && typeof body.archived !== "boolean")
+      || (typeof body.title === "string" && typeof body.archived === "boolean")) throw new VeraHttpError("invalid_request", 400);
+    if (typeof body.title === "string") {
+      return Response.json(await getVeraLearnerService().renameConversation({
+        studentId: session.user.id,
+        conversationId,
+        title: body.title,
+        expectedVersion: body.expectedVersion as number,
+      }), { headers: VERA_HTTP_HEADERS });
+    }
+    return Response.json(await getVeraLearnerService().setConversationArchived({
       studentId: session.user.id,
       conversationId,
-      title: body.title,
+      archived: body.archived as boolean,
       expectedVersion: body.expectedVersion as number,
     }), { headers: VERA_HTTP_HEADERS });
   } catch (error) {

@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       studentId: session.user.id,
       limit: service.parseLimit(url, 20),
       cursor: url.searchParams.get("cursor"),
+      includeArchived: url.searchParams.get("includeArchived") === "true",
     }), { headers: VERA_HTTP_HEADERS });
   } catch (error) {
     return errorResponse(error);

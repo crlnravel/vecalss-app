@@ -227,7 +227,7 @@ includes(quizResult, "result.correctnessAvailable", "Quiz result outcome propaga
 
 const vera = read("modules/vera-ai/VeraAiPageModule.tsx");
 includes(vera, "onOpenSessionSidebar", "Vera must expose a mobile session-history entry point.");
-includes(vera, "DialogTitle>Sesi belajar", "Vera mobile session control must provide a dialog title.");
+includes(vera, "DialogTitle>Sesi", "Vera mobile session control must provide a dialog title.");
 includes(vera, "md:hidden", "Vera session history must have a mobile-only surface.");
 includes(vera, "onNewSession={onNewSession}", "Vera mobile session history must retain the new-session action.");
 includes(vera, "inline-flex min-h-[44px] min-w-[44px]", "Vera return-to-context links must meet the literal 44px actionable target.");

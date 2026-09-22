@@ -3295,6 +3295,7 @@ model AiConversation {
   version             Int                @default(0)
   contextVersion      Int                @default(0) @map("context_version")
   nextRequestSequence Int                @default(0) @map("next_request_sequence")
+  archivedAt         DateTime?           @map("archived_at") @db.Timestamptz
   deletionState       AiDeletionState    @default(active) @map("deletion_state")
   deletionOperationId String?            @map("deletion_operation_id") @db.Uuid
   claimedVersion      Int?               @map("claimed_version")
@@ -3311,6 +3312,7 @@ model AiConversation {
   @@index([studentId])
   @@index([conversationType])
   @@index([expiresAt])
+  @@index([studentId, archivedAt, updatedAt])
   @@map("ai_conversations")
 }
 
