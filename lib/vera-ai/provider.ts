@@ -493,8 +493,8 @@ export class ProviderExecutionError extends Error {
 
 export interface VeraProviderAdapter {
   readonly enabled: boolean;
-  /** Only certified application-function releases and the mock contract may
-   * participate in automatic context. */
+  /** Only the certified paid application-function release may participate in
+   * automatic context; the mock adapter is test-only for this path. */
   readonly automaticContextCapable?: boolean;
   readonly disabledReason?: string;
   prepare(task: ProviderTask): Promise<PreparedProviderTask>;
