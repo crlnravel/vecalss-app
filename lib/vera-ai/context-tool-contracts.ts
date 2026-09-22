@@ -101,8 +101,9 @@ function normalizeBoundedText(value: unknown, label: string, maxLength: number, 
     throw new VeraContractError("context_release_unavailable", `${label} harus berupa teks.`, 422);
   }
   const normalized = normalizeText(value).trim().replace(/[\t\r\n ]+/gu, " ");
+  const unsafeExternalContent = /<\/?[^>]*>|(?:^|[\s(])(?:[a-z][a-z0-9+.-]*):(?:\/\/|[^\s<>]+)|(?:^|[\s(])(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/:?#][^\s<>]*)?/iu;
   if (!normalized || Array.from(normalized).length > maxLength || /[\u0000-\u001f\u007f]/u.test(normalized)
-    || (rejectUnsafeContent && /<\/?[^>]+>|(?:javascript|data|vbscript):|https?:\/\//iu.test(normalized))) {
+    || (rejectUnsafeContent && unsafeExternalContent.test(normalized))) {
     throw new VeraContractError("context_release_unavailable", `${label} tidak memenuhi batas kontrak.`, 422);
   }
   return normalized;
@@ -142,7 +143,7 @@ export function parseRetrieveReleasedLearningContextArgs(value: unknown): Retrie
     throw new VeraContractError("context_release_unavailable", "Argumen tool Vera belum lengkap.", 422, { reason: "required_field" });
   }
   return {
-    query: normalizeBoundedText(value.query, "query", 240),
+    query: normalizeBoundedText(value.query, "query", 240, true),
     kinds: normalizeKinds(value.kinds),
     maxSources: normalizeMaxSources(value.maxSources),
   };

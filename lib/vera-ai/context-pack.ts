@@ -331,7 +331,8 @@ export async function prepareContextPack(
 }
 
 export type AutomaticContextPackSource = ContextToolSource & {
-  sourceId?: string;
+  /** Internal UUID persisted in AiRequestSource; never included in provider task/result. */
+  sourceId: string;
   sourceVersionId?: string;
 };
 
@@ -348,7 +349,8 @@ export type AutomaticContextPackInput = {
   toolResult: ContextToolResult;
   registryVersion: string;
   resolverVersion: string;
-  sources?: readonly AutomaticContextPackSource[];
+  /** Internal identity-bearing manifest required for persistence. */
+  sources: readonly AutomaticContextPackSource[];
   taskAuthority?: Record<string, unknown>;
   maxSourceBytes?: number;
   maxTaskBytes?: number;
@@ -362,6 +364,11 @@ export type AutomaticContextSourceAllocation = {
 
 function isSha256Digest(value: string): boolean {
   return /^[a-f0-9]{64}$/u.test(value);
+}
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 }
 
 /**
@@ -447,7 +454,16 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
   if (!Number.isSafeInteger(maxSourceBytes) || maxSourceBytes < 1 || !Number.isSafeInteger(maxTaskBytes) || maxTaskBytes < 1) {
     throw new VeraContractError("context_limit_exceeded", "Batas byte context pack otomatis tidak valid.", 422);
   }
-  const sources: AutomaticContextPackSource[] = [...(input.sources ?? parsedResult.sources)];
+  if (!Array.isArray(input.sources)) {
+    throw new VeraContractError("context_tool_invalid", "Manifest internal sumber otomatis wajib tersedia.", 422);
+  }
+  const sources: AutomaticContextPackSource[] = [...input.sources];
+  if (sources.some((source) => !isUuid(source.sourceId))) {
+    throw new VeraContractError("context_tool_invalid", "Identitas internal sumber otomatis harus berupa UUID.", 422);
+  }
+  if (new Set(sources.map((source) => source.sourceId)).size !== sources.length) {
+    throw new VeraContractError("context_tool_invalid", "Identitas internal sumber otomatis tidak boleh berulang.", 422);
+  }
   const sourceManifestMatches = sources.length === parsedResult.sources.length && sources.every((source, index) => {
     const parsedSource = parsedResult.sources[index];
     if (!parsedSource) return false;
@@ -480,6 +496,16 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
     kind: source.kind,
     title: source.title,
     releaseMetadata: source.releaseMetadata,
+    limitations: source.limitations,
+  }));
+  const internalSourceManifest = normalizedSources.map((source) => ({
+    sourceId: source.sourceId,
+    ...(source.sourceVersionId ? { sourceVersionId: source.sourceVersionId } : {}),
+    citationKey: source.citationKey,
+    kind: source.kind,
+    title: source.title,
+    releaseMetadata: source.releaseMetadata,
+    evidenceSegments: source.evidenceSegments,
     limitations: source.limitations,
   }));
   const buildTask = (boundedHistory: typeof history, allocation: readonly AutomaticContextSourceAllocation[]) => ({
@@ -525,7 +551,7 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
   );
   const canonicalTaskBytes = allocationResult.bytes;
   const inputCertification = certifyFinalSerializedInput(canonicalTaskBytes, mode);
-  const sourceManifestDigest = sha256Hex(canonicalJson(sourceManifest));
+  const sourceManifestDigest = sha256Hex(canonicalJson(internalSourceManifest));
   const packDigest = sha256Hex(canonicalJson({
     canonicalTask: Buffer.from(canonicalTaskBytes).toString("base64url"),
     inputCertification,
@@ -540,7 +566,7 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
     return {
       ordinal: index + 1,
       sourceType,
-      sourceId: source.sourceId ?? source.citationKey,
+      sourceId: source.sourceId,
       citationKey: source.citationKey,
       titleSnapshot: source.title,
       citationLabel: source.title,

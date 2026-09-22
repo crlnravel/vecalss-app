@@ -92,6 +92,24 @@ export function resolveCompletedTryout(input: TryoutResultProjection, studentId:
   };
 }
 
+export type AutomaticKuisResultProjection = KuisResultProjection & {
+  correctAnswerVisibility: "show";
+};
+
+export function resolveAutomaticKuis(input: AutomaticKuisResultProjection, studentId: string): ResolvedContextBlock {
+  if (input.correctAnswerVisibility !== "show") unavailable("correct_answer_visibility_missing");
+  return resolveCompletedKuis(input, studentId);
+}
+
+export type AutomaticTryoutResultProjection = TryoutResultProjection & {
+  releaseBindingValid: true;
+};
+
+export function resolveAutomaticTryout(input: AutomaticTryoutResultProjection, studentId: string): ResolvedContextBlock {
+  if (input.releaseBindingValid !== true) unavailable("release_binding_missing");
+  return resolveCompletedTryout(input, studentId);
+}
+
 export type PublishedMateriProjection = {
   sourceId: string;
   title: string;

@@ -14,6 +14,7 @@ import {
 } from "@/lib/vera-ai/context-tool-contracts";
 import {
   executeContextRegistry,
+  createPrismaContextRegistry,
   rankContextCandidates,
   type ContextRegistryCandidate,
   type ContextRegistrySource,
@@ -35,6 +36,7 @@ import {
   verifyContextToolInvocationDigests,
 } from "@/lib/vera-ai/context-tool-invocation";
 import { assert, expectReject, runChecks } from "./vera-test-support";
+import { resolveAutomaticKuis, resolveAutomaticTryout } from "@/lib/vera-ai/context-resolvers";
 
 const digest = (seed: string): string => sha256Hex(seed);
 const releasedAt = new Date("2026-09-20T00:00:00.000Z");
@@ -49,6 +51,13 @@ function source(input: Partial<ContextToolSource> & Pick<ContextToolSource, "cit
     evidenceSegments: input.evidenceSegments ?? ["Bukti belajar yang dirilis."],
     limitations: input.limitations ?? [],
   };
+}
+
+const sourceUuidA = "11111111-1111-4111-8111-111111111111";
+const sourceUuidB = "22222222-2222-4222-8222-222222222222";
+
+function internalSource(value: ContextToolSource, sourceId: string): AutomaticContextPackSource {
+  return { ...value, sourceId };
 }
 
 const toolResult = createContextToolResult({
@@ -112,6 +121,97 @@ const registrySource: ContextRegistrySource = {
   },
 };
 
+function releasedKuisRow(description: string): Record<string, unknown> {
+  return {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "released",
+    score: 86,
+    correctCount: 8,
+    wrongCount: 1,
+    unansweredCount: 1,
+    releaseAt: releasedAt,
+    policySnapshot: { reviewTiming: "immediate", correctAnswerVisibility: "show" },
+    participation: {
+      studentId: "student-1",
+      quiz: {
+        status: "published",
+        title: "Kuis Persamaan",
+        description,
+        reviewTiming: "immediate",
+        correctAnswerVisibility: "show",
+        closesAt: null,
+        items: [{ sourceQuestion: { topic: { name: "Matematika" } } }],
+      },
+    },
+  };
+}
+
+function releasedTryoutRow(): Record<string, unknown> {
+  const tryoutId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const sessionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const admissionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const releaseId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const releaseDigest = digest("tryout-release");
+  const sections = Array.from({ length: 7 }, (_, index) => ({
+    id: `section-${index + 1}`,
+    sequenceNo: index + 1,
+    subtestId: `subtest-${index + 1}`,
+  }));
+  return {
+    id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    tryoutId,
+    deliverySessionId: sessionId,
+    admissionId,
+    status: "scored",
+    attemptState: "submitted",
+    scoringState: "scored",
+    releaseState: "released",
+    score: 88,
+    wrongCount: 2,
+    unansweredCount: 1,
+    releaseAt: releasedAt,
+    assessmentReleaseId: releaseId,
+    assessmentReleaseNumber: 1,
+    assessmentReleaseDigest: releaseDigest,
+    deliverySession: {
+      id: sessionId,
+      tryoutId,
+      status: "closed",
+      assessmentReleaseId: releaseId,
+      releaseState: "released",
+      releasedAt,
+      rankingRule: "none",
+      assignments: [{ id: "assignment-1", admissionId, status: "active", admission: { studentId: "student-1", status: "active" } }],
+    },
+    assessmentRelease: { id: releaseId, tryoutId, releaseNumber: 1, contentDigest: releaseDigest, publishedAt: releasedAt },
+    tryout: { id: tryoutId, title: "Tryout Persamaan", status: "published", publishedAt: releasedAt, sections },
+    runs: sections.map((section) => ({
+      tryoutSectionId: section.id,
+      sequenceNo: section.sequenceNo,
+      assessmentReleaseId: releaseId,
+      assessmentReleaseNumber: 1,
+      assessmentReleaseDigest: releaseDigest,
+      status: "sealed",
+      scoringState: "scored",
+      calculationReleaseable: true,
+      normalizedScore: 88,
+      section: { ...section, tryoutId },
+    })),
+    scoreBreakdowns: sections.map((section) => ({
+      subtestId: section.subtestId,
+      normalizedScore: 88,
+      rawScore: 8,
+      scaledScore: 88,
+      scoringVersion: "tryout-score-v1",
+      scoringProvenance: "runtime",
+      wrongCount: 0,
+      unansweredCount: 0,
+    })),
+  };
+}
+
 await runChecks("vera-auto-context-foundation", [
   {
     name: "strict tool schema and canonical argument contract",
@@ -156,11 +256,111 @@ await runChecks("vera-auto-context-foundation", [
     },
   },
   {
-    name: "unknown and URL-like queries return bounded no-match results and timeout fails closed",
+    name: "automatic resolver gates reject omitted visibility and release binding evidence",
     run: async () => {
+      const kuis = {
+        sourceId: "kuis-1",
+        studentId: "student-1",
+        title: "Kuis",
+        reviewAvailable: true,
+        releaseState: "released" as const,
+        scoringState: "scored" as const,
+        resultSummary: "summary",
+        wrongCorrectPattern: "pattern",
+        questionTopicIdentity: ["topic"],
+        releasedExplanations: ["explanation"],
+      };
+      const tryout = {
+        sourceId: "tryout-1",
+        studentId: "student-1",
+        title: "Tryout",
+        scoreVisible: true,
+        releaseState: "released" as const,
+        scoringState: "scored" as const,
+        readiness: "ready" as const,
+        subtestScores: ["score"],
+        releasedBreakdown: ["breakdown"],
+        timingSummary: "timing",
+        wrongAnswerReferences: [],
+      };
+      await Promise.all([
+        expectReject(() => Promise.resolve(resolveAutomaticKuis({ ...kuis, correctAnswerVisibility: undefined } as Parameters<typeof resolveAutomaticKuis>[0], "student-1")), "automatic Kuis accepted missing visibility"),
+        expectReject(() => Promise.resolve(resolveAutomaticTryout({ ...tryout, releaseBindingValid: undefined } as Parameters<typeof resolveAutomaticTryout>[0], "student-1")), "automatic Tryout accepted missing binding"),
+      ]);
+    },
+  },
+  {
+    name: "Prisma registry closes publication, participant, release, and canonical-seven authority gates",
+    run: async () => {
+      let kuisDescription = "Released summary A";
+      const kuisRows = () => [releasedKuisRow(kuisDescription)];
+      const kuisRegistry = createPrismaContextRegistry({
+        module: { findMany: async () => [] },
+        standaloneQuizAttempt: { findMany: async () => kuisRows() },
+        tryoutAttempt: { findMany: async () => [] },
+      });
+      const kuisFirst = await kuisRegistry.listKuis({ studentId: "student-1", now });
+      kuisDescription = "Released summary B";
+      const kuisSecond = await kuisRegistry.listKuis({ studentId: "student-1", now });
+      assert(kuisFirst[0]?.sourceVersionDigest !== kuisSecond[0]?.sourceVersionDigest, "Kuis digest ignored released description evidence");
+
+      let capturedTryoutQuery: unknown = null;
+      const baseTryout = releasedTryoutRow();
+      const tryoutRegistry = createPrismaContextRegistry({
+        module: { findMany: async () => [] },
+        standaloneQuizAttempt: { findMany: async () => [] },
+        tryoutAttempt: { findMany: async (args: unknown) => { capturedTryoutQuery = args; return [baseTryout]; } },
+      });
+      const admitted = await tryoutRegistry.listTryout({ studentId: "student-1", now });
+      assert(admitted.length === 1, "canonical released Tryout was not admitted");
+      const queryText = JSON.stringify(capturedTryoutQuery);
+      assert(queryText.includes('"status":"published"') && queryText.includes('"releaseState":"released"') && queryText.includes('"assignments":{"some"'), "Prisma Tryout query omitted authority predicates");
+
+      const cases: Array<[string, (row: Record<string, unknown>) => void]> = [
+        ["unpublished package", (row) => { (row.tryout as Record<string, unknown>).status = "draft"; }],
+        ["partial canonical runs", (row) => { row.runs = (row.runs as unknown[]).slice(0, 6); }],
+        ["revoked participant", (row) => { (((row.deliverySession as Record<string, unknown>).assignments as unknown[])[0] as Record<string, unknown>).status = "revoked"; }],
+        ["mismatched release", (row) => { row.assessmentReleaseDigest = digest("different-release"); }],
+      ];
+      for (const [label, mutate] of cases) {
+        const invalid = structuredClone(baseTryout) as Record<string, unknown>;
+        mutate(invalid);
+        const registry = createPrismaContextRegistry({
+          module: { findMany: async () => [] },
+          standaloneQuizAttempt: { findMany: async () => [] },
+          tryoutAttempt: { findMany: async () => [invalid] },
+        });
+        const result = await registry.listTryout({ studentId: "student-1", now });
+        assert(result.length === 0, `${label} Tryout passed registry authority`);
+      }
+    },
+  },
+  {
+    name: "unknown and unsafe URL/scheme/markup queries fail closed and timeout fails closed",
+    run: async () => {
+      await Promise.all([
+        expectReject(() => executeContextRegistry({
+          studentId: "student-1",
+          toolArguments: { query: "https://external.example/secret", kinds: ["materi"], maxSources: 1 },
+          source: registrySource,
+          now,
+        }), "URL query accepted"),
+        expectReject(() => executeContextRegistry({
+          studentId: "student-1",
+          toolArguments: { query: "javascript:Math", kinds: ["materi"], maxSources: 1 },
+          source: registrySource,
+          now,
+        }), "scheme query accepted"),
+        expectReject(() => executeContextRegistry({
+          studentId: "student-1",
+          toolArguments: { query: "<script>Math</script>", kinds: ["materi"], maxSources: 1 },
+          source: registrySource,
+          now,
+        }), "markup query accepted"),
+      ]);
       const noMatch = await executeContextRegistry({
         studentId: "student-1",
-        toolArguments: { query: "https://external.example/secret", kinds: ["materi"], maxSources: 1 },
+        toolArguments: { query: "unrelated concept", kinds: ["materi"], maxSources: 1 },
         source: registrySource,
         now,
       });
@@ -191,11 +391,42 @@ await runChecks("vera-auto-context-foundation", [
     },
   },
   {
+    name: "automatic packs require UUID source manifests and never persist citation keys as identity",
+    run: () => {
+      const internalSources = toolResult.sources.map((item, index) => internalSource(item, index === 0 ? sourceUuidA : sourceUuidB));
+      const input = {
+        feature: "chat" as const,
+        userText: "Math",
+        policyVersion: "policy-v2",
+        promptTemplateHash: digest("prompt"),
+        toolSchemaHash: digest("schema"),
+        systemPolicyHash: digest("system"),
+        toolCallDigest: contextToolArgumentsDigest({ query: "Math", kinds: ["materi", "kuis"], maxSources: 2 }),
+        toolResult,
+        registryVersion: toolResult.registryVersion,
+        resolverVersion: "vera-context-resolver-v1",
+        sources: internalSources,
+      };
+      const pack = prepareAutomaticContextPack(input);
+      assert(pack.blocks[0]?.sourceId === sourceUuidA && pack.blocks[1]?.sourceId === sourceUuidB, "automatic pack did not retain internal UUID identity");
+      assert(!new TextDecoder().decode(pack.canonicalTaskBytes).includes(sourceUuidA), "provider task leaked internal source UUID");
+      assert(pack.blocks[0]?.sourceId !== pack.blocks[0]?.citationKey, "automatic pack fell back to citation identity");
+      const changedIdentity = prepareAutomaticContextPack({ ...input, sources: [internalSource(toolResult.sources[0]!, sourceUuidB), internalSource(toolResult.sources[1]!, sourceUuidA)] });
+      assert(pack.sourceManifestDigest !== changedIdentity.sourceManifestDigest, "source manifest digest ignored internal identity");
+      const withoutManifest = { ...input, sources: undefined as unknown as AutomaticContextPackSource[] };
+      return Promise.all([
+        expectReject(() => Promise.resolve(prepareAutomaticContextPack(withoutManifest)), "automatic pack accepted missing internal manifest"),
+        expectReject(() => Promise.resolve(prepareAutomaticContextPack({ ...input, sources: [internalSource(toolResult.sources[0]!, "materi_m1"), internalSources[1]!] })), "automatic pack accepted non-UUID source identity"),
+        expectReject(() => Promise.resolve(prepareAutomaticContextPack({ ...input, sources: [internalSources[0]!, internalSources[0]!] })), "automatic pack accepted duplicate source identity"),
+      ]);
+    },
+  },
+  {
     name: "automatic v2 pack uses exact byte caps, history bounds, and deterministic truncation",
     run: () => {
       const longSources: AutomaticContextPackSource[] = [
-        source({ citationKey: "materi_long", kind: "materi", title: "Long A", evidenceSegments: ["A".repeat(1_600), "B".repeat(1_600), "C".repeat(1_600), "D".repeat(1_600)] }),
-        source({ citationKey: "kuis_long", kind: "kuis", title: "Long B", evidenceSegments: ["E".repeat(1_600), "F".repeat(1_600), "G".repeat(1_600), "H".repeat(1_600)] }),
+        internalSource(source({ citationKey: "materi_long", kind: "materi", title: "Long A", evidenceSegments: ["A".repeat(1_600), "B".repeat(1_600), "C".repeat(1_600), "D".repeat(1_600)] }), "33333333-3333-4333-8333-333333333333"),
+        internalSource(source({ citationKey: "kuis_long", kind: "kuis", title: "Long B", evidenceSegments: ["E".repeat(1_600), "F".repeat(1_600), "G".repeat(1_600), "H".repeat(1_600)] }), "44444444-4444-4444-8444-444444444444"),
       ];
       const longResult = createContextToolResult({ sources: longSources });
       const args = { query: "long", kinds: ["materi", "kuis"] as const, maxSources: 2 };
