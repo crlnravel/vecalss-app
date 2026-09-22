@@ -120,6 +120,14 @@ import {
 import { KaptenTryoutOperationsModule } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { KaptenTryoutSettingsPageModule } from "@/modules/mentor/KaptenTryoutSettingsPageModule";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<
   "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM"
@@ -1770,6 +1778,7 @@ function useTryoutBuilderState({
     workflow?: CanonicalTryoutWorkflowProjection;
   };
 }) {
+  const resourceLock = useResourceEditLock();
   const initialFormDraft = useMemo<TryoutDraft>(
     () =>
       normalize(
@@ -1867,6 +1876,7 @@ function useTryoutBuilderState({
 
   const mode: WorkflowMode =
     draft.status === "published" ? "published" : "draft";
+  const isEditLocked = Boolean(id && !resourceLock.canEdit);
   const isAutosaveSubtest = Boolean(
     initialSubtest && id && mode === "draft" && !draft.locked && dirty,
   );
@@ -2003,6 +2013,7 @@ function useTryoutBuilderState({
       redirectSubtest?: SubjectCode,
     ): Promise<boolean> => {
       const draftToSave = latestDraftRef.current;
+      if (id && !resourceLock.canEdit) return false;
       dispatch({ saving: true, type: "setSaving" });
       dispatch({ error: null, type: "setError" });
       try {
@@ -2013,6 +2024,7 @@ function useTryoutBuilderState({
             ? undefined
             : defaultPolicyForDraft(draftToSave.defaultReleasePolicy),
           description: draftToSave.description,
+          editLease: id ? resourceLock.proof ?? undefined : undefined,
           id,
           sections: draftToSave.sections.map((section) => ({
             directQuestions: section.directQuestions?.map((question) => ({
@@ -2065,7 +2077,7 @@ function useTryoutBuilderState({
         dispatch({ saving: false, type: "setSaving" });
       }
     },
-    [id],
+    [id, resourceLock.canEdit, resourceLock.proof],
   );
 
   const requestAutosave = useCallback(() => {
@@ -2094,7 +2106,7 @@ function useTryoutBuilderState({
   }, [requestAutosave]);
 
   const duplicate = async () => {
-    if (!id) return;
+    if (!id || isEditLocked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
@@ -2119,11 +2131,11 @@ function useTryoutBuilderState({
   };
 
   const unpublish = async () => {
-    if (!id) return;
+    if (!id || isEditLocked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await unpublishTryoutAction(id);
+      const result = await unpublishTryoutAction(id, resourceLock.proof ?? undefined);
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2142,11 +2154,11 @@ function useTryoutBuilderState({
   };
 
   const archive = async () => {
-    if (!id) return;
+    if (!id || isEditLocked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await archiveTryoutAction(id);
+      const result = await archiveTryoutAction(id, resourceLock.proof ?? undefined);
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2165,11 +2177,11 @@ function useTryoutBuilderState({
   };
 
   const remove = async () => {
-    if (!id) return;
+    if (!id || isEditLocked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await deleteTryoutAction(id);
+      const result = await deleteTryoutAction(id, resourceLock.proof ?? undefined);
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2188,7 +2200,7 @@ function useTryoutBuilderState({
   };
 
   const saveMetadata = async () => {
-    if (!id) return;
+    if (!id || isEditLocked) return;
     const draftToSave = latestDraftRef.current;
     dispatch({ saving: true, type: "setMetadataSaving" });
     dispatch({ error: null, type: "setError" });
@@ -2196,6 +2208,7 @@ function useTryoutBuilderState({
       const result = await updateTryoutMetadataAction({
         bannerMediaId: draftToSave.bannerMediaId ?? null,
         description: draftToSave.description,
+        editLease: resourceLock.proof ?? undefined,
         id,
         title: draftToSave.title,
       });
@@ -2392,6 +2405,7 @@ function useTryoutBuilderState({
     browseBankId,
     configureReady,
     discardDraft,
+    dirty,
     dirtyNavigationOpen,
     dispatch,
     draft,
@@ -2425,6 +2439,9 @@ function useTryoutBuilderState({
     updateDraft,
     unpublishOpen,
     update,
+    editLocked: isEditLocked,
+    lockState: (id ? resourceLock.state : "owned") as AuthoringLockState,
+    retryLock: resourceLock.retry,
   };
 }
 
@@ -2653,7 +2670,7 @@ function TryoutBuilderHeader({
   );
 }
 
-function KaptenTryoutBuilderPageModule({
+function TryoutBuilderContent({
   id,
   initialDraft,
   initialParent,
@@ -2690,6 +2707,8 @@ function KaptenTryoutBuilderPageModule({
     discardDraft,
     dirtyNavigationOpen,
     dispatch,
+    dirty,
+    editLocked,
     draft,
     duplicate,
     duplicateOpen,
@@ -2703,6 +2722,8 @@ function KaptenTryoutBuilderPageModule({
     save,
     saveMetadata,
     saving,
+    lockState,
+    retryLock,
     selectedSourceQuestionIdsSet,
     sourceBankLoading,
     sourceBankPage,
@@ -2727,12 +2748,15 @@ function KaptenTryoutBuilderPageModule({
     initialSourceBankTotal,
     operationsInitial,
   });
+  const viewDraft = editLocked ? { ...draft, locked: true } : draft;
+  const viewSaving = saving || editLocked;
+  const viewMetadataSaving = metadataSaving || editLocked;
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
       <TryoutBuilderHeader
         activeWorkspace={activeWorkspace}
         configureReady={configureReady}
-        draft={draft}
+        draft={viewDraft}
         error={error}
         guardExternalNavigation={guardExternalNavigation}
         id={id}
@@ -2741,8 +2765,10 @@ function KaptenTryoutBuilderPageModule({
         mode={mode}
         onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
         onWorkspaceChange={setActiveWorkspace}
-        saving={saving}
+        saving={viewSaving}
       />
+
+      {id ? <ResourceAuthoringLockBanner hasLocalChanges={dirty} onRetry={retryLock} resourceLabel="Tryout" state={lockState} /> : null}
 
       {initialSubtest ? (
         <TryoutSubtestEditor
@@ -2751,7 +2777,7 @@ function KaptenTryoutBuilderPageModule({
           activeSection={activeSection}
           activeSourceQuestions={activeSourceQuestions}
           browseBankId={browseBankId}
-          draft={draft}
+          draft={viewDraft}
           guardExternalNavigation={guardExternalNavigation}
           onBankPageNext={() =>
             dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })
@@ -2770,7 +2796,7 @@ function KaptenTryoutBuilderPageModule({
           }
           onToggleQuestion={toggleDirectQuestion}
           onUpdateSection={(change) => update(activeSection.subtest, change)}
-          readOnly={mode === "published" || draft.locked}
+          readOnly={mode === "published" || viewDraft.locked}
           selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
           sourceBankLoading={sourceBankLoading}
           sourceBankSearch={sourceBankSearch}
@@ -2780,11 +2806,11 @@ function KaptenTryoutBuilderPageModule({
           sourceQuestionPage={sourceQuestionPage}
           sourceQuestionSearch={sourceQuestionSearch}
           sourceQuestionTotal={sourceQuestionTotal}
-          saving={saving}
+          saving={viewSaving}
         />
       ) : activeWorkspace === "subtests" ? (
         <TryoutSubtestIndex
-          draft={draft}
+          draft={viewDraft}
           id={id}
           parentId={initialParent?.id}
           onOpenSubtest={(subtest, event) => {
@@ -2798,8 +2824,8 @@ function KaptenTryoutBuilderPageModule({
                 event,
               );
           }}
-          readOnly={mode === "published" || draft.locked}
-          saving={saving}
+          readOnly={mode === "published" || viewDraft.locked}
+          saving={viewSaving}
         />
       ) : activeWorkspace === "operations" && operationsInitial ? (
         <ReferenceSurface as="section" className="mt-4 p-5 sm:p-7">
@@ -2815,19 +2841,19 @@ function KaptenTryoutBuilderPageModule({
         </ReferenceSurface>
       ) : activeWorkspace === "settings" ? (
         <KaptenTryoutSettingsPageModule
-          draft={{ locked: draft.locked, status: draft.status, title: draft.title }}
+          draft={{ locked: viewDraft.locked, status: viewDraft.status, title: viewDraft.title }}
           error={error}
           hasActiveAttempt={hasActiveAttempt}
           onArchive={() => void archive()}
           onDelete={() => void remove()}
           onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
           onUnpublish={() => dispatch({ open: true, type: "setUnpublishOpen" })}
-          saving={saving}
+          saving={viewSaving}
         />
       ) : (
         <TryoutIdentityPanel
-          draft={draft}
-          metadataSaving={metadataSaving}
+          draft={viewDraft}
+          metadataSaving={viewMetadataSaving}
           mode={mode}
           onBannerChange={(bannerMediaId) =>
             updateDraft((current) => ({ ...current, bannerMediaId }))
@@ -2839,13 +2865,13 @@ function KaptenTryoutBuilderPageModule({
           onTitleChange={(title) =>
             updateDraft((current) => ({ ...current, title }))
           }
-          saving={saving}
+          saving={viewSaving}
         />
       )}
 
       <TryoutLifecycleModals
         dirtyNavigationOpen={dirtyNavigationOpen}
-        draft={draft}
+        draft={viewDraft}
         duplicateOpen={duplicateOpen}
         hasActiveAttempt={hasActiveAttempt}
         onCancelDirtyNavigation={() => {
@@ -2894,10 +2920,33 @@ function KaptenTryoutBuilderPageModule({
           if (!saving) dispatch({ open, type: "setUnpublishOpen" });
         }}
         publishOpen={publishOpen}
-        saving={saving}
+        saving={viewSaving}
         unpublishOpen={unpublishOpen}
       />
     </div>
+  );
+}
+
+function KaptenTryoutBuilderPageModule(props: {
+  id?: string;
+  initialDeliveryArea?: string;
+  initialDraft?: TryoutDraft | null;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  initialSessionId?: string;
+  initialSubtest?: SubjectCode;
+  initialSourceBankTotal?: number;
+  initialSourceBanks?: SourceBank[];
+  initialWorkspace?: TryoutWorkspaceTab;
+  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
+}) {
+  return (
+    <ResourceEditLockProvider
+      enabled={Boolean(props.id)}
+      resourceId={props.id ?? "00000000-0000-4000-8000-000000000000"}
+      resourceType="tryout"
+    >
+      <TryoutBuilderContent {...props} />
+    </ResourceEditLockProvider>
   );
 }
 

@@ -42,7 +42,8 @@ assert.match(subtestIndex, /<ChevronRight/u, "subtest entries should expose a fo
 assert.match(workspace, /function tryoutSubtestEditorHref[\s\S]*\/soal\//u, "subtest rows must point to a nested editor route");
 assert.match(workspace, /initialSubtest\?: SubjectCode/u, "the builder must accept a selected subtest from the child route");
 assert.match(workspace, /if \(!initialSubtest \|\| mode === "published" \|\| draft\.locked\) return/u, "the child editor must load editable sources only for a selected unlocked draft subtest");
-assert.match(workspace, /readOnly=\{mode === "published" \|\| draft\.locked\}/u, "published and locked Tryouts must keep subtest details read-only");
+assert.match(workspace, /readOnly=\{mode === "published" \|\| (?:draft|viewDraft)\.locked\}/u, "published and locked Tryouts must keep subtest details read-only");
+assert.match(workspace, /const viewDraft = editLocked \? \{ \.\.\.draft, locked: true \} : draft/u, "a lost Tryout lease must project a read-only draft without discarding local values");
 assert.doesNotMatch(workspace, /TryoutPhaseNavigation|TryoutWorkspaceTabs|SectionRail|TryoutDeliveryTab|TryoutReviewTab/u, "the Tryout builder must not render lifecycle tabs");
 assert.match(workspaceHeader, /label: "Informasi"[\s\S]*label: "Subtest"/u, "the Tryout workspace must expose information and subtests as top-level tabs");
 assert.match(workspaceHeader, /label: "Operasional"[\s\S]*label: "Peserta"[\s\S]*label: "Pengaturan"/u, "the Tryout workspace must keep operations, participants, and settings in the same tab bar");

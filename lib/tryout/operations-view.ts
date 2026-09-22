@@ -461,15 +461,13 @@ async function getOwnedTryoutOperationsView(
   let operations = await getTryoutDeliveryOperations(tryoutId, actorId);
   if (!operations) return null;
   const sessionsWithAttempts = operations.deliverySessions.filter((session) => session.attempts.length > 0);
-  await Promise.all(
-    sessionsWithAttempts.map(async (session) => {
-      try {
-        await synchronizeTryoutSessionReleaseState(session.id, new Date());
-      } catch (error) {
-        if (!(error instanceof TryoutResultValidationError)) throw error;
-      }
-    }),
-  );
+  for (const session of sessionsWithAttempts) {
+    try {
+      await synchronizeTryoutSessionReleaseState(session.id, new Date());
+    } catch (error) {
+      if (!(error instanceof TryoutResultValidationError)) throw error;
+    }
+  }
   if (sessionsWithAttempts.length > 0) {
     operations = await getTryoutDeliveryOperations(tryoutId, actorId);
     if (!operations) return null;

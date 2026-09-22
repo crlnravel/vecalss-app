@@ -13,7 +13,7 @@ const [locksSource, progressSource, repositorySource] = await Promise.all([
 assert.match(locksSource, /vecalss:materi:subject:/, "Materi ordering needs one shared subject lock namespace");
 assert.match(locksSource, /\.sort\(\)/, "multi-subject lock acquisition must be deterministic");
 assert.match(locksSource, /pg_advisory_xact_lock/, "the subject lock must be transaction scoped");
-assert.equal((locksSource.match(/\$executeRaw/g) ?? []).length, 2, "void advisory locks must use Prisma executeRaw");
+assert.equal((locksSource.match(/\$executeRaw/g) ?? []).length, 3, "void advisory locks must use Prisma executeRaw");
 assert.equal(
   progressSource.match(/lockMateriSubjectScope\(tx, subject\.code\)/g)?.length,
   4,
@@ -27,7 +27,7 @@ assert.ok(saveStart >= 0 && lifecycleStart > saveStart, "save and lifecycle help
 const saveSource = repositorySource.slice(saveStart, lifecycleStart);
 assert.match(saveSource, /lockMateriSubjectScopes\(tx, materiSubjectCodes\)/, "save must lock every canonical subject before discovering its source");
 const saveLockIndex = saveSource.indexOf("lockMateriSubjectScopes(tx, materiSubjectCodes)");
-const saveCurrentIndex = saveSource.indexOf("const current");
+const saveCurrentIndex = saveSource.indexOf("let current");
 assert.ok(
   saveLockIndex >= 0 && saveCurrentIndex > saveLockIndex,
   "save must not derive current/source before its subject boundary",
@@ -45,7 +45,7 @@ assert.ok(
   "individual lifecycle must re-read the module/resources after row locks",
 );
 assert.equal(
-  repositorySource.match(/readLockedMateriLifecycleRecord\(tx, code\)/g)?.length,
+  repositorySource.match(/readLockedMateriLifecycleRecord\(tx, code, tutorId, editLease\)/g)?.length,
   4,
   "all individual lifecycle operations must revalidate under the locked transaction",
 );

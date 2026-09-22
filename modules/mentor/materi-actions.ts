@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   archiveMateriLesson,
   bulkPublishMateriLessons,
@@ -71,10 +72,10 @@ async function saveMateriLessonAction(input: SaveMateriLessonInput): Promise<Mat
   }
 }
 
-async function publishMateriLessonAction(code: string): Promise<MateriActionResult> {
+async function publishMateriLessonAction(code: string, editLease?: AuthoringEditLease): Promise<MateriActionResult> {
   const session = await requireTutorSession();
   try {
-    const lesson = await publishMateriLesson(code, session.user.id);
+    const lesson = await publishMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Lesson diterbitkan tetapi tidak dapat dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
@@ -84,10 +85,10 @@ async function publishMateriLessonAction(code: string): Promise<MateriActionResu
   }
 }
 
-async function unpublishMateriLessonAction(code: string): Promise<MateriActionResult> {
+async function unpublishMateriLessonAction(code: string, editLease?: AuthoringEditLease): Promise<MateriActionResult> {
   const session = await requireTutorSession();
   try {
-    const lesson = await unpublishMateriLesson(code, session.user.id);
+    const lesson = await unpublishMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Status lesson tidak dapat dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
@@ -97,10 +98,10 @@ async function unpublishMateriLessonAction(code: string): Promise<MateriActionRe
   }
 }
 
-async function archiveMateriLessonAction(code: string): Promise<MateriActionResult> {
+async function archiveMateriLessonAction(code: string, editLease?: AuthoringEditLease): Promise<MateriActionResult> {
   const session = await requireTutorSession();
   try {
-    const lesson = await archiveMateriLesson(code, session.user.id);
+    const lesson = await archiveMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Lesson diarsipkan tetapi tidak dapat dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
@@ -110,10 +111,10 @@ async function archiveMateriLessonAction(code: string): Promise<MateriActionResu
   }
 }
 
-async function returnMateriLessonToDraftAction(code: string): Promise<MateriActionResult> {
+async function returnMateriLessonToDraftAction(code: string, editLease?: AuthoringEditLease): Promise<MateriActionResult> {
   const session = await requireTutorSession();
   try {
-    const lesson = await returnMateriLessonToDraft(code, session.user.id);
+    const lesson = await returnMateriLessonToDraft(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Status lesson tidak dapat dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);

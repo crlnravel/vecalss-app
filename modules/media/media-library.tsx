@@ -8,6 +8,7 @@ import {
   type DragEvent,
   type Dispatch,
   type RefObject,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import { showToast } from "@/components/ui/toast";
@@ -28,6 +29,7 @@ import type {
 import { MediaAssetPreview } from "./components/MediaAssetPreview";
 import { MediaLibraryScreen } from "./components/MediaLibraryScreen";
 import { MediaPickerDialog } from "./components/MediaPickerDialog";
+import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
 import {
   postMediaAction,
   putFile,
@@ -41,6 +43,12 @@ import type {
   TrashRequest,
   UploadStatus,
 } from "./types";
+import type { EditLeaseProof } from "@/lib/resource-edit-lock/types";
+import {
+  ResourceEditLockProvider,
+  type ResourceEditLockContextValue,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 function useMediaLibraryUploads({
   acceptedMimeTypeSet,
@@ -139,6 +147,7 @@ function useMediaLibraryUploads({
 function createMediaLibraryMutationHandlers({
   editingItem,
   editingName,
+  editLease,
   folderId,
   moveRequest,
   moveTargetId,
@@ -158,6 +167,7 @@ function createMediaLibraryMutationHandlers({
 }: {
   editingItem: EditableItem | null;
   editingName: string;
+  editLease: EditLeaseProof | null;
   folderId: string | null;
   moveRequest: MoveRequest | null;
   moveTargetId: string;
@@ -180,7 +190,7 @@ function createMediaLibraryMutationHandlers({
     setMutationPending(mutation);
     setError(null);
     try {
-      await postMediaAction(scope, body);
+      await postMediaAction(scope, { ...body, ...(editLease ? { editLease } : {}) });
       refreshLibrary(successMessage);
       return true;
     } finally {
@@ -365,6 +375,15 @@ function useMediaLibraryData({
   return { error, refreshLibrary, setError, snapshot, isLoading: loadingRequestId !== null };
 }
 
+function MediaLibraryLeaseSurface({
+  children,
+}: {
+  children: (lock: ResourceEditLockContextValue) => ReactNode;
+}) {
+  const lock = useResourceEditLock();
+  return children(lock);
+}
+
 function MediaLibrary({
   appearance = "default",
   allowedMimeTypes,
@@ -430,27 +449,6 @@ function MediaLibrary({
     setNotice,
   });
 
-  const { handleCreateFolder, handleMove, handlePreview, handleRename, handleTrash } = createMediaLibraryMutationHandlers({
-    editingItem,
-    editingName,
-    folderId,
-    moveRequest,
-    moveTargetId,
-    mutationPending,
-    newFolderName,
-    refreshLibrary,
-    scope,
-    setEditingItem,
-    setError,
-    setFolderDialogOpen,
-    setMoveRequest,
-    setMutationPending,
-    setNewFolderName,
-    setPreviewAsset,
-    setTrashRequest,
-    trashRequest,
-  });
-
   const openRename = (item: EditableItem) => {
     setEditingItem(item);
     setEditingName(item.name);
@@ -461,56 +459,113 @@ function MediaLibrary({
     setMoveTargetId(item.parentId ?? "");
   };
 
-  return <MediaLibraryScreen
-    acceptedMimeTypes={acceptedMimeTypes}
-    actions={{
-      handleCreateFolder,
-      handleDrop,
-      handleFiles,
-      handleMove,
-      handlePreview,
-      handleRename,
-      handleTrash,
-      onSelect,
-      openMove,
-      openRename,
-      refreshLibrary: () => refreshLibrary(),
-      setEditingItem,
-      setEditingName,
-      setFolderDialogOpen,
-      setFolderId,
-      setIsDragging,
-      setMoveRequest,
-      setMoveTargetId,
-      setNewFolderName,
-      setPreviewAsset,
-      setQuery,
-      setSearchInput,
-      setTrashRequest,
-      setViewMode,
-    }}
-    className={className}
-    editingItem={editingItem}
-    editingName={editingName}
-    error={error}
-    fileInputRef={fileInputRef}
-    folderDialogOpen={folderDialogOpen}
-    mediaLabel={mediaLabel}
-    moveRequest={moveRequest}
-    moveTargetId={moveTargetId}
-    mutationPending={mutationPending}
-    newFolderName={newFolderName}
-    notice={notice}
-    previewAsset={previewAsset}
-    query={query}
-    searchInput={searchInput}
-    selectedAssetId={selectedAssetId}
-    snapshot={snapshot}
-    trashRequest={trashRequest}
-    uploadStatus={uploadStatus}
-    viewMode={viewMode}
-    viewState={{ isDragging, isDrive, isLoading, isMinimalGallery, isPicker, isReference }}
-  />;
+  const activeLeaseTarget = editingItem ?? moveRequest ?? trashRequest;
+  const leaseEnabled = scope === "kapten" && variant === "manage" && Boolean(activeLeaseTarget);
+  const leaseResourceType = activeLeaseTarget?.kind === "asset" ? "media_asset" : "media_folder";
+  const leaseResourceId = activeLeaseTarget?.id ?? "00000000-0000-4000-8000-000000000000";
+
+  return (
+    <ResourceEditLockProvider
+      enabled={leaseEnabled}
+      resourceId={leaseResourceId}
+      resourceType={leaseResourceType}
+    >
+      <MediaLibraryLeaseSurface>
+        {(resourceLock) => {
+          const {
+            handleCreateFolder,
+            handleMove,
+            handlePreview,
+            handleRename,
+            handleTrash,
+          } = createMediaLibraryMutationHandlers({
+            editingItem,
+            editingName,
+            editLease: resourceLock.proof,
+            folderId,
+            moveRequest,
+            moveTargetId,
+            mutationPending,
+            newFolderName,
+            refreshLibrary,
+            scope,
+            setEditingItem,
+            setError,
+            setFolderDialogOpen,
+            setMoveRequest,
+            setMutationPending,
+            setNewFolderName,
+            setPreviewAsset,
+            setTrashRequest,
+            trashRequest,
+          });
+
+          return (
+            <>
+              {leaseEnabled ? (
+                <ResourceAuthoringLockBanner
+                  onRetry={resourceLock.retry}
+                  resourceLabel="Media"
+                  state={resourceLock.state}
+                />
+              ) : null}
+              <MediaLibraryScreen
+                acceptedMimeTypes={acceptedMimeTypes}
+                actions={{
+                  handleCreateFolder,
+                  handleDrop,
+                  handleFiles,
+                  handleMove,
+                  handlePreview,
+                  handleRename,
+                  handleTrash,
+                  onSelect,
+                  openMove,
+                  openRename,
+                  refreshLibrary: () => refreshLibrary(),
+                  setEditingItem,
+                  setEditingName,
+                  setFolderDialogOpen,
+                  setFolderId,
+                  setIsDragging,
+                  setMoveRequest,
+                  setMoveTargetId,
+                  setNewFolderName,
+                  setPreviewAsset,
+                  setQuery,
+                  setSearchInput,
+                  setTrashRequest,
+                  setViewMode,
+                }}
+                className={className}
+                editingItem={editingItem}
+                editingName={editingName}
+                error={error}
+                fileInputRef={fileInputRef}
+                folderDialogOpen={folderDialogOpen}
+                mediaLabel={mediaLabel}
+                moveRequest={moveRequest}
+                moveTargetId={moveTargetId}
+                mutationPending={mutationPending}
+                mutationsDisabled={leaseEnabled && !resourceLock.canEdit}
+                newFolderName={newFolderName}
+                notice={notice}
+                previewAsset={previewAsset}
+                query={query}
+                searchInput={searchInput}
+                selectedAssetId={selectedAssetId}
+                snapshot={snapshot}
+                trashRequest={trashRequest}
+                uploadStatus={uploadStatus}
+                viewMode={viewMode}
+                viewState={{ isDragging, isDrive, isLoading, isMinimalGallery, isPicker, isReference }}
+              />
+            </>
+          );
+        }}
+      </MediaLibraryLeaseSurface>
+    </ResourceEditLockProvider>
+  );
 }
 
 export { MediaAssetPreview, MediaLibrary, MediaPickerDialog };

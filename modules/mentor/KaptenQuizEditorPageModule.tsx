@@ -76,6 +76,14 @@ import {
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MediaAssetPreview } from "@/modules/media/media-library";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 type QuizEditorForm = {
   attemptsAllowed: number | null;
@@ -686,6 +694,7 @@ function useQuizEditorQuestionListActions({
 function useQuizEditorPersistence({
   activeQuestionId,
   editorDisabled,
+  editLease,
   form,
   isSaving,
   mode,
@@ -701,6 +710,7 @@ function useQuizEditorPersistence({
 }: {
   activeQuestionId: string | null;
   editorDisabled: boolean;
+  editLease?: import("@/lib/serialization/authoring-lease").AuthoringEditLease;
   form: QuizEditorForm;
   isSaving: boolean;
   mode: "create" | "edit";
@@ -728,6 +738,7 @@ function useQuizEditorPersistence({
         closesAt: form.closesAt,
         correctAnswerVisibility: form.correctAnswerVisibility,
         description: form.description,
+        editLease,
         expectedDraftRevision: savedQuiz?.draftRevision,
         formBehavior: form.formBehavior,
         id: savedQuiz?.id ?? quizId,
@@ -775,6 +786,7 @@ function useQuizEditorPersistence({
   }, [
     activeQuestionId,
     editorDisabled,
+    editLease,
     form,
     isSaving,
     mode,
@@ -806,6 +818,7 @@ function useQuizEditorState({
   quizId?: string;
 }) {
   const router = useRouter();
+  const resourceLock = useResourceEditLock();
   const pristineSubjectCode =
     initialQuiz?.subjectCode ??
     initialSubjectCode ??
@@ -841,7 +854,7 @@ function useQuizEditorState({
       null,
     [activeQuestionId, form.questions],
   );
-  const editorDisabled = savedQuiz?.status === "archived";
+  const editorDisabled = savedQuiz?.status === "archived" || (mode === "edit" && !resourceLock.canEdit);
   const scheduleError =
     form.opensAt &&
     form.closesAt &&
@@ -899,6 +912,7 @@ function useQuizEditorState({
       setSaveError(null);
       try {
         const result = await acceptStandaloneQuizQuestionUpdateAction({
+          editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
           expectedCurrentContentDigest: question.sourceContentDigest,
           expectedCurrentRevisionId: question.sourceQuestionRevisionId,
           quizId: savedQuiz.id,
@@ -964,6 +978,8 @@ function useQuizEditorState({
     [
       acceptingUpdateQuestionId,
       hasUnsavedChanges,
+      mode,
+      resourceLock.proof,
       savedQuiz,
       setForm,
       setHasUnsavedChanges,
@@ -1024,6 +1040,7 @@ function useQuizEditorState({
   const persistence = useQuizEditorPersistence({
     activeQuestionId,
     editorDisabled,
+    editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
     form,
     isSaving,
     mode,
@@ -1057,6 +1074,8 @@ function useQuizEditorState({
     saveError,
     savedQuiz,
     scheduleError,
+    lockState: (mode === "create" ? "owned" : resourceLock.state) as AuthoringLockState,
+    retryLock: resourceLock.retry,
     setActiveQuestionId,
     setPendingDeleteId,
     setPendingExitRoute,
@@ -1338,6 +1357,12 @@ function QuizEditWorkspace({
       data-quiz-editor-shell="full-page"
     >
       <QuizEditHeader quizId={quizId} state={state} subject={subject} />
+      <ResourceAuthoringLockBanner
+        hasLocalChanges={state.hasUnsavedChanges}
+        onRetry={state.retryLock}
+        resourceLabel="Kuis"
+        state={state.lockState}
+      />
       <QuizEditorFeedback scheduleError={state.scheduleError} />
       <QuizEditQuestionArea state={state} />
       <QuizEditorDialogs state={state} />
@@ -1475,7 +1500,7 @@ function QuizCreateWorkspace({
   );
 }
 
-function KaptenQuizEditorPageModule({
+function QuizEditorContent({
   initialQuestions = [],
   initialQuiz = null,
   initialSubjectCode,
@@ -1504,6 +1529,25 @@ function KaptenQuizEditorPageModule({
   );
 
   /* legacy edit workspace removed */
+}
+
+function KaptenQuizEditorPageModule(props: {
+  initialQuestions?: QuizQuestionSnapshot[];
+  initialQuiz?: KaptenQuiz | null;
+  initialSubjectCode?: string;
+  mode: "create" | "edit";
+  quizId?: string;
+  session: SessionContext;
+}) {
+  return (
+    <ResourceEditLockProvider
+      enabled={props.mode === "edit" && Boolean(props.quizId)}
+      resourceId={props.quizId ?? "00000000-0000-4000-8000-000000000000"}
+      resourceType="quiz"
+    >
+      <QuizEditorContent {...props} />
+    </ResourceEditLockProvider>
+  );
 }
 
 export { KaptenQuizEditorPageModule };

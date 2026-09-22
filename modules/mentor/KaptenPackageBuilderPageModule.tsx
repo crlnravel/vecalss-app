@@ -24,6 +24,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { kaptenSubjects, type BankQuestion, type KaptenQuestionBank } from "@/modules/mentor/mock-data";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
 import { saveReusableQuestionPackageAction } from "@/modules/mentor/tryout-actions";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
@@ -286,6 +294,8 @@ type PackageBuilderController = {
   actions: PackageBuilderActions;
   dispatch: Dispatch<PackageBuilderAction>;
   hasUnsavedChanges: boolean;
+  lockState: AuthoringLockState;
+  retryLock: () => void;
   id?: string;
   saved: boolean;
   state: PackageBuilderState;
@@ -426,9 +436,9 @@ function usePackageBuilderSelectionActions({ dispatch, saving }: { dispatch: Dis
   return { changeBank, changeSubtest, confirmBankChange, confirmSubtestChange, moveItem, updateItem };
 }
 
-function usePackageBuilderSaveAction({ dispatch, id, navigatingAfterSaveRef, state }: { dispatch: Dispatch<PackageBuilderAction>; id?: string; navigatingAfterSaveRef: { current: boolean }; state: PackageBuilderState }) {
+function usePackageBuilderSaveAction({ dispatch, editLease, id, navigatingAfterSaveRef, state }: { dispatch: Dispatch<PackageBuilderAction>; editLease?: import("@/lib/serialization/authoring-lease").AuthoringEditLease; id?: string; navigatingAfterSaveRef: { current: boolean }; state: PackageBuilderState }) {
   return useCallback(async (completionIntent: PackageSaveIntent) => {
-    if (state.saving) return;
+    if (state.saving || (id && !editLease)) return;
     const validation = getPackageBuilderValidation(state.draft);
     if (!validation.valid) {
       dispatch({ error: validation.error, scoreErrors: validation.scoreErrors, type: "setValidation" });
@@ -436,7 +446,7 @@ function usePackageBuilderSaveAction({ dispatch, id, navigatingAfterSaveRef, sta
     }
     dispatch({ type: "saveStart" });
     try {
-      const result = await saveReusableQuestionPackageAction({ completionIntent, description: state.draft.description, expectedRevision: state.draft.revision, id, items: state.draft.items, sourceBankId: state.draft.sourceBankId, subtest: state.draft.subtest, title: state.draft.title });
+      const result = await saveReusableQuestionPackageAction({ completionIntent, description: state.draft.description, editLease, expectedRevision: state.draft.revision, id, items: state.draft.items, sourceBankId: state.draft.sourceBankId, subtest: state.draft.subtest, title: state.draft.title });
       if (!result.ok) {
         dispatch({ conflict: result.code === "package_conflict", error: result.message, type: "saveFailure" });
         return;
@@ -449,10 +459,11 @@ function usePackageBuilderSaveAction({ dispatch, id, navigatingAfterSaveRef, sta
     } catch (saveError) {
       dispatch({ conflict: false, error: saveError instanceof Error ? saveError.message : "Paket Soal belum dapat disimpan.", type: "saveFailure" });
     }
-  }, [dispatch, id, navigatingAfterSaveRef, state]);
+  }, [dispatch, editLease, id, navigatingAfterSaveRef, state]);
 }
 
 function usePackageBuilderState({ id, initialDraft, sourceCatalog, sourceCatalogPage, sourceCategories }: { id?: string; initialDraft?: PackageDraft | null; sourceCatalog?: Source[]; sourceCatalogPage?: SourceCatalogPage; sourceCategories: SourceCategory[] }): PackageBuilderController {
+  const resourceLock = useResourceEditLock();
   const initialDraftValue = useMemo(() => getPackageBuilderInitialDraft(id, initialDraft), [id, initialDraft]);
   const [state, dispatch] = useReducer(packageBuilderReducer, { draft: initialDraftValue, sourceCatalog, sourceCatalogPage }, ({ draft, sourceCatalog: catalog, sourceCatalogPage: catalogPage }) => createPackageBuilderInitialState({ draft, sourceCatalog: catalog, sourceCatalogPage: catalogPage }));
   const navigatingAfterSaveRef = useRef(false);
@@ -463,8 +474,11 @@ function usePackageBuilderState({ id, initialDraft, sourceCatalog, sourceCatalog
   usePackageBuilderSourceQuestionLoader({ dispatch, draft: state.draft, questionSearch: state.questionSearch, sourceQuestionPage: state.sourceQuestionPage });
   const view = useMemo(() => getPackageBuilderViewModel(state, sourceCategories), [sourceCategories, state]);
   const selectionActions = usePackageBuilderSelectionActions({ dispatch, saving: state.saving });
-  const save = usePackageBuilderSaveAction({ dispatch, id, navigatingAfterSaveRef, state });
-  return { actions: { ...selectionActions, save }, dispatch, hasUnsavedChanges, id, saved, state, view };
+  const editLease = id ? resourceLock.proof ?? undefined : undefined;
+  const save = usePackageBuilderSaveAction({ dispatch, editLease, id, navigatingAfterSaveRef, state });
+  const lockState: AuthoringLockState = id ? resourceLock.state : "owned";
+  const lockedState = id && !resourceLock.canEdit ? { ...state, saving: true } : state;
+  return { actions: { ...selectionActions, save }, dispatch, hasUnsavedChanges, id, lockState, retryLock: resourceLock.retry, saved, state: lockedState, view };
 }
 
 function PackageBuilderHeader({ controller }: { controller: PackageBuilderController }) {
@@ -613,13 +627,16 @@ function PackageBuilderDialogs({ controller }: { controller: PackageBuilderContr
 }
 
 function PackageBuilderView({ controller }: { controller: PackageBuilderController }) {
-  return <div className="w-full min-w-0 space-y-5"><PackageBuilderHeader controller={controller} /><PackageBuilderDraftDetails controller={controller} /><div className="grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)]"><PackageBuilderSourcePanel controller={controller} /><PackageBuilderQuestionsWorkspace controller={controller} /></div><PackageBuilderReview controller={controller} /><PackageBuilderDialogs controller={controller} /></div>;
+  return <div className="w-full min-w-0 space-y-5"><PackageBuilderHeader controller={controller} />{controller.saved ? <ResourceAuthoringLockBanner hasLocalChanges={controller.hasUnsavedChanges} onRetry={controller.retryLock} resourceLabel="Paket Soal" state={controller.lockState} /> : null}<PackageBuilderDraftDetails controller={controller} /><div className="grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)]"><PackageBuilderSourcePanel controller={controller} /><PackageBuilderQuestionsWorkspace controller={controller} /></div><PackageBuilderReview controller={controller} /><PackageBuilderDialogs controller={controller} /></div>;
 }
 
-function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourceCatalogPage, sourceCategories = EMPTY_SOURCE_CATEGORIES }: { id?: string; initialDraft?: PackageDraft | null; sourceCatalog?: Source[]; sourceCatalogPage?: SourceCatalogPage; sourceCategories?: SourceCategory[] }) {
+function PackageBuilderContent({ id, initialDraft, sourceCatalog, sourceCatalogPage, sourceCategories = EMPTY_SOURCE_CATEGORIES }: { id?: string; initialDraft?: PackageDraft | null; sourceCatalog?: Source[]; sourceCatalogPage?: SourceCatalogPage; sourceCategories?: SourceCategory[] }) {
   const controller = usePackageBuilderState({ id, initialDraft, sourceCatalog, sourceCatalogPage, sourceCategories });
-
   return <PackageBuilderView controller={controller} />;
+}
+
+function KaptenPackageBuilderPageModule(props: { id?: string; initialDraft?: PackageDraft | null; sourceCatalog?: Source[]; sourceCatalogPage?: SourceCatalogPage; sourceCategories?: SourceCategory[] }) {
+  return <ResourceEditLockProvider enabled={Boolean(props.id)} resourceId={props.id ?? "00000000-0000-4000-8000-000000000000"} resourceType="question_package"><PackageBuilderContent {...props} /></ResourceEditLockProvider>;
 }
 
 function Picker({ id, label, disabled, empty, openContent }: { id?: string; label: string; disabled?: boolean; empty: string; openContent: React.ReactNode }) {

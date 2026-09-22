@@ -14,7 +14,7 @@ import {
   Upload,
   X,
 } from "@/lib/icons";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
@@ -59,14 +59,28 @@ import {
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import {
+  QuestionBankCsvExportAction,
+  QuestionBankCsvImportControl,
+  type QuestionBankCsvImportResult,
+} from "@/modules/mentor/components/question-bank-csv-flow";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
 import type {
   BankQuestion,
   KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
   saveQuestionBankAction,
+  getQuestionBankForEditAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 type ConfirmationRequest = {
   actionVariant?: "brand" | "destructive";
@@ -79,14 +93,18 @@ type ConfirmationRequest = {
 
 type QuestionBankDetailTab = "soal" | "pengaturan";
 
+const QuestionBankReadOnlyContext = createContext(false);
+
 function QuestionBankStatusAction({
   bank,
   handleLifecycle,
+  isReadOnly,
   isSavingLifecycle,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  isReadOnly: boolean;
   isSavingLifecycle: boolean;
   requestArchive: () => void;
 }) {
@@ -94,7 +112,7 @@ function QuestionBankStatusAction({
     return (
       <Button
         aria-busy={isSavingLifecycle}
-        disabled={isSavingLifecycle}
+        disabled={isSavingLifecycle || isReadOnly}
         onClick={() => void handleLifecycle("restore")}
         size="sm"
         type="button"
@@ -111,7 +129,7 @@ function QuestionBankStatusAction({
       aria-busy={isSavingLifecycle}
       aria-label="Arsipkan bank soal"
       data-question-bank-lifecycle-action="archive"
-      disabled={isSavingLifecycle}
+      disabled={isSavingLifecycle || isReadOnly}
       onClick={requestArchive}
       size="sm"
       type="button"
@@ -126,11 +144,13 @@ function QuestionBankStatusAction({
 function QuestionBankLifecycleActions({
   bank,
   handleLifecycle,
+  isReadOnly,
   isSavingLifecycle,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  isReadOnly: boolean;
   isSavingLifecycle: boolean;
   requestArchive: () => void;
 }) {
@@ -139,6 +159,7 @@ function QuestionBankLifecycleActions({
       <QuestionBankStatusAction
         bank={bank}
         handleLifecycle={handleLifecycle}
+        isReadOnly={isReadOnly}
         isSavingLifecycle={isSavingLifecycle}
         requestArchive={requestArchive}
       />
@@ -178,11 +199,13 @@ function QuestionBankDetailHeaderBar({
 function QuestionBankArchiveSection({
   bank,
   handleLifecycle,
+  isReadOnly,
   isSavingLifecycle,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  isReadOnly: boolean;
   isSavingLifecycle: boolean;
   requestArchive: () => void;
 }) {
@@ -194,12 +217,16 @@ function QuestionBankArchiveSection({
             Administrasi
           </h2>
         </div>
-        <QuestionBankLifecycleActions
-          bank={bank}
-          handleLifecycle={handleLifecycle}
-          isSavingLifecycle={isSavingLifecycle}
-          requestArchive={requestArchive}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <QuestionBankCsvExportAction bankId={bank.id} />
+          <QuestionBankLifecycleActions
+            bank={bank}
+            handleLifecycle={handleLifecycle}
+            isReadOnly={isReadOnly}
+            isSavingLifecycle={isSavingLifecycle}
+            requestArchive={requestArchive}
+          />
+        </div>
       </div>
     </ReferenceSurface>
   );
@@ -261,7 +288,7 @@ function QuestionBankMetadataCard({
                   REFERENCE_CONTROL_CLASS_NAMES.input,
                   "text-2xl font-semibold md:text-3xl",
                 )}
-                disabled={isSavingTitle}
+                disabled={isSavingTitle || isMetadataLocked}
                 id="edit-bank-title-input"
                 onChange={(e) => setTitleInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -276,7 +303,7 @@ function QuestionBankMetadataCard({
                 value={titleInput}
               />
               <Button
-                disabled={isSavingTitle || !titleInput.trim()}
+                disabled={isSavingTitle || isMetadataLocked || !titleInput.trim()}
                 onClick={() => void handleSaveTitle()}
                 size="sm"
                 type="button"
@@ -366,14 +393,14 @@ function QuestionBankMetadataCard({
                     REFERENCE_CONTROL_CLASS_NAMES.input,
                     "min-h-[90px] text-sm",
                   )}
-                  disabled={isSavingDescription}
+                  disabled={isSavingDescription || isMetadataLocked}
                   onChange={(e) => setDescriptionInput(e.target.value)}
                   placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
                   value={descriptionInput}
                 />
                 <div className="flex gap-2">
                   <Button
-                    disabled={isSavingDescription}
+                    disabled={isSavingDescription || isMetadataLocked}
                     onClick={() => void handleSaveDescription()}
                     size="sm"
                     type="button"
@@ -641,17 +668,20 @@ function QuestionBankEditorButton({
   bank: KaptenQuestionBank;
   bankId: string;
 }) {
+  const isReadOnly = useContext(QuestionBankReadOnlyContext);
   const editorLocked = bank.status === "archived";
-  const editorLockReason =
-    "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu.";
+  const editorUnavailable = editorLocked || isReadOnly;
+  const editorLockReason = editorLocked
+    ? "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu."
+    : "Editor dinonaktifkan sampai izin edit tersedia kembali.";
   const editorButton = (
     <Button
       aria-label="Buka Editor"
       className="w-full shadow-sm"
-      disabled={editorLocked}
-      nativeButton={editorLocked}
+      disabled={editorUnavailable}
+      nativeButton={editorUnavailable}
       render={
-        editorLocked ? undefined : (
+        editorUnavailable ? undefined : (
           <Link
             href={`/mentor/quiz/question-bank/${bankId}/editor?purpose=${bank.purpose ?? "quiz"}`}
           />
@@ -666,7 +696,7 @@ function QuestionBankEditorButton({
     </Button>
   );
 
-  if (!editorLocked) return editorButton;
+  if (!editorUnavailable) return editorButton;
 
   return (
     <TooltipProvider>
@@ -683,11 +713,19 @@ function QuestionBankEditorButton({
 function QuestionBankQuestionsSection({
   bank,
   bankId,
+  editLease,
+  expectedRevision,
+  isReadOnly,
+  onImport,
   questions,
   readiness,
 }: {
   bank: KaptenQuestionBank;
   bankId: string;
+  editLease: import("@/lib/resource-edit-lock/types").EditLeaseProof | null;
+  expectedRevision: number;
+  isReadOnly: boolean;
+  onImport: (result: QuestionBankCsvImportResult) => Promise<void> | void;
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
@@ -706,7 +744,20 @@ function QuestionBankQuestionsSection({
         </div>
       </div>
 
-      <QuestionBankEditorButton bank={bank} bankId={bankId} />
+      <QuestionBankReadOnlyContext.Provider value={isReadOnly}>
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <div className="min-w-0 flex-1 sm:flex-none">
+            <QuestionBankEditorButton bank={bank} bankId={bankId} />
+          </div>
+          <QuestionBankCsvImportControl
+            bankId={bankId}
+            disabled={isReadOnly}
+            editLease={editLease}
+            expectedRevision={expectedRevision}
+            onApplied={onImport}
+          />
+        </div>
+      </QuestionBankReadOnlyContext.Provider>
 
       {questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center">
@@ -781,7 +832,7 @@ function QuestionBankArchiveConfirmationDialog({
   );
 }
 
-function KaptenQuestionBankDetailPageModule({
+function QuestionBankDetailContent({
   bankId,
   initialBank,
   initialQuestions = [],
@@ -797,10 +848,11 @@ function KaptenQuestionBankDetailPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
+  const resourceLock = useResourceEditLock();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
   const [activeTab, setActiveTab] =
     useState<QuestionBankDetailTab>(initialTab);
-  const [questions] = useState<BankQuestion[]>(initialQuestions);
+  const [questions, setQuestions] = useState<BankQuestion[]>(initialQuestions);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(bank.title);
@@ -815,10 +867,12 @@ function KaptenQuestionBankDetailPageModule({
   const [isSavingLifecycle, setIsSavingLifecycle] = useState(false);
   const [confirmationRequest, setConfirmationRequest] =
     useState<ConfirmationRequest | null>(null);
-
-  const readiness =
-    initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
-  const isMetadataLocked = bank.status === "archived";
+  const [readiness, setReadiness] = useState<QuestionBankReadiness>(
+    initialReadiness ?? getQuestionBankReadinessFromDrafts(initialQuestions),
+  );
+  const lockState: AuthoringLockState = resourceLock.state;
+  const isReadOnly = !resourceLock.canEdit;
+  const isMetadataLocked = bank.status === "archived" || isReadOnly;
 
   const folderLabel = questionBankFolderLabel(
     bank.folderId ?? null,
@@ -852,6 +906,7 @@ function KaptenQuestionBankDetailPageModule({
   }
 
   async function handleSaveTitle() {
+    if (isReadOnly) return;
     const trimmed = titleInput.trim();
     if (!trimmed || trimmed === bank.title) {
       setIsEditingTitle(false);
@@ -861,6 +916,7 @@ function KaptenQuestionBankDetailPageModule({
     try {
       const result = await saveQuestionBankAction({
         description: bank.description,
+        editLease: resourceLock.proof ?? undefined,
         id: bank.id,
         purpose: bank.purpose ?? "quiz",
         questions,
@@ -891,6 +947,7 @@ function KaptenQuestionBankDetailPageModule({
   }
 
   async function handleSaveDescription() {
+    if (isReadOnly) return;
     const trimmed = descriptionInput.trim();
     if (trimmed === (bank.description ?? "")) {
       setIsEditingDescription(false);
@@ -900,6 +957,7 @@ function KaptenQuestionBankDetailPageModule({
     try {
       const result = await saveQuestionBankAction({
         description: trimmed,
+        editLease: resourceLock.proof ?? undefined,
         id: bank.id,
         purpose: bank.purpose ?? "quiz",
         questions,
@@ -934,12 +992,14 @@ function KaptenQuestionBankDetailPageModule({
   async function handleLifecycle(
     operation: "archive" | "restore",
   ) {
+    if (isReadOnly) return;
     setIsSavingLifecycle(true);
     try {
       const result = await updateQuestionBankLifecycleAction(
         bank.id,
         operation,
         {
+          editLease: resourceLock.proof ?? undefined,
           expectedRevision: bank.revision ?? 1,
         },
       );
@@ -998,6 +1058,13 @@ function KaptenQuestionBankDetailPageModule({
           bank={bank}
         />
 
+        <ResourceAuthoringLockBanner
+          hasLocalChanges={isEditingTitle || isEditingDescription}
+          onRetry={resourceLock.retry}
+          resourceLabel="Bank Soal"
+          state={lockState}
+        />
+
         <QuestionBankMetadataCard
           bank={bank}
           descriptionInput={descriptionInput}
@@ -1043,6 +1110,24 @@ function KaptenQuestionBankDetailPageModule({
             <QuestionBankQuestionsSection
               bank={bank}
               bankId={bankId}
+              editLease={resourceLock.proof}
+              expectedRevision={bank.revision ?? 1}
+              isReadOnly={isReadOnly}
+              onImport={async () => {
+                try {
+                  const refreshed = await getQuestionBankForEditAction(bank.id);
+                  if (refreshed) {
+                    setBank(refreshed.bank as KaptenQuestionBank);
+                    setQuestions(refreshed.questions as BankQuestion[]);
+                    setReadiness(refreshed.readiness);
+                    return;
+                  }
+                } catch {
+                  // The import already committed; refresh the authoritative route
+                  // instead of turning a successful write into a retryable failure.
+                }
+                router.refresh();
+              }}
               questions={questions}
               readiness={readiness}
             />
@@ -1051,6 +1136,7 @@ function KaptenQuestionBankDetailPageModule({
             <QuestionBankArchiveSection
               bank={bank}
               handleLifecycle={handleLifecycle}
+              isReadOnly={isReadOnly}
               isSavingLifecycle={isSavingLifecycle}
               requestArchive={requestArchive}
             />
@@ -1063,6 +1149,21 @@ function KaptenQuestionBankDetailPageModule({
         onClose={() => setConfirmationRequest(null)}
       />
     </MentorWorkspaceShell>
+  );
+}
+
+function KaptenQuestionBankDetailPageModule(props: {
+  bankId: string;
+  initialBank: KaptenQuestionBank;
+  initialQuestions?: BankQuestion[];
+  initialReadiness?: QuestionBankReadiness | null;
+  initialTab?: QuestionBankDetailTab;
+  session: SessionContext;
+}) {
+  return (
+    <ResourceEditLockProvider resourceId={props.bankId} resourceType="question_bank">
+      <QuestionBankDetailContent {...props} />
+    </ResourceEditLockProvider>
   );
 }
 

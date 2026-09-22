@@ -1527,9 +1527,7 @@ export {
   getReadyAssemblyRevision,
   listReadyAssemblyRevisions,
   previewAssembly,
-  readyAssemblyDraft,
   resolveReadyAssemblyForKuis,
-  saveAssemblyDraft,
   validateAssemblyDraft,
 };
 export type {

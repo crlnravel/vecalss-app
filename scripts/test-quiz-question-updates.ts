@@ -21,12 +21,23 @@ assert.match(repository, /record\.participations\.length/);
 assert.match(repository, /Revisi Bank Soal berubah\. Muat ulang lalu tinjau kembali\./);
 assert.match(repository, /await tx\.standaloneQuizItemOption\.deleteMany/);
 assert.match(repository, /sourceQuestionRevisionOptionId: option\.sourceQuestionRevisionOptionId/);
-assert.match(repository, /async function syncStandaloneQuizBankRevisions/);
-assert.match(repository, /syncVersionedQuizBankRevisions\(\s*tx,\s*bankId,\s*sourceById,?\s*\)/);
+assert.doesNotMatch(repository, /syncStandaloneQuizBankRevisions/);
+assert.doesNotMatch(repository, /syncVersionedQuizBankRevisions/);
+assert.doesNotMatch(repository, /syncLegacyQuizBankRevisions/);
+assert.doesNotMatch(repository, /replaceStandaloneQuizItemMaterialized/);
+const detectorStart = repository.indexOf("async function getQuizQuestionsWithSourceUpdates");
+const detectorEnd = repository.indexOf("\nasync function readReadyQuizBankSources", detectorStart);
+assert.ok(detectorStart >= 0 && detectorEnd > detectorStart);
+assert.doesNotMatch(repository.slice(detectorStart, detectorEnd), /\b(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/);
 assert.match(repository, /ensureStandaloneQuizDraftItems/);
 assert.match(repository, /state: StandaloneQuizVersionState\.draft/);
-assert.match(repository, /active\?\.assemblyPackageVersionId \|\| draft\?\.assemblyPackageVersionId/);
-assert.match(questionBankRepository, /await syncStandaloneQuizBankRevisions\(result\.bank\.id\)/);
+assert.doesNotMatch(questionBankRepository, /syncStandaloneQuizBankRevisions/);
+assert.doesNotMatch(
+  questionBankRepository,
+  /tx\.standaloneQuiz(?:Item|Version)?\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/,
+  "Bank save/import must not mutate Kuis snapshots",
+);
+assert.match(repository, /async function importStandaloneQuizBankQuestions/);
 assert.match(actions, /async function acceptStandaloneQuizQuestionUpdateAction/);
 assert.match(actions, /acceptStandaloneQuizQuestionUpdate\(input, session\.user\.id\)/);
 assert.doesNotMatch(editor, /data-source-update-review="available"/);
@@ -41,4 +52,4 @@ assert.match(editor, /savedQuiz\.status === "archived"/);
 assert.match(editor, /autoAppliedUpdateKeysRef/);
 assert.match(editor, /void acceptSourceUpdate\(pending\)/);
 
-console.log("Quiz question update auto-apply contract passed.");
+console.log("Quiz question source-update acceptance contract passed.");

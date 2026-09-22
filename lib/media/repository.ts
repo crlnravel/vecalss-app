@@ -16,6 +16,12 @@ import {
   BannerReferenceSafetyUnknownError,
 } from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
+import { setTransactionLockTimeout } from "@/lib/serialization/locks";
+import {
+  assertAuthoringEditLease,
+  type AuthoringEditLease,
+} from "@/lib/serialization/authoring-lease";
+import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 
 import {
   buildMediaObjectKey,
@@ -45,11 +51,13 @@ import type {
 
 class MediaServiceError extends Error {
   status: number;
+  readonly code?: string;
 
-  constructor(message: string, status = 400) {
+  constructor(message: string, status = 400, code?: string) {
     super(message);
     this.name = "MediaServiceError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -98,6 +106,164 @@ const validateFolderName = (value: unknown) => {
 };
 
 type MediaDatabaseClient = Pick<Prisma.TransactionClient, "asset" | "mediaFolder">;
+
+type MediaLeaseRow = {
+  expiresAt: Date;
+  releasedAt: Date | null;
+  resourceId: string;
+  resourceType: string;
+};
+
+type MediaMutationLease = {
+  actorUserId?: string;
+  editLease?: AuthoringEditLease;
+};
+
+async function assertKaptenMediaLease(
+  tx: Prisma.TransactionClient,
+  scope: MediaScope,
+  resourceType: "media_asset" | "media_folder",
+  resourceId: string,
+  lease: MediaMutationLease,
+) {
+  if (scope !== "kapten") return;
+  await assertAuthoringEditLease(
+    tx,
+    { resourceId, resourceType },
+    lease.actorUserId ?? "",
+    lease.editLease,
+  );
+}
+
+async function lockMediaFolderRows(
+  tx: Prisma.TransactionClient,
+  scope: MediaScope,
+  folderIds: readonly string[],
+) {
+  const ids = [...new Set(folderIds)].sort();
+  if (!ids.length) return;
+  const rows = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM media_folders
+    WHERE id = ANY(${ids}::uuid[])
+      AND library_scope = ${scopeToDatabase(scope)}
+      AND trashed_at IS NULL
+    ORDER BY id
+    FOR UPDATE
+  `;
+  if (rows.length !== ids.length) {
+    throw new MediaServiceError("Struktur folder berubah saat diproses. Coba lagi.", 409);
+  }
+}
+
+async function lockMediaAssetRows(
+  tx: Prisma.TransactionClient,
+  scope: MediaScope,
+  folderIds: readonly string[],
+  assetId?: string,
+) {
+  if (assetId) {
+    await tx.$queryRaw`
+      SELECT id
+      FROM assets
+      WHERE id = ${assetId}::uuid
+        AND library_scope = ${scopeToDatabase(scope)}
+      FOR UPDATE
+    `;
+    return;
+  }
+  const ids = [...new Set(folderIds)].sort();
+  if (!ids.length) return;
+  await tx.$queryRaw`
+    SELECT id
+    FROM assets
+    WHERE folder_id = ANY(${ids}::uuid[])
+      AND library_scope = ${scopeToDatabase(scope)}
+    ORDER BY id
+    FOR UPDATE
+  `;
+}
+
+async function lockMediaLeaseRows(
+  tx: Prisma.TransactionClient,
+  folderIds: readonly string[],
+  assetIds: readonly string[],
+) {
+  const folders = [...new Set(folderIds)].sort();
+  const assets = [...new Set(assetIds)].sort();
+  if (!folders.length && !assets.length) return [] as MediaLeaseRow[];
+  return tx.$queryRaw<MediaLeaseRow[]>`
+    SELECT
+      expires_at AS "expiresAt",
+      released_at AS "releasedAt",
+      resource_id AS "resourceId",
+      resource_type::text AS "resourceType"
+    FROM edit_leases
+    WHERE (
+      resource_type = 'media_folder'::edit_lease_resource_type
+      AND resource_id = ANY(${folders}::text[])
+    ) OR (
+      resource_type = 'media_asset'::edit_lease_resource_type
+      AND resource_id = ANY(${assets}::text[])
+    )
+    ORDER BY resource_type::text, resource_id
+    FOR UPDATE
+  `;
+}
+
+async function databaseMediaNow(tx: Prisma.TransactionClient) {
+  const rows = await tx.$queryRaw<Array<{ serverNow: Date }>>`
+    SELECT clock_timestamp() AS "serverNow"
+  `;
+  return rows[0]?.serverNow ?? new Date();
+}
+
+async function assertNoActiveDescendantMediaLeases(
+  tx: Prisma.TransactionClient,
+  rootFolderId: string,
+  leaseRows: readonly MediaLeaseRow[],
+) {
+  const now = await databaseMediaNow(tx);
+  const blocked = leaseRows.some((lease) =>
+    lease.releasedAt === null
+    && lease.expiresAt.getTime() > now.getTime()
+    && !(lease.resourceType === "media_folder" && lease.resourceId === rootFolderId));
+  if (blocked) {
+    throw new EditLeaseServiceError(
+      "resource_locked",
+      409,
+      "Folder memiliki media turunan yang sedang diedit. Coba lagi setelah perubahan selesai.",
+    );
+  }
+}
+
+async function prepareMediaFolderMutation(
+  tx: Prisma.TransactionClient,
+  scope: MediaScope,
+  rootFolderId: string,
+  lease: MediaMutationLease,
+  additionalFolderIds: readonly string[] = [],
+) {
+  await assertKaptenMediaLease(tx, scope, "media_folder", rootFolderId, lease);
+  const ancestry = await readActiveFolderAncestry(scope, rootFolderId, tx);
+  const subtreeIds = await getFolderSubtreeIds(scope, rootFolderId, tx);
+  const destinationIds = [...new Set(additionalFolderIds)].filter((id) => !subtreeIds.includes(id));
+  await lockMediaFolderRows(tx, scope, [...subtreeIds, ...destinationIds]);
+
+  const rereadSubtreeIds = await getFolderSubtreeIds(scope, rootFolderId, tx);
+  if (rereadSubtreeIds.length !== subtreeIds.length || rereadSubtreeIds.some((id) => !subtreeIds.includes(id))) {
+    throw new MediaServiceError("Struktur folder berubah saat diproses. Coba lagi.", 409);
+  }
+
+  const affectedAssets = await tx.asset.findMany({
+    select: { id: true },
+    where: { folderId: { in: subtreeIds }, libraryScope: scopeToDatabase(scope) },
+    orderBy: { id: "asc" },
+  });
+  const leaseRows = await lockMediaLeaseRows(tx, subtreeIds, affectedAssets.map(({ id }) => id));
+  await assertNoActiveDescendantMediaLeases(tx, rootFolderId, leaseRows);
+  return { ancestry, affectedAssets, subtreeIds };
+}
 
 const assertFolder = async (
   scope: MediaScope,
@@ -312,6 +478,7 @@ const createMediaFolder = async ({
   const safeParentId = normalizeNullableId(parentId);
 
   return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
     await readActiveFolderAncestry(scope, safeParentId, tx);
 
@@ -365,10 +532,14 @@ const assertFolderMove = async ({
 };
 
 const renameMediaFolder = async ({
+  actorUserId,
+  editLease,
   folderId,
   name,
   scope,
 }: {
+  actorUserId?: string;
+  editLease?: AuthoringEditLease;
   folderId: string;
   name: unknown;
   scope: MediaScope;
@@ -376,8 +547,10 @@ const renameMediaFolder = async ({
   const safeName = validateFolderName(name);
 
   return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
     await readActiveFolderAncestry(scope, folderId, tx);
+    await prepareMediaFolderMutation(tx, scope, folderId, { actorUserId, editLease });
     const folder = await tx.mediaFolder.findUnique({
       select: { parentId: true },
       where: { id: folderId },
@@ -404,17 +577,25 @@ const renameMediaFolder = async ({
 };
 
 const moveMediaFolder = async ({
+  actorUserId,
+  editLease,
   folderId,
   parentId,
   scope,
 }: {
+  actorUserId?: string;
+  editLease?: AuthoringEditLease;
   folderId: string;
   parentId: unknown;
   scope: MediaScope;
 }) => {
   const safeParentId = normalizeNullableId(parentId);
   return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
+    await assertFolderMove({ db: tx, folderId, parentId: safeParentId, scope });
+    const destinationAncestry = await readActiveFolderAncestry(scope, safeParentId, tx);
+    await prepareMediaFolderMutation(tx, scope, folderId, { actorUserId, editLease }, destinationAncestry);
     await assertFolderMove({ db: tx, folderId, parentId: safeParentId, scope });
     return toFolderDto(await tx.mediaFolder.update({
       data: { parentId: safeParentId },
@@ -435,6 +616,7 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string, db: MediaD
         parentId: { in: frontier },
         trashedAt: null,
       },
+      orderBy: { id: "asc" },
     });
     frontier = children.reduce<string[]>((nextFrontier, folder) => {
       if (!ids.includes(folder.id)) nextFrontier.push(folder.id);
@@ -447,16 +629,19 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string, db: MediaD
   return ids;
 };
 
-const trashMediaFolder = async (scope: MediaScope, folderId: string) => {
+const trashMediaFolder = async (
+  scope: MediaScope,
+  folderId: string,
+  actorUserId?: string,
+  editLease?: AuthoringEditLease,
+) => {
   try {
     await prisma.$transaction(async (tx) => {
+      await setTransactionLockTimeout(tx);
       await acquireBannerMediaMutationLock(tx);
       await readActiveFolderAncestry(scope, folderId, tx);
-      const ids = await getFolderSubtreeIds(scope, folderId, tx);
-      const affectedAssets = await tx.asset.findMany({
-        select: { id: true },
-        where: { folderId: { in: ids }, libraryScope: scopeToDatabase(scope) },
-      });
+      const { affectedAssets, subtreeIds: ids } = await prepareMediaFolderMutation(tx, scope, folderId, { actorUserId, editLease });
+      await lockMediaAssetRows(tx, scope, ids);
       if (scope === "admin") {
         await assertBannerAssetsMayBeTrashed(tx, affectedAssets.map(({ id }) => id));
       }
@@ -503,10 +688,14 @@ const assertAsset = async (
 };
 
 const renameMediaAsset = async ({
+  actorUserId,
+  editLease,
   assetId,
   name,
   scope,
 }: {
+  actorUserId?: string;
+  editLease?: AuthoringEditLease;
   assetId: string;
   name: unknown;
   scope: MediaScope;
@@ -517,10 +706,16 @@ const renameMediaAsset = async ({
   const safeName = normalizeMediaFileName(name);
 
   return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
+    await assertKaptenMediaLease(tx, scope, "media_asset", assetId, { actorUserId, editLease });
     const asset = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
     if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
-    await readActiveFolderAncestry(scope, asset.folderId, tx);
+    const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
+    await lockMediaFolderRows(tx, scope, folderAncestry);
+    await lockMediaAssetRows(tx, scope, [], assetId);
+    const current = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
+    if (current.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
     const updated = await tx.asset.updateMany({
       data: { originalName: safeName },
       where: {
@@ -535,10 +730,14 @@ const renameMediaAsset = async ({
 };
 
 const moveMediaAsset = async ({
+  actorUserId,
+  editLease,
   assetId,
   folderId,
   scope,
 }: {
+  actorUserId?: string;
+  editLease?: AuthoringEditLease;
   assetId: string;
   folderId: unknown;
   scope: MediaScope;
@@ -546,11 +745,17 @@ const moveMediaAsset = async ({
   const safeFolderId = normalizeNullableId(folderId);
 
   return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
+    await assertKaptenMediaLease(tx, scope, "media_asset", assetId, { actorUserId, editLease });
     const asset = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
     if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
-    await readActiveFolderAncestry(scope, asset.folderId, tx);
-    await readActiveFolderAncestry(scope, safeFolderId, tx);
+    const sourceAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
+    const destinationAncestry = await readActiveFolderAncestry(scope, safeFolderId, tx);
+    await lockMediaFolderRows(tx, scope, [...sourceAncestry, ...destinationAncestry]);
+    await lockMediaAssetRows(tx, scope, [], assetId);
+    const current = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
+    if (current.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
     const updated = await tx.asset.updateMany({
       data: { folderId: safeFolderId },
       where: {
@@ -564,20 +769,31 @@ const moveMediaAsset = async ({
   });
 };
 
-const trashMediaAsset = async (scope: MediaScope, assetId: string) => {
+const trashMediaAsset = async (
+  scope: MediaScope,
+  assetId: string,
+  actorUserId?: string,
+  editLease?: AuthoringEditLease,
+) => {
   try {
     await prisma.$transaction(async (tx) => {
+      await setTransactionLockTimeout(tx);
       await acquireBannerMediaMutationLock(tx);
+      await assertKaptenMediaLease(tx, scope, "media_asset", assetId, { actorUserId, editLease });
       const asset = await assertAsset(scope, assetId, [MediaAssetState.pending, MediaAssetState.ready], tx);
       if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
-      await readActiveFolderAncestry(scope, asset.folderId, tx);
+      const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
+      await lockMediaFolderRows(tx, scope, folderAncestry);
+      await lockMediaAssetRows(tx, scope, [], assetId);
+      const current = await assertAsset(scope, assetId, [MediaAssetState.pending, MediaAssetState.ready], tx);
+      if (current.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
       if (scope === "admin") {
-        await assertBannerAssetsMayBeTrashed(tx, [asset.id]);
+        await assertBannerAssetsMayBeTrashed(tx, [current.id]);
       }
       const updated = await tx.asset.updateMany({
         data: { state: MediaAssetState.trashed, trashedAt: new Date() },
         where: {
-          id: asset.id,
+          id: current.id,
           libraryScope: scopeToDatabase(scope),
           state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
           trashedAt: null,
@@ -632,6 +848,7 @@ const requestMediaUpload = async ({
   }
 
   await prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
     await readActiveFolderAncestry(scope, safeFolderId, tx);
     await tx.asset.create({
@@ -663,18 +880,22 @@ const finalizeMediaUpload = async ({
   scope: MediaScope;
   width: unknown;
 }) => {
-  const asset = await prisma.asset.findFirst({
-    where: {
-      id: assetId,
-      libraryScope: scopeToDatabase(scope),
-      state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
-    },
+  const { asset, folderAncestry } = await prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
+    await acquireBannerMediaMutationLock(tx);
+    const asset = await tx.asset.findFirst({
+      where: {
+        id: assetId,
+        libraryScope: scopeToDatabase(scope),
+        state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
+      },
+    });
+    if (!asset) throw new MediaServiceError("Upload tidak tersedia atau sudah tidak dapat diubah.", 409);
+    if (!asset.objectKey) throw new MediaServiceError("Object key gambar tidak tersedia.", 409);
+    const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
+    return { asset, folderAncestry };
   });
-  if (!asset) throw new MediaServiceError("Upload tidak tersedia atau sudah tidak dapat diubah.", 409);
-  if (!asset.objectKey) throw new MediaServiceError("Object key gambar tidak tersedia.", 409);
-
-  const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, prisma);
-  const verifiedObjectKey = asset.objectKey;
+  const verifiedObjectKey = asset.objectKey!;
   const verifiedMimeType = asset.mimeType;
   const verifiedSizeBytes = asset.sizeBytes;
   const isPdf = isPdfMimeType(verifiedMimeType);
@@ -695,6 +916,7 @@ const finalizeMediaUpload = async ({
   const metadataMatches = head.ContentLength === verifiedSizeBytes && head.ContentType === verifiedMimeType;
   if (!metadataMatches) {
     await prisma.$transaction(async (tx) => {
+      await setTransactionLockTimeout(tx);
       await acquireBannerMediaMutationLock(tx);
       const ancestryStillMatches = await readActiveFolderAncestry(scope, asset.folderId, tx)
         .then((currentAncestry) => JSON.stringify(currentAncestry) === JSON.stringify(folderAncestry))
@@ -719,6 +941,7 @@ const finalizeMediaUpload = async ({
   }
 
   await prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
     await acquireBannerMediaMutationLock(tx);
     const current = await tx.asset.findUnique({ where: { id: asset.id } });
     if (!current || current.libraryScope !== scopeToDatabase(scope)) {

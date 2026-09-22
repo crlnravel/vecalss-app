@@ -85,6 +85,18 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import {
+  QuestionBankCsvCreateInput,
+  type QuestionBankCsvDraftSummary,
+} from "@/modules/mentor/components/question-bank-csv-flow";
+import {
+  ResourceAuthoringLockBanner,
+  type AuthoringLockState,
+} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
+import {
   kaptenSubjects,
   type BankQuestion,
   type KaptenQuestionBank,
@@ -1912,6 +1924,7 @@ type QuestionBankBuilderViewState = {
   isSaving: boolean;
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
+  lockState: AuthoringLockState;
   mediaPickerTarget: MediaPickerTarget | null;
   pendingRouteReplacement: string | null;
   previewChoiceId: string | null;
@@ -1940,6 +1953,9 @@ type QuestionBankBuilderActions = {
   onSelectMedia: (asset: MediaAssetDto) => void;
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
+  removeCsvDraft: () => void;
+  replaceCsvDraft: (summary: QuestionBankCsvDraftSummary) => void;
+  retryLock: () => void;
   requestExit: (route: string) => void;
   requestArchive: () => void;
   saveDraft: () => void;
@@ -2506,6 +2522,11 @@ function QuestionBankCreateWorkspace({
         builderState={builderState}
         state={state}
       />
+      <QuestionBankCsvCreateInput
+        disabled={state.isQuestionContentLocked}
+        onApply={actions.replaceCsvDraft}
+        onRemove={actions.removeCsvDraft}
+      />
       <QuestionBankBuilderDialogs
         actions={actions}
         confirmation={state.confirmationRequest}
@@ -2543,6 +2564,15 @@ function QuestionBankEditWorkspace({
         detailHref={detailHref}
         state={state}
       />
+      <div className="shrink-0 px-3 pt-3 md:px-6">
+        <ResourceAuthoringLockBanner
+          className="mx-auto max-w-5xl"
+          hasLocalChanges={state.hasUnsavedChanges}
+          onRetry={actions.retryLock}
+          resourceLabel="Bank Soal"
+          state={state.lockState}
+        />
+      </div>
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
@@ -2643,6 +2673,7 @@ function useQuestionBankNavigationGuards({
 function useQuestionBankPersistence({
   bankIdRef,
   builderState,
+  editLease,
   mode,
   onBankNoLongerEditable,
   revisionRef,
@@ -2652,6 +2683,7 @@ function useQuestionBankPersistence({
 }: {
   bankIdRef: { current: string | undefined };
   builderState: LocalQuestionBankState;
+  editLease?: import("@/lib/serialization/authoring-lease").AuthoringEditLease;
   mode: "create" | "edit";
   onBankNoLongerEditable: (bankId: string) => void;
   revisionRef: { current: number | undefined };
@@ -2664,6 +2696,7 @@ function useQuestionBankPersistence({
     try {
       const result = await saveQuestionBankAction({
         description: builderState.description,
+        editLease,
         folderId: mode === "create" ? builderState.folderId : undefined,
         id: bankIdRef.current,
         purpose: builderState.purpose,
@@ -2744,6 +2777,7 @@ function useQuestionBankPersistence({
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
       const result = await updateQuestionBankLifecycleAction(id, operation, {
+        editLease,
         expectedRevision: revisionRef.current ?? 1,
       });
       if (!result.ok) {
@@ -2845,6 +2879,7 @@ function useQuestionBankDraftActions({
       updateEditor,
     ],
   );
+  const csvDerivedQuestionIdsRef = useRef<Set<string>>(new Set());
 
   const updateMetadata = useCallback(
     (field: "title" | "description", value: string) => {
@@ -3036,6 +3071,103 @@ function useQuestionBankDraftActions({
     updateEditor,
   ]);
 
+  const replaceCsvDraft = useCallback(
+    (summary: QuestionBankCsvDraftSummary) => {
+      if (isQuestionContentLocked || summary.questions.length < 1) return;
+      const draftQuestions = summary.questions.map((csvQuestion) => {
+        const id = createQuestionId(csvQuestion.subjectCode);
+        const choices = csvQuestion.choices.map((choice, index) => ({
+          ...(choice.mediaAssetId ? { mediaAssetId: choice.mediaAssetId } : {}),
+          id: String.fromCharCode(97 + index),
+          text: choice.text,
+        }));
+        const choiceIds = new Map(csvQuestion.choices.map((choice, index) => [
+          choice.id,
+          String.fromCharCode(97 + index),
+        ]));
+        const correctChoiceIds = csvQuestion.correctChoiceIds
+          .map((choiceId) => choiceIds.get(choiceId))
+          .filter((choiceId): choiceId is string => Boolean(choiceId));
+        return {
+          ...emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", csvQuestion.subjectCode),
+          choices,
+          correctChoiceId: correctChoiceIds[0] ?? choices[0]?.id ?? "a",
+          correctChoiceIds: correctChoiceIds.length ? correctChoiceIds : [choices[0]?.id ?? "a"],
+          difficulty: csvQuestion.difficulty,
+          explanation: csvQuestion.explanation,
+          ...(csvQuestion.explanationMediaAssetId ? { explanationMediaAssetId: csvQuestion.explanationMediaAssetId } : {}),
+          id,
+          ...(csvQuestion.materi ? { materi: csvQuestion.materi } : {}),
+          prompt: csvQuestion.prompt,
+          ...(csvQuestion.promptMediaAssetId ? { promptMediaAssetId: csvQuestion.promptMediaAssetId } : {}),
+          questionType: csvQuestion.questionType,
+          subjectCode: csvQuestion.subjectCode,
+        } satisfies BankQuestion;
+      });
+      const csvQuestionIds = new Set(draftQuestions.map((question) => question.id));
+      const retainedQuestions = builderState.questions.filter(
+        (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
+      );
+      csvDerivedQuestionIdsRef.current = csvQuestionIds;
+      const nextState = {
+        ...builderState,
+        questions: [...retainedQuestions, ...draftQuestions],
+      };
+      markChanged(nextState);
+      updateEditor({
+        activeQuestionId: draftQuestions[0]?.id ?? retainedQuestions[0]?.id ?? null,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: draftQuestions[0]
+          ? toQuestionDraft(draftQuestions[0])
+          : retainedQuestions[0]
+            ? toQuestionDraft(retainedQuestions[0])
+            : fallbackQuestion,
+        readinessAnnouncement: `${summary.rowCount} draf soal dari ${summary.fileName} ditambahkan secara lokal.`,
+      });
+    },
+    [
+      activeQuestion?.subjectCode,
+      bankId,
+      builderState,
+      fallbackQuestion,
+      initialBank?.id,
+      isQuestionContentLocked,
+      markChanged,
+      updateEditor,
+      csvDerivedQuestionIdsRef,
+    ],
+  );
+
+  const removeCsvDraft = useCallback(() => {
+    if (isQuestionContentLocked || csvDerivedQuestionIdsRef.current.size === 0) return;
+    const questions = builderState.questions.filter(
+      (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
+    );
+    csvDerivedQuestionIdsRef.current = new Set();
+    if (questions.length === builderState.questions.length) return;
+    const nextActiveQuestion = questions[0] ?? null;
+    markChanged({ ...builderState, questions });
+    updateEditor({
+      activeQuestionId: nextActiveQuestion?.id ?? null,
+      hasSubmittedPreview: false,
+      previewChoiceId: null,
+      previewChoiceIds: [],
+      questionDraft: nextActiveQuestion
+        ? toQuestionDraft(nextActiveQuestion)
+        : fallbackQuestion,
+      readinessAnnouncement: "Soal dari CSV dihapus dari draf lokal.",
+    });
+  }, [
+    builderState,
+    csvDerivedQuestionIdsRef,
+    fallbackQuestion,
+    isQuestionContentLocked,
+    markChanged,
+    updateEditor,
+  ]);
+
   const removeQuestion = useCallback(
     (id: string) => {
       if (isQuestionContentLocked) return;
@@ -3076,7 +3208,9 @@ function useQuestionBankDraftActions({
     openQuestion,
     removeChoice,
     removeChoiceMedia,
+    removeCsvDraft,
     removeQuestion,
+    replaceCsvDraft,
     selectMediaAsset,
     updateCategories,
     updateMetadata,
@@ -3490,18 +3624,19 @@ function getQuestionBankBuilderInitialData({
 function getQuestionBankBuilderDerivedState({
   builderState,
   editorState,
+  lockState,
 }: {
   builderState: LocalQuestionBankState;
   editorState: QuestionBankEditorState;
+  lockState: AuthoringLockState;
 }) {
   const activeQuestion = editorState.activeQuestionId
     ? (builderState.questions.find(
         (question) => question.id === editorState.activeQuestionId,
       ) ?? null)
     : null;
-  const isMetadataLocked =
-    editorState.lifecycleStatus === "archived";
-  const isQuestionContentLocked = editorState.lifecycleStatus === "archived";
+  const isMetadataLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
+  const isQuestionContentLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
   const localReadiness = getQuestionBankReadinessFromDrafts(
     builderState.questions,
   );
@@ -3533,6 +3668,7 @@ function createQuestionBankBuilderActions({
   onOpenMedia,
   onSubmitPreview,
   persistence,
+  retryLock,
 }: {
   draftActions: ReturnType<typeof useQuestionBankDraftActions>;
   focusFirstIssue: () => void;
@@ -3543,6 +3679,7 @@ function createQuestionBankBuilderActions({
   onOpenMedia: (target: MediaPickerTarget) => void;
   onSubmitPreview: () => void;
   persistence: ReturnType<typeof useQuestionBankPersistence>;
+  retryLock: () => void;
 }): QuestionBankBuilderActions {
   return {
     ...draftActions,
@@ -3560,8 +3697,10 @@ function createQuestionBankBuilderActions({
     onSelectMedia: draftActions.selectMediaAsset,
     onSubmitPreview,
     onUpdateDraft: draftActions.updateQuestionDraft,
+    removeCsvDraft: draftActions.removeCsvDraft,
     requestArchive: lifecycleActions.requestArchive,
     requestExit: lifecycleActions.requestExit,
+    retryLock,
     saveDraft: persistence.saveDraft,
     updateCategories: draftActions.updateCategories,
     updateLifecycle: persistence.updateLifecycle,
@@ -3607,6 +3746,8 @@ function useQuestionBankBuilderState({
     questionBankEditorReducer,
     initialEditorState,
   );
+  const resourceLock = useResourceEditLock();
+  const lockState: AuthoringLockState = mode === "create" ? "owned" : resourceLock.state;
   const updateEditor = useCallback(
     (patch: Partial<QuestionBankEditorState>) =>
       dispatch({ patch, type: "patch" }),
@@ -3628,7 +3769,11 @@ function useQuestionBankBuilderState({
     isQuestionContentLocked,
     readiness,
     selectedMediaAssetId,
-  } = getQuestionBankBuilderDerivedState({ builderState, editorState });
+  } = getQuestionBankBuilderDerivedState({
+    builderState,
+    editorState,
+    lockState,
+  });
   const draftActions = useQuestionBankDraftActions({
     activeQuestion,
     activeQuestionId: editorState.activeQuestionId,
@@ -3668,6 +3813,7 @@ function useQuestionBankBuilderState({
   const persistence = useQuestionBankPersistence({
     bankIdRef,
     builderState,
+    editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
     mode,
     onBankNoLongerEditable: (id) =>
       updateEditor({
@@ -3711,6 +3857,7 @@ function useQuestionBankBuilderState({
     onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
     onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
     persistence,
+    retryLock: resourceLock.retry,
   });
   return {
     actions,
@@ -3719,6 +3866,7 @@ function useQuestionBankBuilderState({
     editorState,
     isMetadataLocked,
     isQuestionContentLocked,
+    lockState,
     questionRowRefs,
     readiness,
     selectedMediaAssetId,
@@ -3726,7 +3874,7 @@ function useQuestionBankBuilderState({
   };
 }
 
-function KaptenQuestionBankBuilderPageModule({
+function QuestionBankBuilderContent({
   bankId,
   initialActiveQuestionId,
   initialBank = null,
@@ -3754,6 +3902,7 @@ function KaptenQuestionBankBuilderPageModule({
     editorState,
     isMetadataLocked,
     isQuestionContentLocked,
+    lockState,
     questionRowRefs,
     readiness,
     selectedMediaAssetId,
@@ -3783,6 +3932,7 @@ function KaptenQuestionBankBuilderPageModule({
         hasUnsavedChanges: editorState.hasUnsavedChanges,
         isMetadataLocked,
         isQuestionContentLocked,
+        lockState,
         isSaving: editorState.isSaving,
         lifecycleError: editorState.lifecycleError,
         lifecycleStatus: editorState.lifecycleStatus,
@@ -3799,6 +3949,48 @@ function KaptenQuestionBankBuilderPageModule({
       }}
       workspaceRef={workspaceRef}
     />
+  );
+}
+
+function KaptenQuestionBankBuilderPageModule({
+  bankId,
+  initialActiveQuestionId,
+  initialBank = null,
+  initialFolderId = null,
+  initialQuestions = [],
+  initialReadiness = null,
+  mode,
+  purpose = "quiz",
+  session,
+}: {
+  bankId?: string;
+  initialActiveQuestionId?: string;
+  initialBank?: KaptenQuestionBank | null;
+  initialFolderId?: string | null;
+  initialQuestions?: BankQuestion[];
+  initialReadiness?: QuestionBankReadiness | null;
+  mode: "create" | "edit";
+  purpose?: "quiz" | "tryout";
+  session: SessionContext;
+}) {
+  return (
+    <ResourceEditLockProvider
+      enabled={mode === "edit" && Boolean(bankId)}
+      resourceId={bankId ?? "00000000-0000-4000-8000-000000000000"}
+      resourceType="question_bank"
+    >
+      <QuestionBankBuilderContent
+        bankId={bankId}
+        initialActiveQuestionId={initialActiveQuestionId}
+        initialBank={initialBank}
+        initialFolderId={initialFolderId}
+        initialQuestions={initialQuestions}
+        initialReadiness={initialReadiness}
+        mode={mode}
+        purpose={purpose}
+        session={session}
+      />
+    </ResourceEditLockProvider>
   );
 }
 

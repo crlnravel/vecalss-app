@@ -1,4 +1,6 @@
 import { isPdfMimeType, isSupportedMediaMimeType, parseMediaScope } from "@/lib/media/domain";
+import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
+import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   MediaServiceError,
   createMediaFolder,
@@ -19,6 +21,9 @@ export const dynamic = "force-dynamic";
 const errorResponse = (error: unknown) => {
   if (error instanceof MediaServiceError) {
     return Response.json({ error: error.message }, { status: error.status });
+  }
+  if (error instanceof EditLeaseServiceError) {
+    return Response.json({ error: error.code }, { status: error.status });
   }
 
   console.error("Unexpected media API error", error);
@@ -64,6 +69,9 @@ export async function POST(
     if (typeof body !== "object" || body === null || !("action" in body) || typeof body.action !== "string") {
       throw new MediaServiceError("Permintaan media tidak valid.");
     }
+    const editLease = "editLease" in body && typeof body.editLease === "object" && body.editLease !== null
+      ? body.editLease as AuthoringEditLease
+      : undefined;
 
     switch (body.action) {
       case "create-folder":
@@ -77,27 +85,27 @@ export async function POST(
         });
       case "rename-folder":
         if (!("folderId" in body) || typeof body.folderId !== "string") throw new MediaServiceError("Folder tidak valid.");
-        await renameMediaFolder({ folderId: body.folderId, name: "name" in body ? body.name : null, scope });
+        await renameMediaFolder({ actorUserId: session.user.id, editLease, folderId: body.folderId, name: "name" in body ? body.name : null, scope });
         return Response.json({ ok: true });
       case "move-folder":
         if (!("folderId" in body) || typeof body.folderId !== "string") throw new MediaServiceError("Folder tidak valid.");
-        await moveMediaFolder({ folderId: body.folderId, parentId: "parentId" in body ? body.parentId : null, scope });
+        await moveMediaFolder({ actorUserId: session.user.id, editLease, folderId: body.folderId, parentId: "parentId" in body ? body.parentId : null, scope });
         return Response.json({ ok: true });
       case "trash-folder":
         if (!("folderId" in body) || typeof body.folderId !== "string") throw new MediaServiceError("Folder tidak valid.");
-        await trashMediaFolder(scope, body.folderId);
+        await trashMediaFolder(scope, body.folderId, session.user.id, editLease);
         return Response.json({ ok: true });
       case "rename-asset":
         if (!("assetId" in body) || typeof body.assetId !== "string") throw new MediaServiceError("Gambar tidak valid.");
-        await renameMediaAsset({ assetId: body.assetId, name: "name" in body ? body.name : null, scope });
+        await renameMediaAsset({ actorUserId: session.user.id, editLease, assetId: body.assetId, name: "name" in body ? body.name : null, scope });
         return Response.json({ ok: true });
       case "move-asset":
         if (!("assetId" in body) || typeof body.assetId !== "string") throw new MediaServiceError("Gambar tidak valid.");
-        await moveMediaAsset({ assetId: body.assetId, folderId: "folderId" in body ? body.folderId : null, scope });
+        await moveMediaAsset({ actorUserId: session.user.id, editLease, assetId: body.assetId, folderId: "folderId" in body ? body.folderId : null, scope });
         return Response.json({ ok: true });
       case "trash-asset":
         if (!("assetId" in body) || typeof body.assetId !== "string") throw new MediaServiceError("Gambar tidak valid.");
-        await trashMediaAsset(scope, body.assetId);
+        await trashMediaAsset(scope, body.assetId, session.user.id, editLease);
         return Response.json({ ok: true });
       case "request-upload":
         return Response.json(await requestMediaUpload({

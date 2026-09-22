@@ -19,6 +19,16 @@ import { createTryoutInvitationNotification } from "@/lib/notifications/service"
 import { prisma } from "@/lib/prisma";
 import { MAIN_TRYOUT_SESSION_NAME } from "@/lib/tryout/main-session";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
+import {
+  acquireTryoutIdentityMutex,
+  assertTryoutIdentityStable,
+  lockTryoutAggregate,
+  lockTryoutAdmissions,
+  lockTryoutAssignments,
+  lockTryoutSessions,
+  lockTryoutStudents,
+  prepareTryoutTransaction,
+} from "@/lib/tryout/locks";
 
 class TryoutDeliveryValidationError extends Error {}
 
@@ -105,51 +115,54 @@ async function assertTryoutOwnership(
   return tryout;
 }
 
-async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
-}
-
 async function lockAdmission(tx: Prisma.TransactionClient, admissionId: string) {
-  await tx.$queryRaw`SELECT id FROM tryout_admissions WHERE id = ${admissionId}::uuid FOR UPDATE`;
-}
-
-async function lockAdmissionForParticipant(
-  tx: Prisma.TransactionClient,
-  tryoutId: string,
-  studentId: string,
-) {
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_admissions
-     WHERE tryout_id = ${tryoutId}::uuid
-       AND student_id = ${studentId}::uuid
-     FOR UPDATE
-  `;
-}
-
-async function lockAssignment(tx: Prisma.TransactionClient, assignmentId: string) {
-  await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${assignmentId}::uuid FOR UPDATE`;
+  await lockTryoutAdmissions(tx, [admissionId]);
 }
 
 async function lockTryout(tx: Prisma.TransactionClient, tryoutId: string) {
-  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
+  await lockTryoutAggregate(tx, tryoutId);
+}
+
+async function lockTryoutIdentityScope(
+  tx: Prisma.TransactionClient,
+  identity: { id: string; kind: "tryout" | "session" | "admission" | "assignment" },
+) {
+  const resolved = await acquireTryoutIdentityMutex(tx, identity);
+  if (!resolved) throw new TryoutDeliveryValidationError("Tryout delivery tidak ditemukan.");
+  await lockTryout(tx, resolved.tryoutId);
+  return assertTryoutIdentityStable(tx, identity, resolved.tryoutId);
+}
+
+async function lockTryoutParticipantIdentityScope(
+  tx: Prisma.TransactionClient,
+  identity: { id: string; kind: "tryout" | "admission" | "assignment" },
+  expectedStudentId?: string,
+) {
+  const resolved = await acquireTryoutIdentityMutex(tx, identity);
+  if (!resolved) throw new TryoutDeliveryValidationError("Tryout delivery tidak ditemukan.");
+  const studentId = resolved.studentId ?? expectedStudentId;
+  if (!studentId || (resolved.studentId && expectedStudentId && resolved.studentId !== expectedStudentId)) {
+    throw new TryoutDeliveryValidationError("Identitas peserta Tryout berubah. Muat ulang lalu coba lagi.");
+  }
+  await lockTryoutStudents(tx, [studentId]);
+  await lockTryout(tx, resolved.tryoutId);
+  const stable = await assertTryoutIdentityStable(tx, identity, resolved.tryoutId);
+  if (stable.studentId && stable.studentId !== studentId) {
+    throw new TryoutDeliveryValidationError("Identitas peserta Tryout berubah. Muat ulang lalu coba lagi.");
+  }
+  return stable;
 }
 
 async function lockTryoutDeliverySessions(
   tx: Prisma.TransactionClient,
   tryoutId: string,
 ) {
-  // Selection changes demote the previous default and promote the new one in
-  // one transaction. Lock every session in a stable order before locking the
-  // Tryout aggregate so concurrent participant starts cannot deadlock while
-  // taking their session-scope lock first.
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_delivery_sessions
-     WHERE tryout_id = ${tryoutId}::uuid
-     ORDER BY id
-     FOR UPDATE
-  `;
+  const sessions = await tx.tryoutDeliverySession.findMany({
+    where: { tryoutId },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  await lockTryoutSessions(tx, sessions.map((session) => session.id));
 }
 
 async function lockOverlappingDeliverySessions(
@@ -158,14 +171,17 @@ async function lockOverlappingDeliverySessions(
   availableFrom: Date,
   availableUntil: Date,
 ) {
-  await tx.$queryRaw`
-    SELECT id
-      FROM tryout_delivery_sessions
-     WHERE id = ${deliverySessionId}::uuid
-        OR (available_from < ${availableUntil} AND available_until > ${availableFrom})
-     ORDER BY id
-     FOR UPDATE
-  `;
+  const sessions = await tx.tryoutDeliverySession.findMany({
+    where: {
+      OR: [
+        { id: deliverySessionId },
+        { availableFrom: { lt: availableUntil }, availableUntil: { gt: availableFrom } },
+      ],
+    },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  await lockTryoutSessions(tx, sessions.map((session) => session.id));
 }
 
 type EligibleSession = {
@@ -274,6 +290,32 @@ async function lockSessionScope(
   );
 }
 
+async function lockParticipantAssignments(
+  tx: Prisma.TransactionClient,
+  admissionId: string,
+  assignments: Array<{ deliverySessionId: string; id: string; deliverySession: { availableFrom: Date; availableUntil: Date } }>,
+  extraSessions: Array<{ availableFrom: Date; availableUntil: Date; id: string }> = [],
+) {
+  const sessionIds = [...new Set([...assignments.map((assignment) => assignment.deliverySessionId), ...extraSessions.map((session) => session.id)])];
+  if (sessionIds.length) {
+    const sessions = await tx.tryoutDeliverySession.findMany({
+      where: {
+        OR: [
+          { id: { in: sessionIds } },
+          ...[...assignments.map((assignment) => assignment.deliverySession), ...extraSessions].map((session) => ({
+            availableFrom: { lt: session.availableUntil },
+            availableUntil: { gt: session.availableFrom },
+          })),
+        ],
+      },
+      select: { id: true },
+    });
+    await lockTryoutSessions(tx, sessions.map((session) => session.id));
+  }
+  await lockTryoutAdmissions(tx, [admissionId]);
+  await lockTryoutAssignments(tx, assignments.map((assignment) => assignment.id));
+}
+
 async function ensureActiveAssignment(
   tx: Prisma.TransactionClient,
   admissionId: string,
@@ -284,7 +326,6 @@ async function ensureActiveAssignment(
     where: { admissionId_deliverySessionId: { admissionId, deliverySessionId } },
   });
   if (existing) {
-    await lockAssignment(tx, existing.id);
     if (existing.status === TryoutAssignmentStatus.active) return existing;
     return tx.tryoutDeliveryAssignment.update({
       where: { id: existing.id },
@@ -303,7 +344,6 @@ async function ensureActiveAssignment(
 }
 
 async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: string) {
-  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
   const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { status: true } });
   if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
   if (tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Delivery hanya tersedia setelah Tryout diterbitkan.");
@@ -314,6 +354,8 @@ async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: st
 async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approval_required" | "invitation_only", actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    await lockTryoutIdentityScope(tx, { id: tryoutId, kind: "tryout" });
     await assertTryoutNotStarted(tx, tryoutId);
     await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
     const record = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true } });
@@ -327,6 +369,8 @@ async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approv
 async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "immediate" | "manual" | "automatic_at_end", actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    await lockTryoutIdentityScope(tx, { id: tryoutId, kind: "tryout" });
     await assertTryoutNotStarted(tx, tryoutId);
     await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
     const record = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { defaultResultReleasePolicy: true } });
@@ -353,6 +397,8 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
     : null;
   if (scheduledReleaseAt && scheduledReleaseAt < availableUntil) throw new TryoutDeliveryValidationError("Waktu rilis hasil terjadwal harus sama dengan atau setelah sesi selesai.");
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    await lockTryoutIdentityScope(tx, { id: input.tryoutId, kind: "tryout" });
     await assertTryoutNotStarted(tx, input.tryoutId);
     await assertTryoutOwnership(tx, input.tryoutId, actorId, allowCrossOwner);
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: input.tryoutId }, select: { id: true, publishedAt: true } });
@@ -374,7 +420,7 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
       } catch (error) {
         throw new TryoutDeliveryValidationError(error instanceof Error ? error.message : "Tryout belum memenuhi syarat AssessmentRelease.");
       }
-      const release = await createOrReuseAssessmentRelease(tx, input.tryoutId, actorId, tryout.publishedAt ?? new Date());
+      const release = await createOrReuseAssessmentRelease(tx, input.tryoutId, actorId, tryout.publishedAt ?? new Date(), { assumeTryoutLocked: true });
       assessmentReleaseId = release.id;
     }
     const isDefaultOpenRegistration = name === MAIN_TRYOUT_SESSION_NAME && status === "active";
@@ -387,7 +433,9 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
 async function openTryoutDeliverySession(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid FOR UPDATE`;
+    await prepareTryoutTransaction(tx);
+    const identity = await lockTryoutIdentityScope(tx, { id: deliverySessionId, kind: "session" });
+    await lockTryoutSessions(tx, [identity.sessionId ?? deliverySessionId]);
     let session = await tx.tryoutDeliverySession.findUnique({
       where: { id: deliverySessionId },
       include: {
@@ -432,7 +480,7 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
     }
     const release = session.assessmentReleaseId
       ? await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } })
-      : await createOrReuseAssessmentRelease(tx, session.tryoutId, actorId, session.tryout.publishedAt ?? new Date());
+      : await createOrReuseAssessmentRelease(tx, session.tryoutId, actorId, session.tryout.publishedAt ?? new Date(), { assumeTryoutLocked: true });
     if (!release) throw new TryoutDeliveryValidationError("Sesi tidak memiliki AssessmentRelease yang valid dan tidak dapat dibuka.");
     const opened = await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { assessmentReleaseId: release.id, status: TryoutDeliverySessionStatus.active, updatedByUserId: actorId } });
     await audit(tx, { action: "delivery_session.opened", actorId, after: { status: opened.status }, before: { status: session.status }, deliverySessionId, reason: auditReason, tryoutId: session.tryoutId });
@@ -452,28 +500,32 @@ async function updateTryoutDeliverySessionSchedule(
   if (availableUntil <= availableFrom) throw new TryoutDeliveryValidationError("Jendela ketersediaan sesi tidak valid.");
 
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    const identity = await lockTryoutIdentityScope(tx, { id: input.deliverySessionId, kind: "session" });
     const candidate = await tx.tryoutDeliverySession.findUnique({
       where: { id: input.deliverySessionId },
       select: { availableFrom: true, availableUntil: true, tryoutId: true },
     });
-    if (!candidate) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan.");
-
-    // Match participant-start lock ordering: overlap scope first, then the
-    // Tryout aggregate. Lock both windows because the edit can move into a
-    // different overlap set while another participant is starting.
-    await lockOverlappingDeliverySessions(
-      tx,
-      input.deliverySessionId,
-      candidate.availableFrom,
-      candidate.availableUntil,
-    );
-    await lockOverlappingDeliverySessions(
-      tx,
-      input.deliverySessionId,
-      availableFrom,
-      availableUntil,
-    );
-    await lockTryout(tx, candidate.tryoutId);
+    if (!candidate) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan setelah penguncian.");
+    const oldOverlaps = await tx.tryoutDeliverySession.findMany({
+      where: {
+        OR: [
+          { id: input.deliverySessionId },
+          { availableFrom: { lt: candidate.availableUntil }, availableUntil: { gt: candidate.availableFrom } },
+        ],
+      },
+      select: { id: true },
+    });
+    const newOverlaps = await tx.tryoutDeliverySession.findMany({
+      where: {
+        OR: [
+          { id: input.deliverySessionId },
+          { availableFrom: { lt: availableUntil }, availableUntil: { gt: availableFrom } },
+        ],
+      },
+      select: { id: true },
+    });
+    await lockTryoutSessions(tx, [...oldOverlaps, ...newOverlaps].map((session) => session.id));
 
     const session = await tx.tryoutDeliverySession.findUnique({
       where: { id: input.deliverySessionId },
@@ -487,7 +539,7 @@ async function updateTryoutDeliverySessionSchedule(
       },
     });
     if (!session) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan setelah penguncian.");
-    await assertTryoutOwnership(tx, session.tryoutId, actorId, allowCrossOwner);
+    await assertTryoutOwnership(tx, identity.tryoutId, actorId, allowCrossOwner);
     const tryout = await tx.tryoutPackage.findUnique({
       where: { id: session.tryoutId },
       select: { status: true },
@@ -535,15 +587,17 @@ async function setTryoutDefaultOpenRegistrationSession(
   const auditReason = reasonOrThrow(reason);
 
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
     const candidate = await tx.tryoutDeliverySession.findUnique({
       where: { id: deliverySessionId },
       select: { id: true, tryoutId: true },
     });
     if (!candidate) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan.");
 
-    await assertTryoutOwnership(tx, candidate.tryoutId, actorId, allowCrossOwner);
-    await lockTryoutDeliverySessions(tx, candidate.tryoutId);
-    await assertTryoutNotStarted(tx, candidate.tryoutId);
+    const identity = await lockTryoutIdentityScope(tx, { id: deliverySessionId, kind: "session" });
+    await assertTryoutOwnership(tx, identity.tryoutId, actorId, allowCrossOwner);
+    await lockTryoutDeliverySessions(tx, identity.tryoutId);
+    await assertTryoutNotStarted(tx, identity.tryoutId);
 
     const session = await tx.tryoutDeliverySession.findUnique({
       where: { id: deliverySessionId },
@@ -609,11 +663,8 @@ async function registerForTryout(
   selectedSessionId?: string | null,
 ) {
   return prisma.$transaction(async (tx) => {
-    // Access-transition lock order is always student -> admission/assignment
-    // -> overlapping sessions -> Tryout. This matches participant start and
-    // revoke, then every decision is re-read while those locks are held.
-    await lockStudent(tx, studentId);
-    await lockAdmissionForParticipant(tx, tryoutId, studentId);
+    await prepareTryoutTransaction(tx);
+    await lockTryoutParticipantIdentityScope(tx, { id: tryoutId, kind: "tryout" }, studentId);
     await assertStudent(tx, studentId);
     if (target) {
       const major = await tx.major.findFirst({
@@ -637,10 +688,7 @@ async function registerForTryout(
       const activeAssignments = existing.assignments
         .filter((item) => item.status === TryoutAssignmentStatus.active)
         .sort((left, right) => left.id.localeCompare(right.id));
-      await Promise.all(activeAssignments.map(async (assignment) => {
-        await lockAssignment(tx, assignment.id);
-        await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
-      }));
+      await lockParticipantAssignments(tx, existing.id, activeAssignments);
       existing = await tx.tryoutAdmission.findUnique({
         where: { id: existing.id },
         include: {
@@ -684,12 +732,6 @@ async function registerForTryout(
     // the selection above never falls back when a session was declared.
     const defaultSession = registrationSession;
     if (status === TryoutAdmissionStatus.active && !defaultSession) return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
-    if (defaultSession) await lockSessionScope(tx, defaultSession);
-    await lockTryout(tx, tryoutId);
-    const lockedDefaultSession = defaultSession
-      ? await findSelectedSession(tx, tryoutId, defaultSession.id, now)
-      : null;
-    const lockedRegistrationSession = lockedDefaultSession;
     existing = await tx.tryoutAdmission.findUnique({
       where: { tryoutId_studentId: { studentId, tryoutId } },
       include: {
@@ -701,6 +743,21 @@ async function registerForTryout(
       },
     });
     if (existing) {
+      const activeAssignments = existing.assignments
+        .filter((item) => item.status === TryoutAssignmentStatus.active)
+        .sort((left, right) => left.id.localeCompare(right.id));
+      await lockParticipantAssignments(tx, existing.id, activeAssignments);
+      existing = await tx.tryoutAdmission.findUnique({
+        where: { id: existing.id },
+        include: {
+          assignments: {
+            where: { status: TryoutAssignmentStatus.active },
+            include: { deliverySession: true },
+            orderBy: { assignedAt: "desc" },
+          },
+        },
+      });
+      if (!existing) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
       const existingAssignment = activeRegistrationAssignment(existing.assignments, selectedSessionId);
       if (selectedSessionId !== undefined && selectedSessionId !== null && existing.status === TryoutAdmissionStatus.active && !existingAssignment) {
         throw new TryoutDeliveryValidationError("Sesi Tryout yang dipilih belum menjadi penugasanmu.");
@@ -708,6 +765,11 @@ async function registerForTryout(
       if (target) await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
       return { admissionId: existing.id, assignmentId: existingAssignment?.id ?? null, deliverySessionId: existingAssignment?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
     }
+    if (defaultSession) await lockSessionScope(tx, defaultSession);
+    const lockedDefaultSession = defaultSession
+      ? await findSelectedSession(tx, tryoutId, defaultSession.id, now)
+      : null;
+    const lockedRegistrationSession = lockedDefaultSession;
     const lockedTryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
     if (!lockedTryout || lockedTryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (lockedTryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
@@ -733,12 +795,10 @@ async function decideTryoutAdmission(
 ) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
     const candidate = await tx.tryoutAdmission.findUnique({ where: { id: admissionId }, select: { studentId: true, tryoutId: true } });
     if (!candidate) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
-    // Authorize from the non-PII candidate before loading the admission graph.
-    await assertTryoutOwnership(tx, candidate.tryoutId, actorId, allowCrossOwner);
-    await lockStudent(tx, candidate.studentId);
-    await lockAdmission(tx, admissionId);
+    await lockTryoutParticipantIdentityScope(tx, { id: admissionId, kind: "admission" }, candidate.studentId);
     let admission = await tx.tryoutAdmission.findUnique({
       where: { id: admissionId },
       include: {
@@ -756,9 +816,9 @@ async function decideTryoutAdmission(
         ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
         : null;
       if (replayAssignment) {
-        await lockAssignment(tx, replayAssignment.id);
         await lockSessionScope(tx, replayAssignment.deliverySession);
-        await lockTryout(tx, admission.tryoutId);
+        await lockTryoutAdmissions(tx, [admissionId]);
+        await lockTryoutAssignments(tx, [replayAssignment.id]);
         admission = await tx.tryoutAdmission.findUnique({
           where: { id: admissionId },
           include: {
@@ -782,21 +842,7 @@ async function decideTryoutAdmission(
       const assignmentsToLock = admission.assignments
         .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)
         .sort((left, right) => left.id.localeCompare(right.id));
-      await Promise.all(assignmentsToLock.map((assignment) => lockAssignment(tx, assignment.id)));
-      const lockedSessionIds = new Set<string>();
-      const uniqueActiveAssignments = admission.assignments
-        .filter((item) => item.status === TryoutAssignmentStatus.active)
-        .sort((left, right) => left.deliverySessionId.localeCompare(right.deliverySessionId))
-        .filter((item) => {
-          if (lockedSessionIds.has(item.deliverySessionId)) return false;
-          lockedSessionIds.add(item.deliverySessionId);
-          return true;
-        });
-      await Promise.all(uniqueActiveAssignments.map((assignment) =>
-        lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil),
-      ));
-      if (!lockedSessionIds.has(selected.id)) await lockSessionScope(tx, selected);
-      await lockTryout(tx, admission.tryoutId);
+      await lockParticipantAssignments(tx, admission.id, assignmentsToLock, [selected]);
       const lockedSelected = selectedSessionId
         ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, now)
         : await findSelectedSession(tx, admission.tryoutId, selected.id, now);
@@ -826,7 +872,7 @@ async function decideTryoutAdmission(
       return { ...updated, assignmentId: assignment.id, deliverySessionId: lockedSelected.id };
     }
 
-    await lockTryout(tx, admission.tryoutId);
+    await lockAdmission(tx, admissionId);
     admission = await tx.tryoutAdmission.findUnique({
       where: { id: admissionId },
       include: {
@@ -857,33 +903,29 @@ async function inviteTryoutParticipant(
 ) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    // Check ownership before reading the participant profile or admission
-    // graph; the actor cannot use an arbitrary Tryout id as a PII probe.
+    await prepareTryoutTransaction(tx);
+    await lockTryoutParticipantIdentityScope(tx, { id: tryoutId, kind: "tryout" }, studentId);
     await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
-    await lockStudent(tx, studentId);
-    await lockAdmissionForParticipant(tx, tryoutId, studentId);
     await assertStudent(tx, studentId);
-    const [initialAdmission, tryout] = await Promise.all([
-      tx.tryoutAdmission.findUnique({
-        where: { tryoutId_studentId: { studentId, tryoutId } },
-        include: {
-          assignments: {
-            include: { deliverySession: true },
-            orderBy: { assignedAt: "desc" },
-          },
+    const initialAdmission = await tx.tryoutAdmission.findUnique({
+      where: { tryoutId_studentId: { studentId, tryoutId } },
+      include: {
+        assignments: {
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
         },
-      }),
-      tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } }),
-    ]);
+      },
+    });
+    const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } });
     let admission = initialAdmission;
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     const replayAssignment = admission?.status === TryoutAdmissionStatus.active
       ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
       : null;
     if (replayAssignment) {
-      await lockAssignment(tx, replayAssignment.id);
       await lockSessionScope(tx, replayAssignment.deliverySession);
-      await lockTryout(tx, tryoutId);
+      await lockTryoutAdmissions(tx, [admission!.id]);
+      await lockTryoutAssignments(tx, [replayAssignment.id]);
       admission = await tx.tryoutAdmission.findUnique({
         where: { tryoutId_studentId: { studentId, tryoutId } },
         include: {
@@ -908,24 +950,10 @@ async function inviteTryoutParticipant(
       const assignmentsToLock = admission.assignments
         .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)
         .sort((left, right) => left.id.localeCompare(right.id));
-      await Promise.all(assignmentsToLock.map((assignment) => lockAssignment(tx, assignment.id)));
-      const lockedSessionIds = new Set<string>();
-      const uniqueActiveAssignments = admission.assignments
-        .filter((item) => item.status === TryoutAssignmentStatus.active)
-        .sort((left, right) => left.deliverySessionId.localeCompare(right.deliverySessionId))
-        .filter((item) => {
-          if (lockedSessionIds.has(item.deliverySessionId)) return false;
-          lockedSessionIds.add(item.deliverySessionId);
-          return true;
-        });
-      await Promise.all(uniqueActiveAssignments.map((assignment) =>
-        lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil),
-      ));
-      if (!lockedSessionIds.has(selected.id)) await lockSessionScope(tx, selected);
+      await lockParticipantAssignments(tx, admission.id, assignmentsToLock, [selected]);
     } else {
       await lockSessionScope(tx, selected);
     }
-    await lockTryout(tx, tryoutId);
     const lockedSelected = selectedSessionId
       ? await findSelectedSession(tx, tryoutId, selectedSessionId, now)
       : await findSelectedSession(tx, tryoutId, selected.id, now);
@@ -973,17 +1001,17 @@ async function inviteTryoutParticipant(
 async function assignTryoutDeliverySession(input: AssignmentInput, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const [candidate, sessionCandidate] = await Promise.all([
-      tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true, tryoutId: true } }),
-      tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId }, select: { availableFrom: true, availableUntil: true, tryoutId: true } }),
-    ]);
-    if (!candidate || !sessionCandidate || candidate.tryoutId !== sessionCandidate.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
-    await lockStudent(tx, candidate.studentId);
-    await lockAdmission(tx, input.admissionId);
+    await prepareTryoutTransaction(tx);
+    const candidate = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true, tryoutId: true } });
+    if (!candidate) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
+    await lockTryoutParticipantIdentityScope(tx, { id: input.admissionId, kind: "admission" }, candidate.studentId);
+    const sessionCandidate = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId }, select: { availableFrom: true, availableUntil: true, tryoutId: true } });
+    const lockedCandidate = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true, tryoutId: true } });
+    if (!lockedCandidate || !sessionCandidate || lockedCandidate.tryoutId !== sessionCandidate.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
     const assignmentCandidate = await tx.tryoutDeliveryAssignment.findUnique({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, select: { id: true } });
-    if (assignmentCandidate) await lockAssignment(tx, assignmentCandidate.id);
     await lockOverlappingDeliverySessions(tx, input.deliverySessionId, sessionCandidate.availableFrom, sessionCandidate.availableUntil);
-    await lockTryout(tx, candidate.tryoutId);
+    await lockTryoutAdmissions(tx, [input.admissionId]);
+    if (assignmentCandidate) await lockTryoutAssignments(tx, [assignmentCandidate.id]);
     const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
     if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
     const session = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } });
@@ -1001,25 +1029,34 @@ async function assignTryoutDeliverySession(input: AssignmentInput, actorId: stri
 async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
     const candidate = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
-      select: { admission: { select: { id: true, studentId: true } }, id: true },
+      select: {
+        admission: { select: { id: true, studentId: true, tryoutId: true } },
+        deliverySession: { select: { availableFrom: true, availableUntil: true, id: true } },
+        id: true,
+      },
     });
     if (!candidate) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
-    // Match participant start's lock order: student -> admission -> assignment -> all
-    // overlapping sessions. The active assignment is re-read only after all
-    // locks are held, making revoke/start mutually serializable.
-    await lockStudent(tx, candidate.admission.studentId);
-    await lockAdmission(tx, candidate.admission.id);
-    await lockAssignment(tx, assignmentId);
+    await lockTryoutParticipantIdentityScope(tx, { id: assignmentId, kind: "assignment" }, candidate.admission.studentId);
+    const lockedCandidate = await tx.tryoutDeliveryAssignment.findUnique({
+      where: { id: assignmentId },
+      select: {
+        admission: { select: { id: true, studentId: true, tryoutId: true } },
+        deliverySession: { select: { availableFrom: true, availableUntil: true, id: true } },
+      },
+    });
+    if (!lockedCandidate) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan setelah penguncian.");
+    await lockOverlappingDeliverySessions(tx, lockedCandidate.deliverySession.id, lockedCandidate.deliverySession.availableFrom, lockedCandidate.deliverySession.availableUntil);
+    await lockTryoutAdmissions(tx, [lockedCandidate.admission.id]);
+    await lockTryoutAssignments(tx, [assignmentId]);
     let assignment = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
       include: { admission: true, deliverySession: true },
     });
     if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
     await assertAdmissionStudentIsNotManagedPreview(tx, assignment.admissionId);
-    await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
-    await lockTryout(tx, assignment.admission.tryoutId);
     assignment = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
       include: { admission: true, deliverySession: true },
@@ -1055,20 +1092,24 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
     : null;
   if (scheduledReleaseAt && scheduledReleaseAt < availableUntil) throw new TryoutDeliveryValidationError("Waktu rilis hasil terjadwal harus sama dengan atau setelah sesi selesai.");
   return prisma.$transaction(async (tx) => {
-    const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
+    await prepareTryoutTransaction(tx);
+    const candidate = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true } });
+    if (!candidate) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
+    await lockTryoutParticipantIdentityScope(tx, { id: input.admissionId, kind: "admission" }, candidate.studentId);
+    let admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
     if (!admission || admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk membuat retake.");
     await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${admission.tryoutId}::uuid FOR UPDATE`;
     try {
       await assertTryoutReleaseEligibility(tx, admission.tryoutId);
     } catch (error) {
       throw new TryoutDeliveryValidationError(error instanceof Error ? error.message : "Tryout belum memenuhi syarat AssessmentRelease.");
     }
-    const [release, existing] = await Promise.all([
-      createOrReuseAssessmentRelease(tx, admission.tryoutId, actorId),
-      tx.tryoutDeliverySession.findFirst({ where: { name, tryoutId: admission.tryoutId }, select: { id: true } }),
-    ]);
+    const release = await createOrReuseAssessmentRelease(tx, admission.tryoutId, actorId, new Date(), { assumeTryoutLocked: true });
+    await lockTryoutAdmissions(tx, [admission.id]);
+    admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
+    if (!admission || admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk membuat retake setelah penguncian.");
+    const existing = await tx.tryoutDeliverySession.findFirst({ where: { name, tryoutId: admission.tryoutId }, select: { id: true } });
     if (existing) throw new TryoutDeliveryValidationError("Nama sesi retake sudah digunakan pada Tryout ini.");
     const session = await tx.tryoutDeliverySession.create({ data: { assessmentReleaseId: release.id, availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: false, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: TryoutDeliverySessionStatus.active, tryoutId: admission.tryoutId, updatedByUserId: actorId } });
     const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: actorId, deliverySessionId: session.id } });
@@ -1078,15 +1119,18 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
 }
 
 async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+  await prepareTryoutTransaction(tx);
+  await lockTryoutIdentityScope(tx, { id: tryoutId, kind: "tryout" });
   // Resolve ownership in a narrow query before the graph query can touch
   // student identities or attempt payloads. Keep the predicate on the graph
   // query too so a concurrent ownership change cannot widen the read.
-  const ownedTryout = await prisma.tryoutPackage.findFirst({
+  const ownedTryout = await tx.tryoutPackage.findFirst({
     select: { id: true },
     where: { createdByUserId: actorId, id: tryoutId },
   });
   if (!ownedTryout) return null;
-  const tryout = await prisma.tryoutPackage.findFirst({
+  const tryout = await tx.tryoutPackage.findFirst({
     where: { createdByUserId: actorId, id: ownedTryout.id },
     include: {
       assessmentReleases: { orderBy: { releaseNumber: "desc" }, take: 1 },
@@ -1168,6 +1212,7 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
   });
   if (!tryout) return null;
   return tryout;
+  });
 }
 
 export { assignTryoutDeliverySession, configureTryoutAdmission, configureTryoutDefaultResultRelease, createTryoutDeliverySession, createTryoutRetake, decideTryoutAdmission, getTryoutDeliveryOperations, inviteTryoutParticipant, openTryoutDeliverySession, registerForTryout, revokeTryoutDeliveryAssignment, setTryoutDefaultOpenRegistrationSession, TryoutDeliveryValidationError, updateTryoutDeliverySessionSchedule };
