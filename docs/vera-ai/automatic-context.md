@@ -31,6 +31,13 @@ Final answers may cite only committed request sources. Empty retrieval
 produces an explicit evidence-limited answer rather than an uncited confident
 answer.
 
+Each provider stage claims its durable attempt with a compare-and-set before
+transport. A replay or concurrent reconnect receives a recovery marker and
+cannot invoke the provider or registry a second time. Automatic serializer
+bytes are checked against their stage cap before dispatch, and a streamed paid
+response must include the terminal `[DONE]` marker; an incomplete stream is
+treated as post-send unknown usage.
+
 ## Limits
 
 - Maximum four sources, normally two or three.

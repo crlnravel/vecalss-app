@@ -283,6 +283,7 @@ export type VeraAutomaticSelectorSerializationInput = {
   systemPolicy: string;
   history?: readonly VeraAutomaticHistoryMessage[];
   userText: string;
+  maxBytes?: number;
 };
 
 export type VeraAutomaticFinalSerializationInput = {
@@ -291,6 +292,7 @@ export type VeraAutomaticFinalSerializationInput = {
   userText: string;
   toolCall: VeraFunctionToolCall;
   toolResult: ContextToolResult;
+  maxBytes?: number;
 };
 
 type VeraSerializedMessage = {
@@ -362,7 +364,11 @@ export function serializeVeraAutomaticSelector(input: VeraAutomaticSelectorSeria
     tools: [VERA_CONTEXT_TOOL_SCHEMA],
     tool_choice: "auto",
   };
-  return new TextEncoder().encode(canonicalJson(request));
+  const bytes = new TextEncoder().encode(canonicalJson(request));
+  if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
+    throw new ProviderSafetyError("Automatic selector input exceeds its exact byte cap.");
+  }
+  return bytes;
 }
 
 /** Canonical final request bytes. Tools are intentionally absent from this
@@ -386,7 +392,11 @@ export function serializeVeraAutomaticFinal(input: VeraAutomaticFinalSerializati
       { role: "tool", content: new TextDecoder().decode(serializeContextToolResult(result)), tool_call_id: input.toolCall.id },
     ],
   };
-  return new TextEncoder().encode(canonicalJson(request));
+  const bytes = new TextEncoder().encode(canonicalJson(request));
+  if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
+    throw new ProviderSafetyError("Automatic final input exceeds its exact byte cap.");
+  }
+  return bytes;
 }
 
 export const serializeAutomaticSelector = serializeVeraAutomaticSelector;
@@ -1731,9 +1741,13 @@ async function readOpenRouterResponse(
     const tail = `${pending}${decoder.decode()}`;
     if (tail.trim()) {
       const dataLines = tail.split(/\r?\n/u).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart());
-      if (dataLines.length) handleJson(dataLines.join("\n").trim());
+      if (dataLines.length) {
+        const data = dataLines.join("\n").trim();
+        if (data === "[DONE]") sawDone = true;
+        else handleJson(data);
+      }
     }
-    if (!sawDone && !body) throw new ProviderExecutionError({ code: "provider_stream_incomplete", ambiguousPostSend: true });
+    if (!sawDone) throw new ProviderExecutionError({ code: "provider_stream_incomplete", ambiguousPostSend: true });
   } else {
     fullText = await response.text();
     if (new TextEncoder().encode(fullText).byteLength > input.maxResponseBytes) throw new ProviderExecutionError({ code: "provider_response_too_large" });
@@ -2104,7 +2118,10 @@ export type MockProviderFault = "outage" | "malformed" | "partial_usage" | "canc
 
 export class MockProviderAdapter implements VeraProviderAdapter {
   readonly enabled = true;
-  readonly automaticContextCapable = true;
+  // The mock is deliberately never an automatic-context activation source.
+  // Tests may still exercise serializer/stage contracts explicitly, but route
+  // authority must require the paid, certified release.
+  readonly automaticContextCapable = false;
   readonly disabledReason = undefined;
   readonly calls: PreparedProviderTask[] = [];
 
@@ -2196,7 +2213,12 @@ export class MockProviderAdapter implements VeraProviderAdapter {
     }
     const text = "Mock Vera response.";
     emit?.({ text, provisional: true });
-    const attempts = this.fault === "pre_send_retry" ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }] : [{ ...attempt(1, "completed"), usage }];
+    const stageAttemptNo = prepared.preparedTask.stagePurpose === "answer" ? 2 : 1;
+    const attempts = this.fault === "pre_send_retry"
+      ? stageAttemptNo === 2
+        ? [{ ...attempt(2, "completed"), usage }]
+        : [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }]
+      : [{ ...attempt(stageAttemptNo, "completed"), usage }];
     return { kind: "text", text, structured: null, usage, finishReason: "stop", attempts };
   }
 }

@@ -1740,7 +1740,7 @@ export class VeraPrismaAdmissionService {
    * eligible for Generation API reconciliation; it is never silently
    * released as an unused reservation.
    */
-  async beginProviderDispatch(input: { requestId: string; attemptNo?: number; now?: Date }): Promise<void> {
+  async beginProviderDispatch(input: { requestId: string; attemptNo?: number; now?: Date }): Promise<{ claimed: boolean }> {
     const now = input.now ?? await this.databaseNow();
     await this.db.$transaction(async (tx) => {
       const request = await tx.aiRequest.findUnique({
@@ -1748,14 +1748,14 @@ export class VeraPrismaAdmissionService {
         select: { id: true, status: true, version: true, ledgerVersion: true, providerRequestKey: true, dispatchDeadlineAt: true },
       });
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
-      if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
+      if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return { claimed: false };
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${request.id}::uuid FOR UPDATE`;
       const attemptNo = input.attemptNo ?? 1;
       if (!Number.isSafeInteger(attemptNo) || attemptNo < 1 || attemptNo > 2) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: request.id, attemptNo } } });
       if (!attempt) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
       await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${attempt.id}::uuid FOR UPDATE`;
-      if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) return;
+      if (attempt.state === AiAttemptState.dispatching || attempt.state === AiAttemptState.sent || attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.known) return { claimed: false };
       if (attempt.state !== AiAttemptState.reserved) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
       const dispatching = await tx.aiRequestAttempt.updateMany({
         where: { id: attempt.id, state: AiAttemptState.reserved },
@@ -1777,6 +1777,7 @@ export class VeraPrismaAdmissionService {
           version: { increment: 1 },
         },
       });
+      return { claimed: true };
     });
   }
 

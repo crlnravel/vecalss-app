@@ -66,6 +66,13 @@ await runChecks("vera-auto-context-orchestrator", [
       assert(final.stage === "answer", "final stage missing");
       assert(!("tools" in final) && !("tool_choice" in final), "final turn re-enabled tools");
       assert(!textDecoder.decode(serializeVeraAutomaticFinal({ systemPolicy: "Use only frozen evidence.", userText: "Jelaskan persamaan.", toolCall, toolResult })).includes("sourceId"), "final payload leaked internal source identity");
+      await expectReject(() => Promise.resolve(serializeVeraAutomaticFinal({
+        systemPolicy: "Use only frozen evidence.",
+        userText: "Jelaskan persamaan.",
+        toolCall,
+        toolResult,
+        maxBytes: 32,
+      })), "final serializer exceeded its exact byte cap");
     },
   },
   {
@@ -212,6 +219,7 @@ await runChecks("vera-auto-context-orchestrator", [
       const development: NodeJS.ProcessEnv = { NODE_ENV: "development", VERA_LIVE_PROVIDER_ENABLED: "true", VERA_AUTOMATIC_CONTEXT_ENABLED: "true", VERA_MOCK_PROVIDER_ENABLED: "true" };
       const provider = selectVeraChatProvider(development);
       assert(provider.constructor.name === "MockProviderAdapter", "development selected a paid provider");
+      assert(provider.automaticContextCapable === false, "mock advertised automatic-context capability");
       assert(!veraAutomaticContextEnabledForServer(development), "development automatic gate opened");
       const productionMock = {
         NODE_ENV: "production",

@@ -130,7 +130,6 @@ export function veraAutomaticContextAuthorityForStudent(studentId: string, env: 
 export function veraAutomaticContextEnabledForServer(env: NodeJS.ProcessEnv = process.env): boolean {
   return veraAutomaticContextGateForStudent("__server_probe__", env).enabled;
 }
-}
 
 export function getVeraLifecycleService(): VeraLifecycleService {
   if (cachedLifecycleService) return cachedLifecycleService;

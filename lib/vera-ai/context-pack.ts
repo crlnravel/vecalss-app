@@ -24,7 +24,7 @@ import {
   type VeraContextSelection,
   type VeraContextSourceType,
 } from "./contracts";
-import { parseContextToolResult, type ContextToolResult, type ContextToolSource } from "./context-tool-contracts";
+import { createContextToolResult, parseContextToolResult, type ContextToolResult, type ContextToolSource } from "./context-tool-contracts";
 
 export type ResolvedContextBlock = {
   sourceType: Exclude<VeraContextSourceType, "document">;
@@ -73,6 +73,8 @@ export type PreparedContextPack = {
   inputCertification: VeraInputCertification;
   toolCallDigest?: string;
   toolResultDigest?: string;
+  /** Provider-visible projection after the deterministic byte allocator. */
+  providerToolResult?: ContextToolResult;
   registryVersion?: string;
   resolverVersion?: string;
   sourceManifestDigest?: string;
@@ -576,6 +578,15 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
       truncated: sourceAllocation.truncated || allocationResult.truncatedOrdinals.includes(index + 1),
     };
   });
+  const providerToolResult = createContextToolResult({
+    registryVersion: parsedResult.registryVersion,
+    sources: normalizedSources.map((source, index) => ({
+      ...source,
+      evidenceSegments: allocationResult.allocation[index]?.evidenceSegments ?? [],
+    })),
+    limitations: parsedResult.limitations,
+    truncationCount: parsedResult.truncationCount + allocationResult.truncatedOrdinals.length,
+  });
   const contextTaskDigest = sha256Hex(canonicalJson({
     packDigest,
     promptTemplateHash: input.promptTemplateHash,
@@ -606,6 +617,7 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
     inputCertification,
     toolCallDigest: input.toolCallDigest,
     toolResultDigest: parsedResult.resultDigest,
+    providerToolResult,
     registryVersion: input.registryVersion,
     resolverVersion: input.resolverVersion,
     sourceManifestDigest,
