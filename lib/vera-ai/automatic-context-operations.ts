@@ -23,8 +23,27 @@ export type VeraAutomaticContextRolloutConfig = {
   emergencyOff: boolean;
   internalStudentIds: readonly string[];
   providerCapabilityReady: boolean;
+  capabilityEvidence?: VeraAutomaticContextCapabilityEvidence | null;
   canaryVerifiedAt: string | null;
   canaryExpiresAt: string | null;
+};
+
+/**
+ * Evidence captured by the paid-route canary. The rollout gate deliberately
+ * consumes booleans and timestamps only; it never receives prompts, tool
+ * arguments, provider responses, or source content.
+ */
+export type VeraAutomaticContextCapabilityEvidence = {
+  functionToolsSupported: boolean;
+  toolChoiceSupported: boolean;
+  requireParametersSupported: boolean;
+  serverToolsDisabled: boolean;
+  pluginsDisabled: boolean;
+  singleFunctionCallVerified: boolean;
+  usageReconciled: boolean;
+  costKnown: boolean;
+  privacyZdrVerified: boolean;
+  dataCollectionDenied: boolean;
 };
 
 export type VeraAutomaticContextGate = {
@@ -36,6 +55,7 @@ export type VeraAutomaticContextGate = {
     | "development"
     | "emergency_off"
     | "provider_capability_unready"
+    | "capability_evidence_unready"
     | "canary_unavailable"
     | "internal_allowlist"
     | "cohort"
@@ -61,8 +81,11 @@ export type VeraAutomaticTelemetryEvent = {
   totalLatencyMs: number | null;
   firstTokenLatencyMs: number | null;
   citationValidationFailures: number;
+  schemaValidationFailures: number;
+  sourceAuthorizationFailures: number;
   replayCount: number;
   unknownUsage: boolean;
+  unknownCost: boolean;
   chargedUsdMicros: string | null;
   queryDigest: string | null;
   resultDigest: string | null;
@@ -74,6 +97,7 @@ export type VeraAutomaticTelemetryAggregate = {
   completedCount: number;
   noMatchCount: number;
   unavailableCount: number;
+  schemaInvalidCount: number;
   failedCount: number;
   sourceCount: number;
   sourceKindCounts: { materi: number; kuis: number; tryout: number };
@@ -82,16 +106,21 @@ export type VeraAutomaticTelemetryAggregate = {
   finalLatencyP95Ms: number | null;
   totalLatencyP95Ms: number | null;
   citationValidationFailures: number;
+  sourceAuthorizationFailures: number;
   replayCount: number;
   unknownUsageCount: number;
+  unknownCostCount: number;
   chargedUsdMicros: string;
   policyVersions: string[];
 };
 
 export type VeraAutomaticContextAlertCode =
   | "provider_capability_drift"
+  | "tool_schema_failure"
   | "canary_expired"
   | "unknown_usage"
+  | "unknown_cost"
+  | "source_authorization"
   | "citation_validation"
   | "latency_budget"
   | "spend_exposure";
@@ -105,6 +134,19 @@ export type VeraAutomaticContextAlert = {
 const BASIS_POINT_LIMIT = 10_000;
 const MIN_REPORT_GROUP_SIZE = 5;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
+
+const REQUIRED_CAPABILITY_EVIDENCE: readonly (keyof VeraAutomaticContextCapabilityEvidence)[] = [
+  "functionToolsSupported",
+  "toolChoiceSupported",
+  "requireParametersSupported",
+  "serverToolsDisabled",
+  "pluginsDisabled",
+  "singleFunctionCallVerified",
+  "usageReconciled",
+  "costKnown",
+  "privacyZdrVerified",
+  "dataCollectionDenied",
+];
 
 function boundedNonNegativeInteger(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : fallback;
@@ -126,6 +168,24 @@ function rolloutState(value: unknown): VeraAutomaticRolloutState {
     : "off";
 }
 
+function envBoolean(env: NodeJS.ProcessEnv, name: string): boolean {
+  return env[name] === "true";
+}
+
+function readEmergencyOff(env: NodeJS.ProcessEnv): boolean {
+  const value = env.VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF?.trim().toLowerCase() ?? "";
+  if (value === "" || value === "false" || value === "0") return false;
+  // Any non-empty value other than an explicit false is an emergency stop.
+  return true;
+}
+
+export function veraAutomaticContextCapabilityEvidenceReady(
+  evidence: VeraAutomaticContextCapabilityEvidence | null | undefined,
+): boolean {
+  if (!evidence) return false;
+  return REQUIRED_CAPABILITY_EVIDENCE.every((key) => evidence[key] === true);
+}
+
 export function readVeraAutomaticContextRolloutConfig(env: NodeJS.ProcessEnv = process.env): VeraAutomaticContextRolloutConfig {
   const configuredBasisPoints = Number(env.VERA_AUTOMATIC_CONTEXT_ROLLOUT_BASIS_POINTS ?? 0);
   const rolloutBasisPoints = Number.isSafeInteger(configuredBasisPoints)
@@ -136,13 +196,26 @@ export function readVeraAutomaticContextRolloutConfig(env: NodeJS.ProcessEnv = p
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const capabilityEvidence: VeraAutomaticContextCapabilityEvidence = {
+    functionToolsSupported: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_FUNCTION_TOOLS_SUPPORTED"),
+    toolChoiceSupported: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_TOOL_CHOICE_SUPPORTED"),
+    requireParametersSupported: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_REQUIRE_PARAMETERS_SUPPORTED"),
+    serverToolsDisabled: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_SERVER_TOOLS_DISABLED"),
+    pluginsDisabled: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_PLUGINS_DISABLED"),
+    singleFunctionCallVerified: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_SINGLE_FUNCTION_CALL_VERIFIED"),
+    usageReconciled: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_USAGE_RECONCILED"),
+    costKnown: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_COST_KNOWN"),
+    privacyZdrVerified: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_PRIVACY_ZDR_VERIFIED"),
+    dataCollectionDenied: envBoolean(env, "VERA_AUTOMATIC_CONTEXT_DATA_COLLECTION_DENIED"),
+  };
   return {
     state: rolloutState(env.VERA_AUTOMATIC_CONTEXT_STATE),
     rolloutBasisPoints,
     policyVersion,
-    emergencyOff: env.VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF === "true",
+    emergencyOff: readEmergencyOff(env),
     internalStudentIds,
     providerCapabilityReady: env.VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY === "true",
+    capabilityEvidence,
     canaryVerifiedAt: parseTimestamp(env.VERA_AUTOMATIC_CONTEXT_CANARY_VERIFIED_AT),
     canaryExpiresAt: parseTimestamp(env.VERA_AUTOMATIC_CONTEXT_CANARY_EXPIRES_AT),
   };
@@ -171,6 +244,9 @@ export function evaluateVeraAutomaticContextGate(input: {
   if (config.emergencyOff) return off("emergency_off");
   if (config.state === "off") return off("disabled");
   if (!config.providerCapabilityReady) return off("provider_capability_unready");
+  if (!veraAutomaticContextCapabilityEvidenceReady(config.capabilityEvidence)) {
+    return off("capability_evidence_unready");
+  }
   const now = input.now ?? new Date();
   const canaryExpiry = config.canaryExpiresAt ? new Date(config.canaryExpiresAt) : null;
   const canaryVerified = config.canaryVerifiedAt ? new Date(config.canaryVerifiedAt) : null;
@@ -204,6 +280,9 @@ export function createVeraAutomaticTelemetryEvent(input: Partial<VeraAutomaticTe
     kuis: boundedNonNegativeInteger(input.sourceKindCounts?.kuis),
     tryout: boundedNonNegativeInteger(input.sourceKindCounts?.tryout),
   };
+  const chargedUsdMicros = typeof input.chargedUsdMicros === "string" && /^\d{1,24}$/u.test(input.chargedUsdMicros)
+    ? input.chargedUsdMicros
+    : null;
   return {
     policyVersion: input.policyVersion.slice(0, 120),
     gateState: rolloutState(input.gateState),
@@ -216,9 +295,12 @@ export function createVeraAutomaticTelemetryEvent(input: Partial<VeraAutomaticTe
     totalLatencyMs: input.totalLatencyMs == null ? null : boundedNonNegativeInteger(input.totalLatencyMs),
     firstTokenLatencyMs: input.firstTokenLatencyMs == null ? null : boundedNonNegativeInteger(input.firstTokenLatencyMs),
     citationValidationFailures: boundedNonNegativeInteger(input.citationValidationFailures),
+    schemaValidationFailures: boundedNonNegativeInteger(input.schemaValidationFailures),
+    sourceAuthorizationFailures: boundedNonNegativeInteger(input.sourceAuthorizationFailures),
     replayCount: boundedNonNegativeInteger(input.replayCount),
     unknownUsage: input.unknownUsage === true,
-    chargedUsdMicros: typeof input.chargedUsdMicros === "string" && /^\d{1,24}$/u.test(input.chargedUsdMicros) ? input.chargedUsdMicros : null,
+    unknownCost: input.unknownCost === true || chargedUsdMicros === null,
+    chargedUsdMicros,
     queryDigest: boundedDigest(input.queryDigest),
     resultDigest: boundedDigest(input.resultDigest),
   };
@@ -234,6 +316,7 @@ export function aggregateVeraAutomaticTelemetry(events: readonly VeraAutomaticTe
     completedCount: safeEvents.filter((event) => event.outcome === "completed").length,
     noMatchCount: safeEvents.filter((event) => event.outcome === "no_match").length,
     unavailableCount: safeEvents.filter((event) => event.outcome === "unavailable").length,
+    schemaInvalidCount: safeEvents.filter((event) => event.outcome === "schema_invalid" || event.schemaValidationFailures > 0).length,
     failedCount: safeEvents.filter((event) => event.outcome === "failed" || event.outcome === "schema_invalid").length,
     sourceCount: sum((event) => event.sourceCount),
     sourceKindCounts: {
@@ -246,8 +329,10 @@ export function aggregateVeraAutomaticTelemetry(events: readonly VeraAutomaticTe
     finalLatencyP95Ms: percentile(safeEvents.flatMap((event) => event.finalLatencyMs == null ? [] : [event.finalLatencyMs]), 95),
     totalLatencyP95Ms: percentile(safeEvents.flatMap((event) => event.totalLatencyMs == null ? [] : [event.totalLatencyMs]), 95),
     citationValidationFailures: sum((event) => event.citationValidationFailures),
+    sourceAuthorizationFailures: sum((event) => event.sourceAuthorizationFailures),
     replayCount: sum((event) => event.replayCount),
     unknownUsageCount: safeEvents.filter((event) => event.unknownUsage).length,
+    unknownCostCount: safeEvents.filter((event) => event.unknownCost).length,
     chargedUsdMicros,
     policyVersions: [...new Set(safeEvents.map((event) => event.policyVersion))].sort(),
   };
@@ -258,17 +343,31 @@ export function evaluateVeraAutomaticContextAlerts(input: {
   canaryExpiresAt: string | null;
   now?: Date;
   aggregate: VeraAutomaticTelemetryAggregate;
+  capabilityEvidence?: VeraAutomaticContextCapabilityEvidence | null;
+  selectorLatencyBudgetMs?: number;
+  registryLatencyBudgetMs?: number;
+  finalLatencyBudgetMs?: number;
   totalLatencyBudgetMs?: number;
   spendLimitUsdMicros?: bigint;
 }): VeraAutomaticContextAlert[] {
   const now = input.now ?? new Date();
   const alerts: VeraAutomaticContextAlert[] = [];
   if (!input.providerCapabilityReady) alerts.push({ code: "provider_capability_drift", severity: "critical", failClosed: true });
+  if (!veraAutomaticContextCapabilityEvidenceReady(input.capabilityEvidence)) {
+    alerts.push({ code: "provider_capability_drift", severity: "critical", failClosed: true });
+  }
   const expiry = input.canaryExpiresAt ? new Date(input.canaryExpiresAt) : null;
   if (!expiry || Number.isNaN(expiry.getTime()) || expiry <= now) alerts.push({ code: "canary_expired", severity: "critical", failClosed: true });
+  if (input.aggregate.schemaInvalidCount > 0) alerts.push({ code: "tool_schema_failure", severity: "critical", failClosed: true });
   if (input.aggregate.unknownUsageCount > 0) alerts.push({ code: "unknown_usage", severity: "critical", failClosed: true });
+  if (input.aggregate.unknownCostCount > 0) alerts.push({ code: "unknown_cost", severity: "critical", failClosed: true });
+  if (input.aggregate.sourceAuthorizationFailures > 0) alerts.push({ code: "source_authorization", severity: "critical", failClosed: true });
   if (input.aggregate.citationValidationFailures > 0) alerts.push({ code: "citation_validation", severity: "critical", failClosed: true });
-  if ((input.aggregate.totalLatencyP95Ms ?? 0) > (input.totalLatencyBudgetMs ?? 110_000)) alerts.push({ code: "latency_budget", severity: "warning", failClosed: false });
+  const latencyBreached = (input.aggregate.selectorLatencyP95Ms ?? 0) > (input.selectorLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.selectorTimeoutMs)
+    || (input.aggregate.registryLatencyP95Ms ?? 0) > (input.registryLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.registryTimeoutMs)
+    || (input.aggregate.finalLatencyP95Ms ?? 0) > (input.finalLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.finalProviderTimeoutMs)
+    || (input.aggregate.totalLatencyP95Ms ?? 0) > (input.totalLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.logicalDeadlineMs);
+  if (latencyBreached) alerts.push({ code: "latency_budget", severity: "warning", failClosed: false });
   if (input.spendLimitUsdMicros !== undefined && BigInt(input.aggregate.chargedUsdMicros) > input.spendLimitUsdMicros) alerts.push({ code: "spend_exposure", severity: "critical", failClosed: true });
   return alerts;
 }

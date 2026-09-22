@@ -23,6 +23,18 @@ const base = {
   emergencyOff: false,
   internalStudentIds: [],
   providerCapabilityReady: true,
+  capabilityEvidence: {
+    functionToolsSupported: true,
+    toolChoiceSupported: true,
+    requireParametersSupported: true,
+    serverToolsDisabled: true,
+    pluginsDisabled: true,
+    singleFunctionCallVerified: true,
+    usageReconciled: true,
+    costKnown: true,
+    privacyZdrVerified: true,
+    dataCollectionDenied: true,
+  },
   ...canary,
 };
 
@@ -30,6 +42,11 @@ assert.equal(stableVeraAutomaticContextBasisPoints("student-1", "vera-auto-v1"),
 assert.equal(evaluateVeraAutomaticContextGate({ studentId: "student-1", config: base, now: new Date("2026-09-23T00:00:00.000Z") }).enabled, true);
 assert.equal(evaluateVeraAutomaticContextGate({ studentId: "student-1", config: { ...base, emergencyOff: true }, now: new Date("2026-09-23T00:00:00.000Z") }).reason, "emergency_off");
 assert.equal(evaluateVeraAutomaticContextGate({ studentId: "student-1", config: { ...base, providerCapabilityReady: false }, now: new Date("2026-09-23T00:00:00.000Z") }).reason, "provider_capability_unready");
+assert.equal(evaluateVeraAutomaticContextGate({
+  studentId: "student-1",
+  config: { ...base, capabilityEvidence: { ...base.capabilityEvidence!, costKnown: false } },
+  now: new Date("2026-09-23T00:00:00.000Z"),
+}).reason, "capability_evidence_unready");
 assert.equal(evaluateVeraAutomaticContextGate({ studentId: "student-1", config: base, isDevelopment: true }).reason, "development");
 assert.equal(evaluateVeraAutomaticContextGate({ studentId: "student-1", config: { ...base, canaryExpiresAt: "2026-09-22T00:00:00.000Z" }, now: new Date("2026-09-23T00:00:00.000Z") }).reason, "canary_unavailable");
 
@@ -64,6 +81,21 @@ const alerts = evaluateVeraAutomaticContextAlerts({
   spendLimitUsdMicros: 5000n,
 });
 assert.equal(automaticContextMustFailClosed(alerts), true);
+const unknownCostAggregate = aggregateVeraAutomaticTelemetry([
+  ...events.slice(0, 4),
+  createVeraAutomaticTelemetryEvent({ policyVersion: "vera-auto-v1", gateState: "cohort", outcome: "completed", chargedUsdMicros: null }),
+]);
+assert.equal(unknownCostAggregate.unknownCostCount, 1);
+const unknownCostAlerts = evaluateVeraAutomaticContextAlerts({
+  providerCapabilityReady: true,
+  capabilityEvidence: base.capabilityEvidence,
+  canaryExpiresAt: canary.canaryExpiresAt,
+  now: new Date("2026-09-23T00:00:00.000Z"),
+  aggregate: unknownCostAggregate,
+});
+assert.equal(unknownCostAlerts.some((alert) => alert.code === "unknown_cost" && alert.failClosed), true);
+assert.equal(automaticContextMustFailClosed(unknownCostAlerts), true);
+assert.equal(readVeraAutomaticContextRolloutConfig({ VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF: "unexpected" }).emergencyOff, true);
 assert.deepEqual(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "production", VERA_AUTOMATIC_CONTEXT_STATE: "bad", VERA_AUTOMATIC_CONTEXT_ROLLOUT_BASIS_POINTS: "12000" }), {
   state: "off",
   rolloutBasisPoints: 10000,
@@ -71,6 +103,18 @@ assert.deepEqual(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "production",
   emergencyOff: false,
   internalStudentIds: [],
   providerCapabilityReady: false,
+  capabilityEvidence: {
+    functionToolsSupported: false,
+    toolChoiceSupported: false,
+    requireParametersSupported: false,
+    serverToolsDisabled: false,
+    pluginsDisabled: false,
+    singleFunctionCallVerified: false,
+    usageReconciled: false,
+    costKnown: false,
+    privacyZdrVerified: false,
+    dataCollectionDenied: false,
+  },
   canaryVerifiedAt: null,
   canaryExpiresAt: null,
 });
