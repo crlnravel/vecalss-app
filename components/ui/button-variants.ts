@@ -25,7 +25,7 @@ const buttonVariants = cva(
         learningAttention:
           "rounded-xl border-voyage-warm-sun bg-voyage-warm-sun text-voyage-warm-sun-ink shadow-[0_4px_0_var(--warning-300)] hover:bg-voyage-warm-sun/85 focus-visible:border-voyage-warm-sun focus-visible:ring-voyage-warm-sun/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
         brandOutline:
-          "border-voyage-soft-border bg-voyage-surface text-voyage-ink hover:border-voyage-sea-glass hover:bg-voyage-sea-glass-wash focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/35",
+          "border-voyage-soft-border bg-voyage-surface text-voyage-ink shadow-[0_4px_0_var(--voyage-sea-glass),0_14px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] hover:-translate-y-0.5 hover:border-voyage-sea-glass hover:bg-voyage-sea-glass-wash hover:shadow-[0_6px_0_var(--voyage-sea-glass),0_18px_34px_-22px_color-mix(in_oklab,var(--voyage-deep)_54%,transparent)] focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/35 motion-safe:active:translate-y-px motion-safe:active:shadow-none motion-reduce:transform-none",
         reference:
           "border-primary-100 bg-voyage-surface text-voyage-ink shadow-[0_14px_30px_-24px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent),inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_85%,transparent)] hover:border-primary-200 hover:bg-voyage-surface hover:shadow-[0_20px_40px_-26px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent),inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_85%,transparent)] focus-visible:border-primary-500 focus-visible:ring-primary-700/20",
         context:
