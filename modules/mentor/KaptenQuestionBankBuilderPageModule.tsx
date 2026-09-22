@@ -1968,41 +1968,42 @@ function QuestionBankEditorTitle({
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
-      <Button
-        nativeButton={false}
-        render={
-          <Link
-            href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
-          />
-        }
-        aria-label={`Kembali ke ${navigationLabel}`}
-        size="icon-sm"
-        title={`Kembali ke ${navigationLabel}`}
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-      <div className="mt-5 flex flex-col gap-x-3 gap-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Button
+          className="mt-0.5 shrink-0"
+          nativeButton={false}
+          render={
+            <Link
+              href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
+            />
+          }
+          aria-label={`Kembali ke ${navigationLabel}`}
+          size="icon-sm"
+          title={`Kembali ke ${navigationLabel}`}
+          variant="ghost"
+        >
+          <ChevronLeft />
+        </Button>
+        <div className="min-w-0">
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
             {title}
           </h1>
+          {state.readiness.incompleteCount > 0 ? (
+            <Button
+              aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
+              className="mt-2 w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+              onClick={onFocusIssue}
+              type="button"
+              variant="ghost"
+            >
+              <AlertTriangle data-icon="inline-start" />
+              Lihat masalah{" "}
+              <span className="font-normal">
+                ({state.readiness.incompleteCount})
+              </span>
+            </Button>
+          ) : null}
         </div>
-        {state.readiness.incompleteCount > 0 ? (
-          <Button
-            aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
-            className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
-            onClick={onFocusIssue}
-            type="button"
-            variant="ghost"
-          >
-            <AlertTriangle data-icon="inline-start" />
-            Lihat masalah{" "}
-            <span className="font-normal">
-              ({state.readiness.incompleteCount})
-            </span>
-          </Button>
-        ) : null}
       </div>
     </div>
   );

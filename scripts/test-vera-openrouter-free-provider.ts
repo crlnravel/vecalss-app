@@ -162,6 +162,19 @@ await runChecks("vera-openrouter-free-provider", [
       assert(poc instanceof VeraOpenRouterFreePocProviderAdapter && poc.enabled, "explicit POC gate did not select the bridge");
       assert(veraProviderAvailable(baseEnvironment), "usage availability did not expose an enabled POC");
 
+      const developmentPaidFlag = selectVeraChatProvider({ ...baseEnvironment, NODE_ENV: "development", VERA_LIVE_PROVIDER_ENABLED: "true" });
+      assert(developmentPaidFlag instanceof VeraOpenRouterFreePocProviderAdapter, "development selected a paid provider while the free POC gate was enabled");
+
+      const developmentWithoutPoc = selectVeraChatProvider({
+        ...baseEnvironment,
+        NODE_ENV: "development",
+        VERA_POC_OPENROUTER: "false",
+        VERA_LIVE_PROVIDER_ENABLED: "true",
+        VERA_MOCK_PROVIDER_ENABLED: "false",
+      });
+      assert(developmentWithoutPoc instanceof MockProviderAdapter, "development fell through to the paid provider when the free POC gate was closed");
+      assert(!veraProviderAvailable({ ...baseEnvironment, NODE_ENV: "development", VERA_POC_OPENROUTER: "false", VERA_LIVE_PROVIDER_ENABLED: "true" }), "development reported the paid provider as available when the free POC gate was closed");
+
       const mockEnvironment = { ...baseEnvironment, VERA_POC_OPENROUTER: "false", VERA_MOCK_PROVIDER_ENABLED: "true" };
       const mock = selectVeraChatProvider(mockEnvironment);
       assert(mock instanceof MockProviderAdapter && mock.enabled, "mock fallback was not preserved when POC opt-in was closed");

@@ -14,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import {
   ArrowUpRight,
+  Archive,
   BookOpen,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
@@ -122,6 +123,7 @@ type VeraBackendConversation = {
   id: string;
   conversationType: string;
   title: string | null;
+  archivedAt: string | null;
   version: number;
   contextVersion: number;
   createdAt: string;
@@ -359,7 +361,7 @@ const veraErrorLabels: Record<string, string> = {
   artifact_commit_unavailable:
     "Hasil Vera belum dapat disimpan. Coba lagi sebentar.",
   cancelled: "Permintaan dibatalkan.",
-  context_limit_reached: "Maksimal 6 sumber dapat dipakai dalam satu sesi.",
+  context_limit_reached: "Maksimal 4 sumber dapat dipakai dalam satu sesi.",
   context_release_unavailable: "Sumber ini sudah tidak tersedia untuk dipakai.",
   context_version_conflict:
     "Konteks berubah di perangkat lain. Pilihan terbaru sudah dimuat.",
@@ -410,7 +412,8 @@ function veraErrorMessage(error: unknown) {
 function mapBackendConversation(conversation: VeraBackendConversation): StudySession {
   return {
     id: conversation.id,
-    title: conversation.title ?? "Sesi belajar baru",
+    title: conversation.title ?? "Sesi baru",
+    archivedAt: conversation.archivedAt ?? null,
     updatedAt: relativeTime(conversation.updatedAt),
     sourceIds: [],
     generatedTools: [],
@@ -466,6 +469,7 @@ type VeraMessage = {
 type StudySession = {
   id: string;
   title: string;
+  archivedAt: string | null;
   updatedAt: string;
   sourceIds: string[];
   generatedTools: VeraToolId[];
@@ -496,7 +500,8 @@ const contextTypeIcons: Record<VeraContextTypeId, AppIcon> = {
 
 const emptyStudySession: StudySession = {
   id: "",
-  title: "Sesi belajar baru",
+  title: "Sesi baru",
+  archivedAt: null,
   updatedAt: "",
   sourceIds: [],
   generatedTools: [],
@@ -604,7 +609,10 @@ type VeraAiWorkspaceProps = {
   onOpenArtifact: (toolId: VeraToolId) => void;
   onRetry: () => void;
   onRemoveContexts: (sourceIds: string[]) => void;
-  onRenameSession: (title: string) => void;
+  onArchiveSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onRenameSession: (sessionId: string, title: string) => void;
+  onRestoreSession: (sessionId: string) => void;
   onSaveContext: (nextSourceIds: string[], addedSources?: VeraContextSource[]) => void;
   onSend: () => void;
   onSelectSession: (sessionId: string) => void;
@@ -649,7 +657,10 @@ function VeraAiWorkspace({
   onOpenArtifact,
   onRetry,
   onRemoveContexts,
+  onArchiveSession,
+  onDeleteSession,
   onRenameSession,
+  onRestoreSession,
   onSaveContext,
   onSend,
   onSelectSession,
@@ -694,7 +705,11 @@ function VeraAiWorkspace({
                 <SessionSidebar
                   activeSessionId={activeSession.id}
                   collapsed={sessionSidebarCollapsed}
+                  onArchiveSession={onArchiveSession}
+                  onDeleteSession={onDeleteSession}
                   onNewSession={onNewSession}
+                  onRenameSession={onRenameSession}
+                  onRestoreSession={onRestoreSession}
                   onSetCollapsed={onSessionSidebarCollapsedChange}
                   onSelectSession={onSelectSession}
                   sessions={sessions}
@@ -723,7 +738,6 @@ function VeraAiWorkspace({
                       draft={draft}
                       onDraftChange={onDraftChange}
                       onCancel={onCancelRequest}
-                      onRenameSession={onRenameSession}
                       onSend={onSend}
                       provisionalText={provisionalText}
                     />
@@ -773,16 +787,20 @@ function VeraAiWorkspace({
             showCloseButton={false}
           >
             <DialogHeader className="sr-only">
-              <DialogTitle>Sesi belajar</DialogTitle>
+              <DialogTitle>Sesi</DialogTitle>
               <DialogDescription>
-                Pilih riwayat sesi atau buat sesi belajar baru.
+                Pilih sesi atau buat sesi baru.
               </DialogDescription>
             </DialogHeader>
             <SessionPanel
               activeSessionId={activeSession.id}
               className="flex min-h-0 flex-1"
+              onArchiveSession={onArchiveSession}
+              onDeleteSession={onDeleteSession}
               onCollapse={() => setMobileSessionOpen(false)}
               onNewSession={onNewSession}
+              onRenameSession={onRenameSession}
+              onRestoreSession={onRestoreSession}
               onSelectSession={(sessionId) => {
                 onSelectSession(sessionId);
                 setMobileSessionOpen(false);
@@ -939,7 +957,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         requestJson<{
           conversations: VeraBackendConversation[];
           defaultConversationId: string | null;
-        }>("/api/vera-ai/conversations?limit=50"),
+        }>("/api/vera-ai/conversations?limit=50&includeArchived=true"),
         requestJson<{ sources: VeraBackendSource[] }>(
           "/api/vera-ai/sources?limit=50",
         ),
@@ -1058,10 +1076,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     void createBackendConversation();
   }
 
-  function handleRenameSession(nextTitle: string) {
+  function handleRenameSession(sessionId: string, nextTitle: string) {
+    const sessionToRename = sessions.find((item) => item.id === sessionId);
     const title = nextTitle.trim();
 
-    if (!title || title === activeSession.title) {
+    if (!sessionToRename || !title || title === sessionToRename.title) {
       return;
     }
 
@@ -1069,7 +1088,12 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       return;
     }
 
-    void renameBackendConversation(title);
+    if (sessionId === activeSession.id) {
+      void renameBackendConversation(title);
+      return;
+    }
+
+    void renameBackendConversationForSession(sessionToRename, title);
   }
 
   function handleSaveContext(
@@ -1173,7 +1197,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         body: JSON.stringify({
           clientRequestId: crypto.randomUUID(),
           conversationType: "vera_chat",
-          title: "Sesi belajar baru",
+          title: "Sesi baru",
         }),
       });
       setSessions((current) => [
@@ -1194,20 +1218,16 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     }
   }
 
-  async function renameBackendConversation(title: string) {
-    if (!activeSession.id) {
-      return;
-    }
-
+  async function renameBackendConversationForSession(sessionToRename: StudySession, title: string) {
     try {
       setError(null);
       const updated = await requestJson<VeraBackendConversation>(
-        `/api/vera-ai/conversations/${activeSession.id}`,
+        `/api/vera-ai/conversations/${sessionToRename.id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
             title,
-            expectedVersion: activeSession.version ?? 0,
+            expectedVersion: sessionToRename.version ?? 0,
           }),
         },
       );
@@ -1249,6 +1269,123 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         );
       }
 
+      setError(veraErrorMessage(caught));
+    }
+  }
+
+  async function renameBackendConversation(title: string) {
+    if (!activeSession.id) return;
+    await renameBackendConversationForSession(activeSession, title);
+  }
+
+  function clearActiveSessionState() {
+    setActiveSessionId("");
+    setActiveArtifactId(null);
+    setActiveArtifactDetail(null);
+    setBackendContext(null);
+    setBackendArtifacts([]);
+    setDraft("");
+    setLastFailed(null);
+    setProvisionalText(null);
+    setError(null);
+  }
+
+  function selectNextActiveSession(nextSessions: StudySession[]) {
+    const next = nextSessions.find((item) => item.archivedAt === null);
+    if (next) {
+      handleSelectSession(next.id);
+    } else {
+      clearActiveSessionState();
+    }
+  }
+
+  async function archiveBackendConversation(sessionId: string) {
+    if (busy) return;
+    const target = sessions.find((item) => item.id === sessionId);
+    if (!target || target.archivedAt !== null) return;
+
+    try {
+      setError(null);
+      const updated = await requestJson<VeraBackendConversation>(
+        `/api/vera-ai/conversations/${sessionId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            archived: true,
+            expectedVersion: target.version ?? 0,
+          }),
+        },
+      );
+      const nextSessions = sessions.map((item) =>
+        item.id === updated.id
+          ? {
+              ...mapBackendConversation(updated),
+              sourceIds: item.sourceIds,
+              generatedTools: item.generatedTools,
+              messages: item.messages,
+            }
+          : item,
+      );
+      setSessions(nextSessions);
+      if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
+      setNotice("Sesi diarsipkan.");
+    } catch (caught) {
+      setError(veraErrorMessage(caught));
+    }
+  }
+
+  async function restoreBackendConversation(sessionId: string) {
+    const target = sessions.find((item) => item.id === sessionId);
+    if (!target || target.archivedAt === null) return;
+
+    try {
+      setError(null);
+      const updated = await requestJson<VeraBackendConversation>(
+        `/api/vera-ai/conversations/${sessionId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            archived: false,
+            expectedVersion: target.version ?? 0,
+          }),
+        },
+      );
+      setSessions((current) => current.map((item) =>
+        item.id === updated.id
+          ? {
+              ...mapBackendConversation(updated),
+              sourceIds: item.sourceIds,
+              generatedTools: item.generatedTools,
+              messages: item.messages,
+            }
+          : item,
+      ));
+      setNotice("Sesi dipulihkan.");
+    } catch (caught) {
+      setError(veraErrorMessage(caught));
+    }
+  }
+
+  async function deleteBackendConversation(sessionId: string) {
+    if (busy) return;
+    const target = sessions.find((item) => item.id === sessionId);
+    if (!target) return;
+
+    try {
+      setError(null);
+      await requestJson<{ operationId: string }>(
+        `/api/vera-ai/conversations/${sessionId}`,
+        {
+          method: "DELETE",
+          headers: { "Idempotency-Key": crypto.randomUUID() },
+          body: JSON.stringify({ expectedVersion: target.version ?? 0 }),
+        },
+      );
+      const nextSessions = sessions.filter((item) => item.id !== sessionId);
+      setSessions(nextSessions);
+      if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
+      setNotice("Sesi dihapus.");
+    } catch (caught) {
       setError(veraErrorMessage(caught));
     }
   }
@@ -1369,7 +1506,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     const conversationId = activeSession.id;
 
     if (!conversationId) {
-      setError("Buat sesi belajar baru sebelum mengirim permintaan.");
+      setError("Buat sesi baru sebelum mengirim permintaan.");
       return;
     }
 
@@ -1687,8 +1824,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     onNewSession: handleNewSession,
     onOpenAddContext: () => setContextDialogOpen(true),
     onOpenArtifact: handleOpenArtifact,
+    onArchiveSession: archiveBackendConversation,
+    onDeleteSession: deleteBackendConversation,
     onRemoveContexts: handleRemoveContexts,
     onRenameSession: handleRenameSession,
+    onRestoreSession: restoreBackendConversation,
     onRetry: handleRetry,
     onSaveContext: handleSaveContext,
     onSelectSession: handleSelectSession,
@@ -1859,11 +1999,11 @@ function VeraTopBar({
 
       <div className="ml-auto flex items-center gap-2">
         <Button
-          aria-label="Buka sesi belajar"
+          aria-label="Buka sesi"
           className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm md:hidden"
           onClick={onOpenSessionSidebar}
           size="icon"
-          title="Sesi belajar"
+          title="Sesi"
           type="button"
           variant="ghost"
         >
@@ -2117,14 +2257,22 @@ function WorkspaceTabs({
 function SessionSidebar({
   activeSessionId,
   collapsed,
+  onArchiveSession,
+  onDeleteSession,
   onNewSession,
+  onRenameSession,
+  onRestoreSession,
   onSelectSession,
   onSetCollapsed,
   sessions,
 }: {
   activeSessionId: string;
   collapsed: boolean;
+  onArchiveSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   onNewSession: () => void;
+  onRenameSession: (sessionId: string, title: string) => void;
+  onRestoreSession: (sessionId: string) => void;
   onSelectSession: (sessionId: string) => void;
   onSetCollapsed: (collapsed: boolean) => void;
   sessions: StudySession[];
@@ -2134,8 +2282,12 @@ function SessionSidebar({
       <SessionPanel
         activeSessionId={activeSessionId}
         className="flex"
+        onArchiveSession={onArchiveSession}
+        onDeleteSession={onDeleteSession}
         onCollapse={() => onSetCollapsed(true)}
         onNewSession={onNewSession}
+        onRenameSession={onRenameSession}
+        onRestoreSession={onRestoreSession}
         onSelectSession={onSelectSession}
         sessions={sessions}
       />
@@ -2159,7 +2311,7 @@ function SessionSidebar({
 
       <div className="mt-7 flex flex-col items-center gap-2">
         <Button
-          aria-label="Buat sesi belajar baru"
+          aria-label="Buat sesi baru"
           className="rounded-xl"
           onClick={onNewSession}
           size="icon"
@@ -2186,85 +2338,251 @@ function SessionSidebar({
 function SessionPanel({
   activeSessionId,
   className,
+  onArchiveSession,
+  onDeleteSession,
   onCollapse,
   onNewSession,
+  onRenameSession,
+  onRestoreSession,
   onSelectSession,
   sessions,
 }: {
   activeSessionId: string;
   className?: string;
+  onArchiveSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   onCollapse?: () => void;
   onNewSession: () => void;
+  onRenameSession: (sessionId: string, title: string) => void;
+  onRestoreSession: (sessionId: string) => void;
   onSelectSession: (sessionId: string) => void;
   sessions: StudySession[];
 }) {
+  const [showArchived, setShowArchived] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [pendingAction, setPendingAction] = useState<{
+    kind: "archive" | "delete";
+    session: StudySession;
+  } | null>(null);
+  const visibleSessions = sessions.filter((item) =>
+    showArchived ? item.archivedAt !== null : item.archivedAt === null,
+  );
+
+  function beginRename(item: StudySession) {
+    setEditingSessionId(item.id);
+    setDraftTitle(item.title);
+  }
+
+  function finishRename(item: StudySession) {
+    const title = draftTitle.trim();
+    if (title && title !== item.title) onRenameSession(item.id, title);
+    setEditingSessionId(null);
+  }
+
   return (
-    <WorkspacePanel className={className}>
-      <PanelHeader
-        action={
-          <div className="flex items-center gap-1">
-            <Button
-              aria-label="Buat sesi belajar baru"
-              className="rounded-full"
-              onClick={onNewSession}
-              size="icon"
-              variant="ghost"
-            >
-              <Plus />
-            </Button>
-            {onCollapse ? (
+    <>
+      <WorkspacePanel className={className}>
+        <PanelHeader
+          action={
+            <div className="flex items-center gap-1">
               <Button
-                aria-label="Minimalkan sidebar sesi"
-                className="rounded-full"
-                onClick={onCollapse}
+                aria-label={showArchived ? "Tampilkan sesi aktif" : "Buka arsip sesi"}
+                className={cn("rounded-full", showArchived && "bg-primary-50")}
+                onClick={() => {
+                  setShowArchived((current) => !current);
+                  setEditingSessionId(null);
+                }}
                 size="icon"
+                title={showArchived ? "Sesi aktif" : "Arsip sesi"}
                 variant="ghost"
               >
-                <PanelLeftClose />
+                <Archive />
               </Button>
-            ) : null}
-          </div>
-        }
-        title="Sesi Belajar"
-      />
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
-        <div className="flex flex-col gap-1.5">
-          {sessions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
-              Belum ada sesi belajar. Buat sesi baru untuk mulai berbicara
-              dengan Vera.
+              {!showArchived ? (
+                <Button
+                  aria-label="Buat sesi baru"
+                  className="rounded-full"
+                  onClick={onNewSession}
+                  size="icon"
+                  title="Sesi baru"
+                  variant="ghost"
+                >
+                  <Plus />
+                </Button>
+              ) : null}
+              {onCollapse ? (
+                <Button
+                  aria-label="Minimalkan sidebar sesi"
+                  className="rounded-full"
+                  onClick={onCollapse}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <PanelLeftClose />
+                </Button>
+              ) : null}
             </div>
-          ) : sessions.map((item) => {
-            const active = item.id === activeSessionId;
+          }
+          title={showArchived ? "Arsip" : "Sesi"}
+        />
 
-            return (
-              <button
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group relative flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
-                  active
-                    ? "border-primary-200 bg-primary-50 text-primary-950"
-                    : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
-                )}
-                key={item.id}
-                onClick={() => onSelectSession(item.id)}
-                type="button"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">
-                    {item.title}
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs text-secondary-400">
-                  {item.updatedAt}
-                </span>
-              </button>
-            );
-          })}
+        <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+          <div className="flex flex-col gap-1.5">
+            {visibleSessions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
+                {showArchived
+                  ? "Belum ada sesi yang diarsipkan."
+                  : "Belum ada sesi. Buat sesi baru untuk mulai berbicara dengan Vera."}
+              </div>
+            ) : visibleSessions.map((item) => {
+              const active = item.id === activeSessionId;
+              const editing = editingSessionId === item.id;
+
+              return (
+                <div
+                  className={cn(
+                    "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
+                    active
+                      ? "border-primary-200 bg-primary-50 text-primary-950"
+                      : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
+                    item.archivedAt !== null && "opacity-75",
+                  )}
+                  key={item.id}
+                >
+                  {editing ? (
+                    <Input
+                      aria-label={`Judul sesi ${item.title}`}
+                      autoFocus
+                      className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
+                      onBlur={() => finishRename(item)}
+                      onChange={(event) => setDraftTitle(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          finishRename(item);
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          setEditingSessionId(null);
+                        }
+                      }}
+                      value={draftTitle}
+                    />
+                  ) : (
+                    <button
+                      aria-current={active ? "page" : undefined}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+                      disabled={item.archivedAt !== null}
+                      onClick={() => onSelectSession(item.id)}
+                      type="button"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">
+                          {item.title}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs text-secondary-400">
+                        {item.updatedAt}
+                      </span>
+                    </button>
+                  )}
+
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    {!showArchived ? (
+                      <>
+                        <Button
+                          aria-label={`Ubah judul sesi ${item.title}`}
+                          className="rounded-full"
+                          onClick={() => beginRename(item)}
+                          size="icon"
+                          title="Ubah judul"
+                          variant="ghost"
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          aria-label={`Arsipkan ${item.title}`}
+                          className="rounded-full"
+                          onClick={() => setPendingAction({ kind: "archive", session: item })}
+                          size="icon"
+                          title="Arsipkan sesi"
+                          variant="ghost"
+                        >
+                          <Archive />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        aria-label={`Pulihkan ${item.title}`}
+                        className="rounded-full"
+                        onClick={() => onRestoreSession(item.id)}
+                        size="icon"
+                        title="Pulihkan sesi"
+                        variant="ghost"
+                      >
+                        <Archive />
+                      </Button>
+                    )}
+                    <Button
+                      aria-label={`Hapus ${item.title}`}
+                      className="rounded-full text-secondary-400 hover:text-destructive"
+                      onClick={() => setPendingAction({ kind: "delete", session: item })}
+                      size="icon"
+                      title="Hapus sesi"
+                      variant="ghost"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </WorkspacePanel>
+      </WorkspacePanel>
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setPendingAction(null);
+        }}
+        open={pendingAction !== null}
+      >
+        <AlertDialogContent size="sm" variant={pendingAction?.kind === "delete" ? "danger" : "default"}>
+          <AlertDialogHeader>
+            <AlertDialogMedia variant={pendingAction?.kind === "delete" ? "danger" : "default"}>
+              {pendingAction?.kind === "delete" ? <Trash2 /> : <Archive />}
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {pendingAction?.kind === "delete" ? "Hapus sesi ini?" : "Arsipkan sesi ini?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.kind === "delete"
+                ? "Sesi akan dihapus dan tidak dapat dipulihkan setelah proses penghapusan selesai."
+                : "Sesi akan dipindahkan ke arsip. Kamu dapat memulihkannya kapan saja."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingAction(null)}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const action = pendingAction;
+                setPendingAction(null);
+                if (!action) return;
+                if (action.kind === "delete") onDeleteSession(action.session.id);
+                else onArchiveSession(action.session.id);
+              }}
+              variant={pendingAction?.kind === "delete" ? "destructive" : "default"}
+            >
+              {pendingAction?.kind === "delete" ? <Trash2 data-icon="inline-start" /> : <Archive data-icon="inline-start" />}
+              {pendingAction?.kind === "delete" ? "Hapus sesi" : "Arsipkan sesi"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -2275,7 +2593,6 @@ function ChatWorkspace({
   draft,
   onDraftChange,
   onCancel,
-  onRenameSession,
   onSend,
   provisionalText,
 }: {
@@ -2285,22 +2602,11 @@ function ChatWorkspace({
   draft: string;
   onDraftChange: (value: string) => void;
   onCancel: () => void;
-  onRenameSession: (title: string) => void;
   onSend: () => void;
   provisionalText: string | null;
 }) {
   return (
     <WorkspacePanel className={className}>
-      <PanelHeader
-        title={
-          <EditableSessionTitle
-            key={activeSession.id}
-            onSave={onRenameSession}
-            title={activeSession.title}
-          />
-        }
-      />
-
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full flex-col gap-7 px-4 py-7 md:px-5 md:py-8">
           {activeSession.messages.map((message) => (
@@ -2516,7 +2822,7 @@ function ContextWorkspace({
               </Button>
             </div>
           }
-          title="Konteks belajar"
+          title="Konteks"
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-primary-50/25">
@@ -2536,7 +2842,7 @@ function ContextWorkspace({
             </div>
 
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-secondary-500">Maks. 6 konteks</p>
+              <p className="text-xs text-secondary-500">Maks. 4 konteks</p>
               {limitReached ? (
                 <p className="text-xs font-medium text-primary-700">
                   Batas aktif tercapai. Nonaktifkan satu untuk mengganti.
@@ -2727,60 +3033,6 @@ function ContextCard({
         />
       </span>
     </article>
-  );
-}
-
-function EditableSessionTitle({
-  onSave,
-  title,
-}: {
-  onSave: (title: string) => void;
-  title: string;
-}) {
-  const [draftTitle, setDraftTitle] = useState(title);
-  const [editing, setEditing] = useState(false);
-
-  function save() {
-    onSave(draftTitle);
-    setEditing(false);
-  }
-
-  if (editing) {
-    return (
-      <span
-        className="flex min-w-0 items-center"
-      >
-        <Input
-          aria-label="Judul sesi belajar"
-          autoFocus
-          className="h-11 min-w-40 px-2 text-sm font-semibold"
-          onBlur={save}
-          onChange={(event) => setDraftTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              save();
-            }
-          }}
-          value={draftTitle}
-        />
-      </span>
-    );
-  }
-
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      <span className="truncate">{title}</span>
-      <Button
-        aria-label={`Ubah judul sesi ${title}`}
-        className="shrink-0 rounded-full"
-        onClick={() => setEditing(true)}
-        size="icon"
-        variant="ghost"
-      >
-        <Pencil />
-      </Button>
-    </span>
   );
 }
 

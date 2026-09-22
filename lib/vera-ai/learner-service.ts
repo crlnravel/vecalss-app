@@ -47,6 +47,7 @@ export type VeraConversationDto = {
   id: string;
   conversationType: AiConversationType;
   title: string | null;
+  archivedAt: string | null;
   version: number;
   contextVersion: number;
   createdAt: string;
@@ -154,6 +155,7 @@ export class VeraLearnerService {
     id: string;
     conversationType: AiConversationType;
     title: string | null;
+    archivedAt: Date | null;
     version: number;
     contextVersion: number;
     createdAt: Date;
@@ -168,6 +170,7 @@ export class VeraLearnerService {
       id: row.id,
       conversationType: row.conversationType,
       title: row.title,
+      archivedAt: row.archivedAt?.toISOString() ?? null,
       version: row.version,
       contextVersion: row.contextVersion,
       createdAt: row.createdAt.toISOString(),
@@ -180,12 +183,13 @@ export class VeraLearnerService {
     };
   }
 
-  async listConversations(input: { studentId: string; limit: number; cursor: string | null }) {
+  async listConversations(input: { studentId: string; limit: number; cursor: string | null; includeArchived?: boolean }) {
     const cursor = this.readCursor(input.cursor, { v: "1", scope: "conversation-list", studentId: input.studentId });
     const rows = await this.db.aiConversation.findMany({
       where: {
         studentId: input.studentId,
         deletionState: "active",
+        ...(input.includeArchived ? {} : { archivedAt: null }),
         ...(cursor ? { OR: [{ updatedAt: { lt: new Date(cursor.createdAt) } }, { updatedAt: new Date(cursor.createdAt), id: { lt: cursor.id } }] } : {}),
       },
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
@@ -197,7 +201,7 @@ export class VeraLearnerService {
     return {
       conversations,
       nextCursor: tail ? this.signCursor({ v: "1", scope: "conversation-list", studentId: input.studentId, createdAt: tail.updatedAt.toISOString(), id: tail.id }) : null,
-      defaultConversationId: conversations[0]?.id ?? null,
+      defaultConversationId: conversations.find((conversation) => conversation.archivedAt === null)?.id ?? null,
     };
   }
 
@@ -301,6 +305,27 @@ export class VeraLearnerService {
     });
   }
 
+  async setConversationArchived(input: { studentId: string; conversationId: string; archived: boolean; expectedVersion: number }) {
+    if (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 0) {
+      throw new VeraLearnerServiceError("invalid_request", 400);
+    }
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${input.conversationId}::uuid FOR UPDATE`;
+      const row = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active" } });
+      if (!row) throw new VeraLearnerServiceError("target_unavailable", 404);
+      if (row.version !== input.expectedVersion) {
+        throw new VeraLearnerServiceError("conversation_version_conflict", 409, { conversation: await this.conversationDto(row) });
+      }
+      const isArchived = row.archivedAt !== null;
+      if (isArchived === input.archived) return this.conversationDto(row);
+      const updated = await tx.aiConversation.update({
+        where: { id: row.id },
+        data: { archivedAt: input.archived ? new Date() : null, version: { increment: 1 } },
+      });
+      return this.conversationDto(updated);
+    });
+  }
+
   async listMessages(input: { studentId: string; conversationId: string; limit: number; cursor: string | null }) {
     await this.getOwnedConversationId(input.studentId, input.conversationId);
     const cursor = this.readCursor(input.cursor, { v: "1", scope: "message-list", studentId: input.studentId, conversationId: input.conversationId });
@@ -354,7 +379,7 @@ export class VeraLearnerService {
       const now = nowRows[0]?.now;
       if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new VeraLearnerServiceError("vera_unavailable", 503);
       await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${input.conversationId}::uuid FOR UPDATE`;
-      const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active" } });
+      const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active", archivedAt: null } });
       if (!conversation) throw new VeraLearnerServiceError("target_unavailable", 404);
       if (conversation.contextVersion !== input.expectedContextVersion) {
         throw new VeraLearnerServiceError("context_version_conflict", 409, { context: await this.readContext(input.studentId, input.conversationId) });

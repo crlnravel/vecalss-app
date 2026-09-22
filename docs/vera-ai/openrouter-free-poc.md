@@ -18,6 +18,11 @@ The adapter fails closed unless `NODE_ENV` is exactly `development` or `test`, e
 
 OpenRouter POC traffic is explicitly non-ZDR (`VERA_POC_ZDR=false`) and uses `data_collection=allow`; do not use it for staging or production. Staging/production remain disabled behind the existing approved Vera release-manifest gate, which requires the approved privacy/data-collection controls and independent release evidence. This POC does not change `VERA_LIVE_PROVIDER_ENABLED`, `providerGateState=open_blocked`, or the default provider factory.
 
+Development route selection is free-only: even if a shared shell also exports
+`VERA_LIVE_PROVIDER_ENABLED=true`, the development selector will not choose the
+paid release adapter. If the free gate is incomplete, it uses the local mock /
+outage path until the explicit POC settings are corrected.
+
 To exercise the existing student chat page locally, use the same flags in the
 server process and then start the normal development server:
 

@@ -52,6 +52,15 @@ function formatLocalDateInTimezone(date: Date, timeZone: string): string {
 export function selectVeraChatProvider(env: NodeJS.ProcessEnv = process.env): VeraProviderAdapter {
   const poc = createVeraOpenRouterFreePocProviderAdapter({ env });
   if (poc.enabled) return poc;
+  // Development must never spend against the paid release route. The free
+  // POC is selected only after its complete explicit gate passes; if that
+  // gate is incomplete, keep the local route mock/disabled rather than
+  // silently turning on a paid provider because a shared shell exported the
+  // live flag.
+  if (env.NODE_ENV?.toLowerCase() === "development") {
+    if (env.VERA_MOCK_PROVIDER_ENABLED === "true") return new MockProviderAdapter();
+    return new MockProviderAdapter("outage");
+  }
   // A live flag is an explicit production route selection. The paid adapter
   // validates the release manifest and returns a disabled adapter when the
   // manifest, API key, or transport gate is absent; it must not silently fall
@@ -63,6 +72,7 @@ export function selectVeraChatProvider(env: NodeJS.ProcessEnv = process.env): Ve
 
 export function veraProviderAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
   if (evaluateVeraOpenRouterFreePocGate(env).enabled) return true;
+  if (env.NODE_ENV?.toLowerCase() === "development") return false;
   if (env.VERA_LIVE_PROVIDER_ENABLED !== "true") return false;
   return createDefaultProviderAdapter(env).enabled;
 }
@@ -120,7 +130,7 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
     envelope: routeEnvelope,
     hmacSecret,
     assertConversationOwner: async (studentId, conversationId) => {
-      const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active" }, select: { id: true } });
+      const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active", archivedAt: null }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });
     },
   });

@@ -91,6 +91,27 @@ The live adapter remains disabled unless the live flag, API key, release
 manifest, endpoint metadata, privacy evidence, price evidence, and certifier
 evidence all validate together.
 
+## Conversation lifecycle and development provider
+
+- Learners can rename a session inline from the `Sesi` sidebar. The chat pane
+  does not duplicate that title as a separate header section.
+- Archive is reversible and stores `archived_at`; archived sessions remain
+  available from the sidebar archive view. Delete is separate: it submits the
+  existing idempotent lifecycle purge request and is not reversible after the
+  purge completes.
+- Local development is free-only. When the complete OpenRouter free POC gate
+  is enabled (`NODE_ENV=development`, debug/POC opt-in, non-ZDR POC mode, and
+  local key/base URL), route selection uses `openrouter/free`. If the gate is
+  incomplete, development never falls through to the paid release provider;
+  it stays on the local mock/outage path. Paid routing remains an explicit
+  non-development release operation.
+
+The follow-up plan for replacing the manual `Konteks` catalog with one
+application-executed context-retrieval tool is tracked in the Traycer artifact
+[`epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/specs/vera-automatic-context-tools/index.md`](epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/specs/vera-automatic-context-tools/index.md).
+It is a separate ticketed rollout; this MVP keeps the existing manual context
+contract and its four-source cap.
+
 ## Rollout checklist
 
 1. Check the target database with

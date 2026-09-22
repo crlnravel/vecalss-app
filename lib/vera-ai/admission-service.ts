@@ -1167,7 +1167,7 @@ export class VeraPrismaAdmissionService {
         }
       }
 
-      const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active" }, select: { id: true } });
+      const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active", archivedAt: null }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });
       await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${conversation.id}::uuid FOR UPDATE`;
       const sequenceRows = await tx.$queryRaw<Array<{ next_request_sequence: number }>>`

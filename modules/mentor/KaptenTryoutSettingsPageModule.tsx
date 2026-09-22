@@ -3,9 +3,7 @@
 import { useState } from "react";
 
 import { Archive, Copy, FilePenLine, Trash2 } from "@/lib/icons";
-import {
-  ReferenceSurface,
-} from "@/components/dashboard/reference-dashboard-primitives";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -44,7 +42,8 @@ function KaptenTryoutSettingsPageModule({
   onUnpublish: () => void;
   saving: boolean;
 }) {
-  const [pendingAction, setPendingAction] = useState<AdministrationAction | null>(null);
+  const [pendingAction, setPendingAction] =
+    useState<AdministrationAction | null>(null);
   const isPublished = draft.status === "published";
   const canDelete = !isPublished && !draft.locked;
   const canDraft = isPublished && !hasActiveAttempt;
@@ -69,10 +68,6 @@ function KaptenTryoutSettingsPageModule({
           >
             Administrasi
           </h2>
-          <p className="max-w-2xl text-sm leading-6 text-secondary-600">
-            Kelola status dan salinan Tryout ini. Riwayat peserta tetap tersimpan
-            saat Tryout dikembalikan ke draf atau diarsipkan.
-          </p>
         </div>
 
         {error ? (
