@@ -1041,7 +1041,7 @@ function MateriBuilderContent({
         saveError:
           isArchived
             ? "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit."
-            : "Izin edit Materi belum tersedia. Draf lokal tetap tersimpan.",
+            : "Materi belum bisa diubah. Draf lokal tetap tersimpan.",
       });
       return;
     }

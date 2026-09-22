@@ -22,3 +22,8 @@
 
 3. **Truth & Integrity:**
    Never invent claims, features, testimonials, citations, statistics, or proof when humanizing text.
+
+4. **Nontechnical UI language:**
+   - Write labels and messages for ordinary users, not developers.
+   - Never expose implementation or version markers (`v1`, `version`, `revision`, `UUID`, `UTF-8`, `API`, MIME types), raw field names, or backend error codes in user-facing copy.
+   - Replace them with a plain Indonesian action, explanation, or recovery step. Technical identifiers may remain in code and internal contracts.

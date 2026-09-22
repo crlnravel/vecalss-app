@@ -45,6 +45,9 @@ Use this file before introducing a new pattern or visual exception.
   keeping full-width line tabs flat with a Voyage Deep underline.
 - **Do** keep button colors, borders, focus rings, and disabled states on named
   tokens or shared variants; if a new exception is needed, name it first.
+- **Do** write user-facing labels and feedback in plain Indonesian. Name the
+  user's task (“file soal”, “templat soal”, “Unduh soal”), not the implementation
+  (“CSV v1”, “API”, “UUID”, “UTF-8”, “revision”).
 
 ### Don't:
 
@@ -84,3 +87,6 @@ Use this file before introducing a new pattern or visual exception.
   borders, solid fills, and equal emphasis in the same action group.
 - **Don't** hard-code route-specific button hex values when an existing family
   token already expresses the intended meaning.
+- **Don't** expose implementation details, version markers, raw file-format
+  terms, internal IDs, or backend error codes in user-facing UI; translate them
+  into a clear next step.

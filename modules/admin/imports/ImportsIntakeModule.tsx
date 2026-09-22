@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDownToLine, CircleHelp, FileUp, Upload } from "@/lib/icons";
+import { ArrowDownToLine, CircleHelp, FileUp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { FieldRequiredMark } from "@/components/ui/field";
+import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -30,28 +31,28 @@ type ImportsIntakeModuleProps = {
 };
 
 const templateForRole: Record<ImportRole, { fileName: string; label: string; version: string }> = {
-  student: { fileName: "students.v1.csv", label: "Students", version: "students.v1" },
-  tutor: { fileName: "kapten.v1.csv", label: "Kapten", version: "kapten.v1" },
+  student: { fileName: "daftar-siswa.csv", label: "Siswa", version: "students.v1" },
+  tutor: { fileName: "daftar-kapten.csv", label: "Kapten", version: "kapten.v1" },
 };
 
 const previewErrorMessages: Record<string, string> = {
-  csv_empty_file: "CSV harus memiliki header dan setidaknya satu baris data.",
-  csv_header_mismatch: "Header kolom tidak sesuai dengan template yang dipilih.",
-  csv_invalid_utf8: "CSV harus disimpan dalam UTF-8.",
-  csv_malformed: "CSV berisi data kutipan yang tidak valid.",
-  csv_row_limit: "CSV berisi lebih dari 500 baris data.",
+  csv_empty_file: "File harus memiliki judul kolom dan setidaknya satu baris data.",
+  csv_header_mismatch: "Susunan kolom tidak sesuai dengan templat yang dipilih.",
+  csv_invalid_utf8: "File tidak bisa dibaca. Simpan ulang file lalu coba lagi.",
+  csv_malformed: "Ada bagian file yang belum lengkap.",
+  csv_row_limit: "File berisi lebih dari 500 baris.",
   invalid_origin: "Upload ini sudah kedaluwarsa. Segarkan halaman lalu coba lagi.",
   invalid_role: "Pilih Siswa atau Kapten sebelum mengunggah.",
-  invalid_template: "Pilih template yang sesuai untuk peran ini.",
-  multipart_invalid: "Upload tidak dapat dibaca. Pilih satu file CSV lalu coba lagi.",
-  preview_unavailable: "Preview tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.",
-  request_too_large: "CSV lebih besar dari batas upload 2 MiB.",
+  invalid_template: "Pilih templat yang sesuai untuk peran ini.",
+  multipart_invalid: "Unggahan tidak dapat dibaca. Pilih satu file daftar lalu coba lagi.",
+  preview_unavailable: "Pemeriksaan tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.",
+  request_too_large: "File terlalu besar (maksimal 2 MB).",
 };
 
 function readPreviewError(code: unknown) {
   return typeof code === "string" && previewErrorMessages[code]
     ? previewErrorMessages[code]
-     : "Preview tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.";
+     : "Pemeriksaan tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.";
 }
 
 function responseErrorCode(payload: unknown) {
@@ -70,17 +71,16 @@ function redirectedPath(response: Response) {
 }
 
 
-function resetImportFileSelectionState(fileInputRef: React.RefObject<HTMLInputElement | null>, setFile: (file: File | null) => void, setIsDragging: (value: boolean) => void) {
+function resetImportFileSelectionState(fileInputRef: React.RefObject<HTMLInputElement | null>, setFile: (file: File | null) => void) {
   setFile(null);
-  setIsDragging(false);
   resetImportFileSelection(fileInputRef.current);
 }
 
-function selectImportFile(nextFile: File | null, fileInputRef: React.RefObject<HTMLInputElement | null>, setFile: (file: File | null) => void, setFeedback: (value: { message: string; tone: "error" | "info" }) => void, setIsDragging: (value: boolean) => void) {
+function selectImportFile(nextFile: File | null, fileInputRef: React.RefObject<HTMLInputElement | null>, setFile: (file: File | null) => void, setFeedback: (value: { message: string; tone: "error" | "info" }) => void) {
   if (!nextFile) return;
   if (!nextFile.name.toLowerCase().endsWith(".csv")) {
-    resetImportFileSelectionState(fileInputRef, setFile, setIsDragging);
-    setFeedback({ message: "Pilih file CSV sebelum mengunggah.", tone: "error" });
+    resetImportFileSelectionState(fileInputRef, setFile);
+    setFeedback({ message: "Pilih file sebelum mengunggah.", tone: "error" });
     return;
   }
   setFile(nextFile);
@@ -109,13 +109,13 @@ async function submitImportPreview({
   templateVersion: string;
 }) {
   if (!file) {
-    setFeedback({ message: "Pilih file CSV sebelum mengunggah.", tone: "error" });
+    setFeedback({ message: "Pilih file sebelum mengunggah.", tone: "error" });
     return;
   }
 
   setBusy(true);
   onBusyChange?.(true);
-  setFeedback({ message: "Mengunggah CSV dan memeriksa barisnya…", tone: "info" });
+  setFeedback({ message: "Mengunggah file dan memeriksa isinya…", tone: "info" });
   try {
     const body = new FormData();
     body.append("template", templateVersion);
@@ -134,7 +134,7 @@ async function submitImportPreview({
     });
     if (initialRecovery) {
       setSessionIssue(initialRecovery);
-      setFeedback({ message: initialRecovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan import ini." : "Akun Anda tidak lagi memiliki izin untuk membuat import.", tone: "error" });
+      setFeedback({ message: initialRecovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan penambahan daftar ini." : "Akun Anda tidak lagi memiliki izin untuk menambahkan daftar.", tone: "error" });
       return;
     }
     if (!response.ok) {
@@ -147,7 +147,7 @@ async function submitImportPreview({
       });
       if (recovery) {
         setSessionIssue(recovery);
-        setFeedback({ message: recovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan import ini." : "Akun Anda tidak lagi memiliki izin untuk membuat import.", tone: "error" });
+        setFeedback({ message: recovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan penambahan daftar ini." : "Akun Anda tidak lagi memiliki izin untuk menambahkan daftar.", tone: "error" });
         return;
       }
       setFeedback({ message: readPreviewError(errorCode), tone: "error" });
@@ -160,7 +160,7 @@ async function submitImportPreview({
       ? (payload as { draft?: { importId?: unknown } }).draft
       : null;
     if (!draft || typeof draft.importId !== "string") {
-      setFeedback({ message: "Server mengembalikan preview yang tidak lengkap. Coba lagi.", tone: "error" });
+      setFeedback({ message: "Sistem mengembalikan pemeriksaan yang tidak lengkap. Coba lagi.", tone: "error" });
       return;
     }
 
@@ -168,7 +168,7 @@ async function submitImportPreview({
     routerPush("/admin/imports/" + encodeURIComponent(draft.importId));
   } catch {
     setSessionIssue(null);
-    setFeedback({ message: "Upload tidak dapat mencapai server. Tidak ada akun yang berubah.", tone: "error" });
+    setFeedback({ message: "File tidak dapat diproses. Tidak ada akun yang berubah.", tone: "error" });
   } finally {
     setBusy(false);
     onBusyChange?.(false);
@@ -180,8 +180,8 @@ function ImportIntakeHeader({ embedded }: { embedded: boolean }) {
 
   return (
     <div className="border-b border-primary-100/80 px-5 py-6 sm:px-7 sm:py-7">
-      <h2 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
-      <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500">Unggah CSV, periksa setiap baris, lalu konfirmasi import setelah siap.</p>
+      <h2 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Tambah Siswa</h2>
+      <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500">Unggah daftar, periksa isinya, lalu konfirmasi setelah siap.</p>
     </div>
   );
 }
@@ -192,7 +192,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
       <div className="flex items-center gap-1.5">
         <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih peran<FieldRequiredMark /></label>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Role import guidance" size="icon-xs" type="button" variant="ghost" />}>
+          <TooltipTrigger render={<Button aria-label="Panduan peran" size="icon-xs" type="button" variant="ghost" />}>
             <CircleHelp aria-hidden="true" size={15} />
           </TooltipTrigger>
           <TooltipContent>Setiap file hanya boleh berisi satu peran.</TooltipContent>
@@ -200,7 +200,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
       </div>
       <div className="mt-3">
         <ReferenceSelect
-          aria-label="Peran import"
+          aria-label="Peran"
           disabled={busy}
           id="import-role"
           onValueChange={(value) => onRoleChange(value as ImportRole)}
@@ -216,11 +216,11 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
 function ImportTemplateDownload({ showRoleSelect, template }: { showRoleSelect: boolean; template: { fileName: string; label: string; version: string } }) {
   return (
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
-      <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Dapatkan template CSV" : "1. Unduh template CSV"}</p>
-      <p className="mt-1 text-xs leading-5 text-secondary-500">Gunakan kolom yang sesuai untuk {template.label}.</p>
-      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh template" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="reference">
+      <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Unduh templat daftar" : "1. Unduh templat daftar"}</p>
+      <p className="mt-1 text-xs leading-5 text-secondary-500">Gunakan templat ini untuk menambahkan daftar {template.label}.</p>
+      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh templat" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="reference">
         <ArrowDownToLine aria-hidden="true" size={16} />
-        Unduh template
+        Unduh templat
       </Button>
     </ReferenceSurface>
   );
@@ -231,48 +231,34 @@ function ImportFileUpload({
   file,
   fileInputRef,
   feedback,
-  handleFileDrop,
-  handleFileInputChange,
-  isDragging,
-  onDragEnter,
-  onDragLeave,
-  onDragOver,
+  onFileChange,
   showRoleSelect,
 }: {
   busy: boolean;
   file: File | null;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   feedback: { message: string; tone: "error" | "info" };
-  handleFileDrop: (event: React.DragEvent<HTMLLabelElement>) => void;
-  handleFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  isDragging: boolean;
-  onDragEnter: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragLeave: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragOver: (event: React.DragEvent<HTMLLabelElement>) => void;
+  onFileChange: (file: File | null) => void;
   showRoleSelect: boolean;
 }) {
   return (
     <ReferenceSurface as="div" className={showRoleSelect ? "min-w-0 p-4 lg:col-span-2 sm:p-5" : "min-w-0 p-4 sm:p-5"} variant="inset">
       <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3. Unggah file" : "2. Unggah file"}<FieldRequiredMark /></p>
-      <p className="mt-2 text-xs leading-5 text-secondary-500">Hanya CSV, maksimal 2 MiB dan 500 baris data.</p>
-      <label
-        className={cn(
-          "mt-4 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
-          isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50",
-          busy ? "cursor-not-allowed opacity-70" : "",
-        )}
-        htmlFor="roster-upload"
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={handleFileDrop}
-      >
-        <input accept=".csv,text/csv" aria-describedby="roster-upload-help" className="sr-only" disabled={busy} id="roster-upload" key={file?.name ?? "empty"} name="file" onChange={handleFileInputChange} ref={fileInputRef} required={!file} type="file" />
-        <Upload aria-hidden="true" className="text-primary-700" size={26} />
-        <span className="mt-3 text-sm font-semibold text-secondary-900">{file ? file.name : "Letakkan file CSV di sini atau telusuri"}</span>
-        <span className="mt-1 text-xs leading-5 text-secondary-500">{file ? "Siap diunggah" : "Hanya CSV · maksimal 2 MiB · 500 baris data"}</span>
-      </label>
-      <p className="sr-only" id="roster-upload-help">Letakkan file CSV di sini atau telusuri file. Preview akan menjelaskan setiap baris sebelum konfirmasi.</p>
+      <p className="mt-2 text-xs leading-5 text-secondary-500">Maksimal 2 MB dan 500 baris.</p>
+      <div className="mt-4">
+        <FileUploadSlot
+          accept=".csv,text/csv"
+          disabled={busy}
+          file={file}
+          id="roster-upload"
+          inputRef={fileInputRef}
+          maxSizeLabel="Maks. 2 MB · 500 baris"
+          onChange={onFileChange}
+          uploadLabel="Mengunggah file"
+          uploading={busy}
+        />
+      </div>
+      <p className="sr-only" id="roster-upload-help">Letakkan file di sini atau telusuri file. Pemeriksaan akan menjelaskan isi file sebelum konfirmasi.</p>
       <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
         <FileUp aria-hidden="true" size={17} />
         {busy ? "Mengunggah…" : "Unggah"}
@@ -290,7 +276,7 @@ function ImportSessionIssueNotice({ sessionIssue }: { sessionIssue: "expired" | 
     <ReferenceSurface as="div" className={cn("flex flex-col gap-3 p-4 text-xs leading-5", ADMIN_STATUS_CLASS_NAMES.danger)} role="alert" variant="inset">
       <div>
         <p className="font-semibold">{expired ? "Sesi admin kedaluwarsa" : "Izin admin diperlukan"}</p>
-        <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke workspace import." : "Gunakan akun admin aktif atau kembali ke halaman utama admin."}</p>
+      <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke halaman penambahan daftar." : "Gunakan akun admin aktif atau kembali ke halaman utama admin."}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="dangerOutline">
@@ -312,26 +298,24 @@ function ImportsIntakeModule({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [role, setRole] = useState<ImportRole>(initialRole);
   const [file, setFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; tone: "error" | "info" }>({ message: "", tone: "info" });
   const [sessionIssue, setSessionIssue] = useState<"expired" | "forbidden" | null>(null);
   const template = templateForRole[role];
 
-  const resetFile = () => resetImportFileSelectionState(fileInputRef, setFile, setIsDragging);
+  const resetFile = () => resetImportFileSelectionState(fileInputRef, setFile);
   const handleRoleChange = (nextRole: ImportRole) => {
     if (nextRole === role) return;
     setRole(nextRole);
     resetFile();
-    setFeedback({ message: "Peran diubah menjadi " + templateForRole[nextRole].label + ". Pilih CSV baru untuk template ini.", tone: "info" });
+    setFeedback({ message: "Peran diubah menjadi " + templateForRole[nextRole].label + ". Pilih file baru untuk templat ini.", tone: "info" });
   };
-  const handleFileSelection = (nextFile: File | null) => selectImportFile(nextFile, fileInputRef, setFile, setFeedback, setIsDragging);
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => handleFileSelection(event.target.files?.[0] ?? null);
-  const handleFileDrop = (event: React.DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    if (busy) return;
-    handleFileSelection(event.dataTransfer.files?.[0] ?? null);
+  const handleFileSelection = (nextFile: File | null) => {
+    if (!nextFile) {
+      resetFile();
+      return;
+    }
+    selectImportFile(nextFile, fileInputRef, setFile, setFeedback);
   };
   const handleUpload = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -360,12 +344,7 @@ function ImportsIntakeModule({
             file={file}
             fileInputRef={fileInputRef}
             feedback={feedback}
-            handleFileDrop={handleFileDrop}
-            handleFileInputChange={handleFileInputChange}
-            isDragging={isDragging}
-            onDragEnter={(event) => { event.preventDefault(); if (!busy) setIsDragging(true); }}
-            onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDragging(false); }}
-            onDragOver={(event) => { event.preventDefault(); if (!busy) setIsDragging(true); }}
+            onFileChange={handleFileSelection}
             showRoleSelect={showRoleSelect}
           />
         </div>

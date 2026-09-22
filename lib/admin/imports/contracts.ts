@@ -32,13 +32,13 @@ type ImportTemplateDefinition = {
 
 const TEMPLATE_DEFINITIONS: Readonly<Record<ImportTemplateVersion, ImportTemplateDefinition>> = {
   "students.v1": {
-    fileName: "students.v1.csv",
+    fileName: "daftar-siswa.csv",
     headers: ["email", "full_name", "target_exam"],
     role: EnrollmentImportRole.student,
     version: "students.v1",
   },
   "kapten.v1": {
-    fileName: "kapten.v1.csv",
+    fileName: "daftar-kapten.csv",
     headers: ["email", "full_name", "phone", "headline", "bio"],
     role: EnrollmentImportRole.tutor,
     version: "kapten.v1",

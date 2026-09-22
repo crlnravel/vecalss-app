@@ -85,7 +85,9 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import {
-  QuestionBankCsvCreateInput,
+  QuestionBankCsvDraftStatus,
+  clearQuestionBankCsvPendingDraft,
+  readQuestionBankCsvPendingDraft,
   type QuestionBankCsvDraftSummary,
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
@@ -1953,6 +1955,10 @@ type QuestionBankBuilderActions = {
   onSelectMedia: (asset: MediaAssetDto) => void;
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
+  csvDraftInfo: {
+    fileName: string;
+    rowCount: number;
+  } | null;
   removeCsvDraft: () => void;
   replaceCsvDraft: (summary: QuestionBankCsvDraftSummary) => void;
   retryLock: () => void;
@@ -1984,41 +1990,42 @@ function QuestionBankEditorTitle({
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
-      <Button
-        nativeButton={false}
-        render={
-          <Link
-            href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
-          />
-        }
-        aria-label={`Kembali ke ${navigationLabel}`}
-        size="icon-sm"
-        title={`Kembali ke ${navigationLabel}`}
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-      <div className="mt-5 flex flex-col gap-x-3 gap-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Button
+          className="mt-0.5 shrink-0"
+          nativeButton={false}
+          render={
+            <Link
+              href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
+            />
+          }
+          aria-label={`Kembali ke ${navigationLabel}`}
+          size="icon-sm"
+          title={`Kembali ke ${navigationLabel}`}
+          variant="ghost"
+        >
+          <ChevronLeft />
+        </Button>
+        <div className="min-w-0">
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
             {title}
           </h1>
+          {state.readiness.incompleteCount > 0 ? (
+            <Button
+              aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
+              className="mt-2 w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+              onClick={onFocusIssue}
+              type="button"
+              variant="ghost"
+            >
+              <AlertTriangle data-icon="inline-start" />
+              Lihat masalah{" "}
+              <span className="font-normal">
+                ({state.readiness.incompleteCount})
+              </span>
+            </Button>
+          ) : null}
         </div>
-        {state.readiness.incompleteCount > 0 ? (
-          <Button
-            aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
-            className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
-            onClick={onFocusIssue}
-            type="button"
-            variant="ghost"
-          >
-            <AlertTriangle data-icon="inline-start" />
-            Lihat masalah{" "}
-            <span className="font-normal">
-              ({state.readiness.incompleteCount})
-            </span>
-          </Button>
-        ) : null}
       </div>
     </div>
   );
@@ -2522,9 +2529,9 @@ function QuestionBankCreateWorkspace({
         builderState={builderState}
         state={state}
       />
-      <QuestionBankCsvCreateInput
+      <QuestionBankCsvDraftStatus
         disabled={state.isQuestionContentLocked}
-        onApply={actions.replaceCsvDraft}
+        draft={actions.csvDraftInfo}
         onRemove={actions.removeCsvDraft}
       />
       <QuestionBankBuilderDialogs
@@ -2880,6 +2887,10 @@ function useQuestionBankDraftActions({
     ],
   );
   const csvDerivedQuestionIdsRef = useRef<Set<string>>(new Set());
+  const [csvDraftInfo, setCsvDraftInfo] = useState<{
+    fileName: string;
+    rowCount: number;
+  } | null>(null);
 
   const updateMetadata = useCallback(
     (field: "title" | "description", value: string) => {
@@ -3109,6 +3120,7 @@ function useQuestionBankDraftActions({
         (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
       );
       csvDerivedQuestionIdsRef.current = csvQuestionIds;
+      setCsvDraftInfo({ fileName: summary.fileName, rowCount: summary.rowCount });
       const nextState = {
         ...builderState,
         questions: [...retainedQuestions, ...draftQuestions],
@@ -3146,6 +3158,7 @@ function useQuestionBankDraftActions({
       (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
     );
     csvDerivedQuestionIdsRef.current = new Set();
+    setCsvDraftInfo(null);
     if (questions.length === builderState.questions.length) return;
     const nextActiveQuestion = questions[0] ?? null;
     markChanged({ ...builderState, questions });
@@ -3157,7 +3170,7 @@ function useQuestionBankDraftActions({
       questionDraft: nextActiveQuestion
         ? toQuestionDraft(nextActiveQuestion)
         : fallbackQuestion,
-      readinessAnnouncement: "Soal dari CSV dihapus dari draf lokal.",
+      readinessAnnouncement: "Soal dari file dihapus dari draf lokal.",
     });
   }, [
     builderState,
@@ -3206,6 +3219,7 @@ function useQuestionBankDraftActions({
     addQuestion,
     markChanged,
     openQuestion,
+    csvDraftInfo,
     removeChoice,
     removeChoiceMedia,
     removeCsvDraft,
@@ -3762,6 +3776,7 @@ function useQuestionBankBuilderState({
   );
   const questionFocusAfterDeleteRef = useRef<string | null>(null);
   const pendingIssueFocusRef = useRef<QuestionReadinessIssue | null>(null);
+  const pendingCsvDraftConsumedRef = useRef(false);
   const builderState = localBuilderState;
   const {
     activeQuestion,
@@ -3859,6 +3874,15 @@ function useQuestionBankBuilderState({
     persistence,
     retryLock: resourceLock.retry,
   });
+  const replaceCsvDraft = actions.replaceCsvDraft;
+  useEffect(() => {
+    if (mode !== "create" || pendingCsvDraftConsumedRef.current) return;
+    pendingCsvDraftConsumedRef.current = true;
+    const pendingDraft = readQuestionBankCsvPendingDraft();
+    if (!pendingDraft) return;
+    clearQuestionBankCsvPendingDraft();
+    replaceCsvDraft(pendingDraft);
+  }, [mode, replaceCsvDraft]);
   return {
     actions,
     bankIdValue: bankId ?? initialBank?.id,

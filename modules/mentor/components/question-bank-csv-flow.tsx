@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  ArrowLeft,
   CheckCircle2,
   CircleAlert,
   Download,
-  FileText,
+  Pencil,
   Upload,
-  X,
 } from "@/lib/icons";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -16,6 +16,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { CsvTemplateDownload } from "@/components/ui/csv-template-download";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
@@ -52,6 +54,62 @@ type QuestionBankCsvDraftSummary = {
   rowCount: number;
   summary: QuestionBankCsvSummary;
 };
+
+type QuestionBankCsvDraftInfo = Pick<
+  QuestionBankCsvDraftSummary,
+  "fileName" | "rowCount"
+>;
+
+const QUESTION_BANK_CSV_PENDING_DRAFT_STORAGE_KEY =
+  "vecalss:question-bank:create-csv-draft:v1";
+
+function writeQuestionBankCsvPendingDraft(
+  summary: QuestionBankCsvDraftSummary,
+) {
+  if (typeof window === "undefined") {
+    throw new Error("Draf soal hanya dapat disiapkan di halaman ini.");
+  }
+  window.sessionStorage.setItem(
+    QUESTION_BANK_CSV_PENDING_DRAFT_STORAGE_KEY,
+    JSON.stringify({ version: 1, ...summary }),
+  );
+}
+
+function readQuestionBankCsvPendingDraft(): QuestionBankCsvDraftSummary | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(
+    QUESTION_BANK_CSV_PENDING_DRAFT_STORAGE_KEY,
+  );
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<
+      QuestionBankCsvDraftSummary & { version: number }
+    >;
+    if (
+      parsed.version !== 1 ||
+      typeof parsed.fileName !== "string" ||
+      !Array.isArray(parsed.questions) ||
+      typeof parsed.rowCount !== "number" ||
+      !parsed.summary ||
+      typeof parsed.summary !== "object"
+    ) {
+      return null;
+    }
+    return {
+      fileName: parsed.fileName,
+      questions: parsed.questions as QuestionBankCsvDraftQuestion[],
+      rowCount: parsed.rowCount,
+      summary: parsed.summary as QuestionBankCsvSummary,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearQuestionBankCsvPendingDraft() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(QUESTION_BANK_CSV_PENDING_DRAFT_STORAGE_KEY);
+}
 
 type QuestionBankCsvImportSummary = {
   fileName: string;
@@ -94,73 +152,120 @@ type CsvErrorCode =
   | "unauthenticated";
 
 const CSV_ERROR_MESSAGES: Record<CsvErrorCode, string> = {
-  csv_media_type_required: "Format permintaan CSV tidak dikenali.",
-  csv_rows_invalid: "Ada baris CSV yang perlu diperbaiki.",
-  csv_structure_invalid: "Struktur CSV tidak sesuai format Bank Soal v1.",
-  csv_too_large: "Ukuran CSV melebihi batas 2 MiB atau 500 baris.",
-  forbidden_origin: "Permintaan tidak berasal dari aplikasi Vecalss.",
-  invalid_media_asset: "Ada media soal yang tidak dapat digunakan.",
-  resource_busy_retry: "Server sedang sibuk. Coba terapkan kembali.",
-  resource_inaccessible: "Bank Soal tidak dapat diakses oleh akun ini.",
-  resource_locked: "Bank Soal sedang dikunci untuk perubahan.",
-  lease_expired: "Izin edit sudah berakhir. Ambil izin lagi lalu ulangi.",
-  lease_superseded: "Izin edit digantikan oleh sesi lain. Ambil izin lagi lalu ulangi.",
-  stale_revision: "Bank Soal berubah. Muat ulang data terbaru lalu ulangi.",
-  unauthenticated: "Sesi Kapten berakhir. Masuk lagi lalu ulangi.",
+  csv_media_type_required: "Jenis file tidak dikenali. Pilih file soal yang sesuai.",
+  csv_rows_invalid: "Ada soal yang perlu diperbaiki.",
+  csv_structure_invalid: "Susunan isi file belum sesuai dengan templat soal.",
+  csv_too_large: "File terlalu besar atau berisi lebih dari 500 soal.",
+  forbidden_origin: "File tidak dapat diproses. Muat ulang halaman lalu coba lagi.",
+  invalid_media_asset: "Ada gambar atau media soal yang tidak dapat digunakan.",
+  resource_busy_retry: "Sistem sedang sibuk. Coba lagi sebentar.",
+  resource_inaccessible: "Bank Soal tidak dapat diakses.",
+  resource_locked: "Bank Soal sedang dipakai orang lain.",
+  lease_expired: "Sesi pengeditan Anda berakhir. Muat ulang halaman lalu coba lagi.",
+  lease_superseded:
+    "Bank Soal sedang diperbarui di tempat lain. Muat ulang halaman lalu coba lagi.",
+  stale_revision: "Bank Soal berubah. Muat ulang halaman lalu coba lagi.",
+  unauthenticated: "Sesi Anda berakhir. Masuk lagi lalu coba lagi.",
 };
 
 function issueMessage(issue: QuestionBankCsvIssue) {
   const labels: Record<QuestionBankCsvIssue["code"], string> = {
-    control_character: "karakter kontrol tidak diperbolehkan",
-    csv_too_large: "ukuran file melebihi 2 MiB",
-    empty_file: "file CSV kosong",
-    header_only: "CSV hanya berisi header tanpa data soal",
-    header_invalid: "header CSV tidak sesuai urutan dan nama kolom Bank Soal v1",
-    invalid_correct_options: "kunci jawaban tidak sesuai dengan opsi yang terisi",
-    invalid_difficulty: "tingkat kesulitan tidak dikenal",
-    invalid_materi: "materi tidak sesuai taxonomy Subtest",
-    invalid_media_asset_id: "ID media tidak valid",
-    invalid_question_id: "ID soal harus berupa UUID",
-    invalid_question_type: "jenis soal tidak dikenal",
-    invalid_record_ending: "akhiran baris CSV tidak valid",
-    invalid_subject_code: "kode Subtest tidak dikenal",
-    invalid_utf8: "file bukan UTF-8 yang valid",
-    malformed_quotes: "tanda kutip CSV tidak berpasangan",
-    option_sequence_invalid: "opsi harus berurutan dari A dan tidak boleh berlubang",
+    control_character: "ada karakter yang tidak bisa dibaca",
+    csv_too_large: "file terlalu besar (maksimal 2 MB)",
+    empty_file: "file kosong",
+    header_only: "file hanya berisi judul kolom, belum ada soal",
+    header_invalid: "susunan kolom belum sesuai dengan templat soal",
+    invalid_correct_options:
+      "kunci jawaban tidak sesuai dengan pilihan yang diisi",
+    invalid_difficulty: "tingkat kesulitan belum dikenali",
+    invalid_materi: "materi tidak sesuai daftar yang tersedia",
+    invalid_media_asset_id: "ada media soal yang tidak bisa ditemukan",
+    invalid_question_id: "nomor soal tidak bisa dikenali",
+    invalid_question_type: "jenis soal belum dikenali",
+    invalid_record_ending: "ada baris yang belum selesai",
+    invalid_subject_code: "subjek belum dikenali",
+    invalid_utf8: "file tidak bisa dibaca. Simpan ulang file lalu coba lagi",
+    malformed_quotes: "tanda kutip di file belum lengkap",
+    option_sequence_invalid: "pilihan jawaban harus berurutan mulai dari A",
     required_field: "kolom wajib belum diisi",
-    row_limit_exceeded: "jumlah baris melebihi batas 500",
-    row_width_invalid: "jumlah kolom pada baris tidak sesuai",
-    field_too_long: "isi kolom terlalu panjang",
+    row_limit_exceeded: "jumlah soal melebihi batas 500",
+    row_width_invalid: "ada baris dengan isi yang belum lengkap",
+    field_too_long: "ada bagian yang terlalu panjang",
   };
+  const columnLabels: Record<string, string> = {
+    correct_options: "kunci jawaban",
+    difficulty: "tingkat kesulitan",
+    explanation: "penjelasan",
+    explanation_media_asset_id: "media penjelasan",
+    materi: "materi",
+    option_a: "pilihan A",
+    option_a_media_asset_id: "media pilihan A",
+    option_b: "pilihan B",
+    option_b_media_asset_id: "media pilihan B",
+    option_c: "pilihan C",
+    option_c_media_asset_id: "media pilihan C",
+    option_d: "pilihan D",
+    option_d_media_asset_id: "media pilihan D",
+    option_e: "pilihan E",
+    option_e_media_asset_id: "media pilihan E",
+    prompt: "pertanyaan",
+    prompt_media_asset_id: "media pertanyaan",
+    question_id: "nomor soal",
+    question_type: "jenis soal",
+    subject_code: "subjek",
+  };
+  const columnLabel = issue.column
+    ? columnLabels[issue.column] ?? "bagian soal"
+    : null;
   const location = issue.row
-    ? `Baris ${issue.row}${issue.column ? `, ${issue.column}` : ""}`
-    : issue.column
-      ? issue.column
-      : "CSV";
+    ? `Baris ${issue.row}${columnLabel ? `, ${columnLabel}` : ""}`
+    : columnLabel ?? "File";
   return `${location}: ${labels[issue.code] ?? "isi tidak valid"}.`;
 }
 
-function previewErrors(payload: Pick<QuestionBankCsvParseResult, "rowErrors" | "structuralErrors">) {
+function previewErrors(
+  payload: Pick<QuestionBankCsvParseResult, "rowErrors" | "structuralErrors">,
+) {
   return [...payload.structuralErrors, ...payload.rowErrors].map(issueMessage);
 }
 
-function previewFromPayload(file: File, payload: QuestionBankCsvParseResult): CsvPreview {
+function previewFromPayload(
+  file: File,
+  payload: QuestionBankCsvParseResult,
+): CsvPreview {
   const errors = previewErrors(payload);
-  const hasErrors = payload.structuralErrors.length > 0 || payload.rowErrors.length > 0;
-  const isEmpty = payload.summary.dataRowCount === 0 || payload.structuralErrors.some((issue) => issue.code === "empty_file" || issue.code === "header_only");
+  const hasErrors =
+    payload.structuralErrors.length > 0 || payload.rowErrors.length > 0;
+  const isEmpty =
+    payload.summary.dataRowCount === 0 ||
+    payload.structuralErrors.some(
+      (issue) => issue.code === "empty_file" || issue.code === "header_only",
+    );
   return {
     errors,
     fileName: file.name,
     normalizedRows: payload.normalizedRows,
     rowCount: payload.summary.acceptedRows,
-    status: hasErrors ? (isEmpty ? "empty" : "invalid") : payload.normalizedRows.length ? "valid" : "empty",
+    status: hasErrors
+      ? isEmpty
+        ? "empty"
+        : "invalid"
+      : payload.normalizedRows.length
+        ? "valid"
+        : "empty",
     summary: payload.summary,
   };
 }
 
-function serverPreviewError(file: File, error: CsvErrorCode | string): CsvPreview {
+function serverPreviewError(
+  file: File,
+  error: CsvErrorCode | string,
+): CsvPreview {
   return {
-    errors: [CSV_ERROR_MESSAGES[error as CsvErrorCode] ?? "CSV tidak dapat diperiksa saat ini."],
+    errors: [
+      CSV_ERROR_MESSAGES[error as CsvErrorCode] ??
+        "File tidak dapat diperiksa saat ini.",
+    ],
     fileName: file.name,
     normalizedRows: [],
     rowCount: 0,
@@ -175,57 +280,29 @@ function CsvFilePicker({
   inputId,
   onChange,
   onRemove,
+  uploading = false,
 }: {
   disabled: boolean;
   file: File | null;
   inputId: string;
   onChange: (file: File | null) => void;
   onRemove: () => void;
+  uploading?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <input
-        accept=".csv,text/csv"
-        aria-label="File CSV"
-        className="sr-only"
-        disabled={disabled}
-        id={inputId}
-        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
-        ref={inputRef}
-        type="file"
-      />
-      <Button
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-        size="sm"
-        type="button"
-        variant="brandOutline"
-      >
-        <Upload data-icon="inline-start" />
-        {file ? "Ganti file CSV" : "Pilih file CSV"}
-      </Button>
-      {file ? (
-        <Button
-          aria-label={`Hapus file ${file.name}`}
-          disabled={disabled}
-          onClick={() => {
-            if (inputRef.current) inputRef.current.value = "";
-            onRemove();
-          }}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <X />
-        </Button>
-      ) : null}
-      {file ? (
-        <span className="min-w-0 max-w-full truncate text-sm text-secondary-700" title={file.name}>
-          {file.name}
-        </span>
-      ) : null}
-    </div>
+    <FileUploadSlot
+      accept=".csv,text/csv"
+      disabled={disabled}
+      file={file}
+      id={inputId}
+      maxSizeLabel="Maks. 2 MB · 500 soal"
+      onChange={(nextFile) => {
+        if (nextFile) onChange(nextFile);
+        else onRemove();
+      }}
+      uploadLabel="Memeriksa file soal"
+      uploading={uploading}
+    />
   );
 }
 
@@ -234,7 +311,7 @@ function CsvFileSummary({ preview }: { preview: CsvPreview }) {
   if (preview.status === "loading") {
     return (
       <div
-        aria-label="Memeriksa CSV"
+        aria-label="Memeriksa file soal"
         aria-live="polite"
         className="rounded-2xl border border-primary-100 bg-primary-50/50 px-4 py-3 text-sm text-primary-950"
         data-csv-preview-status="loading"
@@ -254,9 +331,12 @@ function CsvFileSummary({ preview }: { preview: CsvPreview }) {
       >
         <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
         <div className="min-w-0">
-          <p className="font-semibold">{preview.rowCount} soal siap ditinjau.</p>
+          <p className="font-semibold">
+            {preview.rowCount} soal siap ditinjau.
+          </p>
           <p className="mt-1 break-words text-primary-900/80">
-            {preview.fileName} · pratinjau tidak menyimpan atau mengubah Bank Soal.
+            {preview.fileName} · pratinjau tidak menyimpan atau mengubah Bank
+            Soal.
           </p>
         </div>
       </div>
@@ -277,10 +357,16 @@ function CsvFileSummary({ preview }: { preview: CsvPreview }) {
       <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
       <div className="min-w-0">
         <p className="font-semibold">
-          {preview.status === "empty" ? "CSV belum berisi soal" : "CSV perlu diperbaiki"}
+          {preview.status === "empty"
+            ? "File belum berisi soal"
+            : "File perlu diperbaiki"}
         </p>
         <ul className="mt-1 max-h-52 list-disc space-y-1 overflow-auto pl-5 text-current/85">
-          {preview.errors.length ? preview.errors.map((error) => <li key={error}>{error}</li>) : <li>CSV tidak menghasilkan baris soal yang dapat digunakan.</li>}
+          {preview.errors.length ? (
+            preview.errors.map((error) => <li key={error}>{error}</li>)
+          ) : (
+            <li>File tidak menghasilkan soal yang bisa digunakan.</li>
+          )}
         </ul>
       </div>
     </div>
@@ -288,7 +374,10 @@ function CsvFileSummary({ preview }: { preview: CsvPreview }) {
 }
 
 function useCsvPreview(file: File | null) {
-  const [resolvedPreview, setResolvedPreview] = useState<{ file: File; preview: CsvPreview } | null>(null);
+  const [resolvedPreview, setResolvedPreview] = useState<{
+    file: File;
+    preview: CsvPreview;
+  } | null>(null);
 
   useEffect(() => {
     if (!file) return;
@@ -308,20 +397,36 @@ function useCsvPreview(file: File | null) {
           payload = null;
         }
         if (!response.ok) {
-          const code = payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
-            ? (payload as { error: string }).error
-            : `http_${response.status}`;
+          const code =
+            payload &&
+            typeof payload === "object" &&
+            typeof (payload as { error?: unknown }).error === "string"
+              ? (payload as { error: string }).error
+              : `http_${response.status}`;
           throw new Error(code);
         }
         return payload as QuestionBankCsvParseResult;
       })
       .then((payload) => {
         if (!active) return;
-        setResolvedPreview({ file, preview: previewFromPayload(file, payload) });
+        setResolvedPreview({
+          file,
+          preview: previewFromPayload(file, payload),
+        });
       })
       .catch((error: unknown) => {
-        if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
-        setResolvedPreview({ file, preview: serverPreviewError(file, error instanceof Error ? error.message : "preview_failed") });
+        if (
+          !active ||
+          (error instanceof DOMException && error.name === "AbortError")
+        )
+          return;
+        setResolvedPreview({
+          file,
+          preview: serverPreviewError(
+            file,
+            error instanceof Error ? error.message : "preview_failed",
+          ),
+        });
       });
     return () => {
       active = false;
@@ -329,68 +434,302 @@ function useCsvPreview(file: File | null) {
     };
   }, [file]);
 
-  if (!file) return { errors: [], fileName: "", normalizedRows: [], rowCount: 0, status: "idle" as const, summary: null };
-  if (!resolvedPreview || resolvedPreview.file !== file) return { errors: [], fileName: file.name, normalizedRows: [], rowCount: 0, status: "loading" as const, summary: null };
+  if (!file)
+    return {
+      errors: [],
+      fileName: "",
+      normalizedRows: [],
+      rowCount: 0,
+      status: "idle" as const,
+      summary: null,
+    };
+  if (!resolvedPreview || resolvedPreview.file !== file)
+    return {
+      errors: [],
+      fileName: file.name,
+      normalizedRows: [],
+      rowCount: 0,
+      status: "loading" as const,
+      summary: null,
+    };
   return resolvedPreview.preview;
 }
 
-function QuestionBankCsvCreateInput({
+function QuestionBankCsvDraftStatus({
   disabled = false,
-  onApply,
+  draft,
   onRemove,
 }: {
   disabled?: boolean;
-  onApply?: (summary: QuestionBankCsvDraftSummary) => void;
-  onRemove?: () => void;
+  draft: QuestionBankCsvDraftInfo | null;
+  onRemove: () => void;
 }) {
-  const inputId = useId();
-  const [file, setFile] = useState<File | null>(null);
-  const preview = useCsvPreview(file);
-  const canApply = preview.status === "valid" && Boolean(file) && Boolean(preview.summary);
-
+  if (!draft) return null;
   return (
-    <ReferenceSurface as="section" className="grid gap-4 p-5 md:p-7" data-question-bank-csv-create="true">
+    <ReferenceSurface
+      as="section"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-primary-200 bg-primary-50/60 p-5 md:p-6"
+      data-question-bank-csv-draft-status="true"
+    >
       <div className="flex min-w-0 items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary-50 text-primary-800">
-          <FileText aria-hidden="true" className="size-5" />
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary-100 text-primary-800">
+          <CheckCircle2 aria-hidden="true" className="size-5" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-secondary-900">Isi soal dari CSV</h2>
-          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">
-            Pilih CSV UTF-8 dengan maksimal 500 baris untuk menyiapkan draf soal. Pratinjau memeriksa file melalui layanan CSV tanpa menyimpan perubahan.
+          <p className="font-semibold text-secondary-900">
+            File soal siap dimuat ke draf
+          </p>
+          <p className="mt-1 break-words text-sm leading-6 text-secondary-700">
+            {draft.rowCount} soal dari {draft.fileName} sudah ditambahkan secara
+            lokal.
           </p>
         </div>
       </div>
-      <CsvFilePicker
+      <Button
         disabled={disabled}
-        file={file}
-        inputId={inputId}
-        onChange={setFile}
-        onRemove={() => {
-          setFile(null);
-          onRemove?.();
-        }}
-      />
-      <CsvFileSummary preview={preview} />
-      {canApply ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4">
-          <p className="text-sm text-secondary-700">Menerapkan file akan mengganti hanya bagian soal yang berasal dari CSV pada draf lokal.</p>
-          <Button
-            disabled={disabled}
-            onClick={() => {
-              if (!file || !preview.summary) return;
-              const payload = toQuestionBankCsvDraftPayload({ normalizedRows: preview.normalizedRows, summary: preview.summary }, "");
-              onApply?.({ fileName: file.name, questions: payload.questions, rowCount: payload.questions.length, summary: payload.summary });
-            }}
-            type="button"
-            variant="brand"
-          >
-            <Upload data-icon="inline-start" />
-            Gunakan CSV untuk draf
-          </Button>
-        </div>
-      ) : null}
+        onClick={onRemove}
+        size="sm"
+        type="button"
+        variant="brandOutline"
+      >
+        Hapus soal dari file
+      </Button>
     </ReferenceSurface>
+  );
+}
+
+type QuestionBankCreateMethod = "form" | "csv";
+
+function QuestionBankCreateMethodDialog({
+  onContinueForm,
+  onCsvReady,
+  onOpenChange,
+  open,
+}: {
+  onContinueForm: () => void;
+  onCsvReady: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  const inputId = useId();
+  const [method, setMethod] = useState<QuestionBankCreateMethod>("form");
+  const [step, setStep] = useState<"choose" | "upload">("choose");
+  const [file, setFile] = useState<File | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const preview = useCsvPreview(file);
+  const canContinue =
+    preview.status === "valid" && Boolean(file) && Boolean(preview.summary);
+
+  function reset() {
+    setMethod("form");
+    setStep("choose");
+    setFile(null);
+    setStorageError(null);
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    onOpenChange(nextOpen);
+    if (!nextOpen) reset();
+  }
+
+  function continueFromUpload() {
+    if (!file || !preview.summary || preview.status !== "valid") return;
+    try {
+      const payload = toQuestionBankCsvDraftPayload(
+        {
+          normalizedRows: preview.normalizedRows,
+          summary: preview.summary,
+        },
+        "",
+      );
+      writeQuestionBankCsvPendingDraft({
+        fileName: file.name,
+        questions: payload.questions,
+        rowCount: payload.questions.length,
+        summary: payload.summary,
+      });
+      setStorageError(null);
+      reset();
+      onCsvReady();
+    } catch {
+      setStorageError(
+        "File sudah valid, tetapi draf belum dapat disiapkan. Coba tutup tab lain lalu ulangi.",
+      );
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent
+        className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-2xl"
+        data-question-bank-create-method="true"
+      >
+        {step === "choose" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Buat bank soal</DialogTitle>
+            </DialogHeader>
+            <RadioGroup
+              aria-label="Cara membuat bank soal"
+              className="grid gap-3 sm:grid-cols-2"
+              onValueChange={(value) =>
+                setMethod(value as QuestionBankCreateMethod)
+              }
+              value={method}
+            >
+              <label
+                className={cn(
+                  "flex min-h-36 cursor-pointer flex-col gap-3 rounded-3xl border px-5 pb-5 transition-[background-color,border-color,box-shadow] focus-within:ring-3 focus-within:ring-primary-700/20",
+                  method === "form"
+                    ? "border-primary-700 bg-primary-50/70 ring-2 ring-primary-700/15 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)]"
+                    : "border-primary-100 bg-white hover:border-primary-300",
+                )}
+                htmlFor="question-bank-create-form"
+              >
+                <RadioGroupItem
+                  className="sr-only"
+                  id="question-bank-create-form"
+                  value="form"
+                />
+                <span className="grid size-10 place-items-center rounded-2xl bg-primary-100 text-primary-800">
+                  <Pencil aria-hidden="true" className="size-5" />
+                </span>
+                <span>
+                  <span className="block font-semibold text-secondary-900">
+                    Isi manual
+                  </span>
+                  <span className="mt-1 block text-sm leading-6 text-secondary-600">
+                    Tulis judul, deskripsi, lalu susun soal di editor.
+                  </span>
+                </span>
+              </label>
+              <label
+                className={cn(
+                  "flex min-h-36 cursor-pointer flex-col gap-3 rounded-3xl border px-5 pb-5 transition-[background-color,border-color,box-shadow] focus-within:ring-3 focus-within:ring-primary-700/20",
+                  method === "csv"
+                    ? "border-primary-700 bg-primary-50/70 ring-2 ring-primary-700/15 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)]"
+                    : "border-primary-100 bg-white hover:border-primary-300",
+                )}
+                htmlFor="question-bank-create-csv"
+              >
+                <RadioGroupItem
+                  className="sr-only"
+                  id="question-bank-create-csv"
+                  value="csv"
+                />
+                <span className="grid size-10 place-items-center rounded-2xl bg-primary-100 text-primary-800">
+                  <Upload aria-hidden="true" className="size-5" />
+                </span>
+                <span>
+                  <span className="block font-semibold text-secondary-900">
+                    Gunakan file soal
+                  </span>
+                  <span className="mt-1 block text-sm leading-6 text-secondary-600">
+                    Unduh templat soal, isi pertanyaan, lalu unggah kembali.
+                  </span>
+                </span>
+              </label>
+            </RadioGroup>
+            <DialogFooter>
+              <Button
+                onClick={() => handleOpenChange(false)}
+                type="button"
+                variant="brandOutline"
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={() => {
+                  if (method === "form") {
+                    reset();
+                    onContinueForm();
+                  } else setStep("upload");
+                }}
+                type="button"
+                variant="brand"
+              >
+                Lanjutkan
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <Button
+                  aria-label="Kembali memilih cara membuat bank soal"
+                  onClick={() => setStep("choose")}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <ArrowLeft aria-hidden="true" />
+                </Button>
+                <div className="min-w-0">
+      <DialogTitle>Unggah file soal</DialogTitle>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <CsvTemplateDownload
+                  fileName="templat-bank-soal.csv"
+                  href="/api/mentor/question-banks/csv/template"
+                  title="Unduh templat soal"
+                />
+                <label
+                  className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+                  htmlFor={inputId}
+                >
+                  File soal
+                </label>
+                <CsvFilePicker
+                  disabled={false}
+                  file={file}
+                  inputId={inputId}
+                  onChange={(nextFile) => {
+                    setStorageError(null);
+                    setFile(nextFile);
+                  }}
+                  onRemove={() => {
+                    setStorageError(null);
+                    setFile(null);
+                  }}
+                  uploading={preview.status === "loading"}
+                />
+              </div>
+              <CsvFileSummary preview={preview} />
+              {storageError ? (
+                <div
+                  aria-live="assertive"
+                  className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
+                  role="alert"
+                >
+                  {storageError}
+                </div>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => handleOpenChange(false)}
+                type="button"
+                variant="brandOutline"
+              >
+                Batal
+              </Button>
+              <Button
+                disabled={!canContinue}
+                onClick={continueFromUpload}
+                type="button"
+                variant="brand"
+              >
+                Lanjut ke detail
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -415,7 +754,7 @@ function QuestionBankCsvImportControl({
           <TooltipTrigger
             render={
               <Button
-                aria-label="Impor CSV ke Bank Soal"
+                aria-label="Tambahkan soal ke Bank Soal"
                 className="size-11"
                 disabled={disabled || !editLease}
                 onClick={() => setOpen(true)}
@@ -426,7 +765,7 @@ function QuestionBankCsvImportControl({
           >
             <Upload aria-hidden="true" />
           </TooltipTrigger>
-          <TooltipContent>Impor soal dari CSV</TooltipContent>
+          <TooltipContent>Tambahkan soal dari file</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <QuestionBankCsvImportDialog
@@ -467,12 +806,20 @@ function QuestionBankCsvImportDialog({
   const applyControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const preview = useCsvPreview(file);
-  const canApply = preview.status === "valid" && Boolean(file) && Boolean(editLease) && !disabled && !isApplying;
+  const canApply =
+    preview.status === "valid" &&
+    Boolean(file) &&
+    Boolean(editLease) &&
+    !disabled &&
+    !isApplying;
 
-  useEffect(() => () => {
-    mountedRef.current = false;
-    applyControllerRef.current?.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      applyControllerRef.current?.abort();
+    },
+    [],
+  );
 
   function resetForm() {
     setFile(null);
@@ -494,17 +841,20 @@ function QuestionBankCsvImportDialog({
     const controller = new AbortController();
     applyControllerRef.current = controller;
     try {
-      const response = await fetch(`/api/mentor/question-banks/${encodeURIComponent(bankId)}/csv/import?mode=${mode}`, {
-        body: file,
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "x-edit-lease-generation": String(editLease.generation),
-          "x-edit-lease-token": editLease.token,
-          "x-question-bank-revision": String(expectedRevision),
+      const response = await fetch(
+        `/api/mentor/question-banks/${encodeURIComponent(bankId)}/csv/import?mode=${mode}`,
+        {
+          body: file,
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "x-edit-lease-generation": String(editLease.generation),
+            "x-edit-lease-token": editLease.token,
+            "x-question-bank-revision": String(expectedRevision),
+          },
+          method: "POST",
+          signal: controller.signal,
         },
-        method: "POST",
-        signal: controller.signal,
-      });
+      );
       let payload: unknown = null;
       try {
         payload = await response.json();
@@ -512,73 +862,173 @@ function QuestionBankCsvImportDialog({
         payload = null;
       }
       if (!response.ok) {
-        const code = payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
-          ? (payload as { error: string }).error
-          : `http_${response.status}`;
+        const code =
+          payload &&
+          typeof payload === "object" &&
+          typeof (payload as { error?: unknown }).error === "string"
+            ? (payload as { error: string }).error
+            : `http_${response.status}`;
         throw new Error(code);
       }
-      const result = (payload as { result?: QuestionBankCsvImportResult } | null)?.result;
-      if (!result || result.bankId !== bankId) throw new Error("resource_busy_retry");
+      const result = (
+        payload as { result?: QuestionBankCsvImportResult } | null
+      )?.result;
+      if (!result || result.bankId !== bankId)
+        throw new Error("resource_busy_retry");
       await onApplied?.(result);
       if (!mountedRef.current || controller.signal.aborted) return;
-      showToast(`${result.importedCount} soal berhasil diimpor (${mode === "append" ? "ditambahkan" : "ditimpa"}).`, { variant: "success" });
+      showToast(
+        `${result.importedCount} soal berhasil ditambahkan (${mode === "append" ? "ditambahkan" : "menggantikan soal lama"}).`,
+        { variant: "success" },
+      );
       closeDialog(false);
     } catch (error) {
-      if (!mountedRef.current || controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
-      const code = error instanceof Error ? error.message : "resource_busy_retry";
-      const message = CSV_ERROR_MESSAGES[code as CsvErrorCode] ?? "Impor CSV belum berhasil. Periksa kembali file dan coba lagi.";
+      if (
+        !mountedRef.current ||
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      )
+        return;
+      const code =
+        error instanceof Error ? error.message : "resource_busy_retry";
+      const message =
+        CSV_ERROR_MESSAGES[code as CsvErrorCode] ??
+        "Soal belum berhasil ditambahkan. Periksa kembali file dan coba lagi.";
       setApplyError(message);
-      showToast("Impor CSV belum berhasil. Rincian tersedia di dialog.", { variant: "error" });
+      showToast("Soal belum berhasil ditambahkan. Rincian tersedia di dialog.", {
+        variant: "error",
+      });
     } finally {
-      if (applyControllerRef.current === controller) applyControllerRef.current = null;
+      if (applyControllerRef.current === controller)
+        applyControllerRef.current = null;
       if (mountedRef.current) setIsApplying(false);
     }
   }
 
   return (
     <Dialog onOpenChange={closeDialog} open={open}>
-      <DialogContent aria-describedby="question-bank-csv-import-description" className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-2xl" data-question-bank-csv-import="true">
+      <DialogContent
+        aria-describedby="question-bank-csv-import-description"
+        className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-2xl"
+        data-question-bank-csv-import="true"
+      >
         <DialogHeader>
-          <DialogTitle>Impor soal dari CSV</DialogTitle>
+          <DialogTitle>Tambahkan soal dari file</DialogTitle>
           <DialogDescription id="question-bank-csv-import-description">
-            File diperiksa melalui layanan CSV. Perubahan baru ditulis setelah Anda memilih mode dan menekan tombol Terapkan.
+            File akan diperiksa terlebih dahulu. Perubahan baru disimpan setelah
+            Anda memilih cara memasukkan soal dan menekan tombol Terapkan.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-5">
           <div className="grid gap-2">
-            <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>File CSV</label>
-            <CsvFilePicker disabled={disabled || isApplying} file={file} inputId={inputId} onChange={(nextFile) => { setApplyError(null); setFile(nextFile); }} onRemove={() => { setApplyError(null); setFile(null); }} />
-            <p className="text-xs leading-5 text-secondary-600">UTF-8, maksimal 2 MiB dan 500 baris data. Kolom mengikuti format Bank Soal v1.</p>
+            <CsvTemplateDownload
+              fileName="templat-bank-soal.csv"
+              href="/api/mentor/question-banks/csv/template"
+              title="Unduh templat soal"
+            />
+            <label
+              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+              htmlFor={inputId}
+            >
+              File soal
+            </label>
+            <CsvFilePicker
+              disabled={disabled || isApplying}
+              file={file}
+              inputId={inputId}
+              onChange={(nextFile) => {
+                setApplyError(null);
+                setFile(nextFile);
+              }}
+              onRemove={() => {
+                setApplyError(null);
+                setFile(null);
+              }}
+              uploading={preview.status === "loading"}
+            />
           </div>
 
           <CsvFileSummary preview={preview} />
 
           <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Cara memasukkan soal</FieldLabel>
-            <RadioGroup aria-label="Cara memasukkan soal" className="grid gap-3 sm:grid-cols-2" disabled={disabled || isApplying} onValueChange={(value) => setMode(value as QuestionBankCsvMode)} value={mode}>
-              <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-append">
-                <RadioGroupItem id="question-bank-csv-mode-append" value="append" />
-                <span className="min-w-0"><span className="block font-semibold text-secondary-900">Tambahkan</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Pertahankan soal aktif dan tambahkan baris CSV sebagai soal baru.</span></span>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
+              Cara memasukkan soal
+            </FieldLabel>
+            <RadioGroup
+              aria-label="Cara memasukkan soal"
+              className="grid gap-3 sm:grid-cols-2"
+              disabled={disabled || isApplying}
+              onValueChange={(value) => setMode(value as QuestionBankCsvMode)}
+              value={mode}
+            >
+              <label
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.choice,
+                  "items-start",
+                )}
+                htmlFor="question-bank-csv-mode-append"
+              >
+                <RadioGroupItem
+                  id="question-bank-csv-mode-append"
+                  value="append"
+                />
+                <span className="min-w-0">
+                  <span className="block font-semibold text-secondary-900">
+                    Tambahkan
+                  </span>
+                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
+                    Soal yang sudah ada tetap dipertahankan, lalu soal dari file
+                    ditambahkan.
+                  </span>
+                </span>
               </label>
-              <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-overwrite">
-                <RadioGroupItem id="question-bank-csv-mode-overwrite" value="overwrite" />
-                <span className="min-w-0"><span className="block font-semibold text-secondary-900">Timpa semua</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Koleksi soal aktif mengikuti isi CSV; metadata Bank Soal tetap sama.</span></span>
+              <label
+                className={cn(
+                  REFERENCE_CONTROL_CLASS_NAMES.choice,
+                  "items-start",
+                )}
+                htmlFor="question-bank-csv-mode-overwrite"
+              >
+                <RadioGroupItem
+                  id="question-bank-csv-mode-overwrite"
+                  value="overwrite"
+                />
+                <span className="min-w-0">
+                  <span className="block font-semibold text-secondary-900">
+                    Timpa semua
+                  </span>
+                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
+                    Isi Bank Soal akan mengikuti file. Judul dan deskripsi tetap
+                    sama.
+                  </span>
+                </span>
               </label>
             </RadioGroup>
           </Field>
 
           <div className="rounded-2xl border border-primary-100 bg-primary-50/40 px-4 py-3 text-sm leading-6 text-secondary-700">
-            <p className="font-semibold text-secondary-900">Sebelum menerapkan</p>
+            <p className="font-semibold text-secondary-900">
+              Sebelum menerapkan
+            </p>
             <ul className="mt-1 list-disc space-y-1 pl-5">
-              <li>CSV asli dikirim lagi saat tindakan diterapkan agar server memvalidasi bytes yang sama.</li>
+              <li>
+                File yang Anda pilih akan diperiksa lagi sebelum diterapkan.
+              </li>
               <li>Kesalahan satu baris membatalkan seluruh tindakan.</li>
-              <li>Mode Timpa semua akan mengarsipkan soal aktif yang tidak ada di CSV.</li>
+              <li>
+                Saat memilih Timpa semua, soal yang tidak ada di file akan
+                diarsipkan.
+              </li>
             </ul>
           </div>
 
           {applyError ? (
-            <div aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg" role="alert">
+            <div
+              aria-live="assertive"
+              className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
+              role="alert"
+            >
               <p className="font-semibold">Impor belum diterapkan</p>
               <p className="mt-1 break-words">{applyError}</p>
             </div>
@@ -586,9 +1036,27 @@ function QuestionBankCsvImportDialog({
         </div>
 
         <DialogFooter>
-          <Button disabled={isApplying} onClick={() => closeDialog(false)} type="button" variant="ghost">Batal</Button>
-          <Button aria-busy={isApplying} data-csv-import-apply="true" disabled={!canApply} onClick={() => void apply()} type="button" variant="brand">
-            {isApplying ? "Menerapkan…" : mode === "append" ? "Terapkan tambahan" : "Terapkan timpa"}
+          <Button
+            disabled={isApplying}
+            onClick={() => closeDialog(false)}
+            type="button"
+            variant="ghost"
+          >
+            Batal
+          </Button>
+          <Button
+            aria-busy={isApplying}
+            data-csv-import-apply="true"
+            disabled={!canApply}
+            onClick={() => void apply()}
+            type="button"
+            variant="brand"
+          >
+            {isApplying
+              ? "Menerapkan…"
+              : mode === "append"
+                ? "Terapkan tambahan"
+                : "Terapkan timpa"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -613,15 +1081,24 @@ function safeDownloadName(contentDisposition: string | null) {
   return raw || "bank-soal.csv";
 }
 
-function QuestionBankCsvExportAction({ bankId, disabled = false }: { bankId: string; disabled?: boolean }) {
+function QuestionBankCsvExportAction({
+  bankId,
+  disabled = false,
+}: {
+  bankId: string;
+  disabled?: boolean;
+}) {
   const [isExporting, setIsExporting] = useState(false);
   const exportControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
-  useEffect(() => () => {
-    mountedRef.current = false;
-    exportControllerRef.current?.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      exportControllerRef.current?.abort();
+    },
+    [],
+  );
 
   async function exportCsv() {
     if (isExporting) return;
@@ -629,11 +1106,14 @@ function QuestionBankCsvExportAction({ bankId, disabled = false }: { bankId: str
     const controller = new AbortController();
     exportControllerRef.current = controller;
     try {
-      const response = await fetch(`/api/mentor/question-banks/${encodeURIComponent(bankId)}/csv`, { method: "GET", signal: controller.signal });
+      const response = await fetch(
+        `/api/mentor/question-banks/${encodeURIComponent(bankId)}/csv`,
+        { method: "GET", signal: controller.signal },
+      );
       if (!response.ok) {
         let code = "resource_busy_retry";
         try {
-          const payload = await response.json() as { error?: unknown };
+          const payload = (await response.json()) as { error?: unknown };
           if (typeof payload.error === "string") code = payload.error;
         } catch {
           // Keep the stable user-facing fallback when the response is not JSON.
@@ -644,7 +1124,9 @@ function QuestionBankCsvExportAction({ bankId, disabled = false }: { bankId: str
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = safeDownloadName(response.headers.get("content-disposition"));
+      anchor.download = safeDownloadName(
+        response.headers.get("content-disposition"),
+      );
       anchor.rel = "noopener";
       anchor.style.display = "none";
       document.body.append(anchor);
@@ -652,35 +1134,60 @@ function QuestionBankCsvExportAction({ bankId, disabled = false }: { bankId: str
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       if (!mountedRef.current || controller.signal.aborted) return;
-      showToast("CSV Bank Soal berhasil diunduh.", { variant: "success" });
+      showToast("Bank Soal berhasil diunduh.", { variant: "success" });
     } catch (error) {
-      if (!mountedRef.current || controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
-      const code = error instanceof Error ? error.message : "resource_busy_retry";
-      showToast(CSV_ERROR_MESSAGES[code as CsvErrorCode] ?? "CSV belum dapat diunduh. Coba lagi.", { variant: "error" });
+      if (
+        !mountedRef.current ||
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      )
+        return;
+      const code =
+        error instanceof Error ? error.message : "resource_busy_retry";
+      showToast(
+        CSV_ERROR_MESSAGES[code as CsvErrorCode] ??
+          "Bank Soal belum dapat diunduh. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
-      if (exportControllerRef.current === controller) exportControllerRef.current = null;
+      if (exportControllerRef.current === controller)
+        exportControllerRef.current = null;
       if (mountedRef.current) setIsExporting(false);
     }
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3" data-question-bank-csv-export="true">
-      <Button aria-busy={isExporting} disabled={disabled || isExporting} onClick={() => void exportCsv()} type="button" variant="brandOutline">
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-3"
+      data-question-bank-csv-export="true"
+    >
+      <Button
+        aria-busy={isExporting}
+        disabled={disabled || isExporting}
+        onClick={() => void exportCsv()}
+        type="button"
+        variant="brandOutline"
+      >
         <Download data-icon="inline-start" />
-        {isExporting ? "Menyiapkan CSV…" : "Ekspor CSV"}
+        {isExporting ? "Menyiapkan file…" : "Unduh soal"}
       </Button>
     </div>
   );
 }
 
 export {
-  QuestionBankCsvCreateInput,
   QuestionBankCsvExportAction,
   QuestionBankCsvImportControl,
   QuestionBankCsvImportDialog,
+  QuestionBankCreateMethodDialog,
+  QuestionBankCsvDraftStatus,
+  clearQuestionBankCsvPendingDraft,
+  readQuestionBankCsvPendingDraft,
+  writeQuestionBankCsvPendingDraft,
 };
 export type {
   CsvPreviewStatus,
+  QuestionBankCsvDraftInfo,
   QuestionBankCsvDraftSummary,
   QuestionBankCsvImportResult,
   QuestionBankCsvImportSummary,

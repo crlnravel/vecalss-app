@@ -77,6 +77,7 @@ import { cn } from "@/lib/utils";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { QuestionBankCreateMethodDialog } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
   kaptenSubjects,
   type KaptenQuestionBank,
@@ -1541,6 +1542,7 @@ function useQuestionBankCatalogueState({
   const [folderName, setFolderName] = useState("");
   const [folderParentId, setFolderParentId] = useState<string | null>(null);
   const [bankMoveId, setBankMoveId] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const {
@@ -1739,6 +1741,7 @@ function useQuestionBankCatalogueState({
     catalogueRowContextMenu,
     catalogueRows,
     clearFiltersHref,
+    createDialogOpen,
     currentFolder,
     flatFolders,
     folderBreadcrumb,
@@ -1766,6 +1769,7 @@ function useQuestionBankCatalogueState({
     selectedFolder,
     selectedSubjects,
     setBankMoveId,
+    setCreateDialogOpen,
     setFolderDialog,
     setFolderError,
     setFolderName,
@@ -1825,6 +1829,7 @@ function QuestionBankCataloguePageContent({
     catalogueRowContextMenu,
     catalogueRows,
     clearFiltersHref,
+    createDialogOpen,
     currentFolder,
     flatFolders,
     folderBreadcrumb,
@@ -1851,6 +1856,7 @@ function QuestionBankCataloguePageContent({
     selectedFolder,
     selectedSubjects,
     setBankMoveId,
+    setCreateDialogOpen,
     setFolderDialog,
     setFolderError,
     setFolderName,
@@ -1866,6 +1872,7 @@ function QuestionBankCataloguePageContent({
     totalPages,
     visiblePage,
   } = state;
+  const router = useRouter();
   const lifecycleCopy = getQuestionBankLifecycleCopy(pendingLifecycle?.action);
   const pageTitle = questionBankNavigationLabel(initialPurpose);
 
@@ -1886,14 +1893,7 @@ function QuestionBankCataloguePageContent({
             </Button>
             <Button
               aria-label="Buat Soal"
-              render={
-                <Link
-                  href={questionBankCreateHref({
-                    folder: selectedFolder,
-                    purpose: initialPurpose,
-                  })}
-                />
-              }
+              onClick={() => setCreateDialogOpen(true)}
               size="sm"
               title="Buat Bank"
               type="button"
@@ -2051,6 +2051,28 @@ function QuestionBankCataloguePageContent({
         ) : null}
       </div>
 
+      <QuestionBankCreateMethodDialog
+        onContinueForm={() => {
+          setCreateDialogOpen(false);
+          router.push(
+            questionBankCreateHref({
+              folder: selectedFolder,
+              purpose: initialPurpose,
+            }),
+          );
+        }}
+        onCsvReady={() => {
+          setCreateDialogOpen(false);
+          router.push(
+            questionBankCreateHref({
+              folder: selectedFolder,
+              purpose: initialPurpose,
+            }),
+          );
+        }}
+        onOpenChange={setCreateDialogOpen}
+        open={createDialogOpen}
+      />
       <QuestionBankFolderDialog
         flatFolders={flatFolders}
         folderDialog={folderDialog}

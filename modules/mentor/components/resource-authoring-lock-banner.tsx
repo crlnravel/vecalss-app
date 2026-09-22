@@ -22,11 +22,11 @@ const AUTHORING_LOCK_STATES = [
 type AuthoringLockState = (typeof AUTHORING_LOCK_STATES)[number];
 
 const AUTHORING_LOCK_STATE_LABELS: Record<AuthoringLockState, string> = {
-  acquiring: "Menyiapkan izin",
-  owned: "Bisa mengedit",
-  locked: "Sedang diedit orang lain",
-  uncertain: "Izin belum pasti",
-  lost: "Izin berakhir",
+  acquiring: "Menyiapkan halaman",
+  owned: "Siap diedit",
+  locked: "Sedang dipakai orang lain",
+  uncertain: "Memeriksa halaman",
+  lost: "Perubahan dijeda",
 };
 
 const AUTHORING_LOCK_STATE_COPY: Record<
@@ -34,29 +34,26 @@ const AUTHORING_LOCK_STATE_COPY: Record<
   { description: string; title: string }
 > = {
   acquiring: {
-    description:
-      "Perubahan dinonaktifkan sementara. Konten, preview, dan ekspor yang tersedia tetap dapat digunakan.",
-    title: "Menyiapkan izin edit…",
+    description: "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
+    title: "Menyiapkan halaman…",
   },
   owned: {
-    description:
-      "Anda memegang izin edit untuk {resource}. Perubahan lokal tetap berada di layar sampai disimpan.",
-    title: "Izin edit aktif",
+    description: "Anda dapat melakukan perubahan pada {resource}.",
+    title: "Siap diedit",
   },
   locked: {
     description:
-      "Perubahan dinonaktifkan sementara. Anda tetap dapat melihat {resource}, membuka preview, dan memakai ekspor yang tersedia.",
+      "Perubahan dinonaktifkan sementara. Anda tetap dapat melihat {resource} dan menggunakan fitur yang tersedia.",
     title: "Sedang diedit oleh {holder}",
   },
   uncertain: {
-    description:
-      "Koneksi ke izin edit sedang diverifikasi. Perubahan {resource} dibekukan agar draf lokal tidak tertimpa.",
-    title: "Izin edit belum pasti",
+    description: "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
+    title: "Memeriksa halaman…",
   },
   lost: {
     description:
-      "Izin edit berakhir. Perubahan lokal pada {resource} tetap tersimpan di layar, tetapi simpan dan mutasi dinonaktifkan sampai izin diperoleh lagi.",
-    title: "Izin edit berakhir",
+      "Pemeriksaan selesai. Perubahan yang belum disimpan pada {resource} masih terlihat, tetapi belum dapat disimpan.",
+    title: "Perubahan sedang dijeda",
   },
 };
 
@@ -85,6 +82,10 @@ function ResourceAuthoringLockBanner({
   resourceLabel?: string;
   state: AuthoringLockState;
 }) {
+  if (state === "owned" || state === "acquiring" || state === "uncertain") {
+    return null;
+  }
+
   const readOnly = state !== "owned";
   const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
   const title = stateCopy.title.replace("{holder}", holderName);
@@ -97,54 +98,56 @@ function ResourceAuthoringLockBanner({
         : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg";
 
   return (
-    <section
-      aria-describedby="resource-authoring-lock-description"
-      aria-label="Status izin edit"
-      className={cn(
-        "flex flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-[0_14px_28px_-26px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)] sm:flex-row sm:items-start sm:justify-between",
-        toneClass,
-        className,
-      )}
-      data-authoring-lock-state={state}
-      data-read-only={readOnly ? "true" : "false"}
-      role={state === "lost" ? "alert" : "status"}
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-white/70 text-current">
-          <LockStateIcon state={state} />
-        </span>
-        <div className="min-w-0">
-          <p className="font-semibold leading-5">{title}</p>
-          <p
-            className="mt-1 max-w-[70ch] text-sm leading-6 text-current/85"
-            id="resource-authoring-lock-description"
-          >
-            {description}
-            {state === "locked"
-              ? ` Perkiraan izin tersedia lagi dalam ${remainingSeconds} detik.`
-              : null}
-            {hasLocalChanges && state !== "owned"
-              ? " Draf yang belum disimpan tidak dihapus."
-              : null}
-          </p>
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-40 px-4 sm:px-6 lg:px-8">
+      <section
+        aria-describedby="resource-authoring-lock-description"
+        aria-label="Status perubahan"
+        className={cn(
+          "pointer-events-auto mx-auto flex w-full max-w-[calc(1400px-2rem)] flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)] backdrop-blur-md sm:flex-row sm:items-start sm:justify-between sm:px-5",
+          toneClass,
+          className,
+        )}
+        data-authoring-lock-state={state}
+        data-read-only={readOnly ? "true" : "false"}
+        role={state === "lost" ? "alert" : "status"}
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-white/70 text-current">
+            <LockStateIcon state={state} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold leading-5">{title}</p>
+            <p
+              className="mt-1 max-w-[70ch] text-sm leading-6 text-current/85"
+              id="resource-authoring-lock-description"
+            >
+              {description}
+              {state === "locked"
+                ? ` Perubahan diperkirakan tersedia lagi dalam ${remainingSeconds} detik.`
+                : null}
+              {hasLocalChanges
+                ? " Perubahan yang belum disimpan tetap ada di layar."
+                : null}
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-        {onRetry && state !== "owned" ? (
-          <Button
-            aria-label="Coba ambil izin edit lagi"
-            onClick={onRetry}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <RefreshCw data-icon="inline-start" />
-            Coba lagi
-          </Button>
-        ) : null}
-      </div>
-    </section>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          {onRetry ? (
+            <Button
+              aria-label="Coba lagi"
+              onClick={onRetry}
+              size="sm"
+              type="button"
+              variant="brandOutline"
+            >
+              <RefreshCw data-icon="inline-start" />
+              Coba lagi
+            </Button>
+          ) : null}
+        </div>
+      </section>
+    </div>
   );
 }
 

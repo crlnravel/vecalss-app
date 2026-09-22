@@ -49,7 +49,7 @@ class QuestionBankCsvMutationError extends Error {
 
   constructor(
     readonly code: QuestionBankCsvMutationCode,
-    message = "CSV Bank Soal tidak dapat diterapkan.",
+    message = "Soal Bank Soal tidak dapat diterapkan.",
     details: Record<string, unknown> = {},
   ) {
     super(message);
@@ -396,7 +396,7 @@ async function lockBankQuestionTree(tx: Prisma.TransactionClient, bankId: string
 
 function validateCsvRows(mode: QuestionBankCsvImportMode, rows: readonly QuestionBankCsvRow[]) {
   if (!rows.length || rows.length > QUESTION_BANK_CSV_MAX_ROWS) {
-    throw new QuestionBankCsvMutationError("invalid_input", "CSV Bank Soal harus memiliki 1 sampai 500 baris.");
+    throw new QuestionBankCsvMutationError("invalid_input", "Bank Soal harus memiliki 1 sampai 500 soal.");
   }
   if (mode !== "append" && mode !== "overwrite") {
     throw new QuestionBankCsvMutationError("invalid_input");
@@ -582,7 +582,7 @@ function safeQuestionBankCsvFilename(name: string) {
     .replace(/^-+|-+$/gu, "")
     .slice(0, 80)
     || "bank-soal";
-  return `${slug}-bank-soal-v1.csv`;
+  return `${slug}-bank-soal.csv`;
 }
 
 async function exportQuestionBankCsv(actorId: string, bankId: string) {
