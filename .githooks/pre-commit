@@ -27,6 +27,7 @@ if git diff --cached --name-only | awk '
   $0 == "init.sh" ||
   $0 ~ /^_harness\// ||
   $0 ~ /^\.agents\// ||
+  $0 ~ /^\.codex\// ||
   $0 ~ /^\.githooks\// { next }
   { product_change = 1 }
   END { exit product_change ? 1 : 0 }
