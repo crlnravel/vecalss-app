@@ -137,7 +137,7 @@ assert.equal(parseVeraAutomaticContextPromotionEvidence({
   legacyRetirementReviewed: false,
   approvalDigest: "c".repeat(64),
 }), null);
-assert.equal(readVeraAutomaticContextRolloutConfig({ VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF: "unexpected" }).emergencyOff, true);
+assert.equal(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "test", VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF: "unexpected" }).emergencyOff, true);
 assert.deepEqual(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "production", VERA_AUTOMATIC_CONTEXT_STATE: "bad", VERA_AUTOMATIC_CONTEXT_ROLLOUT_BASIS_POINTS: "12000" }), {
   state: "off",
   rolloutBasisPoints: 10000,
