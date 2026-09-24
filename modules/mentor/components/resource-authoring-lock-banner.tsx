@@ -86,7 +86,7 @@ function ResourceAuthoringLockBanner({
     return null;
   }
 
-  const readOnly = state !== "owned";
+  const readOnly = state === "locked" || state === "lost";
   const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
   const isQuestionBankLock = state === "locked" && resourceLabel === "Bank Soal";
   const title = isQuestionBankLock
@@ -96,11 +96,9 @@ function ResourceAuthoringLockBanner({
     ? "Anda tidak dapat mengedit bank soal ini karena terdapat mentor lain yang sedang mengedit soal yang sama."
     : stateCopy.description.replace("{resource}", resourceLabel);
   const toneClass =
-    state === "owned"
-      ? "border-primary-200 bg-primary-50/70 text-primary-950"
-      : state === "locked" || state === "uncertain"
-        ? "border-amber-300 bg-amber-50 text-amber-950"
-        : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg";
+    state === "locked"
+      ? "border-amber-300 bg-amber-50 text-amber-950"
+      : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg";
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-3 z-40 px-4 sm:px-6 lg:px-8">
