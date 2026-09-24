@@ -672,7 +672,7 @@ export class VeraPrismaChatOrchestrator {
     const request = recovered.request;
     if (!request.studentId || !request.conversationId || request.studentId !== input.studentId || request.conversationId !== input.conversationId) return;
     if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
-    if (request.contextPack.purgeState !== "available" || !request.userMessage?.contentEnvelope || request.userMessage.contentState !== "encrypted") return;
+    if (!request.contextPack || request.contextPack.purgeState !== "available" || !request.userMessage?.contentEnvelope || request.userMessage.contentState !== "encrypted") return;
     if (!request.hardOutputQuotaUnits || !request.policyBundleVersion) return;
     const gateSnapshot = request.automaticContextGateSnapshot as { enabled?: unknown } | null;
     if (gateSnapshot?.enabled !== true
