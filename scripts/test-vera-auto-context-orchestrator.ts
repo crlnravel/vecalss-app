@@ -264,7 +264,7 @@ await runChecks("vera-auto-context-orchestrator", [
       assert(provider.constructor.name === "MockProviderAdapter", "development selected a paid provider");
       assert(provider.automaticContextCapable === false, "mock advertised automatic-context capability");
       assert(!veraAutomaticContextEnabledForServer(development), "development automatic gate opened");
-      const productionMock = {
+      const productionMock: NodeJS.ProcessEnv = {
         NODE_ENV: "production",
         VERA_LIVE_PROVIDER_ENABLED: "false",
         VERA_MOCK_PROVIDER_ENABLED: "true",
