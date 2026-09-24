@@ -19,6 +19,7 @@ import {
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import type {
@@ -114,6 +115,7 @@ function SettingsPageModule({
   returnToHref?: string;
 }) {
   const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
   const [fullName, setFullName] = useState(() => session.user.fullName);
   const [targetExamEventId, setTargetExamEventId] = useState(() => profile.targetExamEventId ?? "");
   const [targetUniversityId, setTargetUniversityId] = useState(() => profile.targetUniversityId ?? "");
@@ -195,7 +197,7 @@ function SettingsPageModule({
           </div>
         </header>
 
-        {state.message ? (
+        {state.message && keepMessageInline ? (
           <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
         ) : null}
 

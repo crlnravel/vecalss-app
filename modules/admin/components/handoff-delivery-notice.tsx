@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FieldRequiredMark } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import type { EnrollmentHandoffMethod } from "@/generated/prisma/client";
 import { acknowledgeEnrollmentHandoffAction } from "@/modules/admin/actions";
 import type { FormState } from "@/modules/auth/form-state";
@@ -26,6 +27,7 @@ function HandoffDeliveryNotice({
     acknowledgeEnrollmentHandoffAction,
     EMPTY_FORM_STATE,
   );
+  const keepMessageInline = useActionToast(acknowledgement);
   const successHandled = useRef(false);
   const [recoveryConfirmed, setRecoveryConfirmed] = useState(false);
   const method = state.handoffMethod as EnrollmentHandoffMethod | undefined;
@@ -56,8 +58,8 @@ function HandoffDeliveryNotice({
       <p className="text-xs leading-5 text-secondary-600">
          Salin nilai ini untuk penerima sekarang. Nilai ini tidak tersedia untuk dirilis ulang.
       </p>
-      {acknowledgement.message ? (
-        <FormNotice tone={acknowledgement.status === "success" ? "success" : "danger"}>
+      {acknowledgement.message && keepMessageInline ? (
+        <FormNotice tone="danger">
           {acknowledgement.message}
         </FormNotice>
       ) : null}

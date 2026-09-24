@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { ChevronRight } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -17,10 +17,40 @@ type DataTableFilterMenuProps = {
   filters: readonly DataTableFilterMenuItem[];
 };
 
+const SUBMENU_CLOSE_DELAY_MS = 250;
+
 function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [pinnedFilterId, setPinnedFilterId] = useState<string | null>(null);
+  const pinnedFilterIdRef = useRef<string | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuId = useId();
+
+  function clearCloseTimeout() {
+    if (closeTimeoutRef.current !== null) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }
+
+  function scheduleClose(filterId: string) {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setActiveFilterId((current) =>
+        current === filterId ? pinnedFilterIdRef.current : current,
+      );
+    }, SUBMENU_CLOSE_DELAY_MS);
+  }
+
+  useEffect(
+    () => () => {
+      if (closeTimeoutRef.current !== null) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <div className="w-full min-w-0">
@@ -42,13 +72,10 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
                   return;
                 }
 
+                clearCloseTimeout();
                 setActiveFilterId(filter.id);
               }}
-              onMouseLeave={() => {
-                setActiveFilterId((current) =>
-                  current === filter.id ? pinnedFilterId : current,
-                );
-              }}
+              onMouseLeave={() => scheduleClose(filter.id)}
             >
               <button
                 aria-controls={panelId}
@@ -61,10 +88,12 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
                   isActive && "bg-primary-50/80 text-secondary-900",
                 )}
                 onClick={() => {
-                  setPinnedFilterId((current) =>
-                    current === filter.id ? null : filter.id,
-                  );
-                  setActiveFilterId(filter.id);
+                  clearCloseTimeout();
+                  const isAlreadyPinned = pinnedFilterIdRef.current === filter.id;
+                  const nextPinnedFilterId = isAlreadyPinned ? null : filter.id;
+                  pinnedFilterIdRef.current = nextPinnedFilterId;
+                  setPinnedFilterId(nextPinnedFilterId);
+                  setActiveFilterId(isAlreadyPinned ? null : filter.id);
                 }}
                 type="button"
               >
@@ -87,6 +116,11 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
                   aria-label={`${filter.label} filter`}
                   className="mt-1 w-full rounded-2xl border border-primary-100 bg-white p-3 text-secondary-900 shadow-[0_16px_36px_-22px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] outline-none lg:absolute lg:right-full lg:top-0 lg:mt-0 lg:mr-2 lg:w-72"
                   id={panelId}
+                  onMouseEnter={() => {
+                    clearCloseTimeout();
+                    setActiveFilterId(filter.id);
+                  }}
+                  onMouseLeave={() => scheduleClose(filter.id)}
                   role="dialog"
                 >
                   {filter.content}

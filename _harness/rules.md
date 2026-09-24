@@ -40,6 +40,7 @@ configured implementation at `_harness/resource-guard.sh`.
   another guarded command.
 - Do not bypass the guard with direct launches, background/watch/parallel modes,
   ad hoc process farms, broad process termination, or retry loops.
+- **Emergency mode (2x more forgiving gates):** If the resource check blocks critical commands and high throughput is needed, an emergency mode (`--emergency` or `RESOURCE_GUARD_EMERGENCY=1`) relaxes gates to 2x base values. **Agents MUST NOT invoke emergency mode autonomously.** Explicit user permission is strictly required before using emergency mode.
 - The resource check is separate from command confirmation and permission
   rules.
 
@@ -67,6 +68,7 @@ The default model for this project and all delegated workers is exact `gpt-6-lun
 - Introducing an unexpected architectural layer
 - Cross-cutting refactors that substantially expand scope beyond the assigned task
 - Performing browser verification or browser testing (must state routes, role, and verification checklist before launching)
+- Activating resource guard emergency mode (`--emergency` or `RESOURCE_GUARD_EMERGENCY=1`)
 
 ### What does not require confirmation
 
@@ -99,6 +101,24 @@ The project is currently in an **active pre-release phase**. Agents must apply t
    - Data in local and development environments is treated as disposable fixture data that can be re-created via `pnpm db:seed`.
 4. **Resets and reseeds are standard:**
    - When schema changes or migrations cause local state conflicts, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
+
+### Environment & database topology
+
+Detailed guide: [`docs/database-environments.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/database-environments.md).
+
+- **Local environment (`dev`):**
+  - Uses Docker Compose (`docker-compose.dev.yml`) providing PostgreSQL 16 (port `55432`, database `vecalss_dev`) and Redis 7 (port `56379`).
+  - Integration tests use the dedicated disposable database `vera_test` (port `55432`).
+  - Fully ephemeral; resets and seeds (`pnpm db:reset`, `pnpm db:seed`) are standard.
+- **Staging environment (`staging`):**
+  - Uses **Neon** (Serverless PostgreSQL at `neon.tech`).
+  - **Zero sensitive information / PII:** Staging data is non-sensitive and safe.
+  - **Agent retrieval permitted:** AI agents are explicitly permitted to inspect, query, fetch, and read data from Neon staging (e.g., verifying schemas, inspecting test rows, troubleshooting).
+  - **Disposable for now:** Staging is also disposable in this pre-release phase; no backups or legacy compatibility preservation required.
+  - Deploy migrations using `prisma migrate deploy` (never `prisma db push`).
+- **Production environment (`production`):**
+  - **Not available yet.**
+  - Fail closed: agents must never assume production exists or attempt queries/migrations against it.
 
 ## Protected areas
 

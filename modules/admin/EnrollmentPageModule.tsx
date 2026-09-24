@@ -11,6 +11,7 @@ import {
   type DirectorySortKey,
 } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
+import { ToastOnMount } from "@/components/ui/toast-on-mount";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
@@ -152,19 +153,25 @@ function EnrollmentNotices({
   error?: string | null;
   notice?: string | null;
 }) {
+  const toastableErrors = new Set([
+    "bulk-status-failed",
+    "bulk-status-no-change",
+    "delete-failed",
+    "update-failed",
+  ]);
+
   return (
     <>
-      {notice ? (
-        <div id="student-directory-notice" tabIndex={-1}>
-          <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice>
-        </div>
-      ) : null}
+      {notice ? <ToastOnMount message={noticeMessages[notice] ?? notice} variant="success" /> : null}
       {demo ? (
         <FormNotice compact tone="neutral">
           Data demo sementara sedang aktif. Hapus <code className="font-semibold">demo=1</code> dari URL untuk kembali ke data siswa aktif.
         </FormNotice>
       ) : null}
-      {error ? (
+      {error && toastableErrors.has(error) ? (
+        <ToastOnMount message={errorMessages[error] ?? error} variant="error" />
+      ) : null}
+      {error && !toastableErrors.has(error) ? (
         <FormNotice label={error === "invalid-directory-query" ? "Perlu perhatian" : undefined} tone="danger">
           {errorMessages[error] ?? error}
         </FormNotice>
@@ -308,7 +315,6 @@ function EnrollmentPageModule({
         <FocusRestorer
           announcementId="student-directory-announcement"
           fallbackId="students-heading"
-          noticeId="student-directory-notice"
           targetId={focus ? `student-${focus}` : null}
         />
 

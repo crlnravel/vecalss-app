@@ -16,6 +16,7 @@ import {
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
+import { showToast } from "@/components/ui/toast";
 import {
   AssessmentUtilityPill,
   AssessmentResultNavigation,
@@ -416,7 +417,11 @@ function QuizResultPageModule({
       restartRequestIdRef.current = requestId;
       const response = await startQuizAction(subjectTitle, quizSlug, requestId);
       if (!response.ok) {
-        setRestartMessage(response.message);
+        if (response.message.startsWith("Batas percobaan quiz ini sudah tercapai")) {
+          setRestartMessage(response.message);
+        } else {
+          showToast(response.message, { variant: "error" });
+        }
         return;
       }
 
@@ -424,10 +429,11 @@ function QuizResultPageModule({
         `/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`,
       );
     } catch (error) {
-      setRestartMessage(
+      showToast(
         error instanceof Error
           ? error.message
           : "Kuis belum dapat dimulai kembali.",
+        { variant: "error" },
       );
     } finally {
       setIsRestarting(false);
@@ -477,7 +483,7 @@ function QuizResultPageModule({
       title={result.title}
     >
       <div>
-        {restartMessage ? (
+        {restartMessage && isAttemptLimitReached ? (
           <p
             className="mb-5 text-sm font-medium text-student-status-danger-fg"
             role="alert"

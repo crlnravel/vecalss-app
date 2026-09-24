@@ -32,11 +32,16 @@ produces an explicit evidence-limited answer rather than an uncited confident
 answer.
 
 Each provider stage claims its durable attempt with a compare-and-set before
-transport. A replay or concurrent reconnect receives a recovery marker and
-cannot invoke the provider or registry a second time. Automatic serializer
-bytes are checked against their stage cap before dispatch, and a streamed paid
-response must include the terminal `[DONE]` marker; an incomplete stream is
-treated as post-send unknown usage.
+transport. A reconnect may resume a selector only while its attempt is still
+reserved (before the dispatch claim), and only after rebuilding the identical
+request body and matching its stored body hash, request key, model, provider,
+and release-manifest digest. Dispatching/sent attempts are left to Generation
+reconciliation. Selector evidence and encrypted tool arguments are committed
+atomically; a reconnect can continue from those arguments or a completed
+invocation. A registry callback with an existing dispatch marker is never run
+again. Automatic serializer bytes are checked against their stage cap before
+dispatch, and a streamed paid response must include the terminal `[DONE]`
+marker; an incomplete stream is treated as post-send unknown usage.
 
 ## Limits
 
@@ -60,12 +65,49 @@ request or completed evidence. While the gate is off, the existing manual
 context routes remain available for the legacy cohort and old conversations
 remain readable.
 
+In production, `VERA_AUTOMATIC_CONTEXT_ENABLED=true` is an additional required
+compatibility switch; the approved policy projection cannot bypass it. When the
+server gate is enabled, a new request cannot downgrade to legacy mode and
+submit manually selected source IDs. Existing idempotent requests remain
+replayable under their stored admission contract.
+
 The automatic gate also requires the approved paid provider, the function-tool
 capability evidence bound to the canonical tool schema and selector/final
 serializer hashes, and a non-expired two-turn canary. Development, the free
 POC, and the mock provider are always fail-closed for automatic mode. The
 current capability signature is a release-evidence reference; public-key
 verification remains a release-operations follow-up.
+
+The paid write-ahead record now hashes the exact UTF-8 request body handed to
+`fetch`, including the server-owned provider request key. Selector and final
+attempt rows persist that hash and the exact body byte count before dispatch
+CAS; a later provider result with a different hash is rejected.
+
+Rollout state is also fail-closed behind the content-free promotion verifier.
+Production learner DTOs, legacy-context route gates, and request admission read
+the projection from the approved `AiPolicyBundle` report configuration and
+require its approval digest to match the bundle's `approvalSnapshotDigest` and
+its aggregate to contain only that policy version. The projection contains the
+current/target stage, k-anonymous aggregate counters and latency percentiles,
+capability/canary evidence, and legacy-retirement review. The server recomputes
+the one-stage promotion decision and will not honor the configured cohort/on
+state when evidence is missing, stale, mixed-version, or blocked. Environment
+promotion JSON is not an authority source in production and cannot bypass the
+durable policy-bundle check. No learner prompts, source text, source IDs, or
+tool arguments belong in this projection.
+
+Promotion aggregates must have internally consistent, exhaustive outcome
+counts; any schema-invalid sample blocks promotion. The `on` state maps only
+to the final `on` promotion stage (never to `5%` based on a zero basis-point
+value). A recovery dispatch also retains its originally persisted request and
+attempt deadlines: once either deadline passes, the request is settled as
+unknown rather than receiving a fresh transport window.
+
+Release limitation: the automatic-context event-to-aggregate pipeline and its
+admin overview are not yet connected to these promotion inputs. The policy
+schema and runtime verifier are present, but until the authorized admin flow
+can produce and approve fresh aggregates, keep the production rollout state
+`off`. Do not hand-enter or fabricate evidence to enable a cohort.
 
 Automatic mode cannot activate on the free POC provider. A paid route requires
 the separately certified model/provider manifest, function-tool canary,

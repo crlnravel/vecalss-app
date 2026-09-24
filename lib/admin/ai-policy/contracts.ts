@@ -9,6 +9,7 @@ import type {
   AiPolicyState,
 } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
+import type { VeraAutomaticContextPromotionEvidence } from "@/lib/vera-ai/automatic-context-operations";
 
 export const AI_POLICY_SCHEMA_VERSION = "vera-policy-v1";
 export const AI_POLICY_FINGERPRINT_KEY_VERSION = "vera-policy-hmac-v1";
@@ -49,6 +50,8 @@ export type AiPolicyReportConfig = {
   requestLimit: number;
   minimumGroupSize: number;
   maxRangeDays: number;
+  /** Optional content-free automatic-context promotion evidence. */
+  automaticContextPromotion?: VeraAutomaticContextPromotionEvidence;
 };
 
 export type AiPolicyRetentionConfig = {

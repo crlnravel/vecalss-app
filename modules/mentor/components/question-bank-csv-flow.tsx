@@ -152,16 +152,19 @@ type CsvErrorCode =
   | "unauthenticated";
 
 const CSV_ERROR_MESSAGES: Record<CsvErrorCode, string> = {
-  csv_media_type_required: "Jenis file tidak dikenali. Pilih file soal yang sesuai.",
+  csv_media_type_required:
+    "Jenis file tidak dikenali. Pilih file soal yang sesuai.",
   csv_rows_invalid: "Ada soal yang perlu diperbaiki.",
   csv_structure_invalid: "Susunan isi file belum sesuai dengan templat soal.",
   csv_too_large: "File terlalu besar atau berisi lebih dari 500 soal.",
-  forbidden_origin: "File tidak dapat diproses. Muat ulang halaman lalu coba lagi.",
+  forbidden_origin:
+    "File tidak dapat diproses. Muat ulang halaman lalu coba lagi.",
   invalid_media_asset: "Ada gambar atau media soal yang tidak dapat digunakan.",
   resource_busy_retry: "Sistem sedang sibuk. Coba lagi sebentar.",
   resource_inaccessible: "Bank Soal tidak dapat diakses.",
   resource_locked: "Bank Soal sedang dipakai orang lain.",
-  lease_expired: "Sesi pengeditan Anda berakhir. Muat ulang halaman lalu coba lagi.",
+  lease_expired:
+    "Sesi pengeditan Anda berakhir. Muat ulang halaman lalu coba lagi.",
   lease_superseded:
     "Bank Soal sedang diperbarui di tempat lain. Muat ulang halaman lalu coba lagi.",
   stale_revision: "Bank Soal berubah. Muat ulang halaman lalu coba lagi.",
@@ -215,11 +218,11 @@ function issueMessage(issue: QuestionBankCsvIssue) {
     subject_code: "subjek",
   };
   const columnLabel = issue.column
-    ? columnLabels[issue.column] ?? "bagian soal"
+    ? (columnLabels[issue.column] ?? "bagian soal")
     : null;
   const location = issue.row
     ? `Baris ${issue.row}${columnLabel ? `, ${columnLabel}` : ""}`
-    : columnLabel ?? "File";
+    : (columnLabel ?? "File");
   return `${location}: ${labels[issue.code] ?? "isi tidak valid"}.`;
 }
 
@@ -666,7 +669,7 @@ function QuestionBankCreateMethodDialog({
                   <ArrowLeft aria-hidden="true" />
                 </Button>
                 <div className="min-w-0">
-      <DialogTitle>Unggah file soal</DialogTitle>
+                  <DialogTitle>Unggah file soal</DialogTitle>
                 </div>
               </div>
             </DialogHeader>
@@ -749,25 +752,17 @@ function QuestionBankCsvImportControl({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label="Tambahkan soal ke Bank Soal"
-                className="size-11"
-                disabled={disabled || !editLease}
-                onClick={() => setOpen(true)}
-                type="button"
-                variant="brandOutline"
-              />
-            }
-          >
-            <Upload aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent>Tambahkan soal dari file</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Button
+        aria-label="Upload CSV"
+        className="w-full"
+        disabled={disabled || !editLease}
+        onClick={() => setOpen(true)}
+        type="button"
+        variant="brandOutline"
+      >
+        <Upload aria-hidden="true" data-icon="inline-start" />
+        Upload CSV
+      </Button>
       <QuestionBankCsvImportDialog
         bankId={bankId}
         disabled={disabled}
@@ -895,9 +890,12 @@ function QuestionBankCsvImportDialog({
         CSV_ERROR_MESSAGES[code as CsvErrorCode] ??
         "Soal belum berhasil ditambahkan. Periksa kembali file dan coba lagi.";
       setApplyError(message);
-      showToast("Soal belum berhasil ditambahkan. Rincian tersedia di dialog.", {
-        variant: "error",
-      });
+      showToast(
+        "Soal belum berhasil ditambahkan. Rincian tersedia di dialog.",
+        {
+          variant: "error",
+        },
+      );
     } finally {
       if (applyControllerRef.current === controller)
         applyControllerRef.current = null;

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 
 import { startQuizAction } from "./actions";
 import type { QuizItem } from "./data";
@@ -33,23 +34,21 @@ function QuizStartPageModule({
   const router = useRouter();
   const startRequestIdRef = useRef<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function start() {
     if (isStarting) return;
     setIsStarting(true);
-    setMessage(null);
     try {
       const requestId = startRequestIdRef.current ?? crypto.randomUUID();
       startRequestIdRef.current = requestId;
       const response = await startQuizAction(subjectCode, quiz.slug, requestId);
       if (!response.ok) {
-        setMessage(response.message);
+        showToast(response.message, { variant: "error" });
         return;
       }
       router.replace(`/quiz/${subjectSlug}/${quiz.slug}?attemptId=${encodeURIComponent(response.result.attemptId)}`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Kuis belum dapat dimulai.");
+      showToast(error instanceof Error ? error.message : "Kuis belum dapat dimulai.", { variant: "error" });
     } finally {
       setIsStarting(false);
     }
@@ -70,7 +69,6 @@ function QuizStartPageModule({
           <PolicyStat label="Jawaban benar" value={policy.correctAnswerVisibility === "hide" ? "Disembunyikan" : "Ditampilkan"} />
         </div>
         {policy.retryDelaySeconds ? <p className="mt-5 text-sm text-secondary-500">Percobaan ulang memiliki jeda sebelum dapat dimulai kembali.</p> : null}
-        {message ? <p className="mt-5 text-sm font-medium text-danger-700" role="alert">{message}</p> : null}
         <div className="mt-8 flex flex-wrap gap-3">
           <Button disabled={isStarting} onClick={() => { void start(); }} size="lg" variant="brand">
             {isStarting ? "Memulai…" : "Mulai kuis"}

@@ -128,6 +128,7 @@ function QuestionBankStatusAction({
     <Button
       aria-busy={isSavingLifecycle}
       aria-label="Arsipkan bank soal"
+      className="shadow-[0_4px_0_var(--student-status-danger-border),0_14px_28px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_48%,transparent)] hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--student-status-danger-border),0_18px_34px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_54%,transparent)] motion-safe:active:translate-y-px motion-safe:active:shadow-none motion-reduce:transform-none"
       data-question-bank-lifecycle-action="archive"
       disabled={isSavingLifecycle || isReadOnly}
       onClick={requestArchive}
@@ -211,7 +212,7 @@ function QuestionBankArchiveSection({
 }) {
   return (
     <ReferenceSurface as="section" className="p-5 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-secondary-900">
             Administrasi
@@ -677,7 +678,7 @@ function QuestionBankEditorButton({
   const editorButton = (
     <Button
       aria-label="Buka Editor"
-      className="w-full shadow-sm"
+      className="w-full"
       disabled={editorUnavailable}
       nativeButton={editorUnavailable}
       render={
@@ -745,17 +746,19 @@ function QuestionBankQuestionsSection({
       </div>
 
       <QuestionBankReadOnlyContext.Provider value={isReadOnly}>
-        <div className="flex w-full flex-wrap items-center gap-2">
-          <div className="min-w-0 flex-1 sm:flex-none">
+        <div className="grid w-full grid-cols-2 gap-2">
+          <div className="min-w-0">
             <QuestionBankEditorButton bank={bank} bankId={bankId} />
           </div>
-          <QuestionBankCsvImportControl
-            bankId={bankId}
-            disabled={isReadOnly}
-            editLease={editLease}
-            expectedRevision={expectedRevision}
-            onApplied={onImport}
-          />
+          <div className="min-w-0">
+            <QuestionBankCsvImportControl
+              bankId={bankId}
+              disabled={isReadOnly}
+              editLease={editLease}
+              expectedRevision={expectedRevision}
+              onApplied={onImport}
+            />
+          </div>
         </div>
       </QuestionBankReadOnlyContext.Provider>
 

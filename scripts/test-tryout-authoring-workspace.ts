@@ -110,7 +110,8 @@ assert.doesNotMatch(operationsModule, /StatusBadge status=\{mainSession\.status\
 assert.doesNotMatch(operationsModule, /sesi aktif|peserta menunggu|Atur waktu buka dan tutup akses peserta|attempt tercatat/u, "Operasional must omit redundant session and access helper copy");
 assert.match(workspace, /updateTryoutMetadataAction[\s\S]*draftToSave\.description[\s\S]*draftToSave\.title/u, "published Overview must save the inline title and description");
 assert.match(workspace, /(?:disabled=\{mode === "draft" && draft\.locked\}|const identityDisabled = saving \|\| \(mode === "draft" && draft\.locked\);[\s\S]*disabled=\{identityDisabled\})/u, "published Overview metadata must remain editable when structure is locked");
-assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
+const identityPanel = workspace.slice(workspace.indexOf("function TryoutIdentityPanel"), workspace.indexOf("type TryoutSubtestEditorProps"));
+assert.match(identityPanel, /mode === "published"[\s\S]*className="w-full"[\s\S]*variant="brand"[\s\S]*metadataSaving \? "Menyimpan…" : "Simpan"/u, "published Overview must expose a full-width primary metadata save action");
 assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");
 assert.match(workspace, /Jadikan draf/u, "published Tryout detail must label the unpublish action plainly");
 assert.match(workspace, /hasActiveAttempt/u, "unpublish affordance must reflect active student work in the mentor view");
@@ -128,6 +129,7 @@ assert.doesNotMatch(catalogue, />Terkunci</u, "Tryout catalogue must remove the 
 assert.match(catalogue, /<Link[\s\S]*aria-label=\{`Buka \$\{item\.title\}`\}[\s\S]*href=\{`\/mentor\/tryout\/\$\{item\.id\}`\}/u, "Tryout catalogue cards must have one whole-card destination");
 assert.doesNotMatch(catalogue, /Buka operasional|\/operations`\}/u, "Tryout catalogue cards must not contain a competing operational destination");
 assert.match(workspace, /KaptenTryoutOperationsModule embedded/u, "Operasional must render inside the shared workspace");
+assert.match(workspace, /aria-labelledby="tryout-operations-title"[\s\S]*id="tryout-operations-title"[\s\S]*Operasional/u, "Operasional must have a title inside the shared workspace card");
 assert.match(sessionDetail, /Waktu akses peserta/u, "Operasional must focus on schedule and access inside the workspace");
 assert.doesNotMatch(operationsModule, /Peserta.*WorkspaceCard|WorkspaceCard[\s\S]*Peserta/u, "Peserta must be a separate workspace destination");
 assert.match(participantsRoute, /workspace: "participants"/u, "the retired Peserta route must return to the consolidated workspace");

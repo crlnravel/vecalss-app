@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import type { EnrollmentHandoff, TutorProfile, User, UserStatus } from "@/generated/prisma/client";
 import { buildDirectoryQuery, type DirectoryPageSize, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
+import { ToastOnMount } from "@/components/ui/toast-on-mount";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
@@ -127,7 +128,7 @@ function KaptenPageModule({
       title="Kapten"
     >
       <div className="space-y-8">
-        <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-heading" noticeId="kapten-directory-notice" targetId={focus ? `kapten-${focus}` : null} />
+        <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-heading" targetId={focus ? `kapten-${focus}` : null} />
 
         <ReferencePageHeader
           actions={<AddKaptenDialog />}
@@ -137,8 +138,12 @@ function KaptenPageModule({
         />
 
         <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Kembali ke baris Kapten yang dipilih di direktori." : ""}</p>
-        {notice ? <div id="kapten-directory-notice" tabIndex={-1}><FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice></div> : null}
-        {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
+        {notice ? <ToastOnMount message={noticeMessages[notice] ?? notice} variant="success" /> : null}
+        {error === "update-failed" ? (
+          <ToastOnMount message={errorMessages[error]} variant="error" />
+        ) : error ? (
+          <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice>
+        ) : null}
 
         <ReferenceSurface as="section" aria-label="Direktori Kapten" className="min-w-0 overflow-hidden">
           <KaptenDirectoryTable

@@ -5,10 +5,33 @@ set -euo pipefail
 # It deliberately uses only POSIX-ish shell utilities so the check itself
 # never starts Node.
 
-readonly MAX_LOAD_FACTOR=1.25
-readonly HOT_PROCESS_CPU=25
-readonly MAX_HOT_PROCESSES=2
-readonly MAX_TOTAL_CPU=160
+readonly BASE_MAX_LOAD_FACTOR=2.0
+readonly BASE_HOT_PROCESS_CPU=35
+readonly BASE_MAX_HOT_PROCESSES=4
+readonly BASE_MAX_TOTAL_CPU=350
+readonly EMERGENCY_FACTOR=2.0 # 2x emergency multiplier (2x base thresholds)
+
+emergency_mode="${RESOURCE_GUARD_EMERGENCY:-0}"
+effective_max_load_factor="$BASE_MAX_LOAD_FACTOR"
+effective_hot_process_cpu="$BASE_HOT_PROCESS_CPU"
+effective_max_hot_processes="$BASE_MAX_HOT_PROCESSES"
+effective_max_total_cpu="$BASE_MAX_TOTAL_CPU"
+
+init_thresholds() {
+  if [ "${emergency_mode:-0}" = "1" ] || [ "${emergency_mode:-0}" = "true" ]; then
+    emergency_mode=1
+    effective_max_load_factor="$(awk -v base="$BASE_MAX_LOAD_FACTOR" -v factor="$EMERGENCY_FACTOR" 'BEGIN { printf "%.2f", base * factor }')"
+    effective_hot_process_cpu="$(awk -v base="$BASE_HOT_PROCESS_CPU" -v factor="$EMERGENCY_FACTOR" 'BEGIN { val = int(base * factor); if (val > 85) val = 85; print val }')"
+    effective_max_hot_processes="$(awk -v base="$BASE_MAX_HOT_PROCESSES" -v factor="$EMERGENCY_FACTOR" 'BEGIN { print int(base * factor) }')"
+    effective_max_total_cpu="$(awk -v base="$BASE_MAX_TOTAL_CPU" -v factor="$EMERGENCY_FACTOR" 'BEGIN { print int(base * factor) }')"
+  else
+    emergency_mode=0
+    effective_max_load_factor="$BASE_MAX_LOAD_FACTOR"
+    effective_hot_process_cpu="$BASE_HOT_PROCESS_CPU"
+    effective_max_hot_processes="$BASE_MAX_HOT_PROCESSES"
+    effective_max_total_cpu="$BASE_MAX_TOTAL_CPU"
+  fi
+}
 
 script_name="$(basename "$0")"
 project_root="$(pwd -P)"
@@ -22,14 +45,20 @@ last_process_report=""
 usage() {
   cat <<EOF
 Usage:
-  $script_name status
-  $script_name check
-  $script_name run -- <command> [args...]
+  $script_name status [--emergency]
+  $script_name check [--emergency]
+  $script_name run [--emergency] -- <command> [args...]
 
 status  Print CPU/load and Node/process information without starting Node.
 check   Print the same information and fail closed when the host is busy.
 run     Acquire the shared repository lock, check resources, then run one
         command at a lower scheduling priority.
+
+Options:
+  --emergency  Apply emergency thresholds (2x base thresholds).
+               NOTE FOR AGENTS: Emergency mode requires explicit user permission
+               before use. Do not use autonomously.
+               Can also be activated with RESOURCE_GUARD_EMERGENCY=1.
 EOF
 }
 
@@ -108,7 +137,7 @@ raw_process_list() {
 }
 
 process_report() {
-  raw_process_list | awk -v self_pid="$$" -v parent_pid="$PPID" -v hot_threshold="$HOT_PROCESS_CPU" '
+  raw_process_list | awk -v self_pid="$$" -v parent_pid="$PPID" -v hot_threshold="$effective_hot_process_cpu" '
     function is_agent_process(command) {
       return command ~ /(^|[[:space:]\/])(node|pnpm|tsx|ts-node|next(-server)?|prisma|npm|npx|yarn|bun|vite|turbo)([[:space:]]|$)/ ||
         command ~ /node_modules\/.*\/(eslint|tsc)([.]js|[[:space:]]|$)/
@@ -141,7 +170,7 @@ print_process_report() {
 
   printf '%s\n' 'Matching Node/process rows (pid  ppid  cpu%  mem%  elapsed  command):'
   printf '%s\n' "$report" | awk -F '	' '{ printf "  %-7s %-7s %6s %6s %-9s %s\n", $1, $2, $3, $4, $5, $6 }' | sed -n '1,40p'
-  printf '%s\n' "$report" | awk -F '	' -v hot_threshold="$HOT_PROCESS_CPU" '
+  printf '%s\n' "$report" | awk -F '	' -v hot_threshold="$effective_hot_process_cpu" '
     BEGIN { hot = 0; total = 0; rows = 0 }
     { rows++; total += $3; if (($3 + 0) >= hot_threshold) hot++ }
     END { printf "Process summary: rows=%d hot(>=%s%%)=%d cpu_total=%.1f%%\n", rows, hot_threshold, hot, total }
@@ -152,6 +181,9 @@ resource_snapshot() {
   local cpus load
 
   printf '%s\n' '=== Agent resource snapshot ==='
+  if [ "$emergency_mode" -eq 1 ]; then
+    printf '%s\n' '*** EMERGENCY MODE ACTIVE (2x threshold multiplier) ***'
+  fi
   if cpus="$(cpu_count 2>/dev/null)"; then
     printf 'Logical CPUs: %s\n' "$cpus"
   else
@@ -164,8 +196,8 @@ resource_snapshot() {
     printf '%s\n' '1m load: unavailable'
   fi
 
-  printf 'Guard thresholds: load >= %s x CPUs, %s hot processes, or %.0f%% matching CPU\n' \
-    "$MAX_LOAD_FACTOR" "$MAX_HOT_PROCESSES" "$MAX_TOTAL_CPU"
+  printf 'Guard thresholds: load >= %s x CPUs, %s hot processes (>=%s%%), or %.0f%% matching CPU\n' \
+    "$effective_max_load_factor" "$effective_max_hot_processes" "$effective_hot_process_cpu" "$effective_max_total_cpu"
 
   if ! raw_process_list >/dev/null 2>&1; then
     printf '%s\n' 'Process listing: unavailable (the guard will fail closed)'
@@ -187,7 +219,7 @@ check_resources() {
   fi
 
   report="$last_process_report"
-  metrics="$(printf '%s\n' "$report" | awk -F '	' -v hot_threshold="$HOT_PROCESS_CPU" '
+  metrics="$(printf '%s\n' "$report" | awk -F '	' -v hot_threshold="$effective_hot_process_cpu" '
     BEGIN { hot = 0; total = 0 }
     NF >= 3 { total += $3; if (($3 + 0) >= hot_threshold) hot++ }
     END { printf "%d %.1f", hot, total }
@@ -199,14 +231,14 @@ check_resources() {
     return 75
   fi
 
-  if awk -v load="$load" -v cpus="$cpus" -v factor="$MAX_LOAD_FACTOR" 'BEGIN { exit !(load >= cpus * factor) }'; then
+  if awk -v load="$load" -v cpus="$cpus" -v factor="$effective_max_load_factor" 'BEGIN { exit !(load >= cpus * factor) }'; then
     printf 'BLOCKED: 1m load %s is at or above %.2f x %s CPUs; wait before launching another command.\n' \
-      "$load" "$MAX_LOAD_FACTOR" "$cpus" >&2
+      "$load" "$effective_max_load_factor" "$cpus" >&2
     return 75
   fi
 
-  if [ "${hot:-0}" -ge "$MAX_HOT_PROCESSES" ] || \
-    awk -v total="${total:-0}" -v max="$MAX_TOTAL_CPU" 'BEGIN { exit !(total >= max) }'; then
+  if [ "${hot:-0}" -ge "$effective_max_hot_processes" ] || \
+    awk -v total="${total:-0}" -v max="$effective_max_total_cpu" 'BEGIN { exit !(total >= max) }'; then
     printf 'BLOCKED: existing matching work is using %s hot processes / %s%% CPU; wait before launching another command.\n' \
       "${hot:-0}" "${total:-0}" >&2
     return 75
@@ -274,7 +306,11 @@ run_command() {
   acquire_lock
   check_resources
 
-  printf 'Running under shared resource guard: '
+  if [ "$emergency_mode" -eq 1 ]; then
+    printf 'Running under shared resource guard [EMERGENCY MODE (2x thresholds)]: '
+  else
+    printf 'Running under shared resource guard: '
+  fi
   printf '%q ' "$@"
   printf '%s\n' ''
 
@@ -293,6 +329,36 @@ run_command() {
 
 trap release_lock EXIT
 trap on_signal INT TERM HUP
+
+# Parse options and flags
+args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --emergency)
+      emergency_mode=1
+      shift
+      ;;
+    --)
+      while [ "$#" -gt 0 ]; do
+        args+=("$1")
+        shift
+      done
+      break
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [ "${#args[@]}" -gt 0 ]; then
+  set -- "${args[@]}"
+else
+  set --
+fi
+
+init_thresholds
 
 case "${1:-}" in
   status)

@@ -29,6 +29,7 @@ const TAB_NONCE_STORAGE_KEY = "vecalss:resource-edit-lock:tab-nonce:v1";
 const TAB_CHANNEL_NAME = "vecalss:resource-edit-lock:tabs:v1";
 const PROOF_STORAGE_PREFIX = "vecalss:resource-edit-lock:proof:v1:";
 const HANDSHAKE_WAIT_MS = 75;
+const LOCK_RECHECK_POLL_MS = 2_000;
 
 type ProviderProps = PropsWithChildren<{
   enabled?: boolean;
@@ -194,6 +195,8 @@ function ResourceEditLockProvider({
   const stateRef = useRef(state);
   const deadlineRef = useRef(0);
   const commandSerialRef = useRef(0);
+  const lockRecheckInFlightRef = useRef(false);
+  const retryAfterLockRecheckRef = useRef(false);
   const lifecycleAtRef = useRef(0);
   const mountedRef = useRef(false);
   const tabNonceRef = useRef<string | null>(null);
@@ -300,6 +303,10 @@ function ResourceEditLockProvider({
   }, [canonicalResource, markLost, resourceKey, resourceType, setLocked, setOwned]);
 
   const beginAcquire = useCallback((previous: EditLeaseProof | null = null) => {
+    if (lockRecheckInFlightRef.current) {
+      retryAfterLockRecheckRef.current = true;
+      return;
+    }
     commandSerialRef.current += 1;
     const serial = commandSerialRef.current;
     setHolderName(null);
@@ -440,6 +447,7 @@ function ResourceEditLockProvider({
       if (document.visibilityState === "hidden") return;
       const elapsed = performance.now() - lifecycleAtRef.current;
       lifecycleAtRef.current = performance.now();
+      if (stateRef.current === "locked") return;
       if (stateRef.current !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recover();
       else renewCurrent();
     };
@@ -533,6 +541,96 @@ function ResourceEditLockProvider({
       if (heartbeatTimer) clearInterval(heartbeatTimer);
     };
   }, [canonicalResource, enabled, markLost, proof, resourceType, setOwned, state]);
+
+  useEffect(() => {
+    if (state !== "locked" || !canonicalResource || !enabled) return;
+    let active = true;
+
+    const recheck = () => {
+      if (
+        !active
+        || !mountedRef.current
+        || stateRef.current !== "locked"
+        || document.visibilityState === "hidden"
+        || lockRecheckInFlightRef.current
+      ) {
+        return;
+      }
+
+      lockRecheckInFlightRef.current = true;
+      const serial = commandSerialRef.current;
+      const token = randomBase64Url(32);
+
+      void command<EditLeaseServerStatus>("acquire", {
+        newToken: token,
+        resourceId: canonicalResource.resourceId,
+        resourceType,
+      }).then((result) => {
+        if (
+          !active
+          || !mountedRef.current
+          || serial !== commandSerialRef.current
+          || stateRef.current !== "locked"
+        ) {
+          return;
+        }
+
+        setLastError(null);
+        if (isOwnedStatus(result)) {
+          setOwned({ generation: result.generation, token }, result);
+        } else if (isLockedStatus(result)) {
+          setLocked(result);
+        } else {
+          markLost("invalid_response");
+        }
+      }).catch((error: LeaseCommandError) => {
+        if (
+          !active
+          || !mountedRef.current
+          || serial !== commandSerialRef.current
+          || stateRef.current !== "locked"
+        ) {
+          return;
+        }
+
+        const code = error.code ?? "resource_busy_retry";
+        if (code === "resource_locked" && isLockedStatus(error.details)) {
+          setLastError(null);
+          setLocked(error.details);
+          return;
+        }
+
+        if (
+          code === "forbidden_origin"
+          || code === "invalid_proof"
+          || code === "json_media_type_required"
+          || code === "resource_inaccessible"
+          || code === "unauthenticated"
+        ) {
+          markLost(code);
+        } else {
+          // Keep editing disabled and retry transient failures on the next poll.
+          setLastError(code);
+        }
+      }).finally(() => {
+        lockRecheckInFlightRef.current = false;
+        if (!active) return;
+
+        if (retryAfterLockRecheckRef.current) {
+          retryAfterLockRecheckRef.current = false;
+          if (stateRef.current === "locked") beginAcquire();
+        }
+      });
+    };
+
+    recheck();
+    const pollTimer = setInterval(recheck, LOCK_RECHECK_POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(pollTimer);
+      retryAfterLockRecheckRef.current = false;
+    };
+  }, [beginAcquire, canonicalResource, enabled, markLost, resourceType, setLocked, setOwned, state]);
 
   const retry = useCallback(() => beginAcquire(), [beginAcquire]);
   const context = useMemo<ResourceEditLockContextValue>(() => ({

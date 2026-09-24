@@ -589,6 +589,7 @@ function TryoutIdentityPanel({
   metadataSaving,
   mode,
   onBannerChange,
+  onCreate,
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
@@ -598,6 +599,7 @@ function TryoutIdentityPanel({
   metadataSaving: boolean;
   mode: WorkflowMode;
   onBannerChange: (bannerMediaId: string | null) => void;
+  onCreate?: () => void;
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
@@ -605,67 +607,84 @@ function TryoutIdentityPanel({
 }) {
   const identityDisabled = saving || (mode === "draft" && draft.locked);
   return (
-    <ReferenceSurface
-      as="section"
-      className="grid w-full mt-4 gap-6 p-5 sm:p-7"
-    >
-      <h2
-        className="text-xl font-semibold text-secondary-900"
-        id="tryout-basic-info-title"
+    <>
+      <ReferenceSurface
+        as="section"
+        className="grid w-full mt-4 gap-6 p-5 sm:p-7"
       >
-        Informasi Tryout
-      </h2>
-      <div className="grid gap-5">
-        <Field>
-          <FieldLabel
-            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-            htmlFor="tryout-title"
-          >
-            Judul Tryout <RequiredMark />
-          </FieldLabel>
-          <FieldInput
-            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`}
+        <h2
+          className="text-xl font-semibold text-secondary-900"
+          id="tryout-basic-info-title"
+        >
+          Informasi Tryout
+        </h2>
+        <div className="grid gap-5">
+          <Field>
+            <FieldLabel
+              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+              htmlFor="tryout-title"
+            >
+              Judul Tryout <RequiredMark />
+            </FieldLabel>
+            <FieldInput
+              className={REFERENCE_CONTROL_CLASS_NAMES.input}
+              disabled={identityDisabled}
+              id="tryout-title"
+              onChange={(event) => onTitleChange(event.target.value)}
+              required
+              value={draft.title}
+            />
+          </Field>
+          <Field>
+            <FieldLabel
+              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+              htmlFor="tryout-description"
+            >
+              Deskripsi
+            </FieldLabel>
+            <FieldTextarea
+              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`}
+              disabled={identityDisabled}
+              id="tryout-description"
+              onChange={(event) => onDescriptionChange(event.target.value)}
+              placeholder="Contoh: Simulasi UTBK dengan tujuh subtest."
+              value={draft.description}
+            />
+          </Field>
+          <TryoutBannerField
+            bannerMediaId={draft.bannerMediaId}
             disabled={identityDisabled}
-            id="tryout-title"
-            onChange={(event) => onTitleChange(event.target.value)}
-            required
-            value={draft.title}
+            onChange={onBannerChange}
           />
-        </Field>
-        <Field>
-          <FieldLabel
-            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-            htmlFor="tryout-description"
-          >
-            Deskripsi
-          </FieldLabel>
-          <FieldTextarea
-            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`}
-            disabled={identityDisabled}
-            id="tryout-description"
-            onChange={(event) => onDescriptionChange(event.target.value)}
-            placeholder="Contoh: Simulasi UTBK dengan tujuh subtest."
-            value={draft.description}
-          />
-        </Field>
-        <TryoutBannerField
-          bannerMediaId={draft.bannerMediaId}
-          disabled={identityDisabled}
-          onChange={onBannerChange}
-        />
-      </div>
-      {mode === "published" ? (
-        <div className="flex justify-end pt-1">
-          <Button
-            disabled={metadataSaving || !draft.title.trim()}
-            onClick={onSaveMetadata}
-            variant="reference"
-          >
-            {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
-          </Button>
         </div>
+        {mode === "published" ? (
+          <div className="flex justify-end pt-1">
+            <Button
+              className="w-full"
+              disabled={metadataSaving || !draft.title.trim()}
+              onClick={onSaveMetadata}
+              variant="brand"
+            >
+              {metadataSaving ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        ) : null}
+      </ReferenceSurface>
+      {onCreate ? (
+        <Button
+          aria-busy={saving}
+          aria-label="Buat Tryout"
+          className="mt-4 w-full"
+          disabled={saving || !draft.title.trim()}
+          onClick={onCreate}
+          type="button"
+          variant="brand"
+        >
+          <Save />
+          {saving ? "Membuat…" : "Buat"}
+        </Button>
       ) : null}
-    </ReferenceSurface>
+    </>
   );
 }
 
@@ -2828,7 +2847,17 @@ function TryoutBuilderContent({
           saving={viewSaving}
         />
       ) : activeWorkspace === "operations" && operationsInitial ? (
-        <ReferenceSurface as="section" className="mt-4 p-5 sm:p-7">
+        <ReferenceSurface
+          aria-labelledby="tryout-operations-title"
+          as="section"
+          className="mt-4 p-5 sm:p-7"
+        >
+          <h2
+            className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+            id="tryout-operations-title"
+          >
+            Operasional
+          </h2>
           <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
         </ReferenceSurface>
       ) : activeWorkspace === "participants" && operationsInitial ? (
@@ -2858,6 +2887,7 @@ function TryoutBuilderContent({
           onBannerChange={(bannerMediaId) =>
             updateDraft((current) => ({ ...current, bannerMediaId }))
           }
+          onCreate={!id ? () => void save("draft") : undefined}
           onDescriptionChange={(description) =>
             updateDraft((current) => ({ ...current, description }))
           }

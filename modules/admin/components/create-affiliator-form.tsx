@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -14,6 +15,7 @@ import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
 function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, formAction] = useActionState(createAffiliatorEnrollmentAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
   const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">(
     () => state.fields?.handoffMethod === "invite_link" ? "invite_link" : "temporary_password",
   );
@@ -31,7 +33,7 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
         </p>
       </div>
 
-      {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
+      {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
       {state.temporaryPassword || state.inviteUrl ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
 
       <div className="grid gap-5 md:grid-cols-2">

@@ -13,6 +13,7 @@ import {
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import {
   ReferenceSelect,
   type ReferenceSelectProps,
@@ -157,6 +158,7 @@ function OnboardingForm({
   universities: University[];
 }) {
   const [state, formAction] = useActionState(saveOnboardingAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
   const [step, setStep] = useState(0);
   const [examId, setExamId] = useState("");
   const [universityId, setUniversityId] = useState("");
@@ -307,7 +309,7 @@ function OnboardingForm({
             </div>
             <h1 className="max-w-[17ch] font-heading text-4xl leading-[1.08] font-extrabold tracking-[-0.045em] text-voyage-ink sm:text-5xl">Terima kasih sudah berbagi.</h1>
             <p className="mt-5 max-w-sm text-base leading-7 text-voyage-muted-ink">Kami akan menyiapkan pengalaman belajar yang lebih personal untukmu.</p>
-            {state.message ? <p aria-live="assertive" className="mt-5 w-full max-w-sm rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-left text-sm text-student-status-danger-fg" role="alert">{state.message}</p> : null}
+            {state.message && keepMessageInline ? <p aria-live="assertive" className="mt-5 w-full max-w-sm rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-left text-sm text-student-status-danger-fg" role="alert">{state.message}</p> : null}
             <form action={formAction} className="mt-9 flex w-full max-w-sm flex-col items-center gap-4">
               <input name="targetExamEventId" type="hidden" value={examId} />
               <input name="targetUniversityId" type="hidden" value={universityId} />

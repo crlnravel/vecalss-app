@@ -19,13 +19,13 @@ function getAppBaseUrl(env: NodeJS.ProcessEnv = process.env) {
   }
 
   if (
-    !["http:", "https:"].includes(parsed.protocol)
-    || parsed.username
-    || parsed.password
-    || parsed.pathname !== "/"
-    || parsed.search
-    || parsed.hash
-    || (env.NODE_ENV === "production" && parsed.protocol !== "https:")
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash ||
+    (env.NODE_ENV === "production" && parsed.protocol !== "https:")
   ) {
     throw new Error("APP_BASE_URL must be a pathless absolute HTTP(S) origin.");
   }
@@ -34,7 +34,10 @@ function getAppBaseUrl(env: NodeJS.ProcessEnv = process.env) {
 }
 
 function getRegistrationFormUrl() {
-  return process.env.REGISTRATION_FORM_URL?.trim() || "/#briefing";
+  return (
+    process.env.REGISTRATION_FORM_URL?.trim() ||
+    "https://linktr.ee/vecalss.academy"
+  );
 }
 
 const isProduction = process.env.NODE_ENV === "production";

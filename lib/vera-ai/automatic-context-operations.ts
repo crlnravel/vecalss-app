@@ -68,6 +68,7 @@ export type VeraAutomaticContextGate = {
     | "provider_capability_unready"
     | "capability_evidence_unready"
     | "canary_unavailable"
+    | "promotion_unverified"
     | "internal_allowlist"
     | "cohort"
     | "on";
@@ -127,6 +128,23 @@ export type VeraAutomaticTelemetryAggregate = {
   policyVersions: string[];
 };
 
+/**
+ * Content-free promotion evidence supplied by the deployment/control plane.
+ * The route recomputes the one-stage verifier from this projection; it never
+ * trusts a precomputed `allowed` flag or any learner-level telemetry.
+ */
+export type VeraAutomaticContextPromotionEvidence = {
+  policyVersion: string;
+  current: VeraAutomaticRolloutStage;
+  target: VeraAutomaticRolloutStage;
+  aggregate: VeraAutomaticTelemetryAggregate;
+  providerCapabilityReady: boolean;
+  capabilityEvidence: VeraAutomaticContextCapabilityEvidence | null;
+  canaryExpiresAt: string | null;
+  legacyRetirementReviewed: boolean;
+  approvalDigest: string;
+};
+
 export type VeraAutomaticContextAlertCode =
   | "provider_capability_drift"
   | "tool_schema_failure"
@@ -148,6 +166,24 @@ export type VeraAutomaticContextAlert = {
 const BASIS_POINT_LIMIT = 10_000;
 const MIN_REPORT_GROUP_SIZE = 5;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
+const PROMOTION_KEYS = [
+  "policyVersion",
+  "current",
+  "target",
+  "aggregate",
+  "providerCapabilityReady",
+  "capabilityEvidence",
+  "canaryExpiresAt",
+  "legacyRetirementReviewed",
+  "approvalDigest",
+] as const;
+const PROMOTION_AGGREGATE_KEYS = [
+  "state", "sampleCount", "completedCount", "noMatchCount", "unavailableCount",
+  "schemaInvalidCount", "failedCount", "sourceCount", "sourceKindCounts",
+  "selectorLatencyP95Ms", "registryLatencyP95Ms", "finalLatencyP95Ms", "totalLatencyP95Ms",
+  "citationValidationFailures", "sourceAuthorizationFailures", "replayCount", "unknownUsageCount",
+  "unknownCostCount", "duplicateDispatches", "chargedUsdMicros", "policyVersions",
+] as const;
 
 const REQUIRED_CAPABILITY_EVIDENCE: readonly (keyof VeraAutomaticContextCapabilityEvidence)[] = [
   "functionToolsSupported",
@@ -174,6 +210,143 @@ function parseTimestamp(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function parsePromotionAggregate(value: unknown): VeraAutomaticTelemetryAggregate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).length !== PROMOTION_AGGREGATE_KEYS.length
+    || Object.keys(candidate).some((key) => !PROMOTION_AGGREGATE_KEYS.includes(key as (typeof PROMOTION_AGGREGATE_KEYS)[number]))) return null;
+  const state = candidate.state === "ready" || candidate.state === "suppressed" ? candidate.state : null;
+  const sourceKindCounts = candidate.sourceKindCounts;
+  if (!state || !sourceKindCounts || typeof sourceKindCounts !== "object" || Array.isArray(sourceKindCounts)) return null;
+  const counts = sourceKindCounts as Record<string, unknown>;
+  if (Object.keys(counts).length !== 3 || ["materi", "kuis", "tryout"].some((key) => !Object.prototype.hasOwnProperty.call(counts, key))) return null;
+  const integer = (key: string): number | null => {
+    const parsed = candidate[key];
+    return typeof parsed === "number" && Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+  };
+  const latency = (key: string): number | null => {
+    const parsed = candidate[key];
+    return parsed === null || (typeof parsed === "number" && Number.isSafeInteger(parsed) && parsed >= 0) ? parsed as number | null : null;
+  };
+  const sourceCount = integer("sourceCount");
+  const sampleCount = integer("sampleCount");
+  const completedCount = integer("completedCount");
+  const noMatchCount = integer("noMatchCount");
+  const unavailableCount = integer("unavailableCount");
+  const schemaInvalidCount = integer("schemaInvalidCount");
+  const failedCount = integer("failedCount");
+  const citationValidationFailures = integer("citationValidationFailures");
+  const sourceAuthorizationFailures = integer("sourceAuthorizationFailures");
+  const replayCount = integer("replayCount");
+  const unknownUsageCount = integer("unknownUsageCount");
+  const unknownCostCount = integer("unknownCostCount");
+  const duplicateDispatches = integer("duplicateDispatches");
+  const materi = counts.materi;
+  const kuis = counts.kuis;
+  const tryout = counts.tryout;
+  const chargedUsdMicros = candidate.chargedUsdMicros;
+  const policyVersions = candidate.policyVersions;
+  if ([sourceCount, sampleCount, completedCount, noMatchCount, unavailableCount, schemaInvalidCount, failedCount, citationValidationFailures, sourceAuthorizationFailures, replayCount, unknownUsageCount, unknownCostCount, duplicateDispatches].some((value) => value === null)
+    || ![materi, kuis, tryout].every((value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0)
+    || sourceCount !== (materi as number) + (kuis as number) + (tryout as number)
+    || BigInt(completedCount!) + BigInt(noMatchCount!) + BigInt(unavailableCount!) + BigInt(failedCount!) !== BigInt(sampleCount!)
+    || schemaInvalidCount! > sampleCount!
+    || typeof chargedUsdMicros !== "string" || !/^\d{1,30}$/u.test(chargedUsdMicros)
+    || !Array.isArray(policyVersions) || policyVersions.length > 8
+    || policyVersions.some((value) => typeof value !== "string" || !value.trim() || value.length > 120)
+    || new Set(policyVersions).size !== policyVersions.length) return null;
+  const selectorLatencyP95Ms = latency("selectorLatencyP95Ms");
+  const registryLatencyP95Ms = latency("registryLatencyP95Ms");
+  const finalLatencyP95Ms = latency("finalLatencyP95Ms");
+  const totalLatencyP95Ms = latency("totalLatencyP95Ms");
+  return {
+    state,
+    sampleCount: sampleCount!,
+    completedCount: completedCount!,
+    noMatchCount: noMatchCount!,
+    unavailableCount: unavailableCount!,
+    schemaInvalidCount: schemaInvalidCount!,
+    failedCount: failedCount!,
+    sourceCount: sourceCount!,
+    sourceKindCounts: { materi: materi as number, kuis: kuis as number, tryout: tryout as number },
+    selectorLatencyP95Ms,
+    registryLatencyP95Ms,
+    finalLatencyP95Ms,
+    totalLatencyP95Ms,
+    citationValidationFailures: citationValidationFailures!,
+    sourceAuthorizationFailures: sourceAuthorizationFailures!,
+    replayCount: replayCount!,
+    unknownUsageCount: unknownUsageCount!,
+    unknownCostCount: unknownCostCount!,
+    duplicateDispatches: duplicateDispatches!,
+    chargedUsdMicros,
+    policyVersions: [...policyVersions] as string[],
+  };
+}
+
+function parseCapabilityEvidence(value: unknown): VeraAutomaticContextCapabilityEvidence | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).length !== REQUIRED_CAPABILITY_EVIDENCE.length
+    || Object.keys(candidate).some((key) => !REQUIRED_CAPABILITY_EVIDENCE.includes(key as (typeof REQUIRED_CAPABILITY_EVIDENCE)[number]))) return null;
+  const evidence = {} as VeraAutomaticContextCapabilityEvidence;
+  for (const key of REQUIRED_CAPABILITY_EVIDENCE) {
+    if (typeof candidate[key] !== "boolean") return null;
+    evidence[key] = candidate[key] as boolean;
+  }
+  return evidence;
+}
+
+export function parseVeraAutomaticContextPromotionEvidence(value: unknown): VeraAutomaticContextPromotionEvidence | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).length !== PROMOTION_KEYS.length
+    || Object.keys(candidate).some((key) => !PROMOTION_KEYS.includes(key as (typeof PROMOTION_KEYS)[number]))) return null;
+  const current = candidate.current;
+  const target = candidate.target;
+  const currentStage = VERA_AUTOMATIC_ROLLOUT_STAGES.includes(current as VeraAutomaticRolloutStage) ? current as VeraAutomaticRolloutStage : null;
+  const targetStage = VERA_AUTOMATIC_ROLLOUT_STAGES.includes(target as VeraAutomaticRolloutStage) ? target as VeraAutomaticRolloutStage : null;
+  const aggregate = parsePromotionAggregate(candidate.aggregate);
+  const capabilityEvidence = parseCapabilityEvidence(candidate.capabilityEvidence);
+  const canaryExpiresAt = parseTimestamp(candidate.canaryExpiresAt);
+  const approvalDigest = candidate.approvalDigest;
+  const policyVersion = candidate.policyVersion;
+  if (!currentStage || !targetStage || !aggregate || !capabilityEvidence || typeof candidate.providerCapabilityReady !== "boolean"
+    || typeof candidate.legacyRetirementReviewed !== "boolean" || !canaryExpiresAt
+    || typeof policyVersion !== "string" || !policyVersion.trim() || policyVersion.length > 120
+    || typeof approvalDigest !== "string" || !DIGEST_PATTERN.test(approvalDigest)) return null;
+  return {
+    policyVersion,
+    current: currentStage,
+    target: targetStage,
+    aggregate,
+    providerCapabilityReady: candidate.providerCapabilityReady,
+    capabilityEvidence,
+    canaryExpiresAt,
+    legacyRetirementReviewed: candidate.legacyRetirementReviewed,
+    approvalDigest,
+  };
+}
+
+export function readVeraAutomaticContextPromotionEvidence(env: NodeJS.ProcessEnv = process.env): VeraAutomaticContextPromotionEvidence | null {
+  const raw = env.VERA_AUTOMATIC_CONTEXT_PROMOTION_EVIDENCE_JSON?.trim();
+  if (!raw) return null;
+  try {
+    return parseVeraAutomaticContextPromotionEvidence(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+export function automaticContextRolloutStageForConfig(config: Pick<VeraAutomaticContextRolloutConfig, "state" | "rolloutBasisPoints">): VeraAutomaticRolloutStage {
+  if (config.state === "off") return "off";
+  if (config.state === "internal") return "internal";
+  if (config.state === "on") return "on";
+  if (config.rolloutBasisPoints <= VERA_AUTOMATIC_ROLLOUT_BASIS_POINTS["5%"]) return "5%";
+  if (config.rolloutBasisPoints <= VERA_AUTOMATIC_ROLLOUT_BASIS_POINTS["25%"]) return "25%";
+  return "on";
 }
 
 function rolloutState(value: unknown): VeraAutomaticRolloutState {
@@ -428,6 +601,7 @@ export function evaluateVeraAutomaticContextRollout(input: {
   if (!expiry || Number.isNaN(expiry.getTime()) || expiry <= now) blockers.push("canary_expired");
   if (input.aggregate.state !== "ready") blockers.push("telemetry_suppressed");
   if (input.aggregate.sampleCount < MIN_REPORT_GROUP_SIZE) blockers.push("insufficient_evidence");
+  if (input.aggregate.schemaInvalidCount > 0) blockers.push("schema_validation_failures");
   if (input.aggregate.sourceAuthorizationFailures > 0) blockers.push("source_authorization_failures");
   if (input.aggregate.duplicateDispatches > 0) blockers.push("duplicate_dispatches");
   if (input.aggregate.citationValidationFailures > 0) blockers.push("citation_validation_failures");
@@ -437,10 +611,15 @@ export function evaluateVeraAutomaticContextRollout(input: {
   if (input.target === "25%" || input.target === "on") {
     const noMatchRate = input.aggregate.sampleCount === 0 ? 1 : input.aggregate.noMatchCount / input.aggregate.sampleCount;
     if (noMatchRate > (input.noMatchRateLimit ?? 0.5)) blockers.push("no_match_rate");
-    if ((input.aggregate.selectorLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.selectorTimeoutMs) blockers.push("selector_latency_budget");
-    if ((input.aggregate.registryLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.registryTimeoutMs) blockers.push("registry_latency_budget");
-    if ((input.aggregate.finalLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.finalProviderTimeoutMs) blockers.push("final_latency_budget");
-    if ((input.aggregate.totalLatencyP95Ms ?? 0) > VERA_AUTOMATIC_CONTEXT_BUDGETS.logicalDeadlineMs) blockers.push("total_latency_budget");
+    const modes = Object.values(VERA_AUTOMATIC_CONTEXT_BUDGETS);
+    const selectorBudgetMs = Math.max(...modes.map((budget) => budget.selectorTimeoutMs));
+    const registryBudgetMs = Math.max(...modes.map((budget) => budget.registryTimeoutMs));
+    const finalBudgetMs = Math.max(...modes.map((budget) => budget.finalProviderTimeoutMs));
+    const logicalBudgetMs = Math.max(...modes.map((budget) => budget.logicalDeadlineMs));
+    if (input.aggregate.selectorLatencyP95Ms === null || input.aggregate.selectorLatencyP95Ms > selectorBudgetMs) blockers.push("selector_latency_budget");
+    if (input.aggregate.registryLatencyP95Ms === null || input.aggregate.registryLatencyP95Ms > registryBudgetMs) blockers.push("registry_latency_budget");
+    if (input.aggregate.finalLatencyP95Ms === null || input.aggregate.finalLatencyP95Ms > finalBudgetMs) blockers.push("final_latency_budget");
+    if (input.aggregate.totalLatencyP95Ms === null || input.aggregate.totalLatencyP95Ms > logicalBudgetMs) blockers.push("total_latency_budget");
   }
   if (input.target === "on" && input.legacyRetirementReviewed !== true) blockers.push("legacy_retirement_not_reviewed");
   return { allowed: blockers.length === 0, target: input.target, targetBasisPoints, blockers };

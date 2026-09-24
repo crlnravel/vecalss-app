@@ -63,7 +63,7 @@ export type VeraAutomaticContextAuthorityDto = {
   policyVersion: string | null;
 };
 
-export type VeraAutomaticContextAuthorityResolver = (studentId: string) => VeraAutomaticContextAuthorityDto;
+export type VeraAutomaticContextAuthorityResolver = (studentId: string) => VeraAutomaticContextAuthorityDto | Promise<VeraAutomaticContextAuthorityDto>;
 
 export type VeraRequestSourceDto = {
   citationKey: string;
@@ -194,8 +194,8 @@ export class VeraLearnerService {
     };
   }
 
-  private authorityFor(studentId: string): VeraAutomaticContextAuthorityDto {
-    const resolved = this.automaticContextResolver?.(studentId);
+  private async authorityFor(studentId: string): Promise<VeraAutomaticContextAuthorityDto> {
+    const resolved = await this.automaticContextResolver?.(studentId);
     return resolved ? { ...resolved } : { ...this.automaticContext };
   }
 
@@ -249,8 +249,8 @@ export class VeraLearnerService {
     contextVersion: number;
     createdAt: Date;
     updatedAt: Date;
-  }): Promise<VeraConversationDto> {
-    const authority = this.authorityFor(row.studentId);
+  }, authorityOverride?: VeraAutomaticContextAuthorityDto): Promise<VeraConversationDto> {
+    const authority = authorityOverride ?? await this.authorityFor(row.studentId);
     const latest = await this.db.aiMessage.findFirst({
       where: { conversationId: row.id, role: { in: ["user", "assistant"] }, contentState: "encrypted" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -288,9 +288,9 @@ export class VeraLearnerService {
       take: input.limit + 1,
     });
     const page = rows.slice(0, input.limit);
-    const conversations = await Promise.all(page.map((row) => this.conversationDto(row)));
     const tail = rows.length > input.limit ? page.at(-1) : null;
-    const authority = this.authorityFor(input.studentId);
+    const authority = await this.authorityFor(input.studentId);
+    const conversations = await Promise.all(page.map((row) => this.conversationDto(row, authority)));
     return {
       conversations,
       contextMode: authority.enabled ? "automatic" as const : "legacy" as const,
@@ -466,6 +466,7 @@ export class VeraLearnerService {
       },
     });
     const page = rows.slice(0, input.limit);
+    const authority = await this.authorityFor(input.studentId);
     const messages = await Promise.all(page.map(async (row) => ({
       id: row.id,
       role: row.role as "user" | "assistant",
@@ -499,7 +500,6 @@ export class VeraLearnerService {
             && request.sources.every((source) => source.snapshotState === "available")
             ? "available" as const
             : "evidence_limited" as const;
-        const authority = this.authorityFor(input.studentId);
         return {
           id: request.id,
           status: request.status,

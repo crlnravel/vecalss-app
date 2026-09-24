@@ -88,8 +88,13 @@ function ResourceAuthoringLockBanner({
 
   const readOnly = state !== "owned";
   const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
-  const title = stateCopy.title.replace("{holder}", holderName);
-  const description = stateCopy.description.replace("{resource}", resourceLabel);
+  const isQuestionBankLock = state === "locked" && resourceLabel === "Bank Soal";
+  const title = isQuestionBankLock
+    ? "Soal Terkunci"
+    : stateCopy.title.replace("{holder}", holderName);
+  const description = isQuestionBankLock
+    ? "Anda tidak dapat mengedit bank soal ini karena terdapat mentor lain yang sedang mengedit soal yang sama."
+    : stateCopy.description.replace("{resource}", resourceLabel);
   const toneClass =
     state === "owned"
       ? "border-primary-200 bg-primary-50/70 text-primary-950"
@@ -103,9 +108,10 @@ function ResourceAuthoringLockBanner({
         aria-describedby="resource-authoring-lock-description"
         aria-label="Status perubahan"
         className={cn(
-          "pointer-events-auto mx-auto flex w-full max-w-[calc(1400px-2rem)] flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)] backdrop-blur-md sm:flex-row sm:items-start sm:justify-between sm:px-5",
+          "pointer-events-auto mx-auto flex w-full flex-col gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)] backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:px-5",
           toneClass,
           className,
+          "max-w-[36rem]",
         )}
         data-authoring-lock-state={state}
         data-read-only={readOnly ? "true" : "false"}
@@ -118,14 +124,16 @@ function ResourceAuthoringLockBanner({
           <div className="min-w-0">
             <p className="font-semibold leading-5">{title}</p>
             <p
-              className="mt-1 max-w-[70ch] text-sm leading-6 text-current/85"
+              className="mt-1 max-w-[65ch] text-sm leading-5 text-current/85"
               id="resource-authoring-lock-description"
             >
               {description}
               {state === "locked"
+                && !isQuestionBankLock
                 ? ` Perubahan diperkirakan tersedia lagi dalam ${remainingSeconds} detik.`
                 : null}
               {hasLocalChanges
+                && !isQuestionBankLock
                 ? " Perubahan yang belum disimpan tetap ada di layar."
                 : null}
             </p>

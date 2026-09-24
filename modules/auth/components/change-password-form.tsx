@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 
 import { changePasswordAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
@@ -14,10 +15,11 @@ function ChangePasswordForm() {
     changePasswordAction,
     EMPTY_FORM_STATE,
   );
+  const keepMessageInline = useActionToast(state);
 
   return (
     <form action={formAction} className="space-y-5">
-      {state.message ? (
+      {state.message && keepMessageInline ? (
         <FormNotice label="Maaf" tone="danger">
           {state.message}
         </FormNotice>

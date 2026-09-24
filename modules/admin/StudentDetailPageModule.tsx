@@ -21,6 +21,7 @@ import type {
   User,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import { ToastOnMount } from "@/components/ui/toast-on-mount";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
@@ -212,10 +213,15 @@ function StudentEnrollmentProfile({
 }
 
 function StudentDetailNotices({ error, notice }: { error?: string | null; notice?: string | null }) {
+  const shouldToastError = error === "delete-failed" || error === "update-failed";
+
   return (
     <>
-      {notice ? <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice> : null}
-      {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
+      {notice ? <ToastOnMount message={noticeMessages[notice] ?? notice} variant="success" /> : null}
+      {error && shouldToastError ? (
+        <ToastOnMount message={errorMessages[error]} variant="error" />
+      ) : null}
+      {error && !shouldToastError ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
     </>
   );
 }

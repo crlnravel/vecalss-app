@@ -12,6 +12,7 @@ import {
   VERA_CREDIT_USD_V2_EFFECTIVE_FROM,
   VERA_MONTHLY_CREDIT_LIMIT,
 } from "./quota-v2";
+import type { VeraAutomaticContextPromotionEvidence } from "./automatic-context-operations";
 
 export type VeraModePolicy = {
   inputBound: number;
@@ -27,7 +28,13 @@ export type VeraPolicyConfig = {
 };
 
 export type VeraSettlementConfig = { maxPendingAgeMinutes: number };
-export type VeraReportConfig = { unitLimit: number; requestLimit: number; minimumGroupSize: number; maxRangeDays: number };
+export type VeraReportConfig = {
+  unitLimit: number;
+  requestLimit: number;
+  minimumGroupSize: number;
+  maxRangeDays: number;
+  automaticContextPromotion?: VeraAutomaticContextPromotionEvidence;
+};
 export type VeraRetentionConfig = {
   stageTtlHours: number;
   contextEvidenceTtlDays: number;

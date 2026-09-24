@@ -1,0 +1,2 @@
+question_id,subject_code,materi,difficulty,question_type,prompt,prompt_media_asset_id,option_a,option_a_media_asset_id,option_b,option_b_media_asset_id,option_c,option_c_media_asset_id,option_d,option_d_media_asset_id,option_e,option_e_media_asset_id,correct_options,explanation,explanation_media_asset_id
+,PU,,easy,single_choice,2 + 2 = ?,,3,,4,,5,,,,,,B,2 + 2 = 4,

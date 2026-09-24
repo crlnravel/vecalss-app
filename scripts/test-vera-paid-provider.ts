@@ -134,6 +134,7 @@ const task = {
   hardOutputQuotaUnits: 32,
   requestId: "request-123",
   attemptNo: 1,
+  dispatchDeadlineAt: "2099-01-01T00:00:00.000Z",
 };
 
 function metadata(): Record<string, unknown> {
@@ -283,6 +284,31 @@ await runChecks("vera-provider", [
       assert(result.usage.tokenUsageState === "known" && result.usage.reportedCostMicros === "5", "paid generation cost was not reconciled");
       assert(result.attempts[0]?.providerRequestKey && result.attempts[0]?.generationId === "gen-123", "dispatch/generation evidence was not retained");
       assert(hookEvents[0] === "intent" && hookEvents.includes("sent"), "dispatch hooks did not record write-ahead/sent evidence");
+    },
+  },
+  {
+    name: "paid transport rejects an expired persisted deadline before network I/O",
+    run: async () => {
+      let fetchCalls = 0;
+      const adapter = new OpenRouterPaidProviderAdapter({
+        manifest,
+        quotaPolicyVersion: "quota-v2",
+        liveEnabled: true,
+        apiKey: "paid-test-key",
+        baseUrl: "https://router.test",
+        fetchImpl: async () => {
+          fetchCalls += 1;
+          return paidSuccessResponse();
+        },
+      });
+      const prepared = await adapter.prepare(task);
+      const expiredPrepared = {
+        ...prepared,
+        dispatchDeadlineAt: "2000-01-01T00:00:00.000Z",
+        preparedTask: { ...prepared.preparedTask, dispatchDeadlineAt: "2000-01-01T00:00:00.000Z" },
+      };
+      await expectReject(() => adapter.run(expiredPrepared), "paid transport refreshed an expired dispatch deadline");
+      assert(fetchCalls === 0, "expired paid request reached the provider transport");
     },
   },
   {

@@ -339,17 +339,8 @@ function folderPath(
 }
 
 function statusCopy(status: KaptenQuestionBank["status"]) {
+  if (status === "draft") return "Draf";
   return status === "archived" ? "Diarsipkan" : "Diterbitkan";
-}
-
-function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  const tone = status === "archived" ? "neutral" : "success";
-
-  return (
-    <MentorBadge size="sm" tone={tone}>
-      {statusCopy(status)}
-    </MentorBadge>
-  );
 }
 
 function createQuestionBankCatalogueColumns({
@@ -397,24 +388,30 @@ function createQuestionBankCatalogueColumns({
               </span>
               <div className="min-w-0">
                 <Link
-                  className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                  className="flex min-w-0 items-center gap-1.5 font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
                   href={row.bank.href}
                 >
-                  {row.bank.title}
+                  {row.bank.status === "draft" ? (
+                    <>
+                      <Archive
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-secondary-500"
+                      />
+                      <span className="shrink-0 text-xs font-normal text-secondary-500">
+                        (draf)
+                      </span>
+                    </>
+                  ) : null}
+                  <span className="min-w-0 truncate">{row.bank.title}</span>
                 </Link>
-                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
-                  <p className="block truncate text-xs text-secondary-500">
-                    {row.bank.questionCount} soal
-                  </p>
-                  <span className="lg:hidden">
-                    <StatusPill status={row.bank.status} />
-                  </span>
-                </div>
+                <p className="mt-0.5 block truncate text-xs text-secondary-500">
+                  {row.bank.questionCount} soal
+                </p>
               </div>
             </div>
           </div>
         ),
-      headerClassName: "min-w-0 lg:min-w-[18rem]",
+      headerClassName: "min-w-0 xl:min-w-[18rem]",
       id: "name",
       label: "Nama",
       width: 34,
@@ -431,7 +428,7 @@ function createQuestionBankCatalogueColumns({
             {row.bank.subjectCoverage.length ? (
               row.bank.subjectCoverage.map((subject) => (
                 <MentorBadge
-                  className="min-w-0 max-w-[8rem] shrink-0 truncate"
+                  className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[8rem]"
                   key={subject}
                   size="compact"
                   tone="category"
@@ -444,8 +441,8 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      cellClassName: "max-lg:hidden",
-      headerClassName: "max-lg:hidden lg:min-w-[9rem]",
+      cellClassName: "max-xl:hidden",
+      headerClassName: "max-xl:hidden xl:min-w-[9rem]",
       id: "subject",
       label: "Subject",
       width: 22,
@@ -462,7 +459,7 @@ function createQuestionBankCatalogueColumns({
             {(row.bank.materiCoverage ?? []).length ? (
               (row.bank.materiCoverage ?? []).map((materi) => (
                 <MentorBadge
-                  className="min-w-0 max-w-[12rem] shrink-0 truncate"
+                  className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[12rem]"
                   key={materi}
                   size="compact"
                   tone="category"
@@ -475,23 +472,10 @@ function createQuestionBankCatalogueColumns({
             )}
           </div>
         ),
-      headerClassName: "min-w-0 lg:min-w-[16rem]",
+      headerClassName: "min-w-0 xl:min-w-[16rem]",
       id: "materi",
       label: "Materi",
       width: 30,
-    },
-    {
-      cell: (row) =>
-        row.kind === "folder" ? (
-          <span className="text-sm text-secondary-400">—</span>
-        ) : (
-          <StatusPill status={row.bank.status} />
-        ),
-      cellClassName: "max-lg:hidden",
-      headerClassName: "max-lg:hidden lg:min-w-[7rem]",
-      id: "status",
-      label: "Status",
-      width: 10,
     },
   ];
 }

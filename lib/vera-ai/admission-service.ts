@@ -58,7 +58,7 @@ import {
 } from "./quota-v2";
 import type { NormalizedVeraResult } from "./output-validator";
 import type { VeraAutomaticContextGateSnapshot } from "./automatic-context-operations";
-import type { PreparedProviderTask, ProviderFailureEvidence, ProviderResult } from "./provider";
+import { buildOpenRouterPaidRequestBytes, type PreparedProviderTask, type ProviderFailureEvidence, type ProviderResult } from "./provider";
 import {
   VERA_CONTEXT_REGISTRY_VERSION,
   VERA_CONTEXT_RESOLVER_VERSION,
@@ -154,6 +154,26 @@ function parseMicrosString(value: string | null | undefined): bigint | null {
 
 function providerRequestKeyFor(requestId: string, attemptNo: number): string {
   return sha256Hex(`vera-provider-request-key-v1:${requestId}:${attemptNo}`);
+}
+
+/**
+ * Bind the write-ahead payload evidence to the exact paid HTTP body. The
+ * selector and final automatic stages are the only stages that require this
+ * stronger binding; the free/mock route deliberately keeps its existing
+ * development-only evidence contract.
+ */
+function bindExactProviderPayload(prepared: PreparedProviderTask): { prepared: PreparedProviderTask; byteCount: number | null } {
+  if (!prepared.stagePurpose
+    || prepared.routingOptions.kind === "openrouter_free_poc"
+    || prepared.upstreamProvider !== "relace"
+    || !prepared.providerRequestKey) {
+    return { prepared, byteCount: null };
+  }
+  const bytes = buildOpenRouterPaidRequestBytes({ prepared, providerRequestKey: prepared.providerRequestKey });
+  return {
+    prepared: { ...prepared, finalPayloadHash: sha256Hex(bytes) },
+    byteCount: bytes.byteLength,
+  };
 }
 
 function dateOnly(value: string): Date {
@@ -827,8 +847,69 @@ export class VeraPrismaAdmissionService {
       result,
       sources: result && sourceRows.length === result.sources.length
         ? result.sources.map((source, index) => ({ ...source, sourceId: sourceRows[index]!.sourceId }))
-        : [],
+      : [],
     };
+  }
+
+  /**
+   * Read the durable, content-encrypted inputs needed by a reconnect worker.
+   * Provider request bodies are never reconstructed from client input; the
+   * request row, frozen pack metadata, and invocation evidence are the only
+   * authority for continuation.
+   */
+  async readAutomaticRecoveryRequest(input: { requestId: string }) {
+    const request = await this.db.aiRequest.findUnique({
+      where: { id: input.requestId },
+      select: {
+        id: true,
+        studentId: true,
+        conversationId: true,
+        createdAt: true,
+        status: true,
+        errorCode: true,
+        automaticContextGateSnapshot: true,
+        featureKey: true,
+        behaviorVersion: true,
+        contextPackVersion: true,
+        policyBundleVersion: true,
+        hardOutputQuotaUnits: true,
+        settlementDeadlineAt: true,
+        dispatchDeadlineAt: true,
+        userMessage: { select: { contentEnvelope: true, contentState: true } },
+        contextPack: {
+          select: {
+            id: true,
+            systemPolicyHash: true,
+            promptTemplateHash: true,
+            toolSchemaHash: true,
+            registryVersion: true,
+            resolverVersion: true,
+            purgeState: true,
+          },
+        },
+        contextToolInvocation: { select: { state: true } },
+        attempts: {
+          orderBy: { attemptNo: "asc" },
+          select: {
+            attemptNo: true,
+            state: true,
+            stagePurpose: true,
+            gateway: true,
+            upstreamProvider: true,
+            upstreamProviderSlug: true,
+            model: true,
+            providerRequestKey: true,
+            finalPayloadHash: true,
+            dispatchDeadlineAt: true,
+            releaseManifestDigest: true,
+            generationId: true,
+          },
+        },
+      },
+    });
+    if (!request || !request.contextPack || !request.contextToolInvocation) return null;
+    const invocation = await this.readAutomaticInvocation({ requestId: input.requestId });
+    return { request, invocation };
   }
 
   /** Complete the one invocation with an encrypted identity-free result
@@ -836,6 +917,10 @@ export class VeraPrismaAdmissionService {
   async completeAutomaticInvocation(input: {
     requestId: string;
     result: ContextToolResult;
+    /** Internal identities are persisted separately from the provider-visible
+     * identity-free result so a reconnect can rebuild the final pack without
+     * executing the registry again. */
+    sources?: readonly AutomaticContextPackSource[];
     selectedSourceCount: number;
     resultByteCount: number;
     truncationCount: number;
@@ -845,6 +930,14 @@ export class VeraPrismaAdmissionService {
     if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
+      const request = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: {
+          retentionPolicyVersion: true,
+          contextPack: { select: { id: true, purgeAt: true } },
+        },
+      });
+      if (!request?.contextPack) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
       if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       if (!invocation.canonicalArgumentsCiphertext || !invocation.argumentsDigest) {
@@ -880,8 +973,52 @@ export class VeraPrismaAdmissionService {
       }
       const resultDigest = encrypted.resultDigest;
       if (!resultDigest) throw new VeraAdmissionError({ code: "context_tool_invalid", status: 422 });
+      const sources = [...(input.sources ?? [])];
+      if (sources.length !== input.result.sources.length || sources.some((source, index) => {
+        const projection = input.result.sources[index];
+        return !projection || source.kind !== projection.kind || source.title !== projection.title || source.citationKey !== projection.citationKey;
+      })) throw new VeraAdmissionError({ code: "context_tool_source_conflict", status: 409 });
+      const createSourceIdentities = async (): Promise<void> => {
+        for (const [index, source] of sources.entries()) {
+          const sourceType = source.kind === "materi" ? "material" : "practice";
+          await tx.aiRequestSource.create({
+            data: {
+              id: randomUUID(),
+              contextPackId: request.contextPack!.id,
+              requestId: input.requestId,
+              ordinal: index + 1,
+              sourceType,
+              sourceId: source.sourceId,
+              citationKey: source.citationKey,
+              titleSnapshot: source.title,
+              citationLabel: source.title,
+              contentDigest: source.releaseMetadata.versionDigest,
+              snapshotBytes: 0,
+              truncationJson: json({ truncated: false }),
+              redactionPolicyVersion: "vera-redaction-v1",
+              retentionPolicyVersion: request.retentionPolicyVersion ?? "unknown",
+              purgeAt: request.contextPack!.purgeAt,
+            },
+          });
+        }
+      };
       if (invocation.state === "completed") {
         if (invocation.resultDigest !== resultDigest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+        const persistedSources = await tx.aiRequestSource.findMany({
+          where: { requestId: input.requestId },
+          orderBy: { ordinal: "asc" },
+          select: { ordinal: true, sourceType: true, sourceId: true, citationKey: true, titleSnapshot: true, contentDigest: true },
+        });
+        if (persistedSources.length !== sources.length || persistedSources.some((persisted, index) => {
+          const source = sources[index];
+          return !source
+            || persisted.ordinal !== index + 1
+            || persisted.sourceType !== (source.kind === "materi" ? "material" : "practice")
+            || persisted.sourceId !== source.sourceId
+            || persisted.citationKey !== source.citationKey
+            || persisted.titleSnapshot !== source.title
+            || persisted.contentDigest !== source.releaseMetadata.versionDigest;
+        })) throw new VeraAdmissionError({ code: "context_tool_source_conflict", status: 409 });
         return { resultDigest, replayed: true };
       }
       if (invocation.state !== "executing") throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
@@ -901,6 +1038,7 @@ export class VeraPrismaAdmissionService {
         },
       });
       if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+      await createSourceIdentities();
       return { resultDigest, replayed: false };
     });
   }
@@ -935,7 +1073,7 @@ export class VeraPrismaAdmissionService {
       const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 2 } } });
       const providerRequestKey = input.preparedProviderTask.providerRequestKey?.trim() || providerRequestKeyFor(input.requestId, 2);
       const dispatchDeadlineAt = request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000);
-      const preparedProviderTask: PreparedProviderTask = {
+      const preparedProviderTaskBase: PreparedProviderTask = {
         ...input.preparedProviderTask,
         providerRequestKey,
         dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
@@ -949,8 +1087,17 @@ export class VeraPrismaAdmissionService {
         },
         stagePurpose: "answer",
       };
+      const exactProviderPayload = bindExactProviderPayload(preparedProviderTaskBase);
+      const preparedProviderTask = exactProviderPayload.prepared;
       if (existing) {
-        if (existing.stagePurpose !== AiRequestAttemptStagePurpose.answer || existing.finalPayloadHash !== (preparedProviderTask.finalPayloadHash ?? null)) {
+        if (existing.stagePurpose !== AiRequestAttemptStagePurpose.answer
+          || existing.finalPayloadHash !== (preparedProviderTask.finalPayloadHash ?? null)
+          || existing.providerRequestKey !== providerRequestKey
+          || existing.gateway !== preparedProviderTask.gateway
+          || existing.upstreamProvider !== preparedProviderTask.upstreamProvider
+          || existing.upstreamProviderSlug !== preparedProviderTask.upstreamProviderSlug
+          || existing.model !== preparedProviderTask.model
+          || existing.releaseManifestDigest !== (preparedProviderTask.manifestDigest ?? null)) {
           throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
         }
         return preparedProviderTask;
@@ -1016,7 +1163,7 @@ export class VeraPrismaAdmissionService {
           certifierId: preparedProviderTask.certifierId ?? null,
           certifierVersion: preparedProviderTask.certifierVersion ?? null,
           priceSnapshot: preparedProviderTask.priceSnapshot ? json(preparedProviderTask.priceSnapshot) : undefined,
-          finalMeasuredBytes: input.pack.byteCount,
+          finalMeasuredBytes: exactProviderPayload.byteCount ?? input.pack.byteCount,
           finalMeasuredTokenUpperBound: preparedProviderTask.inputQuotaUnitsUpperBound,
           releaseManifestDigest: preparedProviderTask.manifestDigest,
         },
@@ -1027,13 +1174,74 @@ export class VeraPrismaAdmissionService {
 
   /** Record selector provider evidence without creating the final result
    * stage. Automatic requests accept exactly one attempt for this purpose. */
-  async recordAutomaticStageResult(input: { requestId: string; preparedProviderTask: PreparedProviderTask; providerResult: ProviderResult; now?: Date }): Promise<void> {
+  async recordAutomaticStageResult(input: {
+    requestId: string;
+    preparedProviderTask: PreparedProviderTask;
+    providerResult: ProviderResult;
+    /** Selector arguments and provider evidence are committed atomically so a
+     * crash cannot leave a successful selector result with no resumable call. */
+    toolArguments?: unknown;
+    invocationFailureCode?: string;
+    now?: Date;
+  }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
     if (input.providerResult.attempts.length !== 1 || input.providerResult.attempts[0]?.attemptNo !== 1) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
+    if (input.toolArguments !== undefined && input.invocationFailureCode) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
     const attempt = input.providerResult.attempts[0];
     return this.db.$transaction(async (tx) => {
       const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
       if (!existing || existing.stagePurpose !== AiRequestAttemptStagePurpose.context_selection) throw new VeraAdmissionError({ code: "provider_attempt_missing", status: 503 });
+      const preparedPayloadHash = input.preparedProviderTask.finalPayloadHash ?? null;
+      const returnedPayloadHash = attempt.finalPayloadHash ?? null;
+      if (existing.finalPayloadHash !== preparedPayloadHash || (returnedPayloadHash !== null && returnedPayloadHash !== preparedPayloadHash)) {
+        throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+      }
+      if (existing.providerRequestKey !== (input.preparedProviderTask.providerRequestKey ?? null)
+        || existing.gateway !== input.preparedProviderTask.gateway
+        || existing.upstreamProvider !== input.preparedProviderTask.upstreamProvider
+        || existing.upstreamProviderSlug !== input.preparedProviderTask.upstreamProviderSlug
+        || existing.model !== input.preparedProviderTask.model
+        || existing.releaseManifestDigest !== (input.preparedProviderTask.manifestDigest ?? null)) {
+        throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+      }
+      const observedPayloadHash = preparedPayloadHash;
+      if (input.toolArguments !== undefined || input.invocationFailureCode) {
+        const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+        if (!invocation) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+        if (input.toolArguments !== undefined) {
+          if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+          const encrypted = await encryptContextToolInvocationAsync({
+            toolArguments: input.toolArguments,
+            envelope: this.envelope.forClient(tx),
+            objectId: invocation.id,
+          });
+          if (invocation.state === "executing" || invocation.state === "completed") {
+            if (invocation.argumentsDigest !== encrypted.argumentsDigest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+          } else if (invocation.state === "planned") {
+            const changed = await tx.aiContextToolInvocation.updateMany({
+              where: { id: invocation.id, requestId: input.requestId, state: "planned" },
+              data: {
+                state: "executing",
+                canonicalArgumentsCiphertext: json(encrypted.canonicalArgumentsCiphertext),
+                argumentsDigest: encrypted.argumentsDigest,
+                errorCode: null,
+                executingAt: now,
+              },
+            });
+            if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+          } else {
+            throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
+          }
+        } else if (invocation.state === "planned") {
+          const changed = await tx.aiContextToolInvocation.updateMany({
+            where: { id: invocation.id, requestId: input.requestId, state: "planned" },
+            data: { state: "failed", errorCode: input.invocationFailureCode, failedAt: now },
+          });
+          if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+        } else if (invocation.state !== "failed" || invocation.errorCode !== input.invocationFailureCode) {
+          throw new VeraAdmissionError({ code: "stage_after_terminal", status: 409 });
+        }
+      }
       await tx.aiRequestAttempt.update({
         where: { id: existing.id },
         data: {
@@ -1055,6 +1263,7 @@ export class VeraPrismaAdmissionService {
           upstreamId: attempt.upstreamId ?? null,
           providerRequestId: attempt.providerRequestId ?? null,
           observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? null,
+          finalPayloadHash: observedPayloadHash,
           completedAt: now,
         },
       });
@@ -1583,7 +1792,7 @@ export class VeraPrismaAdmissionService {
       const providerRequestKey = input.preparedProviderTask.providerRequestKey?.trim()
         || providerRequestKeyFor(requestId, attemptNo);
       const dispatchDeadlineAt = input.policy.settlementDeadlineAt;
-      const providerTaskForDispatch: PreparedProviderTask = {
+      const providerTaskForDispatchBase: PreparedProviderTask = {
         ...input.preparedProviderTask,
         providerRequestKey,
         dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
@@ -1595,6 +1804,8 @@ export class VeraPrismaAdmissionService {
           dispatchDeadlineAt: dispatchDeadlineAt.toISOString(),
         },
       };
+      const exactProviderPayload = bindExactProviderPayload(providerTaskForDispatchBase);
+      const providerTaskForDispatch = exactProviderPayload.prepared;
       // AiContextPack and AiRequestSource have immediate parent FKs to the
       // request. Create the request parent first; the whole sequence remains
       // inside this transaction so any later snapshot failure rolls back the
@@ -1621,7 +1832,7 @@ export class VeraPrismaAdmissionService {
           upstreamProviderSlug: input.preparedProviderTask.upstreamProviderSlug,
           routingPolicyVersion: input.preparedProviderTask.routingPolicyVersion,
           providerEndpointDigest: input.preparedProviderTask.endpointMetadataDigest,
-          providerTaskDigest: input.preparedProviderTask.providerTaskDigest,
+          providerTaskDigest: providerTaskForDispatch.providerTaskDigest,
           quotaPolicyVersion: input.policy.policy.quotaConfig.quotaVersion,
           policyBundleVersion: input.policy.bundleVersion,
           automaticContextGateSnapshot: input.automaticContextGateSnapshot ? json(input.automaticContextGateSnapshot) : undefined,
@@ -1669,7 +1880,7 @@ export class VeraPrismaAdmissionService {
           certifierId: providerTaskForDispatch.certifierId ?? null,
           certifierVersion: providerTaskForDispatch.certifierVersion ?? null,
           priceSnapshot: providerTaskForDispatch.priceSnapshot ? json(providerTaskForDispatch.priceSnapshot) : undefined,
-          finalMeasuredBytes: input.pack.byteCount,
+          finalMeasuredBytes: exactProviderPayload.byteCount ?? input.pack.byteCount,
           finalMeasuredTokenUpperBound: providerTaskForDispatch.inputQuotaUnitsUpperBound,
           releaseManifestDigest: providerTaskForDispatch.manifestDigest,
         },
@@ -1809,7 +2020,7 @@ export class VeraPrismaAdmissionService {
     return this.db.$transaction(async (tx) => {
       const request = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
-        select: { id: true, status: true, version: true, ledgerVersion: true, providerRequestKey: true, dispatchDeadlineAt: true },
+        select: { id: true, status: true, version: true, ledgerVersion: true, providerRequestKey: true, dispatchDeadlineAt: true, settlementDeadlineAt: true },
       });
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) {
@@ -1825,12 +2036,19 @@ export class VeraPrismaAdmissionService {
         return { claimed: false, replayed: true, state: attempt.state };
       }
       if (attempt.state !== AiAttemptState.reserved) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
+      const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+      const dispatchNow = clock[0]?.now ?? now;
+      const deadlines = [request.settlementDeadlineAt, request.dispatchDeadlineAt, attempt.dispatchDeadlineAt]
+        .filter((deadline): deadline is Date => deadline instanceof Date);
+      if (deadlines.length === 0 || deadlines.some((deadline) => deadline <= dispatchNow)) {
+        throw new VeraAdmissionError({ code: "stage_after_deadline", status: 409 });
+      }
       const dispatching = await tx.aiRequestAttempt.updateMany({
         where: { id: attempt.id, state: AiAttemptState.reserved },
         data: {
           state: AiAttemptState.dispatching,
-          sendStartedAt: now,
-          startedAt: now,
+          sendStartedAt: dispatchNow,
+          startedAt: dispatchNow,
           errorCode: null,
         },
       });
@@ -1839,9 +2057,9 @@ export class VeraPrismaAdmissionService {
         where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
         data: {
           billingState: request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2 ? AiRequestBillingState.dispatching : undefined,
-          sendStartedAt: now,
+          sendStartedAt: dispatchNow,
           providerRequestKey: attempt.providerRequestKey ?? request.providerRequestKey,
-          dispatchDeadlineAt: attempt.dispatchDeadlineAt ?? request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000),
+          dispatchDeadlineAt: attempt.dispatchDeadlineAt ?? request.dispatchDeadlineAt ?? new Date(dispatchNow.getTime() + 120 * 60_000),
           version: { increment: 1 },
         },
       });

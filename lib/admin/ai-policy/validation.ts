@@ -1,6 +1,7 @@
 import "server-only";
 
 import { VERA_V1_QUOTA_CONFIG, VERA_V1_REPORT_CONFIG, VERA_V1_RETENTION_CONFIG, VERA_V1_SETTLEMENT_CONFIG } from "@/lib/vera-ai/policy";
+import { parseVeraAutomaticContextPromotionEvidence } from "@/lib/vera-ai/automatic-context-operations";
 
 import {
   AI_POLICY_MIN_GROUP_SIZE,
@@ -93,18 +94,30 @@ export function parseSettlementConfig(value: unknown): AiPolicySettlementConfig 
 
 export function parseReportConfig(value: unknown): AiPolicyReportConfig {
   assertObject(value, "reportConfig");
-  assertExactKeys(value, ["unitLimit", "requestLimit", "minimumGroupSize", "maxRangeDays"], "reportConfig");
+  const requiredKeys = ["unitLimit", "requestLimit", "minimumGroupSize", "maxRangeDays"] as const;
+  const allowedKeys = [...requiredKeys, "automaticContextPromotion"] as const;
+  const unknown = Object.keys(value).filter((key) => !allowedKeys.includes(key as (typeof allowedKeys)[number]));
+  const missing = requiredKeys.filter((key) => !Object.prototype.hasOwnProperty.call(value, key));
+  if (unknown.length || missing.length) {
+    throw new AiPolicyError("invalid_policy", "reportConfig memiliki kunci yang tidak lengkap atau tidak dikenal.", 422, { unknown, missing });
+  }
   const minimumGroupSize = integerInRange(value.minimumGroupSize, AI_POLICY_MIN_GROUP_SIZE, 100, "reportConfig.minimumGroupSize");
   const maxRangeDays = integerInRange(value.maxRangeDays, 1, 31, "reportConfig.maxRangeDays");
   if (minimumGroupSize < AI_POLICY_MIN_GROUP_SIZE || maxRangeDays > 31) {
     throw new AiPolicyError("immutable_privacy_floor", "Pagar privasi laporan tidak dapat diturunkan.", 422);
   }
-  return {
+  const parsed: AiPolicyReportConfig = {
     unitLimit: integerInRange(value.unitLimit, 12, 240, "reportConfig.unitLimit"),
     requestLimit: integerInRange(value.requestLimit, 1, 60, "reportConfig.requestLimit"),
     minimumGroupSize,
     maxRangeDays,
   };
+  if (Object.prototype.hasOwnProperty.call(value, "automaticContextPromotion")) {
+    const promotion = parseVeraAutomaticContextPromotionEvidence(value.automaticContextPromotion);
+    if (!promotion) throw new AiPolicyError("invalid_policy", "Bukti persetujuan untuk mengaktifkan konteks otomatis tidak valid.", 422);
+    parsed.automaticContextPromotion = promotion;
+  }
+  return parsed;
 }
 
 export function parseRetentionConfig(value: unknown): AiPolicyRetentionConfig {

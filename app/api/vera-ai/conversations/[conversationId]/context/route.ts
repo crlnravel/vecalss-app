@@ -2,7 +2,7 @@ import { getReadOnlySessionContext, getSessionContext } from "@/lib/auth/session
 import { isUuid, readJsonBody, VERA_HTTP_HEADERS, VeraHttpError } from "@/lib/vera-ai/http";
 import { VERA_MAX_CONTEXT_SOURCES } from "@/lib/vera-ai/contracts";
 import { mapLearnerServiceError } from "@/lib/vera-ai/learner-service";
-import { getVeraLearnerService, veraAutomaticContextGateForStudent } from "@/lib/vera-ai/route-support";
+import { getVeraLearnerService, veraAutomaticContextGateForStudentFromPolicy } from "@/lib/vera-ai/route-support";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(_request: Request, context: { params: Promise<{ conver
   const session = await getReadOnlySessionContext();
   if (!session) return Response.json({ error: "unauthenticated" }, { status: 401, headers: VERA_HTTP_HEADERS });
   try {
-    if (veraAutomaticContextGateForStudent(session.user.id).enabled) {
+    if ((await veraAutomaticContextGateForStudentFromPolicy(session.user.id)).enabled) {
       return Response.json({ error: "legacy_context_route_disabled" }, { status: 410, headers: VERA_HTTP_HEADERS });
     }
     const { conversationId } = await context.params;
@@ -31,7 +31,7 @@ export async function PUT(request: Request, context: { params: Promise<{ convers
   const session = await getSessionContext();
   if (!session) return Response.json({ error: "unauthenticated" }, { status: 401, headers: VERA_HTTP_HEADERS });
   try {
-    if (veraAutomaticContextGateForStudent(session.user.id).enabled) {
+    if ((await veraAutomaticContextGateForStudentFromPolicy(session.user.id)).enabled) {
       return Response.json({ error: "legacy_context_route_disabled" }, { status: 410, headers: VERA_HTTP_HEADERS });
     }
     const { conversationId } = await context.params;

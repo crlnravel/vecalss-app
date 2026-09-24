@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import { forgotPasswordAction } from "../actions";
@@ -21,12 +22,13 @@ function ForgotPasswordForm({
   defaultEmail?: string;
 }) {
   const [state, formAction] = useActionState(forgotPasswordAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
 
   return (
     <form action={formAction} className="space-y-5">
       <input name="audience" type="hidden" value={audience} />
 
-      {state.message ? (
+      {state.message && keepMessageInline ? (
         <FormNotice tone={state.status === "success" ? "success" : "danger"}>
           {state.message}
         </FormNotice>

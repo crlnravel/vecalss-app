@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 
 import {
   aggregateVeraAutomaticTelemetry,
+  automaticContextRolloutStageForConfig,
   automaticContextMustFailClosed,
   automaticContextTelemetryDigest,
   createVeraAutomaticTelemetryEvent,
   evaluateVeraAutomaticContextAlerts,
   evaluateVeraAutomaticContextGate,
   evaluateVeraAutomaticContextRollout,
+  parseVeraAutomaticContextPromotionEvidence,
   readVeraAutomaticContextRolloutConfig,
   stableVeraAutomaticContextBasisPoints,
 } from "@/lib/vera-ai/automatic-context-operations";
@@ -114,6 +116,27 @@ assert.equal(evaluateVeraAutomaticContextRollout({
   canaryExpiresAt: canary.canaryExpiresAt,
   now: new Date("2026-09-23T00:00:00.000Z"),
 }).blockers.includes("legacy_retirement_not_reviewed"), true);
+assert.equal(automaticContextRolloutStageForConfig({ state: "on", rolloutBasisPoints: 0 }), "on");
+assert.equal(evaluateVeraAutomaticContextRollout({
+  current: "internal",
+  target: "5%",
+  aggregate: { ...aggregate, schemaInvalidCount: 1 },
+  providerCapabilityReady: true,
+  capabilityEvidence: base.capabilityEvidence,
+  canaryExpiresAt: canary.canaryExpiresAt,
+  now: new Date("2026-09-23T00:00:00.000Z"),
+}).blockers.includes("schema_validation_failures"), true);
+assert.equal(parseVeraAutomaticContextPromotionEvidence({
+  policyVersion: "vera-auto-v1",
+  current: "internal",
+  target: "5%",
+  aggregate: { ...aggregate, completedCount: 0, noMatchCount: 0, unavailableCount: 0, failedCount: 0 },
+  providerCapabilityReady: true,
+  capabilityEvidence: base.capabilityEvidence,
+  canaryExpiresAt: canary.canaryExpiresAt,
+  legacyRetirementReviewed: false,
+  approvalDigest: "c".repeat(64),
+}), null);
 assert.equal(readVeraAutomaticContextRolloutConfig({ VERA_AUTOMATIC_CONTEXT_EMERGENCY_OFF: "unexpected" }).emergencyOff, true);
 assert.deepEqual(readVeraAutomaticContextRolloutConfig({ NODE_ENV: "production", VERA_AUTOMATIC_CONTEXT_STATE: "bad", VERA_AUTOMATIC_CONTEXT_ROLLOUT_BASIS_POINTS: "12000" }), {
   state: "off",

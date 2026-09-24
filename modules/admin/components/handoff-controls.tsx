@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldRequiredMark } from "@/components/ui/field";
 import { StudentBadge } from "@/components/ui/student-badge";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus } from "@/generated/prisma/client";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
@@ -63,6 +64,7 @@ function HandoffControls({
   status: EnrollmentHandoffStatus;
 }) {
   const [state, formAction, pending] = useActionState(reissueEnrollmentHandoffAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
 
   return (
     <div className="space-y-4 text-sm text-secondary-700">
@@ -80,7 +82,7 @@ function HandoffControls({
           </div>
         </dl>
       ) : null}
-      {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
+      {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
       {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
         <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">

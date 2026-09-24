@@ -69,6 +69,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 - The guard serializes launches across worktrees, checks host/process capacity, lowers scheduling priority, and fails closed when blocked.
 - Keep the configured launch budget and one active CPU-heavy command group; stop agent-owned servers and workers before handoff.
 - Never bypass the guard with direct launches, background/watch/parallel modes, or a retry loop.
+- **Emergency mode (2x more forgiving gates):** When resource checks block critical work, an emergency mode (`--emergency` or `RESOURCE_GUARD_EMERGENCY=1`) relaxes gates to 2x base values. Agents **must always ask for explicit user permission** before invoking emergency mode.
 
 ### Token efficiency and CLI proxy (rtk)
 
@@ -83,6 +84,13 @@ the configured project copy is `_harness/resource-guard.sh`.
 - **Active pre-release phase:** The project is in active pre-release development. Local and development database data is ephemeral and disposable.
 - **Database migration is encouraged:** Agents are fully permitted to evolve the schema and apply database migrations (`prisma migrate dev`, `pnpm db:generate`, `pnpm db:reset`, `pnpm db:seed`) as needed to support feature development.
 - **No legacy preservation or backup requirement:** Creating pre-migration database dumps/backups or preserving legacy tables, obsolete schemas, and backward-compatibility bridges is **not important or required** at this stage. Prioritize clean, modern schemas and moving forward over legacy compatibility.
+
+### Environment and database topology for AI agents
+
+- **Local environment (dev):** Uses Docker Compose (`docker-compose.dev.yml`) providing PostgreSQL 16 (port `55432`, db `vecalss_dev`) and Redis 7 (port `56379`). Ephemeral fixture data; resets and seeds (`pnpm db:reset`, `pnpm db:seed`) are standard.
+- **Staging environment (neon):** Uses **Neon** serverless PostgreSQL. **Neon staging contains NO sensitive information** and is **safe for AI agents to retrieve, inspect, and query**. The staging database is **also disposable for now** during this pre-release phase (no backups or legacy preservation required). Migrations are deployed via `prisma migrate deploy`.
+- **Production environment:** **Still NOT available.** Agents must fail closed and never connect to or assume an active production database.
+- Read [`docs/database-environments.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/database-environments.md) for the complete reference.
 
 ### Design and UI policy
 
@@ -112,6 +120,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
+- Database & environments guide → `docs/database-environments.md`
 - Copywriting & Indonesian content → `.agents/skills/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`
 

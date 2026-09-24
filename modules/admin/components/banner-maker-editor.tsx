@@ -976,10 +976,6 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
   );
 }
 
-function BannerMakerEditorStatus({ controller }: { controller: BannerMakerEditorController }) {
-  return controller.formState.status === "error" && controller.formState.message ? <div className="mx-3 mt-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg sm:mx-5" role="alert">{controller.formState.message}</div> : null;
-}
-
 function BannerMakerEditorLayerList({ controller }: { controller: BannerMakerEditorController }) {
   return <LayerList design={controller.design} onDeleteLayer={controller.actions.deleteLayer} onDropLayer={controller.actions.dropLayer} onMoveDown={(id) => controller.actions.moveLayer(id, "down")} onMoveToBack={(id) => controller.actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => controller.actions.moveLayerToEdge(id, "front")} onMoveUp={(id) => controller.actions.moveLayer(id, "up")} onSelect={controller.actions.selectLayer} selectedLayerId={controller.selectedLayerId} />;
 }
@@ -1045,7 +1041,7 @@ function BannerMakerEditorWorkspace({ controller }: { controller: BannerMakerEdi
 }
 
 function BannerMakerEditorForm({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
-  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorStatus controller={controller} /><BannerMakerEditorWorkspace controller={controller} /></form>;
+  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorWorkspace controller={controller} /></form>;
 }
 
 function BannerMakerEditorShell({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {

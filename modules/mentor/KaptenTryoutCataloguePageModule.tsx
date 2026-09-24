@@ -82,7 +82,7 @@ function TryoutCard({ item }: { item: TryoutItem }) {
       aria-label={`Buka ${item.title}`}
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
-        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
         "group flex min-w-0 items-center justify-between gap-4 rounded-3xl p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/40 sm:gap-5 sm:p-5",
       )}
       href={`/mentor/tryout/${item.id}`}
@@ -190,15 +190,7 @@ function KaptenTryoutCataloguePageModule({
         />
 
         <div className="space-y-4">
-          <TryoutStatusTabs
-            items={initialItems}
-            onChange={(value) => {
-              setStatusFilter(value);
-              setPage(1);
-            }}
-            value={statusFilter}
-          />
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             <CatalogueSearchInput
               onChange={(value) => {
                 setQuery(value);
@@ -208,6 +200,14 @@ function KaptenTryoutCataloguePageModule({
               value={query}
             />
           </div>
+          <TryoutStatusTabs
+            items={initialItems}
+            onChange={(value) => {
+              setStatusFilter(value);
+              setPage(1);
+            }}
+            value={statusFilter}
+          />
         </div>
 
         <section aria-label="Daftar Tryout" className="grid gap-3">

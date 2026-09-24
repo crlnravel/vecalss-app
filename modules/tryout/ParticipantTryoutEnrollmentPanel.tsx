@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { showToast } from "@/components/ui/toast";
 import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { registerForTryoutWithTargetAction } from "@/modules/tryout/participant-actions";
@@ -195,7 +196,6 @@ function MajorPicker({
 function EnrollmentConfirmationDialog({
   busy,
   major,
-  message,
   onConfirm,
   onOpenChange,
   open,
@@ -203,7 +203,6 @@ function EnrollmentConfirmationDialog({
 }: {
   busy: boolean;
   major?: MajorOption;
-  message: string | null;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -226,12 +225,6 @@ function EnrollmentConfirmationDialog({
             <dd className="font-semibold text-secondary-900">{major?.name}</dd>
           </div>
         </dl>
-
-        {message ? (
-          <p className="rounded-xl border border-student-status-danger-border bg-student-status-danger-bg p-3 text-sm text-student-status-danger-fg" role="alert">
-            {message}
-          </p>
-        ) : null}
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
@@ -347,12 +340,13 @@ function ParticipantTryoutEnrollmentPanel({
         universityId: university.id,
       }, sessionId);
       if (!response.ok) {
-        setMessage(response.message);
+        showToast(response.message, { variant: "error" });
         return;
       }
       if (response.result.state === "unavailable") {
-        setMessage(
+        showToast(
           "Belum ada sesi tryout yang dapat menerima pendaftaran. Targetmu belum diubah; coba lagi setelah Kapten membuka jadwal baru.",
+          { variant: "error" },
         );
         return;
       }
@@ -365,10 +359,11 @@ function ParticipantTryoutEnrollmentPanel({
       );
     } catch (registerError) {
       unstable_rethrow(registerError);
-      setMessage(
+      showToast(
         registerError instanceof Error
           ? registerError.message
           : "Pendaftaran tryout belum dapat diproses.",
+        { variant: "error" },
       );
     } finally {
       setBusy(false);
@@ -454,7 +449,6 @@ function ParticipantTryoutEnrollmentPanel({
       <EnrollmentConfirmationDialog
         busy={busy}
         major={major}
-        message={message}
         onConfirm={() => void handleRegister()}
         onOpenChange={(nextOpen) => {
           if (!busy) setConfirmOpen(nextOpen);

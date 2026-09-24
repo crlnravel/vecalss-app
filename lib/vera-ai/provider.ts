@@ -1651,11 +1651,15 @@ function providerRequestKeyFor(prepared: PreparedProviderTask): string {
 
 function dispatchDeadlineFor(prepared: PreparedProviderTask, now = new Date()): string {
   const fromTask = prepared.dispatchDeadlineAt ?? prepared.preparedTask.dispatchDeadlineAt;
-  if (fromTask) {
-    const parsed = new Date(fromTask);
-    if (!Number.isNaN(parsed.getTime()) && parsed > now) return parsed.toISOString();
+  if (!fromTask) throw new ProviderExecutionError({ code: "dispatch_deadline_missing" });
+  const parsed = new Date(fromTask);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ProviderExecutionError({ code: "dispatch_deadline_invalid" });
   }
-  return new Date(now.getTime() + 120 * 60 * 1000).toISOString();
+  if (parsed <= now) {
+    throw new ProviderExecutionError({ code: "dispatch_deadline_expired" });
+  }
+  return parsed.toISOString();
 }
 
 export function buildOpenRouterPaidRequest(input: {
@@ -1705,6 +1709,18 @@ export function buildOpenRouterPaidRequest(input: {
     throw new ProviderSafetyError("The paid provider request max_price drifted from the approved object.");
   }
   return body;
+}
+
+/**
+ * Return the exact UTF-8 request body sent by the paid transport. Keeping this
+ * byte construction next to buildOpenRouterPaidRequest prevents the durable
+ * write-ahead hash from drifting from the bytes handed to fetch().
+ */
+export function buildOpenRouterPaidRequestBytes(input: {
+  prepared: PreparedProviderTask;
+  providerRequestKey: string;
+}): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(buildOpenRouterPaidRequest(input)));
 }
 
 function appendBoundedChunk(buffer: string, chunk: string, maxBytes: number): string {
@@ -1955,8 +1971,12 @@ export async function executeOpenRouterPaidTransport(
   const pollDelaysMs = options.generationPollDelaysMs ?? [1_000, 2_000, 4_000, 8_000];
   const sleepImpl = options.sleepImpl ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const providerRequestKey = providerRequestKeyFor(prepared);
-  const payload = buildOpenRouterPaidRequest({ prepared, providerRequestKey });
-  const finalPayloadHash = prepared.finalPayloadHash ?? prepared.preparedTask.finalPayloadHash ?? sha256Hex(canonicalJson(payload));
+  const requestBodyBytes = buildOpenRouterPaidRequestBytes({ prepared, providerRequestKey });
+  const exactPayloadHash = sha256Hex(requestBodyBytes);
+  const finalPayloadHash = prepared.finalPayloadHash ?? prepared.preparedTask.finalPayloadHash ?? exactPayloadHash;
+  if (finalPayloadHash !== exactPayloadHash) {
+    throw new ProviderSafetyError("The paid provider payload digest is not bound to the exact request bytes.");
+  }
   const dispatchDeadlineAt = dispatchDeadlineFor(prepared);
   const intent: ProviderDispatchIntent = {
     attemptNo: prepared.preparedTask.attemptNo ?? 1,
@@ -1980,12 +2000,15 @@ export async function executeOpenRouterPaidTransport(
     "x-openrouter-cache": "false",
     "x-vera-provider-request-key": providerRequestKey,
   };
+  // The durable intent hook can take time. Recheck the unchanged persisted
+  // deadline immediately before the network call; never mint a new window.
+  dispatchDeadlineFor(prepared);
   let response: Response;
   try {
     response = await fetchImpl(`${baseUrl}/api/v1/chat/completions`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: new TextDecoder().decode(requestBodyBytes),
       signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
     });
   } catch {
@@ -2189,10 +2212,7 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
     const certifiedEstimate = deriveCertifiedEstimate(task);
     const endpointDigest = manifest.endpointMetadataDigest;
     const providerTaskDigest = sha256Hex(`${endpointDigest}:${task.contextTaskDigest}:${task.featureKey}:${task.behaviorVersion}`);
-    const finalPayloadHash = task.stagePurpose
-      ? task.finalPayloadHash ?? sha256Hex(task.taskBytes)
-      : task.finalPayloadHash;
-    return {
+    const preparedWithoutPayloadHash: PreparedProviderTask = {
       gateway: OPENROUTER_GATEWAY,
       upstreamProvider: APPROVED_UPSTREAM_PROVIDER,
       upstreamProviderSlug: manifest.upstreamProviderSlug,
@@ -2215,8 +2235,16 @@ export class OpenRouterDecartAdapter implements VeraProviderAdapter {
       certifierVersion: manifest.inputCertifierVersion,
       routingOptions: manifest.routingOptions,
       providerRequestKey: task.providerRequestKey,
-      finalPayloadHash,
+      finalPayloadHash: undefined,
       dispatchDeadlineAt: task.dispatchDeadlineAt ? new Date(task.dispatchDeadlineAt).toISOString() : undefined,
+    };
+    const providerRequestKey = providerRequestKeyFor(preparedWithoutPayloadHash);
+    const finalPayloadHash = task.stagePurpose
+      ? sha256Hex(buildOpenRouterPaidRequestBytes({ prepared: preparedWithoutPayloadHash, providerRequestKey }))
+      : task.finalPayloadHash;
+    return {
+      ...preparedWithoutPayloadHash,
+      finalPayloadHash,
     };
   }
 

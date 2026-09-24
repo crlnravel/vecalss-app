@@ -4,6 +4,7 @@ import { useActionState, useCallback, useState } from "react";
 
 import { ReferenceSelectField } from "@/components/dashboard";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import type { ExamEvent } from "@/generated/prisma/client";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import type { FormState } from "@/modules/auth/form-state";
@@ -145,6 +146,7 @@ function CreateStudentForm({
   const state = controller?.state ?? localState;
   const formAction = controller?.formAction ?? localFormAction;
   const pending = controller?.pending ?? localPending;
+  const keepMessageInline = useActionToast(state);
   const [targetExamEventId, setTargetExamEventId] = useState("");
   const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">("temporary_password");
   const [fullName, setFullName] = useState(() => state.fields?.fullName ?? "");
@@ -190,8 +192,8 @@ function CreateStudentForm({
         </div>
       ) : null}
 
-      {state.message ? (
-        <FormNotice tone={state.status === "success" ? "success" : "danger"}>
+      {state.message && keepMessageInline ? (
+        <FormNotice tone="danger">
           {state.message}
         </FormNotice>
       ) : null}

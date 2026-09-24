@@ -10,11 +10,16 @@ first coherent account lifecycle slice for:
 
 ## Local Setup
 
-1. Copy `.env.example` to `.env`.
-2. Fill in the required values.
+1. Copy `.env.example` to `.env` (or `.env.local`).
+2. Start the local PostgreSQL and Redis services using Docker Compose:
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
 3. Install dependencies with `pnpm install`.
-4. Start the app with `pnpm dev`.
-5. Seed demo data with `pnpm db:seed`.
+4. Apply migrations and seed demo data with `pnpm db:seed`.
+5. Start the app with `pnpm dev`.
+
+For details on database environments (Local Docker, Staging Neon, and Production status), see [`docs/database-environments.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/database-environments.md).
 
 ## Demonstration Data
 

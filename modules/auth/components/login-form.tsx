@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { ToastOnMount } from "@/components/ui/toast-on-mount";
+import { useActionToast } from "@/components/ui/use-action-toast";
 
 import { loginAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
@@ -11,7 +13,6 @@ import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
 type LoginNotice = {
-  compact?: boolean;
   text: string;
 };
 
@@ -25,17 +26,16 @@ function LoginForm({
   registerUrl: string;
 }) {
   const [state, formAction] = useActionState(loginAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
 
   return (
     <form action={formAction} className="space-y-5">
-      {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
-
-      {notice ? (
-        <FormNotice compact={notice.compact} tone="success">
-          {notice.text}
-        </FormNotice>
+      {returnTo ? (
+        <input name="returnTo" type="hidden" value={returnTo} />
       ) : null}
-      {state.message ? (
+
+      {notice ? <ToastOnMount message={notice.text} variant="success" /> : null}
+      {state.message && keepMessageInline ? (
         <FormNotice showLabel={false} tone="danger">
           {state.message}
         </FormNotice>
@@ -70,7 +70,9 @@ function LoginForm({
           type="password"
         />
         {state.fieldErrors?.password ? (
-          <p className="text-sm text-danger-700">{state.fieldErrors.password}</p>
+          <p className="text-sm text-danger-700">
+            {state.fieldErrors.password}
+          </p>
         ) : null}
       </Field>
 
@@ -94,12 +96,12 @@ function LoginForm({
       </SubmitButton>
 
       <p className="text-center text-sm leading-6 text-secondary-600">
-        Butuh akun? Daftar melalui{" "}
+        Butuh akun? Daftar{" "}
         <Link
           className="font-semibold text-primary-700 hover:text-primary-800"
           href={registerUrl}
         >
-          formulir pendaftaran
+          disini
         </Link>
         .
       </p>

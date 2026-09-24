@@ -13,6 +13,13 @@ The sections below are historical records unless a newer dated section
 supersedes them. For the current repository map, read [`docs/wiki/`](../../docs/wiki/)
 and then verify the source tree before making an implementation decision.
 
+## Database environment topology and retrieval permissions (2026-09-24)
+
+- The repository environment topology is structured into three tiers (documented in `docs/database-environments.md`):
+  1. **Local (dev):** Containerized via Docker Compose (`docker-compose.dev.yml`). PostgreSQL 16 on port `55432` (`vecalss_dev` and disposable `vera_test`), Redis 7 on port `56379`. Ephemeral test fixtures; reseeding and resets (`pnpm db:seed`, `pnpm db:reset`) are standard.
+  2. **Staging:** Hosted on **Neon** serverless PostgreSQL. Neon staging contains **no sensitive personal information/PII**, so AI agents are explicitly permitted to inspect, query, fetch, and retrieve database state and records. In this pre-release phase, **staging is also disposable** (no backups or legacy preservation required). Migrations deploy forward using `prisma migrate deploy`.
+  3. **Production:** **Not available yet.** AI agents must fail closed and never attempt connections, queries, or migrations against production.
+
 ## Pre-release database migration and legacy policy (2026-09-12)
 
 - The project is in an active pre-release phase.

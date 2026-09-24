@@ -8,6 +8,7 @@ import { CircleHelp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -23,6 +24,7 @@ type KelasOption = {
 
 function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
   const [state, formAction] = useActionState(sendKelasNotificationAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
   const [cohortId, setCohortId] = useState(() => state.fields?.cohortId ?? "");
   const formKey = state.status === "success" ? state.message ?? "success" : "form";
 
@@ -33,7 +35,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
       id="send-kelas-notification"
       key={formKey}
     >
-      {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
+      {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>

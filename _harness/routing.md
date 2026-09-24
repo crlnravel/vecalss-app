@@ -52,11 +52,12 @@ Route to the minimum files needed for each task type. Read this file first to de
 
 ## Schema / database change
 
-1. Read `prisma/schema.prisma` for the current model
-2. Read `_harness/rules.md` § Database & legacy policy (Pre-release phase) and § Protected areas
-3. Read `_harness/workflow.md` § Prisma migration procedure
-4. Read the relevant `lib/` domain code for affected services
-5. Read `Vecalss LMS Specifications.md` if the change affects a use case contract
+1. Read `docs/database-environments.md` for environment topology (Local Docker, Staging Neon, Production status) and retrieval rules
+2. Read `prisma/schema.prisma` for the current model
+3. Read `_harness/rules.md` § Database & legacy policy (Pre-release phase) and § Protected areas
+4. Read `_harness/workflow.md` § Prisma migration procedure
+5. Read the relevant `lib/` domain code for affected services
+6. Read `Vecalss LMS Specifications.md` if the change affects a use case contract
 
 ## Testing
 
@@ -91,6 +92,12 @@ Route to the minimum files needed for each task type. Read this file first to de
 3. Read `.agents/skills/tutur-humanizer/references/register-map.md` for register decisions
 4. Audit text against `.agents/skills/tutur-humanizer/references/pattern-bank.md` to remove AI clichés and tells
 
+## Vercel deployment & project management
+
+1. Read `.agents/skills/deploy-to-vercel/SKILL.md` for deployment workflows, team selection, and preview vs. production flows
+2. Read `.agents/skills/vercel-cli-with-tokens/SKILL.md` for token authentication (`VERCEL_TOKEN`), environment variables, inspecting deployment/runtime logs, and custom domains
+3. Read `.agents/skills/vercel-optimize/SKILL.md` for cost, performance, function invocations, and caching audit
+
 ## Task-to-directory quick reference
 
 | Task area | Primary directories |
@@ -108,8 +115,9 @@ Route to the minimum files needed for each task type. Read this file first to de
 | Landing / marketing | `modules/home/`, `modules/about/`, `app/about/`, `app/faq/` |
 | Vera AI | `modules/vera-ai/`, `app/vera-ai/` |
 | Design tokens & styling | `design-tokens/`, `DESIGN.md`, `app/globals.css` |
-| Database schema | `prisma/schema.prisma`, `prisma/migrations/` |
+| Database schema & environments | `docs/database-environments.md`, `prisma/schema.prisma`, `docker-compose.dev.yml` |
 | Seeds & fixtures | `prisma/seed.mjs`, `prisma/seed-assessment.mjs`, `prisma/materi-seed.mjs` |
 | Background workers | `workers/` |
 | Shared UI primitives | `components/ui/` |
 | Copywriting & text content | `content/`, `modules/home/`, `.agents/skills/tutur-humanizer/` |
+| Vercel deployment & ops | `.agents/skills/deploy-to-vercel/`, `.agents/skills/vercel-cli-with-tokens/`, `.agents/skills/vercel-optimize/` |

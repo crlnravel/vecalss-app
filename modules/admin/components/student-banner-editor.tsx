@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/toast";
+import { showToast } from "@/components/ui/toast";
 import type { FormState } from "@/modules/auth/form-state";
 import { BookOpen, CircleHelp, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
 import {
@@ -311,11 +311,12 @@ function StudentBannerSavePanel({ canPublish, hasUnpublishedChanges, onPreview }
 }
 
 function StudentBannerEditorFeedback({ canPublish, publishBlockedCopy, state }: { canPublish: boolean; publishBlockedCopy: string; state: FormState }) {
+  const hasFieldErrors = Object.values(state.fieldErrors ?? {}).some(Boolean);
+
   return (
     <>
       {!canPublish ? <p className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800" data-testid="student-banner-publish-gating">{publishBlockedCopy}</p> : null}
-      {state.status === "success" && state.message ? <p aria-live="polite" className="rounded-2xl border border-student-status-success-border bg-student-status-success-bg px-4 py-3 text-sm font-medium text-student-status-success-fg" data-testid="student-banner-success" role="status">{state.message}</p> : null}
-      {state.status === "error" && state.message ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg" data-testid="student-banner-error" role="alert">{state.message}</p> : null}
+      {state.status === "error" && state.message && hasFieldErrors ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg" data-testid="student-banner-error" role="alert">{state.message}</p> : null}
     </>
   );
 }
@@ -498,21 +499,20 @@ function StudentBannerEditor({
     dismissedToastKeyRef.current = key;
   };
 
-  const hasInlineState = state.status !== "idle" && Boolean(state.message);
+  const hasFieldErrors = Object.values(state.fieldErrors ?? {}).some(Boolean);
 
   useEffect(() => {
-    if (state.status === "idle" || hasInlineState || dismissedToastKeyRef.current === toastKey) {
+    if (
+      state.status === "idle" ||
+      (state.status === "error" && hasFieldErrors) ||
+      dismissedToastKeyRef.current === toastKey
+    ) {
       return;
     }
 
     setDismissedToastKey(toastKey);
-
-    if (state.status === "success") {
-      toast.success(resultToastMessage);
-    } else {
-      toast.error(resultToastMessage);
-    }
-  }, [hasInlineState, resultToastMessage, state.status, toastKey]);
+    showToast(resultToastMessage, { variant: state.status === "success" ? "success" : "error" });
+  }, [hasFieldErrors, resultToastMessage, state.status, toastKey]);
 
   function handlePreview() {
     if (formRef.current) {

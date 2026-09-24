@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { useActionToast } from "@/components/ui/use-action-toast";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import { resetPasswordAction } from "../actions";
@@ -21,13 +22,14 @@ function ResetPasswordForm({
   token: string;
 }) {
   const [state, formAction] = useActionState(resetPasswordAction, EMPTY_FORM_STATE);
+  const keepMessageInline = useActionToast(state);
 
   return (
     <form action={formAction} className="space-y-5">
       <input name="audience" type="hidden" value={audience} />
       <input name="token" type="hidden" value={token} />
 
-      {state.message ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
+      {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
       <Field>
         <FieldLabel htmlFor="reset-password">New password</FieldLabel>

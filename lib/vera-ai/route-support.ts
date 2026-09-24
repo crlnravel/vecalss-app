@@ -21,6 +21,10 @@ import { VeraLifecycleService } from "./lifecycle-service";
 import { emptyV2UsageDto, ledgerVersionFor } from "./quota-v2";
 import {
   evaluateVeraAutomaticContextGate,
+  evaluateVeraAutomaticContextRollout,
+  automaticContextRolloutStageForConfig,
+  parseVeraAutomaticContextPromotionEvidence,
+  readVeraAutomaticContextPromotionEvidence,
   readVeraAutomaticContextRolloutConfig,
   type VeraAutomaticContextGate,
 } from "./automatic-context-operations";
@@ -107,6 +111,31 @@ export function veraAutomaticContextGateForStudent(
     VERA_AUTOMATIC_CONTEXT_STATE: env.VERA_AUTOMATIC_CONTEXT_ENABLED === "true" ? env.VERA_AUTOMATIC_CONTEXT_STATE : "off",
     VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY: providerReady ? "true" : "false",
   });
+  if (config.state !== "off") {
+    const promotion = readVeraAutomaticContextPromotionEvidence(env);
+    const target = automaticContextRolloutStageForConfig(config);
+    const promotionVerified = promotion
+      && promotion.target === target
+      && evaluateVeraAutomaticContextRollout({
+        current: promotion.current,
+        target: promotion.target,
+        aggregate: promotion.aggregate,
+        providerCapabilityReady: providerReady && promotion.providerCapabilityReady,
+        capabilityEvidence: promotion.capabilityEvidence,
+        canaryExpiresAt: promotion.canaryExpiresAt,
+        legacyRetirementReviewed: promotion.legacyRetirementReviewed,
+        now,
+      }).allowed;
+    if (!promotionVerified) {
+      return {
+        enabled: false,
+        state: "off",
+        policyVersion: config.policyVersion,
+        reason: "promotion_unverified",
+        cohortBasisPoints: null,
+      };
+    }
+  }
   return evaluateVeraAutomaticContextGate({
     studentId,
     now,
@@ -115,8 +144,70 @@ export function veraAutomaticContextGateForStudent(
   });
 }
 
-export function veraAutomaticContextAuthorityForStudent(studentId: string, env: NodeJS.ProcessEnv = process.env) {
-  const gate = veraAutomaticContextGateForStudent(studentId, env);
+/**
+ * Production admission authority. Promotion evidence is read from the
+ * approved policy bundle rather than from a learner request or a mutable
+ * process flag. Development remains on the synchronous, fail-closed helper.
+ */
+export async function veraAutomaticContextGateForStudentFromPolicy(
+  studentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+  now = new Date(),
+): Promise<VeraAutomaticContextGate> {
+  if (env.NODE_ENV?.toLowerCase() !== "production") return veraAutomaticContextGateForStudent(studentId, env, now);
+  const disabled = (reason: VeraAutomaticContextGate["reason"], policyVersion = "vera-auto-context-off"): VeraAutomaticContextGate => ({
+    enabled: false,
+    state: "off",
+    policyVersion,
+    reason,
+    cohortBasisPoints: null,
+  });
+  // Keep the explicit operational compatibility switch authoritative in the
+  // durable-policy path as well as the environment-only development path.
+  if (env.VERA_AUTOMATIC_CONTEXT_ENABLED !== "true") return disabled("disabled");
+  const bundles = await prisma.aiPolicyBundle.findMany({
+    where: { state: { in: ["active", "scheduled"] }, effectiveAt: { lte: now } },
+    orderBy: { effectiveAt: "desc" },
+    select: { bundleVersion: true, reportConfig: true, approvalSnapshotDigest: true },
+  });
+  const bundle = bundles.length === 1 ? bundles[0] : null;
+  const promotion = bundle && parseVeraAutomaticContextPromotionEvidence(
+    bundle.reportConfig && typeof bundle.reportConfig === "object" && !Array.isArray(bundle.reportConfig)
+      ? (bundle.reportConfig as Record<string, unknown>).automaticContextPromotion
+      : null,
+  );
+  if (!bundle || !promotion
+    || promotion.policyVersion !== bundle.bundleVersion
+    || promotion.approvalDigest !== bundle.approvalSnapshotDigest
+    || promotion.aggregate.policyVersions.length !== 1
+    || promotion.aggregate.policyVersions[0] !== bundle.bundleVersion) {
+    return disabled("promotion_unverified", bundle?.bundleVersion);
+  }
+  const providerReady = veraPaidAutomaticProviderReady(env)
+    && env.VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY === "true";
+  const config = readVeraAutomaticContextRolloutConfig({
+    ...env,
+    VERA_AUTOMATIC_CONTEXT_POLICY_VERSION: bundle.bundleVersion,
+    VERA_AUTOMATIC_CONTEXT_PROVIDER_CAPABILITY_READY: providerReady ? "true" : "false",
+  });
+  if (config.state === "off") return evaluateVeraAutomaticContextGate({ studentId, now, config, isDevelopment: false });
+  if (automaticContextRolloutStageForConfig(config) !== promotion.target) return disabled("promotion_unverified", bundle.bundleVersion);
+  const verified = evaluateVeraAutomaticContextRollout({
+    current: promotion.current,
+    target: promotion.target,
+    aggregate: promotion.aggregate,
+    providerCapabilityReady: providerReady && promotion.providerCapabilityReady,
+    capabilityEvidence: promotion.capabilityEvidence,
+    canaryExpiresAt: promotion.canaryExpiresAt,
+    legacyRetirementReviewed: promotion.legacyRetirementReviewed,
+    now,
+  });
+  if (!verified.allowed) return disabled("promotion_unverified", bundle.bundleVersion);
+  return evaluateVeraAutomaticContextGate({ studentId, now, config, isDevelopment: false });
+}
+
+export async function veraAutomaticContextAuthorityForStudent(studentId: string, env: NodeJS.ProcessEnv = process.env) {
+  const gate = await veraAutomaticContextGateForStudentFromPolicy(studentId, env);
   return {
     enabled: gate.enabled,
     state: gate.state,
@@ -196,6 +287,7 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
     hmacSecret,
     automaticContextEnabled: false,
     automaticContextGateForStudent: (studentId, now) => veraAutomaticContextGateForStudent(studentId, process.env, now),
+    automaticContextGateForStudentAsync: (studentId, now) => veraAutomaticContextGateForStudentFromPolicy(studentId, process.env, now),
     automaticRegistry: createPrismaContextRegistry(prisma),
     assertConversationOwner: async (studentId, conversationId) => {
       const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active", archivedAt: null }, select: { id: true } });
