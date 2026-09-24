@@ -121,6 +121,7 @@ import {
   type VeraAutomaticContextProgress,
   type VeraRequestSourceSummary,
 } from "./automatic-context";
+import { createVeraConversationResolver } from "./conversation-session";
 
 type WorkspaceTab = "chat" | "context" | "studio";
 type VeraDataState = "loading" | "live" | "unavailable";
@@ -1107,6 +1108,8 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     null,
   );
   const abortRef = useRef<AbortController | null>(null);
+  const requestInFlightRef = useRef(false);
+  const conversationResolverRef = useRef(createVeraConversationResolver());
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ??
@@ -1326,10 +1329,11 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
   function updateActiveSession(
     update: (current: StudySession) => StudySession,
+    sessionId = activeSession.id,
   ) {
     setSessions((current) =>
       current.map((item) =>
-        item.id === activeSession.id ? update(item) : item,
+        item.id === sessionId ? update(item) : item,
       ),
     );
   }
@@ -1368,11 +1372,16 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   }
 
   function handleNewSession() {
-    if (busy || dataState !== "live" || !backendMode) {
+    if (
+      busy ||
+      requestInFlightRef.current ||
+      dataState !== "live" ||
+      !backendMode
+    ) {
       return;
     }
 
-    void createBackendConversation();
+    void conversationResolverRef.current(null, createBackendConversation);
   }
 
   function handleRenameSession(sessionId: string, nextTitle: string) {
@@ -1497,7 +1506,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     }
   }
 
-  async function createBackendConversation() {
+  async function createBackendConversation(): Promise<string | null> {
     try {
       setBusy(true);
       setError(null);
@@ -1521,9 +1530,15 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setBackendContext(null);
       setBackendArtifacts([]);
       setWorkspaceTab("chat");
-      await loadConversation(result.conversation.id, automaticContext);
+      try {
+        await loadConversation(result.conversation.id, automaticContext);
+      } catch (caught) {
+        setError(veraErrorMessage(caught));
+      }
+      return result.conversation.id;
     } catch (caught) {
       setError(veraErrorMessage(caught));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -1818,10 +1833,25 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       return;
     }
 
-    const conversationId = activeSession.id;
+    if (requestInFlightRef.current) {
+      return;
+    }
+
+    requestInFlightRef.current = true;
+    let conversationId: string | null;
+    try {
+      conversationId = await conversationResolverRef.current(
+        activeSession.id || null,
+        createBackendConversation,
+      );
+    } catch (caught) {
+      requestInFlightRef.current = false;
+      setError(veraErrorMessage(caught));
+      return;
+    }
 
     if (!conversationId) {
-      setError("Buat sesi baru sebelum mengirim permintaan.");
+      requestInFlightRef.current = false;
       return;
     }
 
@@ -1862,7 +1892,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
           createdAt: "Sekarang",
         },
       ],
-    }));
+    }), conversationId);
 
     let terminalSeen = false;
     let finalStatus: VeraRequestStatus | null = null;
@@ -2122,6 +2152,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setProgress(null);
       setAutomaticProgress(null);
       setProvisionalText(null);
+      requestInFlightRef.current = false;
     }
   }
 
