@@ -172,11 +172,11 @@ function AuditFilterPanel({
         filters={[
           {
             content: (
-              <fieldset className="grid gap-0.5">
+              <fieldset className="grid gap-0">
                 <legend className="sr-only">Target</legend>
-                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60">
+                <label className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60">
                   <input
-                    className="size-4 accent-primary-700"
+                    className="size-3.5 accent-primary-700"
                     checked={draftTargetType === null}
                     name="targetType"
                     onChange={() => setDraftTargetType(null)}
@@ -187,11 +187,11 @@ function AuditFilterPanel({
                 </label>
                 {AUDIT_LOG_TARGET_TYPES.map((value) => (
                   <label
-                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60"
+                    className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60"
                     key={value}
                   >
                     <input
-                      className="size-4 accent-primary-700"
+                      className="size-3.5 accent-primary-700"
                       checked={draftTargetType === value}
                       name="targetType"
                       onChange={() => setDraftTargetType(value)}
@@ -221,7 +221,7 @@ function AuditFilterPanel({
           >
             Hapus filter
           </Link>
-          <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">
+          <Button className="min-w-28 flex-none" size="sm" type="submit" variant="brand">
             Terapkan
           </Button>
         </div>

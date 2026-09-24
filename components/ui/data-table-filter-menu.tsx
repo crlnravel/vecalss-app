@@ -19,15 +19,16 @@ type DataTableFilterMenuProps = {
 
 function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+  const [pinnedFilterId, setPinnedFilterId] = useState<string | null>(null);
   const menuId = useId();
 
   return (
     <div className="w-full min-w-0">
-      <div className="border-b border-primary-100 px-2 pb-2">
-        <p className="text-sm font-semibold text-secondary-900">Filter</p>
+      <div className="px-2 pb-2">
+        <p className="text-sm font-bold text-secondary-900">Filter</p>
       </div>
 
-      <div className="space-y-1 py-2">
+      <div className="space-y-0.5 py-1.5">
         {filters.map((filter) => {
           const isActive = filter.id === activeFilterId;
           const panelId = `${menuId}-${filter.id}`;
@@ -43,21 +44,28 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
 
                 setActiveFilterId(filter.id);
               }}
+              onMouseLeave={() => {
+                setActiveFilterId((current) =>
+                  current === filter.id ? pinnedFilterId : current,
+                );
+              }}
             >
               <button
                 aria-controls={panelId}
                 aria-expanded={isActive}
                 aria-haspopup="dialog"
+                aria-pressed={pinnedFilterId === filter.id}
                 className={cn(
                   "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left text-sm text-secondary-800 transition-colors motion-reduce:transition-none",
                   "hover:bg-primary-50 hover:text-secondary-900 focus-visible:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
                   isActive && "bg-primary-50/80 text-secondary-900",
                 )}
-                onClick={() =>
-                  setActiveFilterId((current) =>
+                onClick={() => {
+                  setPinnedFilterId((current) =>
                     current === filter.id ? null : filter.id,
-                  )
-                }
+                  );
+                  setActiveFilterId(filter.id);
+                }}
                 type="button"
               >
                 <span className="min-w-0">
@@ -90,7 +98,7 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
       </div>
 
       {children ? (
-        <div className="border-t border-primary-100 px-2 pt-2">{children}</div>
+        <div className="px-2 pt-3">{children}</div>
       ) : null}
     </div>
   );
