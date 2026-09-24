@@ -1,5 +1,26 @@
 # Session Handoff
 
+## Current handoff — Vera AI first-send session creation (2026-09-24)
+
+- Objective: remove the dead-end shown when a learner opens Vera with no active
+  session and sends a new chat message; a new chat is a new session.
+- Completed: `5fd4071` on branch `fix/vera-first-send-session`. The request path
+  creates a backend conversation before dispatch when the active session ID is
+  empty, then sends the first message to that created session. Existing active
+  sessions continue to be reused; the new-session button and first-submit path
+  share single-flight creation and a request lock suppresses duplicate sends.
+- Verification: guarded `test:vera-auto-context-ui`,
+  `test:vera-auto-context-operations`,
+  `test:vera-auto-context-orchestrator`, and `test:vera-paid-provider` pass;
+  focused ESLint, strict TypeScript, and `git diff --check` pass. Browser checks
+  were not run, per the user's instruction.
+- Runtime: the user's free POC dev server on port 5023 was preserved and remains
+  running. No migration or staging action was needed for this UI/request-flow
+  change.
+- Next: merge or cherry-pick this branch as desired; if a runtime interaction
+  check is wanted later, obtain explicit browser permission with the exact Vera
+  route, role/session, and checklist first.
+
 ## Current handoff — Vera AI end-to-end SSE streaming (2026-09-08)
 
 - Objective: make Vera learner chat render the real provider response

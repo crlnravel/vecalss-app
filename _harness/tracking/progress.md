@@ -1,5 +1,23 @@
 # Session Progress Log
 
+## Vera AI first-send session creation (2026-09-24)
+
+- [x] A learner can now send the first message immediately after opening Vera;
+  when no active conversation exists, the client creates a backend conversation
+  first and dispatches the request to its returned ID. Each newly started chat
+  remains its own session.
+- [x] The new-session button and first-send path share a single-flight creator,
+  and an in-flight request lock prevents rapid duplicate submissions. The
+  optimistic learner message is attached to the newly created conversation.
+- [x] Guarded `test:vera-auto-context-ui`,
+  `test:vera-auto-context-operations`,
+  `test:vera-auto-context-orchestrator`, and `test:vera-paid-provider` pass;
+  focused ESLint, strict TypeScript, and `git diff --check` pass.
+- [x] Browser checks were not run, as requested. The free POC development
+  server on port 5023 was left running.
+- [x] Code committed as `5fd4071` on `fix/vera-first-send-session`; the
+  feature tracker and session handoff record this completion.
+
 ## Vera AI end-to-end SSE streaming (2026-09-08)
 
 - [x] Changed the development OpenRouter chat transport from buffered JSON to
