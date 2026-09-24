@@ -553,10 +553,15 @@ export function evaluateVeraAutomaticContextAlerts(input: {
   if (input.aggregate.sourceAuthorizationFailures > 0) alerts.push({ code: "source_authorization", severity: "critical", failClosed: true });
   if (input.aggregate.duplicateDispatches > 0) alerts.push({ code: "duplicate_dispatch", severity: "critical", failClosed: true });
   if (input.aggregate.citationValidationFailures > 0) alerts.push({ code: "citation_validation", severity: "critical", failClosed: true });
-  const latencyBreached = (input.aggregate.selectorLatencyP95Ms ?? 0) > (input.selectorLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.selectorTimeoutMs)
-    || (input.aggregate.registryLatencyP95Ms ?? 0) > (input.registryLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.registryTimeoutMs)
-    || (input.aggregate.finalLatencyP95Ms ?? 0) > (input.finalLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.finalProviderTimeoutMs)
-    || (input.aggregate.totalLatencyP95Ms ?? 0) > (input.totalLatencyBudgetMs ?? VERA_AUTOMATIC_CONTEXT_BUDGETS.logicalDeadlineMs);
+  const modeBudgets = Object.values(VERA_AUTOMATIC_CONTEXT_BUDGETS);
+  const defaultSelectorLatencyBudgetMs = Math.min(...modeBudgets.map((budget) => budget.selectorTimeoutMs));
+  const defaultRegistryLatencyBudgetMs = Math.min(...modeBudgets.map((budget) => budget.registryTimeoutMs));
+  const defaultFinalLatencyBudgetMs = Math.min(...modeBudgets.map((budget) => budget.finalProviderTimeoutMs));
+  const defaultTotalLatencyBudgetMs = Math.min(...modeBudgets.map((budget) => budget.logicalDeadlineMs));
+  const latencyBreached = (input.aggregate.selectorLatencyP95Ms ?? 0) > (input.selectorLatencyBudgetMs ?? defaultSelectorLatencyBudgetMs)
+    || (input.aggregate.registryLatencyP95Ms ?? 0) > (input.registryLatencyBudgetMs ?? defaultRegistryLatencyBudgetMs)
+    || (input.aggregate.finalLatencyP95Ms ?? 0) > (input.finalLatencyBudgetMs ?? defaultFinalLatencyBudgetMs)
+    || (input.aggregate.totalLatencyP95Ms ?? 0) > (input.totalLatencyBudgetMs ?? defaultTotalLatencyBudgetMs);
   if (latencyBreached) alerts.push({ code: "latency_budget", severity: "warning", failClosed: false });
   if (input.spendLimitUsdMicros !== undefined && BigInt(input.aggregate.chargedUsdMicros) > input.spendLimitUsdMicros) alerts.push({ code: "spend_exposure", severity: "critical", failClosed: true });
   return alerts;
