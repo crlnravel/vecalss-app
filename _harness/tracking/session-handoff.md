@@ -1,5 +1,29 @@
 # Session Handoff
 
+## Current handoff — Vera AI streaming answer reveal (2026-09-25)
+
+- Objective: give Vera's live answer text a polished streaming treatment based
+  on Beautiful UI's Streaming Text, and clarify the “Konteks” tab behavior.
+- Completed: commit `4444d77` on
+  `feat/vera-beautiful-ui-streaming-text`. New provisional answer words resolve
+  from a soft blur with a quiet live caret; the existing SSE/data flow and
+  completed message presentation are preserved. Reduced-motion preferences
+  disable the reveal and caret animation.
+- Context behavior: the server-authoritative automatic-context cohort already
+  hides the manual selector and displays committed used-source summaries. The
+  free development POC explicitly gates automatic retrieval off, so “Konteks”
+  remains its manual grounding fallback. No context gate or retrieval behavior
+  was changed.
+- Verification: guarded `test:vera-auto-context-ui`, focused ESLint,
+  `git diff --check`, and full `./init.sh` pass. Browser checks were not run,
+  per the user's instruction.
+- Workspace safety: this feature branch is isolated; the main checkout's
+  unrelated XLSX import work and the free POC server on port 5023 were left
+  untouched.
+- Next: merge or cherry-pick this branch when desired. A safe automatic-context
+  path for free development would be needed before removing the manual fallback
+  there without making free POC requests ungrounded.
+
 ## Current handoff — Vera AI first-send session creation (2026-09-24)
 
 - Objective: remove the dead-end shown when a learner opens Vera with no active

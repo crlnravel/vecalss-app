@@ -287,6 +287,14 @@
       "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "5fd4071; first message dispatches to the newly created conversation; the new-session button and first-send path share single-flight creation, with duplicate-submit protection. Guarded test:vera-auto-context-ui, test:vera-auto-context-operations, test:vera-auto-context-orchestrator, test:vera-paid-provider, focused ESLint, TypeScript, and git diff --check pass; browser checks were not run as requested."
+    },
+    {
+      "id": "feat-037",
+      "name": "Vera AI Streaming Answer Reveal",
+      "description": "Polish live Vera answer streaming with a reduced-motion-aware word reveal while preserving server-owned context gating",
+      "dependencies": ["feat-035"],
+      "status": "complete",
+      "evidence": "4444d77; live provisional answer words resolve from a soft blur with a quiet caret; final answers and SSE behavior remain unchanged, and reduced-motion disables the animation. Automatic-context-enabled learners continue to see committed source summaries instead of manual context selection; free development keeps the manual Konteks fallback because its automatic retrieval gate is off. Guarded test:vera-auto-context-ui, focused ESLint, full ./init.sh, and git diff --check pass; browser verification was not run as requested."
     }
   ]
 }
