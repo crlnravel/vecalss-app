@@ -110,6 +110,7 @@ type QuestionBankXlsxUploadPreviewInput = {
 type QuestionBankXlsxPreviewAttempt = {
   attemptId: string;
   manifest: QuestionBankXlsxPreviewManifest;
+  normalizedRowIndexByWorksheetRow: ReadonlyMap<number, number>;
   ownerUserId: string;
   previewImageIndex: QuestionBankXlsxPreviewImageIndex[];
 };
@@ -1188,9 +1189,11 @@ async function readQuestionBankXlsxPreviewInternal(
   }
   if (
     !manifest
-    || manifest.schemaVersion !== 1
+    || manifest.schemaVersion !== 2
     || !Array.isArray(manifest.normalizedRows)
     || manifest.normalizedRows.length > QUESTION_BANK_XLSX_LIMITS.dataRows
+    || !Array.isArray(manifest.normalizedRowWorksheetRows)
+    || manifest.normalizedRowWorksheetRows.length !== manifest.normalizedRows.length
     || !Array.isArray(manifest.imageSlots)
     || manifest.imageSlots.length > QUESTION_BANK_XLSX_LIMITS.imagePlacements
     || !Array.isArray(manifest.images)
@@ -1199,6 +1202,20 @@ async function readQuestionBankXlsxPreviewInternal(
     || typeof manifest.summary !== "object"
   ) {
     throw new QuestionBankXlsxImportError("attempt_unavailable");
+  }
+  const normalizedRowIndexByWorksheetRow = new Map<number, number>();
+  let previousWorksheetRow = 1;
+  for (const [normalizedRowIndex, worksheetRow] of manifest.normalizedRowWorksheetRows.entries()) {
+    if (
+      !Number.isSafeInteger(worksheetRow)
+      || worksheetRow < 2
+      || worksheetRow > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
+      || worksheetRow <= previousWorksheetRow
+    ) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    normalizedRowIndexByWorksheetRow.set(worksheetRow, normalizedRowIndex);
+    previousWorksheetRow = worksheetRow;
   }
   const previewImageIndex = parseImageIndex(attempt.previewImageIndex, attemptId);
   if (manifest.images.length !== previewImageIndex.length) {
@@ -1224,6 +1241,20 @@ async function readQuestionBankXlsxPreviewInternal(
     }
     const key = `${slot.row}:${slot.field}`;
     if (manifestPlacements.has(key)) throw new QuestionBankXlsxImportError("attempt_unavailable");
+    const normalizedRowIndex = normalizedRowIndexByWorksheetRow.get(slot.row);
+    const normalizedRow = normalizedRowIndex === undefined
+      ? undefined
+      : manifest.normalizedRows[normalizedRowIndex];
+    if (!normalizedRow) throw new QuestionBankXlsxImportError("attempt_unavailable");
+    if (slot.field.startsWith("option_")) {
+      if (!Array.isArray(normalizedRow.options)) {
+        throw new QuestionBankXlsxImportError("attempt_unavailable");
+      }
+      const optionLabel = slot.field.slice("option_".length, "option_".length + 1).toUpperCase();
+      if (!normalizedRow.options.some((option) => option?.label === optionLabel)) {
+        throw new QuestionBankXlsxImportError("attempt_unavailable");
+      }
+    }
     manifestPlacements.add(key);
     indexedPlacements.delete(`${slot.row}:${slot.field}:${slot.contentSha256}`);
   }
@@ -1275,6 +1306,7 @@ async function readQuestionBankXlsxPreviewInternal(
   return {
     attempt,
     manifest,
+    normalizedRowIndexByWorksheetRow,
     previewImageIndex,
   };
 }
@@ -1587,11 +1619,13 @@ async function readFrozenQuestionBankXlsxImages(
 function applyImageAssetIdsToRows(
   rows: readonly QuestionBankCsvRow[],
   imageSlots: QuestionBankXlsxPreviewManifest["imageSlots"],
+  normalizedRowIndexByWorksheetRow: ReadonlyMap<number, number>,
   assetIdByHash: ReadonlyMap<string, string>,
 ) {
   const mappedRows = rows.map((row) => ({ ...row, options: row.options.map((option) => ({ ...option })) }));
   for (const slot of imageSlots) {
-    const row = mappedRows[slot.row - 2];
+    const normalizedRowIndex = normalizedRowIndexByWorksheetRow.get(slot.row);
+    const row = normalizedRowIndex === undefined ? undefined : mappedRows[normalizedRowIndex];
     const assetId = assetIdByHash.get(slot.contentSha256);
     if (!row || !assetId) throw new QuestionBankXlsxImportError("attempt_unavailable");
     switch (slot.field) {
@@ -1922,7 +1956,12 @@ async function applyQuestionBankXlsxToBank(input: {
     }));
     const attemptAssets = await ensureQuestionBankXlsxAttemptAssets(target, claim, folder.id, images);
     const assetIdByHash = new Map(attemptAssets.map((asset) => [asset.contentSha256, asset.assetId]));
-    const rows = applyImageAssetIdsToRows(preview.manifest.normalizedRows, preview.manifest.imageSlots, assetIdByHash);
+    const rows = applyImageAssetIdsToRows(
+      preview.manifest.normalizedRows,
+      preview.manifest.imageSlots,
+      preview.normalizedRowIndexByWorksheetRow,
+      assetIdByHash,
+    );
     await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
 
     const result = await prisma.$transaction(async (tx) => {
@@ -2008,7 +2047,12 @@ async function applyQuestionBankXlsxToDraft(input: {
       images,
     );
     const assetIdByHash = new Map(attemptAssets.map((asset) => [asset.contentSha256, asset.assetId]));
-    const rows = applyImageAssetIdsToRows(preview.manifest.normalizedRows, preview.manifest.imageSlots, assetIdByHash);
+    const rows = applyImageAssetIdsToRows(
+      preview.manifest.normalizedRows,
+      preview.manifest.imageSlots,
+      preview.normalizedRowIndexByWorksheetRow,
+      assetIdByHash,
+    );
     await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
 
     const result = await prisma.$transaction(async (tx) => {

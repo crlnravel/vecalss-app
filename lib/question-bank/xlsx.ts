@@ -1786,11 +1786,21 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
     };
   }
 
+  const normalizedRowWorksheetRows = csvResult.normalizedRows.map((_, index) => {
+    const worksheetRow = converted.recordRows.get(index + 2);
+    if (worksheetRow === undefined) throw new ImageSourceError("attempt_unavailable");
+    return worksheetRow;
+  });
+  if (normalizedRowWorksheetRows.length !== converted.recordRows.size) {
+    throw new ImageSourceError("attempt_unavailable");
+  }
+
   const manifest: QuestionBankXlsxPreviewManifest = {
     imageSlots,
     images: [],
     normalizedRows: csvResult.normalizedRows,
-    schemaVersion: 1,
+    normalizedRowWorksheetRows,
+    schemaVersion: 2,
     summary,
   };
   const thumbnails: QuestionBankXlsxThumbnail[] = uniqueImages

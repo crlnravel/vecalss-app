@@ -39,7 +39,8 @@ type QuestionBankXlsxPreviewManifest = {
   imageSlots: QuestionBankXlsxPreviewImageSlot[];
   images: Array<QuestionBankXlsxPreviewImageIndex & { sourceUrlFingerprints: string[] }>;
   normalizedRows: QuestionBankCsvRow[];
-  schemaVersion: 1;
+  normalizedRowWorksheetRows: number[];
+  schemaVersion: 2;
   summary: QuestionBankXlsxPreviewSummary;
 };
 
