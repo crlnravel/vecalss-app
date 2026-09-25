@@ -1505,7 +1505,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
         explanationAsset: true,
         question: {
           include: {
-            questionBank: { select: { status: true } },
+            questionBank: { select: { id: true, revision: true, status: true } },
             subtest: { select: { code: true } },
           },
         },
@@ -1568,24 +1568,50 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
     }
 
     const now = new Date();
+    const readyAt = target === QuestionRevisionStatus.ready ? (revision.readyAt ?? now) : revision.readyAt;
+    const retiredAt = target === QuestionRevisionStatus.retired ? (revision.retiredAt ?? now) : null;
+    const questionStatus = target === QuestionRevisionStatus.ready
+      ? ContentStatus.published
+      : target === QuestionRevisionStatus.retired
+        ? ContentStatus.archived
+        : ContentStatus.draft;
+    const changesCurrentLifecycle = isCurrent && (
+      current !== target
+      || (revision.readyAt?.getTime() ?? null) !== (readyAt?.getTime() ?? null)
+      || (revision.retiredAt?.getTime() ?? null) !== (retiredAt?.getTime() ?? null)
+      || revision.question.status !== questionStatus
+    );
     const updated = await tx.questionRevision.update({
       where: { id: revision.id },
       data: {
-        readyAt: target === QuestionRevisionStatus.ready ? (revision.readyAt ?? now) : revision.readyAt,
-        retiredAt: target === QuestionRevisionStatus.retired ? (revision.retiredAt ?? now) : null,
+        readyAt,
+        retiredAt,
         status: target,
         updatedByUserId: actorId,
       },
     });
     if (isCurrent) {
-      const questionStatus = target === QuestionRevisionStatus.ready
-        ? ContentStatus.published
-        : target === QuestionRevisionStatus.retired
-          ? ContentStatus.archived
-          : ContentStatus.draft;
       await tx.question.update({ where: { id: revision.questionId }, data: { status: questionStatus, updatedByUserId: actorId } });
     }
-    return { id: updated.id, questionId: revision.questionId, revisionNo: updated.revisionNo, status: updated.status };
+    const questionBank = revision.question.questionBank;
+    const currentBankRevision = questionBank
+      ? questionBank.revision + (changesCurrentLifecycle ? 1 : 0)
+      : null;
+    if (questionBank && changesCurrentLifecycle) {
+      // Overwrite previews use this optimistic Bank version to detect changes
+      // to current-question lifecycle state between preview and confirmation.
+      await tx.questionBank.update({
+        where: { id: questionBank.id },
+        data: { revision: questionBank.revision + 1, updatedByUserId: actorId },
+      });
+    }
+    return {
+      id: updated.id,
+      questionId: revision.questionId,
+      revisionNo: updated.revisionNo,
+      status: updated.status,
+      ...(currentBankRevision === null ? {} : { bankRevision: currentBankRevision }),
+    };
   });
 }
 
