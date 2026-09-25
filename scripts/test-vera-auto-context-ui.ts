@@ -144,6 +144,7 @@ const uiSource = readFileSync(
   resolve(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"),
   "utf8",
 );
+const globalStyles = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
 assert.match(uiSource, /function buildVeraRequestPayload/);
 assert.match(uiSource, /\? \{ \.\.\.base, contextMode: "automatic"/);
 assert.match(uiSource, /: \{ \.\.\.base, sources \}/);
@@ -153,6 +154,16 @@ assert.match(uiSource, /loadConversation\(conversationId, automaticContext, fina
 assert.match(uiSource, /isCommittedVeraMessage/);
 assert.match(uiSource, /!isVeraAutomaticContextEnabled\(automaticContext\)/);
 assert.match(uiSource, /\/api\/vera-ai\/sources\?limit=50/);
+assert.match(uiSource, /function StreamingAnswerText\(\{ content \}: \{ content: string \}\)/);
+assert.match(uiSource, /<StreamingAnswerText content=\{body\} \/>/);
+assert.match(uiSource, /vera-stream-caret/);
+assert.match(globalStyles, /@keyframes vera-stream-word-arrive/);
+assert.match(globalStyles, /@keyframes vera-stream-caret-pulse/);
+assert.match(
+  globalStyles,
+  /\.vera-ai-motion \.vera-stream-word,[\s\S]*?animation: none;[\s\S]*?opacity: 1;/,
+  "the streaming reveal must remain readable when reduced motion is requested",
+);
 
 const streamRequestStart = uiSource.indexOf("async function streamRequest(");
 assert.notEqual(streamRequestStart, -1);
