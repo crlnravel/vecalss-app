@@ -108,6 +108,10 @@ enum MediaAssetState {
 
 enum QuestionBankXlsxImportAttemptState {
   upload_pending
+  multipart_creating
+  multipart_uploading
+  multipart_completing
+  upload_complete
   previewing
   previewed
   applying
@@ -1950,6 +1954,11 @@ model QuestionBankXlsxImportAttempt {
   originalFileName         String                              @map("original_file_name") @db.VarChar(255)
   uploadObjectKey          String                              @unique @map("upload_object_key") @db.VarChar(512)
   stagingPrefix            String                              @map("staging_prefix") @db.VarChar(512)
+  multipartUploadId        String?                             @map("multipart_upload_id") @db.VarChar(1024)
+  expectedWorkbookSizeBytes Int?                                @map("expected_workbook_size_bytes")
+  expectedMultipartPartCount Int?                               @map("expected_multipart_part_count")
+  cancelRequestedAt        DateTime?                           @map("cancel_requested_at") @db.Timestamptz
+  operationLeaseExpiresAt  DateTime?                           @map("operation_lease_expires_at") @db.Timestamptz
   manifestObjectKey        String?                             @unique @map("manifest_object_key") @db.VarChar(512)
   stagedObjectKeys         Json                                @default("[]") @map("staged_object_keys") @db.JsonB
   previewImageIndex        Json                                @default("[]") @map("preview_image_index") @db.JsonB

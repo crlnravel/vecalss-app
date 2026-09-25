@@ -98,7 +98,10 @@ type ZipEntry = {
   endOffset: number;
 };
 
-type ZipPackage = Map<string, ZipEntry>;
+type ZipPackage = Map<string, ZipEntry> & {
+  rawImageSourceBytes: number;
+  rawImageSourceBytesExceeded: boolean;
+};
 
 type Relationship = {
   id: string;
@@ -134,6 +137,12 @@ type WorkbookRead = {
 type FetchImageResult = {
   bytes: Buffer;
   contentType: string;
+};
+
+type ImageSourceByteBudget = {
+  exceeded: boolean;
+  reserve(bytes: number): void;
+  usedBytes: number;
 };
 
 function structureIssue(code: string, row?: number, field?: string): QuestionBankXlsxIssue {
@@ -204,8 +213,9 @@ function parseExtraFields(extra: Buffer) {
   return fields;
 }
 
-function parseZipPackage(input: Uint8Array): ZipPackage {
+function parseZipPackage(input: Uint8Array, signal?: AbortSignal): ZipPackage {
   const bytes = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+  if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
   if (bytes.byteLength < 22 || bytes.byteLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
     throw new OoxmlParseError(bytes.byteLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes ? "xlsx_too_large" : undefined);
   }
@@ -238,13 +248,34 @@ function parseZipPackage(input: Uint8Array): ZipPackage {
     throw new OoxmlParseError();
   }
 
-    const entries = new Map<string, ZipEntry>();
+  let preflightCursor = centralOffset;
+  let rawImageSourceBytes = 0;
+  for (let index = 0; index < entryCount; index += 1) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
+    if (zipU32(bytes, preflightCursor) !== 0x02014b50) throw new OoxmlParseError();
+    const nameLength = zipU16(bytes, preflightCursor + 28);
+    const extraLength = zipU16(bytes, preflightCursor + 30);
+    const commentLength = zipU16(bytes, preflightCursor + 32);
+    const uncompressedBytes = zipU32(bytes, preflightCursor + 24);
+    const recordSize = 46 + nameLength + extraLength + commentLength;
+    if (!nameLength || preflightCursor + recordSize > eocdOffset) throw new OoxmlParseError();
+    const name = decodeZipName(bytes.subarray(preflightCursor + 46, preflightCursor + 46 + nameLength));
+    if (name.toLowerCase().startsWith("xl/media/")) rawImageSourceBytes += uncompressedBytes;
+    preflightCursor += recordSize;
+  }
+  if (preflightCursor !== eocdOffset) throw new OoxmlParseError();
+  const rawImageSourceBytesExceeded = rawImageSourceBytes > QUESTION_BANK_XLSX_LIMITS.totalRawImageSourceBytes;
+
+  const entries = new Map<string, ZipEntry>() as ZipPackage;
+  entries.rawImageSourceBytes = rawImageSourceBytes;
+  entries.rawImageSourceBytesExceeded = rawImageSourceBytesExceeded;
   const localOffsets = new Set<number>();
   const localRecords: ZipEntry[] = [];
   let centralCursor = centralOffset;
   let expandedBytes = 0;
 
   for (let index = 0; index < entryCount; index += 1) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     if (zipU32(bytes, centralCursor) !== 0x02014b50) throw new OoxmlParseError();
     const madeBy = zipU16(bytes, centralCursor + 4);
     const flags = zipU16(bytes, centralCursor + 8);
@@ -298,8 +329,10 @@ function parseZipPackage(input: Uint8Array): ZipPackage {
       : isImagePart
         ? QUESTION_BANK_XLSX_LIMITS.zipImagePartBytes
         : QUESTION_BANK_XLSX_LIMITS.totalExpandedZipBytes;
-    if (uncompressedBytes > partLimit) throw new OoxmlParseError();
-    expandedBytes += uncompressedBytes;
+    if (uncompressedBytes > partLimit && !(isImagePart && rawImageSourceBytesExceeded)) {
+      throw new OoxmlParseError();
+    }
+    if (!(isImagePart && rawImageSourceBytesExceeded)) expandedBytes += uncompressedBytes;
     if (expandedBytes > QUESTION_BANK_XLSX_LIMITS.totalExpandedZipBytes) throw new OoxmlParseError();
 
     const localOffsetValue = localOffset;
@@ -327,15 +360,21 @@ function parseZipPackage(input: Uint8Array): ZipPackage {
 
     const compressed = bytes.subarray(localDataStart, localDataStart + compressedBytes);
     let contents: Buffer;
-    try {
-      contents = method === 0
-        ? Buffer.from(compressed)
-        : inflateRawSync(compressed, { maxOutputLength: Math.min(partLimit, uncompressedBytes + 1) });
-    } catch {
-      throw new OoxmlParseError();
-    }
-    if (contents.byteLength !== uncompressedBytes || crc32(contents) !== expectedCrc32) {
-      throw new OoxmlParseError();
+    if (isImagePart && rawImageSourceBytesExceeded) {
+      // The workbook is rejected for its advertised aggregate media size. Keep
+      // no expanded image payloads while parsing drawing metadata for issues.
+      contents = Buffer.alloc(0);
+    } else {
+      try {
+        contents = method === 0
+          ? Buffer.from(compressed)
+          : inflateRawSync(compressed, { maxOutputLength: Math.min(partLimit, uncompressedBytes + 1) });
+      } catch {
+        throw new OoxmlParseError();
+      }
+      if (contents.byteLength !== uncompressedBytes || crc32(contents) !== expectedCrc32) {
+        throw new OoxmlParseError();
+      }
     }
     let endOffset = localDataStart + compressedBytes;
     if (flags & 0x0008) {
@@ -380,8 +419,8 @@ function parseZipPackage(input: Uint8Array): ZipPackage {
   return entries;
 }
 
-function parseRelationships(bytes: Buffer) {
-  const root = parseXmlDocument(bytes);
+function parseRelationships(bytes: Buffer, signal?: AbortSignal) {
+  const root = parseXmlDocument(bytes, signal);
   if (root.localName !== "Relationships" || root.namespaceUri !== PACKAGE_REL_NAMESPACE) {
     throw new OoxmlParseError();
   }
@@ -455,25 +494,25 @@ function relationshipsPartName(sourcePart: string) {
   return `${directory}_rels/${baseName}.rels`;
 }
 
-function getRelationships(packageParts: ZipPackage, sourcePart: string) {
+function getRelationships(packageParts: ZipPackage, sourcePart: string, signal?: AbortSignal) {
   const relPart = relationshipsPartName(sourcePart);
   const entry = packageParts.get(relPart);
   if (!entry) return new Map<string, Relationship>();
-  return parseRelationships(entry.bytes);
+  return parseRelationships(entry.bytes, signal);
 }
 
-function parsePackageSheets(packageParts: ZipPackage) {
-  const rootRels = getRelationships(packageParts, "");
+function parsePackageSheets(packageParts: ZipPackage, signal?: AbortSignal) {
+  const rootRels = getRelationships(packageParts, "", signal);
   const officeDocument = [...rootRels.values()].find((relationship) => relationship.type.endsWith("/officeDocument"));
   if (!officeDocument) throw new OoxmlParseError();
   const workbookPart = resolveRelationshipPart("", officeDocument.target);
   const workbookEntry = packageParts.get(workbookPart);
   if (!workbookEntry) throw new OoxmlParseError();
-  const workbookRoot = parseXmlDocument(workbookEntry.bytes);
+  const workbookRoot = parseXmlDocument(workbookEntry.bytes, signal);
   if (workbookRoot.localName !== "workbook" || workbookRoot.namespaceUri !== XLSX_XML_NAMESPACE) {
     throw new OoxmlParseError();
   }
-  const workbookRelationships = getRelationships(packageParts, workbookPart);
+  const workbookRelationships = getRelationships(packageParts, workbookPart, signal);
   const sheetElements = xmlDescendants(workbookRoot, "sheet", XLSX_XML_NAMESPACE);
   if (!sheetElements.length || sheetElements.length > 20) throw new OoxmlParseError();
   const sheets: SheetPart[] = [];
@@ -493,7 +532,7 @@ function parsePackageSheets(packageParts: ZipPackage) {
     const part = resolveRelationshipPart(workbookPart, relationship.target);
     if (!packageParts.has(part)) throw new OoxmlParseError();
     names.add(name);
-    sheets.push({ name, part, relationships: getRelationships(packageParts, part) });
+    sheets.push({ name, part, relationships: getRelationships(packageParts, part, signal) });
   }
   const unknownSheet = sheets.find((sheet) => sheet.name !== "Panduan" && sheet.name !== "Soal");
   if (unknownSheet) {
@@ -532,8 +571,8 @@ function columnNumberToName(column: number) {
   return result;
 }
 
-function preflightWorksheet(bytes: Buffer, sheetName: string): WorkbookRead {
-  const root = parseXmlDocument(bytes);
+function preflightWorksheet(bytes: Buffer, sheetName: string, signal?: AbortSignal): WorkbookRead {
+  const root = parseXmlDocument(bytes, signal);
   if (root.localName !== "worksheet" || root.namespaceUri !== XLSX_XML_NAMESPACE) throw new OoxmlParseError();
   const dimensions = xmlChildren(root, "dimension", XLSX_XML_NAMESPACE);
   if (dimensions.length > 1) throw new OoxmlParseError();
@@ -555,6 +594,7 @@ function preflightWorksheet(bytes: Buffer, sheetName: string): WorkbookRead {
   const populatedRows = new Set<number>();
   const seenRows = new Set<number>();
   for (const rowElement of rows) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     const rowText = xmlAttribute(rowElement, "r");
     if (!rowText || !/^\d+$/u.test(rowText)) throw new OoxmlParseError();
     const row = Number(rowText);
@@ -602,13 +642,14 @@ function preflightWorksheet(bytes: Buffer, sheetName: string): WorkbookRead {
   return { issues, maxRow, populatedRows };
 }
 
-function parseXmlRelationshipsInPackage(packageParts: ZipPackage) {
+function parseXmlRelationshipsInPackage(packageParts: ZipPackage, signal?: AbortSignal) {
   for (const entry of packageParts.values()) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     if (!entry.name.endsWith(".rels")) continue;
     const match = /^(?:(.*)\/)?_rels\/([^/]+)\.rels$/u.exec(entry.name);
     if (!match) throw new OoxmlParseError();
     const sourcePart = match[1] ? `${match[1]}/${match[2]}` : match[2] === "." ? "" : match[2]!;
-    const relationships = parseRelationships(entry.bytes);
+    const relationships = parseRelationships(entry.bytes, signal);
     for (const relationship of relationships.values()) {
       const targetPart = resolveRelationshipPart(sourcePart, relationship.target);
       if (!packageParts.has(targetPart)) throw new OoxmlParseError();
@@ -616,10 +657,10 @@ function parseXmlRelationshipsInPackage(packageParts: ZipPackage) {
   }
 }
 
-function parseContentTypes(packageParts: ZipPackage) {
+function parseContentTypes(packageParts: ZipPackage, signal?: AbortSignal) {
   const entry = packageParts.get("[Content_Types].xml");
   if (!entry) throw new OoxmlParseError();
-  const root = parseXmlDocument(entry.bytes);
+  const root = parseXmlDocument(entry.bytes, signal);
   if (root.localName !== "Types" || root.namespaceUri !== "http://schemas.openxmlformats.org/package/2006/content-types") {
     throw new OoxmlParseError();
   }
@@ -686,7 +727,7 @@ function readPictureMediaRelationship(anchor: XmlElement, drawingRelationships: 
   return relation.target;
 }
 
-function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuestionSheet: boolean): ParsedDrawing {
+function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuestionSheet: boolean, signal?: AbortSignal): ParsedDrawing {
   const placements = new Map<string, string[]>();
   const issues: QuestionBankXlsxIssue[] = [];
   const drawingRelationships = sheet.relationships;
@@ -697,12 +738,13 @@ function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuesti
   const imageColumns = new Set(QUESTION_BANK_XLSX_HEADER.flatMap((field, index) => IMAGE_FIELDS.includes(field as (typeof IMAGE_FIELDS)[number]) ? [index] : []));
   let anchorCount = 0;
   for (const drawingLink of drawingLinks) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     const drawingPart = resolveRelationshipPart(sheet.part, drawingLink.target);
     const drawingEntry = packageParts.get(drawingPart);
     if (!drawingEntry) throw new OoxmlParseError();
-    const drawingRoot = parseXmlDocument(drawingEntry.bytes);
+    const drawingRoot = parseXmlDocument(drawingEntry.bytes, signal);
     if (drawingRoot.localName !== "wsDr" || drawingRoot.namespaceUri !== DRAWING_NAMESPACE) throw new OoxmlParseError();
-    const relationships = getRelationships(packageParts, drawingPart);
+    const relationships = getRelationships(packageParts, drawingPart, signal);
     const shapeTree = xmlChildren(drawingRoot, "spTree", DRAWING_NAMESPACE)[0];
     if (!shapeTree) throw new OoxmlParseError();
     const anchors = shapeTree.children.filter((child) =>
@@ -787,20 +829,21 @@ function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuesti
   return { issues, placements };
 }
 
-function parseXlsxWorkbookStructure(input: Uint8Array) {
-  const packageParts = parseZipPackage(input);
-  parseContentTypes(packageParts);
-  parseXmlRelationshipsInPackage(packageParts);
-  const sheets = parsePackageSheets(packageParts);
+function parseXlsxWorkbookStructure(input: Uint8Array, signal?: AbortSignal) {
+  const packageParts = parseZipPackage(input, signal);
+  parseContentTypes(packageParts, signal);
+  parseXmlRelationshipsInPackage(packageParts, signal);
+  const sheets = parsePackageSheets(packageParts, signal);
   const sheetParts = new Map<string, Buffer>();
   let maxRow = 0;
   const questionRows = new Set<number>();
   const issues: QuestionBankXlsxIssue[] = [];
   for (const sheet of sheets) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     const entry = packageParts.get(sheet.part);
     if (!entry) throw new OoxmlParseError();
     sheetParts.set(sheet.name, entry.bytes);
-    const preflight = preflightWorksheet(entry.bytes, sheet.name);
+    const preflight = preflightWorksheet(entry.bytes, sheet.name, signal);
     maxRow = Math.max(maxRow, sheet.name === "Soal" ? preflight.maxRow : 0);
     if (sheet.name === "Soal") {
       for (const row of preflight.populatedRows) questionRows.add(row);
@@ -810,10 +853,25 @@ function parseXlsxWorkbookStructure(input: Uint8Array) {
   const embeddedMedia = new Map<string, Buffer>();
   const drawingPlacements = new Map<string, string[]>();
   for (const sheet of sheets) {
-    const parsed = parseSheetDrawings(packageParts, sheet, sheet.name === "Soal");
+    const parsed = parseSheetDrawings(packageParts, sheet, sheet.name === "Soal", signal);
     issues.push(...parsed.issues);
     for (const [slot, imageParts] of parsed.placements) {
       drawingPlacements.set(slot, [...(drawingPlacements.get(slot) ?? []), ...imageParts]);
+    }
+  }
+  if (packageParts.rawImageSourceBytesExceeded) {
+    for (const [slot, imageParts] of drawingPlacements) {
+      if (!imageParts.length) continue;
+      const separator = slot.indexOf(":");
+      const row = Number(slot.slice(0, separator));
+      const field = slot.slice(separator + 1);
+      issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", row, field));
+    }
+    if (!issues.some((issue) => issue.code === "xlsx_total_image_source_bytes_exceeded")) {
+      issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", undefined, "image"));
+    }
+  } else {
+    for (const imageParts of drawingPlacements.values()) {
       for (const imagePart of imageParts) {
         const bytes = packageParts.get(imagePart)?.bytes;
         if (!bytes) throw new OoxmlParseError();
@@ -830,7 +888,15 @@ function parseXlsxWorkbookStructure(input: Uint8Array) {
   }
   const worksheetBytes = sheetParts.get("Soal");
   if (!worksheetBytes) throw new OoxmlParseError();
-  return { drawingPlacements, embeddedMedia, issues, maxRow, questionRows: [...questionRows].sort((left, right) => left - right) };
+  return {
+    drawingPlacements,
+    embeddedMedia,
+    issues,
+    maxRow,
+    questionRows: [...questionRows].sort((left, right) => left - right),
+    rawImageSourceBytes: packageParts.rawImageSourceBytes,
+    rawImageSourceBytesExceeded: packageParts.rawImageSourceBytesExceeded,
+  };
 }
 
 function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text: string; invalid: boolean } {
@@ -844,7 +910,12 @@ function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text:
   return { invalid: true, text: "" };
 }
 
-function xlsxToCsvRecords(worksheet: ExcelJS.Worksheet, rowNumbers: readonly number[], placements: Map<string, string[]>) {
+function xlsxToCsvRecords(
+  worksheet: ExcelJS.Worksheet,
+  rowNumbers: readonly number[],
+  placements: Map<string, string[]>,
+  signal?: AbortSignal,
+) {
   const issues: QuestionBankXlsxIssue[] = [];
   const header = Array.from({ length: QUESTION_BANK_XLSX_HEADER.length }, (_, index) => {
     const parsed = textFromExcelCell(worksheet.getCell(1, index + 1).value);
@@ -858,6 +929,7 @@ function xlsxToCsvRecords(worksheet: ExcelJS.Worksheet, rowNumbers: readonly num
   const recordRows = new Map<number, number>();
   let imageUrlCount = 0;
   for (const row of rowNumbers) {
+    throwIfRequestAborted(signal);
     if (row < 2) continue;
     const xlsxValues = Array.from({ length: QUESTION_BANK_XLSX_HEADER.length }, (_, index) => {
       const parsed = textFromExcelCell(worksheet.getCell(row, index + 1).value);
@@ -1002,11 +1074,11 @@ function isPublicAddress(address: string, family: number) {
 
 function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
-    return Promise.reject(signal.reason instanceof Error ? signal.reason : new ImageSourceError("xlsx_image_fetch_timeout"));
+    return Promise.reject(signal.reason instanceof Error ? signal.reason : new ImageSourceError("attempt_cancelled"));
   }
   return new Promise((resolve, reject) => {
     const onAbort = () => {
-      reject(signal.reason instanceof Error ? signal.reason : new ImageSourceError("xlsx_image_fetch_timeout"));
+      reject(signal.reason instanceof Error ? signal.reason : new ImageSourceError("attempt_cancelled"));
     };
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then((value) => {
@@ -1056,15 +1128,45 @@ class ImageSourceError extends Error {
   }
 }
 
-function fetchHttpsImage(url: URL, deadlineSignal: AbortSignal): Promise<FetchImageResult> {
+function createImageSourceByteBudget(initialBytes: number, abort: (reason: Error) => void): ImageSourceByteBudget {
+  const budget: ImageSourceByteBudget = {
+    exceeded: initialBytes > QUESTION_BANK_XLSX_LIMITS.totalRawImageSourceBytes,
+    usedBytes: initialBytes,
+    reserve(bytes) {
+      if (
+        !Number.isSafeInteger(bytes)
+        || bytes < 0
+        || bytes > QUESTION_BANK_XLSX_LIMITS.totalRawImageSourceBytes - budget.usedBytes
+      ) {
+        const error = new ImageSourceError("xlsx_total_image_source_bytes_exceeded");
+        budget.exceeded = true;
+        abort(error);
+        throw error;
+      }
+      budget.usedBytes += bytes;
+    },
+  };
+  return budget;
+}
+
+function throwIfRequestAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new ImageSourceError("attempt_cancelled");
+}
+
+function fetchHttpsImage(
+  url: URL,
+  deadlineSignal: AbortSignal,
+  sourceBudget: ImageSourceByteBudget,
+): Promise<FetchImageResult> {
   return new Promise((resolve, reject) => {
     void (async () => {
       const { request: httpsRequest } = await import("node:https");
       let currentUrl = new URL(url);
       for (let redirectCount = 0; redirectCount <= QUESTION_BANK_XLSX_LIMITS.maxRedirects; redirectCount += 1) {
-        if (deadlineSignal.aborted) throw new ImageSourceError("xlsx_image_fetch_timeout");
+        throwIfRequestAborted(deadlineSignal);
         const hopController = new AbortController();
-        const relayTotalAbort = () => hopController.abort(new ImageSourceError("xlsx_image_fetch_timeout"));
+        const relayTotalAbort = () => hopController.abort(deadlineSignal.reason ?? new ImageSourceError("attempt_cancelled"));
         deadlineSignal.addEventListener("abort", relayTotalAbort, { once: true });
         const hopTimeout = setTimeout(() => hopController.abort(new ImageSourceError("xlsx_image_fetch_timeout")), QUESTION_BANK_XLSX_LIMITS.urlRequestTimeoutMs);
         let response: {
@@ -1098,22 +1200,39 @@ function fetchHttpsImage(url: URL, deadlineSignal: AbortSignal): Promise<FetchIm
               innerResolve({ body: Buffer.alloc(0), headers: incoming.headers, statusCode });
               return;
             }
+            if (statusCode < 200 || statusCode >= 300) {
+              incoming.destroy();
+              innerResolve({ body: Buffer.alloc(0), headers: incoming.headers, statusCode });
+              return;
+            }
             const contentLength = Number(incoming.headers["content-length"]);
             if (Number.isFinite(contentLength) && contentLength > QUESTION_BANK_XLSX_LIMITS.imageBytes) {
-              incoming.destroy(new ImageSourceError("xlsx_image_too_large"));
-              innerReject(new ImageSourceError("xlsx_image_too_large"));
+              const error = new ImageSourceError("xlsx_image_too_large");
+              incoming.destroy(error);
+              innerReject(error);
               return;
             }
             const chunks: Buffer[] = [];
             let size = 0;
             incoming.on("data", (chunk: Buffer | Uint8Array) => {
-              const bytes = Buffer.from(chunk);
-              size += bytes.byteLength;
-              if (size > QUESTION_BANK_XLSX_LIMITS.imageBytes) {
-                incoming.destroy(new ImageSourceError("xlsx_image_too_large"));
+              const chunkLength = chunk.byteLength;
+              try {
+                // Event callbacks execute serially on this thread, so reserve
+                // before copying/retaining each concurrent response chunk.
+                sourceBudget.reserve(chunkLength);
+              } catch (error) {
+                incoming.destroy(error instanceof Error ? error : new ImageSourceError("xlsx_total_image_source_bytes_exceeded"));
+                innerReject(error);
                 return;
               }
-              chunks.push(bytes);
+              size += chunkLength;
+              if (size > QUESTION_BANK_XLSX_LIMITS.imageBytes) {
+                const error = new ImageSourceError("xlsx_image_too_large");
+                incoming.destroy(error);
+                innerReject(error);
+                return;
+              }
+              chunks.push(Buffer.from(chunk));
             });
             incoming.on("end", () => innerResolve({
               body: Buffer.concat(chunks, size),
@@ -1127,8 +1246,11 @@ function fetchHttpsImage(url: URL, deadlineSignal: AbortSignal): Promise<FetchIm
           request.end();
           });
         } catch (error) {
-          if (deadlineSignal.aborted || hopController.signal.aborted) {
-            throw new ImageSourceError("xlsx_image_fetch_timeout");
+          if (deadlineSignal.aborted) {
+            throw deadlineSignal.reason instanceof Error ? deadlineSignal.reason : new ImageSourceError("attempt_cancelled");
+          }
+          if (hopController.signal.aborted) {
+            throw hopController.signal.reason instanceof Error ? hopController.signal.reason : new ImageSourceError("xlsx_image_fetch_timeout");
           }
           throw error;
         } finally {
@@ -1179,7 +1301,8 @@ function contentTypeForImageBytes(bytes: Buffer) {
   return null;
 }
 
-async function validateAndThumbnailImage(bytes: Buffer) {
+async function validateAndThumbnailImage(bytes: Buffer, signal?: AbortSignal) {
+  throwIfRequestAborted(signal);
   if (bytes.byteLength === 0 || bytes.byteLength > QUESTION_BANK_XLSX_LIMITS.imageBytes) {
     throw new ImageSourceError("xlsx_image_too_large");
   }
@@ -1191,6 +1314,7 @@ async function validateAndThumbnailImage(bytes: Buffer) {
       limitInputPixels: QUESTION_BANK_XLSX_LIMITS.imagePixelCount,
     });
     const metadata = await image.metadata();
+    throwIfRequestAborted(signal);
     if (
       !metadata.width
       || !metadata.height
@@ -1215,6 +1339,7 @@ async function validateAndThumbnailImage(bytes: Buffer) {
       })
       .webp({ quality: 72, effort: 3 })
       .toBuffer();
+    throwIfRequestAborted(signal);
     if (rendered.byteLength > QUESTION_BANK_XLSX_LIMITS.thumbnailBytes) {
       throw new ImageSourceError("xlsx_thumbnail_too_large");
     }
@@ -1225,11 +1350,17 @@ async function validateAndThumbnailImage(bytes: Buffer) {
   }
 }
 
-async function mapConcurrent<T, R>(values: readonly T[], limit: number, task: (value: T, index: number) => Promise<R>) {
+async function mapConcurrent<T, R>(
+  values: readonly T[],
+  limit: number,
+  task: (value: T, index: number) => Promise<R>,
+  signal?: AbortSignal,
+) {
   const results = new Array<R>(values.length);
   let cursor = 0;
   const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
     while (true) {
+      if (signal?.aborted) return;
       const index = cursor;
       cursor += 1;
       if (index >= values.length) return;
@@ -1251,10 +1382,12 @@ function createImageSources(
   drawingPlacements: Map<string, string[]>,
   imageUrlCount: number,
   initialIssues: QuestionBankXlsxIssue[],
+  signal?: AbortSignal,
 ) {
   const sources = new Map<string, ImageSource & { url?: URL }>();
   const allImageSlots: QuestionBankXlsxImagePlacement[] = [];
   for (const [key, mediaParts] of drawingPlacements) {
+    throwIfRequestAborted(signal);
     if (mediaParts.length !== 1) continue;
     const [rowText, field] = key.split(":");
     const row = Number(rowText);
@@ -1275,6 +1408,7 @@ function createImageSources(
 
   let urlPlacements = 0;
   for (const row of rowNumbers) {
+    throwIfRequestAborted(signal);
     if (row < 2) continue;
     for (const field of IMAGE_FIELDS) {
       const cell = worksheet.getCell(row, QUESTION_BANK_XLSX_HEADER.indexOf(field) + 1);
@@ -1291,7 +1425,9 @@ function createImageSources(
       urlPlacements += 1;
       const key = `${row}:${field}`;
       if (drawingPlacements.has(key)) continue;
-      const sourceKey = `url:${url.href}`;
+      // Each URL cell is a raw source even when another cell contains the
+      // same address; content hashing deduplicates only after bounded reads.
+      const sourceKey = `url:${row}:${field}`;
       const source = sources.get(sourceKey) ?? {
         bytes: Buffer.alloc(0),
         mimeType: "",
@@ -1313,24 +1449,45 @@ function createImageSources(
 async function materializeImageSources(
   sourceEntries: Array<[string, ImageSource & { url?: URL }]>,
   externalImageUrlCount: number,
-  controller: AbortController,
+  initialEmbeddedBytes: number,
+  requestSignal?: AbortSignal,
 ) {
-  const timer = setTimeout(() => controller.abort(), QUESTION_BANK_XLSX_LIMITS.urlFetchBudgetMs);
+  const deadlineController = new AbortController();
+  const aggregateAbortController = new AbortController();
+  const processingSignal = requestSignal
+    ? AbortSignal.any([requestSignal, aggregateAbortController.signal])
+    : aggregateAbortController.signal;
+  const fetchSignal = AbortSignal.any([processingSignal, deadlineController.signal]);
+  const sourceBudget = createImageSourceByteBudget(
+    initialEmbeddedBytes,
+    (reason) => aggregateAbortController.abort(reason),
+  );
+  const timer = sourceEntries.some(([, source]) => source.url)
+    ? setTimeout(
+      () => deadlineController.abort(new ImageSourceError("xlsx_image_fetch_timeout")),
+      QUESTION_BANK_XLSX_LIMITS.urlFetchBudgetMs,
+    )
+    : null;
   const issues: QuestionBankXlsxIssue[] = [];
   const valid: Array<{ key: string; payload: QuestionBankXlsxPreviewImagePayload; thumbnail: Buffer }> = [];
   try {
     const outcomes = await mapConcurrent(sourceEntries, QUESTION_BANK_XLSX_LIMITS.maxConcurrentImageOperations, async ([key, source]) => {
       try {
+        throwIfRequestAborted(processingSignal);
+        if (sourceBudget.exceeded) throw new ImageSourceError("xlsx_total_image_source_bytes_exceeded");
         let bytes = source.bytes;
         if (source.url) {
-          const response = await fetchHttpsImage(source.url, controller.signal);
+          throwIfRequestAborted(fetchSignal);
+          const response = await fetchHttpsImage(source.url, fetchSignal, sourceBudget);
           const sniffedMimeType = contentTypeForImageBytes(response.bytes);
           if (!sniffedMimeType || expectedMimeTypeForContentType(response.contentType) !== sniffedMimeType) {
             throw new ImageSourceError("xlsx_image_type_mismatch");
           }
           bytes = response.bytes;
         }
-        const processed = await validateAndThumbnailImage(bytes);
+        if (sourceBudget.exceeded) throw new ImageSourceError("xlsx_total_image_source_bytes_exceeded");
+        const processed = await validateAndThumbnailImage(bytes, processingSignal);
+        throwIfRequestAborted(processingSignal);
         return {
           key,
           payload: {
@@ -1342,15 +1499,17 @@ async function materializeImageSources(
             sizeBytes: bytes.byteLength,
             sourceUrlFingerprints: source.sourceUrlFingerprints,
             width: processed.width,
-            bytes: new Uint8Array(bytes),
+            bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength),
           } satisfies QuestionBankXlsxPreviewImagePayload,
           thumbnail: processed.thumbnail,
         };
       } catch (error) {
         const code = error instanceof ImageSourceError
           ? error.code
-          : controller.signal.aborted
-            ? "xlsx_image_fetch_timeout"
+          : fetchSignal.aborted && fetchSignal.reason instanceof ImageSourceError
+            ? fetchSignal.reason.code
+            : requestSignal?.aborted
+              ? "attempt_cancelled"
             : source.url
               ? "xlsx_image_fetch_failed"
               : "xlsx_image_invalid";
@@ -1359,7 +1518,33 @@ async function materializeImageSources(
         }
         return null;
       }
-    });
+    }, processingSignal);
+    throwIfRequestAborted(requestSignal);
+    if (sourceBudget.exceeded) {
+      issues.length = 0;
+      for (const [, source] of sourceEntries) {
+        for (const placement of source.placements) {
+          issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", placement.row, placement.field));
+        }
+      }
+      return {
+        imagePayloads: [],
+        issues,
+        thumbnailByContentSha256: new Map<string, Buffer>(),
+      };
+    }
+    if (fetchSignal.aborted && fetchSignal.reason instanceof ImageSourceError) {
+      const abortedCode = fetchSignal.reason.code;
+      for (let index = 0; index < outcomes.length; index += 1) {
+        if (outcomes[index]) continue;
+        const source = sourceEntries[index]?.[1];
+        if (!source) continue;
+        for (const placement of source.placements) {
+          const hasIssue = issues.some((issue) => issue.row === placement.row && issue.field === placement.field);
+          if (!hasIssue) issues.push(structureIssue(abortedCode, placement.row, placement.field));
+        }
+      }
+    }
     for (const outcome of outcomes) if (outcome) valid.push(outcome);
 
     const byHash = new Map<string, typeof valid[number]>();
@@ -1393,7 +1578,7 @@ async function materializeImageSources(
       thumbnailByContentSha256: new Map(unique.map((item) => [item.payload.contentSha256, item.thumbnail])),
     };
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -1436,7 +1621,8 @@ function summarizeWorkbook(
   };
 }
 
-async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
+async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSignal) {
+  throwIfRequestAborted(signal);
   if (input.byteLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
     return {
       imagePayloads: [],
@@ -1451,12 +1637,39 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
   let packageStructure: ReturnType<typeof parseXlsxWorkbookStructure>;
   let excelWorkbook: ExcelJS.Workbook;
   try {
-    packageStructure = parseXlsxWorkbookStructure(input);
+    packageStructure = parseXlsxWorkbookStructure(input, signal);
+    throwIfRequestAborted(signal);
+    if (packageStructure.rawImageSourceBytesExceeded) {
+      const rowIssues = packageStructure.issues.filter((issue) => issue.kind === "row");
+      const structuralIssues = packageStructure.issues.filter((issue) => issue.kind === "structural");
+      return {
+        imagePayloads: [],
+        issues: packageStructure.issues,
+        manifest: null,
+        normalizedRows: [],
+        summary: {
+          acceptedRows: 0,
+          dataRowCount: 0,
+          externalImageUrlCount: 0,
+          imageCount: 0,
+          imagePlacementCount: packageStructure.drawingPlacements.size,
+          rejectedRows: 0,
+          rowErrorCount: rowIssues.length,
+          structuralErrorCount: structuralIssues.length,
+        },
+        thumbnails: [],
+      };
+    }
     excelWorkbook = new ExcelJS.Workbook();
     const workbookArrayBuffer = new ArrayBuffer(input.byteLength);
     new Uint8Array(workbookArrayBuffer).set(input);
-    await excelWorkbook.xlsx.load(workbookArrayBuffer);
+    const excelLoad = excelWorkbook.xlsx.load(workbookArrayBuffer);
+    if (signal) await raceWithAbort(excelLoad, signal);
+    else await excelLoad;
+    throwIfRequestAborted(signal);
   } catch (error) {
+    if (signal?.aborted) throw new ImageSourceError("attempt_cancelled");
+    if (error instanceof ImageSourceError && error.code === "attempt_cancelled") throw error;
     const issues = error instanceof WorkbookIssueError
       ? error.issues
       : [structureIssue(error instanceof OoxmlParseError && error.code === "xlsx_too_large" ? "xlsx_too_large" : "xlsx_structure_invalid")];
@@ -1485,12 +1698,12 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
 
   const issues: QuestionBankXlsxIssue[] = [...packageStructure.issues];
   const drawingPlacements = packageStructure.drawingPlacements;
-  const converted = xlsxToCsvRecords(worksheet, packageStructure.questionRows, drawingPlacements);
+  throwIfRequestAborted(signal);
+  const converted = xlsxToCsvRecords(worksheet, packageStructure.questionRows, drawingPlacements, signal);
   issues.push(...converted.issues);
   const csvResult = validateQuestionBankCsvRecords(converted.records, input.byteLength, [], false);
   const semanticIssues = mapSharedCsvIssues(csvResult, converted.recordRows);
   issues.push(...semanticIssues.structuralIssues, ...semanticIssues.rowIssues);
-  const controller = new AbortController();
   const imageSources = createImageSources(
     packageStructure,
     worksheet,
@@ -1498,6 +1711,7 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
     drawingPlacements,
     converted.imageUrlCount,
     issues,
+    signal,
   );
   if (
     converted.imageUrlCount > QUESTION_BANK_XLSX_LIMITS.externalImageUrls
@@ -1527,7 +1741,8 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
   const materialized = await materializeImageSources(
     imageSources.sources,
     converted.imageUrlCount,
-    controller,
+    packageStructure.rawImageSourceBytes,
+    signal,
   );
   issues.push(...materialized.issues);
   const uniqueImages = materialized.imagePayloads;
@@ -1587,7 +1802,9 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array) {
 async function readQuestionBankXlsxThumbnail(
   bytes: Uint8Array,
   image: { contentSha256: string; height: number; mimeType: string; placements: QuestionBankXlsxImagePlacement[]; sizeBytes: number; width: number },
+  signal?: AbortSignal,
 ) {
+  throwIfRequestAborted(signal);
   const buffer = Buffer.from(bytes);
   if (
     buffer.byteLength !== image.sizeBytes
@@ -1597,7 +1814,7 @@ async function readQuestionBankXlsxThumbnail(
   ) {
     throw new ImageSourceError("attempt_unavailable");
   }
-  const result = await validateAndThumbnailImage(buffer);
+  const result = await validateAndThumbnailImage(buffer, signal);
   if (result.width !== image.width || result.height !== image.height || result.mimeType !== image.mimeType) {
     throw new ImageSourceError("attempt_unavailable");
   }

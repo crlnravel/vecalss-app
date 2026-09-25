@@ -7,9 +7,14 @@ import {
   QuestionBankXlsxImportAttemptState,
 } from "@/generated/prisma/client";
 import {
-  createPrivateStagingUploadUrl,
+  abortPrivateStagingMultipartUpload,
+  completePrivateStagingMultipartUpload,
+  createPrivateStagingMultipartUpload,
+  createPrivateStagingUploadPartUrl,
   deletePrivateStagingObjects,
   headMediaObject,
+  listPrivateStagingMultipartParts,
+  listPrivateStagingMultipartUploads,
   PrivateStagingObjectTooLargeError,
   putPrivateStagingObject,
   readPrivateStagingObject,
@@ -30,15 +35,19 @@ const MANIFEST_MIME_TYPE = "application/json";
 const MAX_MANIFEST_BYTES = QUESTION_BANK_XLSX_LIMITS.totalExpandedZipBytes;
 const CLEANUP_RETRY_DELAY_MS = 60_000;
 const CLEANUP_BATCH_SIZE = 20;
+const PREVIEW_CANCEL_POLL_MS = 1_000;
 const PRIVATE_STAGING_KEY_PATTERN =
   /^question-bank-xlsx-staging\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/(?:workbook\.xlsx|manifest\.json|images\/[0-9a-f]{64}\.bin)$/iu;
 
 type QuestionBankXlsxImportErrorCode =
   | "attempt_busy"
+  | "attempt_cancelled"
   | "attempt_expired"
   | "attempt_invalid"
   | "attempt_not_found"
   | "attempt_unavailable"
+  | "multipart_incomplete"
+  | "multipart_invalid"
   | "xlsx_too_large"
   | "xlsx_upload_missing";
 
@@ -52,9 +61,14 @@ class QuestionBankXlsxImportError extends Error {
 type QuestionBankXlsxUploadGrant = {
   contentType: string;
   expiresAt: string;
-  maxBytes: number;
+  expectedWorkbookSizeBytes: number;
+  partSizeBytes: number;
+  parts: Array<{
+    contentLength: number;
+    partNumber: number;
+    uploadUrl: string;
+  }>;
   uploadId: string;
-  uploadUrl: string;
 };
 
 type QuestionBankXlsxUploadPreviewInput = {
@@ -63,6 +77,7 @@ type QuestionBankXlsxUploadPreviewInput = {
   manifest: QuestionBankXlsxPreviewManifest;
   ownerUserId: string;
   workbookBytes: Uint8Array;
+  signal?: AbortSignal;
 };
 
 type QuestionBankXlsxPreviewAttempt = {
@@ -107,6 +122,77 @@ function sha256(bytes: Uint8Array) {
 
 function cleanupEligibleAt(uploadExpiresAt: Date, now = Date.now()) {
   return new Date(Math.max(uploadExpiresAt.getTime(), now) + CLEANUP_RETRY_DELAY_MS);
+}
+
+function operationLeaseUntil(now = Date.now()) {
+  return new Date(now + QUESTION_BANK_XLSX_LIMITS.operationLeaseMs);
+}
+
+function expiresAfterOperation(leaseExpiresAt: Date) {
+  return new Date(leaseExpiresAt.getTime() + CLEANUP_RETRY_DELAY_MS);
+}
+
+function expectedMultipartPartBytes(sizeBytes: number, partNumber: number) {
+  const start = (partNumber - 1) * QUESTION_BANK_XLSX_LIMITS.multipartPartBytes;
+  return Math.max(0, Math.min(QUESTION_BANK_XLSX_LIMITS.multipartPartBytes, sizeBytes - start));
+}
+
+function expectedMultipartPartCount(sizeBytes: number) {
+  return Math.ceil(sizeBytes / QUESTION_BANK_XLSX_LIMITS.multipartPartBytes);
+}
+
+const activePreviewControllers = new Map<string, Set<AbortController>>();
+
+function registerQuestionBankXlsxPreviewController(attemptId: string, controller: AbortController) {
+  const controllers = activePreviewControllers.get(attemptId) ?? new Set<AbortController>();
+  controllers.add(controller);
+  activePreviewControllers.set(attemptId, controllers);
+  return () => {
+    controllers.delete(controller);
+    if (!controllers.size) activePreviewControllers.delete(attemptId);
+  };
+}
+
+function abortActiveQuestionBankXlsxPreview(attemptId: string, reason: Error) {
+  for (const controller of activePreviewControllers.get(attemptId) ?? []) controller.abort(reason);
+}
+
+function watchQuestionBankXlsxPreviewCancellation(
+  ownerUserId: string,
+  attemptId: string,
+  controller: AbortController,
+) {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let polling = false;
+  const poll = async () => {
+    if (stopped || polling || controller.signal.aborted) return;
+    polling = true;
+    try {
+      const attempt = await prisma.questionBankXlsxImportAttempt.findUnique({
+        select: { cancelRequestedAt: true, ownerUserId: true },
+        where: { id: attemptId },
+      });
+      if (
+        !attempt
+        || attempt.ownerUserId !== ownerUserId
+        || attempt.cancelRequestedAt
+      ) {
+        controller.abort(new QuestionBankXlsxImportError("attempt_cancelled"));
+      }
+    } catch {
+      // A transient DB read failure does not cancel a valid preview. The final
+      // transaction still requires cancel_requested_at IS NULL.
+    } finally {
+      polling = false;
+      if (!stopped && !controller.signal.aborted) timer = setTimeout(() => void poll(), PREVIEW_CANCEL_POLL_MS);
+    }
+  };
+  void poll();
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  };
 }
 
 function parseStagedObjectKeys(value: Prisma.JsonValue, attemptId: string) {
@@ -204,55 +290,412 @@ function parseImageIndex(value: Prisma.JsonValue, attemptId: string): QuestionBa
 async function createQuestionBankXlsxUploadGrant(
   ownerUserId: string,
   fileName: string,
+  expectedWorkbookSizeBytes: number,
+  signal?: AbortSignal,
 ): Promise<QuestionBankXlsxUploadGrant> {
+  if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   const originalFileName = normalizeWorkbookFileName(fileName);
+  if (
+    !Number.isSafeInteger(expectedWorkbookSizeBytes)
+    || expectedWorkbookSizeBytes <= 0
+    || expectedWorkbookSizeBytes > QUESTION_BANK_XLSX_LIMITS.workbookBytes
+  ) {
+    throw new QuestionBankXlsxImportError("xlsx_too_large");
+  }
   const attemptId = randomUUID();
   const now = new Date();
   const uploadExpiresAt = new Date(
     now.getTime() + QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds * 1_000,
   );
+  const leaseExpiresAt = operationLeaseUntil(now.getTime());
+  const partCount = expectedMultipartPartCount(expectedWorkbookSizeBytes);
   const uploadObjectKey = createWorkbookObjectKey(attemptId);
   await prisma.questionBankXlsxImportAttempt.create({
     data: {
-      expiresAt: cleanupEligibleAt(uploadExpiresAt),
+      expectedMultipartPartCount: partCount,
+      expectedWorkbookSizeBytes,
+      expiresAt: expiresAfterOperation(leaseExpiresAt),
+      operationLeaseExpiresAt: leaseExpiresAt,
       originalFileName,
       ownerUserId,
       stagedObjectKeys: [uploadObjectKey],
       stagingPrefix: createStagingPrefix(attemptId),
+      state: QuestionBankXlsxImportAttemptState.multipart_creating,
       uploadExpiresAt,
       uploadObjectKey,
     },
   });
 
+  // Do not cancel CreateMultipartUpload after dispatch. If the client disconnects
+  // after R2 creates the upload but before returning its ID, cleanup can find it
+  // by the attempt's exact object key and abort it.
+  if (signal?.aborted) {
+    await markQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+    await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+    throw new QuestionBankXlsxImportError("attempt_cancelled");
+  }
+  let multipartUploadId: string | null = null;
   try {
-    const grant = await createPrivateStagingUploadUrl(
+    multipartUploadId = await createPrivateStagingMultipartUpload(
       uploadObjectKey,
       QUESTION_BANK_XLSX_MIME_TYPE,
-      QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds,
     );
+    const persisted = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${attemptId}::uuid
+        FOR UPDATE
+      `;
+      const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+      if (!current) return false;
+      if (
+        current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
+        || current.cancelRequestedAt
+        || current.uploadExpiresAt <= new Date()
+      ) {
+        await tx.questionBankXlsxImportAttempt.update({
+          data: {
+            cancelRequestedAt: current.cancelRequestedAt ?? new Date(),
+            expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+            multipartUploadId,
+            operationLeaseExpiresAt: null,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+          },
+          where: { id: attemptId },
+        });
+        return false;
+      }
+      await tx.questionBankXlsxImportAttempt.update({
+        data: {
+          expiresAt: cleanupEligibleAt(current.uploadExpiresAt),
+          multipartUploadId,
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.multipart_uploading,
+        },
+        where: { id: attemptId },
+      });
+      return true;
+    });
+    if (!persisted) {
+      await abortPrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_expired");
+    }
+    if (signal?.aborted) {
+      await discardQuestionBankXlsxPreview(ownerUserId, attemptId);
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
+    const parts = await Promise.all(Array.from({ length: partCount }, async (_, index) => {
+      const partNumber = index + 1;
+      const contentLength = expectedMultipartPartBytes(expectedWorkbookSizeBytes, partNumber);
+      const grant = await createPrivateStagingUploadPartUrl(
+        uploadObjectKey,
+        multipartUploadId!,
+        partNumber,
+        contentLength,
+        QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds,
+      );
+      return { contentLength, partNumber, uploadUrl: grant.uploadUrl };
+    }));
+    if (signal?.aborted) {
+      await discardQuestionBankXlsxPreview(ownerUserId, attemptId);
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
     return {
       contentType: QUESTION_BANK_XLSX_MIME_TYPE,
       expiresAt: uploadExpiresAt.toISOString(),
-      maxBytes: QUESTION_BANK_XLSX_LIMITS.workbookBytes,
+      expectedWorkbookSizeBytes,
+      partSizeBytes: QUESTION_BANK_XLSX_LIMITS.multipartPartBytes,
+      parts,
       uploadId: attemptId,
-      uploadUrl: grant.uploadUrl,
     };
-  } catch {
-    await prisma.questionBankXlsxImportAttempt.update({
+  } catch (error) {
+    if (multipartUploadId) {
+      const now = new Date();
+      await prisma.questionBankXlsxImportAttempt.updateMany({
+        data: {
+          cancelRequestedAt: now,
+          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
+          lastErrorCode: signal?.aborted ? "attempt_cancelled" : "upload_grant_unavailable",
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: { id: attemptId, state: QuestionBankXlsxImportAttemptState.multipart_uploading },
+      });
+      await abortPrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+    } else {
+      const now = new Date();
+      await prisma.questionBankXlsxImportAttempt.updateMany({
+        data: {
+          cancelRequestedAt: now,
+          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
+          lastErrorCode: signal?.aborted ? "attempt_cancelled" : "upload_grant_unavailable",
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: { id: attemptId },
+      });
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+    }
+    if (error instanceof QuestionBankXlsxImportError) throw error;
+    throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_unavailable");
+  }
+}
+
+async function validateListedMultipartParts(
+  parts: Awaited<ReturnType<typeof listPrivateStagingMultipartParts>>,
+  expectedSize: number,
+  expectedPartCount: number,
+) {
+  if (parts.length !== expectedPartCount) return null;
+  const byNumber = new Map<number, typeof parts[number]>();
+  for (const part of parts) {
+    if (
+      !Number.isSafeInteger(part.partNumber)
+      || !part.partNumber
+      || part.partNumber < 1
+      || part.partNumber > expectedPartCount
+      || byNumber.has(part.partNumber)
+      || !part.etag
+      || typeof part.size !== "number"
+      || !Number.isSafeInteger(part.size)
+      || part.size !== expectedMultipartPartBytes(expectedSize, part.partNumber)
+    ) return null;
+    byNumber.set(part.partNumber, part);
+  }
+  const ordered: Array<{ ETag: string; PartNumber: number }> = [];
+  let total = 0;
+  for (let partNumber = 1; partNumber <= expectedPartCount; partNumber += 1) {
+    const part = byNumber.get(partNumber);
+    if (!part || !part.etag || typeof part.size !== "number" || !Number.isSafeInteger(part.size)) return null;
+    total += part.size;
+    if (total > QUESTION_BANK_XLSX_LIMITS.workbookBytes) return null;
+    ordered.push({ ETag: part.etag, PartNumber: partNumber });
+  }
+  return total === expectedSize ? ordered : null;
+}
+
+async function completeQuestionBankXlsxUpload(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+  const now = new Date();
+  const claimed = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attemptId}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+    if (!current || current.ownerUserId !== ownerUserId) {
+      throw new QuestionBankXlsxImportError("attempt_not_found");
+    }
+    if (current.cancelRequestedAt) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    if (current.state === QuestionBankXlsxImportAttemptState.upload_complete) {
+      if (current.expiresAt <= now) throw new QuestionBankXlsxImportError("attempt_expired");
+      return { attempt: current, replay: true as const };
+    }
+    if (
+      current.state === QuestionBankXlsxImportAttemptState.multipart_completing
+      && current.operationLeaseExpiresAt
+      && current.operationLeaseExpiresAt > now
+    ) {
+      throw new QuestionBankXlsxImportError("attempt_busy");
+    }
+    if (
+      current.state !== QuestionBankXlsxImportAttemptState.multipart_uploading
+      && current.state !== QuestionBankXlsxImportAttemptState.multipart_completing
+    ) {
+      throw new QuestionBankXlsxImportError("attempt_busy");
+    }
+    if (current.uploadExpiresAt <= now) {
+      await tx.questionBankXlsxImportAttempt.update({
+        data: {
+          cancelRequestedAt: now,
+          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: { id: attemptId },
+      });
+      throw new QuestionBankXlsxImportError("attempt_expired");
+    }
+    if (
+      !current.multipartUploadId
+      || !current.expectedWorkbookSizeBytes
+      || !current.expectedMultipartPartCount
+      || current.expectedWorkbookSizeBytes > QUESTION_BANK_XLSX_LIMITS.workbookBytes
+      || current.expectedMultipartPartCount !== expectedMultipartPartCount(current.expectedWorkbookSizeBytes)
+    ) {
+      throw new QuestionBankXlsxImportError("multipart_invalid");
+    }
+    const leaseExpiresAt = operationLeaseUntil(now.getTime());
+    const attempt = await tx.questionBankXlsxImportAttempt.update({
       data: {
-        expiresAt: new Date(),
-        lastErrorCode: "upload_grant_unavailable",
-        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        expiresAt: expiresAfterOperation(leaseExpiresAt),
+        operationLeaseExpiresAt: leaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.multipart_completing,
       },
       where: { id: attemptId },
     });
+    return { attempt, replay: false as const };
+  });
+
+  const expectedSize = claimed.attempt.expectedWorkbookSizeBytes;
+  const uploadObjectKey = claimed.attempt.uploadObjectKey;
+  if (!expectedSize) throw new QuestionBankXlsxImportError("multipart_invalid");
+  if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+
+  if (claimed.replay) {
+    const head = await headMediaObject(uploadObjectKey, signal);
+    if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    if (head.ContentLength !== expectedSize || head.ContentLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    return { expectedWorkbookSizeBytes: expectedSize, replay: true as const };
+  }
+
+  try {
+    let objectComplete = false;
+    try {
+      const head = await headMediaObject(uploadObjectKey, signal);
+      objectComplete = head.ContentLength === expectedSize;
+      if (
+        head.ContentLength !== undefined
+        && head.ContentLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes
+      ) throw new QuestionBankXlsxImportError("xlsx_too_large");
+      if (objectComplete === false && head.ContentLength !== undefined) throw new QuestionBankXlsxImportError("multipart_invalid");
+    } catch (error) {
+      if (error instanceof QuestionBankXlsxImportError) throw error;
+      if (!isMissingStagingObjectError(error)) throw error;
+    }
+
+    if (!objectComplete) {
+      const multipartUploadId = claimed.attempt.multipartUploadId;
+      const partCount = claimed.attempt.expectedMultipartPartCount;
+      if (!multipartUploadId || !partCount) throw new QuestionBankXlsxImportError("multipart_invalid");
+      const listedParts = await listPrivateStagingMultipartParts(uploadObjectKey, multipartUploadId, signal);
+      const completionParts = await validateListedMultipartParts(listedParts, expectedSize, partCount);
+      if (!completionParts) {
+        const incomplete = listedParts.length < partCount
+          && listedParts.every((part) => Number.isSafeInteger(part.partNumber)
+            && part.partNumber! >= 1
+            && part.partNumber! <= partCount);
+        if (incomplete) {
+          await prisma.questionBankXlsxImportAttempt.updateMany({
+            data: {
+              expiresAt: cleanupEligibleAt(claimed.attempt.uploadExpiresAt),
+              operationLeaseExpiresAt: null,
+              state: QuestionBankXlsxImportAttemptState.multipart_uploading,
+            },
+            where: {
+              cancelRequestedAt: null,
+              id: attemptId,
+              state: QuestionBankXlsxImportAttemptState.multipart_completing,
+            },
+          });
+          throw new QuestionBankXlsxImportError("multipart_incomplete");
+        }
+        await prisma.questionBankXlsxImportAttempt.updateMany({
+          data: {
+            cancelRequestedAt: new Date(),
+            expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+            operationLeaseExpiresAt: null,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+            lastErrorCode: "multipart_invalid",
+          },
+          where: { id: attemptId, state: QuestionBankXlsxImportAttemptState.multipart_completing },
+        });
+        await finishQuestionBankXlsxCancellation(ownerUserId, attemptId);
+        throw new QuestionBankXlsxImportError("multipart_invalid");
+      }
+      if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+      await completePrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId, completionParts, signal);
+    }
+
+    if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    const head = await headMediaObject(uploadObjectKey, signal);
+    if (head.ContentLength !== undefined && head.ContentLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
+      throw new QuestionBankXlsxImportError("xlsx_too_large");
+    }
+    if (head.ContentLength !== expectedSize) throw new QuestionBankXlsxImportError("multipart_invalid");
+    if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    const completedAt = new Date();
+    const committed = await prisma.$transaction(async (tx) => {
+      if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${attemptId}::uuid
+        FOR UPDATE
+      `;
+      const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+      if (
+        !current
+        || current.ownerUserId !== ownerUserId
+        || current.cancelRequestedAt
+        || current.state !== QuestionBankXlsxImportAttemptState.multipart_completing
+      ) return false;
+      await tx.questionBankXlsxImportAttempt.update({
+        data: {
+          expiresAt: new Date(completedAt.getTime() + QUESTION_BANK_XLSX_LIMITS.previewExpiresMs),
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.upload_complete,
+        },
+        where: { id: attemptId },
+      });
+      return true;
+    });
+    if (!committed) {
+      await deletePrivateStagingObjects([uploadObjectKey]).catch(() => undefined);
+      await abortPrivateStagingMultipartUpload(
+        uploadObjectKey,
+        claimed.attempt.multipartUploadId ?? "",
+      ).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId);
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
+    if (signal?.aborted) {
+      await markQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
+    return { expectedWorkbookSizeBytes: expectedSize, replay: false as const };
+  } catch (error) {
+    if (signal?.aborted || error instanceof QuestionBankXlsxImportError && error.code === "attempt_cancelled") {
+      await markQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
+    if (error instanceof QuestionBankXlsxImportError && error.code === "multipart_incomplete") throw error;
+    if (error instanceof QuestionBankXlsxImportError && error.code === "multipart_invalid") {
+      await markQuestionBankXlsxCancellation(ownerUserId, attemptId, error.code).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+      throw error;
+    }
+    if (error instanceof QuestionBankXlsxImportError && error.code === "xlsx_too_large") {
+      await markQuestionBankXlsxCancellation(ownerUserId, attemptId, error.code);
+      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId);
+      throw error;
+    }
+    // A Complete request can succeed remotely while its response is lost. Keep
+    // the completing state and its lease; a retry or cleanup worker HEAD-checks
+    // the object after that lease expires before taking another action.
     throw new QuestionBankXlsxImportError("attempt_unavailable");
   }
 }
 
-async function beginQuestionBankXlsxPreview(ownerUserId: string, attemptId: string) {
+function isMissingStagingObjectError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
+  return value.name === "NotFound" || value.name === "NoSuchKey" || value.$metadata?.httpStatusCode === 404;
+}
+
+async function beginQuestionBankXlsxPreview(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+  if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   const now = new Date();
   const previewExpiresAt = new Date(now.getTime() + QUESTION_BANK_XLSX_LIMITS.previewExpiresMs);
+  const leaseExpiresAt = operationLeaseUntil(now.getTime());
   const previewState = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id
@@ -264,20 +707,28 @@ async function beginQuestionBankXlsxPreview(ownerUserId: string, attemptId: stri
     if (!current || current.ownerUserId !== ownerUserId) {
       throw new QuestionBankXlsxImportError("attempt_not_found");
     }
+    if (current.cancelRequestedAt) throw new QuestionBankXlsxImportError("attempt_cancelled");
     if (current.state === QuestionBankXlsxImportAttemptState.previewed) {
       if (!current.previewExpiresAt || current.previewExpiresAt <= now) {
         throw new QuestionBankXlsxImportError("attempt_expired");
       }
       return { attempt: current, expired: false as const, replay: true as const };
     }
-    if (current.state !== QuestionBankXlsxImportAttemptState.upload_pending) {
+    const retryingExpiredPreview = current.state === QuestionBankXlsxImportAttemptState.previewing
+      && (!current.operationLeaseExpiresAt || current.operationLeaseExpiresAt <= now);
+    if (
+      current.state !== QuestionBankXlsxImportAttemptState.upload_complete
+      && !retryingExpiredPreview
+    ) {
       throw new QuestionBankXlsxImportError("attempt_busy");
     }
-    if (current.uploadExpiresAt <= now) {
+    if (!retryingExpiredPreview && current.uploadExpiresAt <= now) {
       const expired = await tx.questionBankXlsxImportAttempt.update({
         data: {
-          expiresAt: cleanupEligibleAt(current.uploadExpiresAt, now.getTime()),
+          cancelRequestedAt: now,
+          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
           lastErrorCode: "upload_expired",
+          operationLeaseExpiresAt: null,
           state: QuestionBankXlsxImportAttemptState.cleanup_pending,
         },
         where: { id: attemptId },
@@ -286,8 +737,9 @@ async function beginQuestionBankXlsxPreview(ownerUserId: string, attemptId: stri
     }
     const updated = await tx.questionBankXlsxImportAttempt.update({
       data: {
-        expiresAt: previewExpiresAt,
+        expiresAt: expiresAfterOperation(leaseExpiresAt),
         lastErrorCode: null,
+        operationLeaseExpiresAt: leaseExpiresAt,
         previewExpiresAt,
         state: QuestionBankXlsxImportAttemptState.previewing,
       },
@@ -298,36 +750,48 @@ async function beginQuestionBankXlsxPreview(ownerUserId: string, attemptId: stri
 
   if (previewState.expired) throw new QuestionBankXlsxImportError("attempt_expired");
   if (previewState.replay) {
-    const preview = await readQuestionBankXlsxPreview(ownerUserId, attemptId);
+    const preview = await readQuestionBankXlsxPreview(ownerUserId, attemptId, signal);
     return { ...preview, replay: true as const };
   }
 
   try {
-    const head = await headMediaObject(previewState.attempt.uploadObjectKey);
-    if (head.ContentLength !== undefined && head.ContentLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
+    if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    const expectedSize = previewState.attempt.expectedWorkbookSizeBytes;
+    if (!expectedSize || expectedSize > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
+      throw new QuestionBankXlsxImportError("multipart_invalid");
+    }
+    const head = await headMediaObject(previewState.attempt.uploadObjectKey, signal);
+    if (head.ContentLength === undefined) throw new QuestionBankXlsxImportError("attempt_invalid");
+    if (head.ContentLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
       throw new QuestionBankXlsxImportError("xlsx_too_large");
     }
     const workbookBytes = await readPrivateStagingObject(
       previewState.attempt.uploadObjectKey,
       QUESTION_BANK_XLSX_LIMITS.workbookBytes,
+      signal,
     );
+    if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
     if (workbookBytes.byteLength === 0) {
       throw new QuestionBankXlsxImportError("attempt_invalid");
     }
     if (workbookBytes.byteLength > QUESTION_BANK_XLSX_LIMITS.workbookBytes) {
       throw new QuestionBankXlsxImportError("xlsx_too_large");
     }
-    if (head.ContentLength !== undefined && head.ContentLength !== workbookBytes.byteLength) {
+    if (workbookBytes.byteLength !== expectedSize || head.ContentLength !== expectedSize || head.ContentLength !== workbookBytes.byteLength) {
       throw new QuestionBankXlsxImportError("attempt_invalid");
     }
     return { attempt: previewState.attempt, replay: false as const, workbookBytes };
   } catch (error) {
+    if (signal?.aborted || error instanceof QuestionBankXlsxImportError && error.code === "attempt_cancelled") {
+      throw new QuestionBankXlsxImportError("attempt_cancelled");
+    }
     const code = error instanceof QuestionBankXlsxImportError
       ? error.code
       : error instanceof PrivateStagingObjectTooLargeError
         ? "xlsx_too_large"
         : "xlsx_upload_missing";
-    await rejectQuestionBankXlsxPreview(ownerUserId, attemptId, code);
+    const rejected = await rejectQuestionBankXlsxPreview(ownerUserId, attemptId, code);
+    if (!rejected) throw new QuestionBankXlsxImportError("attempt_cancelled");
     throw new QuestionBankXlsxImportError(code);
   }
 }
@@ -337,7 +801,7 @@ async function rejectQuestionBankXlsxPreview(
   attemptId: string,
   errorCode: string,
 ) {
-  const attempt = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id
       FROM question_bank_xlsx_import_attempts
@@ -345,24 +809,24 @@ async function rejectQuestionBankXlsxPreview(
       FOR UPDATE
     `;
     const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
-    if (!current || current.ownerUserId !== ownerUserId) return null;
-    if (current.state !== QuestionBankXlsxImportAttemptState.previewing) return null;
-    const expiry = cleanupEligibleAt(current.uploadExpiresAt);
-    return tx.questionBankXlsxImportAttempt.update({
+    if (!current || current.ownerUserId !== ownerUserId || current.cancelRequestedAt) return false;
+    if (current.state !== QuestionBankXlsxImportAttemptState.previewing) return true;
+    const expiry = new Date(Date.now() + CLEANUP_RETRY_DELAY_MS);
+    await tx.questionBankXlsxImportAttempt.update({
       data: {
         expiresAt: expiry,
         lastErrorCode: errorCode,
+        operationLeaseExpiresAt: null,
         state: QuestionBankXlsxImportAttemptState.failed,
       },
       where: { id: attemptId },
     });
+    return true;
   });
-  // Keep the workbook object until the upload grant has expired plus a short
-  // grace. An in-flight PUT may still complete after the signer has issued it.
-  if (!attempt) return;
 }
 
 async function persistQuestionBankXlsxPreview(input: QuestionBankXlsxUploadPreviewInput) {
+  if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   const manifestObjectKey = createManifestObjectKey(input.attemptId);
   const imagePayloads = input.imagePayloads.map((image) => ({
     ...image,
@@ -413,9 +877,11 @@ async function persistQuestionBankXlsxPreview(input: QuestionBankXlsxUploadPrevi
         !current
         || current.ownerUserId !== input.ownerUserId
         || current.state !== QuestionBankXlsxImportAttemptState.previewing
+        || current.cancelRequestedAt
       ) {
-        throw new QuestionBankXlsxImportError("attempt_busy");
+        throw new QuestionBankXlsxImportError(current?.cancelRequestedAt ? "attempt_cancelled" : "attempt_busy");
       }
+      if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
       return tx.questionBankXlsxImportAttempt.update({
         data: {
           expiresAt: previewExpiresAt,
@@ -434,49 +900,85 @@ async function persistQuestionBankXlsxPreview(input: QuestionBankXlsxUploadPrevi
     });
 
     for (let offset = 0; offset < imagePayloads.length; offset += 8) {
+      if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
       const batch = imagePayloads.slice(offset, offset + 8);
       const results = await Promise.allSettled(batch.map((image) =>
-        putPrivateStagingObject(image.objectKey, image.bytes, image.mimeType),
+        putPrivateStagingObject(image.objectKey, image.bytes, image.mimeType, input.signal),
       ));
       if (results.some((result) => result.status === "rejected")) {
+        if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
         throw new QuestionBankXlsxImportError("attempt_unavailable");
       }
     }
-    await putPrivateStagingObject(manifestObjectKey, manifestBytes, MANIFEST_MIME_TYPE);
+    if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    await putPrivateStagingObject(manifestObjectKey, manifestBytes, MANIFEST_MIME_TYPE, input.signal);
+    if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
 
     const completed = await prisma.questionBankXlsxImportAttempt.updateMany({
-      data: { state: QuestionBankXlsxImportAttemptState.previewed },
+      data: {
+        operationLeaseExpiresAt: null,
+        state: QuestionBankXlsxImportAttemptState.previewed,
+      },
       where: {
+        cancelRequestedAt: null,
         id: input.attemptId,
         ownerUserId: input.ownerUserId,
         state: QuestionBankXlsxImportAttemptState.previewing,
       },
     });
-    if (completed.count !== 1) throw new QuestionBankXlsxImportError("attempt_busy");
+    if (completed.count !== 1) {
+      const current = await prisma.questionBankXlsxImportAttempt.findUnique({
+        select: { cancelRequestedAt: true },
+        where: { id: input.attemptId },
+      });
+      throw new QuestionBankXlsxImportError(current?.cancelRequestedAt ? "attempt_cancelled" : "attempt_busy");
+    }
     return { manifest, previewImageIndex };
   } catch (error) {
     const current = attempt ?? await prisma.questionBankXlsxImportAttempt.findUnique({
       where: { id: input.attemptId },
     });
     if (current && current.ownerUserId === input.ownerUserId) {
-      await prisma.questionBankXlsxImportAttempt.update({
-        data: {
-          expiresAt: cleanupEligibleAt(current.uploadExpiresAt),
-          lastErrorCode: "preview_storage_failed",
-          manifestObjectKey: null,
-          manifestSha256: null,
-          previewImageIndex: [],
-          state: QuestionBankXlsxImportAttemptState.failed,
-        },
-        where: { id: input.attemptId },
+      const now = new Date();
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id
+          FROM question_bank_xlsx_import_attempts
+          WHERE id = ${input.attemptId}::uuid
+          FOR UPDATE
+        `;
+        const latest = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: input.attemptId } });
+        if (
+          !latest
+          || latest.ownerUserId !== input.ownerUserId
+          || latest.state !== QuestionBankXlsxImportAttemptState.previewing
+        ) return;
+        const cancelled = Boolean(latest.cancelRequestedAt || input.signal?.aborted);
+        await tx.questionBankXlsxImportAttempt.update({
+          data: {
+            expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
+            lastErrorCode: cancelled ? "attempt_cancelled" : "preview_storage_failed",
+            manifestObjectKey: null,
+            manifestSha256: null,
+            operationLeaseExpiresAt: null,
+            previewImageIndex: [],
+            state: cancelled
+              ? QuestionBankXlsxImportAttemptState.cleanup_pending
+              : QuestionBankXlsxImportAttemptState.failed,
+            ...(cancelled ? { cancelRequestedAt: latest.cancelRequestedAt ?? now } : {}),
+          },
+          where: { id: input.attemptId },
+        });
       });
     }
     if (error instanceof QuestionBankXlsxImportError) throw error;
+    if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
     throw new QuestionBankXlsxImportError("attempt_unavailable");
   }
 }
 
-async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: string) {
+async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+  if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   const attempt = await prisma.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
   if (!attempt || attempt.ownerUserId !== ownerUserId) {
     throw new QuestionBankXlsxImportError("attempt_not_found");
@@ -492,7 +994,9 @@ async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: strin
   const manifestBytes = await readPrivateStagingObject(
     attempt.manifestObjectKey,
     MAX_MANIFEST_BYTES,
+    signal,
   );
+  if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   if (sha256(manifestBytes) !== attempt.manifestSha256) {
     throw new QuestionBankXlsxImportError("attempt_unavailable");
   }
@@ -595,8 +1099,12 @@ async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: strin
   };
 }
 
-async function discardQuestionBankXlsxPreview(ownerUserId: string, attemptId: string) {
-  await prisma.$transaction(async (tx) => {
+async function markQuestionBankXlsxCancellation(
+  ownerUserId: string,
+  attemptId: string,
+  errorCode = "attempt_cancelled",
+) {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id
       FROM question_bank_xlsx_import_attempts
@@ -608,24 +1116,218 @@ async function discardQuestionBankXlsxPreview(ownerUserId: string, attemptId: st
       throw new QuestionBankXlsxImportError("attempt_not_found");
     }
     if (
-      current.state !== QuestionBankXlsxImportAttemptState.upload_pending
-      && current.state !== QuestionBankXlsxImportAttemptState.previewed
-      && current.state !== QuestionBankXlsxImportAttemptState.failed
-      && current.state !== QuestionBankXlsxImportAttemptState.cleanup_pending
+      current.state === QuestionBankXlsxImportAttemptState.applying
+      || current.state === QuestionBankXlsxImportAttemptState.completed
     ) {
       throw new QuestionBankXlsxImportError("attempt_busy");
     }
-    await tx.questionBankXlsxImportAttempt.update({
+    const now = new Date();
+    const inFlightStates = new Set<QuestionBankXlsxImportAttemptState>([
+      QuestionBankXlsxImportAttemptState.multipart_creating,
+      QuestionBankXlsxImportAttemptState.multipart_completing,
+      QuestionBankXlsxImportAttemptState.previewing,
+    ]);
+    const inFlight = inFlightStates.has(current.state)
+      && Boolean(current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now);
+    const state = inFlight ? current.state : QuestionBankXlsxImportAttemptState.cleanup_pending;
+    const operationLeaseExpiresAt = inFlight ? current.operationLeaseExpiresAt : null;
+    const expiresAt = operationLeaseExpiresAt
+      ? expiresAfterOperation(operationLeaseExpiresAt)
+      : cleanupEligibleAt(current.uploadExpiresAt, now.getTime());
+    const updated = await tx.questionBankXlsxImportAttempt.update({
+      data: {
+        cancelRequestedAt: current.cancelRequestedAt ?? now,
+        expiresAt,
+        lastErrorCode: errorCode,
+        operationLeaseExpiresAt,
+        state,
+      },
+      where: { id: attemptId },
+    });
+    return { attempt: updated, readyForCleanup: state === QuestionBankXlsxImportAttemptState.cleanup_pending };
+  });
+  abortActiveQuestionBankXlsxPreview(attemptId, new QuestionBankXlsxImportError("attempt_cancelled"));
+  if (result.readyForCleanup) await cleanupCancelledQuestionBankXlsxAttempt(result.attempt);
+}
+
+async function finishQuestionBankXlsxCancellation(ownerUserId: string, attemptId: string) {
+  const attempt = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attemptId}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+    if (!current || current.ownerUserId !== ownerUserId || !current.cancelRequestedAt) return null;
+    return tx.questionBankXlsxImportAttempt.update({
       data: {
         expiresAt: cleanupEligibleAt(current.uploadExpiresAt),
-        state: QuestionBankXlsxImportAttemptState.discarded,
+        operationLeaseExpiresAt: null,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
       },
       where: { id: attemptId },
     });
   });
+  if (attempt) await cleanupCancelledQuestionBankXlsxAttempt(attempt);
+}
 
-  // Cleanup is deferred until the presigned workbook PUT can no longer write
-  // this key, so cancellation cannot race a still-valid upload grant.
+function isMissingMultipartUploadError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
+  return value.name === "NoSuchUpload" || value.name === "NoSuchUploadError"
+    || value.$metadata?.httpStatusCode === 404;
+}
+
+async function removeAttemptStaging(attempt: {
+  id: string;
+  multipartUploadId: string | null;
+  stagedObjectKeys: Prisma.JsonValue;
+  uploadObjectKey: string;
+}) {
+  const multipartIds = new Set<string>();
+  if (attempt.multipartUploadId) multipartIds.add(attempt.multipartUploadId);
+  let active = await listPrivateStagingMultipartUploads(attempt.uploadObjectKey);
+  for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
+  for (let retry = 0; retry < 3; retry += 1) {
+    for (const multipartUploadId of multipartIds) {
+      try {
+        await abortPrivateStagingMultipartUpload(attempt.uploadObjectKey, multipartUploadId);
+      } catch (error) {
+        if (!isMissingMultipartUploadError(error)) throw error;
+      }
+    }
+    active = await listPrivateStagingMultipartUploads(attempt.uploadObjectKey);
+    if (!active.length) break;
+    for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
+  }
+  if (active.length) throw new Error("R2 multipart uploads remain after abort.");
+  await deletePrivateStagingObjects(parseStagedObjectKeys(attempt.stagedObjectKeys, attempt.id));
+}
+
+async function cleanupCancelledQuestionBankXlsxAttempt(attempt: {
+  id: string;
+  multipartUploadId: string | null;
+  stagedObjectKeys: Prisma.JsonValue;
+  uploadExpiresAt: Date;
+  uploadObjectKey: string;
+}) {
+  const now = new Date();
+  const leaseExpiresAt = operationLeaseUntil(now.getTime());
+  const claimed = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attempt.id}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attempt.id } });
+    if (
+      !current
+      || current.state !== QuestionBankXlsxImportAttemptState.cleanup_pending
+      || !current.cancelRequestedAt
+      || (current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now)
+    ) return null;
+    return tx.questionBankXlsxImportAttempt.update({
+      data: {
+        expiresAt: expiresAfterOperation(leaseExpiresAt),
+        operationLeaseExpiresAt: leaseExpiresAt,
+      },
+      where: { id: attempt.id },
+    });
+  });
+  if (!claimed) return;
+
+  try {
+    await removeAttemptStaging(claimed);
+    const partGrantDrainAt = cleanupEligibleAt(claimed.uploadExpiresAt);
+    if (partGrantDrainAt > new Date()) {
+      // Abort promptly, but retain a cleanup tombstone until every signed part
+      // URL has expired and the grace period has elapsed. The expiry worker
+      // performs a second MPU listing/abort pass before deleting this row.
+      await prisma.questionBankXlsxImportAttempt.updateMany({
+        data: {
+          expiresAt: partGrantDrainAt,
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: {
+          id: claimed.id,
+          operationLeaseExpiresAt: leaseExpiresAt,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+      });
+      return;
+    }
+    await prisma.questionBankXlsxImportAttempt.deleteMany({
+      where: {
+        id: claimed.id,
+        operationLeaseExpiresAt: leaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+      },
+    });
+  } catch {
+    await prisma.questionBankXlsxImportAttempt.updateMany({
+      data: {
+        expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+        operationLeaseExpiresAt: null,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+      },
+      where: {
+        id: claimed.id,
+        operationLeaseExpiresAt: leaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+      },
+    });
+  }
+}
+
+async function recoverExpiredMultipartCompletion(attempt: {
+  cancelRequestedAt: Date | null;
+  expectedMultipartPartCount: number | null;
+  expectedWorkbookSizeBytes: number | null;
+  id: string;
+  multipartUploadId: string | null;
+  operationLeaseExpiresAt: Date | null;
+  uploadObjectKey: string;
+}, leaseExpiresAt: Date) {
+  const expectedSize = attempt.expectedWorkbookSizeBytes;
+  const multipartUploadId = attempt.multipartUploadId;
+  const partCount = attempt.expectedMultipartPartCount;
+  if (!expectedSize || !multipartUploadId || !partCount) return false;
+  let exists = false;
+  try {
+    const head = await headMediaObject(attempt.uploadObjectKey);
+    const actualSize = head.ContentLength;
+    exists = actualSize === expectedSize;
+    if (actualSize === undefined || !exists || actualSize > QUESTION_BANK_XLSX_LIMITS.workbookBytes) return false;
+  } catch (error) {
+    if (!isMissingStagingObjectError(error)) throw error;
+  }
+  if (!exists) {
+    const parts = await listPrivateStagingMultipartParts(attempt.uploadObjectKey, multipartUploadId);
+    const completionParts = await validateListedMultipartParts(parts, expectedSize, partCount);
+    if (!completionParts) return false;
+    await completePrivateStagingMultipartUpload(attempt.uploadObjectKey, multipartUploadId, completionParts);
+    const head = await headMediaObject(attempt.uploadObjectKey);
+    const actualSize = head.ContentLength;
+    if (actualSize === undefined || actualSize !== expectedSize || actualSize > QUESTION_BANK_XLSX_LIMITS.workbookBytes) return false;
+  }
+  const now = new Date();
+  const recovered = await prisma.questionBankXlsxImportAttempt.updateMany({
+    data: {
+      expiresAt: new Date(now.getTime() + QUESTION_BANK_XLSX_LIMITS.previewExpiresMs),
+      operationLeaseExpiresAt: null,
+      state: QuestionBankXlsxImportAttemptState.upload_complete,
+    },
+    where: {
+      cancelRequestedAt: null,
+      id: attempt.id,
+      operationLeaseExpiresAt: leaseExpiresAt,
+      state: QuestionBankXlsxImportAttemptState.multipart_completing,
+    },
+  });
+  return recovered.count === 1;
 }
 
 async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
@@ -635,9 +1337,17 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
     take: CLEANUP_BATCH_SIZE,
     where: {
       expiresAt: { lte: now },
+      OR: [
+        { operationLeaseExpiresAt: null },
+        { operationLeaseExpiresAt: { lte: now } },
+      ],
       state: {
         in: [
           QuestionBankXlsxImportAttemptState.upload_pending,
+          QuestionBankXlsxImportAttemptState.multipart_creating,
+          QuestionBankXlsxImportAttemptState.multipart_uploading,
+          QuestionBankXlsxImportAttemptState.multipart_completing,
+          QuestionBankXlsxImportAttemptState.upload_complete,
           QuestionBankXlsxImportAttemptState.previewing,
           QuestionBankXlsxImportAttemptState.previewed,
           QuestionBankXlsxImportAttemptState.completed,
@@ -652,7 +1362,7 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
   let deferred = 0;
 
   for (const candidate of expiredAttempts) {
-    const attempt = await prisma.$transaction(async (tx) => {
+    const prepared = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw<Array<{ id: string }>>`
         SELECT id
         FROM question_bank_xlsx_import_attempts
@@ -660,30 +1370,104 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
         FOR UPDATE
       `;
       const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: candidate.id } });
-      if (!current || current.expiresAt > now || current.state === QuestionBankXlsxImportAttemptState.applying) return null;
-      return tx.questionBankXlsxImportAttempt.update({
-        data: { state: QuestionBankXlsxImportAttemptState.cleanup_pending },
+      if (
+        !current
+        || current.expiresAt > now
+        || current.state === QuestionBankXlsxImportAttemptState.applying
+        || (current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now)
+      ) return null;
+      const leaseExpiresAt = operationLeaseUntil(now.getTime());
+      const recoverCompletion = current.state === QuestionBankXlsxImportAttemptState.multipart_completing
+        && !current.cancelRequestedAt;
+      const attempt = await tx.questionBankXlsxImportAttempt.update({
+        data: recoverCompletion
+          ? {
+            expiresAt: expiresAfterOperation(leaseExpiresAt),
+            operationLeaseExpiresAt: leaseExpiresAt,
+          }
+          : {
+            cancelRequestedAt: current.cancelRequestedAt ?? now,
+            expiresAt: expiresAfterOperation(leaseExpiresAt),
+            operationLeaseExpiresAt: leaseExpiresAt,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+          },
         where: { id: current.id },
       });
+      return { attempt, leaseExpiresAt, recoverCompletion };
     });
-    if (!attempt) continue;
+    if (!prepared) continue;
+
+    if (prepared.recoverCompletion) {
+      try {
+        const recovered = await recoverExpiredMultipartCompletion(prepared.attempt, prepared.leaseExpiresAt);
+        if (recovered) {
+          cleaned += 0;
+          continue;
+        }
+        await prisma.questionBankXlsxImportAttempt.updateMany({
+          data: {
+            cancelRequestedAt: new Date(),
+            expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+            operationLeaseExpiresAt: null,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+          },
+          where: {
+            id: prepared.attempt.id,
+            operationLeaseExpiresAt: prepared.leaseExpiresAt,
+            state: QuestionBankXlsxImportAttemptState.multipart_completing,
+          },
+        });
+        deferred += 1;
+        continue;
+      } catch {
+        await prisma.questionBankXlsxImportAttempt.updateMany({
+          data: {
+            expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+            operationLeaseExpiresAt: null,
+          },
+          where: {
+            id: prepared.attempt.id,
+            operationLeaseExpiresAt: prepared.leaseExpiresAt,
+            state: QuestionBankXlsxImportAttemptState.multipart_completing,
+          },
+        });
+        deferred += 1;
+        continue;
+      }
+    }
 
     try {
-      await deletePrivateStagingObjects(parseStagedObjectKeys(attempt.stagedObjectKeys, attempt.id));
+      await removeAttemptStaging(prepared.attempt);
       const deleted = await prisma.questionBankXlsxImportAttempt.deleteMany({
-        where: { id: attempt.id, state: QuestionBankXlsxImportAttemptState.cleanup_pending },
+        where: {
+          id: prepared.attempt.id,
+          operationLeaseExpiresAt: prepared.leaseExpiresAt,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
       });
       cleaned += deleted.count;
     } catch {
-      await prisma.questionBankXlsxImportAttempt.update({
-        data: { expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS) },
-        where: { id: attempt.id },
+      await prisma.questionBankXlsxImportAttempt.updateMany({
+        data: {
+          expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: {
+          id: prepared.attempt.id,
+          operationLeaseExpiresAt: prepared.leaseExpiresAt,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
       });
       deferred += 1;
     }
   }
 
   return { cleaned, deferred };
+}
+
+async function discardQuestionBankXlsxPreview(ownerUserId: string, attemptId: string) {
+  await markQuestionBankXlsxCancellation(ownerUserId, attemptId);
 }
 
 export {
@@ -693,12 +1477,17 @@ export {
   cleanupExpiredQuestionBankXlsxImportAttempts,
   createImageObjectKey,
   createQuestionBankXlsxUploadGrant,
+  completeQuestionBankXlsxUpload,
   discardQuestionBankXlsxPreview,
+  finishQuestionBankXlsxCancellation,
+  markQuestionBankXlsxCancellation,
   parseImageIndex,
   parseStagedObjectKeys,
   persistQuestionBankXlsxPreview,
   readQuestionBankXlsxPreview,
   rejectQuestionBankXlsxPreview,
+  registerQuestionBankXlsxPreviewController,
+  watchQuestionBankXlsxPreviewCancellation,
   sha256,
 };
 

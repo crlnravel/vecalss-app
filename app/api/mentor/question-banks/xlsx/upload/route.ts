@@ -22,8 +22,13 @@ export async function POST(request: Request) {
   if (session === false) return questionBankXlsxErrorResponse("resource_inaccessible", 403);
 
   try {
-    const { fileName } = await parseQuestionBankXlsxUploadRequest(request);
-    const grant = await createQuestionBankXlsxUploadGrant(session.user.id, fileName);
+    const { expectedWorkbookSizeBytes, fileName } = await parseQuestionBankXlsxUploadRequest(request);
+    const grant = await createQuestionBankXlsxUploadGrant(
+      session.user.id,
+      fileName,
+      expectedWorkbookSizeBytes,
+      request.signal,
+    );
     return Response.json(grant, { headers: QUESTION_BANK_XLSX_HTTP_HEADERS });
   } catch (error) {
     const mapped = mapQuestionBankXlsxError(error);

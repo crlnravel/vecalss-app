@@ -1,9 +1,14 @@
 import { readPrivateStagingObject } from "@/lib/media/r2";
 import {
+  QuestionBankXlsxImportError,
   beginQuestionBankXlsxPreview,
+  finishQuestionBankXlsxCancellation,
+  markQuestionBankXlsxCancellation,
   persistQuestionBankXlsxPreview,
+  registerQuestionBankXlsxPreviewController,
   readQuestionBankXlsxPreview,
   rejectQuestionBankXlsxPreview,
+  watchQuestionBankXlsxPreviewCancellation,
 } from "@/lib/question-bank/xlsx-import-repository";
 import {
   QUESTION_BANK_XLSX_HTTP_HEADERS,
@@ -31,15 +36,17 @@ export const maxDuration = 300;
 async function previewThumbnails(
   ownerUserId: string,
   uploadId: string,
+  signal: AbortSignal,
   offset = 0,
 ) {
-  const preview = await readQuestionBankXlsxPreview(ownerUserId, uploadId);
+  const preview = await readQuestionBankXlsxPreview(ownerUserId, uploadId, signal);
   const selected = preview.previewImageIndex.slice(offset, offset + QUESTION_BANK_XLSX_LIMITS.thumbnailPageSize);
   const thumbnails = await mapConcurrent(selected, QUESTION_BANK_XLSX_LIMITS.maxConcurrentImageOperations, async (image) => {
-    const bytes = await readPrivateStagingObject(image.objectKey, QUESTION_BANK_XLSX_LIMITS.imageBytes);
-    const thumbnail = await readQuestionBankXlsxThumbnail(bytes, image);
+    const bytes = await readPrivateStagingObject(image.objectKey, QUESTION_BANK_XLSX_LIMITS.imageBytes, signal);
+    const thumbnail = await readQuestionBankXlsxThumbnail(bytes, image, signal);
     return thumbnail;
-  });
+  }, signal);
+  if (signal.aborted) throw signal.reason ?? new Error("Preview request cancelled.");
   return {
     images: thumbnails,
     nextOffset: offset + thumbnails.length < preview.previewImageIndex.length ? offset + thumbnails.length : null,
@@ -56,12 +63,24 @@ export async function POST(request: Request) {
   if (session === false) return questionBankXlsxErrorResponse("resource_inaccessible", 403);
 
   let uploadId: string | null = null;
+  let previewStarted = false;
+  const previewController = new AbortController();
+  const signal = AbortSignal.any([request.signal, previewController.signal]);
+  let stopCancellationWatch = () => {};
+  let unregisterController = () => {};
   try {
     ({ uploadId } = await parseQuestionBankXlsxPreviewRequest(request));
-    const started = await beginQuestionBankXlsxPreview(session.user.id, uploadId);
+    unregisterController = registerQuestionBankXlsxPreviewController(uploadId, previewController);
+    stopCancellationWatch = watchQuestionBankXlsxPreviewCancellation(
+      session.user.id,
+      uploadId,
+      previewController,
+    );
+    const started = await beginQuestionBankXlsxPreview(session.user.id, uploadId, signal);
     if (started.replay) {
-      const preview = await readQuestionBankXlsxPreview(session.user.id, uploadId);
-      const firstPage = await previewThumbnails(session.user.id, uploadId, 0);
+      const preview = await readQuestionBankXlsxPreview(session.user.id, uploadId, signal);
+      const firstPage = await previewThumbnails(session.user.id, uploadId, signal, 0);
+      if (signal.aborted) throw new Error("Preview request cancelled.");
       return Response.json({
         issues: [],
         normalizedRows: preview.manifest.normalizedRows,
@@ -72,10 +91,19 @@ export async function POST(request: Request) {
       }, { headers: QUESTION_BANK_XLSX_HTTP_HEADERS });
     }
 
-    const parsed = await parseQuestionBankXlsxWorkbook(started.workbookBytes);
+    previewStarted = true;
+    const parsed = await parseQuestionBankXlsxWorkbook(started.workbookBytes, signal);
+    if (signal.aborted) throw signal.reason ?? new Error("Preview request cancelled.");
     if (!parsed.manifest || parsed.issues.length) {
       const hasRows = parsed.issues.some((issue) => issue.kind === "row");
-      await rejectQuestionBankXlsxPreview(session.user.id, uploadId, hasRows ? "xlsx_rows_invalid" : "xlsx_structure_invalid");
+      const rejected = await rejectQuestionBankXlsxPreview(
+        session.user.id,
+        uploadId,
+        hasRows ? "xlsx_rows_invalid" : "xlsx_structure_invalid",
+      );
+      if (!rejected) {
+        throw new Error("Preview was cancelled before validation completed.");
+      }
       return Response.json({
         error: hasRows ? "xlsx_rows_invalid" : "xlsx_structure_invalid",
         issues: parsed.issues,
@@ -88,8 +116,10 @@ export async function POST(request: Request) {
       imagePayloads: parsed.imagePayloads,
       manifest: parsed.manifest,
       ownerUserId: session.user.id,
+      signal,
       workbookBytes: started.workbookBytes,
     });
+    if (signal.aborted) throw signal.reason ?? new Error("Preview request cancelled.");
     const firstPage = {
       images: parsed.thumbnails.map((thumbnail) => ({
         contentSha256: thumbnail.contentSha256,
@@ -114,10 +144,22 @@ export async function POST(request: Request) {
       thumbnailPage: { nextOffset: firstPage.nextOffset, offset: firstPage.offset },
     }, { headers: QUESTION_BANK_XLSX_HTTP_HEADERS });
   } catch (error) {
-    if (uploadId && !(error instanceof QuestionBankXlsxHttpError)) {
-      await rejectQuestionBankXlsxPreview(session.user.id, uploadId, "xlsx_preview_failed");
+    let mappedError = error;
+    if (uploadId && signal.aborted) {
+      await markQuestionBankXlsxCancellation(session.user.id, uploadId).catch(() => undefined);
+      await finishQuestionBankXlsxCancellation(session.user.id, uploadId).catch(() => undefined);
+      mappedError = new QuestionBankXlsxImportError("attempt_cancelled");
+    } else if (uploadId && previewStarted && !(error instanceof QuestionBankXlsxHttpError)) {
+      const rejected = await rejectQuestionBankXlsxPreview(session.user.id, uploadId, "xlsx_preview_failed");
+      if (!rejected) {
+        await finishQuestionBankXlsxCancellation(session.user.id, uploadId).catch(() => undefined);
+        mappedError = new QuestionBankXlsxImportError("attempt_cancelled");
+      }
     }
-    const mapped = mapQuestionBankXlsxError(error);
+    const mapped = mapQuestionBankXlsxError(mappedError);
     return questionBankXlsxErrorResponse(mapped.code, mapped.status);
+  } finally {
+    stopCancellationWatch();
+    unregisterController();
   }
 }

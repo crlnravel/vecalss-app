@@ -9,6 +9,7 @@ import {
   QuestionBankXlsxImportError,
   type QuestionBankXlsxImportErrorCode,
 } from "./xlsx-import-repository";
+import { QUESTION_BANK_XLSX_LIMITS } from "./xlsx-limits";
 
 const QUESTION_BANK_XLSX_HTTP_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -66,9 +67,15 @@ async function readBoundedXlsxJson(request: Request) {
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
+  const cancelReader = () => {
+    void reader.cancel(request.signal.reason).catch(() => undefined);
+  };
+  request.signal.addEventListener("abort", cancelReader, { once: true });
   try {
     while (true) {
+      if (request.signal.aborted) throw request.signal.reason ?? new Error("Request aborted.");
       const next = await reader.read();
+      if (request.signal.aborted) throw request.signal.reason ?? new Error("Request aborted.");
       if (next.done) break;
       total += next.value.byteLength;
       if (total > QUESTION_BANK_XLSX_JSON_MAX_BYTES) {
@@ -78,6 +85,7 @@ async function readBoundedXlsxJson(request: Request) {
       chunks.push(next.value);
     }
   } finally {
+    request.signal.removeEventListener("abort", cancelReader);
     reader.releaseLock();
   }
 
@@ -100,12 +108,25 @@ async function parseQuestionBankXlsxUploadRequest(request: Request) {
     !value
     || typeof value !== "object"
     || Array.isArray(value)
-    || Object.keys(value).length !== 1
+    || Object.keys(value).length !== 2
     || typeof (value as { fileName?: unknown }).fileName !== "string"
+    || typeof (value as { expectedWorkbookSizeBytes?: unknown }).expectedWorkbookSizeBytes !== "number"
   ) {
     throw new QuestionBankXlsxHttpError("invalid_request", 400);
   }
-  return { fileName: (value as { fileName: string }).fileName };
+  const expectedWorkbookSizeBytes = (value as { expectedWorkbookSizeBytes: number }).expectedWorkbookSizeBytes;
+  if (
+    !Number.isSafeInteger(expectedWorkbookSizeBytes)
+    || expectedWorkbookSizeBytes <= 0
+    || expectedWorkbookSizeBytes > QUESTION_BANK_XLSX_LIMITS.workbookBytes
+  ) {
+    const tooLarge = expectedWorkbookSizeBytes > QUESTION_BANK_XLSX_LIMITS.workbookBytes;
+    throw new QuestionBankXlsxHttpError(tooLarge ? "xlsx_too_large" : "invalid_request", tooLarge ? 413 : 400);
+  }
+  return {
+    expectedWorkbookSizeBytes,
+    fileName: (value as { fileName: string }).fileName,
+  };
 }
 
 async function parseQuestionBankXlsxPreviewRequest(request: Request) {
@@ -143,7 +164,7 @@ function questionBankXlsxErrorResponse(code: QuestionBankXlsxHttpCode, status?: 
     code === "unauthenticated" ? 401
       : code === "forbidden_origin" || code === "resource_inaccessible" ? 403
         : code === "attempt_not_found" ? 404
-          : code === "attempt_busy" || code === "attempt_expired" ? 409
+          : code === "attempt_busy" || code === "attempt_cancelled" || code === "attempt_expired" || code === "multipart_incomplete" ? 409
             : code === "xlsx_too_large" ? 413
               : code === "invalid_request" ? 400
                 : code === "attempt_unavailable" ? 503
@@ -159,7 +180,12 @@ function mapQuestionBankXlsxError(error: unknown): QuestionBankXlsxHttpError {
   if (error instanceof QuestionBankXlsxHttpError) return error;
   if (error instanceof QuestionBankXlsxImportError) {
     if (error.code === "attempt_not_found") return new QuestionBankXlsxHttpError(error.code, 404);
-    if (error.code === "attempt_busy" || error.code === "attempt_expired") {
+    if (
+      error.code === "attempt_busy"
+      || error.code === "attempt_cancelled"
+      || error.code === "attempt_expired"
+      || error.code === "multipart_incomplete"
+    ) {
       return new QuestionBankXlsxHttpError(error.code, 409);
     }
     if (error.code === "xlsx_too_large") return new QuestionBankXlsxHttpError(error.code, 413);

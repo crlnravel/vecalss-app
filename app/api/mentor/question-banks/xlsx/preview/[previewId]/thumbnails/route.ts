@@ -34,12 +34,13 @@ export async function GET(request: Request, context: RouteContext) {
     const { previewId: rawPreviewId } = await context.params;
     const previewId = parseQuestionBankXlsxPreviewId(rawPreviewId);
     const offset = parseQuestionBankXlsxThumbnailOffset(new URL(request.url).searchParams.get("offset"));
-    const preview = await readQuestionBankXlsxPreview(session.user.id, previewId);
+    const preview = await readQuestionBankXlsxPreview(session.user.id, previewId, request.signal);
     const selected = preview.previewImageIndex.slice(offset, offset + QUESTION_BANK_XLSX_LIMITS.thumbnailPageSize);
     const images = await mapConcurrent(selected, QUESTION_BANK_XLSX_LIMITS.maxConcurrentImageOperations, async (image) => {
-      const bytes = await readPrivateStagingObject(image.objectKey, QUESTION_BANK_XLSX_LIMITS.imageBytes);
-      return readQuestionBankXlsxThumbnail(bytes, image);
-    });
+      const bytes = await readPrivateStagingObject(image.objectKey, QUESTION_BANK_XLSX_LIMITS.imageBytes, request.signal);
+      return readQuestionBankXlsxThumbnail(bytes, image, request.signal);
+    }, request.signal);
+    if (request.signal.aborted) throw request.signal.reason ?? new Error("Thumbnail request cancelled.");
     return Response.json({
       images,
       nextOffset: offset + images.length < preview.previewImageIndex.length ? offset + images.length : null,

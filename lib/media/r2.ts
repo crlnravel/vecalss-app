@@ -1,11 +1,18 @@
 import "server-only";
 
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListMultipartUploadsCommand,
+  ListPartsCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
+  type CompletedPart,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -26,7 +33,7 @@ type MediaStorageTestOverrides = {
     expiresInSeconds: number;
     uploadUrl: string;
   }>;
-  headObject?: (objectKey: string) => Promise<{
+  headObject?: (objectKey: string, signal?: AbortSignal) => Promise<{
     ContentLength?: number;
     ContentType?: string;
     ETag?: string;
@@ -37,18 +44,62 @@ type MediaStorageTestOverrides = {
     contentType: string,
     expiresInSeconds: number,
   ) => Promise<{ expiresInSeconds: number; uploadUrl: string }>;
+  createPrivateStagingMultipartUpload?: (
+    objectKey: string,
+    contentType: string,
+    signal?: AbortSignal,
+  ) => Promise<string>;
+  createPrivateStagingUploadPartUrl?: (
+    objectKey: string,
+    uploadId: string,
+    partNumber: number,
+    contentLength: number,
+    expiresInSeconds: number,
+  ) => Promise<{ expiresInSeconds: number; uploadUrl: string }>;
+  listPrivateStagingMultipartParts?: (
+    objectKey: string,
+    uploadId: string,
+    signal?: AbortSignal,
+  ) => Promise<PrivateStagingMultipartPart[]>;
+  listPrivateStagingMultipartUploads?: (
+    objectKey: string,
+    signal?: AbortSignal,
+  ) => Promise<PrivateStagingMultipartUpload[]>;
+  completePrivateStagingMultipartUpload?: (
+    objectKey: string,
+    uploadId: string,
+    parts: readonly CompletedPart[],
+    signal?: AbortSignal,
+  ) => Promise<void>;
+  abortPrivateStagingMultipartUpload?: (
+    objectKey: string,
+    uploadId: string,
+    signal?: AbortSignal,
+  ) => Promise<void>;
   putPrivateStagingObject?: (
     objectKey: string,
     bytes: Uint8Array,
     contentType: string,
+    signal?: AbortSignal,
   ) => Promise<void>;
   readPrivateStagingObject?: (
     objectKey: string,
     maxBytes: number,
     signal?: AbortSignal,
   ) => Promise<Uint8Array>;
-  deletePrivateStagingObject?: (objectKey: string) => Promise<void>;
-  deletePrivateStagingObjects?: (objectKeys: readonly string[]) => Promise<void>;
+  deletePrivateStagingObject?: (objectKey: string, signal?: AbortSignal) => Promise<void>;
+  deletePrivateStagingObjects?: (objectKeys: readonly string[], signal?: AbortSignal) => Promise<void>;
+};
+
+type PrivateStagingMultipartPart = {
+  etag: string | undefined;
+  partNumber: number | undefined;
+  size: number | undefined;
+};
+
+type PrivateStagingMultipartUpload = {
+  key: string | undefined;
+  uploadId: string | undefined;
 };
 
 type MediaObjectStream = {
@@ -196,7 +247,7 @@ const readMediaObjectStreamFromR2 = async (
   };
 };
 
-const headMediaObjectFromR2 = async (objectKey: string) => {
+const headMediaObjectFromR2 = async (objectKey: string, signal?: AbortSignal) => {
   const { client, configuration } = getR2Client();
 
   return client.send(
@@ -204,6 +255,7 @@ const headMediaObjectFromR2 = async (objectKey: string) => {
       Bucket: configuration.bucketName,
       Key: objectKey,
     }),
+    signal ? { abortSignal: signal } : undefined,
   );
 };
 
@@ -227,10 +279,152 @@ const createPrivateStagingUploadUrlFromR2 = async (
   return { expiresInSeconds, uploadUrl };
 };
 
+const createPrivateStagingMultipartUploadFromR2 = async (
+  objectKey: string,
+  contentType: string,
+  signal?: AbortSignal,
+) => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  const response = await client.send(new CreateMultipartUploadCommand({
+    Bucket: configuration.bucketName,
+    CacheControl: "private, no-store, max-age=0",
+    ContentType: contentType,
+    Key: objectKey,
+  }), signal ? { abortSignal: signal } : undefined);
+  if (!response.UploadId) throw new Error("R2 multipart upload did not return an upload ID.");
+  return response.UploadId;
+};
+
+const createPrivateStagingUploadPartUrlFromR2 = async (
+  objectKey: string,
+  uploadId: string,
+  partNumber: number,
+  contentLength: number,
+  expiresInSeconds: number,
+) => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  const uploadUrl = await getSignedUrl(
+    client,
+    new UploadPartCommand({
+      Bucket: configuration.bucketName,
+      ContentLength: contentLength,
+      Key: objectKey,
+      PartNumber: partNumber,
+      UploadId: uploadId,
+    }),
+    {
+      expiresIn: expiresInSeconds,
+      signableHeaders: new Set(["content-length"]),
+    },
+  );
+  return { expiresInSeconds, uploadUrl };
+};
+
+const listPrivateStagingMultipartPartsFromR2 = async (
+  objectKey: string,
+  uploadId: string,
+  signal?: AbortSignal,
+): Promise<PrivateStagingMultipartPart[]> => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  const parts: PrivateStagingMultipartPart[] = [];
+  let partNumberMarker: string | undefined;
+  let pageCount = 0;
+  while (true) {
+    if (++pageCount > 2) throw new Error("Too many R2 multipart parts.");
+    const response = await client.send(new ListPartsCommand({
+      Bucket: configuration.bucketName,
+      Key: objectKey,
+      MaxParts: 10,
+      PartNumberMarker: partNumberMarker,
+      UploadId: uploadId,
+    }), signal ? { abortSignal: signal } : undefined);
+    for (const part of response.Parts ?? []) {
+      parts.push({ etag: part.ETag, partNumber: part.PartNumber, size: part.Size });
+      if (parts.length > 10) throw new Error("Too many R2 multipart parts.");
+    }
+    if (!response.IsTruncated) return parts;
+    const nextMarker = response.NextPartNumberMarker;
+    if (
+      !nextMarker
+      || !/^\d+$/u.test(nextMarker)
+      || Number(nextMarker) <= Number(partNumberMarker ?? "0")
+    ) {
+      throw new Error("Invalid R2 multipart part pagination.");
+    }
+    partNumberMarker = nextMarker;
+  }
+};
+
+const listPrivateStagingMultipartUploadsFromR2 = async (
+  objectKey: string,
+  signal?: AbortSignal,
+): Promise<PrivateStagingMultipartUpload[]> => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  const uploads: PrivateStagingMultipartUpload[] = [];
+  let keyMarker: string | undefined;
+  let uploadIdMarker: string | undefined;
+  let pageCount = 0;
+  while (true) {
+    if (++pageCount > 10) throw new Error("Too many R2 multipart uploads for a staging key.");
+    const response = await client.send(new ListMultipartUploadsCommand({
+      Bucket: configuration.bucketName,
+      KeyMarker: keyMarker,
+      MaxUploads: 20,
+      Prefix: objectKey,
+      UploadIdMarker: uploadIdMarker,
+    }), signal ? { abortSignal: signal } : undefined);
+    for (const upload of response.Uploads ?? []) {
+      if (upload.Key === objectKey) uploads.push({ key: upload.Key, uploadId: upload.UploadId });
+      if (uploads.length > 100) throw new Error("Too many R2 multipart uploads for a staging key.");
+    }
+    if (!response.IsTruncated) return uploads;
+    if (!response.NextKeyMarker || response.NextUploadIdMarker === undefined) {
+      throw new Error("Invalid R2 multipart upload pagination.");
+    }
+    keyMarker = response.NextKeyMarker;
+    uploadIdMarker = response.NextUploadIdMarker;
+  }
+};
+
+const completePrivateStagingMultipartUploadFromR2 = async (
+  objectKey: string,
+  uploadId: string,
+  parts: readonly CompletedPart[],
+  signal?: AbortSignal,
+) => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  await client.send(new CompleteMultipartUploadCommand({
+    Bucket: configuration.bucketName,
+    Key: objectKey,
+    MultipartUpload: { Parts: [...parts] },
+    UploadId: uploadId,
+  }), signal ? { abortSignal: signal } : undefined);
+};
+
+const abortPrivateStagingMultipartUploadFromR2 = async (
+  objectKey: string,
+  uploadId: string,
+  signal?: AbortSignal,
+) => {
+  assertPrivateQuestionBankXlsxKey(objectKey);
+  const { client, configuration } = getR2Client();
+  await client.send(new AbortMultipartUploadCommand({
+    Bucket: configuration.bucketName,
+    Key: objectKey,
+    UploadId: uploadId,
+  }), signal ? { abortSignal: signal } : undefined);
+};
+
 const putPrivateStagingObjectFromR2 = async (
   objectKey: string,
   bytes: Uint8Array,
   contentType: string,
+  signal?: AbortSignal,
 ) => {
   assertPrivateQuestionBankXlsxKey(objectKey);
   const { client, configuration } = getR2Client();
@@ -240,7 +434,7 @@ const putPrivateStagingObjectFromR2 = async (
     CacheControl: "private, no-store, max-age=0",
     ContentType: contentType,
     Key: objectKey,
-  }));
+  }), signal ? { abortSignal: signal } : undefined);
 };
 
 const readPrivateStagingObjectFromR2 = async (
@@ -263,6 +457,10 @@ const readPrivateStagingObjectFromR2 = async (
   const reader = response.Body.transformToWebStream().getReader();
   const chunks: Uint8Array[] = [];
   let byteLength = 0;
+  const cancelReader = () => {
+    void reader.cancel(signal?.reason).catch(() => undefined);
+  };
+  signal?.addEventListener("abort", cancelReader, { once: true });
   try {
     while (true) {
       if (signal?.aborted) {
@@ -279,8 +477,11 @@ const readPrivateStagingObjectFromR2 = async (
       chunks.push(next.value);
     }
   } finally {
+    signal?.removeEventListener("abort", cancelReader);
     reader.releaseLock();
   }
+
+  if (signal?.aborted) throw signal.reason ?? new Error("Staging object read was aborted.");
 
   if (response.ContentLength !== undefined && response.ContentLength !== byteLength) {
     throw new Error("Ukuran objek sementara tidak sesuai.");
@@ -295,10 +496,10 @@ const readPrivateStagingObjectFromR2 = async (
   return bytes;
 };
 
-const deletePrivateStagingObjectFromR2 = async (objectKey: string) => {
+const deletePrivateStagingObjectFromR2 = async (objectKey: string, signal?: AbortSignal) => {
   assertPrivateQuestionBankXlsxKey(objectKey);
   const { client, configuration } = getR2Client();
-  await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }));
+  await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }), signal ? { abortSignal: signal } : undefined);
 };
 
 const createMediaUploadUrl = async (objectKey: string, mimeType: string) => (
@@ -306,9 +507,9 @@ const createMediaUploadUrl = async (objectKey: string, mimeType: string) => (
   ?? createMediaUploadUrlFromR2(objectKey, mimeType)
 );
 
-const headMediaObject = async (objectKey: string) => (
-  mediaStorageTestOverrides?.headObject?.(objectKey)
-  ?? headMediaObjectFromR2(objectKey)
+const headMediaObject = async (objectKey: string, signal?: AbortSignal) => (
+  mediaStorageTestOverrides?.headObject?.(objectKey, signal)
+  ?? headMediaObjectFromR2(objectKey, signal)
 );
 
 const readMediaObjectStream = async (objectKey: string, signal?: AbortSignal) => (
@@ -329,13 +530,73 @@ const createPrivateStagingUploadUrl = async (
   ?? createPrivateStagingUploadUrlFromR2(objectKey, contentType, expiresInSeconds)
 );
 
+const createPrivateStagingMultipartUpload = async (
+  objectKey: string,
+  contentType: string,
+  signal?: AbortSignal,
+) => (
+  mediaStorageTestOverrides?.createPrivateStagingMultipartUpload?.(objectKey, contentType, signal)
+  ?? createPrivateStagingMultipartUploadFromR2(objectKey, contentType, signal)
+);
+
+const createPrivateStagingUploadPartUrl = async (
+  objectKey: string,
+  uploadId: string,
+  partNumber: number,
+  contentLength: number,
+  expiresInSeconds: number,
+) => (
+  mediaStorageTestOverrides?.createPrivateStagingUploadPartUrl?.(
+    objectKey,
+    uploadId,
+    partNumber,
+    contentLength,
+    expiresInSeconds,
+  )
+  ?? createPrivateStagingUploadPartUrlFromR2(objectKey, uploadId, partNumber, contentLength, expiresInSeconds)
+);
+
+const listPrivateStagingMultipartParts = async (
+  objectKey: string,
+  uploadId: string,
+  signal?: AbortSignal,
+) => (
+  mediaStorageTestOverrides?.listPrivateStagingMultipartParts?.(objectKey, uploadId, signal)
+  ?? listPrivateStagingMultipartPartsFromR2(objectKey, uploadId, signal)
+);
+
+const listPrivateStagingMultipartUploads = async (objectKey: string, signal?: AbortSignal) => (
+  mediaStorageTestOverrides?.listPrivateStagingMultipartUploads?.(objectKey, signal)
+  ?? listPrivateStagingMultipartUploadsFromR2(objectKey, signal)
+);
+
+const completePrivateStagingMultipartUpload = async (
+  objectKey: string,
+  uploadId: string,
+  parts: readonly CompletedPart[],
+  signal?: AbortSignal,
+) => (
+  mediaStorageTestOverrides?.completePrivateStagingMultipartUpload?.(objectKey, uploadId, parts, signal)
+  ?? completePrivateStagingMultipartUploadFromR2(objectKey, uploadId, parts, signal)
+);
+
+const abortPrivateStagingMultipartUpload = async (
+  objectKey: string,
+  uploadId: string,
+  signal?: AbortSignal,
+) => (
+  mediaStorageTestOverrides?.abortPrivateStagingMultipartUpload?.(objectKey, uploadId, signal)
+  ?? abortPrivateStagingMultipartUploadFromR2(objectKey, uploadId, signal)
+);
+
 const putPrivateStagingObject = async (
   objectKey: string,
   bytes: Uint8Array,
   contentType: string,
+  signal?: AbortSignal,
 ) => (
-  mediaStorageTestOverrides?.putPrivateStagingObject?.(objectKey, bytes, contentType)
-  ?? putPrivateStagingObjectFromR2(objectKey, bytes, contentType)
+  mediaStorageTestOverrides?.putPrivateStagingObject?.(objectKey, bytes, contentType, signal)
+  ?? putPrivateStagingObjectFromR2(objectKey, bytes, contentType, signal)
 );
 
 const readPrivateStagingObject = async (
@@ -347,22 +608,23 @@ const readPrivateStagingObject = async (
   ?? readPrivateStagingObjectFromR2(objectKey, maxBytes, signal)
 );
 
-const deletePrivateStagingObject = async (objectKey: string) => (
-  mediaStorageTestOverrides?.deletePrivateStagingObject?.(objectKey)
-  ?? deletePrivateStagingObjectFromR2(objectKey)
+const deletePrivateStagingObject = async (objectKey: string, signal?: AbortSignal) => (
+  mediaStorageTestOverrides?.deletePrivateStagingObject?.(objectKey, signal)
+  ?? deletePrivateStagingObjectFromR2(objectKey, signal)
 );
 
-const deletePrivateStagingObjects = async (objectKeys: readonly string[]) => {
+const deletePrivateStagingObjects = async (objectKeys: readonly string[], signal?: AbortSignal) => {
   if (objectKeys.length > 1_000) throw new Error("Too many private staging objects to delete.");
   for (const objectKey of objectKeys) assertPrivateQuestionBankXlsxKey(objectKey);
   const override = mediaStorageTestOverrides?.deletePrivateStagingObjects;
   if (override) {
-    await override(objectKeys);
+    await override(objectKeys, signal);
     return;
   }
   for (let offset = 0; offset < objectKeys.length; offset += 8) {
+    if (signal?.aborted) throw signal.reason ?? new Error("Staging deletion was aborted.");
     const batch = objectKeys.slice(offset, offset + 8);
-    const results = await Promise.allSettled(batch.map(deletePrivateStagingObjectFromR2));
+    const results = await Promise.allSettled(batch.map((objectKey) => deletePrivateStagingObjectFromR2(objectKey, signal)));
     if (results.some((result) => result.status === "rejected")) {
       throw new Error("Some private staging objects could not be deleted.");
     }
@@ -393,6 +655,12 @@ export {
   createMediaPreviewUrl,
   createMediaUploadUrl,
   createPrivateStagingUploadUrl,
+  createPrivateStagingMultipartUpload,
+  createPrivateStagingUploadPartUrl,
+  listPrivateStagingMultipartParts,
+  listPrivateStagingMultipartUploads,
+  completePrivateStagingMultipartUpload,
+  abortPrivateStagingMultipartUpload,
   deletePrivateStagingObject,
   deletePrivateStagingObjects,
   headMediaObject,
@@ -403,4 +671,10 @@ export {
   putPrivateStagingObject,
   withMediaStorageTestOverrides,
 };
-export type { MediaObjectStream, MediaPreviewUrlOptions, MediaStorageTestOverrides };
+export type {
+  MediaObjectStream,
+  MediaPreviewUrlOptions,
+  MediaStorageTestOverrides,
+  PrivateStagingMultipartPart,
+  PrivateStagingMultipartUpload,
+};

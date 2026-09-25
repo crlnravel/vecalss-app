@@ -92,7 +92,8 @@ function decodeXmlEntities(value: string) {
   return decoded;
 }
 
-function parseXmlDocument(bytes: Uint8Array) {
+function parseXmlDocument(bytes: Uint8Array, signal?: AbortSignal) {
+  if (signal?.aborted) throw signal.reason ?? new Error("OOXML parsing was aborted.");
   let source: string;
   try {
     source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -119,6 +120,7 @@ function parseXmlDocument(bytes: Uint8Array) {
   };
 
   while (cursor < source.length) {
+    if (signal?.aborted) throw signal.reason ?? new Error("OOXML parsing was aborted.");
     const tagStart = source.indexOf("<", cursor);
     if (tagStart < 0) {
       appendText(source.slice(cursor));
