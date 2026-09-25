@@ -16,6 +16,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type MediaFolderIdentity = { id: string; name: string };
+type NewKaptenRootFolderIdentity = MediaFolderIdentity & { updatedAt: Date };
 
 type QuestionBankMediaFolderReservationDto = {
   id: string;
@@ -101,7 +102,7 @@ async function createKaptenRootFolder(
   tx: Prisma.TransactionClient,
   actorUserId: string,
   candidates: readonly string[],
-): Promise<MediaFolderIdentity> {
+): Promise<NewKaptenRootFolderIdentity> {
   for (const candidate of [...new Set(candidates)]) {
     const name = normalizeFolderName(candidate);
     const duplicate = await tx.mediaFolder.findFirst({
@@ -122,7 +123,7 @@ async function createKaptenRootFolder(
         name,
         parentId: null,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, updatedAt: true },
     });
     return folder;
   }
@@ -172,7 +173,7 @@ async function createQuestionBankMediaFolder(
   title: string,
   bankCode: string,
   bankId: string,
-): Promise<MediaFolderIdentity> {
+): Promise<NewKaptenRootFolderIdentity> {
   return prisma.$transaction(async (tx) => {
     await beginMediaFolderMutation(tx);
     return createKaptenRootFolder(
@@ -180,6 +181,54 @@ async function createQuestionBankMediaFolder(
       actorUserId,
       bankFolderNameCandidates(title, bankCode, bankId),
     );
+  });
+}
+
+/**
+ * Soft-deletes only the unchanged, empty root folder created for a failed
+ * manual Bank save. Draft reservation folders use a separate lifecycle.
+ */
+async function cleanupFailedManualQuestionBankMediaFolder(
+  folder: NewKaptenRootFolderIdentity,
+) {
+  return prisma.$transaction(async (tx) => {
+    await beginMediaFolderMutation(tx);
+    await tx.$queryRaw`
+      SELECT id
+      FROM media_folders
+      WHERE id = ${folder.id}::uuid
+      FOR UPDATE
+    `;
+
+    const unchangedEmptyRoot = await tx.mediaFolder.findFirst({
+      select: { id: true },
+      where: {
+        id: folder.id,
+        libraryScope: MediaLibraryScope.kapten,
+        name: folder.name,
+        parentId: null,
+        trashedAt: null,
+        updatedAt: folder.updatedAt,
+        assets: { none: {} },
+        children: { none: {} },
+        questionBank: { is: null },
+        questionBankMediaFolderReservation: { is: null },
+      },
+    });
+    if (!unchangedEmptyRoot) return false;
+
+    const trashed = await tx.mediaFolder.updateMany({
+      data: { trashedAt: new Date() },
+      where: {
+        id: folder.id,
+        libraryScope: MediaLibraryScope.kapten,
+        name: folder.name,
+        parentId: null,
+        trashedAt: null,
+        updatedAt: folder.updatedAt,
+      },
+    });
+    return trashed.count === 1;
   });
 }
 
@@ -491,10 +540,15 @@ export {
   adoptQuestionBankMediaFolderReservation,
   assertQuestionBankMediaFolderReservationForBank,
   createQuestionBankMediaFolder,
+  cleanupFailedManualQuestionBankMediaFolder,
   ensureQuestionBankMediaFolder,
   finalizeQuestionBankMediaFolderReservation,
   getAdoptedQuestionBankMediaFolderReservation,
   lockQuestionBankMediaFolderForSave,
   reserveDraftQuestionBankMediaFolder,
 };
-export type { MediaFolderIdentity, QuestionBankMediaFolderReservationDto };
+export type {
+  MediaFolderIdentity,
+  NewKaptenRootFolderIdentity,
+  QuestionBankMediaFolderReservationDto,
+};

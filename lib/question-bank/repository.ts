@@ -34,6 +34,7 @@ import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/
 import {
   adoptQuestionBankMediaFolderReservation,
   assertQuestionBankMediaFolderReservationForBank,
+  cleanupFailedManualQuestionBankMediaFolder,
   createQuestionBankMediaFolder,
   ensureQuestionBankMediaFolder,
   finalizeQuestionBankMediaFolderReservation,
@@ -41,6 +42,7 @@ import {
   lockQuestionBankMediaFolderForSave,
   reserveDraftQuestionBankMediaFolder,
   type MediaFolderIdentity,
+  type NewKaptenRootFolderIdentity,
 } from "./media-folder";
 import {
   getQuestionBankReadinessFromRevisions,
@@ -1032,6 +1034,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   let newBankId: string | undefined;
   let newBankCode: string | undefined;
   let newBankMediaFolder: MediaFolderIdentity | null = null;
+  let manualBankMediaFolderCleanupCandidate: NewKaptenRootFolderIdentity | null = null;
 
   if (input.id && mediaFolderReservationId) {
     await assertQuestionBankMediaFolderReservationForBank(
@@ -1071,12 +1074,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     } else {
       newBankId = randomUUID();
       newBankCode = codeFromTitle(input.title);
-      newBankMediaFolder = await createQuestionBankMediaFolder(
+      const createdMediaFolder = await createQuestionBankMediaFolder(
         actorId,
         input.title,
         newBankCode,
         newBankId,
       );
+      newBankMediaFolder = createdMediaFolder;
+      manualBankMediaFolderCleanupCandidate = createdMediaFolder;
     }
   }
 
@@ -1341,6 +1346,15 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
       getFolderRows(tx),
     ]);
     return toDto(saved, folderRows);
+  }).catch(async (saveError: unknown) => {
+    if (manualBankMediaFolderCleanupCandidate) {
+      try {
+        await cleanupFailedManualQuestionBankMediaFolder(manualBankMediaFolderCleanupCandidate);
+      } catch {
+        // Preserve the original Bank-save error if best-effort cleanup fails.
+      }
+    }
+    throw saveError;
   });
   if (mediaFolderReservationId || input.id) {
     try {
