@@ -19,6 +19,7 @@ import {
   cleanupEnrollmentImports,
   reapExpiredImportRowClaims,
 } from "@/lib/admin/imports/processing";
+import { cleanupExpiredQuestionBankXlsxImportAttempts } from "@/lib/question-bank/xlsx-import-repository";
 import {
   AdminImportRuntimeConfigError,
   validateAdminImportWorkerConfig,
@@ -242,6 +243,7 @@ async function startAdminImportWorker(
   let reconcileTimer: NodeJS.Timeout | null = null;
   let rowReaperTimer: NodeJS.Timeout | null = null;
   let cleanupTimer: NodeJS.Timeout | null = null;
+  let xlsxCleanupTimer: NodeJS.Timeout | null = null;
 
   const clearWorkerTimers = () => {
     if (dispatchTimer) clearInterval(dispatchTimer);
@@ -249,11 +251,13 @@ async function startAdminImportWorker(
     if (reconcileTimer) clearInterval(reconcileTimer);
     if (rowReaperTimer) clearInterval(rowReaperTimer);
     if (cleanupTimer) clearInterval(cleanupTimer);
+    if (xlsxCleanupTimer) clearInterval(xlsxCleanupTimer);
     dispatchTimer = null;
     heartbeatTimer = null;
     reconcileTimer = null;
     rowReaperTimer = null;
     cleanupTimer = null;
+    xlsxCleanupTimer = null;
   };
 
   const runDispatchCycle = async () => {
@@ -385,11 +389,23 @@ async function startAdminImportWorker(
         }).catch(() => {
           logEvent("admin_import_worker_cleanup_failed", { workerId: config.workerId });
         }), 24 * 60 * 60 * 1_000);
+        xlsxCleanupTimer = setInterval(() => void cleanupExpiredQuestionBankXlsxImportAttempts().then((result) => {
+          if (result.cleaned > 0 || result.deferred > 0) {
+            logEvent("admin_import_worker_xlsx_cleanup", {
+              cleaned: result.cleaned,
+              deferred: result.deferred,
+              workerId: config.workerId,
+            });
+          }
+        }).catch(() => {
+          logEvent("admin_import_worker_xlsx_cleanup_failed", { workerId: config.workerId });
+        }), 60_000);
         dispatchTimer.unref();
         heartbeatTimer.unref();
         reconcileTimer.unref();
         rowReaperTimer.unref();
         cleanupTimer.unref();
+        xlsxCleanupTimer.unref();
       },
       emitReady: () => {
         logEvent("admin_import_worker_ready", {

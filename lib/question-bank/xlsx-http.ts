@@ -1,0 +1,184 @@
+import "server-only";
+
+import {
+  isTrustedCsvOrigin,
+  readTutorCsvSession,
+} from "@/lib/question-bank/csv-http";
+import { isUuid } from "@/lib/resource-edit-lock/canonical";
+import {
+  QuestionBankXlsxImportError,
+  type QuestionBankXlsxImportErrorCode,
+} from "./xlsx-import-repository";
+
+const QUESTION_BANK_XLSX_HTTP_HEADERS = {
+  "Cache-Control": "no-store, max-age=0",
+  "Referrer-Policy": "no-referrer",
+  Vary: "Cookie",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+const QUESTION_BANK_XLSX_JSON_MAX_BYTES = 1_024;
+
+type QuestionBankXlsxHttpCode =
+  | QuestionBankXlsxImportErrorCode
+  | "forbidden_origin"
+  | "invalid_request"
+  | "resource_inaccessible"
+  | "unauthenticated"
+  | "xlsx_rows_invalid"
+  | "xlsx_structure_invalid";
+
+class QuestionBankXlsxHttpError extends Error {
+  constructor(
+    readonly code: QuestionBankXlsxHttpCode,
+    readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 503,
+  ) {
+    super(code);
+    this.name = "QuestionBankXlsxHttpError";
+  }
+}
+
+function isTrustedQuestionBankXlsxOrigin(request: Request) {
+  return isTrustedCsvOrigin(request);
+}
+
+function isTrustedQuestionBankXlsxReadOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return !origin || isTrustedCsvOrigin(request);
+}
+
+async function readBoundedXlsxJson(request: Request) {
+  const contentType = request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+  if (contentType !== "application/json") {
+    throw new QuestionBankXlsxHttpError("invalid_request", 415);
+  }
+  const advertisedLength = request.headers.get("content-length");
+  if (advertisedLength !== null) {
+    const parsed = Number(advertisedLength.trim());
+    if (
+      !/^\d+$/u.test(advertisedLength.trim())
+      || !Number.isSafeInteger(parsed)
+      || parsed > QUESTION_BANK_XLSX_JSON_MAX_BYTES
+    ) {
+      throw new QuestionBankXlsxHttpError("invalid_request", 413);
+    }
+  }
+  if (!request.body) throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      total += next.value.byteLength;
+      if (total > QUESTION_BANK_XLSX_JSON_MAX_BYTES) {
+        await reader.cancel();
+        throw new QuestionBankXlsxHttpError("invalid_request", 413);
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+}
+
+async function parseQuestionBankXlsxUploadRequest(request: Request) {
+  const value = await readBoundedXlsxJson(request);
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== 1
+    || typeof (value as { fileName?: unknown }).fileName !== "string"
+  ) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  return { fileName: (value as { fileName: string }).fileName };
+}
+
+async function parseQuestionBankXlsxPreviewRequest(request: Request) {
+  const value = await readBoundedXlsxJson(request);
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== 1
+    || typeof (value as { uploadId?: unknown }).uploadId !== "string"
+    || !isUuid((value as { uploadId: string }).uploadId)
+  ) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  return { uploadId: (value as { uploadId: string }).uploadId.toLowerCase() };
+}
+
+function parseQuestionBankXlsxPreviewId(value: string) {
+  if (!isUuid(value)) throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  return value.toLowerCase();
+}
+
+function parseQuestionBankXlsxThumbnailOffset(value: string | null) {
+  if (value === null) return 0;
+  const normalized = value.trim();
+  const offset = Number(normalized);
+  if (!/^\d+$/u.test(normalized) || !Number.isSafeInteger(offset) || offset < 0) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  return offset;
+}
+
+function questionBankXlsxErrorResponse(code: QuestionBankXlsxHttpCode, status?: QuestionBankXlsxHttpError["status"]) {
+  const resolvedStatus = status ?? (
+    code === "unauthenticated" ? 401
+      : code === "forbidden_origin" || code === "resource_inaccessible" ? 403
+        : code === "attempt_not_found" ? 404
+          : code === "attempt_busy" || code === "attempt_expired" ? 409
+            : code === "xlsx_too_large" ? 413
+              : code === "invalid_request" ? 400
+                : code === "attempt_unavailable" ? 503
+                  : 422
+  );
+  return Response.json({ error: code }, {
+    headers: QUESTION_BANK_XLSX_HTTP_HEADERS,
+    status: resolvedStatus,
+  });
+}
+
+function mapQuestionBankXlsxError(error: unknown): QuestionBankXlsxHttpError {
+  if (error instanceof QuestionBankXlsxHttpError) return error;
+  if (error instanceof QuestionBankXlsxImportError) {
+    if (error.code === "attempt_not_found") return new QuestionBankXlsxHttpError(error.code, 404);
+    if (error.code === "attempt_busy" || error.code === "attempt_expired") {
+      return new QuestionBankXlsxHttpError(error.code, 409);
+    }
+    if (error.code === "xlsx_too_large") return new QuestionBankXlsxHttpError(error.code, 413);
+    if (error.code === "attempt_unavailable") return new QuestionBankXlsxHttpError(error.code, 503);
+    return new QuestionBankXlsxHttpError(error.code, 422);
+  }
+  return new QuestionBankXlsxHttpError("attempt_unavailable", 503);
+}
+
+export {
+  QUESTION_BANK_XLSX_HTTP_HEADERS,
+  QuestionBankXlsxHttpError,
+  isTrustedQuestionBankXlsxOrigin,
+  isTrustedQuestionBankXlsxReadOrigin,
+  mapQuestionBankXlsxError,
+  parseQuestionBankXlsxPreviewId,
+  parseQuestionBankXlsxPreviewRequest,
+  parseQuestionBankXlsxThumbnailOffset,
+  parseQuestionBankXlsxUploadRequest,
+  questionBankXlsxErrorResponse,
+  readTutorCsvSession as readTutorQuestionBankXlsxSession,
+};

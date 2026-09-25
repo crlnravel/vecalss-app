@@ -106,6 +106,28 @@ enum MediaAssetState {
   @@map("media_asset_state")
 }
 
+enum QuestionBankXlsxImportAttemptState {
+  upload_pending
+  previewing
+  previewed
+  applying
+  completed
+  failed
+  cleanup_pending
+  discarded
+
+  @@map("question_bank_xlsx_import_attempt_state")
+}
+
+enum QuestionBankXlsxImportAssetState {
+  pending
+  ready
+  cleanup_pending
+  cleaned
+
+  @@map("question_bank_xlsx_import_asset_state")
+}
+
 enum ModuleAssetType {
   text
   video
@@ -1266,6 +1288,7 @@ model User {
   createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
   updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
   questionBankMediaFolderReservations    QuestionBankMediaFolderReservation[] @relation("QuestionBankMediaFolderReservationOwner")
+  questionBankXlsxImportAttempts          QuestionBankXlsxImportAttempt[]       @relation("QuestionBankXlsxImportAttemptOwner")
   createdQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
   updatedQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
   createdQuestionBankCategories          QuestionBankCategory[]           @relation("QuestionBankCategoryCreatedBy")
@@ -1918,6 +1941,64 @@ model QuestionBankMediaFolderReservation {
 
   @@index([ownerUserId, adoptedBankId])
   @@map("question_bank_media_folder_reservations")
+}
+
+model QuestionBankXlsxImportAttempt {
+  id                       String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId              String                              @map("owner_user_id") @db.Uuid
+  state                    QuestionBankXlsxImportAttemptState  @default(upload_pending)
+  originalFileName         String                              @map("original_file_name") @db.VarChar(255)
+  uploadObjectKey          String                              @unique @map("upload_object_key") @db.VarChar(512)
+  stagingPrefix            String                              @map("staging_prefix") @db.VarChar(512)
+  manifestObjectKey        String?                             @unique @map("manifest_object_key") @db.VarChar(512)
+  stagedObjectKeys         Json                                @default("[]") @map("staged_object_keys") @db.JsonB
+  previewImageIndex        Json                                @default("[]") @map("preview_image_index") @db.JsonB
+  workbookSha256            String?                             @map("workbook_sha256") @db.VarChar(64)
+  workbookSizeBytes         Int?                                @map("workbook_size_bytes")
+  manifestSha256            String?                             @map("manifest_sha256") @db.VarChar(64)
+  questionCount             Int                                 @default(0) @map("question_count")
+  imageCount                Int                                 @default(0) @map("image_count")
+  targetBankId              String?                             @map("target_bank_id") @db.Uuid
+  targetMode                String?                             @map("target_mode") @db.VarChar(16)
+  mediaFolderReservationId String?                             @map("media_folder_reservation_id") @db.Uuid
+  result                    Json?                               @db.JsonB
+  lastErrorCode             String?                             @map("last_error_code") @db.VarChar(80)
+  uploadExpiresAt           DateTime                            @map("upload_expires_at") @db.Timestamptz
+  previewExpiresAt          DateTime?                           @map("preview_expires_at") @db.Timestamptz
+  expiresAt                 DateTime                            @map("expires_at") @db.Timestamptz
+  completedAt               DateTime?                           @map("completed_at") @db.Timestamptz
+  createdAt                 DateTime                            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner User                                      @relation("QuestionBankXlsxImportAttemptOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  assets QuestionBankXlsxImportAttemptAsset[]
+
+  @@index([ownerUserId, expiresAt])
+  @@index([state, expiresAt])
+  @@index([targetBankId])
+  @@map("question_bank_xlsx_import_attempts")
+}
+
+model QuestionBankXlsxImportAttemptAsset {
+  id                String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId         String                              @map("attempt_id") @db.Uuid
+  assetId           String                              @unique @map("asset_id") @db.Uuid
+  contentSha256     String                              @map("content_sha256") @db.VarChar(64)
+  objectKey         String                              @unique @map("object_key") @db.VarChar(512)
+  mimeType          String                              @map("mime_type") @db.VarChar(120)
+  sizeBytes         Int                                 @map("size_bytes")
+  width             Int
+  height            Int
+  state             QuestionBankXlsxImportAssetState     @default(pending)
+  createdAt         DateTime                            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  attempt QuestionBankXlsxImportAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  asset   Asset                         @relation("QuestionBankXlsxImportAttemptAsset", fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, contentSha256])
+  @@index([attemptId, state])
+  @@map("question_bank_xlsx_import_attempt_assets")
 }
 
 model Question {
@@ -4784,6 +4865,7 @@ model Asset {
   questionRevisionPromptAssets                QuestionRevision[]                         @relation("QuestionRevisionPromptAsset")
   questionRevisionExplanationAssets           QuestionRevision[]                         @relation("QuestionRevisionExplanationAsset")
   questionRevisionOptionAssets                QuestionRevisionOption[]                   @relation("QuestionRevisionOptionAsset")
+  questionBankXlsxImportAttemptAssets         QuestionBankXlsxImportAttemptAsset[]       @relation("QuestionBankXlsxImportAttemptAsset")
   standaloneQuizItemPromptAssets              StandaloneQuizItem[]                       @relation("StandaloneQuizItemPromptAsset")
   standaloneQuizItemExplanationAssets         StandaloneQuizItem[]                       @relation("StandaloneQuizItemExplanationAsset")
   standaloneQuizItemOptionAssets              StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionAsset")
