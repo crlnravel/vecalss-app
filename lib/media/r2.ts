@@ -98,6 +98,7 @@ type PrivateStagingMultipartPart = {
 };
 
 type PrivateStagingMultipartUpload = {
+  initiatedAt?: Date | undefined;
   key: string | undefined;
   uploadId: string | undefined;
 };
@@ -378,7 +379,9 @@ const listPrivateStagingMultipartUploadsFromR2 = async (
       UploadIdMarker: uploadIdMarker,
     }), signal ? { abortSignal: signal } : undefined);
     for (const upload of response.Uploads ?? []) {
-      if (upload.Key === objectKey) uploads.push({ key: upload.Key, uploadId: upload.UploadId });
+      if (upload.Key === objectKey) {
+        uploads.push({ initiatedAt: upload.Initiated, key: upload.Key, uploadId: upload.UploadId });
+      }
       if (uploads.length > 100) throw new Error("Too many R2 multipart uploads for a staging key.");
     }
     if (!response.IsTruncated) return uploads;

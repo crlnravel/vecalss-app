@@ -34,8 +34,12 @@ const STAGING_ROOT = "question-bank-xlsx-staging";
 const MANIFEST_MIME_TYPE = "application/json";
 const MAX_MANIFEST_BYTES = QUESTION_BANK_XLSX_LIMITS.totalExpandedZipBytes;
 const CLEANUP_RETRY_DELAY_MS = 60_000;
+const MULTIPART_CLEANUP_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 const CLEANUP_BATCH_SIZE = 20;
 const PREVIEW_CANCEL_POLL_MS = 1_000;
+const R2_INCOMPLETE_MULTIPART_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
+const MULTIPART_CLEANUP_GRACE_MS = 24 * 60 * 60 * 1_000;
+const MULTIPART_CREATE_TIMEOUT_MS = 60_000;
 const PRIVATE_STAGING_KEY_PATTERN =
   /^question-bank-xlsx-staging\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/(?:workbook\.xlsx|manifest\.json|images\/[0-9a-f]{64}\.bin)$/iu;
 
@@ -124,6 +128,24 @@ function cleanupEligibleAt(uploadExpiresAt: Date, now = Date.now()) {
   return new Date(Math.max(uploadExpiresAt.getTime(), now) + CLEANUP_RETRY_DELAY_MS);
 }
 
+function multipartCleanupDeadline(initiatedAt: Date) {
+  return new Date(
+    initiatedAt.getTime() + R2_INCOMPLETE_MULTIPART_LIFETIME_MS + MULTIPART_CLEANUP_GRACE_MS,
+  );
+}
+
+function laterDate(...dates: readonly Date[]) {
+  return new Date(Math.max(...dates.map((date) => date.getTime())));
+}
+
+function nextCleanupAttemptAt(now = Date.now()) {
+  return new Date(now + CLEANUP_RETRY_DELAY_MS);
+}
+
+function nextMultipartCleanupSweepAt(now = Date.now()) {
+  return new Date(now + MULTIPART_CLEANUP_SWEEP_INTERVAL_MS);
+}
+
 function operationLeaseUntil(now = Date.now()) {
   return new Date(now + QUESTION_BANK_XLSX_LIMITS.operationLeaseMs);
 }
@@ -139,6 +161,46 @@ function expectedMultipartPartBytes(sizeBytes: number, partNumber: number) {
 
 function expectedMultipartPartCount(sizeBytes: number) {
   return Math.ceil(sizeBytes / QUESTION_BANK_XLSX_LIMITS.multipartPartBytes);
+}
+
+async function markMultipartCreationForCleanup(
+  ownerUserId: string,
+  attemptId: string,
+  createLeaseExpiresAt: Date,
+  multipartUploadId: string | null,
+  errorCode: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attemptId}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+    if (!current || current.ownerUserId !== ownerUserId) return null;
+
+    const now = new Date();
+    const stillOwnsCreateLease = current.state === QuestionBankXlsxImportAttemptState.multipart_creating
+      && current.operationLeaseExpiresAt?.getTime() === createLeaseExpiresAt.getTime();
+    const liveLease = Boolean(current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now);
+    const anotherOperationOwnsLease = liveLease && !stillOwnsCreateLease;
+    const attempt = await tx.questionBankXlsxImportAttempt.update({
+      data: {
+        cancelRequestedAt: current.cancelRequestedAt ?? now,
+        expiresAt: anotherOperationOwnsLease
+          ? expiresAfterOperation(current.operationLeaseExpiresAt!)
+          : nextCleanupAttemptAt(now.getTime()),
+        lastErrorCode: errorCode,
+        multipartUploadId: multipartUploadId ?? current.multipartUploadId,
+        operationLeaseExpiresAt: anotherOperationOwnsLease ? current.operationLeaseExpiresAt : null,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        uploadExpiresAt: laterDate(current.uploadExpiresAt, multipartCleanupDeadline(current.createdAt)),
+      },
+      where: { id: attemptId },
+    });
+    return { attempt, ready: !anotherOperationOwnsLease };
+  });
 }
 
 const activePreviewControllers = new Map<string, Set<AbortController>>();
@@ -304,14 +366,16 @@ async function createQuestionBankXlsxUploadGrant(
   }
   const attemptId = randomUUID();
   const now = new Date();
-  const uploadExpiresAt = new Date(
-    now.getTime() + QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds * 1_000,
-  );
+  // Persist a pre-initiation anchor and its conservative R2 lifecycle horizon
+  // before dispatching CreateMultipartUpload. If the response is lost, cleanup
+  // can still retain the exact-key tombstone and discover the UploadId later.
+  const uploadExpiresAt = multipartCleanupDeadline(now);
   const leaseExpiresAt = operationLeaseUntil(now.getTime());
   const partCount = expectedMultipartPartCount(expectedWorkbookSizeBytes);
   const uploadObjectKey = createWorkbookObjectKey(attemptId);
   await prisma.questionBankXlsxImportAttempt.create({
     data: {
+      createdAt: now,
       expectedMultipartPartCount: partCount,
       expectedWorkbookSizeBytes,
       expiresAt: expiresAfterOperation(leaseExpiresAt),
@@ -335,11 +399,62 @@ async function createQuestionBankXlsxUploadGrant(
     throw new QuestionBankXlsxImportError("attempt_cancelled");
   }
   let multipartUploadId: string | null = null;
+  const createController = new AbortController();
+  const createTimeout = setTimeout(
+    () => createController.abort(new Error("R2 multipart initiation timed out.")),
+    MULTIPART_CREATE_TIMEOUT_MS,
+  );
   try {
-    multipartUploadId = await createPrivateStagingMultipartUpload(
-      uploadObjectKey,
-      QUESTION_BANK_XLSX_MIME_TYPE,
-    );
+    try {
+      // Persist a deadline immediately before dispatch. The create timeout
+      // starts first, so a suspended process cannot later dispatch a request
+      // using an anchor that is older than its live operation. R2's Initiated
+      // timestamp, when observed by cleanup listing, can only extend this
+      // persisted lifecycle horizon.
+      const initiationDeadlinePersisted = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id
+          FROM question_bank_xlsx_import_attempts
+          WHERE id = ${attemptId}::uuid
+          FOR UPDATE
+        `;
+        const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+        const initiatedAt = new Date();
+        if (
+          !current
+          || current.ownerUserId !== ownerUserId
+          || current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
+          || current.cancelRequestedAt
+          || current.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+          || !current.operationLeaseExpiresAt
+          || current.operationLeaseExpiresAt <= initiatedAt
+          || createController.signal.aborted
+          || signal?.aborted
+        ) return false;
+        await tx.questionBankXlsxImportAttempt.update({
+          data: {
+            uploadExpiresAt: laterDate(current.uploadExpiresAt, multipartCleanupDeadline(initiatedAt)),
+          },
+          where: { id: attemptId },
+        });
+        return true;
+      });
+      if (!initiationDeadlinePersisted) {
+        throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_expired");
+      }
+      // This is deliberately independent of the browser signal: if the client
+      // disconnects after R2 accepts the request, the returned UploadId must
+      // still be persisted. An ambiguous timeout is recovered by exact-key
+      // listing under the already-persisted tombstone.
+      multipartUploadId = await createPrivateStagingMultipartUpload(
+        uploadObjectKey,
+        QUESTION_BANK_XLSX_MIME_TYPE,
+        createController.signal,
+      );
+    } finally {
+      clearTimeout(createTimeout);
+    }
+
     const persisted = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw<Array<{ id: string }>>`
         SELECT id
@@ -348,96 +463,131 @@ async function createQuestionBankXlsxUploadGrant(
         FOR UPDATE
       `;
       const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
-      if (!current) return false;
+      if (!current || current.ownerUserId !== ownerUserId) return "missing" as const;
+      const savedAt = new Date();
+      const stillOwnsCreateLease = current.state === QuestionBankXlsxImportAttemptState.multipart_creating
+        && current.operationLeaseExpiresAt?.getTime() === leaseExpiresAt.getTime();
+      const liveLease = Boolean(current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > savedAt);
       if (
-        current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
+        !stillOwnsCreateLease
         || current.cancelRequestedAt
-        || current.uploadExpiresAt <= new Date()
+        || current.operationLeaseExpiresAt! <= savedAt
+        || current.uploadExpiresAt <= savedAt
+        || createController.signal.aborted
+        || signal?.aborted
       ) {
+        const anotherCleanupOwnsLease = liveLease && !stillOwnsCreateLease;
         await tx.questionBankXlsxImportAttempt.update({
           data: {
-            cancelRequestedAt: current.cancelRequestedAt ?? new Date(),
-            expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+            cancelRequestedAt: current.cancelRequestedAt ?? savedAt,
+            expiresAt: anotherCleanupOwnsLease
+              ? expiresAfterOperation(current.operationLeaseExpiresAt!)
+              : nextCleanupAttemptAt(savedAt.getTime()),
             multipartUploadId,
-            operationLeaseExpiresAt: null,
+            operationLeaseExpiresAt: anotherCleanupOwnsLease ? current.operationLeaseExpiresAt : null,
             state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+            uploadExpiresAt: laterDate(current.uploadExpiresAt, multipartCleanupDeadline(current.createdAt)),
           },
           where: { id: attemptId },
         });
-        return false;
+        return anotherCleanupOwnsLease ? "deferred" as const : "cleanup" as const;
       }
       await tx.questionBankXlsxImportAttempt.update({
         data: {
-          expiresAt: cleanupEligibleAt(current.uploadExpiresAt),
           multipartUploadId,
-          operationLeaseExpiresAt: null,
-          state: QuestionBankXlsxImportAttemptState.multipart_uploading,
         },
         where: { id: attemptId },
       });
-      return true;
+      return "continue" as const;
     });
-    if (!persisted) {
-      await abortPrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId).catch(() => undefined);
-      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
+    if (persisted === "missing") {
+      // The retention window makes this path unreachable in normal operation.
+      // Keep the received handle long enough to make one last direct cleanup
+      // attempt rather than silently abandoning it.
+      await abortPrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId);
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    if (persisted !== "continue") {
       throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_expired");
     }
-    if (signal?.aborted) {
-      await discardQuestionBankXlsxPreview(ownerUserId, attemptId);
-      throw new QuestionBankXlsxImportError("attempt_cancelled");
+
+    if (signal?.aborted || createController.signal.aborted) {
+      throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_unavailable");
     }
+
+    const grantExpiresAt = new Date(Date.now() + QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds * 1_000);
     const parts = await Promise.all(Array.from({ length: partCount }, async (_, index) => {
       const partNumber = index + 1;
       const contentLength = expectedMultipartPartBytes(expectedWorkbookSizeBytes, partNumber);
+      const remainingGrantSeconds = Math.floor((grantExpiresAt.getTime() - Date.now()) / 1_000);
+      if (remainingGrantSeconds < 1) throw new QuestionBankXlsxImportError("attempt_expired");
       const grant = await createPrivateStagingUploadPartUrl(
         uploadObjectKey,
         multipartUploadId!,
         partNumber,
         contentLength,
-        QUESTION_BANK_XLSX_LIMITS.uploadGrantExpiresSeconds,
+        remainingGrantSeconds,
       );
       return { contentLength, partNumber, uploadUrl: grant.uploadUrl };
     }));
     if (signal?.aborted) {
-      await discardQuestionBankXlsxPreview(ownerUserId, attemptId);
       throw new QuestionBankXlsxImportError("attempt_cancelled");
     }
+    const grantStatePersisted = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${attemptId}::uuid
+        FOR UPDATE
+      `;
+      const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+      const savedAt = new Date();
+      if (
+        !current
+        || current.ownerUserId !== ownerUserId
+        || current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
+        || current.cancelRequestedAt
+        || current.multipartUploadId !== multipartUploadId
+        || current.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+        || !current.operationLeaseExpiresAt
+        || current.operationLeaseExpiresAt <= savedAt
+        || savedAt >= grantExpiresAt
+        || signal?.aborted
+      ) return false;
+      await tx.questionBankXlsxImportAttempt.update({
+        data: {
+          expiresAt: cleanupEligibleAt(grantExpiresAt),
+          operationLeaseExpiresAt: null,
+          state: QuestionBankXlsxImportAttemptState.multipart_uploading,
+          uploadExpiresAt: grantExpiresAt,
+        },
+        where: { id: attemptId },
+      });
+      return true;
+    });
+    if (!grantStatePersisted) throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_expired");
     return {
       contentType: QUESTION_BANK_XLSX_MIME_TYPE,
-      expiresAt: uploadExpiresAt.toISOString(),
+      expiresAt: grantExpiresAt.toISOString(),
       expectedWorkbookSizeBytes,
       partSizeBytes: QUESTION_BANK_XLSX_LIMITS.multipartPartBytes,
       parts,
       uploadId: attemptId,
     };
   } catch (error) {
-    if (multipartUploadId) {
-      const now = new Date();
-      await prisma.questionBankXlsxImportAttempt.updateMany({
-        data: {
-          cancelRequestedAt: now,
-          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
-          lastErrorCode: signal?.aborted ? "attempt_cancelled" : "upload_grant_unavailable",
-          operationLeaseExpiresAt: null,
-          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
-        },
-        where: { id: attemptId, state: QuestionBankXlsxImportAttemptState.multipart_uploading },
-      });
+    const cleanup = await markMultipartCreationForCleanup(
+      ownerUserId,
+      attemptId,
+      leaseExpiresAt,
+      multipartUploadId,
+      signal?.aborted ? "attempt_cancelled" : error instanceof QuestionBankXlsxImportError ? error.code : "upload_grant_unavailable",
+    ).catch(() => null);
+    if (cleanup?.ready) {
+      await cleanupCancelledQuestionBankXlsxAttempt(cleanup.attempt);
+    } else if (!cleanup && multipartUploadId) {
+      // A transient database failure must not suppress the best-effort storage
+      // abort; the pre-initiation row still owns the exact-key retry handle.
       await abortPrivateStagingMultipartUpload(uploadObjectKey, multipartUploadId).catch(() => undefined);
-      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
-    } else {
-      const now = new Date();
-      await prisma.questionBankXlsxImportAttempt.updateMany({
-        data: {
-          cancelRequestedAt: now,
-          expiresAt: new Date(now.getTime() + CLEANUP_RETRY_DELAY_MS),
-          lastErrorCode: signal?.aborted ? "attempt_cancelled" : "upload_grant_unavailable",
-          operationLeaseExpiresAt: null,
-          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
-        },
-        where: { id: attemptId },
-      });
-      await finishQuestionBankXlsxCancellation(ownerUserId, attemptId).catch(() => undefined);
     }
     if (error instanceof QuestionBankXlsxImportError) throw error;
     throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_unavailable");
@@ -1133,7 +1283,7 @@ async function markQuestionBankXlsxCancellation(
     const operationLeaseExpiresAt = inFlight ? current.operationLeaseExpiresAt : null;
     const expiresAt = operationLeaseExpiresAt
       ? expiresAfterOperation(operationLeaseExpiresAt)
-      : cleanupEligibleAt(current.uploadExpiresAt, now.getTime());
+      : nextCleanupAttemptAt(now.getTime());
     const updated = await tx.questionBankXlsxImportAttempt.update({
       data: {
         cancelRequestedAt: current.cancelRequestedAt ?? now,
@@ -1162,7 +1312,7 @@ async function finishQuestionBankXlsxCancellation(ownerUserId: string, attemptId
     if (!current || current.ownerUserId !== ownerUserId || !current.cancelRequestedAt) return null;
     return tx.questionBankXlsxImportAttempt.update({
       data: {
-        expiresAt: cleanupEligibleAt(current.uploadExpiresAt),
+        expiresAt: nextCleanupAttemptAt(),
         operationLeaseExpiresAt: null,
         state: QuestionBankXlsxImportAttemptState.cleanup_pending,
       },
@@ -1180,16 +1330,68 @@ function isMissingMultipartUploadError(error: unknown) {
 }
 
 async function removeAttemptStaging(attempt: {
+  createdAt: Date;
   id: string;
   multipartUploadId: string | null;
+  operationLeaseExpiresAt: Date | null;
   stagedObjectKeys: Prisma.JsonValue;
+  uploadExpiresAt: Date;
   uploadObjectKey: string;
-}) {
-  const multipartIds = new Set<string>();
-  if (attempt.multipartUploadId) multipartIds.add(attempt.multipartUploadId);
+}, ownerUserId: string, leaseExpiresAt: Date) {
+  const persistRetentionCutoff = async (candidate: Date) => prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attempt.id}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attempt.id } });
+    if (
+      !current
+      || current.ownerUserId !== ownerUserId
+      || current.state !== QuestionBankXlsxImportAttemptState.cleanup_pending
+      || current.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+    ) return null;
+    const retentionCutoff = laterDate(current.uploadExpiresAt, candidate);
+    if (retentionCutoff.getTime() === current.uploadExpiresAt.getTime()) return retentionCutoff;
+    const updated = await tx.questionBankXlsxImportAttempt.updateMany({
+      data: { uploadExpiresAt: retentionCutoff },
+      where: {
+        id: attempt.id,
+        operationLeaseExpiresAt: leaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+      },
+    });
+    return updated.count === 1 ? retentionCutoff : null;
+  });
+
+  const cutoffForDiscoveredUploads = (uploads: Awaited<ReturnType<typeof listPrivateStagingMultipartUploads>>) => {
+    const now = new Date();
+    return uploads.map((upload) => {
+      const initiatedAt = upload.initiatedAt;
+      return initiatedAt && Number.isFinite(initiatedAt.getTime())
+        ? multipartCleanupDeadline(initiatedAt)
+        : multipartCleanupDeadline(now);
+    });
+  };
+
+  let retentionCutoff = laterDate(attempt.uploadExpiresAt, multipartCleanupDeadline(attempt.createdAt));
+  const firstPersistedCutoff = await persistRetentionCutoff(retentionCutoff);
+  if (!firstPersistedCutoff) return null;
+  retentionCutoff = firstPersistedCutoff;
+
   let active = await listPrivateStagingMultipartUploads(attempt.uploadObjectKey);
-  for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
-  for (let retry = 0; retry < 3; retry += 1) {
+  for (let sweep = 0; sweep < 2; sweep += 1) {
+    const discoveredCutoffs = cutoffForDiscoveredUploads(active);
+    if (discoveredCutoffs.length) {
+      const persistedCutoff = await persistRetentionCutoff(laterDate(retentionCutoff, ...discoveredCutoffs));
+      if (!persistedCutoff) return null;
+      retentionCutoff = persistedCutoff;
+    }
+
+    const multipartIds = new Set<string>();
+    if (attempt.multipartUploadId) multipartIds.add(attempt.multipartUploadId);
+    for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
     for (const multipartUploadId of multipartIds) {
       try {
         await abortPrivateStagingMultipartUpload(attempt.uploadObjectKey, multipartUploadId);
@@ -1198,16 +1400,23 @@ async function removeAttemptStaging(attempt: {
       }
     }
     active = await listPrivateStagingMultipartUploads(attempt.uploadObjectKey);
-    if (!active.length) break;
-    for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
   }
-  if (active.length) throw new Error("R2 multipart uploads remain after abort.");
+
+  const finalDiscoveredCutoffs = cutoffForDiscoveredUploads(active);
+  if (finalDiscoveredCutoffs.length) {
+    const persistedCutoff = await persistRetentionCutoff(laterDate(retentionCutoff, ...finalDiscoveredCutoffs));
+    if (!persistedCutoff) return null;
+    retentionCutoff = persistedCutoff;
+  }
   await deletePrivateStagingObjects(parseStagedObjectKeys(attempt.stagedObjectKeys, attempt.id));
+  return { activeMultipartUploads: active.length > 0, retentionCutoff };
 }
 
 async function cleanupCancelledQuestionBankXlsxAttempt(attempt: {
+  createdAt: Date;
   id: string;
   multipartUploadId: string | null;
+  operationLeaseExpiresAt: Date | null;
   stagedObjectKeys: Prisma.JsonValue;
   uploadExpiresAt: Date;
   uploadObjectKey: string;
@@ -1239,15 +1448,19 @@ async function cleanupCancelledQuestionBankXlsxAttempt(attempt: {
   if (!claimed) return;
 
   try {
-    await removeAttemptStaging(claimed);
-    const partGrantDrainAt = cleanupEligibleAt(claimed.uploadExpiresAt);
-    if (partGrantDrainAt > new Date()) {
-      // Abort promptly, but retain a cleanup tombstone until every signed part
-      // URL has expired and the grace period has elapsed. The expiry worker
-      // performs a second MPU listing/abort pass before deleting this row.
+    const sweep = await removeAttemptStaging(claimed, claimed.ownerUserId, leaseExpiresAt);
+    if (!sweep) return;
+    const beforeRetentionCutoff = sweep.retentionCutoff > new Date();
+    if (sweep.activeMultipartUploads || beforeRetentionCutoff) {
+      // R2's documented seven-day incomplete-MPU lifecycle is the practical
+      // retention bound, with a 24-hour grace. Keep the exact-key tombstone and
+      // repeat list/abort sweeps hourly until that cutoff has passed and no
+      // upload remains visible. Lifecycle execution/drain has no documented
+      // hard maximum, so a still-visible upload keeps the tombstone indefinitely.
       await prisma.questionBankXlsxImportAttempt.updateMany({
         data: {
-          expiresAt: partGrantDrainAt,
+          expiresAt: nextMultipartCleanupSweepAt(),
+          uploadExpiresAt: sweep.retentionCutoff,
           operationLeaseExpiresAt: null,
           state: QuestionBankXlsxImportAttemptState.cleanup_pending,
         },
@@ -1269,7 +1482,7 @@ async function cleanupCancelledQuestionBankXlsxAttempt(attempt: {
   } catch {
     await prisma.questionBankXlsxImportAttempt.updateMany({
       data: {
-        expiresAt: new Date(Date.now() + CLEANUP_RETRY_DELAY_MS),
+        expiresAt: nextCleanupAttemptAt(),
         operationLeaseExpiresAt: null,
         state: QuestionBankXlsxImportAttemptState.cleanup_pending,
       },
@@ -1437,7 +1650,32 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
     }
 
     try {
-      await removeAttemptStaging(prepared.attempt);
+      const sweep = await removeAttemptStaging(
+        prepared.attempt,
+        prepared.attempt.ownerUserId,
+        prepared.leaseExpiresAt,
+      );
+      if (!sweep) {
+        deferred += 1;
+        continue;
+      }
+      if (sweep.activeMultipartUploads || sweep.retentionCutoff > new Date()) {
+        await prisma.questionBankXlsxImportAttempt.updateMany({
+          data: {
+            expiresAt: nextMultipartCleanupSweepAt(),
+            operationLeaseExpiresAt: null,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+            uploadExpiresAt: sweep.retentionCutoff,
+          },
+          where: {
+            id: prepared.attempt.id,
+            operationLeaseExpiresAt: prepared.leaseExpiresAt,
+            state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+          },
+        });
+        deferred += 1;
+        continue;
+      }
       const deleted = await prisma.questionBankXlsxImportAttempt.deleteMany({
         where: {
           id: prepared.attempt.id,
