@@ -3508,6 +3508,28 @@ function automaticSourceReleaseLabel(releasedAt: string | null) {
   return `Dirilis ${DATA_TIMESTAMP_FORMATTER.format(date)}`;
 }
 
+function StreamingAnswerText({ content }: { content: string }) {
+  return (
+    <span className="vera-streaming-text">
+      {content.split(/(\s+)/u).filter(Boolean).map((part, index) => {
+        if (/^\s+$/u.test(part)) {
+          return <span key={`space-${index}`}>{part}</span>;
+        }
+
+        return (
+          <span
+            className="vera-stream-word motion-reduce:animate-none"
+            key={`word-${index}`}
+          >
+            {part}
+          </span>
+        );
+      })}
+      <span aria-hidden="true" className="vera-stream-caret" />
+    </span>
+  );
+}
+
 function MessageCard({
   message,
 }: {
@@ -3680,7 +3702,11 @@ function ProvisionalMessageCard({
           aria-live="polite"
           className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
         >
-          {body || progressLabel || "Vera sedang menyusun jawaban…"}
+          {body ? (
+            <StreamingAnswerText content={body} />
+          ) : (
+            progressLabel || "Vera sedang menyusun jawaban…"
+          )}
         </BubbleContent>
       </Bubble>
     </article>

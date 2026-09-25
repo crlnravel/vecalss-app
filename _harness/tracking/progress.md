@@ -1,5 +1,21 @@
 # Session Progress Log
 
+## Vera AI streaming answer reveal (2026-09-25)
+
+- [x] Added a live answer treatment inspired by Beautiful UI's Streaming Text:
+  newly arriving words resolve from a soft blur, with a quiet caret while the
+  answer is still streaming. The existing SSE path and completed-answer view
+  remain unchanged; reduced-motion users receive stable, unanimated text.
+- [x] Preserved the server-authoritative context distinction: when automatic
+  retrieval is enabled, manual context selection stays hidden and committed
+  used-source summaries are shown. The free development POC intentionally
+  gates automatic retrieval off, so its manual “Konteks” tab remains the
+  grounding fallback; no context gate or retrieval policy was changed.
+- [x] Guarded `test:vera-auto-context-ui`, focused ESLint, and full `./init.sh`
+  pass; `git diff --check` passes. Browser checks were not run, as requested.
+- [x] Source committed as `4444d77` on
+  `feat/vera-beautiful-ui-streaming-text`.
+
 ## Vera AI first-send session creation (2026-09-24)
 
 - [x] A learner can now send the first message immediately after opening Vera;
