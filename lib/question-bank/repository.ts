@@ -32,6 +32,17 @@ import {
 } from "@/lib/question-bank/materi";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import {
+  adoptQuestionBankMediaFolderReservation,
+  assertQuestionBankMediaFolderReservationForBank,
+  createQuestionBankMediaFolder,
+  ensureQuestionBankMediaFolder,
+  finalizeQuestionBankMediaFolderReservation,
+  getAdoptedQuestionBankMediaFolderReservation,
+  lockQuestionBankMediaFolderForSave,
+  reserveDraftQuestionBankMediaFolder,
+  type MediaFolderIdentity,
+} from "./media-folder";
+import {
   getQuestionBankReadinessFromRevisions,
   getQuestionReadinessFromRevision,
   type QuestionBankReadiness,
@@ -87,6 +98,7 @@ type SaveBankInput = {
   editLease?: AuthoringEditLease;
   folderId?: string | null;
   id?: string;
+  mediaFolderReservationId?: string;
   purpose: QuestionBankPurpose;
   questions: BankQuestionInput[];
   revision?: number;
@@ -447,6 +459,14 @@ function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
     });
   }
   return folderId;
+}
+
+function normalizeMediaFolderReservationId(reservationId: SaveBankInput["mediaFolderReservationId"]) {
+  if (reservationId === undefined) return undefined;
+  if (typeof reservationId !== "string" || !QUESTION_BANK_FOLDER_UUID_PATTERN.test(reservationId)) {
+    throw new QuestionBankError("Folder Media untuk draf tidak valid.", { code: "invalid_input" });
+  }
+  return reservationId;
 }
 
 async function getFolderRows(client: typeof prisma | Prisma.TransactionClient = prisma): Promise<FolderRow[]> {
@@ -1008,6 +1028,58 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
   const folderId = normalizeQuestionBankFolderId(input.folderId);
+  const mediaFolderReservationId = normalizeMediaFolderReservationId(input.mediaFolderReservationId);
+  let newBankId: string | undefined;
+  let newBankCode: string | undefined;
+  let newBankMediaFolder: MediaFolderIdentity | null = null;
+
+  if (input.id && mediaFolderReservationId) {
+    await assertQuestionBankMediaFolderReservationForBank(
+      actorId,
+      mediaFolderReservationId,
+      input.id,
+    );
+  } else if (!input.id) {
+    if (mediaFolderReservationId) {
+      const adoptedBankId = await getAdoptedQuestionBankMediaFolderReservation(
+        actorId,
+        mediaFolderReservationId,
+      );
+      if (adoptedBankId) {
+        const savedBank = await prisma.questionBank.findUnique({
+          include: bankInclude,
+          where: { id: adoptedBankId },
+        });
+        if (!savedBank) {
+          throw new QuestionBankError("Bank Soal yang memakai folder Media ini tidak ditemukan.", {
+            code: "not_found",
+          });
+        }
+        const savedDto = toDto(savedBank, await getFolderRows());
+        try {
+          await finalizeQuestionBankMediaFolderReservation(savedBank.id, actorId);
+        } catch (error) {
+          console.error("Could not finalize the adopted Bank Media folder rename.", error);
+        }
+        return savedDto;
+      }
+
+      newBankId = randomUUID();
+      newBankCode = codeFromTitle(input.title);
+      const reservation = await reserveDraftQuestionBankMediaFolder(actorId, mediaFolderReservationId);
+      newBankMediaFolder = { id: reservation.mediaFolderId, name: reservation.provisionalName };
+    } else {
+      newBankId = randomUUID();
+      newBankCode = codeFromTitle(input.title);
+      newBankMediaFolder = await createQuestionBankMediaFolder(
+        actorId,
+        input.title,
+        newBankCode,
+        newBankId,
+      );
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     await setTransactionLockTimeout(tx);
     if (folderId !== undefined) {
@@ -1077,11 +1149,19 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           );
         }
       }
+      if (!newBankId || !newBankCode || !newBankMediaFolder) {
+        throw new QuestionBankError("Folder Media Bank Soal belum tersedia. Coba simpan lagi.", {
+          code: "invalid_input",
+        });
+      }
+      await lockQuestionBankMediaFolderForSave(tx, newBankMediaFolder.id);
       const created = await tx.questionBank.create({
         data: {
-          code: codeFromTitle(input.title),
+          id: newBankId,
+          code: newBankCode,
           description: input.description.trim() || null,
           folderId,
+          mediaFolderId: newBankMediaFolder.id,
           name: input.title.trim(),
           purpose: input.purpose,
           createdByUserId: actorId,
@@ -1090,6 +1170,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         },
       });
       bankId = created.id;
+      if (mediaFolderReservationId) {
+        await adoptQuestionBankMediaFolderReservation(tx, {
+          bankId: created.id,
+          mediaFolderId: newBankMediaFolder.id,
+          ownerUserId: actorId,
+          reservationId: mediaFolderReservationId,
+        });
+      }
     }
     const persistedBankId = bankId;
     const existing = await tx.question.findMany({
@@ -1254,6 +1342,15 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     ]);
     return toDto(saved, folderRows);
   });
+  if (mediaFolderReservationId || input.id) {
+    try {
+      await finalizeQuestionBankMediaFolderReservation(result.bank.id, actorId);
+    } catch (error) {
+      // The Bank is already committed. Leave the reservation and provisional
+      // folder intact so a later save can safely retry the conditional rename.
+      console.error("Could not finalize the adopted Bank Media folder rename.", error);
+    }
+  }
   return result;
 }
 
@@ -1561,6 +1658,8 @@ export {
   setQuestionBankCategories,
   updateQuestionRevisionLifecycle,
   updateQuestionBankLifecycle,
+  ensureQuestionBankMediaFolder,
+  reserveDraftQuestionBankMediaFolder,
 };
 export type {
   ListQuestionBanksOptions,

@@ -629,6 +629,119 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string, db: MediaD
   return ids;
 };
 
+/**
+ * Completes the system-managed rename of a draft Bank folder. The exact
+ * expected name check happens under the normal Media mutation lock so a
+ * Kapten rename that wins the race is preserved. Active Media edit leases
+ * defer the rename; a later Bank save can retry it.
+ */
+const renameQuestionBankMediaFolderIfUnchanged = async ({
+  candidateNames,
+  bankCode,
+  bankId,
+  bankName,
+  expectedName,
+  folderId,
+}: {
+  candidateNames: readonly string[];
+  bankCode: string;
+  bankId: string;
+  bankName: string;
+  expectedName: string;
+  folderId: string;
+}) => {
+  const safeExpectedName = validateFolderName(expectedName);
+  const safeCandidates = [...new Set(candidateNames.map(validateFolderName))];
+
+  return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
+    await acquireBannerMediaMutationLock(tx);
+    await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
+    const bank = await tx.questionBank.findUnique({
+      select: { code: true, mediaFolderId: true, name: true },
+      where: { id: bankId },
+    });
+    if (
+      !bank
+      || bank.mediaFolderId !== folderId
+      || bank.name !== bankName
+      || bank.code !== bankCode
+    ) {
+      return { renamed: false };
+    }
+
+    const current = await tx.mediaFolder.findFirst({
+      where: {
+        id: folderId,
+        libraryScope: MediaLibraryScope.kapten,
+        trashedAt: null,
+      },
+    });
+    if (!current || current.name !== safeExpectedName) return { renamed: false };
+
+    const subtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
+    await lockMediaFolderRows(tx, "kapten", subtreeIds);
+    const rereadSubtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
+    if (
+      rereadSubtreeIds.length !== subtreeIds.length
+      || rereadSubtreeIds.some((id) => !subtreeIds.includes(id))
+    ) {
+      return { renamed: false };
+    }
+
+    const affectedAssets = await tx.asset.findMany({
+      select: { id: true },
+      where: {
+        folderId: { in: subtreeIds },
+        libraryScope: MediaLibraryScope.kapten,
+      },
+      orderBy: { id: "asc" },
+    });
+    const leaseRows = await lockMediaLeaseRows(
+      tx,
+      subtreeIds,
+      affectedAssets.map(({ id }) => id),
+    );
+    const now = await databaseMediaNow(tx);
+    if (leaseRows.some((lease) =>
+      lease.releasedAt === null && lease.expiresAt.getTime() > now.getTime()
+    )) {
+      return { renamed: false };
+    }
+
+    const lockedCurrent = await tx.mediaFolder.findFirst({
+      where: {
+        id: folderId,
+        libraryScope: MediaLibraryScope.kapten,
+        trashedAt: null,
+      },
+    });
+    if (!lockedCurrent || lockedCurrent.name !== safeExpectedName) return { renamed: false };
+
+    for (const candidate of safeCandidates) {
+      const duplicate = await tx.mediaFolder.findFirst({
+        select: { id: true },
+        where: {
+          id: { not: folderId },
+          libraryScope: MediaLibraryScope.kapten,
+          name: { equals: candidate, mode: "insensitive" },
+          parentId: lockedCurrent.parentId,
+          trashedAt: null,
+        },
+      });
+      if (duplicate) continue;
+
+      await tx.mediaFolder.update({
+        data: { name: candidate },
+        where: { id: folderId },
+      });
+      return { renamed: true };
+    }
+
+    return { renamed: false };
+  });
+};
+
 const trashMediaFolder = async (
   scope: MediaScope,
   folderId: string,
@@ -1050,6 +1163,7 @@ export {
   moveMediaFolder,
   renameMediaAsset,
   renameMediaFolder,
+  renameQuestionBankMediaFolderIfUnchanged,
   requestMediaUpload,
   requireMediaSession,
   trashMediaAsset,

@@ -1265,6 +1265,7 @@ model User {
   moduleProgressions                     ModuleProgress[]
   createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
   updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
+  questionBankMediaFolderReservations    QuestionBankMediaFolderReservation[] @relation("QuestionBankMediaFolderReservationOwner")
   createdQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
   updatedQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
   createdQuestionBankCategories          QuestionBankCategory[]           @relation("QuestionBankCategoryCreatedBy")
@@ -1873,6 +1874,7 @@ model QuestionBank {
   name            String        @db.VarChar(200)
   description     String?       @db.Text
   folderId        String?       @map("folder_id") @db.Uuid
+  mediaFolderId   String?       @unique @map("media_folder_id") @db.Uuid
   purpose         QuestionBankPurpose
   status          ContentStatus @default(published)
   revision        Int           @default(1)
@@ -1884,6 +1886,8 @@ model QuestionBank {
   createdBy                                User                                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                                User                                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
   folder                                   QuestionBankFolder?                       @relation(fields: [folderId, purpose], references: [id, purpose], onDelete: Restrict)
+  mediaFolder                              MediaFolder?                              @relation("QuestionBankMediaFolder", fields: [mediaFolderId], references: [id], onDelete: Restrict)
+  mediaFolderReservation                  QuestionBankMediaFolderReservation?       @relation("QuestionBankMediaFolderReservationBank")
   categories                               QuestionBankCategoryAssignment[]
   questions                                Question[]
   sourceQuizzes                            StandaloneQuiz[]
@@ -1897,6 +1901,23 @@ model QuestionBank {
   @@index([folderId, purpose])
   @@index([purpose, status])
   @@map("question_banks")
+}
+
+model QuestionBankMediaFolderReservation {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId     String   @map("owner_user_id") @db.Uuid
+  mediaFolderId   String   @unique @map("media_folder_id") @db.Uuid
+  provisionalName String   @map("provisional_name") @db.VarChar(160)
+  adoptedBankId   String?  @unique @map("adopted_bank_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner       User          @relation("QuestionBankMediaFolderReservationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  mediaFolder MediaFolder   @relation("QuestionBankMediaFolderReservationFolder", fields: [mediaFolderId], references: [id], onDelete: Restrict)
+  adoptedBank QuestionBank? @relation("QuestionBankMediaFolderReservationBank", fields: [adoptedBankId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId, adoptedBankId])
+  @@map("question_bank_media_folder_reservations")
 }
 
 model Question {
@@ -4794,6 +4815,8 @@ model MediaFolder {
   parent    MediaFolder?  @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
   children  MediaFolder[] @relation("MediaFolderTree")
   assets    Asset[]
+  questionBank                          QuestionBank?                         @relation("QuestionBankMediaFolder")
+  questionBankMediaFolderReservation    QuestionBankMediaFolderReservation? @relation("QuestionBankMediaFolderReservationFolder")
   createdBy User?         @relation("MediaFolderCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([libraryScope, parentId, trashedAt])
