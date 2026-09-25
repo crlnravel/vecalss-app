@@ -16,6 +16,7 @@ import {
   BannerReferenceSafetyUnknownError,
 } from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
+import { findQuestionBankImageReferences } from "@/lib/question-bank/media-validator";
 import { setTransactionLockTimeout } from "@/lib/serialization/locks";
 import {
   assertAuthoringEditLease,
@@ -65,6 +66,19 @@ function rethrowBannerSafetyError(error: unknown): void {
   if (error instanceof BannerReferenceInUseError || error instanceof BannerReferenceSafetyUnknownError) {
     throw new MediaServiceError(error.message, error.status);
   }
+}
+
+async function assertKaptenBankImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const referencedAssetIds = await findQuestionBankImageReferences(tx, assetIds);
+  if (!referencedAssetIds.length) return;
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Bank Soal, jadi tidak bisa dihapus."
+    : "Folder ini masih berisi gambar yang dipakai oleh soal di Bank Soal, jadi tidak bisa dihapus.";
+  throw new MediaServiceError(message, 409, "in_use");
 }
 
 const scopeToDatabase = (scope: MediaScope) =>
@@ -757,6 +771,12 @@ const trashMediaFolder = async (
       await lockMediaAssetRows(tx, scope, ids);
       if (scope === "admin") {
         await assertBannerAssetsMayBeTrashed(tx, affectedAssets.map(({ id }) => id));
+      } else {
+        await assertKaptenBankImagesMayBeTrashed(
+          tx,
+          affectedAssets.map(({ id }) => id),
+          "folder",
+        );
       }
 
       const trashedAt = new Date();
@@ -902,6 +922,8 @@ const trashMediaAsset = async (
       if (current.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
       if (scope === "admin") {
         await assertBannerAssetsMayBeTrashed(tx, [current.id]);
+      } else {
+        await assertKaptenBankImagesMayBeTrashed(tx, [current.id], "asset");
       }
       const updated = await tx.asset.updateMany({
         data: { state: MediaAssetState.trashed, trashedAt: new Date() },

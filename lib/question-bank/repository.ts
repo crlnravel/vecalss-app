@@ -19,7 +19,8 @@ import {
 } from "@/lib/serialization/locks";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import {
-  assertReadyKaptenImageAssets,
+  lockAndValidateKaptenBankImages,
+  ManagedImageAssetConflictError,
   ManagedImageAssetValidationError,
 } from "@/lib/question-bank/media-validator";
 import {
@@ -1127,17 +1128,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
-    try {
-      await assertReadyKaptenImageAssets(tx, questionMediaAssetIds(input.questions));
-    } catch (error) {
-      if (error instanceof ManagedImageAssetValidationError) {
-        throw new QuestionBankError(error.message, {
-          code: "invalid_input",
-          details: { assetIds: [...error.assetIds] },
-        });
-      }
-      throw error;
-    }
     if (!bankId) {
       if (folderId) {
         const folder = await tx.questionBankFolder.findUnique({
@@ -1185,6 +1175,25 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
       }
     }
     const persistedBankId = bankId;
+    try {
+      await lockAndValidateKaptenBankImages(tx, {
+        assetIds: questionMediaAssetIds(input.questions),
+      });
+    } catch (error) {
+      if (error instanceof ManagedImageAssetValidationError) {
+        throw new QuestionBankError(error.message, {
+          code: "invalid_input",
+          details: { assetIds: [...error.assetIds] },
+        });
+      }
+      if (error instanceof ManagedImageAssetConflictError) {
+        throw new QuestionBankError(error.message, {
+          code: "stale_revision",
+          details: { assetIds: [...error.assetIds] },
+        });
+      }
+      throw error;
+    }
     const existing = await tx.question.findMany({
       where: { questionBankId: persistedBankId },
       include: {

@@ -20,7 +20,10 @@ export const dynamic = "force-dynamic";
 
 const errorResponse = (error: unknown) => {
   if (error instanceof MediaServiceError) {
-    return Response.json({ error: error.message }, { status: error.status });
+    return Response.json(
+      { error: error.message, ...(error.code ? { code: error.code } : {}) },
+      { status: error.status },
+    );
   }
   if (error instanceof EditLeaseServiceError) {
     return Response.json({ error: error.code }, { status: error.status });
