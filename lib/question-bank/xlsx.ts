@@ -1345,6 +1345,7 @@ async function validateAndThumbnailImage(bytes: Buffer, signal?: AbortSignal) {
     }
     return { height: metadata.height, mimeType, thumbnail: rendered, width: metadata.width };
   } catch (error) {
+    if (signal?.aborted) throw new ImageSourceError("attempt_cancelled");
     if (error instanceof ImageSourceError) throw error;
     throw new ImageSourceError("xlsx_image_invalid");
   }
@@ -1358,16 +1359,25 @@ async function mapConcurrent<T, R>(
 ) {
   const results = new Array<R>(values.length);
   let cursor = 0;
+  let firstError: unknown;
+  let workerFailed = false;
   const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
     while (true) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || workerFailed) return;
       const index = cursor;
       cursor += 1;
       if (index >= values.length) return;
-      results[index] = await task(values[index]!, index);
+      try {
+        results[index] = await task(values[index]!, index);
+      } catch (error) {
+        if (!workerFailed) firstError = error;
+        workerFailed = true;
+        return;
+      }
     }
   });
   await Promise.all(workers);
+  if (workerFailed) throw firstError;
   return results;
 }
 
@@ -1663,9 +1673,10 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
     excelWorkbook = new ExcelJS.Workbook();
     const workbookArrayBuffer = new ArrayBuffer(input.byteLength);
     new Uint8Array(workbookArrayBuffer).set(input);
-    const excelLoad = excelWorkbook.xlsx.load(workbookArrayBuffer);
-    if (signal) await raceWithAbort(excelLoad, signal);
-    else await excelLoad;
+    // ExcelJS load has no cancellation hook. Await the actual promise instead
+    // of racing it, so callers and the preview CPU permit remain held until its
+    // parser work truly settles; the following check prevents later phases.
+    await excelWorkbook.xlsx.load(workbookArrayBuffer);
     throwIfRequestAborted(signal);
   } catch (error) {
     if (signal?.aborted) throw new ImageSourceError("attempt_cancelled");

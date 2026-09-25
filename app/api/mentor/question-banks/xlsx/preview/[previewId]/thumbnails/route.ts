@@ -1,5 +1,6 @@
 import { readPrivateStagingObject } from "@/lib/media/r2";
 import {
+  QuestionBankXlsxImportError,
   readQuestionBankXlsxPreview,
 } from "@/lib/question-bank/xlsx-import-repository";
 import {
@@ -16,6 +17,7 @@ import {
   readTutorQuestionBankXlsxSession,
 } from "@/lib/question-bank/xlsx-http";
 import { QUESTION_BANK_XLSX_LIMITS } from "@/lib/question-bank/xlsx-limits";
+import { acquireQuestionBankXlsxPreviewCpuPermit } from "@/lib/question-bank/xlsx-preview-cpu-gate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,10 +32,14 @@ export async function GET(request: Request, context: RouteContext) {
   if (session === null) return questionBankXlsxErrorResponse("unauthenticated", 401);
   if (session === false) return questionBankXlsxErrorResponse("resource_inaccessible", 403);
 
+  let releaseCpuPermit: (() => void) | null = null;
   try {
     const { previewId: rawPreviewId } = await context.params;
     const previewId = parseQuestionBankXlsxPreviewId(rawPreviewId);
     const offset = parseQuestionBankXlsxThumbnailOffset(new URL(request.url).searchParams.get("offset"));
+    if (request.signal.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    releaseCpuPermit = acquireQuestionBankXlsxPreviewCpuPermit();
+    if (!releaseCpuPermit) throw new QuestionBankXlsxImportError("attempt_busy");
     const preview = await readQuestionBankXlsxPreview(session.user.id, previewId, request.signal);
     const selected = preview.previewImageIndex.slice(offset, offset + QUESTION_BANK_XLSX_LIMITS.thumbnailPageSize);
     const images = await mapConcurrent(selected, QUESTION_BANK_XLSX_LIMITS.maxConcurrentImageOperations, async (image) => {
@@ -47,7 +53,11 @@ export async function GET(request: Request, context: RouteContext) {
       offset,
     }, { headers: QUESTION_BANK_XLSX_HTTP_HEADERS });
   } catch (error) {
-    const mapped = mapQuestionBankXlsxError(error);
+    const mapped = mapQuestionBankXlsxError(
+      request.signal.aborted ? new QuestionBankXlsxImportError("attempt_cancelled") : error,
+    );
     return questionBankXlsxErrorResponse(mapped.code, mapped.status);
+  } finally {
+    releaseCpuPermit?.();
   }
 }

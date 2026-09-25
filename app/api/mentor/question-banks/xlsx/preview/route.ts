@@ -25,6 +25,7 @@ import {
   readQuestionBankXlsxThumbnail,
 } from "@/lib/question-bank/xlsx";
 import { QUESTION_BANK_XLSX_LIMITS } from "@/lib/question-bank/xlsx-limits";
+import { acquireQuestionBankXlsxPreviewCpuPermit } from "@/lib/question-bank/xlsx-preview-cpu-gate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   const signal = AbortSignal.any([request.signal, previewController.signal]);
   let stopCancellationWatch = () => {};
   let unregisterController = () => {};
+  let releaseCpuPermit: (() => void) | null = null;
   try {
     ({ uploadId } = await parseQuestionBankXlsxPreviewRequest(request));
     unregisterController = registerQuestionBankXlsxPreviewController(uploadId, previewController);
@@ -76,6 +78,9 @@ export async function POST(request: Request) {
       uploadId,
       previewController,
     );
+    if (signal.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+    releaseCpuPermit = acquireQuestionBankXlsxPreviewCpuPermit();
+    if (!releaseCpuPermit) throw new QuestionBankXlsxImportError("attempt_busy");
     const started = await beginQuestionBankXlsxPreview(session.user.id, uploadId, signal);
     if (started.replay) {
       const preview = await readQuestionBankXlsxPreview(session.user.id, uploadId, signal);
@@ -145,7 +150,7 @@ export async function POST(request: Request) {
     }, { headers: QUESTION_BANK_XLSX_HTTP_HEADERS });
   } catch (error) {
     let mappedError = error;
-    if (uploadId && signal.aborted) {
+    if (uploadId && signal.aborted && releaseCpuPermit) {
       await markQuestionBankXlsxCancellation(session.user.id, uploadId).catch(() => undefined);
       await finishQuestionBankXlsxCancellation(session.user.id, uploadId).catch(() => undefined);
       mappedError = new QuestionBankXlsxImportError("attempt_cancelled");
@@ -159,6 +164,7 @@ export async function POST(request: Request) {
     const mapped = mapQuestionBankXlsxError(mappedError);
     return questionBankXlsxErrorResponse(mapped.code, mapped.status);
   } finally {
+    releaseCpuPermit?.();
     stopCancellationWatch();
     unregisterController();
   }
