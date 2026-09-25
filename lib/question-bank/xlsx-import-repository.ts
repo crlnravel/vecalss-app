@@ -3,23 +3,45 @@ import "server-only";
 import { randomUUID, createHash } from "node:crypto";
 
 import {
+  MediaAssetState,
+  MediaLibraryScope,
   Prisma,
+  QuestionBankXlsxImportAssetState,
   QuestionBankXlsxImportAttemptState,
 } from "@/generated/prisma/client";
+import { buildMediaObjectKey } from "@/lib/media/domain";
 import {
   abortPrivateStagingMultipartUpload,
   completePrivateStagingMultipartUpload,
   createPrivateStagingMultipartUpload,
   createPrivateStagingUploadPartUrl,
   deletePrivateStagingObjects,
+  deleteKaptenImageObject,
   headMediaObject,
   listPrivateStagingMultipartParts,
   listPrivateStagingMultipartUploads,
   PrivateStagingObjectTooLargeError,
   putPrivateStagingObject,
+  putKaptenImageObject,
   readPrivateStagingObject,
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
+import { ensureQuestionBankMediaFolder, reserveDraftQuestionBankMediaFolder } from "@/lib/question-bank/media-folder";
+import {
+  findQuestionBankImageReferences,
+  lockAndValidateKaptenBankImages,
+  lockAndPrepareKaptenBankImageCleanup,
+} from "@/lib/question-bank/media-validator";
+import {
+  applyQuestionBankRowsInTransaction,
+  QuestionBankCsvMutationError,
+  type QuestionBankCsvApplyResult,
+  type QuestionBankCsvImportMode,
+} from "@/lib/question-bank/csv-repository";
+import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
+import { setTransactionLockTimeout } from "@/lib/serialization/locks";
+import { isUuid } from "@/lib/resource-edit-lock/canonical";
+import type { QuestionBankCsvRow } from "./csv";
 import {
   QUESTION_BANK_XLSX_LIMITS,
   QUESTION_BANK_XLSX_MIME_TYPE,
@@ -49,6 +71,7 @@ type QuestionBankXlsxImportErrorCode =
   | "attempt_expired"
   | "attempt_invalid"
   | "attempt_not_found"
+  | "attempt_target_mismatch"
   | "attempt_unavailable"
   | "multipart_incomplete"
   | "multipart_invalid"
@@ -1127,16 +1150,23 @@ async function persistQuestionBankXlsxPreview(input: QuestionBankXlsxUploadPrevi
   }
 }
 
-async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+async function readQuestionBankXlsxPreviewInternal(
+  ownerUserId: string,
+  attemptId: string,
+  signal: AbortSignal | undefined,
+  applying: boolean,
+) {
   if (signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
   const attempt = await prisma.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
   if (!attempt || attempt.ownerUserId !== ownerUserId) {
     throw new QuestionBankXlsxImportError("attempt_not_found");
   }
   if (
-    attempt.state !== QuestionBankXlsxImportAttemptState.previewed
-    || !attempt.previewExpiresAt
-    || attempt.previewExpiresAt <= new Date()
+    attempt.state !== (applying
+      ? QuestionBankXlsxImportAttemptState.applying
+      : QuestionBankXlsxImportAttemptState.previewed)
+    || attempt.cancelRequestedAt
+    || (!applying && (!attempt.previewExpiresAt || attempt.previewExpiresAt <= new Date()))
     || !attempt.manifestObjectKey
   ) {
     throw new QuestionBankXlsxImportError("attempt_expired");
@@ -1247,6 +1277,792 @@ async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: strin
     manifest,
     previewImageIndex,
   };
+}
+
+async function readQuestionBankXlsxPreview(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+  return readQuestionBankXlsxPreviewInternal(ownerUserId, attemptId, signal, false);
+}
+
+async function readQuestionBankXlsxPreviewForApply(ownerUserId: string, attemptId: string, signal?: AbortSignal) {
+  return readQuestionBankXlsxPreviewInternal(ownerUserId, attemptId, signal, true);
+}
+
+type QuestionBankXlsxApplyTarget = {
+  attemptId: string;
+  ownerUserId: string;
+  targetBankId: string | null;
+  targetMode: QuestionBankCsvImportMode | "draft";
+  requestedReservationId?: string;
+};
+
+type QuestionBankXlsxApplyClaim = {
+  attempt: {
+    createdAt: Date;
+    id: string;
+    multipartUploadId: string | null;
+    operationLeaseExpiresAt: Date | null;
+    stagedObjectKeys: Prisma.JsonValue;
+    uploadExpiresAt: Date;
+    uploadObjectKey: string;
+  };
+  leaseExpiresAt: Date;
+  mediaFolderReservationId: string | null;
+};
+
+type QuestionBankXlsxApplyClaimOutcome =
+  | { kind: "replay"; result: Prisma.JsonValue }
+  | { claim: QuestionBankXlsxApplyClaim; kind: "claimed" };
+
+type QuestionBankXlsxBankApplyResult = QuestionBankCsvApplyResult & {
+  imageAssetIds: string[];
+  previewId: string;
+};
+
+type QuestionBankXlsxDraftApplyResult = {
+  imageAssetIds: string[];
+  mediaFolderReservationId: string;
+  normalizedRows: QuestionBankCsvRow[];
+  previewId: string;
+};
+
+type QuestionBankXlsxAttemptAsset = {
+  assetId: string;
+  contentSha256: string;
+  height: number;
+  mimeType: string;
+  objectKey: string;
+  sizeBytes: number;
+  width: number;
+};
+
+const questionBankXlsxApplyCompletedRetentionMs =
+  QUESTION_BANK_XLSX_LIMITS.completedAttemptRetentionMs;
+
+async function claimQuestionBankXlsxApplyAttempt(input: QuestionBankXlsxApplyTarget): Promise<QuestionBankXlsxApplyClaimOutcome> {
+  if (
+    !isUuid(input.attemptId)
+    || !isUuid(input.ownerUserId)
+    || (input.targetBankId !== null && !isUuid(input.targetBankId))
+    || (input.targetMode === "draft" && input.targetBankId !== null)
+    || (input.targetMode !== "draft" && input.targetBankId === null)
+    || (input.requestedReservationId !== undefined && !isUuid(input.requestedReservationId))
+  ) {
+    throw new QuestionBankXlsxImportError("attempt_invalid");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${input.attemptId}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: input.attemptId } });
+    if (!current || current.ownerUserId !== input.ownerUserId) {
+      throw new QuestionBankXlsxImportError("attempt_not_found");
+    }
+
+    const firstClaim = current.targetMode === null && current.targetBankId === null;
+    const targetMatches = current.targetBankId === input.targetBankId
+      && current.targetMode === input.targetMode;
+    const reservationMatches = input.targetMode !== "draft"
+      || input.requestedReservationId === undefined
+      || current.mediaFolderReservationId === input.requestedReservationId;
+    if ((!firstClaim && !targetMatches) || !reservationMatches) {
+      throw new QuestionBankXlsxImportError("attempt_target_mismatch");
+    }
+
+    const now = new Date();
+    if (current.state === QuestionBankXlsxImportAttemptState.completed) {
+      if (current.expiresAt <= now) throw new QuestionBankXlsxImportError("attempt_expired");
+      if (!current.result || !targetMatches || !reservationMatches) {
+        throw new QuestionBankXlsxImportError("attempt_target_mismatch");
+      }
+      return { kind: "replay", result: current.result as Prisma.JsonValue };
+    }
+    if (current.state === QuestionBankXlsxImportAttemptState.applying) {
+      if (current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now) {
+        throw new QuestionBankXlsxImportError("attempt_busy");
+      }
+    } else if (
+      current.state !== QuestionBankXlsxImportAttemptState.previewed
+      || current.previewExpiresAt === null
+      || current.previewExpiresAt <= now
+      || !current.manifestObjectKey
+    ) {
+      throw new QuestionBankXlsxImportError("attempt_expired");
+    }
+    if (current.cancelRequestedAt) throw new QuestionBankXlsxImportError("attempt_cancelled");
+
+    const leaseExpiresAt = operationLeaseUntil(now.getTime());
+    const mediaFolderReservationId = input.targetMode === "draft"
+      ? current.mediaFolderReservationId ?? input.requestedReservationId ?? randomUUID()
+      : null;
+    const attempt = await tx.questionBankXlsxImportAttempt.update({
+      data: {
+        expiresAt: expiresAfterOperation(leaseExpiresAt),
+        lastErrorCode: null,
+        mediaFolderReservationId,
+        operationLeaseExpiresAt: leaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.applying,
+        targetBankId: input.targetBankId,
+        targetMode: input.targetMode,
+      },
+      where: { id: input.attemptId },
+    });
+    const claim: QuestionBankXlsxApplyClaim = {
+      attempt: {
+        createdAt: attempt.createdAt,
+        id: attempt.id,
+        multipartUploadId: attempt.multipartUploadId,
+        operationLeaseExpiresAt: attempt.operationLeaseExpiresAt,
+        stagedObjectKeys: attempt.stagedObjectKeys,
+        uploadExpiresAt: attempt.uploadExpiresAt,
+        uploadObjectKey: attempt.uploadObjectKey,
+      },
+      leaseExpiresAt,
+      mediaFolderReservationId,
+    };
+    return { claim, kind: "claimed" };
+  }, { maxWait: 5_000, timeout: 30_000 });
+}
+
+async function assertQuestionBankXlsxApplyClaim(
+  tx: Prisma.TransactionClient,
+  input: QuestionBankXlsxApplyTarget,
+  leaseExpiresAt: Date,
+  mediaFolderReservationId: string | null,
+) {
+  const attempt = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: input.attemptId } });
+  if (
+    !attempt
+    || attempt.ownerUserId !== input.ownerUserId
+    || attempt.state !== QuestionBankXlsxImportAttemptState.applying
+    || attempt.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+    || attempt.targetBankId !== input.targetBankId
+    || attempt.targetMode !== input.targetMode
+    || attempt.mediaFolderReservationId !== mediaFolderReservationId
+    || attempt.cancelRequestedAt
+  ) {
+    throw new QuestionBankXlsxImportError("attempt_busy");
+  }
+  return attempt;
+}
+
+async function ensureQuestionBankXlsxAttemptAssets(
+  input: QuestionBankXlsxApplyTarget,
+  claim: QuestionBankXlsxApplyClaim,
+  destinationFolderId: string,
+  images: readonly Omit<QuestionBankXlsxAttemptAsset, "assetId" | "objectKey">[],
+) {
+  return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${input.attemptId}::uuid
+      FOR UPDATE
+    `;
+    await assertQuestionBankXlsxApplyClaim(
+      tx,
+      input,
+      claim.leaseExpiresAt,
+      claim.mediaFolderReservationId,
+    );
+
+    const owned = await tx.questionBankXlsxImportAttemptAsset.findMany({
+      include: { asset: true },
+      orderBy: { contentSha256: "asc" },
+      where: { attemptId: input.attemptId },
+    });
+    const byHash = new Map(owned.map((asset) => [asset.contentSha256, asset]));
+    if (owned.some((asset) => !images.some((image) => image.contentSha256 === asset.contentSha256))) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+
+    const result: QuestionBankXlsxAttemptAsset[] = [];
+    for (const image of [...images].sort((left, right) => left.contentSha256.localeCompare(right.contentSha256))) {
+      const existing = byHash.get(image.contentSha256);
+      if (existing) {
+        const expectedObjectKey = buildMediaObjectKey(
+          "kapten",
+          existing.assetId,
+          image.mimeType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+        );
+        if (
+          existing.state !== QuestionBankXlsxImportAssetState.pending
+          || existing.objectKey !== expectedObjectKey
+          || existing.mimeType !== image.mimeType
+          || existing.sizeBytes !== image.sizeBytes
+          || existing.width !== image.width
+          || existing.height !== image.height
+          || existing.asset.state !== MediaAssetState.pending
+          || existing.asset.libraryScope !== MediaLibraryScope.kapten
+          || existing.asset.folderId !== destinationFolderId
+          || existing.asset.objectKey !== existing.objectKey
+          || existing.asset.mimeType !== image.mimeType
+          || existing.asset.sizeBytes !== image.sizeBytes
+          || existing.asset.width !== image.width
+          || existing.asset.height !== image.height
+          || existing.asset.checksum !== image.contentSha256
+        ) {
+          throw new QuestionBankXlsxImportError("attempt_unavailable");
+        }
+        result.push({
+          assetId: existing.assetId,
+          contentSha256: existing.contentSha256,
+          height: existing.height,
+          mimeType: existing.mimeType,
+          objectKey: existing.objectKey,
+          sizeBytes: existing.sizeBytes,
+          width: existing.width,
+        });
+        continue;
+      }
+
+      const assetId = randomUUID();
+      const objectKey = buildMediaObjectKey("kapten", assetId, image.mimeType as "image/jpeg" | "image/png" | "image/webp" | "image/gif");
+      const createdAsset = await tx.asset.create({
+        data: {
+          checksum: image.contentSha256,
+          folderId: destinationFolderId,
+          height: image.height,
+          libraryScope: MediaLibraryScope.kapten,
+          mimeType: image.mimeType,
+          objectKey,
+          originalName: `xlsx-${image.contentSha256.slice(0, 16)}`,
+          sizeBytes: image.sizeBytes,
+          state: MediaAssetState.pending,
+          uploadedByUserId: input.ownerUserId,
+          width: image.width,
+        },
+      });
+      await tx.questionBankXlsxImportAttemptAsset.create({
+        data: {
+          assetId,
+          attemptId: input.attemptId,
+          contentSha256: image.contentSha256,
+          height: image.height,
+          mimeType: image.mimeType,
+          objectKey,
+          sizeBytes: image.sizeBytes,
+          state: QuestionBankXlsxImportAssetState.pending,
+          width: image.width,
+        },
+      });
+      result.push({
+        assetId: createdAsset.id,
+        contentSha256: image.contentSha256,
+        height: image.height,
+        mimeType: image.mimeType,
+        objectKey,
+        sizeBytes: image.sizeBytes,
+        width: image.width,
+      });
+    }
+    return result;
+  }, { maxWait: 5_000, timeout: 30_000 });
+}
+
+async function readFrozenQuestionBankXlsxImages(
+  preview: Awaited<ReturnType<typeof readQuestionBankXlsxPreviewForApply>>,
+  signal?: AbortSignal,
+) {
+  const payloads = new Map<string, Uint8Array>();
+  for (const image of preview.previewImageIndex) {
+    if (signal?.aborted) throw signal.reason ?? new QuestionBankXlsxImportError("attempt_cancelled");
+    const bytes = await readPrivateStagingObject(
+      image.objectKey,
+      QUESTION_BANK_XLSX_LIMITS.imageBytes,
+      signal,
+    );
+    if (bytes.byteLength !== image.sizeBytes || sha256(bytes) !== image.contentSha256) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    payloads.set(image.contentSha256, bytes);
+  }
+  return payloads;
+}
+
+function applyImageAssetIdsToRows(
+  rows: readonly QuestionBankCsvRow[],
+  imageSlots: QuestionBankXlsxPreviewManifest["imageSlots"],
+  assetIdByHash: ReadonlyMap<string, string>,
+) {
+  const mappedRows = rows.map((row) => ({ ...row, options: row.options.map((option) => ({ ...option })) }));
+  for (const slot of imageSlots) {
+    const row = mappedRows[slot.row - 2];
+    const assetId = assetIdByHash.get(slot.contentSha256);
+    if (!row || !assetId) throw new QuestionBankXlsxImportError("attempt_unavailable");
+    switch (slot.field) {
+      case "prompt_image":
+        row.promptMediaAssetId = assetId;
+        break;
+      case "explanation_image":
+        row.explanationMediaAssetId = assetId;
+        break;
+      case "option_a_image":
+      case "option_b_image":
+      case "option_c_image":
+      case "option_d_image":
+      case "option_e_image": {
+        const label = slot.field.slice("option_".length, "option_".length + 1).toUpperCase();
+        const option = row.options.find((item) => item.label === label);
+        if (!option) throw new QuestionBankXlsxImportError("attempt_unavailable");
+        option.assetId = assetId;
+        if (label === "A") row.optionAMediaAssetId = assetId;
+        if (label === "B") row.optionBMediaAssetId = assetId;
+        if (label === "C") row.optionCMediaAssetId = assetId;
+        if (label === "D") row.optionDMediaAssetId = assetId;
+        if (label === "E") row.optionEMediaAssetId = assetId;
+        break;
+      }
+      default:
+        throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+  }
+  return mappedRows;
+}
+
+async function uploadAndVerifyQuestionBankXlsxImages(
+  attemptAssets: readonly QuestionBankXlsxAttemptAsset[],
+  payloads: ReadonlyMap<string, Uint8Array>,
+  signal?: AbortSignal,
+) {
+  for (const asset of attemptAssets) {
+    if (signal?.aborted) throw signal.reason ?? new QuestionBankXlsxImportError("attempt_cancelled");
+    const bytes = payloads.get(asset.contentSha256);
+    if (!bytes || bytes.byteLength !== asset.sizeBytes || sha256(bytes) !== asset.contentSha256) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    await putKaptenImageObject(asset.objectKey, bytes, asset.mimeType, asset.contentSha256, signal);
+    const head = await headMediaObject(asset.objectKey, signal);
+    if (
+      head.ContentLength !== asset.sizeBytes
+      || head.ContentType?.toLowerCase() !== asset.mimeType
+      || head.Metadata?.sha256 !== asset.contentSha256
+    ) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+  }
+}
+
+async function completeQuestionBankXlsxAttemptAssets(
+  tx: Prisma.TransactionClient,
+  attemptId: string,
+  assetIds: readonly string[],
+) {
+  if (!assetIds.length) return;
+  const updated = await tx.questionBankXlsxImportAttemptAsset.updateMany({
+    data: { state: QuestionBankXlsxImportAssetState.ready },
+    where: {
+      assetId: { in: [...assetIds] },
+      attemptId,
+      state: QuestionBankXlsxImportAssetState.pending,
+    },
+  });
+  if (updated.count !== assetIds.length) throw new QuestionBankXlsxImportError("attempt_unavailable");
+}
+
+async function completeQuestionBankXlsxApplyAttempt<TResult extends QuestionBankXlsxBankApplyResult | QuestionBankXlsxDraftApplyResult>(
+  tx: Prisma.TransactionClient,
+  input: QuestionBankXlsxApplyTarget,
+  claim: QuestionBankXlsxApplyClaim,
+  result: TResult,
+): Promise<TResult> {
+  const now = new Date();
+  const completedAt = now;
+  const updated = await tx.questionBankXlsxImportAttempt.updateMany({
+    data: {
+      completedAt,
+      expiresAt: new Date(now.getTime() + questionBankXlsxApplyCompletedRetentionMs),
+      imageCount: result.imageAssetIds.length,
+      lastErrorCode: null,
+      operationLeaseExpiresAt: null,
+      questionCount: "normalizedRows" in result ? result.normalizedRows.length : result.importedCount,
+      result: result as unknown as Prisma.InputJsonValue,
+      state: QuestionBankXlsxImportAttemptState.completed,
+    },
+    where: {
+      id: input.attemptId,
+      mediaFolderReservationId: claim.mediaFolderReservationId,
+      operationLeaseExpiresAt: claim.leaseExpiresAt,
+      ownerUserId: input.ownerUserId,
+      state: QuestionBankXlsxImportAttemptState.applying,
+      targetBankId: input.targetBankId,
+      targetMode: input.targetMode,
+    },
+  });
+  if (updated.count !== 1) throw new QuestionBankXlsxImportError("attempt_busy");
+  return result;
+}
+
+async function completeQuestionBankXlsxAssetCleanup(
+  attemptId: string,
+  ownerUserId: string,
+  leaseExpiresAt: Date,
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${attemptId}::uuid
+      FOR UPDATE
+    `;
+    const attempt = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+    if (
+      !attempt
+      || attempt.ownerUserId !== ownerUserId
+      || attempt.state !== QuestionBankXlsxImportAttemptState.cleanup_pending
+      || attempt.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+    ) return null;
+
+    const owned = await tx.questionBankXlsxImportAttemptAsset.findMany({
+      orderBy: { assetId: "asc" },
+      where: { attemptId },
+    });
+    if (owned.some((entry) => entry.state !== QuestionBankXlsxImportAssetState.pending
+      && entry.state !== QuestionBankXlsxImportAssetState.cleanup_pending)) {
+      throw new QuestionBankXlsxImportError("attempt_unavailable");
+    }
+    await tx.questionBankXlsxImportAttemptAsset.updateMany({
+      data: { state: QuestionBankXlsxImportAssetState.cleanup_pending },
+      where: { attemptId, state: QuestionBankXlsxImportAssetState.pending },
+    });
+    const safeObjects = await lockAndPrepareKaptenBankImageCleanup(tx, owned.map((entry) => ({
+      assetId: entry.assetId,
+      objectKey: entry.objectKey,
+    })));
+    return { safeObjects };
+  }, { maxWait: 5_000, timeout: 30_000 });
+}
+
+async function recordQuestionBankXlsxAssetCleanupFailure(
+  attemptId: string,
+  leaseExpiresAt: Date,
+  errorCode: string,
+) {
+  await prisma.questionBankXlsxImportAttempt.updateMany({
+    data: {
+      expiresAt: nextCleanupAttemptAt(),
+      lastErrorCode: errorCode,
+      operationLeaseExpiresAt: null,
+      state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+    },
+    where: {
+      id: attemptId,
+      operationLeaseExpiresAt: leaseExpiresAt,
+      state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+    },
+  });
+}
+
+async function removeQuestionBankXlsxAttemptAssets(
+  attemptId: string,
+  ownerUserId: string,
+  leaseExpiresAt: Date,
+  errorCode: string,
+) {
+  try {
+    const prepared = await completeQuestionBankXlsxAssetCleanup(attemptId, ownerUserId, leaseExpiresAt);
+    if (!prepared) return false;
+
+    const deletions = await Promise.allSettled(prepared.safeObjects.map((asset) => deleteKaptenImageObject(asset.objectKey)));
+    if (deletions.some((deletion) => deletion.status === "rejected")) {
+      await recordQuestionBankXlsxAssetCleanupFailure(attemptId, leaseExpiresAt, "asset_cleanup_pending");
+      return false;
+    }
+
+    const removed = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${attemptId}::uuid
+        FOR UPDATE
+      `;
+      const attempt = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+      if (
+        !attempt
+        || attempt.ownerUserId !== ownerUserId
+        || attempt.state !== QuestionBankXlsxImportAttemptState.cleanup_pending
+        || attempt.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+      ) return false;
+      const owned = await tx.questionBankXlsxImportAttemptAsset.findMany({
+        orderBy: { assetId: "asc" },
+        where: { attemptId },
+      });
+      if (owned.some((entry) => entry.state !== QuestionBankXlsxImportAssetState.cleanup_pending)) {
+        throw new QuestionBankXlsxImportError("attempt_unavailable");
+      }
+      const safeObjects = await lockAndPrepareKaptenBankImageCleanup(tx, owned.map((entry) => ({
+        assetId: entry.assetId,
+        objectKey: entry.objectKey,
+      })));
+      if (safeObjects.length) {
+        const references = await findQuestionBankImageReferences(tx, safeObjects.map((asset) => asset.assetId));
+        if (references.length) throw new QuestionBankXlsxImportError("attempt_unavailable");
+        const assetIds = safeObjects.map((asset) => asset.assetId);
+        await tx.questionBankXlsxImportAttemptAsset.deleteMany({ where: { attemptId, assetId: { in: assetIds } } });
+        const deleted = await tx.asset.deleteMany({
+          where: {
+            id: { in: assetIds },
+            libraryScope: MediaLibraryScope.kapten,
+            objectKey: { in: safeObjects.map((asset) => asset.objectKey) },
+            state: { in: [MediaAssetState.failed, MediaAssetState.trashed] },
+          },
+        });
+        if (deleted.count !== assetIds.length) throw new QuestionBankXlsxImportError("attempt_unavailable");
+      }
+      await tx.questionBankXlsxImportAttempt.update({
+        data: {
+          lastErrorCode: errorCode,
+          expiresAt: expiresAfterOperation(leaseExpiresAt),
+          operationLeaseExpiresAt: leaseExpiresAt,
+          state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+        },
+        where: { id: attemptId },
+      });
+      return true;
+    }, { maxWait: 5_000, timeout: 30_000 });
+    return removed;
+  } catch {
+    await recordQuestionBankXlsxAssetCleanupFailure(attemptId, leaseExpiresAt, "asset_cleanup_pending").catch(() => undefined);
+    return false;
+  }
+}
+
+async function failAndCleanQuestionBankXlsxApply(
+  input: QuestionBankXlsxApplyTarget,
+  claim: QuestionBankXlsxApplyClaim,
+  error: unknown,
+) {
+  const errorCode = error instanceof QuestionBankXlsxImportError
+    ? error.code
+    : error instanceof QuestionBankCsvMutationError
+      ? error.code
+      : "attempt_unavailable";
+  const cleanupLeaseExpiresAt = operationLeaseUntil();
+  const claimed = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM question_bank_xlsx_import_attempts
+      WHERE id = ${input.attemptId}::uuid
+      FOR UPDATE
+    `;
+    const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: input.attemptId } });
+    if (
+      !current
+      || current.ownerUserId !== input.ownerUserId
+      || current.state !== QuestionBankXlsxImportAttemptState.applying
+      || current.operationLeaseExpiresAt?.getTime() !== claim.leaseExpiresAt.getTime()
+    ) return null;
+    return tx.questionBankXlsxImportAttempt.update({
+      data: {
+        expiresAt: expiresAfterOperation(cleanupLeaseExpiresAt),
+        lastErrorCode: errorCode,
+        operationLeaseExpiresAt: cleanupLeaseExpiresAt,
+        state: QuestionBankXlsxImportAttemptState.cleanup_pending,
+      },
+      where: { id: input.attemptId },
+    });
+  });
+  if (!claimed) return;
+
+  const assetsRemoved = await removeQuestionBankXlsxAttemptAssets(
+    input.attemptId,
+    input.ownerUserId,
+    cleanupLeaseExpiresAt,
+    errorCode,
+  );
+  if (assetsRemoved) {
+    await recordQuestionBankXlsxAssetCleanupFailure(
+      input.attemptId,
+      cleanupLeaseExpiresAt,
+      errorCode,
+    );
+  }
+}
+
+async function applyQuestionBankXlsxToBank(input: {
+  actorId: string;
+  attemptId: string;
+  bankId: string;
+  editLease: AuthoringEditLease;
+  expectedRevision: number;
+  mode: QuestionBankCsvImportMode;
+  signal?: AbortSignal;
+}): Promise<QuestionBankXlsxBankApplyResult> {
+  const target: QuestionBankXlsxApplyTarget = {
+    attemptId: input.attemptId,
+    ownerUserId: input.actorId,
+    targetBankId: input.bankId,
+    targetMode: input.mode,
+  };
+  const outcome = await claimQuestionBankXlsxApplyAttempt(target);
+  if (outcome.kind === "replay") {
+    return outcome.result as unknown as QuestionBankXlsxBankApplyResult;
+  }
+  const claim = outcome.claim;
+
+  try {
+    const bank = await prisma.questionBank.findFirst({
+      select: { id: true },
+      where: { createdByUserId: input.actorId, id: input.bankId },
+    });
+    if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
+    const folder = await ensureQuestionBankMediaFolder(input.bankId, input.actorId);
+    const preview = await readQuestionBankXlsxPreviewForApply(input.actorId, input.attemptId, input.signal);
+    const imageBytes = await readFrozenQuestionBankXlsxImages(preview, input.signal);
+    const images = preview.previewImageIndex.map((image) => ({
+      contentSha256: image.contentSha256,
+      height: image.height,
+      mimeType: image.mimeType,
+      sizeBytes: image.sizeBytes,
+      width: image.width,
+    }));
+    const attemptAssets = await ensureQuestionBankXlsxAttemptAssets(target, claim, folder.id, images);
+    const assetIdByHash = new Map(attemptAssets.map((asset) => [asset.contentSha256, asset.assetId]));
+    const rows = applyImageAssetIdsToRows(preview.manifest.normalizedRows, preview.manifest.imageSlots, assetIdByHash);
+    await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
+
+    const result = await prisma.$transaction(async (tx) => {
+      await setTransactionLockTimeout(tx);
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${input.attemptId}::uuid
+        FOR UPDATE
+      `;
+      await assertQuestionBankXlsxApplyClaim(
+        tx,
+        target,
+        claim.leaseExpiresAt,
+        claim.mediaFolderReservationId,
+      );
+      const applied = await applyQuestionBankRowsInTransaction(tx, {
+        actorId: input.actorId,
+        bankId: input.bankId,
+        editLease: input.editLease,
+        expectedRevision: input.expectedRevision,
+        mode: input.mode,
+        rows,
+      }, {
+        attemptOwnedPendingAssetIds: attemptAssets.map((asset) => asset.assetId),
+        destinationMediaFolderId: folder.id,
+      });
+      await completeQuestionBankXlsxAttemptAssets(tx, input.attemptId, attemptAssets.map((asset) => asset.assetId));
+      const saved: QuestionBankXlsxBankApplyResult = {
+        ...applied,
+        imageAssetIds: attemptAssets.map((asset) => asset.assetId),
+        previewId: input.attemptId,
+      };
+      return completeQuestionBankXlsxApplyAttempt(tx, target, claim, saved);
+    }, { maxWait: 5_000, timeout: 30_000 });
+
+    await deletePrivateStagingObjects(parseStagedObjectKeys(claim.attempt.stagedObjectKeys, input.attemptId)).catch(() => undefined);
+    return result;
+  } catch (error) {
+    await failAndCleanQuestionBankXlsxApply(target, claim, error).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function applyQuestionBankXlsxToDraft(input: {
+  attemptId: string;
+  mediaFolderReservationId?: string;
+  ownerUserId: string;
+  signal?: AbortSignal;
+}): Promise<QuestionBankXlsxDraftApplyResult> {
+  const target: QuestionBankXlsxApplyTarget = {
+    attemptId: input.attemptId,
+    ownerUserId: input.ownerUserId,
+    requestedReservationId: input.mediaFolderReservationId,
+    targetBankId: null,
+    targetMode: "draft",
+  };
+  const outcome = await claimQuestionBankXlsxApplyAttempt(target);
+  if (outcome.kind === "replay") {
+    return outcome.result as unknown as QuestionBankXlsxDraftApplyResult;
+  }
+  const claim = outcome.claim;
+
+  try {
+    if (!claim.mediaFolderReservationId) throw new QuestionBankXlsxImportError("attempt_unavailable");
+    const reservation = await reserveDraftQuestionBankMediaFolder(
+      input.ownerUserId,
+      claim.mediaFolderReservationId,
+    );
+    const preview = await readQuestionBankXlsxPreviewForApply(input.ownerUserId, input.attemptId, input.signal);
+    const imageBytes = await readFrozenQuestionBankXlsxImages(preview, input.signal);
+    const images = preview.previewImageIndex.map((image) => ({
+      contentSha256: image.contentSha256,
+      height: image.height,
+      mimeType: image.mimeType,
+      sizeBytes: image.sizeBytes,
+      width: image.width,
+    }));
+    const attemptAssets = await ensureQuestionBankXlsxAttemptAssets(
+      target,
+      claim,
+      reservation.mediaFolderId,
+      images,
+    );
+    const assetIdByHash = new Map(attemptAssets.map((asset) => [asset.contentSha256, asset.assetId]));
+    const rows = applyImageAssetIdsToRows(preview.manifest.normalizedRows, preview.manifest.imageSlots, assetIdByHash);
+    await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
+
+    const result = await prisma.$transaction(async (tx) => {
+      await setTransactionLockTimeout(tx);
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_xlsx_import_attempts
+        WHERE id = ${input.attemptId}::uuid
+        FOR UPDATE
+      `;
+      await assertQuestionBankXlsxApplyClaim(
+        tx,
+        target,
+        claim.leaseExpiresAt,
+        claim.mediaFolderReservationId,
+      );
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM question_bank_media_folder_reservations
+        WHERE id = ${reservation.id}::uuid
+        FOR UPDATE
+      `;
+      const reservationStillValid = await tx.questionBankMediaFolderReservation.findFirst({
+        select: { id: true },
+        where: {
+          id: reservation.id,
+          mediaFolderId: reservation.mediaFolderId,
+          ownerUserId: input.ownerUserId,
+          adoptedBankId: null,
+        },
+      });
+      if (!reservationStillValid) throw new QuestionBankXlsxImportError("attempt_unavailable");
+      const assetIds = attemptAssets.map((asset) => asset.assetId);
+      await lockAndValidateKaptenBankImages(tx, {
+        assetIds,
+        attemptOwnedPendingAssetIds: assetIds,
+        destinationFolderId: reservation.mediaFolderId,
+      });
+      await completeQuestionBankXlsxAttemptAssets(tx, input.attemptId, assetIds);
+      const saved: QuestionBankXlsxDraftApplyResult = {
+        imageAssetIds: attemptAssets.map((asset) => asset.assetId),
+        mediaFolderReservationId: reservation.id,
+        normalizedRows: rows,
+        previewId: input.attemptId,
+      };
+      return completeQuestionBankXlsxApplyAttempt(tx, target, claim, saved);
+    }, { maxWait: 5_000, timeout: 30_000 });
+
+    await deletePrivateStagingObjects(parseStagedObjectKeys(claim.attempt.stagedObjectKeys, input.attemptId)).catch(() => undefined);
+    return result;
+  } catch (error) {
+    await failAndCleanQuestionBankXlsxApply(target, claim, error).catch(() => undefined);
+    throw error;
+  }
 }
 
 async function markQuestionBankXlsxCancellation(
@@ -1563,6 +2379,7 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
           QuestionBankXlsxImportAttemptState.upload_complete,
           QuestionBankXlsxImportAttemptState.previewing,
           QuestionBankXlsxImportAttemptState.previewed,
+          QuestionBankXlsxImportAttemptState.applying,
           QuestionBankXlsxImportAttemptState.completed,
           QuestionBankXlsxImportAttemptState.failed,
           QuestionBankXlsxImportAttemptState.cleanup_pending,
@@ -1586,7 +2403,6 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
       if (
         !current
         || current.expiresAt > now
-        || current.state === QuestionBankXlsxImportAttemptState.applying
         || (current.operationLeaseExpiresAt && current.operationLeaseExpiresAt > now)
       ) return null;
       const leaseExpiresAt = operationLeaseUntil(now.getTime());
@@ -1601,12 +2417,25 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
           : {
             cancelRequestedAt: current.cancelRequestedAt ?? now,
             expiresAt: expiresAfterOperation(leaseExpiresAt),
+            lastErrorCode: current.lastErrorCode ?? (
+              current.state === QuestionBankXlsxImportAttemptState.applying
+                ? "attempt_unavailable"
+                : current.lastErrorCode
+            ),
             operationLeaseExpiresAt: leaseExpiresAt,
             state: QuestionBankXlsxImportAttemptState.cleanup_pending,
           },
         where: { id: current.id },
       });
-      return { attempt, leaseExpiresAt, recoverCompletion };
+      return {
+        attempt,
+        cleanupApplyAssets: current.state === QuestionBankXlsxImportAttemptState.applying
+          || (current.state === QuestionBankXlsxImportAttemptState.cleanup_pending
+            && current.targetMode !== null
+            && current.lastErrorCode !== null),
+        leaseExpiresAt,
+        recoverCompletion,
+      };
     });
     if (!prepared) continue;
 
@@ -1650,6 +2479,18 @@ async function cleanupExpiredQuestionBankXlsxImportAttempts(now = new Date()) {
     }
 
     try {
+      if (prepared.cleanupApplyAssets) {
+        const assetsRemoved = await removeQuestionBankXlsxAttemptAssets(
+          prepared.attempt.id,
+          prepared.attempt.ownerUserId,
+          prepared.leaseExpiresAt,
+          prepared.attempt.lastErrorCode ?? "attempt_unavailable",
+        );
+        if (!assetsRemoved) {
+          deferred += 1;
+          continue;
+        }
+      }
       const sweep = await removeAttemptStaging(
         prepared.attempt,
         prepared.attempt.ownerUserId,
@@ -1711,6 +2552,8 @@ async function discardQuestionBankXlsxPreview(ownerUserId: string, attemptId: st
 export {
   CLEANUP_RETRY_DELAY_MS,
   QuestionBankXlsxImportError,
+  applyQuestionBankXlsxToBank,
+  applyQuestionBankXlsxToDraft,
   beginQuestionBankXlsxPreview,
   cleanupExpiredQuestionBankXlsxImportAttempts,
   createImageObjectKey,

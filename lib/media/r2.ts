@@ -37,6 +37,7 @@ type MediaStorageTestOverrides = {
     ContentLength?: number;
     ContentType?: string;
     ETag?: string;
+    Metadata?: Record<string, string>;
   }>;
   readObject?: (objectKey: string, signal?: AbortSignal) => Promise<MediaObjectStream>;
   createPrivateStagingUploadUrl?: (
@@ -89,6 +90,14 @@ type MediaStorageTestOverrides = {
   ) => Promise<Uint8Array>;
   deletePrivateStagingObject?: (objectKey: string, signal?: AbortSignal) => Promise<void>;
   deletePrivateStagingObjects?: (objectKeys: readonly string[], signal?: AbortSignal) => Promise<void>;
+  putKaptenImageObject?: (
+    objectKey: string,
+    bytes: Uint8Array,
+    contentType: string,
+    contentSha256: string,
+    signal?: AbortSignal,
+  ) => Promise<void>;
+  deleteKaptenImageObject?: (objectKey: string, signal?: AbortSignal) => Promise<void>;
 };
 
 type PrivateStagingMultipartPart = {
@@ -118,10 +127,18 @@ class PrivateStagingObjectTooLargeError extends Error {
 
 const PRIVATE_QUESTION_BANK_XLSX_KEY_PATTERN =
   /^question-bank-xlsx-staging\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/(?:workbook\.xlsx|manifest\.json|images\/[0-9a-f]{64}\.bin)$/iu;
+const KAPTEN_IMAGE_OBJECT_KEY_PATTERN =
+  /^kapten\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:gif|jpg|png|webp)$/iu;
 
 function assertPrivateQuestionBankXlsxKey(objectKey: string) {
   if (!PRIVATE_QUESTION_BANK_XLSX_KEY_PATTERN.test(objectKey)) {
     throw new Error("Invalid private staging key.");
+  }
+}
+
+function assertKaptenImageObjectKey(objectKey: string) {
+  if (!KAPTEN_IMAGE_OBJECT_KEY_PATTERN.test(objectKey)) {
+    throw new Error("Invalid Kapten image object key.");
   }
 }
 
@@ -505,6 +522,32 @@ const deletePrivateStagingObjectFromR2 = async (objectKey: string, signal?: Abor
   await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }), signal ? { abortSignal: signal } : undefined);
 };
 
+const putKaptenImageObjectFromR2 = async (
+  objectKey: string,
+  bytes: Uint8Array,
+  contentType: string,
+  contentSha256: string,
+  signal?: AbortSignal,
+) => {
+  assertKaptenImageObjectKey(objectKey);
+  if (!/^[0-9a-f]{64}$/u.test(contentSha256)) throw new Error("Invalid image checksum.");
+  const { client, configuration } = getR2Client();
+  await client.send(new PutObjectCommand({
+    Body: bytes,
+    Bucket: configuration.bucketName,
+    CacheControl: "private, no-store, max-age=0",
+    ContentType: contentType,
+    Key: objectKey,
+    Metadata: { sha256: contentSha256 },
+  }), signal ? { abortSignal: signal } : undefined);
+};
+
+const deleteKaptenImageObjectFromR2 = async (objectKey: string, signal?: AbortSignal) => {
+  assertKaptenImageObjectKey(objectKey);
+  const { client, configuration } = getR2Client();
+  await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }), signal ? { abortSignal: signal } : undefined);
+};
+
 const createMediaUploadUrl = async (objectKey: string, mimeType: string) => (
   mediaStorageTestOverrides?.createUploadUrl?.(objectKey, mimeType)
   ?? createMediaUploadUrlFromR2(objectKey, mimeType)
@@ -634,6 +677,29 @@ const deletePrivateStagingObjects = async (objectKeys: readonly string[], signal
   }
 };
 
+const putKaptenImageObject = async (
+  objectKey: string,
+  bytes: Uint8Array,
+  contentType: string,
+  contentSha256: string,
+  signal?: AbortSignal,
+) => {
+  assertKaptenImageObjectKey(objectKey);
+  return mediaStorageTestOverrides?.putKaptenImageObject?.(
+    objectKey,
+    bytes,
+    contentType,
+    contentSha256,
+    signal,
+  ) ?? putKaptenImageObjectFromR2(objectKey, bytes, contentType, contentSha256, signal);
+};
+
+const deleteKaptenImageObject = async (objectKey: string, signal?: AbortSignal) => {
+  assertKaptenImageObjectKey(objectKey);
+  return mediaStorageTestOverrides?.deleteKaptenImageObject?.(objectKey, signal)
+    ?? deleteKaptenImageObjectFromR2(objectKey, signal);
+};
+
 /**
  * Test-only storage seam. Production behavior uses Cloudflare R2 unless a
  * focused isolated test installs a temporary override.
@@ -666,12 +732,14 @@ export {
   abortPrivateStagingMultipartUpload,
   deletePrivateStagingObject,
   deletePrivateStagingObjects,
+  deleteKaptenImageObject,
   headMediaObject,
   isR2Configured,
   readMediaObject,
   readMediaObjectStream,
   readPrivateStagingObject,
   putPrivateStagingObject,
+  putKaptenImageObject,
   withMediaStorageTestOverrides,
 };
 export type {

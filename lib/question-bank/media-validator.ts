@@ -5,7 +5,7 @@ import {
   MediaLibraryScope,
   Prisma,
 } from "@/generated/prisma/client";
-import { isImageMimeType } from "@/lib/media/domain";
+import { buildMediaObjectKey, isImageMimeType } from "@/lib/media/domain";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -37,6 +37,11 @@ type KaptenMediaFolderRow = {
 };
 
 type FolderAncestryFailure = () => Error;
+
+type KaptenBankImageCleanupAsset = {
+  assetId: string;
+  objectKey: string;
+};
 
 async function readKaptenFolderAncestries(
   tx: Prisma.TransactionClient,
@@ -114,6 +119,147 @@ async function lockKaptenAssets(
     FOR UPDATE
   `;
   if (rows.length !== assetIds.length) throw new ManagedImageAssetConflictError(assetIds);
+}
+
+async function readKaptenFolderAncestriesForCleanup(
+  tx: Prisma.TransactionClient,
+  folderIds: readonly string[],
+) {
+  const rowsById = new Map<string, KaptenMediaFolderRow>();
+  let frontier = [...new Set(folderIds)].sort();
+
+  for (let depth = 0; frontier.length; depth += 1) {
+    if (depth >= 50) throw new ManagedImageAssetConflictError([]);
+    const rows = await tx.mediaFolder.findMany({
+      select: { id: true, parentId: true, trashedAt: true },
+      where: { id: { in: frontier }, libraryScope: MediaLibraryScope.kapten },
+    });
+    if (rows.length !== frontier.length) throw new ManagedImageAssetConflictError([]);
+    for (const row of rows) rowsById.set(row.id, row);
+    frontier = [...new Set(
+      rows.flatMap((row) => row.parentId && !rowsById.has(row.parentId) ? [row.parentId] : []),
+    )].sort();
+  }
+
+  const ancestryByFolderId = new Map<string, string[]>();
+  for (const folderId of [...new Set(folderIds)]) {
+    const ancestry: string[] = [];
+    const seen = new Set<string>();
+    let currentId: string | null = folderId;
+    while (currentId) {
+      if (seen.has(currentId) || ancestry.length >= 50) {
+        throw new ManagedImageAssetConflictError([]);
+      }
+      seen.add(currentId);
+      const row = rowsById.get(currentId);
+      if (!row) throw new ManagedImageAssetConflictError([]);
+      ancestry.push(row.id);
+      currentId = row.parentId;
+    }
+    ancestryByFolderId.set(folderId, ancestry);
+  }
+  return ancestryByFolderId;
+}
+
+async function lockKaptenMediaFoldersForCleanup(
+  tx: Prisma.TransactionClient,
+  folderIds: readonly string[],
+  assetIds: readonly string[],
+) {
+  const ids = [...new Set(folderIds)].sort();
+  if (!ids.length) return;
+  const rows = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM media_folders
+    WHERE id = ANY(${ids}::uuid[])
+      AND library_scope = ${MediaLibraryScope.kapten}
+    ORDER BY id
+    FOR UPDATE
+  `;
+  if (rows.length !== ids.length) throw new ManagedImageAssetConflictError(assetIds);
+}
+
+/**
+ * Lock an attempt's Assets with the same folder-then-Asset order as Bank
+ * writes, validate their exact object keys, and hide pending rows before R2
+ * cleanup starts. Failed/trashed rows can only be resumed while the durable
+ * attempt-Asset link still names that same object.
+ */
+async function lockAndPrepareKaptenBankImageCleanup(
+  tx: Prisma.TransactionClient,
+  ownedAssets: readonly KaptenBankImageCleanupAsset[],
+) {
+  const assets = [...ownedAssets].sort((left, right) => left.assetId.localeCompare(right.assetId));
+  const assetIds = assets.map((asset) => asset.assetId);
+  if (
+    new Set(assetIds).size !== assetIds.length
+    || assetIds.some((id) => !UUID_PATTERN.test(id))
+    || assets.some((asset) => !/^kapten\/[0-9a-f-]{36}\.(?:gif|jpg|png|webp)$/iu.test(asset.objectKey))
+  ) {
+    throw new ManagedImageAssetValidationError(assetIds);
+  }
+  if (!assets.length) return [];
+
+  const discovered = await tx.asset.findMany({
+    orderBy: { id: "asc" },
+    select: { folderId: true, id: true, libraryScope: true, mimeType: true, objectKey: true, state: true, trashedAt: true },
+    where: { id: { in: assetIds } },
+  });
+  if (discovered.length !== assetIds.length) throw new ManagedImageAssetConflictError(assetIds);
+  const linkById = new Map(assets.map((asset) => [asset.assetId, asset.objectKey]));
+  const isOwnedImage = (asset: (typeof discovered)[number]) => (
+    asset.libraryScope === MediaLibraryScope.kapten
+    && isImageMimeType(asset.mimeType)
+    && asset.objectKey === linkById.get(asset.id)
+    && asset.objectKey === buildMediaObjectKey("kapten", asset.id, asset.mimeType)
+    && (
+      asset.state === MediaAssetState.pending
+      || asset.state === MediaAssetState.failed
+      || (asset.state === MediaAssetState.trashed && asset.trashedAt !== null)
+    )
+  );
+  if (discovered.some((asset) => !isOwnedImage(asset))) {
+    throw new ManagedImageAssetValidationError(assetIds);
+  }
+
+  const discoveredFolderByAssetId = new Map(discovered.map((asset) => [asset.id, asset.folderId]));
+  const folderLeaves = discovered.flatMap((asset) => asset.folderId ? [asset.folderId] : []);
+  const discoveredAncestries = await readKaptenFolderAncestriesForCleanup(tx, folderLeaves);
+  const folderIdsToLock = [...new Set([...discoveredAncestries.values()].flat())].sort();
+  await lockKaptenMediaFoldersForCleanup(tx, folderIdsToLock, assetIds);
+  await lockKaptenAssets(tx, assetIds);
+
+  const current = await tx.asset.findMany({
+    orderBy: { id: "asc" },
+    select: { folderId: true, id: true, libraryScope: true, mimeType: true, objectKey: true, state: true, trashedAt: true },
+    where: { id: { in: assetIds } },
+  });
+  if (
+    current.length !== assetIds.length
+    || current.some((asset) => !isOwnedImage(asset)
+      || discoveredFolderByAssetId.get(asset.id) !== asset.folderId)
+  ) {
+    throw new ManagedImageAssetConflictError(assetIds);
+  }
+
+  const currentFolderLeaves = current.flatMap((asset) => asset.folderId ? [asset.folderId] : []);
+  const currentAncestries = await readKaptenFolderAncestriesForCleanup(tx, currentFolderLeaves);
+  for (const [folderId, ancestry] of discoveredAncestries) {
+    const latest = currentAncestries.get(folderId);
+    if (!latest || ancestry.length !== latest.length || ancestry.some((id, index) => id !== latest[index])) {
+      throw new ManagedImageAssetConflictError(assetIds);
+    }
+  }
+
+  const pendingIds = current.filter((asset) => asset.state === MediaAssetState.pending).map((asset) => asset.id);
+  if (pendingIds.length) {
+    const hidden = await tx.asset.updateMany({
+      data: { state: MediaAssetState.failed },
+      where: { id: { in: pendingIds }, libraryScope: MediaLibraryScope.kapten, state: MediaAssetState.pending },
+    });
+    if (hidden.count !== pendingIds.length) throw new ManagedImageAssetConflictError(pendingIds);
+  }
+  return current.map((asset) => ({ assetId: asset.id, objectKey: asset.objectKey! }));
 }
 
 /**
@@ -286,6 +432,7 @@ async function findQuestionBankImageReferences(
 export {
   findQuestionBankImageReferences,
   lockAndValidateKaptenBankImages,
+  lockAndPrepareKaptenBankImageCleanup,
   ManagedImageAssetConflictError,
   ManagedImageAssetValidationError,
 };

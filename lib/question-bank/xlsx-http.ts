@@ -144,6 +144,44 @@ async function parseQuestionBankXlsxPreviewRequest(request: Request) {
   return { uploadId: (value as { uploadId: string }).uploadId.toLowerCase() };
 }
 
+async function parseQuestionBankXlsxApplyRequest(request: Request) {
+  const value = await readBoundedXlsxJson(request);
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== 1
+    || typeof (value as { previewId?: unknown }).previewId !== "string"
+    || !isUuid((value as { previewId: string }).previewId)
+  ) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  return { previewId: (value as { previewId: string }).previewId.toLowerCase() };
+}
+
+async function parseQuestionBankXlsxDraftApplyRequest(request: Request) {
+  const value = await readBoundedXlsxJson(request);
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).some((key) => key !== "previewId" && key !== "mediaFolderReservationId")
+    || !Object.hasOwn(value, "previewId")
+    || typeof (value as { previewId?: unknown }).previewId !== "string"
+    || !isUuid((value as { previewId: string }).previewId)
+    || (Object.hasOwn(value, "mediaFolderReservationId")
+      && (typeof (value as { mediaFolderReservationId?: unknown }).mediaFolderReservationId !== "string"
+        || !isUuid((value as { mediaFolderReservationId: string }).mediaFolderReservationId)))
+  ) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  const parsed = value as { mediaFolderReservationId?: string; previewId: string };
+  return {
+    mediaFolderReservationId: parsed.mediaFolderReservationId?.toLowerCase(),
+    previewId: parsed.previewId.toLowerCase(),
+  };
+}
+
 function parseQuestionBankXlsxPreviewId(value: string) {
   if (!isUuid(value)) throw new QuestionBankXlsxHttpError("invalid_request", 400);
   return value.toLowerCase();
@@ -164,7 +202,7 @@ function questionBankXlsxErrorResponse(code: QuestionBankXlsxHttpCode, status?: 
     code === "unauthenticated" ? 401
       : code === "forbidden_origin" || code === "resource_inaccessible" ? 403
         : code === "attempt_not_found" ? 404
-          : code === "attempt_busy" || code === "attempt_cancelled" || code === "attempt_expired" || code === "multipart_incomplete" ? 409
+          : code === "attempt_busy" || code === "attempt_cancelled" || code === "attempt_expired" || code === "attempt_target_mismatch" || code === "multipart_incomplete" ? 409
             : code === "xlsx_too_large" ? 413
               : code === "invalid_request" ? 400
                 : code === "attempt_unavailable" ? 503
@@ -184,6 +222,7 @@ function mapQuestionBankXlsxError(error: unknown): QuestionBankXlsxHttpError {
       error.code === "attempt_busy"
       || error.code === "attempt_cancelled"
       || error.code === "attempt_expired"
+      || error.code === "attempt_target_mismatch"
       || error.code === "multipart_incomplete"
     ) {
       return new QuestionBankXlsxHttpError(error.code, 409);
@@ -201,6 +240,8 @@ export {
   isTrustedQuestionBankXlsxOrigin,
   isTrustedQuestionBankXlsxReadOrigin,
   mapQuestionBankXlsxError,
+  parseQuestionBankXlsxApplyRequest,
+  parseQuestionBankXlsxDraftApplyRequest,
   parseQuestionBankXlsxPreviewId,
   parseQuestionBankXlsxPreviewRequest,
   parseQuestionBankXlsxThumbnailOffset,
