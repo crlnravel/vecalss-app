@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/pagination";
 import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
+import type { StudentNotificationDetail } from "@/lib/notifications/service";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { markAllNotificationsReadAction } from "@/modules/student/actions";
+import { NotificationDetailModal } from "@/modules/student/NotificationDetailModal";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
-function NotificationEntry({ item }: { item: StudentNotificationItem }) {
+function NotificationEntry({ item, page }: { item: StudentNotificationItem; page: number }) {
   const content = (
     <>
       <span
@@ -60,7 +62,10 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
         REFERENCE_SURFACE_CLASS_NAMES.tactile,
         "group flex items-start gap-4 border-learning-card-border px-5 py-4 transition-[border-color,background-color] duration-200 hover:border-voyage-forest focus-visible:ring-3 focus-visible:ring-primary-300/35 motion-reduce:transition-none",
       )}
-      href={`/notifications/${item.id}`}
+      href={{
+        pathname: "/notifications",
+        query: { notification: item.id, ...(page > 1 ? { page: String(page) } : {}) },
+      }}
       prefetch={false}
     >
       {content}
@@ -70,12 +75,14 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
 
 function NotificationsPageModule({
   items,
+  notification,
   page,
   pageCount,
   session,
   unreadCount,
 }: {
   items: StudentNotificationItem[];
+  notification: StudentNotificationDetail | null;
   page: number;
   pageCount: number;
   session: SessionContext;
@@ -106,7 +113,7 @@ function NotificationsPageModule({
         {items.length > 0 ? (
           <section aria-label="Daftar notifikasi" className="grid gap-4">
             <div className="grid gap-4">
-              {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
+              {items.map((item) => <NotificationEntry item={item} key={item.id} page={page} />)}
             </div>
             {pageCount > 1 ? (
               <Pagination aria-label="Halaman notifikasi" className="pt-2">
@@ -149,6 +156,13 @@ function NotificationsPageModule({
           />
         )}
       </section>
+      {notification ? (
+        <NotificationDetailModal
+          closeHref={pageHref(page)}
+          key={notification.id}
+          notification={notification}
+        />
+      ) : null}
     </StudentWorkspaceShell>
   );
 }

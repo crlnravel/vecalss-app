@@ -43,18 +43,20 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  overlayClassName,
   pending = false,
   showCloseButton = true,
   variant = "default",
   ...props
 }: DialogPrimitive.Popup.Props & {
+  overlayClassName?: string;
   pending?: boolean;
   showCloseButton?: boolean;
   variant?: ModalVariant;
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         aria-busy={pending || undefined}
