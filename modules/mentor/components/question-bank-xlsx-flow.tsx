@@ -42,6 +42,17 @@ import { cn } from "@/lib/utils";
 import type { QuestionBankCsvImportResult } from "./question-bank-csv-flow";
 
 type XlsxMode = "append" | "overwrite";
+type XlsxOverwriteImpact = {
+  addedImageCount: number;
+  addedQuestionCount: number;
+  clearedImageCount: number;
+  matchedQuestionCount: number;
+  replacedImageCount: number;
+  retiredQuestionCount: number;
+  updatedQuestionCount: number;
+};
+type XlsxOverwriteImpactSnapshot = XlsxOverwriteImpact & { bankRevision: number };
+type XlsxOverwriteImpactPhase = "idle" | "loading" | "ready" | "error";
 type FlowPhase =
   | "idle"
   | "granting"
@@ -81,6 +92,7 @@ type DraftImportProps = {
 
 type ExistingImportResult = QuestionBankCsvImportResult & {
   imageAssetIds: string[];
+  overwriteImpact: XlsxOverwriteImpact | null;
   previewId: string;
 };
 
@@ -211,6 +223,7 @@ function errorMessage(code: string) {
     attempt_not_found: "File sudah tidak tersedia. Pilih file kembali.",
     attempt_target_mismatch: "Pratinjau ini sudah tidak cocok. Unggah file kembali.",
     attempt_unavailable: "File belum dapat diproses saat ini. Coba lagi sebentar.",
+    csv_rows_invalid: "Pastikan nomor soal pada file sesuai dengan soal di Bank ini, lalu pilih file kembali.",
     forbidden_origin: "File belum dapat diproses. Muat ulang halaman lalu coba lagi.",
     http_400: "File belum dapat diproses. Periksa file lalu coba lagi.",
     http_413: "Ukuran file melebihi batas 24 MB.",
@@ -328,6 +341,33 @@ function parsePreview(value: unknown): XlsxPreview | null {
     },
     thumbnails,
   };
+}
+
+function parseXlsxOverwriteImpact(value: unknown): XlsxOverwriteImpact | null {
+  if (!isRecord(value)) return null;
+  const countKeys = [
+    "addedImageCount",
+    "addedQuestionCount",
+    "clearedImageCount",
+    "matchedQuestionCount",
+    "replacedImageCount",
+    "retiredQuestionCount",
+    "updatedQuestionCount",
+  ] as const;
+  if (countKeys.some((key) =>
+    !Number.isSafeInteger(value[key]) || (value[key] as number) < 0,
+  )) {
+    return null;
+  }
+  return Object.fromEntries(countKeys.map((key) => [key, value[key]])) as unknown as XlsxOverwriteImpact;
+}
+
+function parseXlsxOverwriteImpactSnapshot(value: unknown): XlsxOverwriteImpactSnapshot | null {
+  if (!isRecord(value) || !Number.isSafeInteger(value.bankRevision) || (value.bankRevision as number) < 1) {
+    return null;
+  }
+  const impact = parseXlsxOverwriteImpact(value);
+  return impact ? { ...impact, bankRevision: value.bankRevision as number } : null;
 }
 
 function discardAttempt(uploadId: string) {
@@ -509,10 +549,16 @@ function PreviewSummary({
   mode,
   preview,
   target,
+  overwriteImpact,
+  overwriteImpactError,
+  overwriteImpactPhase,
 }: {
   mode: XlsxMode;
   preview: XlsxPreview;
   target: { kind: "draft" } | { currentQuestionCount: number; kind: "bank" };
+  overwriteImpact: XlsxOverwriteImpactSnapshot | null;
+  overwriteImpactError: string | null;
+  overwriteImpactPhase: XlsxOverwriteImpactPhase;
 }) {
   return (
     <div className="grid gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 p-4 sm:grid-cols-2">
@@ -528,12 +574,69 @@ function PreviewSummary({
           <p className="mt-1 text-sm leading-6 text-secondary-700">
             {mode === "append"
               ? `${formatCount(preview.summary.acceptedRows)} soal akan ditambahkan. Soal yang sudah ada tetap dipertahankan.`
-              : `Isi Bank Soal akan mengikuti ${formatCount(preview.summary.acceptedRows)} soal di file. Soal aktif yang tidak tercantum akan dinonaktifkan; judul dan deskripsi tetap.`}
+              : "Soal di Bank akan disesuaikan dengan file. Soal aktif yang tidak tercantum akan dinonaktifkan; judul dan deskripsi tetap."}
           </p>
           {mode === "overwrite" ? (
-            <p className="mt-1 text-xs leading-5 text-secondary-600">
-              Saat ini ada {formatCount(target.currentQuestionCount)} soal di Bank Soal.
-            </p>
+            <div className="mt-3 grid gap-3">
+              {overwriteImpactPhase === "loading" || overwriteImpactPhase === "idle" ? (
+                <p aria-live="polite" className="text-sm text-secondary-600" role="status">
+                  Menghitung perubahan pada Bank Soal…
+                </p>
+              ) : overwriteImpactPhase === "error" ? (
+                <p className="text-sm leading-6 text-student-status-danger-fg" role="alert">
+                  {overwriteImpactError ?? "Dampak impor belum dapat dihitung. Muat ulang halaman lalu coba lagi."}
+                </p>
+              ) : overwriteImpact ? (
+                <>
+                  <div className="grid gap-3">
+                    <div>
+                      <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Soal</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Soal baru</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.addedQuestionCount)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Cocok dengan Bank</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.matchedQuestionCount)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Akan diperbarui</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.updatedQuestionCount)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Akan dinonaktifkan</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.retiredQuestionCount)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <div>
+                      <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Gambar pada soal</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Ditambahkan</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.addedImageCount)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Diganti</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.replacedImageCount)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs leading-5 text-secondary-600">Dihapus</dt>
+                          <dd className="text-sm font-semibold text-secondary-900">{formatCount(overwriteImpact.clearedImageCount)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-5 text-secondary-600">
+                    Perhitungan memakai isi Bank saat halaman dibuka. Jika Bank berubah sebelum impor, proses ditolak. Muat ulang halaman untuk menghitung ulang.
+                  </p>
+                </>
+              ) : null}
+              <p className="text-xs leading-5 text-secondary-600">
+                Saat halaman ini dibuka ada {formatCount(target.currentQuestionCount)} soal di Bank.
+              </p>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -582,6 +685,11 @@ function QuestionBankXlsxImportDialog({
   const [phase, setPhase] = useState<FlowPhase>("idle");
   const [mode, setMode] = useState<XlsxMode>("append");
   const [preview, setPreview] = useState<XlsxPreview | null>(null);
+  const [overwriteImpactResult, setOverwriteImpactResult] = useState<{
+    error: string | null;
+    impact: XlsxOverwriteImpactSnapshot | null;
+    key: string;
+  } | null>(null);
   const [issues, setIssues] = useState<QuestionBankXlsxIssue[]>([]);
   const [partProgress, setPartProgress] = useState({ completed: 0, total: 0 });
   const [formError, setFormError] = useState<string | null>(null);
@@ -598,6 +706,34 @@ function QuestionBankXlsxImportDialog({
   const mountedRef = useRef(false);
   const [claimedMode, setClaimedMode] = useState<XlsxMode | null>(null);
   const discardedAttemptIdsRef = useRef(new Set<string>());
+  const impactBankId = target.kind === "bank" ? target.bankId : null;
+  const impactExpectedRevision = target.kind === "bank" ? target.expectedRevision : null;
+  const previewIdForImpact = preview?.previewId ?? null;
+  const impactEligible = target.kind === "bank"
+    && mode === "overwrite"
+    && phase === "ready"
+    && issues.length === 0
+    && Boolean(previewIdForImpact)
+    && Boolean(preview?.summary.acceptedRows)
+    && !target.disabled;
+  const impactRequestKey = impactEligible
+    && impactBankId
+    && impactExpectedRevision !== null
+    && previewIdForImpact
+    ? [impactBankId, String(impactExpectedRevision), previewIdForImpact].join(":")
+    : null;
+  const currentImpactResult = overwriteImpactResult?.key === impactRequestKey
+    ? overwriteImpactResult
+    : null;
+  const overwriteImpact = currentImpactResult?.impact ?? null;
+  const overwriteImpactError = currentImpactResult?.error ?? null;
+  const overwriteImpactPhase: XlsxOverwriteImpactPhase = !impactRequestKey
+    ? "idle"
+    : !currentImpactResult
+      ? "loading"
+      : currentImpactResult.error
+        ? "error"
+        : "ready";
 
   function updatePhase(next: FlowPhase) {
     workflowPhaseRef.current = next;
@@ -606,6 +742,7 @@ function QuestionBankXlsxImportDialog({
 
   function clearPreviewState() {
     setPreview(null);
+    setOverwriteImpactResult(null);
     setIssues([]);
     setApplyError(null);
     setThumbnailError(null);
@@ -672,6 +809,59 @@ function QuestionBankXlsxImportDialog({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      !impactRequestKey
+      || !previewIdForImpact
+      || !impactBankId
+      || impactExpectedRevision === null
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(
+          "/api/mentor/question-banks/" + encodeURIComponent(impactBankId) + "/xlsx/impact",
+          {
+            body: JSON.stringify({
+              expectedRevision: impactExpectedRevision,
+              previewId: previewIdForImpact,
+            }),
+            cache: "no-store",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+            signal: controller.signal,
+          },
+        );
+        const payload = await readJson(response);
+        if (!response.ok) throw new Error(responseErrorCode(payload, response.status));
+        const impact = isRecord(payload) ? parseXlsxOverwriteImpactSnapshot(payload.impact) : null;
+        if (!impact || impact.bankRevision !== impactExpectedRevision) {
+          throw new Error("stale_revision");
+        }
+        if (!controller.signal.aborted) {
+          setOverwriteImpactResult({ error: null, impact, key: impactRequestKey });
+        }
+      } catch (error) {
+        if (controller.signal.aborted || isAbortError(error)) return;
+        setOverwriteImpactResult({
+          error: errorMessage(error instanceof Error ? error.message : "attempt_unavailable"),
+          impact: null,
+          key: impactRequestKey,
+        });
+      }
+    })();
+    return () => controller.abort();
+  }, [
+    impactBankId,
+    impactExpectedRevision,
+    impactRequestKey,
+    previewIdForImpact,
+  ]);
 
   async function startFileWorkflow(selectedFile: File) {
     const generation = ++generationRef.current;
@@ -879,10 +1069,16 @@ function QuestionBankXlsxImportDialog({
   }
 
   function buildBankResultSummary(result: XlsxBankApplyResult) {
-    const questionSummary = result.mode === "append"
-      ? `${formatCount(result.importedCount)} soal ditambahkan.`
-      : `${formatCount(result.importedCount)} soal diproses; ${formatCount(result.preservedQuestionIds.length)} cocok dengan soal yang sudah ada, dan ${formatCount(result.retiredCount)} soal lama yang tidak tercantum dinonaktifkan.`;
-    return `${questionSummary} ${formatCount(result.imageAssetIds.length)} gambar disimpan di Media Kapten.`;
+    if (result.mode === "append") {
+      return `${formatCount(result.importedCount)} soal ditambahkan. ${formatCount(result.imageAssetIds.length)} gambar disimpan di Media Kapten.`;
+    }
+    const impact = result.overwriteImpact;
+    if (!impact) {
+      return `Impor tersimpan untuk ${formatCount(result.importedCount)} soal. Rincian jumlah soal yang diperbarui untuk impor lama ini tidak tersedia. ${formatCount(result.imageAssetIds.length)} gambar disimpan di Media Kapten.`;
+    }
+    const questionSummary = `Soal: ${formatCount(impact.addedQuestionCount)} baru, ${formatCount(impact.matchedQuestionCount)} cocok dengan Bank, ${formatCount(impact.updatedQuestionCount)} diperbarui, ${formatCount(impact.retiredQuestionCount)} dinonaktifkan.`;
+    const imageSummary = `Gambar pada soal: ${formatCount(impact.addedImageCount)} ditambahkan, ${formatCount(impact.replacedImageCount)} diganti, ${formatCount(impact.clearedImageCount)} dihapus.`;
+    return `${questionSummary} ${imageSummary} ${formatCount(result.imageAssetIds.length)} gambar disimpan di Media Kapten.`;
   }
 
   async function applyImport() {
@@ -950,12 +1146,18 @@ function QuestionBankXlsxImportDialog({
           || !Array.isArray(result.imageAssetIds)
           || !Array.isArray(result.createdQuestionIds)
           || !Array.isArray(result.preservedQuestionIds)
+          || (result.mode !== "append" && result.mode !== "overwrite")
           || typeof result.importedCount !== "number"
           || typeof result.retiredCount !== "number") {
           throw new Error("attempt_unavailable");
         }
-        await target.onApplied?.(result);
-        completionMessage = buildBankResultSummary(result);
+        const overwriteImpact = result.overwriteImpact == null
+          ? null
+          : parseXlsxOverwriteImpact(result.overwriteImpact);
+        if (result.overwriteImpact != null && !overwriteImpact) throw new Error("attempt_unavailable");
+        const normalizedResult = { ...result, overwriteImpact };
+        await target.onApplied?.(normalizedResult);
+        completionMessage = buildBankResultSummary(normalizedResult);
         showToast(`${formatCount(result.importedCount)} soal berhasil dimuat ke Bank Soal.`, { variant: "success" });
       }
       uploadIdRef.current = null;
@@ -990,7 +1192,19 @@ function QuestionBankXlsxImportDialog({
     && issues.length === 0
     && phase === "ready"
     && !disabled
-    && (target.kind !== "bank" || target.editLease),
+    && (
+      target.kind !== "bank"
+      || (
+        target.editLease
+        && (
+          mode !== "overwrite"
+          || (
+            overwriteImpactPhase === "ready"
+            && overwriteImpact?.bankRevision === target.expectedRevision
+          )
+        )
+      )
+    ),
   );
 
   return (
@@ -1051,7 +1265,10 @@ function QuestionBankXlsxImportDialog({
                   aria-label="Cara memasukkan soal"
                   className="grid gap-3 sm:grid-cols-2"
                   disabled={disabled || isBusy || phase === "applying" || claimedMode !== null}
-                  onValueChange={(value) => setMode(value as XlsxMode)}
+                  onValueChange={(value) => {
+                    setMode(value as XlsxMode);
+                    setOverwriteImpactResult(null);
+                  }}
                   value={mode}
                 >
                   {(["append", "overwrite"] as const).map((value) => (
@@ -1101,10 +1318,24 @@ function QuestionBankXlsxImportDialog({
                   </div>
                 ) : null}
                 {target.kind === "bank" && !issues.length ? (
-                  <PreviewSummary mode={mode} preview={preview} target={target} />
+                  <PreviewSummary
+                    mode={mode}
+                    overwriteImpact={overwriteImpact}
+                    overwriteImpactError={overwriteImpactError}
+                    overwriteImpactPhase={overwriteImpactPhase}
+                    preview={preview}
+                    target={target}
+                  />
                 ) : null}
                 {target.kind === "draft" && !issues.length ? (
-                  <PreviewSummary mode={mode} preview={preview} target={target} />
+                  <PreviewSummary
+                    mode={mode}
+                    overwriteImpact={null}
+                    overwriteImpactError={null}
+                    overwriteImpactPhase="idle"
+                    preview={preview}
+                    target={target}
+                  />
                 ) : null}
                 {preview.thumbnails.length ? (
                   <div className="grid gap-3">

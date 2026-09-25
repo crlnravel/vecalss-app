@@ -82,6 +82,24 @@ type QuestionBankCsvApplyResult = {
   revision: number;
 };
 
+type QuestionBankCsvOverwriteImpact = {
+  addedImageCount: number;
+  addedQuestionCount: number;
+  clearedImageCount: number;
+  matchedQuestionCount: number;
+  replacedImageCount: number;
+  retiredQuestionCount: number;
+  updatedQuestionCount: number;
+};
+
+type QuestionBankCsvOverwriteImpactSnapshot = QuestionBankCsvOverwriteImpact & {
+  bankRevision: number;
+};
+
+type QuestionBankCsvApplyTransactionResult = QuestionBankCsvApplyResult & {
+  overwriteImpact?: QuestionBankCsvOverwriteImpact;
+};
+
 type ApplyQuestionBankRowsTransactionOptions = {
   /**
    * Optional destination selected by an XLSX apply. When supplied, the Bank
@@ -90,6 +108,8 @@ type ApplyQuestionBankRowsTransactionOptions = {
   destinationMediaFolderId?: string | null;
   /** Pending Assets that belong to the applying XLSX attempt and may be promoted. */
   attemptOwnedPendingAssetIds?: readonly string[];
+  /** Add Bank-specific overwrite counts to an XLSX apply result without changing CSV responses. */
+  includeOverwriteImpact?: boolean;
 };
 
 type QuestionWithCsvRelations = Prisma.QuestionGetPayload<{
@@ -398,6 +418,130 @@ function sameQuestionContent(question: QuestionWithCsvRelations, row: QuestionBa
   );
 }
 
+function countQuestionImages(row: QuestionBankCsvRow) {
+  return [
+    row.promptMediaAssetId,
+    row.explanationMediaAssetId,
+    ...row.options.map((option) => option.assetId),
+  ].filter((assetId) => Boolean(assetId)).length;
+}
+
+function countImageChanges(
+  currentAssetId: string | null | undefined,
+  incomingAssetId: string | null | undefined,
+  counts: Pick<QuestionBankCsvOverwriteImpact, "addedImageCount" | "clearedImageCount" | "replacedImageCount">,
+) {
+  if (!currentAssetId && incomingAssetId) counts.addedImageCount += 1;
+  else if (currentAssetId && !incomingAssetId) counts.clearedImageCount += 1;
+  else if (currentAssetId && incomingAssetId && currentAssetId !== incomingAssetId) {
+    counts.replacedImageCount += 1;
+  }
+}
+
+function calculateQuestionBankOverwriteImpact(
+  existing: readonly QuestionWithCsvRelations[],
+  rows: readonly QuestionBankCsvRow[],
+): QuestionBankCsvOverwriteImpact {
+  validateCsvRows("overwrite", rows);
+  const existingById = new Map(existing.map((question) => [question.id, question]));
+  const retainedIds = new Set<string>();
+  const impact: QuestionBankCsvOverwriteImpact = {
+    addedImageCount: 0,
+    addedQuestionCount: 0,
+    clearedImageCount: 0,
+    matchedQuestionCount: 0,
+    replacedImageCount: 0,
+    retiredQuestionCount: 0,
+    updatedQuestionCount: 0,
+  };
+
+  for (const row of rows) {
+    if (!row.questionId) {
+      impact.addedQuestionCount += 1;
+      impact.addedImageCount += countQuestionImages(row);
+      continue;
+    }
+
+    const question = existingById.get(row.questionId);
+    if (!question) {
+      throw new QuestionBankCsvMutationError(
+        "question_id_not_in_bank",
+        "ID soal tidak termasuk Bank Soal ini.",
+      );
+    }
+    if (question.status === ContentStatus.archived || question.currentRevision?.status === QuestionRevisionStatus.retired) {
+      throw new QuestionBankCsvMutationError(
+        "question_retired",
+        "Soal yang sudah retired tidak dapat diaktifkan kembali.",
+      );
+    }
+    retainedIds.add(question.id);
+    impact.matchedQuestionCount += 1;
+    if (!sameQuestionContent(question, row)) {
+      if (!question.currentRevision) throw new QuestionBankCsvMutationError("invalid_input");
+      impact.updatedQuestionCount += 1;
+    }
+
+    const currentRevision = question.currentRevision;
+    countImageChanges(currentRevision?.promptAssetId, row.promptMediaAssetId, impact);
+    countImageChanges(currentRevision?.explanationAssetId, row.explanationMediaAssetId, impact);
+    for (const label of ["A", "B", "C", "D", "E"] as const) {
+      const currentAssetId = currentRevision?.options.find((option) => option.label === label)?.assetId;
+      const incomingAssetId = row.options.find((option) => option.label === label)?.assetId;
+      countImageChanges(currentAssetId, incomingAssetId, impact);
+    }
+  }
+
+  impact.retiredQuestionCount = existing.filter((question) =>
+    !retainedIds.has(question.id)
+    && question.status !== ContentStatus.archived
+    && question.currentRevision?.status !== QuestionRevisionStatus.retired,
+  ).length;
+  return impact;
+}
+
+async function previewQuestionBankCsvOverwriteImpact(input: {
+  actorId: string;
+  bankId: string;
+  expectedRevision: number;
+  rows: readonly QuestionBankCsvRow[];
+}): Promise<QuestionBankCsvOverwriteImpactSnapshot> {
+  if (!isUuid(input.bankId) || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
+    throw new QuestionBankCsvMutationError("invalid_input");
+  }
+  validateCsvRows("overwrite", input.rows);
+  return prisma.$transaction(async (tx) => {
+    const bank = await tx.questionBank.findFirst({
+      where: { createdByUserId: input.actorId, id: input.bankId },
+      select: { id: true, revision: true, status: true },
+    });
+    if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
+    if (bank.revision !== input.expectedRevision) {
+      throw new QuestionBankCsvMutationError(
+        "stale_revision",
+        "Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.",
+      );
+    }
+    if (bank.status === ContentStatus.archived) {
+      throw new QuestionBankCsvMutationError("archived_locked", "Bank Soal yang diarsipkan tidak dapat diubah.");
+    }
+
+    const existing = await tx.question.findMany({
+      where: { questionBankId: bank.id },
+      include: questionCsvInclude,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    return {
+      ...calculateQuestionBankOverwriteImpact(existing, input.rows),
+      bankRevision: bank.revision,
+    };
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    maxWait: 5_000,
+    timeout: 30_000,
+  });
+}
+
 async function lockBankQuestionTree(tx: Prisma.TransactionClient, bankId: string) {
   await tx.$queryRaw`SELECT id FROM "questions" WHERE "question_bank_id" = ${bankId}::uuid ORDER BY id ASC FOR UPDATE`;
   await tx.$queryRaw`SELECT revision.id FROM "question_revisions" revision JOIN "questions" question ON question.id = revision.question_id WHERE question.question_bank_id = ${bankId}::uuid ORDER BY revision.id ASC FOR UPDATE`;
@@ -444,7 +588,7 @@ async function applyQuestionBankRowsInTransaction(
   tx: Prisma.TransactionClient,
   input: ApplyQuestionBankCsvInput,
   options: ApplyQuestionBankRowsTransactionOptions = {},
-): Promise<QuestionBankCsvApplyResult> {
+): Promise<QuestionBankCsvApplyTransactionResult> {
   validateQuestionBankCsvApplyInput(input);
   await setTransactionLockTimeout(tx);
   await assertAuthoringEditLease(
@@ -522,6 +666,9 @@ async function applyQuestionBankRowsInTransaction(
     throw error;
   }
 
+  const overwriteImpact = input.mode === "overwrite" && options.includeOverwriteImpact
+    ? calculateQuestionBankOverwriteImpact(existing, input.rows)
+    : undefined;
   const retainedIds = new Set<string>(input.mode === "append" ? existing.map((question) => question.id) : []);
   const createdQuestionIds: string[] = [];
   const preservedQuestionIds: string[] = [];
@@ -601,6 +748,7 @@ async function applyQuestionBankRowsInTransaction(
     preservedQuestionIds,
     retiredCount: omitted.length,
     revision,
+    ...(options.includeOverwriteImpact && overwriteImpact ? { overwriteImpact } : {}),
   } satisfies QuestionBankCsvApplyResult;
 }
 
@@ -690,6 +838,7 @@ export {
   appendQuestionBankCsv,
   exportQuestionBankCsv,
   overwriteQuestionBankCsv,
+  previewQuestionBankCsvOverwriteImpact,
   safeQuestionBankCsvFilename,
 };
 
@@ -699,4 +848,6 @@ export type {
   QuestionBankCsvApplyResult,
   QuestionBankCsvImportMode,
   QuestionBankCsvMutationCode,
+  QuestionBankCsvOverwriteImpact,
+  QuestionBankCsvOverwriteImpactSnapshot,
 };

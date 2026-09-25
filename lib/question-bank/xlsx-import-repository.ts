@@ -34,9 +34,12 @@ import {
 } from "@/lib/question-bank/media-validator";
 import {
   applyQuestionBankRowsInTransaction,
+  previewQuestionBankCsvOverwriteImpact,
   QuestionBankCsvMutationError,
   type QuestionBankCsvApplyResult,
   type QuestionBankCsvImportMode,
+  type QuestionBankCsvOverwriteImpact,
+  type QuestionBankCsvOverwriteImpactSnapshot,
 } from "@/lib/question-bank/csv-repository";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import { setTransactionLockTimeout } from "@/lib/serialization/locks";
@@ -1347,6 +1350,7 @@ type QuestionBankXlsxApplyClaimOutcome =
 
 type QuestionBankXlsxBankApplyResult = QuestionBankCsvApplyResult & {
   imageAssetIds: string[];
+  overwriteImpact: QuestionBankCsvOverwriteImpact | null;
   previewId: string;
 };
 
@@ -1656,6 +1660,32 @@ function applyImageAssetIdsToRows(
     }
   }
   return mappedRows;
+}
+
+async function previewQuestionBankXlsxBankOverwriteImpact(input: {
+  actorId: string;
+  attemptId: string;
+  bankId: string;
+  expectedRevision: number;
+  signal?: AbortSignal;
+}): Promise<QuestionBankCsvOverwriteImpactSnapshot> {
+  const preview = await readQuestionBankXlsxPreview(input.actorId, input.attemptId, input.signal);
+  if (input.signal?.aborted) throw new QuestionBankXlsxImportError("attempt_cancelled");
+  const previewAssetIdByHash = new Map(
+    preview.manifest.images.map((image) => [image.contentSha256, "preview-asset-" + image.contentSha256]),
+  );
+  const rows = applyImageAssetIdsToRows(
+    preview.manifest.normalizedRows,
+    preview.manifest.imageSlots,
+    preview.normalizedRowIndexByWorksheetRow,
+    previewAssetIdByHash,
+  );
+  return previewQuestionBankCsvOverwriteImpact({
+    actorId: input.actorId,
+    bankId: input.bankId,
+    expectedRevision: input.expectedRevision,
+    rows,
+  });
 }
 
 async function uploadAndVerifyQuestionBankXlsxImages(
@@ -1988,11 +2018,13 @@ async function applyQuestionBankXlsxToBank(input: {
       }, {
         attemptOwnedPendingAssetIds: attemptAssets.map((asset) => asset.assetId),
         destinationMediaFolderId: folder.id,
+        includeOverwriteImpact: input.mode === "overwrite",
       });
       await completeQuestionBankXlsxAttemptAssets(tx, input.attemptId, attemptAssets.map((asset) => asset.assetId));
       const saved: QuestionBankXlsxBankApplyResult = {
         ...applied,
         imageAssetIds: attemptAssets.map((asset) => asset.assetId),
+        overwriteImpact: applied.overwriteImpact ?? null,
         previewId: input.attemptId,
       };
       return completeQuestionBankXlsxApplyAttempt(tx, target, claim, saved);
@@ -2609,6 +2641,7 @@ export {
   parseImageIndex,
   parseStagedObjectKeys,
   persistQuestionBankXlsxPreview,
+  previewQuestionBankXlsxBankOverwriteImpact,
   readQuestionBankXlsxPreview,
   rejectQuestionBankXlsxPreview,
   registerQuestionBankXlsxPreviewController,
