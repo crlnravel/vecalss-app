@@ -1,0 +1,15 @@
+import type { Metadata } from "next";
+
+import { requireTutorSession } from "@/lib/auth/access";
+import { KaptenVideoGalleryPageModule } from "@/modules/mentor/KaptenVideoGalleryPageModule";
+
+export const metadata: Metadata = {
+  title: "Video Kapten | Vecalss LMS",
+  description: "Kelola video YouTube untuk koleksi belajar siswa.",
+};
+
+export default async function MentorVideosPage() {
+  const session = await requireTutorSession();
+
+  return <KaptenVideoGalleryPageModule session={session} />;
+}

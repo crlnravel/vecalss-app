@@ -40,6 +40,7 @@ type PendingNavigation =
 const mentorRootHrefByLabel: Record<string, string> = {
   Dashboard: "/mentor/dashboard",
   Materi: "/mentor/materi",
+  Video: "/mentor/videos",
   Kuis: "/mentor/quiz",
   "Bank Soal": "/mentor/quiz/question-bank?purpose=quiz",
   "Bank Soal Kuis": "/mentor/quiz/question-bank?purpose=quiz",
