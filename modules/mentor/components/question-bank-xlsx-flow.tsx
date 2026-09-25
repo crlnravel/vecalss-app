@@ -702,6 +702,7 @@ function QuestionBankXlsxImportDialog({
   const workflowControllerRef = useRef<AbortController | null>(null);
   const thumbnailControllerRef = useRef<AbortController | null>(null);
   const cancelRequestedRef = useRef(false);
+  const invalidatedImpactKeyRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const mountedRef = useRef(false);
   const [claimedMode, setClaimedMode] = useState<XlsxMode | null>(null);
@@ -743,6 +744,7 @@ function QuestionBankXlsxImportDialog({
   function clearPreviewState() {
     setPreview(null);
     setOverwriteImpactResult(null);
+    invalidatedImpactKeyRef.current = null;
     setIssues([]);
     setApplyError(null);
     setThumbnailError(null);
@@ -811,11 +813,13 @@ function QuestionBankXlsxImportDialog({
   }, []);
 
   useEffect(() => {
+    // Do not auto-retry a rejected snapshot; require a fresh preview or Bank revision.
     if (
       !impactRequestKey
       || !previewIdForImpact
       || !impactBankId
       || impactExpectedRevision === null
+      || invalidatedImpactKeyRef.current === impactRequestKey
     ) {
       return;
     }
@@ -1166,8 +1170,14 @@ function QuestionBankXlsxImportDialog({
       updatePhase("complete");
     } catch (error) {
       if (!isAbortError(error) && mountedRef.current) {
-        const message = errorMessage(error instanceof Error ? error.message : "attempt_unavailable");
-        setApplyError(message);
+        const code = error instanceof Error ? error.message : "attempt_unavailable";
+        const message = errorMessage(code);
+        if (target.kind === "bank" && mode === "overwrite" && code === "stale_revision" && impactRequestKey) {
+          invalidatedImpactKeyRef.current = impactRequestKey;
+          setOverwriteImpactResult({ error: message, impact: null, key: impactRequestKey });
+        } else {
+          setApplyError(message);
+        }
         showToast("Impor belum berhasil. Rincian tersedia di dialog.", { variant: "error" });
         updatePhase("ready");
       }

@@ -1628,7 +1628,7 @@ async function deleteQuestionBank(
       editLease,
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, status: true, updatedByUserId: true } });
+    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, revision: true, status: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     const modifierId = actorId;
 
@@ -1664,6 +1664,16 @@ async function deleteQuestionBank(
       throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan oleh Quiz, Tryout, atau sesi belajar.");
     }
 
+    const currentQuestions = await tx.question.findMany({
+      where: { questionBankId: id },
+      select: { currentRevision: { select: { status: true } }, status: true },
+    });
+    const changesCurrentBankState = bank.status !== ContentStatus.archived
+      || currentQuestions.some((question) =>
+        question.status !== ContentStatus.archived
+        || question.currentRevision.status !== QuestionRevisionStatus.retired,
+      );
+
     // Question identities and their revisions are historical authorities once
     // the physical revision boundary exists. Keep them addressable and
     // archive the bank instead of attempting a cascading delete that would
@@ -1673,7 +1683,14 @@ async function deleteQuestionBank(
       data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: modifierId },
     });
     await tx.question.updateMany({ where: { questionBankId: id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
-    await tx.questionBank.update({ where: { id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
+    await tx.questionBank.update({
+      where: { id },
+      data: {
+        revision: bank.revision + (changesCurrentBankState ? 1 : 0),
+        status: ContentStatus.archived,
+        updatedByUserId: modifierId,
+      },
+    });
     return { id };
   });
 }
