@@ -30,12 +30,6 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   toQuestionBankCsvDraftPayload,
   type QuestionBankCsvDraftQuestion,
   type QuestionBankCsvIssue,
@@ -67,7 +61,7 @@ function writeQuestionBankCsvPendingDraft(
   summary: QuestionBankCsvDraftSummary,
 ) {
   if (typeof window === "undefined") {
-    throw new Error("Draf soal hanya dapat disiapkan di halaman ini.");
+    throw new Error("File soal hanya dapat disiapkan di halaman ini.");
   }
   window.sessionStorage.setItem(
     QUESTION_BANK_CSV_PENDING_DRAFT_STORAGE_KEY,
@@ -480,11 +474,11 @@ function QuestionBankCsvDraftStatus({
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-secondary-900">
-            File soal siap dimuat ke draf
+            File soal siap disimpan bersama Bank Soal
           </p>
           <p className="mt-1 break-words text-sm leading-6 text-secondary-700">
-            {draft.rowCount} soal dari {draft.fileName} sudah ditambahkan secara
-            lokal.
+            {draft.rowCount} soal dari {draft.fileName} akan ikut disimpan saat
+            Bank Soal dibuat, bersama nama dan deskripsi yang Anda isi.
           </p>
         </div>
       </div>
@@ -498,6 +492,135 @@ function QuestionBankCsvDraftStatus({
         Hapus soal dari file
       </Button>
     </ReferenceSurface>
+  );
+}
+
+function QuestionBankCsvDraftImportControl({
+  disabled = false,
+  onDraftApplied,
+}: {
+  disabled?: boolean;
+  onDraftApplied: (summary: QuestionBankCsvDraftSummary) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputId = useId();
+  const [file, setFile] = useState<File | null>(null);
+  const [prepareError, setPrepareError] = useState<string | null>(null);
+  const preview = useCsvPreview(file);
+  const canApply = preview.status === "valid" && Boolean(file) && Boolean(preview.summary);
+
+  function reset() {
+    setFile(null);
+    setPrepareError(null);
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) reset();
+  }
+
+  function applyDraft() {
+    if (!file || !preview.summary || preview.status !== "valid") return;
+    try {
+      const payload = toQuestionBankCsvDraftPayload(
+        {
+          normalizedRows: preview.normalizedRows,
+          summary: preview.summary,
+        },
+        "",
+      );
+      const draft = {
+        fileName: file.name,
+        questions: payload.questions,
+        rowCount: payload.questions.length,
+        summary: payload.summary,
+      } satisfies QuestionBankCsvDraftSummary;
+      onDraftApplied(draft);
+      showToast(`${draft.rowCount} soal siap disimpan bersama Bank Soal.`, {
+        variant: "success",
+      });
+      handleOpenChange(false);
+    } catch {
+      setPrepareError("Soal belum dapat disiapkan. Periksa file lalu coba lagi.");
+    }
+  }
+
+  return (
+    <>
+      <Button
+        className="w-full sm:w-fit"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        type="button"
+        variant="brandOutline"
+      >
+        <Upload aria-hidden="true" data-icon="inline-start" />
+        Impor dari CSV
+      </Button>
+      <Dialog onOpenChange={handleOpenChange} open={open}>
+        <DialogContent className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Unggah file soal CSV</DialogTitle>
+            <DialogDescription>
+              Periksa soal terlebih dahulu. Setelah dikonfirmasi, soal dari file ini akan menggantikan soal dari file impor sebelumnya. Soal yang Anda tulis sendiri tetap ada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <CsvTemplateDownload
+                fileName="templat-bank-soal.csv"
+                href="/api/mentor/question-banks/csv/template"
+                title="Unduh templat soal"
+              />
+              <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>
+                File soal
+              </label>
+              <CsvFilePicker
+                disabled={disabled}
+                file={file}
+                inputId={inputId}
+                onChange={(nextFile) => {
+                  setPrepareError(null);
+                  setFile(nextFile);
+                }}
+                onRemove={() => {
+                  setPrepareError(null);
+                  setFile(null);
+                }}
+                uploading={preview.status === "loading"}
+              />
+            </div>
+            <CsvFileSummary preview={preview} />
+            {prepareError ? (
+              <div
+                aria-live="assertive"
+                className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
+                role="alert"
+              >
+                {prepareError}
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => handleOpenChange(false)}
+              type="button"
+              variant="brandOutline"
+            >
+              Batal
+            </Button>
+            <Button
+              disabled={disabled || !canApply}
+              onClick={applyDraft}
+              type="button"
+              variant="brand"
+            >
+              Gunakan soal ini
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -556,7 +679,7 @@ function QuestionBankCreateMethodDialog({
       onCsvReady();
     } catch {
       setStorageError(
-        "File sudah valid, tetapi draf belum dapat disiapkan. Coba tutup tab lain lalu ulangi.",
+        "File sudah valid, tetapi soal belum dapat disiapkan. Coba tutup tab lain lalu ulangi.",
       );
     }
   }
@@ -1177,6 +1300,7 @@ export {
   QuestionBankCsvExportAction,
   QuestionBankCsvImportControl,
   QuestionBankCsvImportDialog,
+  QuestionBankCsvDraftImportControl,
   QuestionBankCreateMethodDialog,
   QuestionBankCsvDraftStatus,
   clearQuestionBankCsvPendingDraft,

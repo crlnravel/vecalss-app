@@ -66,6 +66,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import type { SessionContext } from "@/lib/auth/types";
+import type { QuestionBankCsvDraftQuestion } from "@/lib/question-bank/csv";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { questionBankMateriOptions } from "@/lib/question-bank/materi";
 import { compareSelectedOptionSets } from "@/lib/question-bank/answer-contract";
@@ -85,11 +86,16 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import {
+  QuestionBankCsvDraftImportControl,
   QuestionBankCsvDraftStatus,
   clearQuestionBankCsvPendingDraft,
   readQuestionBankCsvPendingDraft,
   type QuestionBankCsvDraftSummary,
 } from "@/modules/mentor/components/question-bank-csv-flow";
+import {
+  QuestionBankXlsxDraftImportControl,
+  type QuestionBankXlsxDraftApplied,
+} from "@/modules/mentor/components/question-bank-xlsx-flow";
 import {
   ResourceAuthoringLockBanner,
   type AuthoringLockState,
@@ -294,6 +300,43 @@ function createQuestionId(subjectCode: string) {
     .toString()
     .padStart(6, "0")}`;
   return `${subjectCode.toLowerCase()}-question-${suffix}`;
+}
+
+function toBuilderQuestions(
+  importedQuestions: QuestionBankCsvDraftQuestion[],
+  bankId: string,
+): BankQuestion[] {
+  return importedQuestions.map((importedQuestion) => {
+    const id = createQuestionId(importedQuestion.subjectCode);
+    const choices = importedQuestion.choices.map((choice, index) => ({
+      ...(choice.mediaAssetId ? { mediaAssetId: choice.mediaAssetId } : {}),
+      id: String.fromCharCode(97 + index),
+      text: choice.text,
+    }));
+    const choiceIds = new Map(importedQuestion.choices.map((choice, index) => [
+      choice.id,
+      String.fromCharCode(97 + index),
+    ]));
+    const correctChoiceIds = importedQuestion.correctChoiceIds
+      .map((choiceId) => choiceIds.get(choiceId))
+      .filter((choiceId): choiceId is string => Boolean(choiceId));
+
+    return {
+      ...emptyQuestion(bankId, importedQuestion.subjectCode),
+      choices,
+      correctChoiceId: correctChoiceIds[0] ?? choices[0]?.id ?? "a",
+      correctChoiceIds: correctChoiceIds.length ? correctChoiceIds : [choices[0]?.id ?? "a"],
+      difficulty: importedQuestion.difficulty,
+      explanation: importedQuestion.explanation,
+      ...(importedQuestion.explanationMediaAssetId ? { explanationMediaAssetId: importedQuestion.explanationMediaAssetId } : {}),
+      id,
+      ...(importedQuestion.materi ? { materi: importedQuestion.materi } : {}),
+      prompt: importedQuestion.prompt,
+      ...(importedQuestion.promptMediaAssetId ? { promptMediaAssetId: importedQuestion.promptMediaAssetId } : {}),
+      questionType: importedQuestion.questionType,
+      subjectCode: importedQuestion.subjectCode,
+    } satisfies BankQuestion;
+  });
 }
 
 function isReady(question: BankQuestion) {
@@ -1636,7 +1679,6 @@ function QuestionBankInventory({
   const visibleQuestions = builderState.questions;
   const isQuestionReady = (questionId: string) =>
     !readiness.issues.some((issue) => issue.questionId === questionId);
-  const incompleteCount = readiness.incompleteCount;
   const focusableQuestionId =
     visibleQuestions.find((question) => question.id === activeQuestionId)?.id ??
     visibleQuestions[0]?.id ??
@@ -1836,7 +1878,6 @@ function QuestionBankMobileInventory({
   );
   const activeQuestion =
     builderState.questions[activeIndex] ?? builderState.questions[0];
-  const incompleteCount = readiness.incompleteCount;
 
   return (
     <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 shadow-xs md:hidden">
@@ -1927,6 +1968,7 @@ type QuestionBankBuilderViewState = {
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
   lockState: AuthoringLockState;
+  mediaFolderReservationId?: string;
   mediaPickerTarget: MediaPickerTarget | null;
   pendingRouteReplacement: string | null;
   previewChoiceId: string | null;
@@ -1959,8 +2001,11 @@ type QuestionBankBuilderActions = {
     fileName: string;
     rowCount: number;
   } | null;
+  xlsxDraftInfo: Pick<QuestionBankXlsxDraftApplied, "fileName" | "imageCount" | "rowCount"> | null;
   removeCsvDraft: () => void;
+  removeXlsxDraft: () => void;
   replaceCsvDraft: (summary: QuestionBankCsvDraftSummary) => void;
+  replaceXlsxDraft: (draft: QuestionBankXlsxDraftApplied) => void;
   retryLock: () => void;
   requestExit: (route: string) => void;
   requestArchive: () => void;
@@ -2524,15 +2569,28 @@ function QuestionBankCreateWorkspace({
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
-      <QuestionBankMetadataForm
-        actions={actions}
-        builderState={builderState}
-        state={state}
-      />
       <QuestionBankCsvDraftStatus
         disabled={state.isQuestionContentLocked}
         draft={actions.csvDraftInfo}
         onRemove={actions.removeCsvDraft}
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <QuestionBankCsvDraftImportControl
+          disabled={state.isQuestionContentLocked}
+          onDraftApplied={actions.replaceCsvDraft}
+        />
+        <QuestionBankXlsxDraftImportControl
+          disabled={state.isQuestionContentLocked}
+          draft={actions.xlsxDraftInfo}
+          mediaFolderReservationId={state.mediaFolderReservationId}
+          onDraftApplied={actions.replaceXlsxDraft}
+          onRemove={actions.removeXlsxDraft}
+        />
+      </div>
+      <QuestionBankMetadataForm
+        actions={actions}
+        builderState={builderState}
+        state={state}
       />
       <QuestionBankBuilderDialogs
         actions={actions}
@@ -2681,9 +2739,11 @@ function useQuestionBankPersistence({
   bankIdRef,
   builderState,
   editLease,
+  mediaFolderReservationId,
   mode,
   onBankNoLongerEditable,
   revisionRef,
+  setMediaFolderReservationId,
   setServerReadiness,
   setLocalBuilderState,
   updateEditor,
@@ -2691,9 +2751,11 @@ function useQuestionBankPersistence({
   bankIdRef: { current: string | undefined };
   builderState: LocalQuestionBankState;
   editLease?: import("@/lib/serialization/authoring-lease").AuthoringEditLease;
+  mediaFolderReservationId?: string;
   mode: "create" | "edit";
   onBankNoLongerEditable: (bankId: string) => void;
   revisionRef: { current: number | undefined };
+  setMediaFolderReservationId: (reservationId: string | undefined) => void;
   setServerReadiness: (readiness: QuestionBankReadiness | null) => void;
   setLocalBuilderState: (state: LocalQuestionBankState) => void;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
@@ -2706,6 +2768,7 @@ function useQuestionBankPersistence({
         editLease,
         folderId: mode === "create" ? builderState.folderId : undefined,
         id: bankIdRef.current,
+        mediaFolderReservationId: mode === "create" ? mediaFolderReservationId : undefined,
         purpose: builderState.purpose,
         questions: builderState.questions,
         revision: revisionRef.current,
@@ -2750,6 +2813,9 @@ function useQuestionBankPersistence({
 
       setLocalBuilderState(contentState);
       setServerReadiness(result.result.readiness);
+      if (mode === "create" && mediaFolderReservationId) {
+        setMediaFolderReservationId(undefined);
+      }
       updateEditor({
         hasUnsavedChanges: false,
         lifecycleStatus: result.result.bank.status,
@@ -2843,6 +2909,7 @@ function useQuestionBankDraftActions({
   questionFocusAfterDeleteRef,
   readiness,
   serverReadiness,
+  setMediaFolderReservationId,
   setLocalBuilderState,
   updateEditor,
 }: {
@@ -2860,6 +2927,7 @@ function useQuestionBankDraftActions({
   questionFocusAfterDeleteRef: { current: string | null };
   readiness: QuestionBankReadiness;
   serverReadiness: QuestionBankReadiness | null;
+  setMediaFolderReservationId: (reservationId: string | undefined) => void;
   setLocalBuilderState: (state: LocalQuestionBankState) => void;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
 }) {
@@ -2886,11 +2954,15 @@ function useQuestionBankDraftActions({
       updateEditor,
     ],
   );
-  const csvDerivedQuestionIdsRef = useRef<Set<string>>(new Set());
+  const fileDerivedQuestionIdsRef = useRef<Set<string>>(new Set());
   const [csvDraftInfo, setCsvDraftInfo] = useState<{
     fileName: string;
     rowCount: number;
   } | null>(null);
+  const [xlsxDraftInfo, setXlsxDraftInfo] = useState<Pick<
+    QuestionBankXlsxDraftApplied,
+    "fileName" | "imageCount" | "rowCount"
+  > | null>(null);
 
   const updateMetadata = useCallback(
     (field: "title" | "description", value: string) => {
@@ -3085,42 +3157,17 @@ function useQuestionBankDraftActions({
   const replaceCsvDraft = useCallback(
     (summary: QuestionBankCsvDraftSummary) => {
       if (isQuestionContentLocked || summary.questions.length < 1) return;
-      const draftQuestions = summary.questions.map((csvQuestion) => {
-        const id = createQuestionId(csvQuestion.subjectCode);
-        const choices = csvQuestion.choices.map((choice, index) => ({
-          ...(choice.mediaAssetId ? { mediaAssetId: choice.mediaAssetId } : {}),
-          id: String.fromCharCode(97 + index),
-          text: choice.text,
-        }));
-        const choiceIds = new Map(csvQuestion.choices.map((choice, index) => [
-          choice.id,
-          String.fromCharCode(97 + index),
-        ]));
-        const correctChoiceIds = csvQuestion.correctChoiceIds
-          .map((choiceId) => choiceIds.get(choiceId))
-          .filter((choiceId): choiceId is string => Boolean(choiceId));
-        return {
-          ...emptyQuestion(bankId ?? initialBank?.id ?? "question-bank-draft", csvQuestion.subjectCode),
-          choices,
-          correctChoiceId: correctChoiceIds[0] ?? choices[0]?.id ?? "a",
-          correctChoiceIds: correctChoiceIds.length ? correctChoiceIds : [choices[0]?.id ?? "a"],
-          difficulty: csvQuestion.difficulty,
-          explanation: csvQuestion.explanation,
-          ...(csvQuestion.explanationMediaAssetId ? { explanationMediaAssetId: csvQuestion.explanationMediaAssetId } : {}),
-          id,
-          ...(csvQuestion.materi ? { materi: csvQuestion.materi } : {}),
-          prompt: csvQuestion.prompt,
-          ...(csvQuestion.promptMediaAssetId ? { promptMediaAssetId: csvQuestion.promptMediaAssetId } : {}),
-          questionType: csvQuestion.questionType,
-          subjectCode: csvQuestion.subjectCode,
-        } satisfies BankQuestion;
-      });
-      const csvQuestionIds = new Set(draftQuestions.map((question) => question.id));
-      const retainedQuestions = builderState.questions.filter(
-        (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
+      const draftQuestions = toBuilderQuestions(
+        summary.questions,
+        bankId ?? initialBank?.id ?? "question-bank-draft",
       );
-      csvDerivedQuestionIdsRef.current = csvQuestionIds;
+      const importedQuestionIds = new Set(draftQuestions.map((question) => question.id));
+      const retainedQuestions = builderState.questions.filter(
+        (question) => !fileDerivedQuestionIdsRef.current.has(question.id),
+      );
+      fileDerivedQuestionIdsRef.current = importedQuestionIds;
       setCsvDraftInfo({ fileName: summary.fileName, rowCount: summary.rowCount });
+      setXlsxDraftInfo(null);
       const nextState = {
         ...builderState,
         questions: [...retainedQuestions, ...draftQuestions],
@@ -3136,11 +3183,10 @@ function useQuestionBankDraftActions({
           : retainedQuestions[0]
             ? toQuestionDraft(retainedQuestions[0])
             : fallbackQuestion,
-        readinessAnnouncement: `${summary.rowCount} draf soal dari ${summary.fileName} ditambahkan secara lokal.`,
+        readinessAnnouncement: `${summary.rowCount} soal dari ${summary.fileName} siap disimpan bersama Bank Soal.`,
       });
     },
     [
-      activeQuestion?.subjectCode,
       bankId,
       builderState,
       fallbackQuestion,
@@ -3148,17 +3194,67 @@ function useQuestionBankDraftActions({
       isQuestionContentLocked,
       markChanged,
       updateEditor,
-      csvDerivedQuestionIdsRef,
+      fileDerivedQuestionIdsRef,
     ],
   );
 
-  const removeCsvDraft = useCallback(() => {
-    if (isQuestionContentLocked || csvDerivedQuestionIdsRef.current.size === 0) return;
+  const replaceXlsxDraft = useCallback(
+    (draft: QuestionBankXlsxDraftApplied) => {
+      if (isQuestionContentLocked || draft.questions.length < 1) return;
+      const draftQuestions = toBuilderQuestions(
+        draft.questions,
+        bankId ?? initialBank?.id ?? "question-bank-draft",
+      );
+      const importedQuestionIds = new Set(draftQuestions.map((question) => question.id));
+      const retainedQuestions = builderState.questions.filter(
+        (question) => !fileDerivedQuestionIdsRef.current.has(question.id),
+      );
+      fileDerivedQuestionIdsRef.current = importedQuestionIds;
+      setCsvDraftInfo(null);
+      setXlsxDraftInfo({
+        fileName: draft.fileName,
+        imageCount: draft.imageCount,
+        rowCount: draft.rowCount,
+      });
+      setMediaFolderReservationId(draft.mediaFolderReservationId);
+      const nextState = {
+        ...builderState,
+        questions: [...retainedQuestions, ...draftQuestions],
+      };
+      markChanged(nextState);
+      updateEditor({
+        activeQuestionId: draftQuestions[0]?.id ?? retainedQuestions[0]?.id ?? null,
+        hasSubmittedPreview: false,
+        previewChoiceId: null,
+        previewChoiceIds: [],
+        questionDraft: draftQuestions[0]
+          ? toQuestionDraft(draftQuestions[0])
+          : retainedQuestions[0]
+            ? toQuestionDraft(retainedQuestions[0])
+            : fallbackQuestion,
+        readinessAnnouncement: `${draft.rowCount} soal dari ${draft.fileName} siap disimpan bersama Bank Soal.`,
+      });
+    },
+    [
+      bankId,
+      builderState,
+      fallbackQuestion,
+      initialBank?.id,
+      isQuestionContentLocked,
+      markChanged,
+      setMediaFolderReservationId,
+      updateEditor,
+    ],
+  );
+
+  const removeFileDraft = useCallback(() => {
+    if (isQuestionContentLocked || fileDerivedQuestionIdsRef.current.size === 0) return;
     const questions = builderState.questions.filter(
-      (question) => !csvDerivedQuestionIdsRef.current.has(question.id),
+      (question) => !fileDerivedQuestionIdsRef.current.has(question.id),
     );
-    csvDerivedQuestionIdsRef.current = new Set();
+    fileDerivedQuestionIdsRef.current = new Set();
     setCsvDraftInfo(null);
+    setXlsxDraftInfo(null);
     if (questions.length === builderState.questions.length) return;
     const nextActiveQuestion = questions[0] ?? null;
     markChanged({ ...builderState, questions });
@@ -3167,19 +3263,20 @@ function useQuestionBankDraftActions({
       hasSubmittedPreview: false,
       previewChoiceId: null,
       previewChoiceIds: [],
-      questionDraft: nextActiveQuestion
-        ? toQuestionDraft(nextActiveQuestion)
-        : fallbackQuestion,
-      readinessAnnouncement: "Soal dari file dihapus dari draf lokal.",
+      questionDraft: nextActiveQuestion ? toQuestionDraft(nextActiveQuestion) : fallbackQuestion,
+      readinessAnnouncement: "Soal dari file dihapus dari Bank Soal baru.",
     });
   }, [
     builderState,
-    csvDerivedQuestionIdsRef,
+    fileDerivedQuestionIdsRef,
     fallbackQuestion,
     isQuestionContentLocked,
     markChanged,
     updateEditor,
   ]);
+
+  const removeCsvDraft = removeFileDraft;
+  const removeXlsxDraft = removeFileDraft;
 
   const removeQuestion = useCallback(
     (id: string) => {
@@ -3220,11 +3317,14 @@ function useQuestionBankDraftActions({
     markChanged,
     openQuestion,
     csvDraftInfo,
+    xlsxDraftInfo,
     removeChoice,
     removeChoiceMedia,
     removeCsvDraft,
+    removeXlsxDraft,
     removeQuestion,
     replaceCsvDraft,
+    replaceXlsxDraft,
     selectMediaAsset,
     updateCategories,
     updateMetadata,
@@ -3760,6 +3860,7 @@ function useQuestionBankBuilderState({
     questionBankEditorReducer,
     initialEditorState,
   );
+  const [mediaFolderReservationId, setMediaFolderReservationId] = useState<string | undefined>();
   const resourceLock = useResourceEditLock();
   const lockState: AuthoringLockState = mode === "create" ? "owned" : resourceLock.state;
   const updateEditor = useCallback(
@@ -3804,6 +3905,7 @@ function useQuestionBankBuilderState({
     questionFocusAfterDeleteRef,
     readiness,
     serverReadiness: editorState.serverReadiness,
+    setMediaFolderReservationId,
     setLocalBuilderState,
     updateEditor,
   });
@@ -3829,12 +3931,14 @@ function useQuestionBankBuilderState({
     bankIdRef,
     builderState,
     editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
+    mediaFolderReservationId,
     mode,
     onBankNoLongerEditable: (id) =>
       updateEditor({
         pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}`,
       }),
     revisionRef,
+    setMediaFolderReservationId,
     setServerReadiness: (nextReadiness) =>
       updateEditor({ serverReadiness: nextReadiness }),
     setLocalBuilderState,
@@ -3888,6 +3992,7 @@ function useQuestionBankBuilderState({
     bankIdValue: bankId ?? initialBank?.id,
     builderState,
     editorState,
+    mediaFolderReservationId,
     isMetadataLocked,
     isQuestionContentLocked,
     lockState,
@@ -3924,6 +4029,7 @@ function QuestionBankBuilderContent({
     bankIdValue,
     builderState,
     editorState,
+    mediaFolderReservationId,
     isMetadataLocked,
     isQuestionContentLocked,
     lockState,
@@ -3960,6 +4066,7 @@ function QuestionBankBuilderContent({
         isSaving: editorState.isSaving,
         lifecycleError: editorState.lifecycleError,
         lifecycleStatus: editorState.lifecycleStatus,
+        mediaFolderReservationId,
         mediaPickerTarget: editorState.mediaPickerTarget,
         pendingRouteReplacement: editorState.pendingRouteReplacement,
         previewChoiceId: editorState.previewChoiceId,

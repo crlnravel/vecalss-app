@@ -65,6 +65,10 @@ import {
   type QuestionBankCsvImportResult,
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
+  QuestionBankXlsxImportControl,
+  type QuestionBankXlsxImportResult,
+} from "@/modules/mentor/components/question-bank-xlsx-flow";
+import {
   ResourceAuthoringLockBanner,
   type AuthoringLockState,
 } from "@/modules/mentor/components/resource-authoring-lock-banner";
@@ -726,7 +730,7 @@ function QuestionBankQuestionsSection({
   editLease: import("@/lib/resource-edit-lock/types").EditLeaseProof | null;
   expectedRevision: number;
   isReadOnly: boolean;
-  onImport: (result: QuestionBankCsvImportResult) => Promise<void> | void;
+  onImport: (result: QuestionBankCsvImportResult | QuestionBankXlsxImportResult) => Promise<void> | void;
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
@@ -746,13 +750,23 @@ function QuestionBankQuestionsSection({
       </div>
 
       <QuestionBankReadOnlyContext.Provider value={isReadOnly}>
-        <div className="grid w-full grid-cols-2 gap-2">
+        <div className="grid w-full gap-2 sm:grid-cols-3">
           <div className="min-w-0">
             <QuestionBankEditorButton bank={bank} bankId={bankId} />
           </div>
           <div className="min-w-0">
             <QuestionBankCsvImportControl
               bankId={bankId}
+              disabled={isReadOnly}
+              editLease={editLease}
+              expectedRevision={expectedRevision}
+              onApplied={onImport}
+            />
+          </div>
+          <div className="min-w-0">
+            <QuestionBankXlsxImportControl
+              bankId={bankId}
+              currentQuestionCount={questions.length}
               disabled={isReadOnly}
               editLease={editLease}
               expectedRevision={expectedRevision}
