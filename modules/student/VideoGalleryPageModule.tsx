@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import {
   videoFilters,
-  videoItems,
   type VideoGalleryItem,
 } from "@/modules/video/video-gallery-data";
 
@@ -54,9 +53,11 @@ function VideoThumbnail({ video }: { video: VideoGalleryItem }) {
             <Video aria-hidden="true" className="size-3.5" />
             {video.category} · {video.subject.split(" ")[0]}
           </span>
-          <span className="rounded-lg bg-secondary-950/80 px-2.5 py-1.5 text-xs font-bold tabular-nums text-white">
-            {video.duration}
-          </span>
+          {video.duration ? (
+            <span className="rounded-lg bg-secondary-950/80 px-2.5 py-1.5 text-xs font-bold tabular-nums text-white">
+              {video.duration}
+            </span>
+          ) : null}
         </div>
 
         <div className="relative z-10">
@@ -125,11 +126,15 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
             <UserRound aria-hidden="true" className="size-3.5 text-primary-700" />
             Kapten Vecalss
           </span>
-          <span aria-hidden="true" className="text-secondary-300">·</span>
-          <span className="inline-flex items-center gap-1.5 tabular-nums">
-            <Clock3 aria-hidden="true" className="size-3.5 text-primary-700" />
-            {video.duration}
-          </span>
+          {video.duration ? (
+            <>
+              <span aria-hidden="true" className="text-secondary-300">·</span>
+              <span className="inline-flex items-center gap-1.5 tabular-nums">
+                <Clock3 aria-hidden="true" className="size-3.5 text-primary-700" />
+                {video.duration}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
     </a>
@@ -139,9 +144,11 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
 function VideoGalleryPageModule({
   notificationFeed,
   session,
+  videos,
 }: {
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
+  videos: VideoGalleryItem[];
 }) {
   const [activeFilter, setActiveFilter] = useState<VideoFilter>("Semua");
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,7 +156,7 @@ function VideoGalleryPageModule({
   const filteredVideos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("id-ID");
 
-    return videoItems.filter((video) => {
+    return videos.filter((video) => {
       const matchesFilter = activeFilter === "Semua" || video.subtest === activeFilter;
       if (!matchesFilter) return false;
       if (!normalizedQuery) return true;
@@ -159,7 +166,7 @@ function VideoGalleryPageModule({
         .toLocaleLowerCase("id-ID")
         .includes(normalizedQuery);
     });
-  }, [activeFilter, searchQuery]);
+  }, [activeFilter, searchQuery, videos]);
 
   return (
     <StudentWorkspaceShell
@@ -223,15 +230,17 @@ function VideoGalleryPageModule({
             </div>
           ) : (
             <ReferenceEmptyState
-              action={
+              action={videos.length > 0 ? (
                 <Button onClick={() => { setActiveFilter("Semua"); setSearchQuery(""); }} size="sm" variant="brandOutline">
                   Lihat semua video
                 </Button>
-              }
+              ) : undefined}
               className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "border-learning-card-border")}
-              description="Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+              description={videos.length > 0
+                ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+                : "Video belajar akan muncul setelah Kapten menerbitkan dan menampilkannya."}
               icon={Video}
-              title="Video tidak ditemukan"
+              title={videos.length > 0 ? "Video tidak ditemukan" : "Belum ada video belajar"}
             />
           )}
         </section>
