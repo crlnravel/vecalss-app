@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ListChecks, Plus, X } from "@/lib/icons";
+import { ChevronRight, ListChecks, Plus, X } from "@/lib/icons";
 import { useMemo, useReducer, type Dispatch } from "react";
 
 import {
@@ -353,17 +353,6 @@ async function runQuizLifecycle({
 function QuizSubjectHeader({ subject }: { subject: KaptenSubject }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button
-        aria-label="Kembali ke semua quiz"
-        className="mt-1 shrink-0"
-        nativeButton={false}
-        render={<Link href="/mentor/quiz" />}
-        size="icon"
-        title="Kembali ke semua quiz"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
       <ReferencePageHeader
         className="min-w-0 flex-1"
         actions={

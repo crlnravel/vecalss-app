@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
-  ChevronLeft,
   Eye,
   FilePenLine,
   FileText,
@@ -643,17 +642,6 @@ function MateriSubjectCatalogueScreen({
     >
       <div className="space-y-8">
         <div className="flex min-w-0 items-start gap-3">
-          <Button
-            aria-label="Kembali ke semua materi"
-            className="mt-1 shrink-0"
-            nativeButton={false}
-            render={<Link href="/mentor/materi" />}
-            size="icon"
-            title="Kembali ke semua materi"
-            variant="ghost"
-          >
-            <ChevronLeft aria-hidden="true" className="size-5" />
-          </Button>
           <ReferencePageHeader
             actions={
               <Button
