@@ -141,14 +141,15 @@ For import-worker changes, also run:
 
 ### Browser verification gate
 
-Before performing any verification using a browser (**ego-browser**):
-1. **Request explicit user permission first.** Never run browser verification autonomously.
-2. The permission request MUST specify:
+For any verification, browser testing, UI/UX inspection, or interaction that requires a browser:
+1. **`ego-browser` is the mandatory priority choice:** All browser tasks MUST run through **`ego-browser` (`ego-lite`) as the priority choice**; do not use built-in browsers or third-party tools.
+2. **Request explicit user permission first.** Never run browser verification autonomously.
+3. The permission request MUST specify:
    - **Target route(s):** Exact URL path(s) to check (e.g. `/mentor/tryouts/new`, `/dashboard`).
    - **Role / persona:** The user role or session state to test with (e.g. Kapten / tutor, Voyager / student, Admin).
    - **Verification items:** The concrete list of UI elements, responsive views (e.g. desktop/mobile), forms, or user flows to verify.
-3. Wait for the user's explicit confirmation before launching the browser.
-4. Once approved, login with the pre-seeded credentials for that role specified in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) (e.g. `admin@vecalss.local`, `tutor@vecalss.local`, `student@vecalss.local`, `affiliator@vecalss.local`). Do not register new accounts.
+4. Wait for the user's explicit confirmation before launching the browser.
+5. Once approved, login with the pre-seeded credentials for that role specified in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) (e.g. `admin@vecalss.local`, `tutor@vecalss.local`, `student@vecalss.local`, `affiliator@vecalss.local`). Do not register new accounts.
 
 ### Before declaring completion
 

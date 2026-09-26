@@ -104,10 +104,11 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Student-facing and marketing copy in Vecalss must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
 - User-facing copy must be written for nontechnical readers. Do not expose implementation labels or version markers such as `v1`, `version`, `revision`, `UUID`, `UTF-8`, `API`, MIME types, raw field names, or backend error codes. Translate them into clear, actionable Indonesian; keep technical identifiers in code, tests, and internal contracts only.
 
-### Browser verification policy
+### Browser usage and verification policy
 
-- **Always ask for explicit user permission before performing any verification using a browser (`ego-browser`).**
-- When requesting permission, the agent must specify:
+- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or anything that uses a web browser **must be done through `ego-browser` (`ego-lite`) as the priority choice**. Do not use built-in browsers, external browser extensions, or ad hoc headless automation.
+- **Always ask for explicit user permission before performing any verification or action using a browser:**
+  When requesting permission, the agent must specify:
   1. **Route(s):** The exact route(s) or URLs to check.
   2. **Role:** The user role or session state (e.g. Kapten, Voyager, Admin).
   3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.

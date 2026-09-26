@@ -17,7 +17,12 @@ This guide defines how AI agents and automated workflows should test the Vecalss
    - **No backups or snapshots are required:** Do not waste effort creating `.dump` files or archival tables before deleting dev data.
    - Whenever you need to restore the standard baseline data, run `./_harness/resource-guard.sh run -- rtk pnpm db:seed`.
 
-3. **Guarded Commands:**
+3. **`ego-browser` is the Priority Choice for All Browser Operations:**
+   - **All browser usage, browser testing, UI/UX inspection, verification, or anything requiring a browser MUST be done through `ego-browser` (`ego-lite`) as the priority choice.**
+   - Do not use built-in generic browsers, standalone Playwright/Puppeteer instances, or other browser tools when `ego-browser` is available.
+   - Always request explicit user permission before launching `ego-browser`, specifying the target route(s), role, and checklist.
+
+4. **Guarded Commands:**
    - All Node, script, and test execution commands must be wrapped with `./_harness/resource-guard.sh run -- rtk <command>`.
 
 ---
@@ -114,15 +119,20 @@ docker compose -f docker-compose.dev.yml ps
 ```
 The server runs at `http://localhost:5023`. Note: keep a maximum of one dev server instance running, and shut it down before handoff.
 
-### Step 4: Browser Verification (`ego-browser`)
-When testing visual or interactive flows with a browser:
+### Step 4: Browser Verification & Usage (`ego-browser` as Priority Choice)
+
+> [!IMPORTANT]
+> **Priority Choice: `ego-browser`**
+> All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or anything requiring a web browser **MUST be done through `ego-browser` (`ego-lite`) as the priority choice**. Do not substitute with built-in browsers or third-party automation tools.
+
+When conducting browser testing or verification:
 1. **Always ask for explicit user permission first** before launching `ego-browser`:
    - Specify:
      - **Route(s):** e.g., `/login`, `/dashboard`, `/mentor/dashboard`
-     - **Role:** e.g., Student (`student@vecalss.local`) or Kapten (`tutor@vecalss.local`)
-     - **Verification items:** Specific elements, responsive layouts, or interactions to verify.
-2. Once approved, navigate to `http://localhost:5023/login`.
-3. Submit the corresponding seeded credentials.
+     - **Role:** e.g., Student (`student@vecalss.local`), Kapten (`tutor@vecalss.local`), or Admin (`admin@vecalss.local`)
+     - **Verification items:** Specific elements, responsive layouts, forms, or user flows to verify.
+2. Once approved, launch `ego-browser` and navigate to `http://localhost:5023/login`.
+3. Submit the corresponding seeded credentials for that role.
 4. Verify the automatic redirect to the appropriate portal and perform your test checklist.
 
 ### Step 5: Automated Domain Tests

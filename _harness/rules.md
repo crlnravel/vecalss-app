@@ -208,9 +208,9 @@ Detailed guide: [`docs/database-environments.md`](file:///Users/ravel/Work/Freel
 - Non-heavy commands (e.g. `rtk git status`, `rtk git diff`, `rtk grep`, `rtk find`) do not start Node or heavy background workers and can be run with `rtk` directly without the guard.
 - **Escape hatch:** Use `rtk proxy <cmd>` when raw, uncompressed output is strictly necessary for low-level debugging or troubleshooting.
 
-### Browser testing and verification
+### Browser testing, verification, and usage
 
-- Use **ego-browser** for all browser testing — not Chrome, Firefox, or Safari
+- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or any interaction requiring a browser **MUST be done through `ego-browser` (`ego-lite`) as the priority choice** — never Chrome, Firefox, Safari, or generic built-in browser automation tools.
 - **Always ask for explicit user permission before doing verification using a browser.** Never start browser verification autonomously.
 - When requesting permission for browser verification, the agent MUST explicitly specify:
   1. **Route(s):** The exact route(s) or URLs to be checked (e.g., `/mentor/tryouts/new`, `/dashboard`).

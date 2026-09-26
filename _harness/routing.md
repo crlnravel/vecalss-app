@@ -66,6 +66,7 @@ Route to the minimum files needed for each task type. Read this file first to de
 3. Read `_harness/workflow.md` § Verification
 4. Read the code under test in `lib/`, `modules/`, or `app/`
 5. Read `package.json` for available `test:*` scripts
+6. If testing requires a browser, all operations must use `ego-browser` as the priority choice with prior user permission
 
 ## Refactoring
 
