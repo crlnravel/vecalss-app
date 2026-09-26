@@ -1,20 +1,17 @@
 import {
   videoSubtests,
-  type VideoStatus,
   type VideoSubtest,
 } from "@/modules/video/video-gallery-data";
 
 export const VIDEO_TITLE_MAX_LENGTH = 160;
 export const VIDEO_DESCRIPTION_MAX_LENGTH = 1_000;
 
-export type VideoInputField = "description" | "status" | "subtest" | "title" | "youtubeUrl";
+export type VideoInputField = "description" | "subtest" | "title" | "youtubeUrl";
 export type VideoInputFieldErrors = Partial<Record<VideoInputField, string>>;
 
 export type SaveKaptenVideoInput = {
   description: string;
   id?: string;
-  isVisibleToStudents: boolean;
-  status: VideoStatus;
   subtest: VideoSubtest;
   title: string;
   youtubeUrl: string;
@@ -86,7 +83,6 @@ export function normalizeKaptenVideoInput(input: unknown): ValidatedKaptenVideoI
   const description = typeof raw.description === "string" ? raw.description.trim() : "";
   const youtubeUrl = typeof raw.youtubeUrl === "string" ? raw.youtubeUrl.trim() : "";
   const subtest = raw.subtest;
-  const status = raw.status;
 
   if (!title) fieldErrors.title = "Masukkan judul video terlebih dahulu.";
   else if (title.length > VIDEO_TITLE_MAX_LENGTH) {
@@ -102,12 +98,6 @@ export function normalizeKaptenVideoInput(input: unknown): ValidatedKaptenVideoI
   }
 
   if (!isVideoSubtest(subtest)) fieldErrors.subtest = "Pilih subtes untuk video ini.";
-  if (status !== "draft" && status !== "published") {
-    fieldErrors.status = "Pilih status penerbitan video.";
-  }
-  if (typeof raw.isVisibleToStudents !== "boolean") {
-    throw new VideoGalleryValidationError("Pengaturan tampilan video tidak dikenali.");
-  }
 
   const id = raw.id;
   if (id !== undefined && (typeof id !== "string" || !uuidPattern.test(id))) {
@@ -119,15 +109,13 @@ export function normalizeKaptenVideoInput(input: unknown): ValidatedKaptenVideoI
   }
 
   const videoId = parseYouTubeVideoId(youtubeUrl);
-  if (!videoId || !isVideoSubtest(subtest) || (status !== "draft" && status !== "published")) {
+  if (!videoId || !isVideoSubtest(subtest)) {
     throw new VideoGalleryValidationError("Periksa kembali informasi video.");
   }
 
   return {
     description,
     ...(typeof id === "string" ? { id } : {}),
-    isVisibleToStudents: raw.isVisibleToStudents,
-    status,
     subtest,
     title,
     youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,

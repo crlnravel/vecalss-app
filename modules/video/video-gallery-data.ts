@@ -2,7 +2,6 @@ export const videoSubtests = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as c
 
 export type VideoCategory = "TPS" | "TPA";
 export type VideoSubtest = (typeof videoSubtests)[number];
-export type VideoStatus = "draft" | "published";
 export type VideoThumbnailTone = "forest" | "deep" | "leaf";
 
 export type VideoGalleryItem = {
@@ -11,9 +10,8 @@ export type VideoGalleryItem = {
   duration: string | null;
   id: string;
   isNew?: boolean;
-  isVisibleToStudents: boolean;
+  isArchived: boolean;
   subtest: VideoSubtest;
-  status: VideoStatus;
   subject: string;
   tags: string[];
   thumbnailEyebrow: string;
@@ -40,11 +38,10 @@ const subtestPresentation: Record<VideoSubtest, {
 };
 
 export function toVideoGalleryItem(record: {
+  archivedAt: Date | null;
   createdAt: Date;
   description: string | null;
   id: string;
-  isVisibleToStudents: boolean;
-  status: VideoStatus;
   subtest: VideoSubtest;
   title: string;
   youtubeUrl: string;
@@ -58,9 +55,8 @@ export function toVideoGalleryItem(record: {
     duration: null,
     id: record.id,
     isNew: Date.now() - record.createdAt.getTime() < 10 * 24 * 60 * 60 * 1000,
-    isVisibleToStudents: record.isVisibleToStudents,
+    isArchived: record.archivedAt !== null,
     subtest: record.subtest,
-    status: record.status,
     subject: presentation.subject,
     tags: [record.subtest, "YouTube"],
     thumbnailEyebrow: "VIDEO YOUTUBE",

@@ -29,13 +29,6 @@ enum RoleName {
   @@map("role_name")
 }
 
-enum KaptenVideoStatus {
-  draft
-  published
-
-  @@map("kapten_video_status")
-}
-
 enum KaptenVideoSubtest {
   PU
   PPU
@@ -1677,16 +1670,14 @@ model KaptenVideo {
   description          String?            @db.Text
   youtubeUrl           String             @map("youtube_url") @db.Text
   subtest              KaptenVideoSubtest
-  status               KaptenVideoStatus  @default(draft)
-  isVisibleToStudents  Boolean            @default(false) @map("is_visible_to_students")
-  publishedAt          DateTime?          @map("published_at") @db.Timestamptz
+  archivedAt           DateTime?          @map("archived_at") @db.Timestamptz
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   createdBy User @relation("KaptenVideoAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   @@index([createdByUserId, updatedAt])
-  @@index([status, isVisibleToStudents, publishedAt])
+  @@index([createdByUserId, archivedAt, updatedAt])
   @@map("kapten_videos")
 }
 

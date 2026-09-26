@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-  KaptenVideoStatus,
-  KaptenVideoSubtest,
-} from "@/generated/prisma/client";
+import { KaptenVideoSubtest } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -13,15 +10,13 @@ import {
 import {
   toVideoGalleryItem,
   type VideoGalleryItem,
-  type VideoStatus,
 } from "@/modules/video/video-gallery-data";
 
 const gallerySelect = {
+  archivedAt: true,
   createdAt: true,
   description: true,
   id: true,
-  isVisibleToStudents: true,
-  status: true,
   subtest: true,
   title: true,
   youtubeUrl: true,
@@ -39,55 +34,27 @@ export class KaptenVideoNotFoundError extends Error {
 function toGalleryItem(record: GalleryRecord): VideoGalleryItem {
   return toVideoGalleryItem({
     ...record,
-    status: record.status as VideoStatus,
     subtest: record.subtest,
   });
 }
 
-async function updateOwnedVideo(
+async function setKaptenVideoArchived(
   videoId: string,
+  archived: boolean,
   ownerUserId: string,
-  changes: {
-    isVisibleToStudents?: boolean;
-    status?: VideoStatus;
-  },
 ) {
-  return prisma.$transaction(async (transaction) => {
-    const existing = await transaction.kaptenVideo.findFirst({
-      where: { createdByUserId: ownerUserId, id: videoId },
-      select: { publishedAt: true, status: true },
-    });
-    if (!existing) throw new KaptenVideoNotFoundError();
-
-    const data: Prisma.KaptenVideoUpdateManyMutationInput = {};
-    if (changes.isVisibleToStudents !== undefined) {
-      data.isVisibleToStudents = changes.isVisibleToStudents;
-    }
-    if (changes.status !== undefined) {
-      const nextStatus = changes.status === "published"
-        ? KaptenVideoStatus.published
-        : KaptenVideoStatus.draft;
-      data.status = nextStatus;
-      data.publishedAt = nextStatus === KaptenVideoStatus.published
-        ? existing.status === KaptenVideoStatus.published
-          ? existing.publishedAt ?? new Date()
-          : new Date()
-        : null;
-    }
-
-    const result = await transaction.kaptenVideo.updateMany({
-      where: { createdByUserId: ownerUserId, id: videoId },
-      data,
-    });
-    if (result.count !== 1) throw new KaptenVideoNotFoundError();
-
-    const updated = await transaction.kaptenVideo.findFirst({
-      where: { createdByUserId: ownerUserId, id: videoId },
-      select: gallerySelect,
-    });
-    if (!updated) throw new KaptenVideoNotFoundError();
-    return toGalleryItem(updated);
+  const result = await prisma.kaptenVideo.updateMany({
+    where: { createdByUserId: ownerUserId, id: videoId },
+    data: { archivedAt: archived ? new Date() : null },
   });
+  if (result.count !== 1) throw new KaptenVideoNotFoundError();
+
+  const updated = await prisma.kaptenVideo.findFirst({
+    where: { createdByUserId: ownerUserId, id: videoId },
+    select: gallerySelect,
+  });
+  if (!updated) throw new KaptenVideoNotFoundError();
+  return toGalleryItem(updated);
 }
 
 async function getKaptenVideoGalleryItems(ownerUserId: string): Promise<VideoGalleryItem[]> {
@@ -101,21 +68,15 @@ async function getKaptenVideoGalleryItems(ownerUserId: string): Promise<VideoGal
 
 async function getStudentVideoGalleryItems(): Promise<VideoGalleryItem[]> {
   const records = await prisma.kaptenVideo.findMany({
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }],
     select: gallerySelect,
-    where: {
-      isVisibleToStudents: true,
-      status: KaptenVideoStatus.published,
-    },
+    where: { archivedAt: null },
   });
   return records.map(toGalleryItem);
 }
 
 async function saveKaptenVideo(input: SaveKaptenVideoInput, ownerUserId: string): Promise<VideoGalleryItem> {
   const validated = normalizeKaptenVideoInput(input);
-  const status = validated.status === "published"
-    ? KaptenVideoStatus.published
-    : KaptenVideoStatus.draft;
   const subtest = validated.subtest as KaptenVideoSubtest;
 
   if (!validated.id) {
@@ -123,9 +84,6 @@ async function saveKaptenVideo(input: SaveKaptenVideoInput, ownerUserId: string)
       data: {
         createdByUserId: ownerUserId,
         description: validated.description || null,
-        isVisibleToStudents: validated.isVisibleToStudents,
-        publishedAt: status === KaptenVideoStatus.published ? new Date() : null,
-        status,
         subtest,
         title: validated.title,
         youtubeUrl: validated.youtubeUrl,
@@ -136,24 +94,10 @@ async function saveKaptenVideo(input: SaveKaptenVideoInput, ownerUserId: string)
   }
 
   return prisma.$transaction(async (transaction) => {
-    const existing = await transaction.kaptenVideo.findFirst({
-      where: { createdByUserId: ownerUserId, id: validated.id },
-      select: { publishedAt: true, status: true },
-    });
-    if (!existing) throw new KaptenVideoNotFoundError();
-
-    const publishedAt = status === KaptenVideoStatus.published
-      ? existing.status === KaptenVideoStatus.published
-        ? existing.publishedAt ?? new Date()
-        : new Date()
-      : null;
     const updatedCount = await transaction.kaptenVideo.updateMany({
       where: { createdByUserId: ownerUserId, id: validated.id },
       data: {
         description: validated.description || null,
-        isVisibleToStudents: validated.isVisibleToStudents,
-        publishedAt,
-        status,
         subtest,
         title: validated.title,
         youtubeUrl: validated.youtubeUrl,
@@ -170,26 +114,17 @@ async function saveKaptenVideo(input: SaveKaptenVideoInput, ownerUserId: string)
   });
 }
 
-async function updateKaptenVideoPublication(
-  videoId: string,
-  status: VideoStatus,
-  ownerUserId: string,
-): Promise<VideoGalleryItem> {
-  return updateOwnedVideo(videoId, ownerUserId, { status });
-}
-
-async function updateKaptenVideoVisibility(
-  videoId: string,
-  isVisibleToStudents: boolean,
-  ownerUserId: string,
-): Promise<VideoGalleryItem> {
-  return updateOwnedVideo(videoId, ownerUserId, { isVisibleToStudents });
+async function deleteKaptenVideo(videoId: string, ownerUserId: string): Promise<void> {
+  const result = await prisma.kaptenVideo.deleteMany({
+    where: { createdByUserId: ownerUserId, id: videoId },
+  });
+  if (result.count !== 1) throw new KaptenVideoNotFoundError();
 }
 
 export {
+  deleteKaptenVideo,
   getKaptenVideoGalleryItems,
   getStudentVideoGalleryItems,
   saveKaptenVideo,
-  updateKaptenVideoPublication,
-  updateKaptenVideoVisibility,
+  setKaptenVideoArchived,
 };

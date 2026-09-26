@@ -10,15 +10,15 @@ import {
 } from "@/lib/video/contract";
 import {
   KaptenVideoNotFoundError,
+  deleteKaptenVideo,
   saveKaptenVideo,
-  updateKaptenVideoPublication,
-  updateKaptenVideoVisibility,
+  setKaptenVideoArchived,
 } from "@/lib/video/repository";
-import type { VideoGalleryItem, VideoStatus } from "@/modules/video/video-gallery-data";
+import type { VideoGalleryItem } from "@/modules/video/video-gallery-data";
 
-type VideoActionResult =
-  | { fieldErrors?: VideoInputFieldErrors; message: string; ok: false }
-  | { message: string; ok: true; video: VideoGalleryItem };
+type VideoActionFailure = { fieldErrors?: VideoInputFieldErrors; message: string; ok: false };
+type VideoActionResult = VideoActionFailure | { message: string; ok: true; video: VideoGalleryItem };
+type VideoDeleteActionResult = VideoActionFailure | { message: string; ok: true };
 
 const videoIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -27,7 +27,7 @@ function revalidateVideoPaths() {
   revalidatePath("/videos");
 }
 
-function failedVideoAction(error: unknown, fallbackMessage: string): Extract<VideoActionResult, { ok: false }> {
+function failedVideoAction(error: unknown, fallbackMessage: string): VideoActionFailure {
   if (error instanceof VideoGalleryValidationError) {
     return { fieldErrors: error.fieldErrors, message: error.message, ok: false };
   }
@@ -44,61 +44,52 @@ async function saveKaptenVideoAction(input: SaveKaptenVideoInput): Promise<Video
   try {
     const video = await saveKaptenVideo(input, session.user.id);
     revalidateVideoPaths();
-    const message = input.id
-      ? video.status === "published" ? "Perubahan video tersimpan." : "Video dijadikan draf."
-      : video.status === "published" ? "Video ditambahkan dan diterbitkan." : "Draf video tersimpan.";
+    const message = input.id ? "Perubahan video tersimpan." : "Video ditambahkan.";
     return { message, ok: true, video };
   } catch (error) {
     return failedVideoAction(error, "Video tidak dapat disimpan saat ini. Coba lagi.");
   }
 }
 
-async function updateKaptenVideoPublicationAction(
+async function setKaptenVideoArchivedAction(
   videoId: string,
-  status: VideoStatus,
+  archived: boolean,
 ): Promise<VideoActionResult> {
   const session = await requireTutorSession();
   try {
-    if (!videoIdPattern.test(videoId) || (status !== "draft" && status !== "published")) {
-      throw new VideoGalleryValidationError("Status video tidak dikenali. Muat ulang halaman lalu coba lagi.");
+    if (!videoIdPattern.test(videoId) || typeof archived !== "boolean") {
+      throw new VideoGalleryValidationError("Pilihan arsip video tidak dikenali. Muat ulang halaman lalu coba lagi.");
     }
-    const video = await updateKaptenVideoPublication(videoId, status, session.user.id);
+    const video = await setKaptenVideoArchived(videoId, archived, session.user.id);
     revalidateVideoPaths();
     return {
-      message: status === "published" ? "Video diterbitkan." : "Video dijadikan draf.",
+      message: archived ? "Video diarsipkan." : "Video dipulihkan.",
       ok: true,
       video,
     };
   } catch (error) {
-    return failedVideoAction(error, "Status penerbitan video tidak dapat diubah. Coba lagi.");
+    return failedVideoAction(error, "Arsip video tidak dapat diubah. Coba lagi.");
   }
 }
 
-async function updateKaptenVideoVisibilityAction(
+async function deleteKaptenVideoAction(
   videoId: string,
-  isVisibleToStudents: boolean,
-): Promise<VideoActionResult> {
+): Promise<VideoDeleteActionResult> {
   const session = await requireTutorSession();
   try {
-    if (!videoIdPattern.test(videoId) || typeof isVisibleToStudents !== "boolean") {
-      throw new VideoGalleryValidationError("Pengaturan tampilan video tidak dikenali. Muat ulang halaman lalu coba lagi.");
+    if (!videoIdPattern.test(videoId)) {
+      throw new VideoGalleryValidationError("Video ini tidak dapat dihapus. Muat ulang halaman lalu coba lagi.");
     }
-    const video = await updateKaptenVideoVisibility(videoId, isVisibleToStudents, session.user.id);
+    await deleteKaptenVideo(videoId, session.user.id);
     revalidateVideoPaths();
-    return {
-      message: isVisibleToStudents
-        ? "Video disiapkan untuk ditampilkan kepada siswa."
-        : "Video disembunyikan dari galeri siswa.",
-      ok: true,
-      video,
-    };
+    return { message: "Video dihapus.", ok: true };
   } catch (error) {
-    return failedVideoAction(error, "Pengaturan tampilan video tidak dapat diubah. Coba lagi.");
+    return failedVideoAction(error, "Video tidak dapat dihapus saat ini. Coba lagi.");
   }
 }
 
 export {
+  deleteKaptenVideoAction,
   saveKaptenVideoAction,
-  updateKaptenVideoPublicationAction,
-  updateKaptenVideoVisibilityAction,
+  setKaptenVideoArchivedAction,
 };

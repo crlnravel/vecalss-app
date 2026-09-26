@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StudentBadge } from "@/components/ui/student-badge";
+import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
@@ -202,22 +203,17 @@ function VideoGalleryPageModule({
                   const isActive = activeFilter === filter;
 
                   return (
-                    <button
+                    <SunkenTabButton
                       aria-selected={isActive}
-                      className={cn(
-                        "min-h-11 shrink-0 rounded-full border px-4 text-sm font-bold transition-[background-color,border-color,color,transform] duration-200 motion-reduce:transition-none",
-                        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
-                        isActive
-                          ? "border-voyage-deep bg-voyage-deep text-white shadow-[0_8px_18px_-14px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]"
-                          : "border-primary-100 bg-white text-secondary-600 hover:border-primary-200 hover:bg-primary-50 hover:text-secondary-900",
-                      )}
                       key={filter}
+                      layout="content"
                       onClick={() => setActiveFilter(filter)}
                       role="tab"
+                      selected={isActive}
                       type="button"
                     >
                       {filter}
-                    </button>
+                    </SunkenTabButton>
                   );
                 })}
               </div>
@@ -238,7 +234,7 @@ function VideoGalleryPageModule({
               className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "border-learning-card-border")}
               description={videos.length > 0
                 ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
-                : "Video belajar akan muncul setelah Kapten menerbitkan dan menampilkannya."}
+                : "Video belajar belum tersedia."}
               icon={Video}
               title={videos.length > 0 ? "Video tidak ditemukan" : "Belum ada video belajar"}
             />
