@@ -159,6 +159,27 @@ async function parseQuestionBankXlsxApplyRequest(request: Request) {
   return { previewId: (value as { previewId: string }).previewId.toLowerCase() };
 }
 
+async function parseQuestionBankXlsxOverwriteImpactRequest(request: Request) {
+  const value = await readBoundedXlsxJson(request);
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== 2
+    || typeof (value as { previewId?: unknown }).previewId !== "string"
+    || !isUuid((value as { previewId: string }).previewId)
+    || !Number.isSafeInteger((value as { expectedRevision?: unknown }).expectedRevision)
+    || (value as { expectedRevision: number }).expectedRevision < 1
+  ) {
+    throw new QuestionBankXlsxHttpError("invalid_request", 400);
+  }
+  const parsed = value as { expectedRevision: number; previewId: string };
+  return {
+    expectedRevision: parsed.expectedRevision,
+    previewId: parsed.previewId.toLowerCase(),
+  };
+}
+
 async function parseQuestionBankXlsxDraftApplyRequest(request: Request) {
   const value = await readBoundedXlsxJson(request);
   if (
@@ -242,6 +263,7 @@ export {
   mapQuestionBankXlsxError,
   parseQuestionBankXlsxApplyRequest,
   parseQuestionBankXlsxDraftApplyRequest,
+  parseQuestionBankXlsxOverwriteImpactRequest,
   parseQuestionBankXlsxPreviewId,
   parseQuestionBankXlsxPreviewRequest,
   parseQuestionBankXlsxThumbnailOffset,

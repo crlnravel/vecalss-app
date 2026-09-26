@@ -104,7 +104,7 @@ function StudentNotificationPopover({
             return (
               <div key={item.id}>
                 <Link
-                  href={`/notifications/${item.id}`}
+                  href={{ pathname: "/notifications", query: { notification: item.id } }}
                   className="flex gap-3 px-4 py-4 transition-colors motion-reduce:transition-none hover:bg-primary-50/80"
                   prefetch={false}
                 >

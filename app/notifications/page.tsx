@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import type { NavigationQueryValue } from "@/lib/navigation/canonical-context";
-import { getStudentNotificationFeed } from "@/lib/notifications/service";
+import { getAndMarkStudentNotificationDetail, getStudentNotificationFeed } from "@/lib/notifications/service";
 import { NotificationsPageModule } from "@/modules/student/NotificationsPageModule";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +27,20 @@ export default async function NotificationsPage({
 }) {
   const session = await requireStudentSession();
   const query = await searchParams;
+  const notificationId = Array.isArray(query.notification) ? query.notification[0] : query.notification;
+  const notification = notificationId
+    ? await getAndMarkStudentNotificationDetail({ notificationId, userId: session.user.id })
+    : null;
+
+  if (notificationId && !notification) {
+    notFound();
+  }
+
   const feed = await getStudentNotificationFeed({
     limit: NOTIFICATION_PAGE_SIZE,
     page: readPage(query.page),
     userId: session.user.id,
   });
 
-  return <NotificationsPageModule items={feed.items} page={feed.page} pageCount={feed.pageCount} session={session} unreadCount={feed.unreadCount} />;
+  return <NotificationsPageModule items={feed.items} notification={notification} page={feed.page} pageCount={feed.pageCount} session={session} unreadCount={feed.unreadCount} />;
 }
