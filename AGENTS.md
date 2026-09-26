@@ -113,6 +113,12 @@ the configured project copy is `_harness/resource-guard.sh`.
   3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.
 - Do not proceed with browser verification without explicit user approval.
 
+### Testing and seeded credentials policy
+
+- **Login with seeded credentials:** When testing the application (browser verification, end-to-end user flows, API testing), agents should not register new accounts. Login with the pre-seeded credentials at `/login` (e.g. Admin: `admin@vecalss.local` / `Admin12345!`, Kapten/Tutor: `tutor@vecalss.local` / `Tutor12345!`, Voyager/Student: `student@vecalss.local` / `Student12345!`, Affiliator: `affiliator@vecalss.local` / `Affiliator12345!`).
+- **Disposable dev database:** Data in the local development database (`vecalss_dev`) is 100% ephemeral and disposable. Agents are explicitly permitted to remove, delete, truncate, reset (`pnpm db:reset`), or reseed (`pnpm db:seed`) existing data in the development database whenever needed. No backups or snapshot archives are required.
+- Read [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) for the complete reference and credentials table.
+
 ### Routing
 
 - Project overview → `_harness/readme.md`
@@ -120,6 +126,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
+- App testing & seeded login → `docs/agent-app-testing-guide.md`
 - Database & environments guide → `docs/database-environments.md`
 - Copywriting & Indonesian content → `.agents/skills/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`

@@ -61,12 +61,11 @@ VERA_DISPOSABLE_DB_ACK=1
 
 ### Local Database Policy (Pre-Release Phase)
 
-- **Disposable & Ephemeral:** Local database state can be reset and reseeded at any time.
+- **Disposable & Ephemeral:** Local database state can be reset, reseeded, or mutated at any time. Agents are explicitly permitted to delete, truncate, or remove existing data in `vecalss_dev` whenever needed for test setups or clean slates. See [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md).
 - **No Backups Required:** Do not create manual snapshots, dump files (`.dump`), or legacy table preservation bridges.
 - **Reset & Seed Routine:**
   ```bash
   # Reset schema and reseed standard demo accounts/fixtures
-  ./_harness/resource-guard.sh run -- rtk pnpm db:reset
   ./_harness/resource-guard.sh run -- rtk pnpm db:seed
   ```
 - **Authoring Migrations:**

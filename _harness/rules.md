@@ -96,11 +96,12 @@ The project is currently in an **active pre-release phase**. Agents must apply t
    - Preserving legacy tables, obsolete schemas, deprecated columns, or historical backward-compatibility shims is **not important or required** at this stage.
    - Do not spend effort writing complex data quarantine rules, historical compatibility adapters, or fallback columns for legacy systems that are no longer part of the target product.
    - Move forward with clean, simplified schema models.
-3. **No database backup requirement:**
-   - Creating manual database snapshots, dump files (e.g. `/tmp/*.dump`), or point-in-time backup archives before running migrations or resets is **not required**.
+3. **No database backup requirement & disposable dev data:**
+   - Creating manual database snapshots, dump files (e.g. `/tmp/*.dump`), or point-in-time backup archives before running migrations, tests, or resets is **not required**.
    - Data in local and development environments is treated as disposable fixture data that can be re-created via `pnpm db:seed`.
+   - Agents are explicitly permitted to remove, truncate, delete, or reset existing data in the development database whenever they want or need to for test preparation or clean slates.
 4. **Resets and reseeds are standard:**
-   - When schema changes or migrations cause local state conflicts, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
+   - When schema changes or migrations cause local state conflicts, or when tests require a pristine fixture slate, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
 
 ### Environment & database topology
 
@@ -216,6 +217,7 @@ Detailed guide: [`docs/database-environments.md`](file:///Users/ravel/Work/Freel
   2. **Role:** The user role or persona/session context to use (e.g., Kapten / tutor, Voyager / student, Admin, or unauthenticated).
   3. **Verification items:** The specific checklist of UI elements, interactions, edge cases, responsive views, or user flows to verify.
 - Only proceed with browser verification after receiving explicit approval from the user.
+- **Login with seeded credentials:** When testing authenticated user flows, do not register new accounts. Always use the seeded credentials listed in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) (e.g., Admin: `admin@vecalss.local` / `Admin12345!`, Kapten: `tutor@vecalss.local` / `Tutor12345!`, Voyager: `student@vecalss.local` / `Student12345!`, Affiliator: `affiliator@vecalss.local` / `Affiliator12345!`).
 
 ### Domain
 

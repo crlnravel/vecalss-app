@@ -61,10 +61,11 @@ Route to the minimum files needed for each task type. Read this file first to de
 
 ## Testing
 
-1. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
-2. Read `_harness/workflow.md` § Verification
-3. Read the code under test in `lib/`, `modules/`, or `app/`
-4. Read `package.json` for available `test:*` scripts
+1. Read `docs/agent-app-testing-guide.md` for seeded credentials, login routes, and disposable dev data procedures
+2. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
+3. Read `_harness/workflow.md` § Verification
+4. Read the code under test in `lib/`, `modules/`, or `app/`
+5. Read `package.json` for available `test:*` scripts
 
 ## Refactoring
 
@@ -116,6 +117,7 @@ Route to the minimum files needed for each task type. Read this file first to de
 | Vera AI | `modules/vera-ai/`, `app/vera-ai/` |
 | Design tokens & styling | `design-tokens/`, `DESIGN.md`, `app/globals.css` |
 | Database schema & environments | `docs/database-environments.md`, `prisma/schema.prisma`, `docker-compose.dev.yml` |
+| App testing & seeded credentials | `docs/agent-app-testing-guide.md`, `prisma/seed.mjs` |
 | Seeds & fixtures | `prisma/seed.mjs`, `prisma/seed-assessment.mjs`, `prisma/materi-seed.mjs` |
 | Background workers | `workers/` |
 | Shared UI primitives | `components/ui/` |
