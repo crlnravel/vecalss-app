@@ -71,8 +71,25 @@ function questionBankActionFailure(error: unknown, fallback: string): QuestionBa
 
 async function saveQuestionBankAction(input: SaveBankInput) {
   const session = await requireTutorSession();
-  try { const result = await saveQuestionBank(input, session.user.id); refresh(); return { ok: true as const, result }; }
-  catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini."); }
+  const startedAt = Date.now();
+  try {
+    const result = await saveQuestionBank(input, session.user.id);
+    refresh();
+    return { ok: true as const, result };
+  } catch (error) {
+    if (!(error instanceof QuestionBankError)) {
+      const code = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        ? error.code
+        : null;
+      console.error("Question Bank save failed", {
+        code,
+        durationMs: Date.now() - startedAt,
+        errorName: error instanceof Error ? error.name : typeof error,
+        questionCount: input.questions.length,
+      });
+    }
+    return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini.");
+  }
 }
 
 async function getQuestionBankForEditAction(id: string) {

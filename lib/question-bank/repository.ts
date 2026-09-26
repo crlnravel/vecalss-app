@@ -1004,6 +1004,14 @@ async function updateDraftQuestionRevision(
 }
 
 async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionId: string, existing: Array<{ id: string; sortOrder: number }>, options: RevisionOptionWrite[]) {
+  if (!existing.length) {
+    if (options.length) {
+      await tx.questionOption.createMany({
+        data: options.map((option) => ({ ...option, questionId })),
+      });
+    }
+    return;
+  }
   const retained = new Set<string>();
   for (const [optionIndex, option] of options.entries()) {
     const old = existing.find((candidate) => candidate.sortOrder === optionIndex);
@@ -1267,7 +1275,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
               questionBankId: persistedBankId,
             },
           });
-          const revision = await createQuestionRevision(tx, {
+          await createQuestionRevision(tx, {
             actorId,
             difficulty: data.difficulty,
             explanation: data.explanation,
@@ -1282,7 +1290,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             questionType,
           });
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
-          await tx.question.update({ where: { id: saved.id }, data: { currentRevisionId: revision.id, revision: revision.revisionNo } });
           retainedIds.add(saved.id);
           continue;
         }
@@ -1350,12 +1357,10 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         data: { status: ContentStatus.archived, updatedByUserId: actorId },
       });
     }
-    const [saved, folderRows] = await Promise.all([
-      tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude }),
-      getFolderRows(tx),
-    ]);
+    const saved = await tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude });
+    const folderRows = await getFolderRows(tx);
     return toDto(saved, folderRows);
-  }).catch(async (saveError: unknown) => {
+  }, { maxWait: 5_000, timeout: 120_000 }).catch(async (saveError: unknown) => {
     if (manualBankMediaFolderCleanupCandidate) {
       try {
         await cleanupFailedManualQuestionBankMediaFolder(manualBankMediaFolderCleanupCandidate);
