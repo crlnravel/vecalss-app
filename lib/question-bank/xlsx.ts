@@ -665,8 +665,8 @@ function parseXmlRelationshipsInPackage(packageParts: ZipPackage, signal?: Abort
   for (const entry of packageParts.values()) {
     if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     if (!entry.name.endsWith(".rels")) continue;
-    const match = /^(?:(.*)\/)?_rels\/([^/]+)\.rels$/u.exec(entry.name);
-    if (!match) throw new OoxmlParseError();
+    const match = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/u.exec(entry.name);
+    if (!match || (match[1] && !match[2])) throw new OoxmlParseError();
     const sourcePart = match[1] ? `${match[1]}/${match[2]}` : match[2] === "." ? "" : match[2]!;
     const relationships = parseRelationships(entry.bytes, signal);
     for (const relationship of relationships.values()) {
@@ -769,9 +769,7 @@ function parseSheetDrawings(
     const drawingRoot = parseXmlDocument(drawingEntry.bytes, signal);
     if (drawingRoot.localName !== "wsDr" || drawingRoot.namespaceUri !== DRAWING_NAMESPACE) throw new OoxmlParseError();
     const relationships = getRelationships(packageParts, drawingPart, signal);
-    const shapeTree = xmlChildren(drawingRoot, "spTree", DRAWING_NAMESPACE)[0];
-    if (!shapeTree) throw new OoxmlParseError();
-    const anchors = shapeTree.children.filter((child) =>
+    const anchors = drawingRoot.children.filter((child) =>
       child.namespaceUri === DRAWING_NAMESPACE
       && ["oneCellAnchor", "twoCellAnchor", "absoluteAnchor"].includes(child.localName),
     );
@@ -1190,6 +1188,10 @@ function xlsxToCsvRecords(
   for (const row of rowNumbers) {
     throwIfRequestAborted(signal);
     if (row <= layout.headerRow) continue;
+    if (layout.kind === "stakeholder") {
+      const sourceQuestionIdColumn = layout.columns.get("source_question_id");
+      if (sourceQuestionIdColumn && worksheet.getCell(row, sourceQuestionIdColumn).isMerged) continue;
+    }
     const rawFields = new Map<string, string>();
     for (const [field, column] of layout.columns) {
       if (!layout.importFieldColumns.has(column) && field !== "source_question_id") continue;

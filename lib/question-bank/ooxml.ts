@@ -152,7 +152,7 @@ function parseXmlDocument(bytes: Uint8Array, signal?: AbortSignal) {
       if (
         instructionEnd < 0
         || tagStart !== source.indexOf("<")
-        || !/^<\?xml\s+version\s*=\s*(['"])1\.0\1(?:\s+encoding\s*=\s*(['"])UTF-8\2)?\s*\?>$/iu.test(source.slice(tagStart, instructionEnd + 2))
+        || !/^<\?xml\s+version\s*=\s*(['"])1\.0\1(?:\s+encoding\s*=\s*(['"])UTF-8\2)?(?:\s+standalone\s*=\s*(['"])(?:yes|no)\3)?\s*\?>$/iu.test(source.slice(tagStart, instructionEnd + 2))
       ) {
         throw new OoxmlParseError();
       }
