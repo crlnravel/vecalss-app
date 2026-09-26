@@ -210,6 +210,8 @@ export type ProviderTask = {
   taskBytes: Uint8Array;
   contextTaskDigest: string;
   hardOutputQuotaUnits: number;
+  /** Exact free-POC HTTP body, prepared and persisted before dispatch. */
+  outboundPayloadBytes?: Uint8Array;
   /** Automatic context uses one immutable dispatch per purpose. */
   stagePurpose?: "context_selection" | "answer";
   certifiedEstimate?: CertifiedQuotaEstimate;
@@ -462,6 +464,7 @@ export type ProviderResultMetadata = {
   providerIdentity: string;
   dataCollection: "allow";
   zdr: false;
+  requestBodyDigest?: string;
 } | {
   kind: "openrouter_paid";
   gateway: "openrouter";
@@ -547,6 +550,8 @@ export interface VeraProviderAdapter {
   /** Only the certified paid application-function release may participate in
    * automatic context; the mock adapter is test-only for this path. */
   readonly automaticContextCapable?: boolean;
+  /** Only the separate local no-network selector + free answer adapter. */
+  readonly localAutomaticContextCapable?: boolean;
   readonly disabledReason?: string;
   prepare(task: ProviderTask): Promise<PreparedProviderTask>;
   run(prepared: PreparedProviderTask, emit?: (delta: ProviderDelta) => void): Promise<ProviderResult>;

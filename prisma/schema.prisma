@@ -649,6 +649,17 @@ enum AiContextToolInvocationState {
   @@map("ai_context_tool_invocation_state")
 }
 
+enum AiContextDecisionState {
+  shortlisted
+  dispatching
+  decided
+  frozen
+  failed
+  unavailable
+
+  @@map("ai_context_decision_state")
+}
+
 enum AiPurgeState {
   available
   purging
@@ -3573,6 +3584,7 @@ model AiRequest {
   resultStage      AiRequestResultStage?
   contextPack      AiContextPack?
   contextToolInvocation AiContextToolInvocation?
+  contextDecision       AiContextDecision?
   sources          AiRequestSource[]     @relation("AiRequestSources")
   artifacts        AiArtifact[]
 
@@ -4478,6 +4490,43 @@ model AiContextToolInvocation {
   @@map("ai_context_tool_invocations")
 }
 
+/// Versioned, encrypted local selector trace. A real Respan selector is a
+/// network attempt; deterministic fixtures never enter runtime admission.
+model AiContextDecision {
+  requestId                  String                 @id @map("request_id") @db.Uuid
+  protocolVersion            String                 @map("protocol_version") @db.VarChar(80)
+  selectorKind               String                 @default("respan_span01_lite") @map("selector_kind") @db.VarChar(40)
+  state                      AiContextDecisionState @default(shortlisted)
+  candidateMapCiphertext     Json                   @map("candidate_map_ciphertext") @db.JsonB
+  candidateMapDigest         String                 @map("candidate_map_digest") @db.VarChar(128)
+  selectorRequestCiphertext  Json?                  @map("selector_request_ciphertext") @db.JsonB
+  selectorRequestDigest      String?                @map("selector_request_digest") @db.VarChar(128)
+  selectorResponseCiphertext Json?                  @map("selector_response_ciphertext") @db.JsonB
+  selectorResponseDigest     String?                @map("selector_response_digest") @db.VarChar(128)
+  selectorResponseModel      String?                @map("selector_response_model") @db.VarChar(120)
+  selectorLogId              String?                @map("selector_log_id") @db.VarChar(160)
+  selectorInputTokens        Int?                   @map("selector_input_tokens")
+  selectorPriceSnapshotDigest String?               @map("selector_price_snapshot_digest") @db.VarChar(128)
+  selectorDispatchStartedAt  DateTime?              @map("selector_dispatch_started_at") @db.Timestamptz
+  typedDecisionCiphertext    Json?                  @map("typed_decision_ciphertext") @db.JsonB
+  typedDecisionDigest        String?                @map("typed_decision_digest") @db.VarChar(128)
+  selectedCandidateCount     Int                    @default(0) @map("selected_candidate_count")
+  selectorCostUsdMicros      BigInt?                @map("selector_cost_usd_micros")
+  selectorCostProvenance     String?                @map("selector_cost_provenance") @db.VarChar(40)
+  networkDispatchCount       Int                    @default(0) @map("network_dispatch_count")
+  frozenEvidenceDigest       String?                @map("frozen_evidence_digest") @db.VarChar(128)
+  createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  decidedAt                  DateTime?              @map("decided_at") @db.Timestamptz
+  frozenAt                   DateTime?              @map("frozen_at") @db.Timestamptz
+  failedAt                   DateTime?              @map("failed_at") @db.Timestamptz
+  errorCode                  String?                @map("error_code") @db.VarChar(100)
+
+  request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([state, createdAt])
+  @@map("ai_context_decisions")
+}
+
 model AiRequestSource {
   id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   contextPackId             String                 @map("context_pack_id") @db.Uuid
@@ -4550,6 +4599,7 @@ model AiRequestAttempt {
   overrunUsdMicros             BigInt              @default(0) @map("overrun_usd_micros")
   priceSnapshot                Json?               @map("price_snapshot") @db.JsonB
   finalPayloadHash             String?             @map("final_payload_hash") @db.VarChar(128)
+  outboundPayloadCiphertext    Json?               @map("outbound_payload_ciphertext") @db.JsonB
   sendStartedAt                DateTime?           @map("send_started_at") @db.Timestamptz
   dispatchDeadlineAt           DateTime?           @map("dispatch_deadline_at") @db.Timestamptz
   certifierId                  String?             @map("certifier_id") @db.VarChar(160)

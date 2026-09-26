@@ -9,6 +9,7 @@ import {
 import { canonicalJson, normalizeText, sha256Hex, VeraContractError } from "./contracts";
 import { resolveAutomaticKuis, resolveAutomaticTryout, resolvePublishedMateri } from "./context-resolvers";
 import { hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet } from "@/lib/tryout/result-repository";
+import { isMateriReady, readMateriResources } from "@/lib/materi/contract";
 
 export const VERA_CONTEXT_REGISTRY_MAX_SOURCES = 4 as const;
 export const VERA_CONTEXT_REGISTRY_MAX_TERMS = 8 as const;
@@ -19,6 +20,7 @@ export type ContextRegistryAuthorization = {
   published: boolean;
   released: boolean;
   scored?: boolean;
+  scoreFactsOnly?: boolean;
   reviewAvailable?: boolean;
   correctAnswersVisible?: boolean;
   ready?: boolean;
@@ -34,15 +36,17 @@ export type ContextRegistryCandidate = {
   topic?: string | null;
   releaseAt: Date;
   sourceVersionDigest: string;
+  /** Internal optimistic release handle used to revalidate a phase-one row. */
+  releaseVersionHandle?: string;
   evidenceSegments: string[];
   limitations?: string[];
   authorization: ContextRegistryAuthorization;
 };
 
 export type ContextRegistrySource = {
-  listMateri(input: { studentId: string; now: Date }): Promise<readonly ContextRegistryCandidate[]>;
-  listKuis(input: { studentId: string; now: Date }): Promise<readonly ContextRegistryCandidate[]>;
-  listTryout(input: { studentId: string; now: Date }): Promise<readonly ContextRegistryCandidate[]>;
+  listMateri(input: { studentId: string; now: Date; sourceIds?: readonly string[] }): Promise<readonly ContextRegistryCandidate[]>;
+  listKuis(input: { studentId: string; now: Date; sourceIds?: readonly string[] }): Promise<readonly ContextRegistryCandidate[]>;
+  listTryout(input: { studentId: string; now: Date; sourceIds?: readonly string[] }): Promise<readonly ContextRegistryCandidate[]>;
 };
 
 export type RankedContextCandidate = {
@@ -91,6 +95,7 @@ function sanitizedEvidence(value: string): string {
   return normalizeText(value)
     .replace(/<[^>]*>/gu, "")
     .replace(/(?:javascript:|data:|https?:\/\/)[^\s]+/giu, "[tautan dihapus]")
+    .replace(/(?:sk|pk|api)[_-][a-z0-9_-]{12,}/giu, "[redacted]")
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu, "")
     .trim();
 }
@@ -106,7 +111,8 @@ function authorizationAllows(candidate: ContextRegistryCandidate, studentId: str
   if (candidate.kind !== "materi" && authority.scored !== true) return false;
   if (authority.visibleToStudent !== true) return false;
   if (candidate.releaseAt.getTime() > now.getTime()) return false;
-  if (candidate.kind === "kuis" && (authority.reviewAvailable !== true || authority.correctAnswersVisible !== true)) return false;
+  if (candidate.kind === "kuis" && authority.scoreFactsOnly !== true
+    && (authority.reviewAvailable !== true || authority.correctAnswersVisible !== true)) return false;
   if (candidate.kind === "tryout" && (authority.ready !== true || authority.releaseBindingValid !== true)) return false;
   return true;
 }
@@ -188,6 +194,15 @@ function projectCandidate(candidate: ContextRegistryCandidate, maxBytes: number)
     source.limitations = [...source.limitations, "Bukti teks yang dirilis tidak tersedia."];
   }
   return { source, truncated };
+}
+
+/** Project an already reauthorized phase-two candidate without ranking or
+ * widening the set. Local Respan decisions supply the selected order. */
+export function projectLocalContextCandidate(
+  candidate: ContextRegistryCandidate,
+  maxBytes = 6_000,
+): { source: ContextToolSource; truncated: boolean } {
+  return projectCandidate(candidate, maxBytes);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -340,11 +355,12 @@ function canonicalBreakdowns(value: unknown): CanonicalBreakdown[] {
 export function createPrismaContextRegistry(db: unknown): ContextRegistrySource {
   const client = db as LooseQueryClient;
   return {
-    async listMateri({ now }) {
+    async listMateri({ now, sourceIds }) {
       const rows = await client.module.findMany({
-        where: { status: "published", publishedAt: { lte: now }, assets: { some: { bodyText: { not: null } } } },
-        select: { id: true, title: true, summary: true, publishedAt: true, topic: { select: { name: true } }, assets: { where: { bodyText: { not: null } }, orderBy: { sortOrder: "asc" }, select: { title: true, bodyText: true } } },
+        where: { status: "published", publishedAt: { lte: now }, ...(sourceIds ? { id: { in: [...sourceIds] } } : {}), assets: { some: { assetType: "attachment", mimeType: "application/pdf" } } },
+        select: { id: true, title: true, summary: true, publishedAt: true, updatedAt: true, topic: { select: { name: true, code: true, isActive: true, parentTopicId: true, subtest: { select: { code: true, isActive: true } } } }, assets: { orderBy: { sortOrder: "asc" }, select: { id: true, assetType: true, sourceKind: true, managedAssetId: true, title: true, bodyText: true, mediaUrl: true, mimeType: true, originalName: true, durationSeconds: true, createdAt: true, managedAsset: { select: { libraryScope: true, state: true, trashedAt: true, mimeType: true, objectKey: true, originalName: true } } } } },
         orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+        ...(sourceIds ? { take: sourceIds.length } : {}),
       });
       return rows.flatMap((raw) => {
         const row = record(raw);
@@ -352,8 +368,24 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
         const title = stringValue(row.title);
         const publishedAt = dateValue(row.publishedAt);
         if (!id || !title || !publishedAt) return [];
-        const topic = stringValue(record(row.topic).name);
+        const topicRow = record(row.topic);
+        const topic = stringValue(topicRow.name);
         const assets = Array.isArray(row.assets) ? row.assets.map(record) : [];
+        const resources = assets.map((asset) => ({
+          assetType: stringValue(asset.assetType) ?? "",
+          sourceKind: stringValue(asset.sourceKind),
+          managedAssetId: stringValue(asset.managedAssetId),
+          mediaUrl: stringValue(asset.mediaUrl),
+          mimeType: stringValue(asset.mimeType),
+          originalName: stringValue(asset.originalName),
+          durationSeconds: integerValue(asset.durationSeconds),
+          managedAsset: record(asset.managedAsset),
+        }));
+        if (!isMateriReady(title, readMateriResources(resources))) return [];
+        const subtest = record(topicRow.subtest);
+        const topicCode = stringValue(topicRow.code);
+        if (topicRow.isActive !== true || topicRow.parentTopicId !== null || subtest.isActive !== true
+          || !/^materi:[a-z0-9-]+:section-[123]$/u.test(topicCode ?? "")) return [];
         const segments = [stringValue(row.summary), ...assets.map((asset) => {
           const body = stringValue(asset.bodyText);
           const heading = stringValue(asset.title);
@@ -364,16 +396,19 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
         } catch {
           return [];
         }
-        return [{ kind: "materi" as const, stableSourceId: id, title, topic, releaseAt: publishedAt, sourceVersionDigest: sha256Hex(JSON.stringify({ id, publishedAt: publishedAt.toISOString(), segments })), evidenceSegments: segments, authorization: { published: true, released: true, scored: true, visibleToStudent: true } }];
+        const updatedAt = dateValue(row.updatedAt);
+        return [{ kind: "materi" as const, stableSourceId: id, title, topic, releaseAt: publishedAt, sourceVersionDigest: sha256Hex(JSON.stringify({ id, publishedAt: publishedAt.toISOString(), segments })), releaseVersionHandle: updatedAt?.toISOString(), evidenceSegments: segments, authorization: { published: true, released: true, scored: true, visibleToStudent: true } }];
       });
     },
-    async listKuis({ studentId, now }) {
+    async listKuis({ studentId, now, sourceIds }) {
       const rows = await client.standaloneQuizAttempt.findMany({
         where: {
           participation: { studentId, quiz: { status: "published" } },
           status: "scored",
           scoringState: "scored",
           releaseState: "released",
+          releaseAt: { lte: now },
+          ...(sourceIds ? { id: { in: [...sourceIds] } } : {}),
         },
         select: {
           id: true,
@@ -385,6 +420,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           wrongCount: true,
           unansweredCount: true,
           releaseAt: true,
+          updatedAt: true,
           policySnapshot: true,
           participation: {
             select: {
@@ -393,6 +429,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
                 select: {
                   status: true,
                   title: true,
+                  updatedAt: true,
                   description: true,
                   reviewTiming: true,
                   correctAnswerVisibility: true,
@@ -407,6 +444,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           },
         },
         orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
+        ...(sourceIds ? { take: sourceIds.length } : {}),
       });
       return rows.flatMap((raw) => {
         const row = record(raw);
@@ -429,10 +467,11 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
         const topics = Array.isArray(quiz.items) ? quiz.items.map((item) => stringValue(record(record(item).sourceQuestion).topic && record(record(record(item).sourceQuestion).topic).name)).filter((value): value is string => Boolean(value)) : [];
         const score = row.score === null || row.score === undefined ? "Skor dirilis." : `Skor yang dirilis: ${String(row.score)}`;
         const summary = [score, row.correctCount === null || row.correctCount === undefined ? null : `Jawaban benar: ${String(row.correctCount)}`, row.wrongCount === null || row.wrongCount === undefined ? null : `Jawaban salah: ${String(row.wrongCount)}`, row.unansweredCount === null || row.unansweredCount === undefined ? null : `Tidak terjawab: ${String(row.unansweredCount)}`].filter((part): part is string => Boolean(part));
-        const evidenceSegments = [...summary, stringValue(quiz.description)].filter((part): part is string => Boolean(part));
+        const evidenceSegments = [...summary, ...(correctnessVisible ? [stringValue(quiz.description)] : [])].filter((part): part is string => Boolean(part));
         try {
-          if (!correctnessVisible) return [];
-          resolveAutomaticKuis({ sourceId: id, studentId: owner, title, reviewAvailable, releaseState: released ? "released" : "unreleased", scoringState: scored ? "scored" : "pending", correctAnswerVisibility: "show", resultSummary: summary.join("; "), wrongCorrectPattern: summary.join("; "), questionTopicIdentity: topics, releasedExplanations: [] }, owner);
+          if (correctnessVisible) {
+            resolveAutomaticKuis({ sourceId: id, studentId: owner, title, reviewAvailable, releaseState: released ? "released" : "unreleased", scoringState: scored ? "scored" : "pending", correctAnswerVisibility: "show", resultSummary: summary.join("; "), wrongCorrectPattern: summary.join("; "), questionTopicIdentity: topics, releasedExplanations: [] }, owner);
+          }
         } catch {
           return [];
         }
@@ -463,10 +502,13 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           evidenceSegments,
           limitations,
         }));
-        return [{ kind: "kuis" as const, stableSourceId: id, title, topic: topics.join(", "), releaseAt, sourceVersionDigest, evidenceSegments, limitations, authorization: { ownerStudentId: owner, published: quizPublished, released, scored, reviewAvailable, correctAnswersVisible: correctnessVisible, visibleToStudent: true } }];
+        const updatedAt = dateValue(row.updatedAt);
+        const quizUpdatedAt = dateValue(quiz.updatedAt);
+        const releaseVersionHandle = updatedAt && quizUpdatedAt ? new Date(Math.max(updatedAt.getTime(), quizUpdatedAt.getTime())).toISOString() : updatedAt?.toISOString();
+        return [{ kind: "kuis" as const, stableSourceId: id, title, topic: topics.join(", "), releaseAt, sourceVersionDigest, releaseVersionHandle, evidenceSegments, limitations, authorization: { ownerStudentId: owner, published: quizPublished, released, scored, reviewAvailable, correctAnswersVisible: correctnessVisible, scoreFactsOnly: !correctnessVisible, visibleToStudent: true } }];
       });
     },
-    async listTryout({ studentId, now }) {
+    async listTryout({ studentId, now, sourceIds }) {
       const rows = await client.tryoutAttempt.findMany({
         where: {
           studentId,
@@ -481,6 +523,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
             assignments: { some: { status: "active", admission: { status: "active", studentId } } },
           },
           assessmentRelease: { is: { publishedAt: { lte: now } } },
+          ...(sourceIds ? { id: { in: [...sourceIds] } } : {}),
         },
         select: {
           id: true,
@@ -495,6 +538,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           wrongCount: true,
           unansweredCount: true,
           releaseAt: true,
+          updatedAt: true,
           assessmentReleaseId: true,
           assessmentReleaseNumber: true,
           assessmentReleaseDigest: true,
@@ -519,6 +563,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
               id: true,
               title: true,
               status: true,
+              updatedAt: true,
               publishedAt: true,
               sections: { orderBy: { sequenceNo: "asc" }, select: { id: true, sequenceNo: true, subtestId: true } },
             },
@@ -540,6 +585,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           scoreBreakdowns: { select: { subtestId: true, normalizedScore: true, rawScore: true, scaledScore: true, scoringVersion: true, scoringProvenance: true, wrongCount: true, unansweredCount: true } },
         },
         orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
+        ...(sourceIds ? { take: sourceIds.length } : {}),
       });
       return rows.flatMap((raw) => {
         const row = record(raw);
@@ -686,7 +732,10 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
           evidenceSegments: summary,
           limitations,
         }));
-        return [{ kind: "tryout" as const, stableSourceId: id, title, releaseAt, sourceVersionDigest, evidenceSegments: summary, limitations, authorization: { ownerStudentId: studentId, published: packagePublished, released, scored, ready, releaseBindingValid: bindingValid, visibleToStudent: true } }];
+        const updatedAt = dateValue(row.updatedAt);
+        const tryoutUpdatedAt = dateValue(tryout.updatedAt);
+        const releaseVersionHandle = updatedAt && tryoutUpdatedAt ? new Date(Math.max(updatedAt.getTime(), tryoutUpdatedAt.getTime())).toISOString() : updatedAt?.toISOString();
+        return [{ kind: "tryout" as const, stableSourceId: id, title, releaseAt, sourceVersionDigest, releaseVersionHandle, evidenceSegments: summary, limitations, authorization: { ownerStudentId: studentId, published: packagePublished, released, scored, ready, releaseBindingValid: bindingValid, visibleToStudent: true } }];
       });
     },
   };

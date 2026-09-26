@@ -1,5 +1,7 @@
 import "server-only";
 
+import { sha256Hex } from "./contracts";
+
 const POC_MODEL = "openrouter/free" as const;
 const POC_ENDPOINT_PATH = "/api/v1/chat/completions";
 
@@ -42,6 +44,8 @@ export type VeraOpenRouterFreePocOptions = {
 export type VeraOpenRouterFreePocTask = {
   prompt: string;
   maxOutputTokens?: number;
+  /** Exact JSON bytes prepared by the automatic-context packer. */
+  requestBodyBytes?: Uint8Array;
 };
 
 export type VeraOpenRouterFreePocRequestBody = {
@@ -63,6 +67,8 @@ export type VeraOpenRouterFreePocUsage = {
   promptTokens: number | null;
   completionTokens: number | null;
   totalTokens: number | null;
+  reportedCostUsdDecimal: string | null;
+  reportedCostUsdMicros: string | null;
 };
 
 export type VeraOpenRouterFreePocResult = {
@@ -74,6 +80,7 @@ export type VeraOpenRouterFreePocResult = {
   finishReason: string | null;
   text: string;
   usage: VeraOpenRouterFreePocUsage;
+  requestBodyDigest: string;
 };
 
 export type VeraOpenRouterFreePocErrorCode =
@@ -177,10 +184,24 @@ function readBoundedInteger(value: unknown): number | null {
 
 function readUsage(value: unknown): VeraOpenRouterFreePocUsage {
   const usage = asRecord(value);
+  const rawCost = usage?.cost;
+  const reportedCostUsdDecimal = typeof rawCost === "string" && rawCost.trim()
+    ? rawCost.trim()
+    : typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0
+      ? String(rawCost)
+      : null;
+  const reportedCostUsdMicros = reportedCostUsdDecimal && /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/u.test(reportedCostUsdDecimal)
+    ? (() => {
+      const [whole = "0", fraction = ""] = reportedCostUsdDecimal.split(".");
+      return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0"))).toString();
+    })()
+    : null;
   return {
     promptTokens: readBoundedInteger(usage?.prompt_tokens),
     completionTokens: readBoundedInteger(usage?.completion_tokens),
     totalTokens: readBoundedInteger(usage?.total_tokens),
+    reportedCostUsdDecimal,
+    reportedCostUsdMicros,
   };
 }
 
@@ -263,6 +284,8 @@ async function readStreamingResult(
     promptTokens: null,
     completionTokens: null,
     totalTokens: null,
+    reportedCostUsdDecimal: null,
+    reportedCostUsdMicros: null,
   };
   let doneSeen = false;
 
@@ -372,6 +395,7 @@ async function readStreamingResult(
     finishReason,
     text,
     usage,
+    requestBodyDigest: "",
   };
 }
 
@@ -409,7 +433,9 @@ export class VeraOpenRouterFreePocAdapter {
         retryable: true,
       });
     }
-    if (!task || typeof task.prompt !== "string" || !task.prompt.trim() || task.prompt.length > VERA_OPENROUTER_FREE_POC_MAX_INPUT_CHARS) {
+    if (!task || typeof task.prompt !== "string" || !task.prompt.trim()
+      || task.prompt.length > VERA_OPENROUTER_FREE_POC_MAX_INPUT_CHARS
+      || Buffer.byteLength(task.prompt, "utf8") > VERA_OPENROUTER_FREE_POC_MAX_INPUT_CHARS) {
       throw new VeraOpenRouterFreePocError({
         code: "invalid_input",
         message: "OpenRouter POC input is empty or exceeds the bounded task size.",
@@ -425,13 +451,26 @@ export class VeraOpenRouterFreePocAdapter {
       });
     }
 
-    const requestBody: VeraOpenRouterFreePocRequestBody = {
+    const expectedBody: VeraOpenRouterFreePocRequestBody = {
       model: POC_MODEL,
       messages: [{ role: "user", content: task.prompt }],
       provider: { allow_fallbacks: false, data_collection: "allow" },
       max_tokens: maxOutputTokens,
       stream: true,
     };
+    const requestBodyBytes = task.requestBodyBytes ? new Uint8Array(task.requestBodyBytes) : new TextEncoder().encode(JSON.stringify(expectedBody));
+    let requestBodyText: string;
+    try {
+      requestBodyText = new TextDecoder("utf-8", { fatal: true }).decode(requestBodyBytes);
+      const parsed = JSON.parse(requestBodyText) as unknown;
+      if (JSON.stringify(parsed) !== requestBodyText || JSON.stringify(parsed) !== JSON.stringify(expectedBody)) throw new Error("body_mismatch");
+    } catch {
+      throw new VeraOpenRouterFreePocError({ code: "invalid_input", message: "OpenRouter POC request bytes are not the prepared exact body.", retryable: false });
+    }
+    if (requestBodyBytes.byteLength > 4_096) {
+      throw new VeraOpenRouterFreePocError({ code: "invalid_input", message: "OpenRouter POC request body exceeds the byte ceiling.", retryable: false });
+    }
+    const requestBodyDigest = sha256Hex(requestBodyBytes);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
     let receivedText = false;
@@ -443,7 +482,7 @@ export class VeraOpenRouterFreePocAdapter {
           Authorization: `Bearer ${this.config.apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: requestBodyText,
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -462,7 +501,7 @@ export class VeraOpenRouterFreePocAdapter {
           retryable: false,
         });
       }
-      return await readStreamingResult(
+      const result = await readStreamingResult(
         response,
         this.config.maxResponseBytes,
         VERA_OPENROUTER_FREE_POC_MAX_OUTPUT_CHARS,
@@ -471,6 +510,7 @@ export class VeraOpenRouterFreePocAdapter {
           emit?.(delta);
         },
       );
+      return { ...result, requestBodyDigest };
     } catch (error) {
       if (error instanceof VeraOpenRouterFreePocError) throw error;
       if (controller.signal.aborted) {

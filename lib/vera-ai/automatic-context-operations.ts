@@ -73,6 +73,30 @@ export type VeraAutomaticContextGate = {
     | "cohort"
     | "on";
   cohortBasisPoints: number | null;
+  /** Present only for the verified disposable-local protocol. */
+  protocol?: "local_respan_free" | "live_function_tools";
+  expectedFreeModel?: string;
+  expectedFreeProvider?: string;
+  freePriceSnapshotDigest?: string;
+  freePriceSnapshot?: {
+    routeModel: "openrouter/free";
+    resolvedModel: string;
+    provider: string;
+    promptPriceUsdPerM: "0";
+    completionPriceUsdPerM: "0";
+    observedAt: string;
+    source: "openrouter-models-v1";
+  };
+  selectorPriceSnapshotDigest?: string;
+  selectorPriceSnapshot?: {
+    version: "respan-published-free-tier-v1";
+    endpoint: "https://api.respan.ai/api/v1/scores";
+    model: "respan-01-free";
+    inputPriceUsdPerM: "0";
+    outputPriceUsdPerM: "0";
+    sourceUrl: "https://www.respan.ai/docs/documentation/span-01/concept";
+    verifiedAt: string;
+  };
 };
 
 /** Content-free rollout authority captured when an automatic request is

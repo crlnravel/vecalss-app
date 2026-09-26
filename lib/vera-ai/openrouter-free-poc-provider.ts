@@ -89,6 +89,9 @@ function mapUsage(result: Awaited<ReturnType<VeraOpenRouterFreePocAdapter["run"]
     outputTokens,
     quotaUnitsConsumed: totalTokens,
     tokenUsageState: totalTokens === null ? "unknown" : "known",
+    rawReportedCostDecimal: result.usage.reportedCostUsdDecimal,
+    canonicalReportedCostDecimal: result.usage.reportedCostUsdDecimal,
+    reportedCostMicros: result.usage.reportedCostUsdMicros,
   };
 }
 
@@ -126,6 +129,7 @@ const POC_ROUTING_OPTIONS: Extract<ProviderRoutingOptions, { kind: "openrouter_f
  */
 export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter {
   readonly enabled: boolean;
+  readonly localAutomaticContextCapable = true;
   readonly disabledReason?: string;
 
   private readonly poc: VeraOpenRouterFreePocAdapter;
@@ -176,7 +180,11 @@ export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter
     let result: Awaited<ReturnType<VeraOpenRouterFreePocAdapter["run"]>>;
     try {
       result = await this.poc.run(
-        { prompt, maxOutputTokens },
+        {
+          prompt,
+          maxOutputTokens,
+          ...(task.outboundPayloadBytes ? { requestBodyBytes: task.outboundPayloadBytes } : {}),
+        },
         (delta) => emit?.({ text: delta.text, provisional: true }),
       );
     } catch (error) {
@@ -193,6 +201,15 @@ export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter
         message: "The dev OpenRouter POC response identity was malformed.",
       });
     }
+    const exactRequestBodyDigest = task.outboundPayloadBytes ? sha256Hex(task.outboundPayloadBytes) : null;
+    if (exactRequestBodyDigest && result.requestBodyDigest !== exactRequestBodyDigest) {
+      throw new ProviderExecutionError({
+        code: "openrouter_free_poc_payload_digest_mismatch",
+        retryableBeforeAcceptance: false,
+        ambiguousPostSend: true,
+        message: "The dev OpenRouter POC response does not match the persisted request body.",
+      });
+    }
     const usage = mapUsage(result);
     return {
       kind: "text",
@@ -201,12 +218,16 @@ export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter
       usage,
       finishReason: result.finishReason,
       attempts: [{
-        attemptNo: 1,
+        attemptNo: prepared.preparedTask.attemptNo ?? 1,
         state: "completed",
         providerRequestRef: null,
         observedUpstreamProviderSlug: providerIdentity,
         errorCode: null,
         usage,
+        finalPayloadHash: result.requestBodyDigest,
+        rawReportedCostDecimal: result.usage.reportedCostUsdDecimal,
+        canonicalReportedCostDecimal: result.usage.reportedCostUsdDecimal,
+        reportedCostMicros: result.usage.reportedCostUsdMicros,
       }],
       providerMetadata: {
         kind: "openrouter_free_poc",
@@ -217,6 +238,7 @@ export class VeraOpenRouterFreePocProviderAdapter implements VeraProviderAdapter
         providerIdentity,
         dataCollection: "allow",
         zdr: false,
+        requestBodyDigest: result.requestBodyDigest,
       },
     };
   }
