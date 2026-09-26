@@ -24,6 +24,7 @@ import {
   AiReservationState,
   AiRequestBillingState,
   AiRequestAttemptStagePurpose,
+  AiContextDecisionState,
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -31,7 +32,7 @@ import { prisma as defaultPrisma } from "@/lib/prisma";
 import { VeraAdmissionError } from "./admission";
 import { encryptPreparedContextPackAsync, type AutomaticContextPackSource, type PreparedContextPack } from "./context-pack";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
-import { VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
+import { VERA_FINGERPRINT_KEY_VERSION, canonicalJson, sha256Hex } from "./contracts";
 import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraPolicyBundle, type VeraPolicySnapshot } from "./policy";
 import { quotaDateAndDayEnd } from "./quota";
 import {
@@ -67,6 +68,8 @@ import {
   type ContextToolResult,
 } from "./context-tool-contracts";
 import { encryptContextToolInvocationAsync, verifyContextToolInvocationDigests } from "./context-tool-invocation";
+import { readLocalOutboundPayload, VERA_LOCAL_DECISION_COST_PROVENANCE, VERA_LOCAL_DECISION_PROTOCOL, type LocalContextCandidate, type LocalOutboundPayload, type LocalOutboundSource } from "./local-context-decision";
+import { validateLocalSpan01Response, type LocalSpan01Decision, type LocalSpan01ResponseEnvelope, type PreparedLocalSpan01Request } from "./local-respan-selector";
 import {
   VeraDurableResultError,
   createVeraDurableResultCallback,
@@ -107,6 +110,11 @@ export type PersistPreparedAdmissionInput = {
   automaticContext?: boolean;
   automaticContextGateSnapshot?: VeraAutomaticContextGateSnapshot;
   stagePurpose?: AiRequestAttemptStagePurpose;
+  /** Metadata-only candidates persisted atomically with local admission. */
+  localContextShortlist?: readonly LocalContextCandidate[];
+  /** Exact canonical Respan request bytes are encrypted with the shortlist. */
+  localSelectorRequest?: PreparedLocalSpan01Request;
+  localSelectorPriceSnapshotDigest?: string;
 };
 
 export type PersistedAdmission = {
@@ -163,6 +171,14 @@ function providerRequestKeyFor(requestId: string, attemptNo: number): string {
  * development-only evidence contract.
  */
 function bindExactProviderPayload(prepared: PreparedProviderTask): { prepared: PreparedProviderTask; byteCount: number | null } {
+  if (prepared.routingOptions.kind === "openrouter_free_poc" && prepared.preparedTask.outboundPayloadBytes instanceof Uint8Array) {
+    const bytes = prepared.preparedTask.outboundPayloadBytes;
+    const digest = sha256Hex(bytes);
+    if (prepared.finalPayloadHash && prepared.finalPayloadHash !== digest) {
+      throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+    }
+    return { prepared: { ...prepared, finalPayloadHash: digest }, byteCount: bytes.byteLength };
+  }
   if (!prepared.stagePurpose
     || prepared.routingOptions.kind === "openrouter_free_poc"
     || prepared.upstreamProvider !== "relace"
@@ -647,6 +663,7 @@ export class VeraPrismaAdmissionService {
     outcome: "known" | "unknown" | "released";
     chargedUsdMicros?: bigint;
     forceOverrun?: boolean;
+    releaseCreditsOnUnknown?: boolean;
     now?: Date;
     transaction?: Prisma.TransactionClient;
   }): Promise<VeraV2QuotaSettlement> {
@@ -704,6 +721,7 @@ export class VeraPrismaAdmissionService {
           outcome: input.outcome,
           chargedUsdMicros: input.outcome === "known" && window.periodKind === AiUsageWindowPeriodKind.month ? input.chargedUsdMicros ?? 0n : 0n,
           unresolvedUsdMicros: input.outcome === "unknown" && window.periodKind === AiUsageWindowPeriodKind.month ? row.reservedUsdMicros : 0n,
+          ...(input.outcome === "unknown" && input.releaseCreditsOnUnknown ? { consumedCredits: 0 } : {}),
         });
         assertReservationConservation(next);
         const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome, forceOverrun: input.forceOverrun });
@@ -786,6 +804,372 @@ export class VeraPrismaAdmissionService {
       });
       if (changed.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
       return { argumentsDigest: encrypted.argumentsDigest, replayed: false, state: "executing" };
+    });
+  }
+
+  /** Atomically claim the sole selector send before network I/O. */
+  async beginLocalSelectorDispatch(input: { requestId: string; requestDigest: string; now?: Date }): Promise<{ claimed: boolean; replayed: boolean }> {
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
+      if (!trace || trace.protocolVersion !== VERA_LOCAL_DECISION_PROTOCOL || !attempt
+        || trace.selectorRequestDigest !== input.requestDigest
+        || !trace.selectorRequestCiphertext || trace.selectorKind !== "respan_span01_lite") {
+        throw new VeraAdmissionError({ code: "local_context_selector_unavailable", status: 409 });
+      }
+      if (trace.state === AiContextDecisionState.dispatching || trace.networkDispatchCount === 1) return { claimed: false, replayed: true };
+      if (trace.state !== AiContextDecisionState.shortlisted || trace.networkDispatchCount !== 0 || attempt.state !== AiAttemptState.reserved) {
+        throw new VeraAdmissionError({ code: "local_context_selector_unavailable", status: 409 });
+      }
+      const changedTrace = await tx.aiContextDecision.updateMany({
+        where: { requestId: input.requestId, state: AiContextDecisionState.shortlisted, networkDispatchCount: 0, selectorRequestDigest: input.requestDigest },
+        data: { state: AiContextDecisionState.dispatching, networkDispatchCount: 1, selectorDispatchStartedAt: now },
+      });
+      const changedAttempt = await tx.aiRequestAttempt.updateMany({
+        where: { id: attempt.id, state: AiAttemptState.reserved, finalPayloadHash: input.requestDigest },
+        data: { state: AiAttemptState.dispatching, sendStartedAt: now, startedAt: now, errorCode: null },
+      });
+      if (changedTrace.count !== 1 || changedAttempt.count !== 1) throw new VeraAdmissionError({ code: "local_context_selector_cas_conflict", status: 409 });
+      return { claimed: true, replayed: false };
+    });
+  }
+
+  /** Encrypt the exact response and probabilities; zero is known only with the
+   * observed model and the current pricing evidence bound at admission. */
+  async recordLocalSelectorResponse(input: {
+    requestId: string;
+    envelope: LocalSpan01ResponseEnvelope;
+    priceSnapshotDigest: string;
+    now?: Date;
+  }): Promise<{ decision: LocalSpan01Decision; selected: LocalContextCandidate[]; decisionDigest: string; replayed: boolean }> {
+    const envelopeService = this.envelope;
+    if (!envelopeService) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const now = input.now ?? await this.databaseNow();
+    return this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
+      const request = await tx.aiRequest.findUnique({ where: { id: input.requestId }, select: { automaticContextGateSnapshot: true } });
+      const gateSnapshot = request?.automaticContextGateSnapshot && typeof request.automaticContextGateSnapshot === "object" && !Array.isArray(request.automaticContextGateSnapshot)
+        ? request.automaticContextGateSnapshot as Record<string, unknown>
+        : null;
+      const priceSnapshot = gateSnapshot?.selectorPriceSnapshot && typeof gateSnapshot.selectorPriceSnapshot === "object" && !Array.isArray(gateSnapshot.selectorPriceSnapshot)
+        ? gateSnapshot.selectorPriceSnapshot as Record<string, unknown>
+        : null;
+      const verifiedAt = typeof priceSnapshot?.verifiedAt === "string" ? Date.parse(priceSnapshot.verifiedAt) : Number.NaN;
+      if (!trace || !attempt || trace.selectorPriceSnapshotDigest !== input.priceSnapshotDigest
+        || trace.networkDispatchCount !== 1 || trace.selectorKind !== "respan_span01_lite"
+        || gateSnapshot?.protocol !== "local_respan_free"
+        || !priceSnapshot
+        || Object.keys(priceSnapshot).sort().join(",") !== "endpoint,inputPriceUsdPerM,model,outputPriceUsdPerM,sourceUrl,verifiedAt,version"
+        || priceSnapshot.version !== "respan-published-free-tier-v1"
+        || priceSnapshot.endpoint !== "https://api.respan.ai/api/v1/scores"
+        || priceSnapshot.model !== "respan-01-free"
+        || priceSnapshot.inputPriceUsdPerM !== "0"
+        || priceSnapshot.outputPriceUsdPerM !== "0"
+        || priceSnapshot.sourceUrl !== "https://www.respan.ai/docs/documentation/span-01/concept"
+        || !Number.isFinite(verifiedAt) || verifiedAt > now.getTime() + 30_000 || now.getTime() - verifiedAt > 24 * 60 * 60_000
+        || sha256Hex(canonicalJson(priceSnapshot)) !== input.priceSnapshotDigest) {
+        throw new VeraAdmissionError({ code: "local_context_selector_provenance_invalid", status: 409 });
+      }
+      const envelope = envelopeService.forClient(tx);
+      if (trace.state === AiContextDecisionState.decided || trace.state === AiContextDecisionState.frozen) {
+        if (!trace.typedDecisionCiphertext || !trace.typedDecisionDigest) throw new VeraAdmissionError({ code: "local_context_decision_unavailable", status: 409 });
+        const serialized = await envelope.decryptTextAsync(trace.typedDecisionCiphertext as unknown as AiEncryptedPayload);
+        if (sha256Hex(serialized) !== trace.typedDecisionDigest) throw new VeraAdmissionError({ code: "local_context_decision_digest_conflict", status: 409 });
+        const decision = JSON.parse(serialized) as LocalSpan01Decision;
+        const candidateMapText = await envelope.decryptTextAsync(trace.candidateMapCiphertext as unknown as AiEncryptedPayload);
+        if (sha256Hex(candidateMapText) !== trace.candidateMapDigest) throw new VeraAdmissionError({ code: "local_context_shortlist_digest_conflict", status: 409 });
+        const candidates = JSON.parse(candidateMapText) as LocalContextCandidate[];
+        const selected = decision.scores
+          .filter((score) => score.p_present >= 0.8 && score.p_not_observable <= 0.2)
+          .sort((left, right) => right.p_present - left.p_present || decision.scores.indexOf(left) - decision.scores.indexOf(right))
+          .map((score) => candidates.find((candidate) => candidate.key === score.id)).filter((candidate): candidate is LocalContextCandidate => Boolean(candidate)).slice(0, 4);
+        return { decision, selected, decisionDigest: trace.typedDecisionDigest, replayed: true };
+      }
+      if (trace.state !== AiContextDecisionState.dispatching || attempt.state !== AiAttemptState.dispatching
+        || !trace.candidateMapDigest || !trace.candidateMapCiphertext) throw new VeraAdmissionError({ code: "local_context_selector_unavailable", status: 409 });
+      if (input.envelope.observedModel !== "respan-01-free"
+        || input.envelope.responseDigest !== sha256Hex(input.envelope.responseBytes)
+        || !/^[a-f0-9]{64}$/u.test(input.priceSnapshotDigest)) throw new VeraAdmissionError({ code: "local_context_selector_provenance_invalid", status: 409 });
+      const candidateMapText = await envelope.decryptTextAsync(trace.candidateMapCiphertext as unknown as AiEncryptedPayload);
+      if (sha256Hex(candidateMapText) !== trace.candidateMapDigest) throw new VeraAdmissionError({ code: "local_context_shortlist_digest_conflict", status: 409 });
+      const candidates = JSON.parse(candidateMapText) as LocalContextCandidate[];
+      const parsed = validateLocalSpan01Response({ envelope: input.envelope, candidates });
+      const decisionJson = canonicalJson(parsed.decision);
+      const decisionDigest = sha256Hex(decisionJson);
+      const typedDecisionCiphertext = await envelope.encryptAsync(decisionJson, `ai-context-decision:${input.requestId}:decision`);
+      const responseText = new TextDecoder("utf-8", { fatal: true }).decode(input.envelope.responseBytes);
+      const selectorResponseCiphertext = await envelope.encryptAsync(responseText, `ai-context-decision:${input.requestId}:response`);
+      const changedTrace = await tx.aiContextDecision.updateMany({
+        where: { requestId: input.requestId, state: AiContextDecisionState.dispatching, networkDispatchCount: 1, selectorPriceSnapshotDigest: input.priceSnapshotDigest },
+        data: {
+          state: AiContextDecisionState.decided,
+          selectorResponseCiphertext: json(selectorResponseCiphertext),
+          selectorResponseDigest: input.envelope.responseDigest,
+          selectorResponseModel: input.envelope.observedModel,
+          selectorLogId: input.envelope.logId,
+          selectorInputTokens: input.envelope.inputTokens,
+          selectorCostUsdMicros: 0n,
+          selectorCostProvenance: VERA_LOCAL_DECISION_COST_PROVENANCE,
+          typedDecisionCiphertext: json(typedDecisionCiphertext),
+          typedDecisionDigest: decisionDigest,
+          selectedCandidateCount: parsed.selected.length,
+          decidedAt: now,
+        },
+      });
+      const changedAttempt = await tx.aiRequestAttempt.updateMany({
+        where: { id: attempt.id, state: AiAttemptState.dispatching, finalPayloadHash: trace.selectorRequestDigest },
+        data: {
+          state: AiAttemptState.known,
+          resultKind: AiAttemptResultKind.success,
+          observedUpstreamProviderSlug: "respan-01-free",
+          providerName: "respan",
+          inputTokens: input.envelope.inputTokens,
+          tokenUsageState: input.envelope.inputTokens === null ? AiTokenUsageState.unknown : AiTokenUsageState.known,
+          reportedProviderCostUsdMicros: 0n,
+          recomputedProviderCostUsdMicros: 0n,
+          chargedProviderCostUsdMicros: 0n,
+          priceSnapshot: json({ ...priceSnapshot, digest: input.priceSnapshotDigest }),
+          completedAt: now,
+        },
+      });
+      await tx.aiRequest.updateMany({
+        where: { id: input.requestId, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+        data: {
+          reportedProviderCostUsdMicros: 0n,
+          recomputedProviderCostUsdMicros: 0n,
+          chargedProviderCostUsdMicros: 0n,
+        },
+      });
+      if (changedTrace.count !== 1 || changedAttempt.count !== 1) throw new VeraAdmissionError({ code: "local_context_selector_cas_conflict", status: 409 });
+      return { decision: parsed.decision, selected: parsed.selected, decisionDigest, replayed: false };
+    });
+  }
+
+  /** Read an admitted selector only from its encrypted, digested write-ahead
+   * record. Recovery can dispatch the exact prepared bytes while the attempt
+   * is still reserved, or continue a durable decision without reranking. */
+  async readLocalAutomaticRecoveryRequest(input: { requestId: string }) {
+    return this.db.aiRequest.findUnique({
+      where: { id: input.requestId },
+      select: {
+        id: true,
+        studentId: true,
+        conversationId: true,
+        createdAt: true,
+        status: true,
+        automaticContextGateSnapshot: true,
+        featureKey: true,
+        behaviorVersion: true,
+        policyBundleVersion: true,
+        hardOutputQuotaUnits: true,
+        settlementDeadlineAt: true,
+        dispatchDeadlineAt: true,
+        userMessage: { select: { contentEnvelope: true, contentState: true } },
+        contextPack: {
+          select: {
+            id: true,
+            purgeState: true,
+            promptTemplateHash: true,
+            toolSchemaHash: true,
+            systemPolicyHash: true,
+          },
+        },
+        attempts: {
+          orderBy: { attemptNo: "asc" },
+          select: {
+            attemptNo: true,
+            state: true,
+            stagePurpose: true,
+            providerRequestKey: true,
+            finalPayloadHash: true,
+            dispatchDeadlineAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async readLocalContextDecision(input: { requestId: string }): Promise<{
+    state: AiContextDecisionState;
+    request: PreparedLocalSpan01Request | null;
+    candidates: LocalContextCandidate[];
+    selected: LocalContextCandidate[];
+    decision: LocalSpan01Decision | null;
+    decisionDigest: string | null;
+    priceSnapshotDigest: string | null;
+    attemptState: AiAttemptState | null;
+    errorCode: string | null;
+  } | null> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const [trace, attempt] = await Promise.all([
+      this.db.aiContextDecision.findUnique({ where: { requestId: input.requestId } }),
+      this.db.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } }, select: { state: true } }),
+    ]);
+    if (!trace || trace.selectorKind !== "respan_span01_lite") return null;
+    const envelope = this.envelope;
+    let candidates: LocalContextCandidate[];
+    try {
+      const candidateMapText = await envelope.decryptTextAsync(trace.candidateMapCiphertext as unknown as AiEncryptedPayload);
+      if (sha256Hex(candidateMapText) !== trace.candidateMapDigest) throw new Error("candidate_digest");
+      candidates = JSON.parse(candidateMapText) as LocalContextCandidate[];
+      if (!Array.isArray(candidates) || candidates.length > 12) throw new Error("candidate_schema");
+    } catch {
+      throw new VeraAdmissionError({ code: "local_context_shortlist_digest_conflict", status: 409 });
+    }
+    let preparedRequest: PreparedLocalSpan01Request | null = null;
+    if (trace.selectorRequestCiphertext) {
+      try {
+        const requestText = await envelope.decryptTextAsync(trace.selectorRequestCiphertext as unknown as AiEncryptedPayload);
+        const body = JSON.parse(requestText) as PreparedLocalSpan01Request["body"];
+        const bytes = new TextEncoder().encode(requestText);
+        const candidateKeys = Array.isArray(body.behaviors) ? body.behaviors.map((row) => row.id) : [];
+        if (canonicalJson(body) !== requestText || sha256Hex(bytes) !== trace.selectorRequestDigest
+          || candidateKeys.some((key) => typeof key !== "string" || !/^cand_[0-9]{2}$/u.test(key))
+          || candidateKeys.length !== candidates.length
+          || candidateKeys.some((key, index) => key !== candidates[index]?.key)) throw new Error("request_digest");
+        preparedRequest = { body, bytes, digest: sha256Hex(bytes), candidateKeys };
+      } catch {
+        throw new VeraAdmissionError({ code: "local_context_selector_request_unavailable", status: 409 });
+      }
+    }
+    let decision: LocalSpan01Decision | null = null;
+    let decisionDigest: string | null = null;
+    let selected: LocalContextCandidate[] = [];
+    if (trace.selectorResponseCiphertext && trace.selectorResponseDigest && trace.selectorResponseModel) {
+      try {
+        const responseText = await envelope.decryptTextAsync(trace.selectorResponseCiphertext as unknown as AiEncryptedPayload);
+        const responseBytes = new TextEncoder().encode(responseText);
+        const response = JSON.parse(responseText) as unknown;
+        const parsed = validateLocalSpan01Response({ envelope: {
+          response,
+          responseBytes,
+          responseDigest: sha256Hex(responseBytes),
+          observedModel: trace.selectorResponseModel,
+          logId: trace.selectorLogId,
+          inputTokens: trace.selectorInputTokens,
+        }, candidates });
+        const serialized = await envelope.decryptTextAsync(trace.typedDecisionCiphertext as unknown as AiEncryptedPayload);
+        if (sha256Hex(serialized) !== trace.typedDecisionDigest || serialized !== canonicalJson(parsed.decision)
+          || trace.selectorResponseDigest !== sha256Hex(responseBytes)) throw new Error("decision_digest");
+        decision = parsed.decision;
+        selected = parsed.selected;
+        decisionDigest = trace.typedDecisionDigest;
+      } catch {
+        throw new VeraAdmissionError({ code: "local_context_decision_unavailable", status: 409 });
+      }
+    }
+    return {
+      state: trace.state,
+      request: preparedRequest,
+      candidates,
+      selected,
+      decision,
+      decisionDigest,
+      priceSnapshotDigest: trace.selectorPriceSnapshotDigest,
+      attemptState: attempt?.state ?? null,
+      errorCode: trace.errorCode,
+    };
+  }
+
+  /** Read the already-frozen free answer request for safe pre-dispatch
+   * recovery. This never rebuilds evidence from the live registry. */
+  async readLocalFrozenAnswer(input: { requestId: string }): Promise<{
+    request: { featureKey: string; behaviorVersion: string; hardOutputQuotaUnits: number | null };
+    attempt: {
+      state: AiAttemptState;
+      finalPayloadHash: string | null;
+      providerRequestKey: string | null;
+      dispatchDeadlineAt: Date | null;
+      gateway: string;
+      upstreamProvider: string;
+      upstreamProviderSlug: string | null;
+      model: string;
+      releaseManifestDigest: string | null;
+    };
+    outbound: LocalOutboundPayload;
+  } | null> {
+    if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
+    const [request, attempt, sourceRows] = await Promise.all([
+      this.db.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: { featureKey: true, behaviorVersion: true, hardOutputQuotaUnits: true, automaticContextGateSnapshot: true },
+      }),
+      this.db.aiRequestAttempt.findUnique({
+        where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 2 } },
+        select: { state: true, finalPayloadHash: true, providerRequestKey: true, dispatchDeadlineAt: true, gateway: true, upstreamProvider: true, upstreamProviderSlug: true, model: true, releaseManifestDigest: true, outboundPayloadCiphertext: true },
+      }),
+      this.db.aiRequestSource.findMany({
+        where: { requestId: input.requestId },
+        orderBy: { ordinal: "asc" },
+        select: { sourceType: true, sourceId: true, citationKey: true, contentDigest: true, boundedSnapshotCiphertext: true, snapshotState: true },
+      }),
+    ]);
+    const gateSnapshot = request?.automaticContextGateSnapshot && typeof request.automaticContextGateSnapshot === "object" && !Array.isArray(request.automaticContextGateSnapshot)
+      ? request.automaticContextGateSnapshot as Record<string, unknown>
+      : null;
+    if (!request || gateSnapshot?.protocol !== "local_respan_free" || !attempt || !attempt.outboundPayloadCiphertext || !attempt.finalPayloadHash) return null;
+    try {
+      const bodyText = await this.envelope.decryptTextAsync(attempt.outboundPayloadCiphertext as unknown as AiEncryptedPayload);
+      const bytes = new TextEncoder().encode(bodyText);
+      if (sha256Hex(bytes) !== attempt.finalPayloadHash) throw new Error("local_payload_digest");
+      const sources: LocalOutboundSource[] = await Promise.all(sourceRows.map(async (row) => {
+        if (!row.boundedSnapshotCiphertext || row.snapshotState !== "available") throw new Error("local_source_snapshot_missing");
+        const sourceText = await this.envelope!.decryptTextAsync(row.boundedSnapshotCiphertext as unknown as AiEncryptedPayload);
+        const snapshot = JSON.parse(sourceText) as Record<string, unknown>;
+        if (Object.keys(snapshot).sort().join(",") !== "citationKey,content,sourceId,sourceType"
+          || snapshot.citationKey !== row.citationKey || snapshot.sourceId !== row.sourceId
+          || snapshot.sourceType !== row.sourceType || typeof snapshot.content !== "string"
+          || sha256Hex(snapshot.content) !== row.contentDigest) throw new Error("local_source_snapshot_invalid");
+        const kind = row.citationKey.startsWith("materi_") ? "materi"
+          : row.citationKey.startsWith("kuis_") ? "kuis"
+            : row.citationKey.startsWith("tryout_") ? "tryout" : null;
+        if (!kind || kind === "materi" && row.sourceType !== "material"
+          || kind !== "materi" && row.sourceType !== "practice") throw new Error("local_source_kind_invalid");
+        return { citationKey: row.citationKey, kind, evidenceSegments: [snapshot.content] };
+      }));
+      const outbound = readLocalOutboundPayload({ bytes, committedSources: sources });
+      return {
+        request: { featureKey: request.featureKey, behaviorVersion: request.behaviorVersion, hardOutputQuotaUnits: request.hardOutputQuotaUnits },
+        attempt: {
+          state: attempt.state,
+          finalPayloadHash: attempt.finalPayloadHash,
+          providerRequestKey: attempt.providerRequestKey,
+          dispatchDeadlineAt: attempt.dispatchDeadlineAt,
+          gateway: attempt.gateway,
+          upstreamProvider: attempt.upstreamProvider,
+          upstreamProviderSlug: attempt.upstreamProviderSlug,
+          model: attempt.model,
+          releaseManifestDigest: attempt.releaseManifestDigest,
+        },
+        outbound,
+      };
+    } catch {
+      throw new VeraAdmissionError({ code: "local_context_frozen_payload_unavailable", status: 409 });
+    }
+  }
+
+  async failLocalSelector(input: { requestId: string; errorCode: string; now?: Date }): Promise<void> {
+    const now = input.now ?? await this.databaseNow();
+    const errorCode = /^[a-z0-9_:-]{1,100}$/iu.test(input.errorCode) ? input.errorCode : "respan_selector_unavailable";
+    await this.db.$transaction(async (tx) => {
+      const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
+      if (!trace || trace.state === AiContextDecisionState.decided || trace.state === AiContextDecisionState.frozen) return;
+      await tx.aiContextDecision.updateMany({
+        where: { requestId: input.requestId, state: { in: [AiContextDecisionState.shortlisted, AiContextDecisionState.dispatching] } },
+        data: { state: AiContextDecisionState.unavailable, errorCode, failedAt: now },
+      });
+      if (attempt && (attempt.state === AiAttemptState.dispatching
+        || attempt.state === AiAttemptState.sent
+        || attempt.state === AiAttemptState.ambiguous)) {
+        await tx.aiRequestAttempt.updateMany({ where: { id: attempt.id, state: attempt.state }, data: { state: AiAttemptState.unknown, errorCode, completedAt: now } });
+      } else if (attempt && attempt.state === AiAttemptState.reserved) {
+        await tx.aiRequestAttempt.updateMany({ where: { id: attempt.id, state: AiAttemptState.reserved }, data: { state: AiAttemptState.released, errorCode, completedAt: now } });
+      }
     });
   }
 
@@ -1055,8 +1439,12 @@ export class VeraPrismaAdmissionService {
    * final transport. This is the second and last provider dispatch slot. */
   async prepareAutomaticAnswerStage(input: {
     requestId: string;
-    pack: PreparedContextPack;
+    pack?: PreparedContextPack;
     preparedProviderTask: PreparedProviderTask;
+    /** Exact local free-router body, validated before the freeze transaction. */
+    localOutboundPayload?: LocalOutboundPayload;
+    /** Reauthorize only these persisted selected IDs inside the freeze transaction. */
+    revalidateLocalSources?: (tx: Prisma.TransactionClient) => Promise<void>;
     now?: Date;
   }): Promise<PreparedProviderTask> {
     if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
@@ -1068,9 +1456,59 @@ export class VeraPrismaAdmissionService {
         include: { contextPack: true },
       });
       if (!request || !request.contextPack) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
-      const invocation = await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
-      if (!invocation || invocation.state !== "completed") throw new VeraAdmissionError({ code: "context_tool_invalid", status: 409 });
+      const gateSnapshot = request.automaticContextGateSnapshot && typeof request.automaticContextGateSnapshot === "object" && !Array.isArray(request.automaticContextGateSnapshot)
+        ? request.automaticContextGateSnapshot as Record<string, unknown>
+        : null;
+      const localProtocol = gateSnapshot?.protocol === "local_respan_free";
+      const invocation = localProtocol ? null : await tx.aiContextToolInvocation.findUnique({ where: { requestId: input.requestId } });
+      const localDecisionState = localProtocol
+        ? await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId }, select: { state: true } })
+        : null;
+      if (localProtocol
+        ? (!input.localOutboundPayload || (localDecisionState?.state !== AiContextDecisionState.decided && localDecisionState?.state !== AiContextDecisionState.frozen))
+        : (!invocation || invocation.state !== "completed")) {
+        throw new VeraAdmissionError({ code: localProtocol ? "local_context_freeze_invalid" : "context_tool_invalid", status: 409 });
+      }
       const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 2 } } });
+      let localFreePriceSnapshot: Record<string, unknown> | null = null;
+      if (input.localOutboundPayload) {
+        if ((!existing && !input.revalidateLocalSources) || input.preparedProviderTask.routingOptions.kind !== "openrouter_free_poc") {
+          throw new VeraAdmissionError({ code: "local_context_freeze_invalid", status: 409 });
+        }
+        localFreePriceSnapshot = gateSnapshot?.freePriceSnapshot && typeof gateSnapshot.freePriceSnapshot === "object" && !Array.isArray(gateSnapshot.freePriceSnapshot)
+          ? gateSnapshot.freePriceSnapshot as Record<string, unknown>
+          : null;
+        const observedAt = typeof localFreePriceSnapshot?.observedAt === "string" ? Date.parse(localFreePriceSnapshot.observedAt) : Number.NaN;
+        if (!localFreePriceSnapshot || !gateSnapshot
+          || Object.keys(localFreePriceSnapshot).sort().join(",") !== "completionPriceUsdPerM,observedAt,promptPriceUsdPerM,provider,resolvedModel,routeModel,source"
+          || localFreePriceSnapshot.routeModel !== "openrouter/free"
+          || localFreePriceSnapshot.provider !== gateSnapshot.expectedFreeProvider
+          || localFreePriceSnapshot.resolvedModel !== gateSnapshot.expectedFreeModel
+          || localFreePriceSnapshot.promptPriceUsdPerM !== "0"
+          || localFreePriceSnapshot.completionPriceUsdPerM !== "0"
+          || localFreePriceSnapshot.source !== "openrouter-models-v1"
+          || !Number.isFinite(observedAt) || observedAt > now.getTime() + 30_000 || now.getTime() - observedAt > 15 * 60_000
+          || sha256Hex(canonicalJson(localFreePriceSnapshot)) !== gateSnapshot.freePriceSnapshotDigest) {
+          throw new VeraAdmissionError({ code: "local_context_free_price_provenance_invalid", status: 409 });
+        }
+        const outboundBytes = input.preparedProviderTask.preparedTask.outboundPayloadBytes;
+        if (!(outboundBytes instanceof Uint8Array)
+          || sha256Hex(outboundBytes) !== input.localOutboundPayload.digest
+          || Buffer.compare(Buffer.from(outboundBytes), Buffer.from(input.localOutboundPayload.bytes)) !== 0) {
+          throw new VeraAdmissionError({ code: "local_context_payload_digest_conflict", status: 409 });
+        }
+        const frame = (citationKey: string, segment: string) => `[[e:${citationKey}]]\n${segment}\n[[/e]]`;
+        const bodyText = input.localOutboundPayload.body.messages[0].content;
+        if (input.pack && (input.pack.blocks.length !== input.localOutboundPayload.retainedSources.length
+          || input.pack.blocks.some((block) => !input.localOutboundPayload!.retainedSources.some((source) =>
+            source.citationKey === block.citationKey
+            && source.evidenceSegments.some((segment) => segment.trim() && bodyText.includes(frame(source.citationKey, segment)))
+            && block.content === source.evidenceSegments[0])))) {
+          throw new VeraAdmissionError({ code: "local_context_evidence_payload_conflict", status: 409 });
+        }
+        if (!input.pack && !existing) throw new VeraAdmissionError({ code: "local_context_freeze_invalid", status: 409 });
+        if (!existing) await input.revalidateLocalSources!(tx);
+      }
       const providerRequestKey = input.preparedProviderTask.providerRequestKey?.trim() || providerRequestKeyFor(input.requestId, 2);
       const dispatchDeadlineAt = request.dispatchDeadlineAt ?? new Date(now.getTime() + 120 * 60_000);
       const preparedProviderTaskBase: PreparedProviderTask = {
@@ -1100,29 +1538,38 @@ export class VeraPrismaAdmissionService {
           || existing.releaseManifestDigest !== (preparedProviderTask.manifestDigest ?? null)) {
           throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
         }
+        if (input.localOutboundPayload) {
+          const persistedDecision = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+          if (persistedDecision?.state !== AiContextDecisionState.frozen
+            || existing.finalPayloadHash !== input.localOutboundPayload.digest) {
+            throw new VeraAdmissionError({ code: "local_context_freeze_invalid", status: 409 });
+          }
+        }
         return preparedProviderTask;
       }
-      const encrypted = await encryptPreparedContextPackAsync(input.pack, this.envelope!.forClient(tx), `ai-pack:${input.requestId}`);
+      if (!input.pack) throw new VeraAdmissionError({ code: "context_pack_missing", status: 409 });
+      const pack = input.pack;
+      const encrypted = await encryptPreparedContextPackAsync(pack, this.envelope!.forClient(tx), `ai-pack:${input.requestId}`);
       await tx.aiContextPack.update({
         where: { id: request.contextPack.id },
         data: {
-          contextPackVersion: input.pack.contextPackVersion,
-          orderedBlockManifestJson: json(input.pack.blocks.map((block) => ({ ordinal: block.ordinal, sourceType: block.sourceType, sourceId: block.sourceId, citationKey: block.citationKey, titleSnapshot: block.titleSnapshot, citationLabel: block.citationLabel, contentDigest: block.contentDigest, redacted: block.redacted, truncated: block.truncated }))),
+          contextPackVersion: pack.contextPackVersion,
+          orderedBlockManifestJson: json(pack.blocks.map((block) => ({ ordinal: block.ordinal, sourceType: block.sourceType, sourceId: block.sourceId, citationKey: block.citationKey, titleSnapshot: block.titleSnapshot, citationLabel: block.citationLabel, contentDigest: block.contentDigest, redacted: block.redacted, truncated: block.truncated }))),
           normalizedTaskCiphertext: json(encrypted.normalizedTaskCiphertext),
           canonicalBytesCiphertext: json(encrypted.canonicalBytesCiphertext),
-          byteCount: input.pack.byteCount,
-          packDigest: input.pack.packDigest,
-          truncationJson: json(input.pack.truncation),
-          toolCallDigest: input.pack.toolCallDigest,
-          toolResultDigest: input.pack.toolResultDigest,
-          registryVersion: input.pack.registryVersion,
-          resolverVersion: input.pack.resolverVersion,
-          sourceManifestDigest: input.pack.sourceManifestDigest,
+          byteCount: pack.byteCount,
+          packDigest: pack.packDigest,
+          truncationJson: json(pack.truncation),
+          toolCallDigest: pack.toolCallDigest,
+          toolResultDigest: pack.toolResultDigest,
+          registryVersion: pack.registryVersion,
+          resolverVersion: pack.resolverVersion,
+          sourceManifestDigest: pack.sourceManifestDigest,
           providerTaskDigest: preparedProviderTask.providerTaskDigest,
         },
       });
       await tx.aiRequestSource.deleteMany({ where: { requestId: input.requestId } });
-      await Promise.all(input.pack.blocks.map((block, index) => {
+      await Promise.all(pack.blocks.map((block, index) => {
         const snapshot = encrypted.sourceSnapshots[index];
         return tx.aiRequestSource.create({
           data: {
@@ -1139,13 +1586,19 @@ export class VeraPrismaAdmissionService {
             boundedSnapshotCiphertext: snapshot ? json(snapshot) : undefined,
             snapshotBytes: Buffer.byteLength(block.content, "utf8"),
             truncationJson: json({ truncated: block.truncated }),
-            redactionPolicyVersion: input.pack.redactionPolicyVersion,
+            redactionPolicyVersion: pack.redactionPolicyVersion,
             retentionPolicyVersion: request.retentionPolicyVersion ?? "unknown",
             purgeAt: request.contextPack!.purgeAt,
           },
         });
       }));
-      await tx.aiRequest.update({ where: { id: request.id }, data: { contextPackVersion: input.pack.contextPackVersion, providerTaskDigest: preparedProviderTask.providerTaskDigest, providerRequestKey, finalPayloadHash: preparedProviderTask.finalPayloadHash ?? null } });
+      let outboundPayloadCiphertext: AiEncryptedPayload | null = null;
+      if (input.localOutboundPayload) {
+        const bytes = input.preparedProviderTask.preparedTask.outboundPayloadBytes!;
+        const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        outboundPayloadCiphertext = await this.envelope!.forClient(tx).encryptAsync(text, `ai-outbound:${input.requestId}:2`);
+      }
+      await tx.aiRequest.update({ where: { id: request.id }, data: { contextPackVersion: pack.contextPackVersion, providerTaskDigest: preparedProviderTask.providerTaskDigest, providerRequestKey, finalPayloadHash: preparedProviderTask.finalPayloadHash ?? null } });
       await tx.aiRequestAttempt.create({
         data: {
           requestId: request.id,
@@ -1162,12 +1615,28 @@ export class VeraPrismaAdmissionService {
           dispatchDeadlineAt,
           certifierId: preparedProviderTask.certifierId ?? null,
           certifierVersion: preparedProviderTask.certifierVersion ?? null,
-          priceSnapshot: preparedProviderTask.priceSnapshot ? json(preparedProviderTask.priceSnapshot) : undefined,
-          finalMeasuredBytes: exactProviderPayload.byteCount ?? input.pack.byteCount,
+          priceSnapshot: input.localOutboundPayload && localFreePriceSnapshot
+            ? json({ ...localFreePriceSnapshot, digest: sha256Hex(canonicalJson(localFreePriceSnapshot)) })
+            : preparedProviderTask.priceSnapshot ? json(preparedProviderTask.priceSnapshot) : undefined,
+          finalMeasuredBytes: exactProviderPayload.byteCount ?? pack.byteCount,
           finalMeasuredTokenUpperBound: preparedProviderTask.inputQuotaUnitsUpperBound,
           releaseManifestDigest: preparedProviderTask.manifestDigest,
+          outboundPayloadCiphertext: outboundPayloadCiphertext ? json(outboundPayloadCiphertext) : undefined,
         },
       });
+      if (input.localOutboundPayload) {
+        const decision = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+        if (!decision || decision.state !== AiContextDecisionState.decided) throw new VeraAdmissionError({ code: "local_context_freeze_invalid", status: 409 });
+        const frozenEvidenceDigest = sha256Hex(canonicalJson({
+          outboundDigest: input.localOutboundPayload.digest,
+          sourceRows: input.pack.blocks.map((block) => ({ citationKey: block.citationKey, sourceId: block.sourceId, contentDigest: block.contentDigest })),
+        }));
+        const changed = await tx.aiContextDecision.updateMany({
+          where: { requestId: input.requestId, state: AiContextDecisionState.decided },
+          data: { state: AiContextDecisionState.frozen, frozenEvidenceDigest, frozenAt: now },
+        });
+        if (changed.count !== 1) throw new VeraAdmissionError({ code: "local_context_freeze_cas_conflict", status: 409 });
+      }
       return preparedProviderTask;
     });
   }
@@ -1602,6 +2071,17 @@ export class VeraPrismaAdmissionService {
       outputSchemaId: input.outputSchemaId ?? "vera.chat.freeform.v1",
       outputSchemaHash: input.outputSchemaHash ?? input.pack.toolSchemaHash,
     };
+    const localProtocol = input.automaticContextGateSnapshot?.protocol === "local_respan_free";
+    if (localProtocol !== (input.localContextShortlist !== undefined)
+      || localProtocol && ((input.localContextShortlist!.length > 0) !== (input.localSelectorRequest !== undefined))
+      || localProtocol !== (input.localSelectorPriceSnapshotDigest !== undefined)) {
+      throw new VeraAdmissionError({ code: "local_context_shortlist_missing", status: 422 });
+    }
+    if (localProtocol && (!this.envelope || input.localContextShortlist!.length > 12
+      || input.localSelectorRequest && input.localSelectorRequest.digest !== sha256Hex(input.localSelectorRequest.bytes)
+      || input.localSelectorPriceSnapshotDigest!.length !== 64)) {
+      throw new VeraAdmissionError({ code: "local_context_shortlist_invalid", status: 422 });
+    }
     try {
       return await this.db.$transaction(async (tx) => {
       const existing = await tx.aiIdempotencyKey.findUnique({
@@ -1862,30 +2342,32 @@ export class VeraPrismaAdmissionService {
           retryOfRequestId: input.retryOfRequestId ?? undefined,
         },
       });
-      await tx.aiRequestAttempt.create({
-        data: {
-          requestId: request.id,
-          attemptNo,
-          gateway: providerTaskForDispatch.gateway,
-          upstreamProvider: providerTaskForDispatch.upstreamProvider,
-          upstreamProviderSlug: providerTaskForDispatch.upstreamProviderSlug,
-          model: providerTaskForDispatch.model,
-          stagePurpose: input.stagePurpose ?? (input.automaticContext ? AiRequestAttemptStagePurpose.context_selection : AiRequestAttemptStagePurpose.answer),
-          providerRequestKey,
-          state: AiAttemptState.reserved,
-          creditCost: isV2 ? input.policy.creditCost : reservation,
-          tokenUsageState: AiTokenUsageState.unknown,
-          finalPayloadHash: providerTaskForDispatch.finalPayloadHash ?? null,
-          dispatchDeadlineAt,
-          certifierId: providerTaskForDispatch.certifierId ?? null,
-          certifierVersion: providerTaskForDispatch.certifierVersion ?? null,
-          priceSnapshot: providerTaskForDispatch.priceSnapshot ? json(providerTaskForDispatch.priceSnapshot) : undefined,
-          finalMeasuredBytes: exactProviderPayload.byteCount ?? input.pack.byteCount,
-          finalMeasuredTokenUpperBound: providerTaskForDispatch.inputQuotaUnitsUpperBound,
-          releaseManifestDigest: providerTaskForDispatch.manifestDigest,
-        },
-      });
-      if (input.automaticContext) {
+      if (!localProtocol) {
+        await tx.aiRequestAttempt.create({
+          data: {
+            requestId: request.id,
+            attemptNo,
+            gateway: providerTaskForDispatch.gateway,
+            upstreamProvider: providerTaskForDispatch.upstreamProvider,
+            upstreamProviderSlug: providerTaskForDispatch.upstreamProviderSlug,
+            model: providerTaskForDispatch.model,
+            stagePurpose: input.stagePurpose ?? (input.automaticContext ? AiRequestAttemptStagePurpose.context_selection : AiRequestAttemptStagePurpose.answer),
+            providerRequestKey,
+            state: AiAttemptState.reserved,
+            creditCost: isV2 ? input.policy.creditCost : reservation,
+            tokenUsageState: AiTokenUsageState.unknown,
+            finalPayloadHash: providerTaskForDispatch.finalPayloadHash ?? null,
+            dispatchDeadlineAt,
+            certifierId: providerTaskForDispatch.certifierId ?? null,
+            certifierVersion: providerTaskForDispatch.certifierVersion ?? null,
+            priceSnapshot: providerTaskForDispatch.priceSnapshot ? json(providerTaskForDispatch.priceSnapshot) : undefined,
+            finalMeasuredBytes: exactProviderPayload.byteCount ?? input.pack.byteCount,
+            finalMeasuredTokenUpperBound: providerTaskForDispatch.inputQuotaUnitsUpperBound,
+            releaseManifestDigest: providerTaskForDispatch.manifestDigest,
+          },
+        });
+      }
+      if (input.automaticContext && !localProtocol) {
         // requestId is the lifecycle owner and the unique request FK makes
         // duplicate/replayed admission unable to create a second invocation.
         await tx.aiContextToolInvocation.create({
@@ -1899,6 +2381,81 @@ export class VeraPrismaAdmissionService {
             retentionClass: "vera-context-tool",
             retentionPolicyVersion: input.retentionPolicyVersion ?? input.policy.bundleVersion,
             purgeAt: contextPurgeAt,
+          },
+        });
+      }
+      if (localProtocol) {
+        const candidateKeys = input.localSelectorRequest?.candidateKeys ?? [];
+        const candidateMap = input.localContextShortlist!
+          .filter((candidate) => candidateKeys.includes(candidate.key))
+          .map((candidate) => {
+            if (!/^cand_[0-9]{2}$/u.test(candidate.key)
+              || !candidate.stableSourceId.trim()
+              || !candidate.title.trim()
+              || !candidate.versionDigest.trim()
+              || candidate.evidenceSegments?.some((segment) => segment.trim())) {
+              throw new VeraAdmissionError({ code: "local_context_shortlist_invalid", status: 422 });
+            }
+            return {
+              key: candidate.key,
+              kind: candidate.kind,
+              stableSourceId: candidate.stableSourceId,
+              title: candidate.title,
+              topic: candidate.topic,
+              teaser: candidate.teaser,
+              releasedAt: candidate.releasedAt,
+              versionDigest: candidate.versionDigest,
+              releaseVersionHandle: candidate.releaseVersionHandle ?? null,
+              priorHint: candidate.priorHint ?? null,
+              priorHints: candidate.priorHints ?? [],
+            };
+          });
+        if (candidateMap.length !== candidateKeys.length || new Set(candidateMap.map((candidate) => candidate.key)).size !== candidateMap.length) {
+          throw new VeraAdmissionError({ code: "local_context_shortlist_invalid", status: 422 });
+        }
+        const candidateMapText = canonicalJson(candidateMap);
+        const candidateMapCiphertext = await this.envelope!.forClient(tx).encryptAsync(candidateMapText, `ai-context-decision:${request.id}:shortlist`);
+        const selectorRequestText = input.localSelectorRequest
+          ? new TextDecoder("utf-8", { fatal: true }).decode(input.localSelectorRequest.bytes)
+          : null;
+        if (input.localSelectorRequest && selectorRequestText !== canonicalJson(input.localSelectorRequest.body)) throw new VeraAdmissionError({ code: "local_context_selector_request_invalid", status: 422 });
+        const selectorRequestCiphertext = selectorRequestText
+          ? await this.envelope!.forClient(tx).encryptAsync(selectorRequestText, `ai-context-decision:${request.id}:selector-request`)
+          : null;
+        const selectorState = candidateKeys.length > 0 ? AiContextDecisionState.shortlisted : AiContextDecisionState.unavailable;
+        await tx.aiContextDecision.create({
+          data: {
+            requestId: request.id,
+            protocolVersion: VERA_LOCAL_DECISION_PROTOCOL,
+            selectorKind: "respan_span01_lite",
+            state: selectorState,
+            candidateMapCiphertext: json(candidateMapCiphertext),
+            candidateMapDigest: sha256Hex(candidateMapText),
+            ...(selectorRequestCiphertext ? { selectorRequestCiphertext: json(selectorRequestCiphertext) } : {}),
+            selectorRequestDigest: input.localSelectorRequest?.digest,
+            selectorPriceSnapshotDigest: input.localSelectorPriceSnapshotDigest,
+            selectorCostUsdMicros: null,
+            selectorCostProvenance: null,
+            networkDispatchCount: 0,
+            ...(candidateKeys.length === 0 ? { errorCode: "no_match", failedAt: input.now } : {}),
+          },
+        });
+        if (input.localSelectorRequest) await tx.aiRequestAttempt.create({
+          data: {
+            requestId: request.id,
+            attemptNo: 1,
+            gateway: "respan",
+            upstreamProvider: "respan",
+            upstreamProviderSlug: "respan-01-free",
+            model: "respan-01-free",
+            stagePurpose: AiRequestAttemptStagePurpose.context_selection,
+            providerRequestKey,
+            state: AiAttemptState.reserved,
+            creditCost: isV2 ? input.policy.creditCost : reservation,
+            tokenUsageState: AiTokenUsageState.unknown,
+            finalPayloadHash: input.localSelectorRequest.digest,
+            dispatchDeadlineAt,
+            finalMeasuredBytes: input.localSelectorRequest.bytes.byteLength,
           },
         });
       }
@@ -2341,6 +2898,7 @@ export class VeraPrismaAdmissionService {
       tokenUsageState: AiTokenUsageState;
     };
     normalizedResult: NormalizedVeraResult;
+    releaseReservation?: boolean;
     now: Date;
     persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<{ requestId: string; assistantMessageId: string | null; usageAccountingState: AiUsageAccountingState }> {
@@ -2349,7 +2907,7 @@ export class VeraPrismaAdmissionService {
     const durable = await input.persistDurableResult(tx, normalizedResult);
     const isV2 = request.ledgerVersion === AiUsageLedgerVersion.vera_credit_usd_v2;
     const reserved = request.quotaUnitsReserved;
-    const actual = stage.quotaUnitsConsumed ?? reserved;
+    const actual = input.releaseReservation ? 0 : stage.quotaUnitsConsumed ?? reserved;
     let remainingReserved = 0;
     let used = 0;
     let debt = 0;
@@ -2357,7 +2915,7 @@ export class VeraPrismaAdmissionService {
     let accounting: AiUsageAccountingState;
     let v2Settlement: VeraV2QuotaSettlement | null = null;
     if (isV2) {
-      const outcome = request.chargedProviderCostUsdMicros === null ? "unknown" : "known";
+      const outcome = input.releaseReservation ? "released" : request.chargedProviderCostUsdMicros === null ? "unknown" : "known";
       v2Settlement = await this.settleV2Quota({
         requestId: request.id,
         outcome,
@@ -2479,12 +3037,18 @@ export class VeraPrismaAdmissionService {
       if (request.settlementDeadlineAt && now > request.settlementDeadlineAt) throw new VeraAdmissionError({ code: "stage_after_deadline", status: 409 });
       if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
 
+      const localNoAnswer = (request.automaticContextGateSnapshot as { protocol?: unknown } | null)?.protocol === "local_respan_free"
+        && input.normalizedResult.kind === "fallback"
+        && stage.quotaUnitsConsumed === 0
+        && !(await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: request.id, attemptNo: 2 } }, select: { id: true } }));
+
       return this.finalizeLockedRequest({
         tx,
         request,
         daily,
         stage,
         normalizedResult: input.normalizedResult,
+        releaseReservation: localNoAnswer,
         now,
         persistDurableResult: createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }),
       });
@@ -2502,6 +3066,12 @@ export class VeraPrismaAdmissionService {
     errorCode: string;
     usage: NormalizedVeraResult["usage"];
     providerEvidence?: ProviderFailureEvidence;
+    /** Local no-answer failures release learner credits while any unresolved
+     * provider spend stays in the unknown-cost bucket. */
+    releaseCreditsOnFailure?: boolean;
+    /** A cancellation before either provider dispatch returns both credits
+     * and the monetary reservation. */
+    releaseReservationOnFailure?: boolean;
     now?: Date;
   }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
@@ -2519,13 +3089,14 @@ export class VeraPrismaAdmissionService {
         if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
         const evidence = input.providerEvidence;
         const reportedCostUsdMicros = evidence?.reportedCostMicros ? parseMicrosString(evidence.reportedCostMicros) : null;
-        const settlementOutcome = evidence?.settlementOutcome
+        const settlementOutcome = input.releaseReservationOnFailure ? "released" : evidence?.settlementOutcome
           ?? (evidence?.state === "overrun" && reportedCostUsdMicros !== null ? "known" : "unknown");
         const settlement = await this.settleV2Quota({
           requestId: request.id,
           outcome: settlementOutcome,
           chargedUsdMicros: reportedCostUsdMicros ?? undefined,
           forceOverrun: evidence?.state === "overrun",
+          releaseCreditsOnUnknown: input.releaseCreditsOnFailure,
           now,
           transaction: tx,
         });
@@ -2599,7 +3170,7 @@ export class VeraPrismaAdmissionService {
         || request.status === AiRequestLifecycleState.failed) return;
 
       const reserved = request.quotaUnitsReserved;
-      const actual = input.usage.quotaUnitsConsumed ?? reserved;
+      const actual = input.releaseReservationOnFailure || input.releaseCreditsOnFailure ? 0 : input.usage.quotaUnitsConsumed ?? reserved;
       const remainingReserved = daily.reservedQuotaUnits - reserved;
       if (remainingReserved < 0) throw new VeraAdmissionError({ code: "quota_ledger_conflict", status: 409 });
       const used = daily.usedQuotaUnits + actual;

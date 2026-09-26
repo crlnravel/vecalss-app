@@ -114,8 +114,9 @@ function boundedPreview(value: string | null, maxBytes = 320): string | null {
   return `${bytes.subarray(0, end).toString("utf8").trimEnd()}…`;
 }
 
-function contextKindForSourceType(sourceType: string): "materi" | "kuis" | "tryout" {
-  return sourceType === "material" ? "materi" : "kuis";
+function contextKindForSource(sourceType: string, citationKey: string): "materi" | "kuis" | "tryout" {
+  if (sourceType === "material") return "materi";
+  return citationKey.startsWith("tryout_") ? "tryout" : "kuis";
 }
 
 function safeAutomaticResult(value: string | null): Array<{ citationKey: string; kind: "materi" | "kuis" | "tryout"; title: string; releasedAt: string | null; limitations: string[] }> {
@@ -442,6 +443,7 @@ export class VeraLearnerService {
             errorCode: true,
             createdAt: true,
             contextToolInvocation: { select: { state: true, resultManifestCiphertext: true } },
+            contextDecision: { select: { state: true, errorCode: true, selectedCandidateCount: true } },
             contextPack: { select: { provenanceState: true, purgeState: true } },
             sources: {
               orderBy: { ordinal: "asc" },
@@ -456,6 +458,7 @@ export class VeraLearnerService {
             errorCode: true,
             createdAt: true,
             contextToolInvocation: { select: { state: true, resultManifestCiphertext: true } },
+            contextDecision: { select: { state: true, errorCode: true, selectedCandidateCount: true } },
             contextPack: { select: { provenanceState: true, purgeState: true } },
             sources: {
               orderBy: { ordinal: "asc" },
@@ -476,10 +479,10 @@ export class VeraLearnerService {
       request: await (async () => {
         const request = row.assistantRequest ?? row.userRequests[0] ?? null;
         if (!request) return null;
-        const automatic = Boolean(request.contextToolInvocation);
+        const automatic = Boolean(request.contextToolInvocation || request.contextDecision);
         const fallbackSources = request.sources.map((source) => ({
           citationKey: source.citationKey,
-          kind: contextKindForSourceType(source.sourceType),
+          kind: contextKindForSource(source.sourceType, source.citationKey),
           title: source.titleSnapshot ?? source.citationLabel ?? source.citationKey,
           releasedAt: request.createdAt.toISOString(),
           limitations: source.snapshotState === "available" ? [] : ["Bukti rilis tidak lagi tersedia."],
@@ -493,8 +496,12 @@ export class VeraLearnerService {
             : null)
           : [];
         const requestSources = automaticSources.length > 0 ? automaticSources : fallbackSources;
+        const localNoMatch = request.contextDecision?.errorCode === "no_match"
+          || (request.contextDecision?.state === "decided" && request.contextDecision.selectedCandidateCount === 0);
         const evidenceState = requestSources.length === 0
-          ? automatic ? "no_match" as const : "unavailable" as const
+          ? request.contextDecision
+            ? localNoMatch ? "no_match" as const : request.status === "failed" ? "failed" as const : "unavailable" as const
+            : automatic ? "no_match" as const : "unavailable" as const
           : request.contextPack?.provenanceState === "reconstructable"
             && request.contextPack.purgeState === "available"
             && request.sources.every((source) => source.snapshotState === "available")
