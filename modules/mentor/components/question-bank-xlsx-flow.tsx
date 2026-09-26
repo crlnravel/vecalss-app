@@ -21,7 +21,7 @@ import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
-import { ArrowDownToLine, CircleAlert, FileText, Upload } from "@/lib/icons";
+import { CircleAlert, FileText, Upload } from "@/lib/icons";
 import {
   toQuestionBankCsvDraftPayload,
   type QuestionBankCsvDraftQuestion,
@@ -157,9 +157,9 @@ const fieldLabels: Record<string, string> = {
 
 const csvIssueMessages: Record<string, string> = {
   xlsx_control_character: "Ada karakter yang tidak bisa dibaca.",
-  xlsx_empty_file: "File kosong. Isi sheet Soal lalu unggah kembali.",
+  xlsx_empty_file: "File kosong. Isi lembar soal lalu unggah kembali.",
   xlsx_field_too_long: "Isi bagian ini terlalu panjang.",
-  xlsx_header_invalid: "Susunan kolom belum sesuai dengan templat.",
+  xlsx_header_invalid: "Susunan kolom belum dikenali.",
   xlsx_header_only: "Belum ada soal di bawah judul kolom.",
   xlsx_invalid_correct_options: "Kunci jawaban tidak sesuai dengan pilihan yang diisi.",
   xlsx_invalid_difficulty: "Tingkat kesulitan belum dikenali.",
@@ -170,16 +170,16 @@ const csvIssueMessages: Record<string, string> = {
   xlsx_invalid_utf8: "File belum dapat dibaca. Simpan ulang lalu unggah kembali.",
   xlsx_option_sequence_invalid: "Pilihan jawaban harus berurutan mulai dari A.",
   xlsx_required_field: "Bagian ini wajib diisi.",
-  xlsx_row_limit_exceeded: "File memuat lebih dari 500 soal.",
+  xlsx_row_limit_exceeded: "File memuat lebih dari 1.000 soal.",
 };
 
 const xlsxIssueMessages: Record<string, string> = {
   xlsx_cell_value_invalid: "Isi sel belum dapat dibaca. Periksa kembali nilainya.",
-  xlsx_column_limit_exceeded: "Sheet Soal memiliki kolom di luar batas templat.",
+  xlsx_column_limit_exceeded: "Salah satu lembar memiliki terlalu banyak kolom.",
   xlsx_formula_disallowed: "Rumus belum didukung. Ganti rumus dengan nilainya.",
-  xlsx_header_invalid: "Urutan atau nama kolom belum sesuai dengan templat.",
+  xlsx_header_invalid: "Nama kolom pada lembar soal belum dikenali.",
   xlsx_image_anchor_invalid: "Letakkan gambar di satu sel pada kolom gambar yang sesuai.",
-  xlsx_image_outside_question_sheet: "Letakkan gambar pada sheet Soal.",
+  xlsx_image_outside_question_sheet: "Letakkan gambar pada lembar soal yang dikenali.",
   xlsx_image_placement_limit_exceeded: "Jumlah gambar melebihi batas file.",
   xlsx_image_slot_conflict: "Satu sel gambar berisi tautan dan gambar. Pilih salah satu.",
   xlsx_image_source_invalid: "Gambar tidak dapat dibuka atau formatnya belum didukung.",
@@ -188,13 +188,13 @@ const xlsxIssueMessages: Record<string, string> = {
   xlsx_image_url_too_long: "Tautan gambar terlalu panjang.",
   xlsx_image_url_unsafe: "Gunakan tautan HTTPS langsung ke gambar.",
   xlsx_multiple_images_in_slot: "Satu sel gambar hanya boleh berisi satu gambar.",
-  xlsx_question_sheet_missing: "Sheet Soal tidak ditemukan. Unduh templat lalu isi sheet Soal.",
-  xlsx_row_index_limit_exceeded: "Sheet Soal memiliki terlalu banyak baris kosong.",
+  xlsx_question_sheet_missing: "Lembar soal belum ditemukan. Periksa nama kolom pada workbook.",
+  xlsx_row_index_limit_exceeded: "Salah satu lembar memiliki terlalu banyak baris.",
   xlsx_too_large: "Ukuran file melebihi batas 24 MB.",
   xlsx_total_image_bytes_exceeded: "Total ukuran gambar melebihi batas file.",
   xlsx_total_image_source_bytes_exceeded: "Total ukuran sumber gambar melebihi batas file.",
   xlsx_unique_image_limit_exceeded: "Jumlah gambar melebihi batas file.",
-  xlsx_unknown_sheet: "File memiliki sheet tambahan. Hapus sheet yang tidak digunakan lalu unggah kembali.",
+  xlsx_worksheet_limit_exceeded: "Workbook memiliki terlalu banyak lembar.",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -250,17 +250,18 @@ function issueMessage(issue: QuestionBankXlsxIssue) {
     message = "Gambar tidak dapat digunakan. Ganti gambar atau periksa tautannya.";
   }
   if (!message && code === "xlsx_header_invalid" && issue.reason === "missing") {
-    message = "Kolom ini belum ada. Gunakan templat soal yang tersedia.";
+    message = "Kolom wajib belum ada pada lembar soal.";
   }
   if (!message && code === "xlsx_header_invalid" && issue.reason === "reordered") {
-    message = "Urutan kolom belum sesuai dengan templat.";
+    message = "Periksa kembali urutan kolom pada lembar soal.";
   }
   if (!message && code === "xlsx_header_invalid" && issue.reason === "unknown") {
     message = "Kolom ini tidak dikenali. Hapus kolom tambahan dari file.";
   }
-  if (!message) message = "Periksa isi bagian ini dan ikuti petunjuk pada templat.";
+  if (!message) message = "Periksa isi bagian ini pada workbook lalu unggah kembali.";
 
   const location = [
+    issue.sheetName ? `Tab ${issue.sheetName}` : null,
     issue.row ? `Baris ${issue.row}` : null,
     issue.field ? fieldLabels[issue.field] ?? "bagian soal" : null,
   ].filter(Boolean).join(" · ");
@@ -476,31 +477,20 @@ async function uploadExactParts(
   if (Date.now() >= deadline) throw new Error("attempt_expired");
 }
 
-function XlsxTemplateDownload() {
+function StakeholderWorkbookNotice() {
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-3">
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-primary-800 shadow-sm">
           <FileText aria-hidden="true" className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-secondary-900">Templat soal Excel</p>
+          <p className="text-sm font-semibold text-secondary-900">Gunakan berkas Excel LBE dari tim Anda</p>
           <p className="mt-0.5 text-xs leading-5 text-secondary-600">
-            Isi sheet Soal dan letakkan gambar pada kolom gambar.
+            Semua tab soal yang dikenali akan dimuat bersama. Tab indeks dan dasbor dilewati. Letakkan gambar pada sel pertanyaan atau pilihan jawaban.
           </p>
         </div>
       </div>
-      <Button
-        aria-label="Unduh templat soal Excel"
-        className="shrink-0"
-        nativeButton={false}
-        render={<a download="templat-bank-soal.xlsx" href={`${XLSX_API_ROOT}/template`} />}
-        size="sm"
-        variant="reference"
-      >
-        <ArrowDownToLine aria-hidden="true" size={16} />
-        Unduh templat
-      </Button>
     </div>
   );
 }
@@ -509,8 +499,8 @@ function ThumbnailLabel({ image }: { image: XlsxThumbnail }) {
   return (
     <div className="mt-2 grid gap-1 text-xs leading-5 text-secondary-700">
       {image.placements.map((placement, index) => (
-        <p key={`${placement.row}-${placement.field}-${index}`}>
-          Baris {placement.row} · {fieldLabels[placement.field] ?? "gambar soal"}
+        <p key={`${placement.sheetName}-${placement.row}-${placement.field}-${index}`}>
+          Tab {placement.sheetName} · Baris {placement.row} · {fieldLabels[placement.field] ?? "gambar soal"}
         </p>
       ))}
     </div>
@@ -528,7 +518,7 @@ function ThumbnailGrid({ images }: { images: XlsxThumbnail[] }) {
         >
           <div className="grid min-h-32 place-items-center overflow-hidden rounded-xl bg-primary-50/50">
             <Image
-              alt={image.placements.map((placement) => `Baris ${placement.row}, ${fieldLabels[placement.field] ?? "gambar soal"}`).join("; ")}
+              alt={image.placements.map((placement) => `Tab ${placement.sheetName}, baris ${placement.row}, ${fieldLabels[placement.field] ?? "gambar soal"}`).join("; ")}
               className="max-h-36 w-auto object-contain"
               height={image.height}
               src={`data:${image.mimeType};base64,${image.thumbnailBase64}`}
@@ -565,7 +555,7 @@ function PreviewSummary({
       <div>
         <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Isi file</p>
         <p className="mt-1 text-sm font-semibold text-secondary-900">
-          {formatCount(preview.summary.acceptedRows)} soal · {formatCount(preview.summary.imageCount)} gambar
+          {formatCount(preview.summary.acceptedRows)} soal dari {formatCount(preview.summary.questionSheetCount)} tab · {formatCount(preview.summary.imageCount)} gambar
         </p>
       </div>
       {target.kind === "bank" ? (
@@ -1135,7 +1125,7 @@ function QuestionBankXlsxImportDialog({
           summary: preview.summary,
         }, "question-bank-draft");
         const applied: DraftApplied = {
-          fileName: file?.name ?? "templat-bank-soal.xlsx",
+          fileName: file?.name ?? "workbook-bank-soal.xlsx",
           imageCount: result.imageAssetIds.length,
           mediaFolderReservationId: result.mediaFolderReservationId,
           questions: draftPayload.questions,
@@ -1190,7 +1180,7 @@ function QuestionBankXlsxImportDialog({
   const disabled = target.kind === "bank" ? Boolean(target.disabled) : false;
   const progress = phase === "uploading"
     ? partProgress.total ? (partProgress.completed / partProgress.total) * 100 : 0
-    : phase === "completing" || phase === "previewing" ? 100 : null;
+    : null;
   const uploadLabel = phase === "previewing"
     ? "Memeriksa isi file"
     : phase === "completing"
@@ -1237,7 +1227,7 @@ function QuestionBankXlsxImportDialog({
           <CompletionSummary text={completionText ?? "Impor selesai."} />
         ) : (
           <div className="grid gap-5">
-            <XlsxTemplateDownload />
+            <StakeholderWorkbookNotice />
             <div className="grid gap-2">
               <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>
                 File soal
@@ -1247,7 +1237,7 @@ function QuestionBankXlsxImportDialog({
                 disabled={disabled || isBusy || phase === "applying"}
                 file={file}
                 id={inputId}
-                maxSizeLabel="Maks. 24 MB · 500 soal"
+                maxSizeLabel="Maks. 24 MB · 1.000 soal"
                 onCancelUpload={() => cancelFlow(true)}
                 onChange={handleFileChange}
                 progress={progress}
@@ -1309,7 +1299,7 @@ function QuestionBankXlsxImportDialog({
                 <div>
                   <h3 className="font-semibold text-secondary-900">Ringkasan file</h3>
                   <p className="mt-1 text-sm text-secondary-600">
-                    {formatCount(preview.summary.acceptedRows)} soal · {formatCount(preview.summary.imageCount)} gambar
+                    {formatCount(preview.summary.acceptedRows)} soal dari {formatCount(preview.summary.questionSheetCount)} tab · {formatCount(preview.summary.imageCount)} gambar
                   </p>
                 </div>
                 {preview.summary.rejectedRows > 0 || issues.length > 0 ? (

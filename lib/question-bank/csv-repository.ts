@@ -101,6 +101,8 @@ type QuestionBankCsvApplyTransactionResult = QuestionBankCsvApplyResult & {
 };
 
 type ApplyQuestionBankRowsTransactionOptions = {
+  /** A larger explicit bound for the XLSX transaction; CSV remains at 500. */
+  maxRows?: number;
   /**
    * Optional destination selected by an XLSX apply. When supplied, the Bank
    * must still point at this folder under its aggregate lock.
@@ -549,9 +551,16 @@ async function lockBankQuestionTree(tx: Prisma.TransactionClient, bankId: string
   await tx.$queryRaw`SELECT option.id FROM "question_options" option JOIN "questions" question ON question.id = option.question_id WHERE question.question_bank_id = ${bankId}::uuid ORDER BY option.id ASC FOR UPDATE`;
 }
 
-function validateCsvRows(mode: QuestionBankCsvImportMode, rows: readonly QuestionBankCsvRow[]) {
-  if (!rows.length || rows.length > QUESTION_BANK_CSV_MAX_ROWS) {
-    throw new QuestionBankCsvMutationError("invalid_input", "Bank Soal harus memiliki 1 sampai 500 soal.");
+function validateCsvRows(
+  mode: QuestionBankCsvImportMode,
+  rows: readonly QuestionBankCsvRow[],
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
+) {
+  if (!Number.isSafeInteger(maxRows) || maxRows < 1 || !rows.length || rows.length > maxRows) {
+    throw new QuestionBankCsvMutationError(
+      "invalid_input",
+      `Bank Soal harus memiliki 1 sampai ${maxRows} soal.`,
+    );
   }
   if (mode !== "append" && mode !== "overwrite") {
     throw new QuestionBankCsvMutationError("invalid_input");
@@ -576,8 +585,11 @@ function validateCsvRows(mode: QuestionBankCsvImportMode, rows: readonly Questio
   }
 }
 
-function validateQuestionBankCsvApplyInput(input: ApplyQuestionBankCsvInput) {
-  validateCsvRows(input.mode, input.rows);
+function validateQuestionBankCsvApplyInput(
+  input: ApplyQuestionBankCsvInput,
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
+) {
+  validateCsvRows(input.mode, input.rows, maxRows);
   if (!isUuid(input.bankId) || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
     throw new QuestionBankCsvMutationError("invalid_input");
   }
@@ -589,7 +601,7 @@ async function applyQuestionBankRowsInTransaction(
   input: ApplyQuestionBankCsvInput,
   options: ApplyQuestionBankRowsTransactionOptions = {},
 ): Promise<QuestionBankCsvApplyTransactionResult> {
-  validateQuestionBankCsvApplyInput(input);
+  validateQuestionBankCsvApplyInput(input, options.maxRows ?? QUESTION_BANK_CSV_MAX_ROWS);
   await setTransactionLockTimeout(tx);
   await assertAuthoringEditLease(
     tx,

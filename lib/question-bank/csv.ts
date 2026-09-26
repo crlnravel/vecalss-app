@@ -479,6 +479,7 @@ function validateQuestionBankCsvRecords(
   byteLength = 0,
   initialStructuralErrors: readonly QuestionBankCsvIssue[] = [],
   decodeCsvSpreadsheetEscapes = true,
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
 ): QuestionBankCsvParseResult {
   const structuralErrors = [...initialStructuralErrors];
   const rowErrors: QuestionBankCsvIssue[] = [];
@@ -500,7 +501,7 @@ function validateQuestionBankCsvRecords(
 
   const dataRecords = records.slice(1);
   if (!dataRecords.length && !structuralErrors.length) structuralErrors.push(issue("structural", "header_only", 1));
-  if (dataRecords.length > QUESTION_BANK_CSV_MAX_ROWS) structuralErrors.push(issue("structural", "row_limit_exceeded", QUESTION_BANK_CSV_MAX_ROWS + 2));
+  if (dataRecords.length > maxRows) structuralErrors.push(issue("structural", "row_limit_exceeded", maxRows + 2));
   if (structuralErrors.length) {
     return {
       byteLength,

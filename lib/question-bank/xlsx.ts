@@ -13,6 +13,7 @@ import {
   validateQuestionBankCsvRecords,
   type QuestionBankCsvParseResult,
 } from "@/lib/question-bank/csv";
+import { QUESTION_BANK_MATERI_OPTIONS } from "@/lib/question-bank/materi";
 import {
   OoxmlParseError,
   parseXmlDocument,
@@ -31,6 +32,7 @@ import type {
   QuestionBankXlsxPreviewManifest,
   QuestionBankXlsxPreviewSummary,
   QuestionBankXlsxThumbnail,
+  QuestionBankXlsxWorksheetRowRef,
 } from "./xlsx-contract";
 
 const IMAGE_FIELDS = [
@@ -129,9 +131,27 @@ type ParsedDrawing = {
 };
 
 type WorkbookRead = {
-  issues: QuestionBankXlsxIssue[];
+  formulaCells: Array<{ column: number; row: number }>;
   maxRow: number;
   populatedRows: Set<number>;
+};
+
+type XlsxQuestionSheetLayout = {
+  columns: Map<string, number>;
+  fieldByColumn: Map<number, string>;
+  headerRow: number;
+  imageFieldByColumn: Map<number, string>;
+  imageUrlFieldByField: Map<string, number>;
+  importFieldColumns: Map<number, string>;
+  kind: "legacy" | "stakeholder";
+  sheetName: string;
+};
+
+type XlsxPackageStructure = {
+  packageParts: ZipPackage;
+  preflightBySheet: Map<string, WorkbookRead>;
+  sheetParts: Map<string, Buffer>;
+  sheets: SheetPart[];
 };
 
 type FetchImageResult = {
@@ -145,8 +165,13 @@ type ImageSourceByteBudget = {
   usedBytes: number;
 };
 
-function structureIssue(code: string, row?: number, field?: string): QuestionBankXlsxIssue {
-  return { code, field, kind: row === undefined ? "structural" : "row", row };
+function structureIssue(
+  code: string,
+  row?: number,
+  field?: string,
+  sheetName?: string,
+): QuestionBankXlsxIssue {
+  return { code, field, kind: row === undefined ? "structural" : "row", row, sheetName };
 }
 
 function csvFieldToXlsxField(field: string | undefined) {
@@ -514,7 +539,7 @@ function parsePackageSheets(packageParts: ZipPackage, signal?: AbortSignal) {
   }
   const workbookRelationships = getRelationships(packageParts, workbookPart, signal);
   const sheetElements = xmlDescendants(workbookRoot, "sheet", XLSX_XML_NAMESPACE);
-  if (!sheetElements.length || sheetElements.length > 20) throw new OoxmlParseError();
+  if (!sheetElements.length || sheetElements.length > QUESTION_BANK_XLSX_LIMITS.worksheets) throw new OoxmlParseError();
   const sheets: SheetPart[] = [];
   const names = new Set<string>();
   for (const sheet of sheetElements) {
@@ -523,6 +548,10 @@ function parsePackageSheets(packageParts: ZipPackage, signal?: AbortSignal) {
     const relationship = relationshipId ? workbookRelationships.get(relationshipId) : null;
     if (
       !name
+      || name.length > 31
+      || /[\\/*?:\[\]\u0000-\u001f]/u.test(name)
+      || name.startsWith("'")
+      || name.endsWith("'")
       || names.has(name)
       || !relationship
       || !relationship.type.endsWith("/worksheet")
@@ -534,12 +563,6 @@ function parsePackageSheets(packageParts: ZipPackage, signal?: AbortSignal) {
     names.add(name);
     sheets.push({ name, part, relationships: getRelationships(packageParts, part, signal) });
   }
-  const unknownSheet = sheets.find((sheet) => sheet.name !== "Panduan" && sheet.name !== "Soal");
-  if (unknownSheet) {
-    throw new WorkbookIssueError([structureIssue("xlsx_unknown_sheet", undefined, unknownSheet.name)]);
-  }
-  const questionSheet = sheets.find((sheet) => sheet.name === "Soal");
-  if (!questionSheet) throw new WorkbookIssueError([structureIssue("xlsx_question_sheet_missing")]);
   return sheets;
 }
 
@@ -581,14 +604,14 @@ function preflightWorksheet(bytes: Buffer, sheetName: string, signal?: AbortSign
     const references = dimension.split(":");
     if (references.length > 2) throw new OoxmlParseError();
     const endpoints = references.map((reference) => parseCellReference(reference.replace(/\$/gu, "")));
-    if (endpoints.some((endpoint) =>
-      endpoint.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
-      || endpoint.column > QUESTION_BANK_XLSX_HEADER.length,
-    )) {
-      throw new OoxmlParseError();
+    if (endpoints.some((endpoint) => endpoint.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows)) {
+      throw new WorkbookIssueError([structureIssue("xlsx_row_index_limit_exceeded", undefined, undefined, sheetName)]);
+    }
+    if (endpoints.some((endpoint) => endpoint.column > QUESTION_BANK_XLSX_LIMITS.worksheetColumns)) {
+      throw new WorkbookIssueError([structureIssue("xlsx_column_limit_exceeded", undefined, undefined, sheetName)]);
     }
   }
-  const issues: QuestionBankXlsxIssue[] = [];
+  const formulaCells: Array<{ column: number; row: number }> = [];
   const rows = xmlDescendants(root, "row", XLSX_XML_NAMESPACE);
   let maxRow = 0;
   const populatedRows = new Set<number>();
@@ -602,7 +625,7 @@ function preflightWorksheet(bytes: Buffer, sheetName: string, signal?: AbortSign
       throw new OoxmlParseError();
     }
     if (row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows) {
-      throw new WorkbookIssueError([structureIssue("xlsx_row_index_limit_exceeded", row)]);
+      throw new WorkbookIssueError([structureIssue("xlsx_row_index_limit_exceeded", row, undefined, sheetName)]);
     }
     seenRows.add(row);
     maxRow = Math.max(maxRow, row);
@@ -619,13 +642,12 @@ function preflightWorksheet(bytes: Buffer, sheetName: string, signal?: AbortSign
       ) {
         throw new OoxmlParseError();
       }
-      if (coordinate.column > QUESTION_BANK_XLSX_HEADER.length) {
-        throw new WorkbookIssueError([structureIssue("xlsx_column_limit_exceeded", row)]);
+      if (coordinate.column > QUESTION_BANK_XLSX_LIMITS.worksheetColumns) {
+        throw new WorkbookIssueError([structureIssue("xlsx_column_limit_exceeded", row, undefined, sheetName)]);
       }
       seenCells.add(reference.toUpperCase());
       if (xmlChildren(cell, "f", XLSX_XML_NAMESPACE).length) {
-        const field = QUESTION_BANK_XLSX_HEADER[coordinate.column - 1];
-        issues.push(structureIssue("xlsx_formula_disallowed", row, sheetName === "Soal" ? field : undefined));
+        formulaCells.push({ column: coordinate.column, row });
       }
       if (
         xmlChildren(cell, "v", XLSX_XML_NAMESPACE).length
@@ -636,10 +658,7 @@ function preflightWorksheet(bytes: Buffer, sheetName: string, signal?: AbortSign
       }
     }
   }
-  if (xmlDescendants(root, "f", XLSX_XML_NAMESPACE).length > issues.length) {
-    issues.push(structureIssue("xlsx_formula_disallowed"));
-  }
-  return { issues, maxRow, populatedRows };
+  return { formulaCells, maxRow, populatedRows };
 }
 
 function parseXmlRelationshipsInPackage(packageParts: ZipPackage, signal?: AbortSignal) {
@@ -727,16 +746,21 @@ function readPictureMediaRelationship(anchor: XmlElement, drawingRelationships: 
   return relation.target;
 }
 
-function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuestionSheet: boolean, signal?: AbortSignal): ParsedDrawing {
+function placementKey(sheetName: string, row: number, field: string) {
+  return `${sheetName}\u0000${row}\u0000${field}`;
+}
+
+function parseSheetDrawings(
+  packageParts: ZipPackage,
+  sheet: SheetPart,
+  layout: XlsxQuestionSheetLayout,
+  signal?: AbortSignal,
+): ParsedDrawing {
   const placements = new Map<string, string[]>();
   const issues: QuestionBankXlsxIssue[] = [];
   const drawingRelationships = sheet.relationships;
   const drawingLinks = [...drawingRelationships.values()].filter((relationship) => relationship.type.endsWith("/drawing"));
-  if (!isQuestionSheet && drawingLinks.length) {
-    return { issues: [structureIssue("xlsx_image_outside_question_sheet")], placements };
-  }
-  const imageColumns = new Set(QUESTION_BANK_XLSX_HEADER.flatMap((field, index) => IMAGE_FIELDS.includes(field as (typeof IMAGE_FIELDS)[number]) ? [index] : []));
-  let anchorCount = 0;
+  let pictureCount = 0;
   for (const drawingLink of drawingLinks) {
     if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     const drawingPart = resolveRelationshipPart(sheet.part, drawingLink.target);
@@ -751,19 +775,22 @@ function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuesti
       child.namespaceUri === DRAWING_NAMESPACE
       && ["oneCellAnchor", "twoCellAnchor", "absoluteAnchor"].includes(child.localName),
     );
-    anchorCount += anchors.length;
-    if (anchorCount > QUESTION_BANK_XLSX_LIMITS.imagePlacements) throw new OoxmlParseError();
-    const nonAnchorShapes = shapeTree.children.filter((child) =>
-      !["nvGrpSpPr", "grpSpPr", "oneCellAnchor", "twoCellAnchor", "absoluteAnchor", "extLst"].includes(child.localName),
-    );
-    if (nonAnchorShapes.length) throw new OoxmlParseError();
     for (const anchor of anchors) {
-      if (anchor.localName === "absoluteAnchor") throw new OoxmlParseError();
-      if (
-        xmlChildren(anchor, "pic", DRAWING_NAMESPACE).length !== 1
+      const pics = xmlChildren(anchor, "pic", DRAWING_NAMESPACE);
+      // The stakeholder workbook has decorative shape anchors. Ignore those;
+      // only picture anchors become question images.
+      if (!pics.length) continue;
+      pictureCount += 1;
+      if (pictureCount > QUESTION_BANK_XLSX_LIMITS.imagePlacements) {
+        throw new WorkbookIssueError([structureIssue("xlsx_image_placement_limit_exceeded", undefined, undefined, sheet.name)]);
+      }
+      if (anchor.localName === "absoluteAnchor") {
+        issues.push(structureIssue("xlsx_image_anchor_invalid", undefined, undefined, sheet.name));
+        continue;
+      }
+      if (pics.length !== 1
         || xmlChildren(anchor, "clientData", DRAWING_NAMESPACE).length > 1
-        || (anchor.localName === "oneCellAnchor" && xmlChildren(anchor, "to", DRAWING_NAMESPACE).length > 0)
-      ) {
+        || (anchor.localName === "oneCellAnchor" && xmlChildren(anchor, "to", DRAWING_NAMESPACE).length > 0)) {
         throw new OoxmlParseError();
       }
       const from = parseAnchorCoordinate(anchor, "from");
@@ -803,18 +830,20 @@ function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuesti
         from.row < 1
         || from.row >= QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
         || from.column < 0
-        || from.column >= QUESTION_BANK_XLSX_HEADER.length
-        || !imageColumns.has(from.column)
-        || (to && (to.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows || to.column > QUESTION_BANK_XLSX_HEADER.length))
+        || from.column >= QUESTION_BANK_XLSX_LIMITS.worksheetColumns
+        || (to && (to.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows || to.column > QUESTION_BANK_XLSX_LIMITS.worksheetColumns))
       ) {
         const row = from.row + 1;
-        const field = QUESTION_BANK_XLSX_HEADER[from.column] ?? `column_${from.column + 1}`;
-        issues.push(structureIssue("xlsx_image_anchor_invalid", row, field));
+        issues.push(structureIssue("xlsx_image_anchor_invalid", row, undefined, sheet.name));
         continue;
       }
-      const field = QUESTION_BANK_XLSX_HEADER[from.column]!;
+      const field = layout.imageFieldByColumn.get(from.column);
+      if (!field || from.row + 1 <= layout.headerRow) {
+        issues.push(structureIssue("xlsx_image_anchor_invalid", from.row + 1, undefined, sheet.name));
+        continue;
+      }
       const row = from.row + 1;
-      const key = `${row}:${field}`;
+      const key = placementKey(sheet.name, row, field);
       const existing = placements.get(key) ?? [];
       existing.push(imagePart);
       placements.set(key, existing);
@@ -822,38 +851,61 @@ function parseSheetDrawings(packageParts: ZipPackage, sheet: SheetPart, isQuesti
   }
   for (const [key, imageParts] of placements) {
     if (imageParts.length > 1) {
-      const [rowText, field] = key.split(":");
-      issues.push(structureIssue("xlsx_multiple_images_in_slot", Number(rowText), field));
+      const [sheetName, rowPart, fieldName] = key.split("\u0000");
+      issues.push(structureIssue("xlsx_multiple_images_in_slot", Number(rowPart), fieldName, sheetName));
     }
   }
   return { issues, placements };
 }
 
-function parseXlsxWorkbookStructure(input: Uint8Array, signal?: AbortSignal) {
+function parseXlsxPackageStructure(input: Uint8Array, signal?: AbortSignal): XlsxPackageStructure {
   const packageParts = parseZipPackage(input, signal);
   parseContentTypes(packageParts, signal);
   parseXmlRelationshipsInPackage(packageParts, signal);
   const sheets = parsePackageSheets(packageParts, signal);
+  if (sheets.length > QUESTION_BANK_XLSX_LIMITS.worksheets) {
+    throw new WorkbookIssueError([structureIssue("xlsx_worksheet_limit_exceeded")]);
+  }
   const sheetParts = new Map<string, Buffer>();
-  let maxRow = 0;
-  const questionRows = new Set<number>();
-  const issues: QuestionBankXlsxIssue[] = [];
+  const preflightBySheet = new Map<string, WorkbookRead>();
   for (const sheet of sheets) {
     if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
     const entry = packageParts.get(sheet.part);
     if (!entry) throw new OoxmlParseError();
     sheetParts.set(sheet.name, entry.bytes);
     const preflight = preflightWorksheet(entry.bytes, sheet.name, signal);
-    maxRow = Math.max(maxRow, sheet.name === "Soal" ? preflight.maxRow : 0);
-    if (sheet.name === "Soal") {
-      for (const row of preflight.populatedRows) questionRows.add(row);
-    }
-    issues.push(...preflight.issues);
+    preflightBySheet.set(sheet.name, preflight);
   }
+
+  return { packageParts, preflightBySheet, sheetParts, sheets };
+}
+
+function parseXlsxQuestionWorkbookStructure(
+  packageStructure: XlsxPackageStructure,
+  layouts: readonly XlsxQuestionSheetLayout[],
+  signal?: AbortSignal,
+) {
+  const { packageParts, preflightBySheet, sheets } = packageStructure;
+  const issues: QuestionBankXlsxIssue[] = [];
   const embeddedMedia = new Map<string, Buffer>();
   const drawingPlacements = new Map<string, string[]>();
-  for (const sheet of sheets) {
-    const parsed = parseSheetDrawings(packageParts, sheet, sheet.name === "Soal", signal);
+  const questionRowsBySheet = new Map<string, number[]>();
+  const sheetByName = new Map(sheets.map((sheet) => [sheet.name, sheet]));
+  for (const layout of layouts) {
+    if (signal?.aborted) throw signal.reason ?? new ImageSourceError("attempt_cancelled");
+    const sheet = sheetByName.get(layout.sheetName);
+    const preflight = preflightBySheet.get(layout.sheetName);
+    if (!sheet || !preflight) throw new OoxmlParseError();
+    for (const formula of preflight.formulaCells) {
+      const field = layout.importFieldColumns.get(formula.column);
+      if (formula.row > layout.headerRow && field) {
+        issues.push(structureIssue("xlsx_formula_disallowed", formula.row, field, layout.sheetName));
+      }
+    }
+    questionRowsBySheet.set(layout.sheetName, [...preflight.populatedRows]
+      .filter((row) => row > layout.headerRow)
+      .sort((left, right) => left - right));
+    const parsed = parseSheetDrawings(packageParts, sheet, layout, signal);
     issues.push(...parsed.issues);
     for (const [slot, imageParts] of parsed.placements) {
       drawingPlacements.set(slot, [...(drawingPlacements.get(slot) ?? []), ...imageParts]);
@@ -862,10 +914,8 @@ function parseXlsxWorkbookStructure(input: Uint8Array, signal?: AbortSignal) {
   if (packageParts.rawImageSourceBytesExceeded) {
     for (const [slot, imageParts] of drawingPlacements) {
       if (!imageParts.length) continue;
-      const separator = slot.indexOf(":");
-      const row = Number(slot.slice(0, separator));
-      const field = slot.slice(separator + 1);
-      issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", row, field));
+      const [sheetName, rowText, field] = slot.split("\u0000");
+      issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", Number(rowText), field, sheetName));
     }
     if (!issues.some((issue) => issue.code === "xlsx_total_image_source_bytes_exceeded")) {
       issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", undefined, "image"));
@@ -880,20 +930,19 @@ function parseXlsxWorkbookStructure(input: Uint8Array, signal?: AbortSignal) {
     }
   }
   for (const key of drawingPlacements.keys()) {
-    const row = Number(key.slice(0, key.indexOf(":")));
-    if (Number.isSafeInteger(row)) {
-      maxRow = Math.max(maxRow, row);
-      questionRows.add(row);
-    }
+    const [sheetName, rowText] = key.split("\u0000");
+    const row = Number(rowText);
+    if (!Number.isSafeInteger(row) || !sheetName) continue;
+    const rows = questionRowsBySheet.get(sheetName) ?? [];
+    if (!rows.includes(row)) rows.push(row);
+    rows.sort((left, right) => left - right);
+    questionRowsBySheet.set(sheetName, rows);
   }
-  const worksheetBytes = sheetParts.get("Soal");
-  if (!worksheetBytes) throw new OoxmlParseError();
   return {
     drawingPlacements,
     embeddedMedia,
     issues,
-    maxRow,
-    questionRows: [...questionRows].sort((left, right) => left - right),
+    questionRowsBySheet,
     rawImageSourceBytes: packageParts.rawImageSourceBytes,
     rawImageSourceBytesExceeded: packageParts.rawImageSourceBytesExceeded,
   };
@@ -910,93 +959,339 @@ function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text:
   return { invalid: true, text: "" };
 }
 
+function normalizeQuestionSheetHeader(value: string) {
+  return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase("id-ID");
+}
+
+const STAKEHOLDER_HEADER_FIELDS = new Map<string, string>([
+  ["no soal", "source_question_id"],
+  ["no. soal", "source_question_id"],
+  ["nomor soal", "source_question_id"],
+  ["materi", "materi"],
+  ["komponen", "component"],
+  ["level", "difficulty"],
+  ["pertanyaan / soal", "prompt"],
+  ["pertanyaan/soal", "prompt"],
+  ["opsi a", "option_a"],
+  ["opsi b", "option_b"],
+  ["opsi c", "option_c"],
+  ["opsi d", "option_d"],
+  ["opsi e", "option_e"],
+  ["kunci jawaban", "correct_options"],
+  ["pembahasan", "explanation"],
+  ["status", "status"],
+  ["pic", "pic"],
+  ["catatan", "notes"],
+]);
+
+function buildQuestionSheetLayout(
+  worksheet: ExcelJS.Worksheet,
+  headerRow: number,
+  kind: XlsxQuestionSheetLayout["kind"],
+  headerValues: readonly string[],
+) {
+  const columns = new Map<string, number>();
+  const fieldByColumn = new Map<number, string>();
+  const imageFieldByColumn = new Map<number, string>();
+  const imageUrlFieldByField = new Map<string, number>();
+  const importFieldColumns = new Map<number, string>();
+  for (const [index, header] of headerValues.entries()) {
+    const column = index + 1;
+    if (!header) continue;
+    const normalized = normalizeQuestionSheetHeader(header);
+    const field = kind === "legacy"
+      ? QUESTION_BANK_XLSX_HEADER.find((value) => value === normalized)
+      : STAKEHOLDER_HEADER_FIELDS.get(normalized);
+    if (!field) continue;
+    columns.set(field, column);
+    fieldByColumn.set(column, field);
+    if (kind === "legacy" && QUESTION_BANK_CSV_HEADER.includes(field as (typeof QUESTION_BANK_CSV_HEADER)[number])) {
+      importFieldColumns.set(column, field);
+    } else if (kind === "legacy" && IMAGE_FIELDS.includes(field as (typeof IMAGE_FIELDS)[number])) {
+      importFieldColumns.set(column, field);
+      imageFieldByColumn.set(column - 1, field);
+      imageUrlFieldByField.set(field, column);
+    } else if (kind === "stakeholder" && !["source_question_id", "component", "status", "pic", "notes"].includes(field)) {
+      importFieldColumns.set(column, field);
+      if (field === "prompt") imageFieldByColumn.set(column - 1, "prompt_image");
+      if (/^option_[a-e]$/u.test(field)) imageFieldByColumn.set(column - 1, `${field}_image`);
+    }
+  }
+  return {
+    columns,
+    fieldByColumn,
+    headerRow,
+    imageFieldByColumn,
+    imageUrlFieldByField,
+    importFieldColumns,
+    kind,
+    sheetName: worksheet.name,
+  } satisfies XlsxQuestionSheetLayout;
+}
+
+function detectQuestionSheetLayouts(workbook: ExcelJS.Workbook) {
+  const layouts: XlsxQuestionSheetLayout[] = [];
+  const issues: QuestionBankXlsxIssue[] = [];
+  for (const worksheet of workbook.worksheets) {
+    let candidate: { headerRow: number; values: string[]; kind: "legacy" | "stakeholder" } | null = null;
+    let malformedCandidateRow: number | null = null;
+    const scanLimit = Math.min(20, Math.max(worksheet.rowCount, 1));
+    for (let rowNumber = 1; rowNumber <= scanLimit; rowNumber += 1) {
+      const values = Array.from({ length: QUESTION_BANK_XLSX_LIMITS.worksheetColumns }, (_, index) => {
+        const parsed = textFromExcelCell(worksheet.getCell(rowNumber, index + 1).value);
+        return parsed.invalid ? "" : parsed.text.trim();
+      });
+      if (values.length >= QUESTION_BANK_XLSX_HEADER.length
+        && QUESTION_BANK_XLSX_HEADER.every((field, index) => values[index] === field)) {
+        candidate = { headerRow: rowNumber, kind: "legacy", values };
+        break;
+      }
+
+      const headers = new Set(values.map(normalizeQuestionSheetHeader));
+      const hasSourceQuestionNumber = headers.has("no soal")
+        || headers.has("no. soal")
+        || headers.has("nomor soal");
+      const hasPrompt = headers.has("pertanyaan / soal") || headers.has("pertanyaan/soal");
+      const hasOptionA = headers.has("opsi a");
+      const looksLikeQuestionSheet = (hasPrompt && (hasOptionA || headers.has("level") || headers.has("kunci jawaban")))
+        || (hasSourceQuestionNumber && (hasPrompt || hasOptionA));
+      if (looksLikeQuestionSheet) {
+        const mappedFields = values.map((value) => STAKEHOLDER_HEADER_FIELDS.get(normalizeQuestionSheetHeader(value)) ?? "");
+        const mapped = new Set(mappedFields);
+        const recognized = mappedFields.filter(Boolean);
+        const hasDuplicateMappedHeader = new Set(recognized).size !== recognized.length;
+        if (
+          hasSourceQuestionNumber
+          && hasPrompt
+          && hasOptionA
+          && mapped.has("difficulty")
+          && mapped.has("option_b")
+          && mapped.has("correct_options")
+          && !hasDuplicateMappedHeader
+        ) {
+          candidate = { headerRow: rowNumber, kind: "stakeholder", values };
+        } else {
+          malformedCandidateRow = rowNumber;
+        }
+        break;
+      }
+    }
+    if (candidate) {
+      layouts.push(buildQuestionSheetLayout(worksheet, candidate.headerRow, candidate.kind, candidate.values));
+    } else if (malformedCandidateRow !== null || worksheet.name === "Soal") {
+      issues.push(structureIssue("xlsx_header_invalid", malformedCandidateRow ?? undefined, undefined, worksheet.name));
+    }
+  }
+  if (!layouts.length && !issues.length) issues.push(structureIssue("xlsx_question_sheet_missing"));
+  return { issues, layouts };
+}
+
+function subjectCodeForMateri(value: string) {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  for (const [subjectCode, options] of Object.entries(QUESTION_BANK_MATERI_OPTIONS)) {
+    if ((options as readonly string[]).includes(normalized)) return subjectCode;
+  }
+  return null;
+}
+
+function subjectCodeForSourceLabel(value: string) {
+  const match = /^([A-Z]{2,3})[-_]/u.exec(value.trim().toUpperCase());
+  const candidate = match?.[1];
+  return candidate && candidate in QUESTION_BANK_MATERI_OPTIONS ? candidate : null;
+}
+
+function subjectCodeForSheetName(value: string) {
+  const names = Object.keys(QUESTION_BANK_MATERI_OPTIONS).sort((left, right) => right.length - left.length);
+  for (const subjectCode of names) {
+    if (new RegExp(`(?:^|[^A-Z])${subjectCode}(?=$|[^A-Z])`, "u").test(value.toUpperCase())) return subjectCode;
+  }
+  return null;
+}
+
+function inferWorkbookSubjectCode(
+  workbook: ExcelJS.Workbook,
+  layouts: readonly XlsxQuestionSheetLayout[],
+  questionRowsBySheet: Map<string, number[]>,
+) {
+  const candidates = new Set<string>();
+  for (const layout of layouts) {
+    const sheetCode = subjectCodeForSheetName(layout.sheetName);
+    if (sheetCode) candidates.add(sheetCode);
+    const worksheet = workbook.getWorksheet(layout.sheetName);
+    if (!worksheet) continue;
+    for (const row of questionRowsBySheet.get(layout.sheetName) ?? []) {
+      const sourceColumn = layout.columns.get("source_question_id");
+      const sourceText = sourceColumn === undefined ? "" : textFromExcelCell(worksheet.getCell(row, sourceColumn).value).text;
+      const sourceCode = subjectCodeForSourceLabel(sourceText);
+      if (sourceCode) candidates.add(sourceCode);
+      const materiColumn = layout.columns.get("materi");
+      const materiText = materiColumn === undefined ? "" : textFromExcelCell(worksheet.getCell(row, materiColumn).value).text;
+      const materiCode = subjectCodeForMateri(materiText);
+      if (materiCode) candidates.add(materiCode);
+    }
+  }
+  return candidates.size === 1 ? [...candidates][0]! : null;
+}
+
+function normalizeStakeholderDifficulty(value: string) {
+  switch (normalizeQuestionSheetHeader(value)) {
+    case "ringan":
+    case "mudah":
+    case "easy":
+      return "easy";
+    case "sedang":
+    case "menengah":
+    case "medium":
+      return "medium";
+    case "sulit":
+    case "berat":
+    case "hard":
+      return "hard";
+    default:
+      return value.trim();
+  }
+}
+
+function normalizeStakeholderAnswerKey(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) return { correctOptions: "", questionType: "" };
+  const tokens = normalized.split(/[\s,;/|+&]+/u).filter(Boolean);
+  const answers = tokens.length === 1 && /^[A-E]{2,5}$/u.test(tokens[0]!)
+    ? [...tokens[0]!]
+    : tokens;
+  if (!answers.length || answers.some((answer) => !/^[A-E]$/u.test(answer))) {
+    return { correctOptions: value, questionType: answers.length > 1 ? "multiple_choice" : "single_choice" };
+  }
+  return {
+    correctOptions: answers.join("|"),
+    questionType: answers.length > 1 ? "multiple_choice" : "single_choice",
+  };
+}
+
+function csvFieldToQuestionSheetField(field: string) {
+  if (field.endsWith("_media_asset_id")) return field.replace(/_media_asset_id$/u, "_image");
+  return field;
+}
+
 function xlsxToCsvRecords(
   worksheet: ExcelJS.Worksheet,
+  layout: XlsxQuestionSheetLayout,
   rowNumbers: readonly number[],
   placements: Map<string, string[]>,
+  workbookSubjectCode: string | null,
   signal?: AbortSignal,
 ) {
   const issues: QuestionBankXlsxIssue[] = [];
-  const header = Array.from({ length: QUESTION_BANK_XLSX_HEADER.length }, (_, index) => {
-    const parsed = textFromExcelCell(worksheet.getCell(1, index + 1).value);
-    return parsed.invalid ? "" : parsed.text;
-  });
-  if (header.length !== QUESTION_BANK_XLSX_HEADER.length || header.some((column, index) => column !== QUESTION_BANK_XLSX_HEADER[index])) {
-    issues.push(structureIssue("xlsx_header_invalid"));
-  }
-
   const records: string[][] = [[...QUESTION_BANK_CSV_HEADER]];
-  const recordRows = new Map<number, number>();
+  const recordRows = new Map<number, QuestionBankXlsxWorksheetRowRef>();
   let imageUrlCount = 0;
+  const imageSlotsForSheet = new Set([...placements.keys()].filter((key) => key.startsWith(`${layout.sheetName}\u0000`)));
   for (const row of rowNumbers) {
     throwIfRequestAborted(signal);
-    if (row < 2) continue;
-    const xlsxValues = Array.from({ length: QUESTION_BANK_XLSX_HEADER.length }, (_, index) => {
-      const parsed = textFromExcelCell(worksheet.getCell(row, index + 1).value);
-      const field = QUESTION_BANK_XLSX_HEADER[index]!;
-      if (parsed.invalid) issues.push(structureIssue("xlsx_cell_value_invalid", row, field));
-      return parsed.text;
-    });
-    const hasCellContent = xlsxValues.some((value) => value.trim());
-    const rowHasPlacement = [...placements.keys()].some((key) => key.startsWith(`${row}:`));
-    if (!hasCellContent && !rowHasPlacement) continue;
+    if (row <= layout.headerRow) continue;
+    const rawFields = new Map<string, string>();
+    for (const [field, column] of layout.columns) {
+      if (!layout.importFieldColumns.has(column) && field !== "source_question_id") continue;
+      const parsed = textFromExcelCell(worksheet.getCell(row, column).value);
+      if (parsed.invalid && layout.importFieldColumns.has(column)) {
+        issues.push(structureIssue("xlsx_cell_value_invalid", row, field, layout.sheetName));
+      }
+      rawFields.set(field, parsed.text);
+    }
 
     const values = Array.from({ length: QUESTION_BANK_CSV_HEADER.length }, () => "");
-    for (const [xlsxIndex, xlsxField] of QUESTION_BANK_XLSX_HEADER.entries()) {
-      if (IMAGE_FIELDS.includes(xlsxField as (typeof IMAGE_FIELDS)[number])) continue;
-      const csvIndex = QUESTION_BANK_CSV_HEADER.indexOf(xlsxField as (typeof QUESTION_BANK_CSV_HEADER)[number]);
-      if (csvIndex >= 0) values[csvIndex] = xlsxValues[xlsxIndex]!;
+    if (layout.kind === "legacy") {
+      for (const csvField of QUESTION_BANK_CSV_HEADER) {
+        const xlsxField = csvFieldToQuestionSheetField(csvField);
+        if (IMAGE_FIELDS.includes(xlsxField as (typeof IMAGE_FIELDS)[number])) continue;
+        const csvIndex = QUESTION_BANK_CSV_HEADER.indexOf(csvField);
+        values[csvIndex] = rawFields.get(xlsxField) ?? "";
+      }
+    } else {
+      const sourceLabel = rawFields.get("source_question_id") ?? "";
+      const materi = rawFields.get("materi") ?? "";
+      const rowSubjectCode = subjectCodeForSourceLabel(sourceLabel)
+        ?? subjectCodeForMateri(materi)
+        ?? subjectCodeForSheetName(layout.sheetName)
+        ?? workbookSubjectCode
+        ?? "";
+      const answer = normalizeStakeholderAnswerKey(rawFields.get("correct_options") ?? "");
+      const mappedFields: Record<string, string> = {
+        subject_code: rowSubjectCode,
+        materi,
+        difficulty: normalizeStakeholderDifficulty(rawFields.get("difficulty") ?? ""),
+        question_type: answer.questionType,
+        prompt: rawFields.get("prompt") ?? "",
+        option_a: rawFields.get("option_a") ?? "",
+        option_b: rawFields.get("option_b") ?? "",
+        option_c: rawFields.get("option_c") ?? "",
+        option_d: rawFields.get("option_d") ?? "",
+        option_e: rawFields.get("option_e") ?? "",
+        correct_options: answer.correctOptions,
+        explanation: rawFields.get("explanation") ?? "",
+      };
+      for (const [field, value] of Object.entries(mappedFields)) {
+        const index = QUESTION_BANK_CSV_HEADER.indexOf(field as (typeof QUESTION_BANK_CSV_HEADER)[number]);
+        if (index >= 0) values[index] = value;
+      }
     }
-    for (const imageField of IMAGE_FIELDS) {
-      const fieldIndex = QUESTION_BANK_XLSX_HEADER.indexOf(imageField);
-      const urlValue = xlsxValues[fieldIndex]!.trim();
-      const key = `${row}:${imageField}`;
+
+    let rowHasImageUrl = false;
+    for (const [imageField, column] of layout.imageUrlFieldByField) {
+      const urlValue = rawFields.get(imageField)?.trim() ?? "";
+      const key = placementKey(layout.sheetName, row, imageField);
       const imageParts = placements.get(key) ?? [];
       if (imageParts.length > 1) continue;
-      const isUrl = Boolean(urlValue);
-      if (isUrl && imageParts.length) {
-        issues.push(structureIssue("xlsx_image_slot_conflict", row, imageField));
+      if (urlValue && imageParts.length) {
+        issues.push(structureIssue("xlsx_image_slot_conflict", row, imageField, layout.sheetName));
         continue;
       }
-      if (isUrl) {
-        if (urlValue.length > QUESTION_BANK_XLSX_LIMITS.imageUrlMaxChars) {
-          issues.push(structureIssue("xlsx_image_url_too_long", row, imageField));
-          continue;
-        }
-        if (/\s/u.test(urlValue) || /[\u0000-\u001f\u007f]/u.test(xlsxValues[fieldIndex]!)) {
-          issues.push(structureIssue("xlsx_image_url_invalid", row, imageField));
-          continue;
-        }
-        let url: URL;
-        try {
-          url = new URL(urlValue);
-        } catch {
-          issues.push(structureIssue("xlsx_image_url_invalid", row, imageField));
-          continue;
-        }
-        if (
-          url.protocol !== "https:"
-          || !url.hostname
-          || url.username
-          || url.password
-          || url.hash
-          || (url.port && url.port !== "443")
-        ) {
-          issues.push(structureIssue("xlsx_image_url_unsafe", row, imageField));
-          continue;
-        }
-        imageUrlCount += 1;
+      if (!urlValue) continue;
+      rowHasImageUrl = true;
+      if (urlValue.length > QUESTION_BANK_XLSX_LIMITS.imageUrlMaxChars) {
+        issues.push(structureIssue("xlsx_image_url_too_long", row, imageField, layout.sheetName));
         continue;
       }
+      if (/\s/u.test(urlValue) || /[\u0000-\u001f\u007f]/u.test(worksheet.getCell(row, column).text)) {
+        issues.push(structureIssue("xlsx_image_url_invalid", row, imageField, layout.sheetName));
+        continue;
+      }
+      let url: URL;
+      try {
+        url = new URL(urlValue);
+      } catch {
+        issues.push(structureIssue("xlsx_image_url_invalid", row, imageField, layout.sheetName));
+        continue;
+      }
+      if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.hash || (url.port && url.port !== "443")) {
+        issues.push(structureIssue("xlsx_image_url_unsafe", row, imageField, layout.sheetName));
+        continue;
+      }
+      imageUrlCount += 1;
     }
-    const record = [...values];
-    // This keeps the shared CSV semantic validator's media slots empty; image
-    // sources are represented only by the frozen image manifest.
-    recordRows.set(records.length + 1, row);
-    records.push(record);
+
+    const rowHasPlacement = [...layout.imageFieldByColumn.values()].some((field) =>
+      imageSlotsForSheet.has(placementKey(layout.sheetName, row, field)),
+    );
+    const hasQuestionContent = layout.kind === "stakeholder"
+      ? ["prompt", "option_a", "option_b", "option_c", "option_d", "option_e", "correct_options", "explanation"]
+        .some((field) => (rawFields.get(field) ?? "").trim())
+      : [...rawFields.values()].some((value) => value.trim());
+    if (!hasQuestionContent && !rowHasImageUrl && !rowHasPlacement) continue;
+
+    // Asset IDs are represented only by the frozen image manifest, never by
+    // worksheet cell values.
+    for (const imageField of IMAGE_FIELDS) {
+      const csvMediaField = imageField.replace(/_image$/u, "_media_asset_id");
+      const index = QUESTION_BANK_CSV_HEADER.indexOf(csvMediaField as (typeof QUESTION_BANK_CSV_HEADER)[number]);
+      if (index >= 0) values[index] = "";
+    }
+    recordRows.set(records.length + 1, { row, sheetName: layout.sheetName });
+    records.push(values);
   }
   if (imageUrlCount > QUESTION_BANK_XLSX_LIMITS.externalImageUrls) {
-    issues.push(structureIssue("xlsx_image_url_limit_exceeded"));
+    issues.push(structureIssue("xlsx_image_url_limit_exceeded", undefined, undefined, layout.sheetName));
   }
   return { imageUrlCount, issues, recordRows, records };
 }
@@ -1386,9 +1681,10 @@ function fingerprint(value: string | Uint8Array) {
 }
 
 function createImageSources(
-  packageStructure: ReturnType<typeof parseXlsxWorkbookStructure>,
-  worksheet: ExcelJS.Worksheet,
-  rowNumbers: readonly number[],
+  workbook: ExcelJS.Workbook,
+  layouts: readonly XlsxQuestionSheetLayout[],
+  questionRowsBySheet: ReadonlyMap<string, readonly number[]>,
+  embeddedMedia: ReadonlyMap<string, Buffer>,
   drawingPlacements: Map<string, string[]>,
   imageUrlCount: number,
   initialIssues: QuestionBankXlsxIssue[],
@@ -1399,10 +1695,10 @@ function createImageSources(
   for (const [key, mediaParts] of drawingPlacements) {
     throwIfRequestAborted(signal);
     if (mediaParts.length !== 1) continue;
-    const [rowText, field] = key.split(":");
+    const [sheetName, rowText, field] = key.split("\u0000");
     const row = Number(rowText);
     const mediaPart = mediaParts[0]!;
-    const bytes = packageStructure.embeddedMedia.get(mediaPart);
+    const bytes = embeddedMedia.get(mediaPart);
     if (!bytes) continue;
     const sourceKey = `part:${mediaPart}`;
     const source = sources.get(sourceKey) ?? {
@@ -1411,43 +1707,48 @@ function createImageSources(
       placements: [],
       sourceUrlFingerprints: [],
     };
-    source.placements.push({ field: field!, row });
+    source.placements.push({ field: field!, row, sheetName: sheetName! });
     sources.set(sourceKey, source);
-    allImageSlots.push({ field: field!, row });
+    allImageSlots.push({ field: field!, row, sheetName: sheetName! });
   }
 
   let urlPlacements = 0;
-  for (const row of rowNumbers) {
-    throwIfRequestAborted(signal);
-    if (row < 2) continue;
-    for (const field of IMAGE_FIELDS) {
-      const cell = worksheet.getCell(row, QUESTION_BANK_XLSX_HEADER.indexOf(field) + 1);
-      const parsed = textFromExcelCell(cell.value);
-      const value = parsed.text.trim();
-      if (!value) continue;
-      let url: URL;
-      try {
-        url = new URL(value);
-      } catch {
-        continue;
+  for (const layout of layouts) {
+    if (layout.kind !== "legacy") continue;
+    const worksheet = workbook.getWorksheet(layout.sheetName);
+    if (!worksheet) throw new OoxmlParseError();
+    for (const row of questionRowsBySheet.get(layout.sheetName) ?? []) {
+      throwIfRequestAborted(signal);
+      if (row <= layout.headerRow) continue;
+      for (const [field, column] of layout.imageUrlFieldByField) {
+        const cell = worksheet.getCell(row, column);
+        const parsed = textFromExcelCell(cell.value);
+        const value = parsed.text.trim();
+        if (!value) continue;
+        let url: URL;
+        try {
+          url = new URL(value);
+        } catch {
+          continue;
+        }
+        if (url.protocol !== "https:" || url.username || url.password || url.hash || (url.port && url.port !== "443")) continue;
+        urlPlacements += 1;
+        const key = placementKey(layout.sheetName, row, field);
+        if (drawingPlacements.has(key)) continue;
+        // Each URL cell is a raw source even when another cell contains the
+        // same address; content hashing deduplicates only after bounded reads.
+        const sourceKey = `url:${layout.sheetName}:${row}:${field}`;
+        const source = sources.get(sourceKey) ?? {
+          bytes: Buffer.alloc(0),
+          mimeType: "",
+          placements: [],
+          sourceUrlFingerprints: [fingerprint(url.href)],
+          url,
+        };
+        source.placements.push({ field, row, sheetName: layout.sheetName });
+        sources.set(sourceKey, source);
+        allImageSlots.push({ field, row, sheetName: layout.sheetName });
       }
-      if (url.protocol !== "https:" || url.username || url.password || url.hash || (url.port && url.port !== "443")) continue;
-      urlPlacements += 1;
-      const key = `${row}:${field}`;
-      if (drawingPlacements.has(key)) continue;
-      // Each URL cell is a raw source even when another cell contains the
-      // same address; content hashing deduplicates only after bounded reads.
-      const sourceKey = `url:${row}:${field}`;
-      const source = sources.get(sourceKey) ?? {
-        bytes: Buffer.alloc(0),
-        mimeType: "",
-        placements: [],
-        sourceUrlFingerprints: [fingerprint(url.href)],
-        url,
-      };
-      source.placements.push({ field, row });
-      sources.set(sourceKey, source);
-      allImageSlots.push({ field, row });
     }
   }
   if (urlPlacements !== imageUrlCount) {
@@ -1524,7 +1825,7 @@ async function materializeImageSources(
               ? "xlsx_image_fetch_failed"
               : "xlsx_image_invalid";
         for (const placement of source.placements) {
-          issues.push(structureIssue(code, placement.row, placement.field));
+          issues.push(structureIssue(code, placement.row, placement.field, placement.sheetName));
         }
         return null;
       }
@@ -1534,7 +1835,12 @@ async function materializeImageSources(
       issues.length = 0;
       for (const [, source] of sourceEntries) {
         for (const placement of source.placements) {
-          issues.push(structureIssue("xlsx_total_image_source_bytes_exceeded", placement.row, placement.field));
+          issues.push(structureIssue(
+            "xlsx_total_image_source_bytes_exceeded",
+            placement.row,
+            placement.field,
+            placement.sheetName,
+          ));
         }
       }
       return {
@@ -1550,8 +1856,10 @@ async function materializeImageSources(
         const source = sourceEntries[index]?.[1];
         if (!source) continue;
         for (const placement of source.placements) {
-          const hasIssue = issues.some((issue) => issue.row === placement.row && issue.field === placement.field);
-          if (!hasIssue) issues.push(structureIssue(abortedCode, placement.row, placement.field));
+          const hasIssue = issues.some((issue) =>
+            issue.sheetName === placement.sheetName && issue.row === placement.row && issue.field === placement.field,
+          );
+          if (!hasIssue) issues.push(structureIssue(abortedCode, placement.row, placement.field, placement.sheetName));
         }
       }
     }
@@ -1596,20 +1904,31 @@ function expectedMimeTypeForContentType(contentType: string) {
   return ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(contentType) ? contentType : null;
 }
 
-function mapSharedCsvIssues(result: QuestionBankCsvParseResult, recordRows: Map<number, number>) {
-  const structuralIssues: QuestionBankXlsxIssue[] = result.structuralErrors.map((issue) => ({
-    code: `xlsx_${issue.code}`,
-    field: csvFieldToXlsxField(issue.column),
-    kind: "structural",
-    reason: issue.reason,
-    row: issue.row ? recordRows.get(issue.row) : undefined,
-  }));
-  const rowIssues: QuestionBankXlsxIssue[] = result.rowErrors.map((issue) => ({
-    code: `xlsx_${issue.code}`,
-    field: csvFieldToXlsxField(issue.column),
-    kind: "row",
-    row: issue.row ? recordRows.get(issue.row) : undefined,
-  }));
+function mapSharedCsvIssues(
+  result: QuestionBankCsvParseResult,
+  recordRows: Map<number, QuestionBankXlsxWorksheetRowRef>,
+) {
+  const structuralIssues: QuestionBankXlsxIssue[] = result.structuralErrors.map((issue) => {
+    const reference = issue.row ? recordRows.get(issue.row) : undefined;
+    return {
+      code: `xlsx_${issue.code}`,
+      field: csvFieldToXlsxField(issue.column),
+      kind: "structural",
+      reason: issue.reason,
+      row: reference?.row,
+      sheetName: reference?.sheetName,
+    };
+  });
+  const rowIssues: QuestionBankXlsxIssue[] = result.rowErrors.map((issue) => {
+    const reference = issue.row ? recordRows.get(issue.row) : undefined;
+    return {
+      code: `xlsx_${issue.code}`,
+      field: csvFieldToXlsxField(issue.column),
+      kind: "row",
+      row: reference?.row,
+      sheetName: reference?.sheetName,
+    };
+  });
   return { rowIssues, structuralIssues };
 }
 
@@ -1620,14 +1939,30 @@ function summarizeWorkbook(
   imageUrlCount: number,
   imageCount: number,
   imagePlacementCount: number,
+  questionSheetCount: number,
 ): QuestionBankXlsxPreviewSummary {
   return {
     ...semantic.summary,
     externalImageUrlCount: imageUrlCount,
     imageCount,
     imagePlacementCount,
+    questionSheetCount,
     rowErrorCount: rowIssues.length,
     structuralErrorCount: structuralIssues.length,
+  };
+}
+
+function emptyWorkbookSummary(structuralErrorCount: number, questionSheetCount = 0): QuestionBankXlsxPreviewSummary {
+  return {
+    acceptedRows: 0,
+    dataRowCount: 0,
+    externalImageUrlCount: 0,
+    imageCount: 0,
+    imagePlacementCount: 0,
+    questionSheetCount,
+    rejectedRows: 0,
+    rowErrorCount: 0,
+    structuralErrorCount,
   };
 }
 
@@ -1639,34 +1974,24 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
       issues: [structureIssue("xlsx_too_large")],
       manifest: null,
       normalizedRows: [],
-      summary: { acceptedRows: 0, dataRowCount: 0, externalImageUrlCount: 0, imageCount: 0, imagePlacementCount: 0, rejectedRows: 0, rowErrorCount: 0, structuralErrorCount: 1 },
+      summary: emptyWorkbookSummary(1),
       thumbnails: [],
     };
   }
 
-  let packageStructure: ReturnType<typeof parseXlsxWorkbookStructure>;
+  let packageStructure: XlsxPackageStructure;
   let excelWorkbook: ExcelJS.Workbook;
   try {
-    packageStructure = parseXlsxWorkbookStructure(input, signal);
+    packageStructure = parseXlsxPackageStructure(input, signal);
     throwIfRequestAborted(signal);
-    if (packageStructure.rawImageSourceBytesExceeded) {
-      const rowIssues = packageStructure.issues.filter((issue) => issue.kind === "row");
-      const structuralIssues = packageStructure.issues.filter((issue) => issue.kind === "structural");
+    if (packageStructure.packageParts.rawImageSourceBytesExceeded) {
+      const issues = [structureIssue("xlsx_total_image_source_bytes_exceeded", undefined, "image")];
       return {
         imagePayloads: [],
-        issues: packageStructure.issues,
+        issues,
         manifest: null,
         normalizedRows: [],
-        summary: {
-          acceptedRows: 0,
-          dataRowCount: 0,
-          externalImageUrlCount: 0,
-          imageCount: 0,
-          imagePlacementCount: packageStructure.drawingPlacements.size,
-          rejectedRows: 0,
-          rowErrorCount: rowIssues.length,
-          structuralErrorCount: structuralIssues.length,
-        },
+        summary: emptyWorkbookSummary(1),
         thumbnails: [],
       };
     }
@@ -1689,43 +2014,76 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
       issues,
       manifest: null,
       normalizedRows: [],
-      summary: { acceptedRows: 0, dataRowCount: 0, externalImageUrlCount: 0, imageCount: 0, imagePlacementCount: 0, rejectedRows: 0, rowErrorCount: 0, structuralErrorCount: issues.length },
+      summary: emptyWorkbookSummary(issues.length),
       thumbnails: [],
     };
   }
 
-  const worksheet = excelWorkbook.getWorksheet("Soal");
-  if (!worksheet) {
-    const issues = [structureIssue("xlsx_question_sheet_missing")];
+  const detected = detectQuestionSheetLayouts(excelWorkbook);
+  if (detected.issues.length || !detected.layouts.length) {
+    const issues = detected.issues.length ? detected.issues : [structureIssue("xlsx_question_sheet_missing")];
     return {
       imagePayloads: [],
       issues,
       manifest: null,
       normalizedRows: [],
-      summary: { acceptedRows: 0, dataRowCount: 0, externalImageUrlCount: 0, imageCount: 0, imagePlacementCount: 0, rejectedRows: 0, rowErrorCount: 0, structuralErrorCount: 1 },
+      summary: emptyWorkbookSummary(issues.length, detected.layouts.length),
       thumbnails: [],
     };
   }
 
-  const issues: QuestionBankXlsxIssue[] = [...packageStructure.issues];
-  const drawingPlacements = packageStructure.drawingPlacements;
+  const questionStructure = parseXlsxQuestionWorkbookStructure(packageStructure, detected.layouts, signal);
+  const layouts = detected.layouts;
+  const questionSheetCount = layouts.length;
+  const issues: QuestionBankXlsxIssue[] = [...questionStructure.issues];
+  const drawingPlacements = questionStructure.drawingPlacements;
+  const workbookSubjectCode = inferWorkbookSubjectCode(excelWorkbook, layouts, questionStructure.questionRowsBySheet);
+  const combinedRecords: string[][] = [[...QUESTION_BANK_CSV_HEADER]];
+  const recordRows = new Map<number, QuestionBankXlsxWorksheetRowRef>();
+  let imageUrlCount = 0;
   throwIfRequestAborted(signal);
-  const converted = xlsxToCsvRecords(worksheet, packageStructure.questionRows, drawingPlacements, signal);
-  issues.push(...converted.issues);
-  const csvResult = validateQuestionBankCsvRecords(converted.records, input.byteLength, [], false);
-  const semanticIssues = mapSharedCsvIssues(csvResult, converted.recordRows);
+  for (const layout of layouts) {
+    const worksheet = excelWorkbook.getWorksheet(layout.sheetName);
+    if (!worksheet) throw new OoxmlParseError();
+    const converted = xlsxToCsvRecords(
+      worksheet,
+      layout,
+      questionStructure.questionRowsBySheet.get(layout.sheetName) ?? [],
+      drawingPlacements,
+      workbookSubjectCode,
+      signal,
+    );
+    issues.push(...converted.issues);
+    imageUrlCount += converted.imageUrlCount;
+    for (let localCsvRow = 2; localCsvRow <= converted.records.length; localCsvRow += 1) {
+      const reference = converted.recordRows.get(localCsvRow);
+      if (!reference) throw new ImageSourceError("attempt_unavailable");
+      const combinedCsvRow = combinedRecords.length + 1;
+      combinedRecords.push(converted.records[localCsvRow - 1]!);
+      recordRows.set(combinedCsvRow, reference);
+    }
+  }
+  const csvResult = validateQuestionBankCsvRecords(
+    combinedRecords,
+    input.byteLength,
+    [],
+    false,
+    QUESTION_BANK_XLSX_LIMITS.dataRows,
+  );
+  const semanticIssues = mapSharedCsvIssues(csvResult, recordRows);
   issues.push(...semanticIssues.structuralIssues, ...semanticIssues.rowIssues);
   const imageSources = createImageSources(
-    packageStructure,
-    worksheet,
-    packageStructure.questionRows,
+    excelWorkbook,
+    layouts,
+    questionStructure.questionRowsBySheet,
+    questionStructure.embeddedMedia,
     drawingPlacements,
-    converted.imageUrlCount,
+    imageUrlCount,
     issues,
     signal,
   );
   if (
-    converted.imageUrlCount > QUESTION_BANK_XLSX_LIMITS.externalImageUrls
+    imageUrlCount > QUESTION_BANK_XLSX_LIMITS.externalImageUrls
     || imageSources.allImageSlots.length > QUESTION_BANK_XLSX_LIMITS.imagePlacements
   ) {
     if (imageSources.allImageSlots.length > QUESTION_BANK_XLSX_LIMITS.imagePlacements) {
@@ -1742,28 +2100,31 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
         csvResult,
         semanticRowIssues,
         structuralIssues,
-        converted.imageUrlCount,
+        imageUrlCount,
         0,
         imageSources.allImageSlots.length,
+        questionSheetCount,
       ),
       thumbnails: [],
     };
   }
   const materialized = await materializeImageSources(
     imageSources.sources,
-    converted.imageUrlCount,
-    packageStructure.rawImageSourceBytes,
+    imageUrlCount,
+    questionStructure.rawImageSourceBytes,
     signal,
   );
   issues.push(...materialized.issues);
   const uniqueImages = materialized.imagePayloads;
   const placementToHash = new Map<string, string>();
   for (const image of uniqueImages) {
-    for (const placement of image.placements) placementToHash.set(`${placement.row}:${placement.field}`, image.contentSha256);
+    for (const placement of image.placements) {
+      placementToHash.set(placementKey(placement.sheetName, placement.row, placement.field), image.contentSha256);
+    }
   }
   const imageSlots = imageSources.allImageSlots.map((slot) => ({
     ...slot,
-    contentSha256: placementToHash.get(`${slot.row}:${slot.field}`) ?? "",
+    contentSha256: placementToHash.get(placementKey(slot.sheetName, slot.row, slot.field)) ?? "",
   }));
   const semanticRowIssues = issues.filter((issue) => issue.kind === "row");
   const structuralIssues = issues.filter((issue) => issue.kind === "structural");
@@ -1771,9 +2132,10 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
     csvResult,
     semanticRowIssues,
     structuralIssues,
-    converted.imageUrlCount,
+    imageUrlCount,
     uniqueImages.length,
     imageSources.allImageSlots.length,
+    questionSheetCount,
   );
   if (issues.length) {
     return {
@@ -1786,12 +2148,12 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
     };
   }
 
-  const normalizedRowWorksheetRows = csvResult.normalizedRows.map((_, index) => {
-    const worksheetRow = converted.recordRows.get(index + 2);
-    if (worksheetRow === undefined) throw new ImageSourceError("attempt_unavailable");
-    return worksheetRow;
+  const normalizedRowWorksheetRefs = csvResult.normalizedRows.map((_, index) => {
+    const worksheetRef = recordRows.get(index + 2);
+    if (!worksheetRef) throw new ImageSourceError("attempt_unavailable");
+    return worksheetRef;
   });
-  if (normalizedRowWorksheetRows.length !== converted.recordRows.size) {
+  if (normalizedRowWorksheetRefs.length !== recordRows.size) {
     throw new ImageSourceError("attempt_unavailable");
   }
 
@@ -1799,8 +2161,8 @@ async function parseQuestionBankXlsxWorkbook(input: Uint8Array, signal?: AbortSi
     imageSlots,
     images: [],
     normalizedRows: csvResult.normalizedRows,
-    normalizedRowWorksheetRows,
-    schemaVersion: 2,
+    normalizedRowWorksheetRefs,
+    schemaVersion: 3,
     summary,
   };
   const thumbnails: QuestionBankXlsxThumbnail[] = uniqueImages

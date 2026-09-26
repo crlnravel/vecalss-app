@@ -113,10 +113,23 @@ type QuestionBankXlsxUploadPreviewInput = {
 type QuestionBankXlsxPreviewAttempt = {
   attemptId: string;
   manifest: QuestionBankXlsxPreviewManifest;
-  normalizedRowIndexByWorksheetRow: ReadonlyMap<number, number>;
+  normalizedRowIndexByWorksheetRef: ReadonlyMap<string, number>;
   ownerUserId: string;
   previewImageIndex: QuestionBankXlsxPreviewImageIndex[];
 };
+
+function worksheetRefKey(sheetName: string, row: number) {
+  return `${sheetName}\u0000${row}`;
+}
+
+function isValidWorksheetName(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 31
+    && !/[\\/*?:\[\]\u0000-\u001f]/u.test(value)
+    && !value.startsWith("'")
+    && !value.endsWith("'");
+}
 
 function createStagingPrefix(attemptId: string) {
   return `${STAGING_ROOT}/${attemptId}/`;
@@ -344,7 +357,8 @@ function parseImageIndex(value: Prisma.JsonValue, attemptId: string): QuestionBa
       }
       const typed = placement as Record<string, Prisma.JsonValue>;
       if (
-        typeof typed.row !== "number"
+        !isValidWorksheetName(typed.sheetName)
+        || typeof typed.row !== "number"
         || !Number.isSafeInteger(typed.row)
         || typed.row < 2
         || typed.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
@@ -353,7 +367,7 @@ function parseImageIndex(value: Prisma.JsonValue, attemptId: string): QuestionBa
       ) {
         throw new QuestionBankXlsxImportError("attempt_unavailable");
       }
-      return { field: typed.field, row: typed.row };
+      return { field: typed.field, row: typed.row, sheetName: typed.sheetName };
     });
     images.push({
       contentSha256: record.contentSha256,
@@ -1192,11 +1206,11 @@ async function readQuestionBankXlsxPreviewInternal(
   }
   if (
     !manifest
-    || manifest.schemaVersion !== 2
+    || manifest.schemaVersion !== 3
     || !Array.isArray(manifest.normalizedRows)
     || manifest.normalizedRows.length > QUESTION_BANK_XLSX_LIMITS.dataRows
-    || !Array.isArray(manifest.normalizedRowWorksheetRows)
-    || manifest.normalizedRowWorksheetRows.length !== manifest.normalizedRows.length
+    || !Array.isArray(manifest.normalizedRowWorksheetRefs)
+    || manifest.normalizedRowWorksheetRefs.length !== manifest.normalizedRows.length
     || !Array.isArray(manifest.imageSlots)
     || manifest.imageSlots.length > QUESTION_BANK_XLSX_LIMITS.imagePlacements
     || !Array.isArray(manifest.images)
@@ -1206,19 +1220,27 @@ async function readQuestionBankXlsxPreviewInternal(
   ) {
     throw new QuestionBankXlsxImportError("attempt_unavailable");
   }
-  const normalizedRowIndexByWorksheetRow = new Map<number, number>();
-  let previousWorksheetRow = 1;
-  for (const [normalizedRowIndex, worksheetRow] of manifest.normalizedRowWorksheetRows.entries()) {
+  const normalizedRowIndexByWorksheetRef = new Map<string, number>();
+  const previousWorksheetRowBySheet = new Map<string, number>();
+  for (const [normalizedRowIndex, worksheetRef] of manifest.normalizedRowWorksheetRefs.entries()) {
+    const worksheetRow = worksheetRef?.row;
+    const sheetName = worksheetRef?.sheetName;
+    const previousWorksheetRow = isValidWorksheetName(sheetName)
+      ? previousWorksheetRowBySheet.get(sheetName) ?? 1
+      : 1;
     if (
       !Number.isSafeInteger(worksheetRow)
+      || !isValidWorksheetName(sheetName)
       || worksheetRow < 2
       || worksheetRow > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
       || worksheetRow <= previousWorksheetRow
     ) {
       throw new QuestionBankXlsxImportError("attempt_unavailable");
     }
-    normalizedRowIndexByWorksheetRow.set(worksheetRow, normalizedRowIndex);
-    previousWorksheetRow = worksheetRow;
+    const key = worksheetRefKey(sheetName, worksheetRow);
+    if (normalizedRowIndexByWorksheetRef.has(key)) throw new QuestionBankXlsxImportError("attempt_unavailable");
+    normalizedRowIndexByWorksheetRef.set(key, normalizedRowIndex);
+    previousWorksheetRowBySheet.set(sheetName, worksheetRow);
   }
   const previewImageIndex = parseImageIndex(attempt.previewImageIndex, attemptId);
   if (manifest.images.length !== previewImageIndex.length) {
@@ -1227,11 +1249,12 @@ async function readQuestionBankXlsxPreviewInternal(
   const indexedByHash = new Map(previewImageIndex.map((image) => [image.contentSha256, image]));
   const manifestPlacements = new Set<string>();
   const indexedPlacements = new Set(previewImageIndex.flatMap((image) =>
-    image.placements.map((placement) => `${placement.row}:${placement.field}:${image.contentSha256}`),
+    image.placements.map((placement) => `${placement.sheetName}\u0000${placement.row}:${placement.field}:${image.contentSha256}`),
   ));
   for (const slot of manifest.imageSlots) {
     if (
       !slot
+      || !isValidWorksheetName(slot.sheetName)
       || !Number.isSafeInteger(slot.row)
       || slot.row < 2
       || slot.row > QUESTION_BANK_XLSX_LIMITS.physicalWorksheetRows
@@ -1242,9 +1265,9 @@ async function readQuestionBankXlsxPreviewInternal(
     ) {
       throw new QuestionBankXlsxImportError("attempt_unavailable");
     }
-    const key = `${slot.row}:${slot.field}`;
+    const key = `${slot.sheetName}\u0000${slot.row}:${slot.field}`;
     if (manifestPlacements.has(key)) throw new QuestionBankXlsxImportError("attempt_unavailable");
-    const normalizedRowIndex = normalizedRowIndexByWorksheetRow.get(slot.row);
+    const normalizedRowIndex = normalizedRowIndexByWorksheetRef.get(worksheetRefKey(slot.sheetName, slot.row));
     const normalizedRow = normalizedRowIndex === undefined
       ? undefined
       : manifest.normalizedRows[normalizedRowIndex];
@@ -1259,7 +1282,7 @@ async function readQuestionBankXlsxPreviewInternal(
       }
     }
     manifestPlacements.add(key);
-    indexedPlacements.delete(`${slot.row}:${slot.field}:${slot.contentSha256}`);
+    indexedPlacements.delete(`${slot.sheetName}\u0000${slot.row}:${slot.field}:${slot.contentSha256}`);
   }
   if (indexedPlacements.size > 0) throw new QuestionBankXlsxImportError("attempt_unavailable");
   for (const image of manifest.images) {
@@ -1294,6 +1317,9 @@ async function readQuestionBankXlsxPreviewInternal(
     || !Number.isSafeInteger(manifest.summary.externalImageUrlCount)
     || !Number.isSafeInteger(manifest.summary.imageCount)
     || !Number.isSafeInteger(manifest.summary.imagePlacementCount)
+    || !Number.isSafeInteger(manifest.summary.questionSheetCount)
+    || manifest.summary.questionSheetCount < 1
+    || manifest.summary.questionSheetCount > QUESTION_BANK_XLSX_LIMITS.worksheets
     || manifest.summary.acceptedRows !== manifest.normalizedRows.length
     || manifest.summary.dataRowCount !== manifest.normalizedRows.length
     || manifest.summary.rejectedRows !== 0
@@ -1309,7 +1335,7 @@ async function readQuestionBankXlsxPreviewInternal(
   return {
     attempt,
     manifest,
-    normalizedRowIndexByWorksheetRow,
+    normalizedRowIndexByWorksheetRef,
     previewImageIndex,
   };
 }
@@ -1623,12 +1649,12 @@ async function readFrozenQuestionBankXlsxImages(
 function applyImageAssetIdsToRows(
   rows: readonly QuestionBankCsvRow[],
   imageSlots: QuestionBankXlsxPreviewManifest["imageSlots"],
-  normalizedRowIndexByWorksheetRow: ReadonlyMap<number, number>,
+  normalizedRowIndexByWorksheetRef: ReadonlyMap<string, number>,
   assetIdByHash: ReadonlyMap<string, string>,
 ) {
   const mappedRows = rows.map((row) => ({ ...row, options: row.options.map((option) => ({ ...option })) }));
   for (const slot of imageSlots) {
-    const normalizedRowIndex = normalizedRowIndexByWorksheetRow.get(slot.row);
+    const normalizedRowIndex = normalizedRowIndexByWorksheetRef.get(worksheetRefKey(slot.sheetName, slot.row));
     const row = normalizedRowIndex === undefined ? undefined : mappedRows[normalizedRowIndex];
     const assetId = assetIdByHash.get(slot.contentSha256);
     if (!row || !assetId) throw new QuestionBankXlsxImportError("attempt_unavailable");
@@ -1677,7 +1703,7 @@ async function previewQuestionBankXlsxBankOverwriteImpact(input: {
   const rows = applyImageAssetIdsToRows(
     preview.manifest.normalizedRows,
     preview.manifest.imageSlots,
-    preview.normalizedRowIndexByWorksheetRow,
+    preview.normalizedRowIndexByWorksheetRef,
     previewAssetIdByHash,
   );
   return previewQuestionBankCsvOverwriteImpact({
@@ -1989,7 +2015,7 @@ async function applyQuestionBankXlsxToBank(input: {
     const rows = applyImageAssetIdsToRows(
       preview.manifest.normalizedRows,
       preview.manifest.imageSlots,
-      preview.normalizedRowIndexByWorksheetRow,
+      preview.normalizedRowIndexByWorksheetRef,
       assetIdByHash,
     );
     await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
@@ -2019,6 +2045,7 @@ async function applyQuestionBankXlsxToBank(input: {
         attemptOwnedPendingAssetIds: attemptAssets.map((asset) => asset.assetId),
         destinationMediaFolderId: folder.id,
         includeOverwriteImpact: input.mode === "overwrite",
+        maxRows: QUESTION_BANK_XLSX_LIMITS.dataRows,
       });
       await completeQuestionBankXlsxAttemptAssets(tx, input.attemptId, attemptAssets.map((asset) => asset.assetId));
       const saved: QuestionBankXlsxBankApplyResult = {
@@ -2082,7 +2109,7 @@ async function applyQuestionBankXlsxToDraft(input: {
     const rows = applyImageAssetIdsToRows(
       preview.manifest.normalizedRows,
       preview.manifest.imageSlots,
-      preview.normalizedRowIndexByWorksheetRow,
+      preview.normalizedRowIndexByWorksheetRef,
       assetIdByHash,
     );
     await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);

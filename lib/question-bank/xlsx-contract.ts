@@ -9,11 +9,18 @@ type QuestionBankXlsxIssue = {
   kind: "row" | "structural";
   reason?: string;
   row?: number;
+  sheetName?: string;
 };
 
 type QuestionBankXlsxImagePlacement = {
   field: string;
   row: number;
+  sheetName: string;
+};
+
+type QuestionBankXlsxWorksheetRowRef = {
+  row: number;
+  sheetName: string;
 };
 
 type QuestionBankXlsxPreviewImageIndex = {
@@ -39,8 +46,8 @@ type QuestionBankXlsxPreviewManifest = {
   imageSlots: QuestionBankXlsxPreviewImageSlot[];
   images: Array<QuestionBankXlsxPreviewImageIndex & { sourceUrlFingerprints: string[] }>;
   normalizedRows: QuestionBankCsvRow[];
-  normalizedRowWorksheetRows: number[];
-  schemaVersion: 2;
+  normalizedRowWorksheetRefs: QuestionBankXlsxWorksheetRowRef[];
+  schemaVersion: 3;
   summary: QuestionBankXlsxPreviewSummary;
 };
 
@@ -48,6 +55,7 @@ type QuestionBankXlsxPreviewSummary = QuestionBankCsvSummary & {
   externalImageUrlCount: number;
   imageCount: number;
   imagePlacementCount: number;
+  questionSheetCount: number;
 };
 
 type QuestionBankXlsxThumbnail = QuestionBankXlsxPreviewImageIndex & {
@@ -63,4 +71,5 @@ export type {
   QuestionBankXlsxPreviewManifest,
   QuestionBankXlsxPreviewSummary,
   QuestionBankXlsxThumbnail,
+  QuestionBankXlsxWorksheetRowRef,
 };

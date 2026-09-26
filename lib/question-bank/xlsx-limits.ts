@@ -2,7 +2,7 @@ const MIB = 1024 * 1024;
 
 const QUESTION_BANK_XLSX_LIMITS = Object.freeze({
   completedAttemptRetentionMs: 24 * 60 * 60 * 1_000,
-  dataRows: 500,
+  dataRows: 1_000,
   externalImageUrls: 250,
   imageBytes: 15 * MIB,
   imageMaxDimension: 12_000,
@@ -12,6 +12,8 @@ const QUESTION_BANK_XLSX_LIMITS = Object.freeze({
   maxConcurrentImageOperations: 8,
   maxRedirects: 3,
   physicalWorksheetRows: 10_000,
+  worksheetColumns: 64,
+  worksheets: 64,
   multipartPartBytes: 8 * MIB,
   operationLeaseMs: 6 * 60 * 1_000,
   previewExpiresMs: 15 * 60 * 1_000,
