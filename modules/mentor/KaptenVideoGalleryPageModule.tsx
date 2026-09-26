@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useTransition, type FormEvent } from "react";
 
 import {
   ArrowUpRight,
@@ -40,21 +40,38 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldError, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
-import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import { showToast } from "@/components/ui/toast";
+import type { SessionContext } from "@/lib/auth/types";
+import {
+  isYouTubeVideoUrl,
+  VIDEO_DESCRIPTION_MAX_LENGTH,
+  VIDEO_TITLE_MAX_LENGTH,
+  type SaveKaptenVideoInput,
+} from "@/lib/video/contract";
+import { cn } from "@/lib/utils";
+import {
+  saveKaptenVideoAction,
+  updateKaptenVideoPublicationAction,
+  updateKaptenVideoVisibilityAction,
+} from "@/modules/mentor/video-actions";
 import {
   videoFilters,
-  videoItems,
   type VideoGalleryItem,
   type VideoSubtest,
 } from "@/modules/video/video-gallery-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-type VideoDraft = Pick<VideoGalleryItem, "description" | "subtest" | "title" | "youtubeUrl">;
+type VideoDraft = Pick<
+  VideoGalleryItem,
+  "description" | "isVisibleToStudents" | "status" | "subtest" | "title" | "youtubeUrl"
+>;
+type VideoDraftTextField = "description" | "subtest" | "title" | "youtubeUrl";
 
 const emptyVideoDraft: VideoDraft = {
   description: "",
+  isVisibleToStudents: false,
+  status: "draft",
   subtest: "PK",
   title: "",
   youtubeUrl: "",
@@ -65,54 +82,6 @@ const thumbnailToneClasses = {
   deep: "bg-voyage-deep",
   leaf: "bg-voyage-leaf",
 } as const;
-
-function isYouTubeUrl(value: string) {
-  try {
-    const hostname = new URL(value).hostname.toLowerCase();
-    return ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"].includes(hostname);
-  } catch {
-    return false;
-  }
-}
-
-function categoryForSubtest(subtest: VideoSubtest): VideoGalleryItem["category"] {
-  return ["LBI", "LBE"].includes(subtest) ? "TPA" : "TPS";
-}
-
-function subjectForSubtest(subtest: VideoSubtest) {
-  const subjects: Record<VideoSubtest, string> = {
-    PBM: "Penalaran Berbasis Matematika",
-    LBE: "Literasi Bahasa Inggris",
-    LBI: "Literasi Bahasa Indonesia",
-    PK: "Pengetahuan Kuantitatif",
-    PM: "Penalaran Matematika",
-    PPU: "Pengetahuan dan Pemahaman Umum",
-    PU: "Penalaran Umum",
-  };
-
-  return subjects[subtest];
-}
-
-function buildVideoFromDraft(draft: VideoDraft, existing?: VideoGalleryItem): VideoGalleryItem {
-  const title = draft.title.trim();
-  const description = draft.description.trim() || "Video pembelajaran pilihan Kapten.";
-
-  return {
-    category: existing?.category ?? categoryForSubtest(draft.subtest),
-    description,
-    duration: existing?.duration ?? "—",
-    id: existing?.id ?? `video-${Date.now()}`,
-    isNew: existing?.isNew ?? true,
-    subtest: draft.subtest,
-    subject: subjectForSubtest(draft.subtest),
-    tags: existing?.tags ?? [draft.subtest, "YouTube"],
-    thumbnailEyebrow: existing?.thumbnailEyebrow ?? "VIDEO BARU",
-    thumbnailTitle: existing?.thumbnailTitle ?? title.toUpperCase(),
-    thumbnailTone: existing?.thumbnailTone ?? "forest",
-    title,
-    youtubeUrl: draft.youtubeUrl.trim(),
-  };
-}
 
 function VideoPreview({ video }: { video: VideoGalleryItem }) {
   return (
@@ -130,9 +99,11 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
           <span className="rounded-xl border border-white/15 bg-secondary-950/45 px-2 py-1 text-ui-xs font-bold tracking-[0.1em] text-white uppercase backdrop-blur-sm">
             {video.subtest}
           </span>
-          <span className="rounded-lg bg-secondary-950/75 px-2 py-1 text-xs font-bold tabular-nums text-white">
-            {video.duration}
-          </span>
+          {video.duration ? (
+            <span className="rounded-lg bg-secondary-950/75 px-2 py-1 text-xs font-bold tabular-nums text-white">
+              {video.duration}
+            </span>
+          ) : null}
         </div>
         <p className="relative z-10 max-w-[15ch] whitespace-pre-line font-display text-xl leading-[0.95] font-extrabold tracking-[-0.04em] text-white">
           {video.thumbnailTitle}
@@ -142,7 +113,19 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
   );
 }
 
-function KaptenVideoCard({ onEdit, video }: { onEdit: (video: VideoGalleryItem) => void; video: VideoGalleryItem }) {
+function KaptenVideoCard({
+  isPending,
+  onEdit,
+  onPublicationChange,
+  onVisibilityChange,
+  video,
+}: {
+  isPending: boolean;
+  onEdit: (video: VideoGalleryItem) => void;
+  onPublicationChange: (video: VideoGalleryItem, status: VideoGalleryItem["status"]) => void;
+  onVisibilityChange: (video: VideoGalleryItem, isVisibleToStudents: boolean) => void;
+  video: VideoGalleryItem;
+}) {
   return (
     <article className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "p-4 sm:p-5")}>
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
@@ -151,6 +134,12 @@ function KaptenVideoCard({ onEdit, video }: { onEdit: (video: VideoGalleryItem) 
           <div className="flex flex-wrap items-center gap-2">
             <MentorBadge size="sm" tone="category">
               {video.subtest}
+            </MentorBadge>
+            <MentorBadge size="sm" tone={video.status === "published" ? "success" : "attention"}>
+              {video.status === "published" ? "Terbit" : "Draf"}
+            </MentorBadge>
+            <MentorBadge size="sm" tone={video.isVisibleToStudents ? "active" : "neutral"}>
+              {video.isVisibleToStudents ? "Tampil ke siswa" : "Disembunyikan"}
             </MentorBadge>
             <span className="text-xs font-medium text-secondary-500">{video.subject}</span>
           </div>
@@ -163,8 +152,42 @@ function KaptenVideoCard({ onEdit, video }: { onEdit: (video: VideoGalleryItem) 
           <p className="mt-3 truncate text-xs text-secondary-400" title={video.youtubeUrl}>
             {video.youtubeUrl}
           </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-secondary-900">Terbitkan video</p>
+                <p className="mt-0.5 text-xs text-secondary-500">
+                  {video.status === "published" ? "Video sudah terbit." : "Video masih berupa draf."}
+                </p>
+              </div>
+              <Switch
+              aria-label={`Terbitkan ${video.title}`}
+              checked={video.status === "published"}
+              disabled={isPending}
+              onCheckedChange={(published) =>
+                  onPublicationChange(video, published ? "published" : "draft")
+                }
+              />
+            </div>
+            <div className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-secondary-900">Tampilkan ke siswa</p>
+                <p className="mt-0.5 text-xs text-secondary-500">
+                  {video.isVisibleToStudents
+                    ? "Muncul di galeri siswa jika sudah terbit."
+                    : "Tidak muncul di galeri siswa."}
+                </p>
+              </div>
+              <Switch
+              aria-label={`Tampilkan ${video.title} kepada siswa`}
+              checked={video.isVisibleToStudents}
+              disabled={isPending}
+              onCheckedChange={(visible) => onVisibilityChange(video, visible)}
+              />
+            </div>
+          </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-auto sm:pt-4">
-            <Button onClick={() => onEdit(video)} size="sm" type="button" variant="reference">
+            <Button disabled={isPending} onClick={() => onEdit(video)} size="sm" type="button" variant="reference">
               <FilePenLine aria-hidden="true" />
               Edit video
             </Button>
@@ -187,16 +210,24 @@ function KaptenVideoCard({ onEdit, video }: { onEdit: (video: VideoGalleryItem) 
 function VideoEditorDialog({
   draft,
   error,
+  isPending,
+  isPublished,
   isEditing,
   onChange,
+  onStatusChange,
+  onVisibilityChange,
   onOpenChange,
   onSubmit,
   open,
 }: {
   draft: VideoDraft;
   error: string | null;
+  isPending: boolean;
+  isPublished: boolean;
   isEditing: boolean;
-  onChange: (field: keyof VideoDraft, value: string) => void;
+  onChange: (field: VideoDraftTextField, value: string) => void;
+  onStatusChange: (status: VideoGalleryItem["status"]) => void;
+  onVisibilityChange: (isVisibleToStudents: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   open: boolean;
@@ -207,7 +238,7 @@ function VideoEditorDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit video" : "Tambah video"}</DialogTitle>
           <DialogDescription>
-            Isi judul, tautan YouTube, dan subtes agar video mudah ditemukan siswa.
+            Isi informasi video, lalu tentukan apakah video diterbitkan dan ditampilkan kepada siswa.
           </DialogDescription>
         </DialogHeader>
 
@@ -220,7 +251,9 @@ function VideoEditorDialog({
               aria-describedby={error ? "kapten-video-form-error" : undefined}
               aria-invalid={Boolean(error?.includes("judul"))}
               className={REFERENCE_CONTROL_CLASS_NAMES.input}
+              disabled={isPending}
               id="kapten-video-title"
+              maxLength={VIDEO_TITLE_MAX_LENGTH}
               onChange={(event) => onChange("title", event.target.value)}
               placeholder="Contoh: Strategi Cepat Menjawab Soal PU"
               required
@@ -236,6 +269,7 @@ function VideoEditorDialog({
               aria-describedby={error ? "kapten-video-form-error" : undefined}
               aria-invalid={Boolean(error?.includes("YouTube"))}
               className={REFERENCE_CONTROL_CLASS_NAMES.input}
+              disabled={isPending}
               id="kapten-video-url"
               onChange={(event) => onChange("youtubeUrl", event.target.value)}
               placeholder="https://www.youtube.com/watch?v=..."
@@ -254,6 +288,7 @@ function VideoEditorDialog({
                 <DropdownMenuTrigger
                   aria-label="Pilih subtes video"
                   className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
+                  disabled={isPending}
                   id="kapten-video-subtest"
                   render={<Button type="button" variant="reference" />}
                 >
@@ -275,14 +310,43 @@ function VideoEditorDialog({
               </DropdownMenu>
             </Field>
 
-            <Field>
-              <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
-                Status tampilan
-              </FieldLabel>
-              <div className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "flex items-center gap-2 text-secondary-600")}>
-                <span aria-hidden="true" className="size-2 rounded-full bg-student-status-attention-solid-bg" />
-                Pratinjau lokal
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field className="min-h-20 flex-row items-center justify-between gap-4 rounded-2xl border border-primary-100 bg-white px-4 py-3">
+              <div className="min-w-0">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-video-published">
+                  Terbitkan video
+                </FieldLabel>
+                <p className="mt-1 text-xs leading-5 text-secondary-500">
+                  Video draf belum tampil kepada siswa.
+                </p>
               </div>
+              <Switch
+                aria-label="Terbitkan video"
+                checked={draft.status === "published"}
+                disabled={isPending}
+                id="kapten-video-published"
+                onCheckedChange={(published) => onStatusChange(published ? "published" : "draft")}
+              />
+            </Field>
+
+            <Field className="min-h-20 flex-row items-center justify-between gap-4 rounded-2xl border border-primary-100 bg-white px-4 py-3">
+              <div className="min-w-0">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-video-visible">
+                  Tampilkan di galeri siswa
+                </FieldLabel>
+                <p className="mt-1 text-xs leading-5 text-secondary-500">
+                  Siswa melihat video jika sudah terbit dan ditampilkan.
+                </p>
+              </div>
+              <Switch
+                aria-label="Tampilkan video di galeri siswa"
+                checked={draft.isVisibleToStudents}
+                disabled={isPending}
+                id="kapten-video-visible"
+                onCheckedChange={onVisibilityChange}
+              />
             </Field>
           </div>
 
@@ -292,7 +356,9 @@ function VideoEditorDialog({
             </FieldLabel>
             <FieldTextarea
               className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-28 resize-y")}
+              disabled={isPending}
               id="kapten-video-description"
+              maxLength={VIDEO_DESCRIPTION_MAX_LENGTH}
               onChange={(event) => onChange("description", event.target.value)}
               placeholder="Jelaskan isi video secara singkat untuk membantu siswa memilih materi."
               value={draft.description}
@@ -304,11 +370,17 @@ function VideoEditorDialog({
           ) : null}
 
           <DialogFooter className="border-t border-primary-100 pt-4">
-            <DialogClose render={<Button type="button" variant="brandOutline" />}>
+            <DialogClose render={<Button disabled={isPending} type="button" variant="brandOutline" />}>
               Batal
             </DialogClose>
-            <Button type="submit" variant="brand">
-              {isEditing ? "Simpan perubahan" : "Tambah video"}
+            <Button disabled={isPending} type="submit" variant="brand">
+              {isPending ? "Menyimpan…" : draft.status === "published" && !isPublished
+                ? "Terbitkan video"
+                : draft.status === "draft" && isPublished
+                  ? "Jadikan draf"
+                  : isEditing
+                    ? "Simpan perubahan"
+                    : "Simpan draf"}
             </Button>
           </DialogFooter>
         </form>
@@ -317,14 +389,21 @@ function VideoEditorDialog({
   );
 }
 
-function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) {
+function KaptenVideoGalleryPageModule({
+  session,
+  videos: initialVideos,
+}: {
+  session: SessionContext;
+  videos: VideoGalleryItem[];
+}) {
   const [activeSubtest, setActiveSubtest] = useState<(typeof videoFilters)[number]>("Semua");
   const [draft, setDraft] = useState<VideoDraft>(emptyVideoDraft);
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
-  const [videos, setVideos] = useState<VideoGalleryItem[]>(() => [...videoItems]);
+  const [videos, setVideos] = useState<VideoGalleryItem[]>(initialVideos);
 
   const filteredVideos = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
@@ -362,6 +441,8 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
     setFormError(null);
     setDraft({
       description: video.description,
+      isVisibleToStudents: video.isVisibleToStudents,
+      status: video.status,
       subtest: video.subtest,
       title: video.title,
       youtubeUrl: video.youtubeUrl,
@@ -369,11 +450,37 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
     setIsEditorOpen(true);
   }
 
-  function updateDraft(field: keyof VideoDraft, value: string) {
+  function updateDraft(field: VideoDraftTextField, value: string) {
     setDraft((current) => ({
       ...current,
       [field]: field === "subtest" ? (value as VideoSubtest) : value,
     }));
+  }
+
+  function updatePublication(video: VideoGalleryItem, status: VideoGalleryItem["status"]) {
+    startTransition(async () => {
+      const result = await updateKaptenVideoPublicationAction(video.id, status);
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return;
+      }
+
+      setVideos((current) => current.map((item) => item.id === video.id ? result.video : item));
+      showToast(result.message, { variant: "success" });
+    });
+  }
+
+  function updateVisibility(video: VideoGalleryItem, isVisibleToStudents: boolean) {
+    startTransition(async () => {
+      const result = await updateKaptenVideoVisibilityAction(video.id, isVisibleToStudents);
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return;
+      }
+
+      setVideos((current) => current.map((item) => item.id === video.id ? result.video : item));
+      showToast(result.message, { variant: "success" });
+    });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -385,20 +492,42 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
       setFormError("Masukkan judul video terlebih dahulu.");
       return;
     }
-    if (!isYouTubeUrl(youtubeUrl)) {
-      setFormError("Masukkan tautan YouTube yang valid.");
+    if (!isYouTubeVideoUrl(youtubeUrl)) {
+      setFormError("Masukkan tautan YouTube yang mengarah langsung ke video.");
       return;
     }
 
-    const nextVideo = buildVideoFromDraft(draft, editingVideo);
-    setVideos((current) =>
-      editingVideo
-        ? current.map((video) => (video.id === editingVideo.id ? nextVideo : video))
-        : [nextVideo, ...current],
-    );
-    closeEditor();
-    showToast(editingVideo ? "Perubahan video disiapkan di pratinjau." : "Video ditambahkan ke pratinjau.", {
-      variant: "success",
+    const input: SaveKaptenVideoInput = {
+      ...(editingVideo ? { id: editingVideo.id } : {}),
+      description: draft.description,
+      isVisibleToStudents: draft.isVisibleToStudents,
+      status: draft.status,
+      subtest: draft.subtest,
+      title,
+      youtubeUrl,
+    };
+
+    startTransition(async () => {
+      const result = await saveKaptenVideoAction(input);
+      if (!result.ok) {
+        setFormError(
+          result.fieldErrors?.title
+          ?? result.fieldErrors?.youtubeUrl
+          ?? result.fieldErrors?.subtest
+          ?? result.fieldErrors?.description
+          ?? result.message,
+        );
+        return;
+      }
+
+      setVideos((current) => {
+        const exists = current.some((video) => video.id === result.video.id);
+        return exists
+          ? current.map((video) => video.id === result.video.id ? result.video : video)
+          : [result.video, ...current];
+      });
+      closeEditor();
+      showToast(result.message, { variant: "success" });
     });
   }
 
@@ -413,7 +542,7 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
       <div className="space-y-8">
         <ReferencePageHeader
           actions={
-            <Button onClick={openCreate} type="button" variant="brand">
+            <Button disabled={isPending} onClick={openCreate} type="button" variant="brand">
               <Plus aria-hidden="true" />
               Tambah video
             </Button>
@@ -428,9 +557,9 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
             <Video aria-hidden="true" className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-secondary-900">Pratinjau kontrol Kapten</p>
+            <p className="text-sm font-semibold text-secondary-900">Kontrol publikasi</p>
             <p className="mt-1 text-sm leading-6 text-secondary-600">
-              Tambah dan edit di sini baru berlaku di pratinjau halaman ini. Penyimpanan ke server belum aktif.
+              Penerbitan dan tampilan diatur terpisah. Siswa melihat video jika keduanya aktif.
             </p>
           </div>
         </ReferenceSurface>
@@ -483,16 +612,25 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
           {filteredVideos.length ? (
             <div className="grid gap-4" id="kapten-video-list">
               {filteredVideos.map((video) => (
-                <KaptenVideoCard key={video.id} onEdit={openEdit} video={video} />
+                <KaptenVideoCard
+                  isPending={isPending}
+                  key={video.id}
+                  onEdit={openEdit}
+                  onPublicationChange={updatePublication}
+                  onVisibilityChange={updateVisibility}
+                  video={video}
+                />
               ))}
             </div>
           ) : (
             <ReferenceSurface className="border-learning-card-border" variant="raised">
               <ReferenceEmptyState
-                action={<Button onClick={openCreate} size="sm" variant="brand">Tambah video</Button>}
-                description="Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+                action={<Button disabled={isPending} onClick={openCreate} size="sm" variant="brand">Tambah video</Button>}
+                description={videos.length > 0
+                  ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+                  : "Tambahkan tautan YouTube pertama untuk koleksi video siswa."}
                 icon={Video}
-                title="Video tidak ditemukan"
+                title={videos.length > 0 ? "Video tidak ditemukan" : "Belum ada video"}
               />
             </ReferenceSurface>
           )}
@@ -502,8 +640,14 @@ function KaptenVideoGalleryPageModule({ session }: { session: SessionContext }) 
       <VideoEditorDialog
         draft={draft}
         error={formError}
+        isPending={isPending}
         isEditing={Boolean(editingVideo)}
+        isPublished={editingVideo?.status === "published"}
         onChange={updateDraft}
+        onStatusChange={(status) => setDraft((current) => ({ ...current, status }))}
+        onVisibilityChange={(isVisibleToStudents) =>
+          setDraft((current) => ({ ...current, isVisibleToStudents }))
+        }
         onOpenChange={(open) => {
           if (!open) closeEditor();
         }}
