@@ -420,6 +420,7 @@ async function createQuestionBankXlsxUploadGrant(
       expectedMultipartPartCount: partCount,
       expectedWorkbookSizeBytes,
       expiresAt: expiresAfterOperation(leaseExpiresAt),
+      id: attemptId,
       operationLeaseExpiresAt: leaseExpiresAt,
       originalFileName,
       ownerUserId,
@@ -441,10 +442,18 @@ async function createQuestionBankXlsxUploadGrant(
   }
   let multipartUploadId: string | null = null;
   const createController = new AbortController();
-  const createTimeout = setTimeout(
-    () => createController.abort(new Error("R2 multipart initiation timed out.")),
-    MULTIPART_CREATE_TIMEOUT_MS,
-  );
+  let createTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const createTimeout = new Promise<never>((_, reject) => {
+    createTimeoutHandle = setTimeout(() => {
+      const timeoutError = new Error("R2 multipart initiation timed out.");
+      createController.abort(timeoutError);
+      reject(timeoutError);
+    }, MULTIPART_CREATE_TIMEOUT_MS);
+  });
+  // The deadline starts before the database preflight. Attach a rejection
+  // handler now because that preflight can outlast the deadline before the
+  // promise is included in the race below.
+  void createTimeout.catch(() => undefined);
   try {
     try {
       // Persist a deadline immediately before dispatch. The create timeout
@@ -452,34 +461,37 @@ async function createQuestionBankXlsxUploadGrant(
       // using an anchor that is older than its live operation. R2's Initiated
       // timestamp, when observed by cleanup listing, can only extend this
       // persisted lifecycle horizon.
-      const initiationDeadlinePersisted = await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw<Array<{ id: string }>>`
-          SELECT id
-          FROM question_bank_xlsx_import_attempts
-          WHERE id = ${attemptId}::uuid
-          FOR UPDATE
-        `;
-        const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
-        const initiatedAt = new Date();
-        if (
-          !current
-          || current.ownerUserId !== ownerUserId
-          || current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
-          || current.cancelRequestedAt
-          || current.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
-          || !current.operationLeaseExpiresAt
-          || current.operationLeaseExpiresAt <= initiatedAt
-          || createController.signal.aborted
-          || signal?.aborted
-        ) return false;
-        await tx.questionBankXlsxImportAttempt.update({
-          data: {
-            uploadExpiresAt: laterDate(current.uploadExpiresAt, multipartCleanupDeadline(initiatedAt)),
-          },
-          where: { id: attemptId },
-        });
-        return true;
-      });
+      const initiationDeadlinePersisted = await Promise.race([
+        prisma.$transaction(async (tx) => {
+          await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT id
+            FROM question_bank_xlsx_import_attempts
+            WHERE id = ${attemptId}::uuid
+            FOR UPDATE
+          `;
+          const current = await tx.questionBankXlsxImportAttempt.findUnique({ where: { id: attemptId } });
+          const initiatedAt = new Date();
+          if (
+            !current
+            || current.ownerUserId !== ownerUserId
+            || current.state !== QuestionBankXlsxImportAttemptState.multipart_creating
+            || current.cancelRequestedAt
+            || current.operationLeaseExpiresAt?.getTime() !== leaseExpiresAt.getTime()
+            || !current.operationLeaseExpiresAt
+            || current.operationLeaseExpiresAt <= initiatedAt
+            || createController.signal.aborted
+            || signal?.aborted
+          ) return false;
+          await tx.questionBankXlsxImportAttempt.update({
+            data: {
+              uploadExpiresAt: laterDate(current.uploadExpiresAt, multipartCleanupDeadline(initiatedAt)),
+            },
+            where: { id: attemptId },
+          });
+          return true;
+        }),
+        createTimeout,
+      ]);
       if (!initiationDeadlinePersisted) {
         throw new QuestionBankXlsxImportError(signal?.aborted ? "attempt_cancelled" : "attempt_expired");
       }
@@ -487,13 +499,16 @@ async function createQuestionBankXlsxUploadGrant(
       // disconnects after R2 accepts the request, the returned UploadId must
       // still be persisted. An ambiguous timeout is recovered by exact-key
       // listing under the already-persisted tombstone.
-      multipartUploadId = await createPrivateStagingMultipartUpload(
-        uploadObjectKey,
-        QUESTION_BANK_XLSX_MIME_TYPE,
-        createController.signal,
-      );
+      multipartUploadId = await Promise.race([
+        createPrivateStagingMultipartUpload(
+          uploadObjectKey,
+          QUESTION_BANK_XLSX_MIME_TYPE,
+          createController.signal,
+        ),
+        createTimeout,
+      ]);
     } finally {
-      clearTimeout(createTimeout);
+      if (createTimeoutHandle !== null) clearTimeout(createTimeoutHandle);
     }
 
     const persisted = await prisma.$transaction(async (tx) => {
@@ -624,7 +639,10 @@ async function createQuestionBankXlsxUploadGrant(
       signal?.aborted ? "attempt_cancelled" : error instanceof QuestionBankXlsxImportError ? error.code : "upload_grant_unavailable",
     ).catch(() => null);
     if (cleanup?.ready) {
-      await cleanupCancelledQuestionBankXlsxAttempt(cleanup.attempt);
+      // The cleanup_pending row is the durable retry record. Do not make the
+      // upload response wait on storage cleanup; the background sweeper can
+      // retry any cleanup that outlives this request.
+      void cleanupCancelledQuestionBankXlsxAttempt(cleanup.attempt).catch(() => undefined);
     } else if (!cleanup && multipartUploadId) {
       // A transient database failure must not suppress the best-effort storage
       // abort; the pre-initiation row still owns the exact-key retry handle.
