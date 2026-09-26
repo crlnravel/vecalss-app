@@ -2830,13 +2830,8 @@ function useQuestionBankPersistence({
         updateEditor({
           pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}`,
         });
-    } catch (saveError) {
-      showToast(
-        saveError instanceof Error
-          ? saveError.message
-          : "Bank Soal belum dapat disimpan.",
-        { variant: "error" },
-      );
+    } catch {
+      showToast("Bank Soal belum dapat disimpan. Coba lagi.", { variant: "error" });
     } finally {
       updateEditor({ isSaving: false });
     }
