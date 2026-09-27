@@ -27,7 +27,6 @@ export async function POST(request: Request) {
     const body = await parseQuestionBankXlsxDraftApplyRequest(request);
     const result = await applyQuestionBankXlsxToDraft({
       attemptId: body.previewId,
-      mediaFolderReservationId: body.mediaFolderReservationId,
       ownerUserId: session.user.id,
       signal: request.signal,
     });

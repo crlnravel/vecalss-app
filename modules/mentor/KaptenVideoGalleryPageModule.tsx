@@ -34,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -447,7 +448,7 @@ function KaptenVideoGalleryPageModule({
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
 
     return videos.filter((video) => {
-      if (video.isArchived !== showArchivedVideos) return false;
+      if (video.isArchived && !showArchivedVideos) return false;
       if (activeSubtest !== "Semua" && video.subtest !== activeSubtest)
         return false;
       if (!normalizedQuery) return true;
@@ -462,8 +463,9 @@ function KaptenVideoGalleryPageModule({
     ? videos.find((video) => video.id === editingVideoId)
     : undefined;
   const hasVideosInCurrentCollection = videos.some(
-    (video) => video.isArchived === showArchivedVideos,
+    (video) => !video.isArchived || showArchivedVideos,
   );
+  const hasArchivedVideos = videos.some((video) => video.isArchived);
 
   function closeEditor() {
     setIsEditorOpen(false);
@@ -611,34 +613,19 @@ function KaptenVideoGalleryPageModule({
 
         <section aria-label="Koleksi video Kapten" className="grid gap-5">
           <div className="grid gap-3">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative min-w-0 flex-1 sm:max-w-[30rem]">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500"
-                />
-                <input
-                  aria-label="Cari video Kapten"
-                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Cari judul atau topik..."
-                  type="search"
-                  value={query}
-                />
-              </div>
-              <Button
-                disabled={isPending}
-                onClick={() => setShowArchivedVideos((current) => !current)}
-                type="button"
-                variant="brandOutline"
-              >
-                {showArchivedVideos ? (
-                  <RotateCcw aria-hidden="true" />
-                ) : (
-                  <Archive aria-hidden="true" />
-                )}
-                {showArchivedVideos ? "Video aktif" : "Arsip"}
-              </Button>
+            <div className="relative min-w-0 sm:max-w-[30rem]">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500"
+              />
+              <input
+                aria-label="Cari video Kapten"
+                className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari judul atau topik..."
+                type="search"
+                value={query}
+              />
             </div>
             <div
               aria-label="Filter subtes video Kapten"
@@ -663,6 +650,19 @@ function KaptenVideoGalleryPageModule({
                 );
               })}
             </div>
+            <label
+              className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700"
+              htmlFor="kapten-video-show-archived"
+            >
+              <Checkbox
+                checked={showArchivedVideos}
+                id="kapten-video-show-archived"
+                onCheckedChange={(checked) =>
+                  setShowArchivedVideos(checked === true)
+                }
+              />
+              <span>Tampilkan arsip</span>
+            </label>
           </div>
 
           {filteredVideos.length ? (
@@ -684,7 +684,7 @@ function KaptenVideoGalleryPageModule({
               variant="raised"
             >
               <ReferenceEmptyState
-                action={!hasVideosInCurrentCollection && !showArchivedVideos ? (
+                action={!hasVideosInCurrentCollection ? (
                   <Button
                     disabled={isPending}
                     onClick={openCreate}
@@ -696,14 +696,14 @@ function KaptenVideoGalleryPageModule({
                 ) : undefined}
                 description={hasVideosInCurrentCollection
                   ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
-                  : showArchivedVideos
-                    ? "Video yang diarsipkan akan muncul di sini."
+                  : !showArchivedVideos && hasArchivedVideos
+                    ? "Centang Tampilkan arsip untuk melihat video yang diarsipkan."
                     : "Tambahkan tautan YouTube pertama untuk koleksi video siswa."}
                 icon={Video}
                 title={hasVideosInCurrentCollection
                   ? "Video tidak ditemukan"
-                  : showArchivedVideos
-                    ? "Belum ada video di arsip"
+                  : !showArchivedVideos && hasArchivedVideos
+                    ? "Belum ada video aktif"
                     : "Belum ada video"}
               />
             </ReferenceSurface>

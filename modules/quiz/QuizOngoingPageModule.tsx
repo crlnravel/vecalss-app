@@ -11,6 +11,7 @@ import {
   Minus,
   PenTool,
   Plus,
+  X,
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
@@ -525,7 +526,7 @@ function QuizOngoingScreen({
           title="Keluar dari latihan"
           variant="ghost"
         >
-          <ChevronLeft />
+          <X />
         </Button>
       }
       footer={

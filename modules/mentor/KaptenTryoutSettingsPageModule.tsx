@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Archive, Copy, FilePenLine, Trash2 } from "@/lib/icons";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,10 +27,12 @@ function KaptenTryoutSettingsPageModule({
   onArchive,
   onDelete,
   onDuplicate,
+  onSetHidden,
   onUnpublish,
   saving,
 }: {
   draft: {
+    isHidden: boolean;
     locked: boolean;
     status: "draft" | "published";
     title: string;
@@ -39,6 +42,7 @@ function KaptenTryoutSettingsPageModule({
   onArchive: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onSetHidden: (isHidden: boolean) => void;
   onUnpublish: () => void;
   saving: boolean;
 }) {
@@ -61,14 +65,12 @@ function KaptenTryoutSettingsPageModule({
         aria-labelledby="tryout-settings-administration-title"
         className="mt-4 grid gap-5 p-5 sm:p-7"
       >
-        <div className="grid gap-1">
-          <h2
-            className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
-            id="tryout-settings-administration-title"
-          >
-            Administrasi
-          </h2>
-        </div>
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="tryout-settings-administration-title"
+        >
+          Administrasi
+        </h2>
 
         {error ? (
           <p
@@ -79,53 +81,92 @@ function KaptenTryoutSettingsPageModule({
           </p>
         ) : null}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div>
           {isPublished ? (
-            <Button
-              disabled={saving || !canDraft}
-              onClick={onUnpublish}
-              title={
-                canDraft
-                  ? "Kembalikan Tryout ke draf"
-                  : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf."
-              }
-              type="button"
-              variant="brandOutline"
+            <AdministrationActionRow
+              action="Jadikan draf"
+              description="Kembalikan Tryout ke draf setelah semua peserta selesai mengerjakan."
             >
-              <FilePenLine />
-              Jadikan draf
-            </Button>
+              <Button
+                disabled={saving || !canDraft}
+                onClick={onUnpublish}
+                title={
+                  canDraft
+                    ? "Kembalikan Tryout ke draf"
+                    : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf."
+                }
+                type="button"
+                variant="brandOutline"
+              >
+                <FilePenLine />
+                Jadikan draf
+              </Button>
+            </AdministrationActionRow>
+          ) : null}
+          {isPublished ? (
+            <AdministrationActionRow
+              action={draft.isHidden ? "Tampilkan Tryout" : "Sembunyikan Tryout"}
+              description={
+                draft.isHidden
+                  ? "Tampilkan kembali Tryout di katalog siswa agar siswa dapat mendaftar atau memulai pengerjaan baru."
+                  : "Tryout tidak muncul di katalog siswa dan tidak menerima pendaftaran atau pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."
+              }
+            >
+              <Button
+                disabled={saving}
+                onClick={() => onSetHidden(!draft.isHidden)}
+                type="button"
+                variant="brandOutline"
+              >
+                {draft.isHidden ? "Tampilkan lagi" : "Sembunyikan"}
+              </Button>
+            </AdministrationActionRow>
           ) : null}
           {isPublished || draft.locked ? (
-            <Button
-              disabled={saving}
-              onClick={onDuplicate}
-              type="button"
-              variant="brandOutline"
+            <AdministrationActionRow
+              action="Buat draf perubahan"
+              description="Buat salinan draf untuk menyiapkan perubahan tanpa mengubah Tryout yang sedang terbit."
             >
-              <Copy />
-              Buat draf perubahan
-            </Button>
+              <Button
+                disabled={saving}
+                onClick={onDuplicate}
+                type="button"
+                variant="brandOutline"
+              >
+                <Copy />
+                Buat draf perubahan
+              </Button>
+            </AdministrationActionRow>
           ) : null}
-          <Button
-            disabled={saving}
-            onClick={() => setPendingAction("archive")}
-            type="button"
-            variant="dangerOutline"
+          <AdministrationActionRow
+            action="Arsipkan Tryout"
+            description="Sembunyikan Tryout dari daftar aktif tanpa menghapusnya."
           >
-            <Archive />
-            Arsipkan Tryout
-          </Button>
-          {canDelete ? (
             <Button
               disabled={saving}
-              onClick={() => setPendingAction("delete")}
+              onClick={() => setPendingAction("archive")}
               type="button"
               variant="dangerOutline"
             >
-              <Trash2 />
-              Hapus Tryout
+              <Archive />
+              Arsipkan Tryout
             </Button>
+          </AdministrationActionRow>
+          {canDelete ? (
+            <AdministrationActionRow
+              action="Hapus Tryout"
+              description="Hapus Tryout beserta soal dan pengaturannya secara permanen."
+            >
+              <Button
+                disabled={saving}
+                onClick={() => setPendingAction("delete")}
+                type="button"
+                variant="dangerOutline"
+              >
+                <Trash2 />
+                Hapus Tryout
+              </Button>
+            </AdministrationActionRow>
           ) : null}
         </div>
       </ReferenceSurface>

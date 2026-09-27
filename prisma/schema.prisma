@@ -2264,7 +2264,8 @@ model StandaloneQuiz {
   description              String?                               @db.Text
   subtestId                String                                @map("subtest_id") @db.Uuid
   sourceBankId             String?                               @map("source_bank_id") @db.Uuid
-  status                   ContentStatus                         @default(draft)
+  status                   ContentStatus                         @default(published)
+  isHidden                 Boolean                               @default(false) @map("is_hidden")
   opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
   closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
   durationSeconds          Int?                                  @map("duration_seconds")
@@ -2775,6 +2776,7 @@ model TryoutPackage {
   bannerMediaId              String?                   @map("banner_media_id") @db.Uuid
   assessmentType             TryoutPackageType         @default(tryout) @map("assessment_type")
   status                     ContentStatus             @default(draft)
+  isHidden                   Boolean                   @default(false) @map("is_hidden")
   publishedAt                DateTime?                 @map("published_at") @db.Timestamptz
   revision                   Int                       @default(1)
   idempotencyKey             String?                   @unique @map("idempotency_key") @db.VarChar(120)
@@ -3011,6 +3013,7 @@ model TryoutItem {
   id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tryoutId                 String                      @map("tryout_id") @db.Uuid
   tryoutSectionId          String                      @map("tryout_section_id") @db.Uuid
+  snapshotId               String?                     @map("snapshot_id") @db.Uuid
   sourceQuestionId         String?                     @map("source_question_id") @db.Uuid
   sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
   sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
@@ -3041,6 +3044,7 @@ model TryoutItem {
 
   @@unique([tryoutSectionId, sortOrder])
   @@unique([tryoutId, sourceQuestionId])
+  @@unique([tryoutId, snapshotId])
   @@unique([tryoutId, idempotencyKey])
   @@unique([id, tryoutId])
   @@map("tryout_items")
@@ -3053,6 +3057,7 @@ model TryoutItemOption {
   content                        String                  @db.Text
   isCorrect                      Boolean                 @default(false) @map("is_correct")
   sortOrder                      Int                     @map("sort_order")
+  snapshotOptionId               String?                 @map("snapshot_option_id") @db.Uuid
   sourceQuestionOptionId         String?                 @map("source_question_option_id") @db.Uuid
   sourceQuestionRevisionOptionId String?                 @map("source_question_revision_option_id") @db.Uuid
   assetId                        String?                 @map("asset_id") @db.Uuid
@@ -3064,6 +3069,7 @@ model TryoutItemOption {
 
   @@unique([tryoutItemId, choiceKey])
   @@unique([tryoutItemId, sortOrder])
+  @@unique([tryoutItemId, snapshotOptionId])
   @@unique([id, tryoutItemId])
   @@map("tryout_item_options")
 }

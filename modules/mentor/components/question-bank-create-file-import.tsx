@@ -4,13 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { FileUploadSlot } from "@/components/ui/file-upload-slot";
-import { CircleAlert } from "@/lib/icons";
-import {
-  toQuestionBankCsvDraftPayload,
-} from "@/lib/question-bank/csv";
+import { showToast } from "@/components/ui/toast";
+import { toQuestionBankCsvDraftPayload } from "@/lib/question-bank/csv";
 import {
   useQuestionBankCsvPreview,
-  type QuestionBankCsvDraftInfo,
   type QuestionBankCsvDraftSummary,
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
@@ -18,27 +15,25 @@ import {
   type QuestionBankXlsxDraftApplied,
   type QuestionBankXlsxDraftUploadStatus,
 } from "@/modules/mentor/components/question-bank-xlsx-flow";
-import { cn } from "@/lib/utils";
 
 type ImportState = "idle" | "processing" | "ready" | "invalid";
 
 type QuestionBankCreateFileImportControlProps = {
-  csvDraft: QuestionBankCsvDraftInfo | null;
   disabled?: boolean;
-  mediaFolderReservationId?: string;
+  hidden?: boolean;
   onCsvDraftApplied: (draft: QuestionBankCsvDraftSummary) => void;
   onRemoveCsvDraft: () => void;
   onRemoveXlsxDraft: () => void;
   onStateChange: (state: ImportState) => void;
   onXlsxDraftApplied: (draft: QuestionBankXlsxDraftApplied) => void;
-  xlsxDraft: Pick<QuestionBankXlsxDraftApplied, "fileName" | "imageCount" | "rowCount"> | null;
 };
 
-const XLSX_ACCEPT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const XLSX_ACCEPT =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function QuestionBankCreateFileImportControl({
   disabled = false,
-  mediaFolderReservationId,
+  hidden = false,
   onCsvDraftApplied,
   onRemoveCsvDraft,
   onRemoveXlsxDraft,
@@ -47,12 +42,13 @@ function QuestionBankCreateFileImportControl({
 }: QuestionBankCreateFileImportControlProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [unsupportedFile, setUnsupportedFile] = useState(false);
-  const [xlsxPanelOpen, setXlsxPanelOpen] = useState(false);
-  const [xlsxUploadStatus, setXlsxUploadStatus] = useState<QuestionBankXlsxDraftUploadStatus | null>(null);
   const csvAppliedFileRef = useRef<File | null>(null);
+  const csvErrorNotifiedFileRef = useRef<File | null>(null);
   const xlsxDraftAppliedRef = useRef(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [xlsxPanelOpen, setXlsxPanelOpen] = useState(false);
+  const [xlsxUploadStatus, setXlsxUploadStatus] =
+    useState<QuestionBankXlsxDraftUploadStatus | null>(null);
   const fileKind = file?.name.toLowerCase().endsWith(".csv")
     ? "csv"
     : file?.name.toLowerCase().endsWith(".xlsx")
@@ -69,6 +65,13 @@ function QuestionBankCreateFileImportControl({
     }
     if (csvPreview.status === "invalid" || csvPreview.status === "empty") {
       onStateChange("invalid");
+      if (csvErrorNotifiedFileRef.current !== csvFile) {
+        csvErrorNotifiedFileRef.current = csvFile;
+        const detail = csvPreview.errors.slice(0, 3).join(" · ");
+        showToast(detail || "File CSV belum berisi soal yang bisa digunakan.", {
+          variant: "error",
+        });
+      }
       return;
     }
     if (csvPreview.status !== "valid" || !csvPreview.summary) return;
@@ -76,18 +79,29 @@ function QuestionBankCreateFileImportControl({
     if (csvAppliedFileRef.current !== csvFile) {
       csvAppliedFileRef.current = csvFile;
       try {
-        const payload = toQuestionBankCsvDraftPayload({
-          normalizedRows: csvPreview.normalizedRows,
-          summary: csvPreview.summary,
-        }, "");
+        const payload = toQuestionBankCsvDraftPayload(
+          {
+            normalizedRows: csvPreview.normalizedRows,
+            summary: csvPreview.summary,
+          },
+          "",
+        );
         onCsvDraftApplied({
           fileName: csvFile.name,
           questions: payload.questions,
           rowCount: payload.questions.length,
           summary: payload.summary,
         });
+        showToast(
+          `${payload.questions.length.toLocaleString("id-ID")} soal dari CSV siap disimpan.`,
+          { variant: "success" },
+        );
       } catch {
         onStateChange("invalid");
+        showToast(
+          "Isi file CSV belum dapat digunakan. Periksa kembali formatnya.",
+          { variant: "error" },
+        );
         return;
       }
     }
@@ -97,10 +111,10 @@ function QuestionBankCreateFileImportControl({
   function clearSelectedFile() {
     if (inputRef.current) inputRef.current.value = "";
     setFile(null);
-    setUnsupportedFile(false);
     setXlsxPanelOpen(false);
     setXlsxUploadStatus(null);
     csvAppliedFileRef.current = null;
+    csvErrorNotifiedFileRef.current = null;
     xlsxDraftAppliedRef.current = false;
     onRemoveCsvDraft();
     onRemoveXlsxDraft();
@@ -121,9 +135,9 @@ function QuestionBankCreateFileImportControl({
         ? "xlsx"
         : null;
     setFile(nextFile);
-    setUnsupportedFile(!nextKind);
     setXlsxUploadStatus(null);
     csvAppliedFileRef.current = null;
+    csvErrorNotifiedFileRef.current = null;
     xlsxDraftAppliedRef.current = false;
     onRemoveCsvDraft();
     onRemoveXlsxDraft();
@@ -131,6 +145,9 @@ function QuestionBankCreateFileImportControl({
     if (!nextKind) {
       setXlsxPanelOpen(false);
       onStateChange("invalid");
+      showToast("Pilih file CSV atau Excel berformat .xlsx.", {
+        variant: "error",
+      });
       return;
     }
     onStateChange("processing");
@@ -148,72 +165,48 @@ function QuestionBankCreateFileImportControl({
   }
 
   const isCsvPreviewing = Boolean(csvFile) && csvPreview.status === "loading";
+  const isXlsxUploading =
+    fileKind === "xlsx" &&
+    xlsxUploadStatus !== null &&
+    !xlsxUploadStatus.completed;
 
   return (
-    <div className="grid gap-3" data-question-bank-create-file-import="true">
+    <section
+      className={hidden ? "hidden" : "grid gap-3"}
+      data-question-bank-create-file-import="true"
+      hidden={hidden}
+    >
       <div className="grid gap-2">
         <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>
           File soal
         </label>
         <FileUploadSlot
           accept={`.csv,text/csv,.xlsx,${XLSX_ACCEPT}`}
-          disabled={disabled || (xlsxPanelOpen && Boolean(xlsxUploadStatus && !xlsxUploadStatus.completed))}
+          disabled={disabled || isXlsxUploading}
           dropZoneClassName="min-h-44 sm:min-h-64"
           file={file}
           id={inputId}
           inputRef={inputRef}
           maxSizeLabel="CSV: maks. 2 MB · 500 soal | Excel: maks. 24 MB · 1.000 soal"
           onChange={handleFileChange}
-          onCancelUpload={fileKind === "xlsx" && xlsxUploadStatus && !xlsxUploadStatus.completed
-            ? () => handleXlsxPanelOpenChange(false)
-            : undefined}
+          onCancelUpload={
+            isXlsxUploading ? () => handleXlsxPanelOpenChange(false) : undefined
+          }
           progress={fileKind === "xlsx" ? xlsxUploadStatus?.progress : null}
           uploadMeta={fileKind === "xlsx" ? xlsxUploadStatus?.meta : undefined}
-          completed={fileKind === "xlsx" && Boolean(xlsxUploadStatus?.completed)}
-          uploading={isCsvPreviewing || (fileKind === "xlsx" && xlsxUploadStatus !== null && !xlsxUploadStatus.completed)}
-          uploadLabel={fileKind === "xlsx" ? xlsxUploadStatus?.label ?? "Unggahan sedang disiapkan" : "Memeriksa file soal"}
+          completed={
+            fileKind === "xlsx" && Boolean(xlsxUploadStatus?.completed)
+          }
+          uploading={isCsvPreviewing || isXlsxUploading}
+          uploadLabel={
+            fileKind === "xlsx"
+              ? (xlsxUploadStatus?.label ?? "Unggahan sedang disiapkan")
+              : "Memeriksa file soal"
+          }
         />
       </div>
-
-      {unsupportedFile ? (
-        <div
-          aria-live="assertive"
-          className="flex items-start gap-2 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm text-student-status-danger-fg"
-          role="alert"
-        >
-          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Pilih file CSV atau Excel berformat .xlsx.</p>
-        </div>
-      ) : null}
-
-      {csvFile && (csvPreview.status === "invalid" || csvPreview.status === "empty") ? (
-        <div
-          aria-live="assertive"
-          className={cn(
-            "flex min-w-0 items-start gap-3 rounded-2xl border px-4 py-3 text-sm",
-            csvPreview.status === "empty"
-              ? "border-amber-300 bg-amber-50 text-amber-950"
-              : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
-          )}
-          data-question-bank-create-csv-preview={csvPreview.status}
-          role="alert"
-        >
-          <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
-          <div className="min-w-0">
-            <p className="font-semibold">
-              {csvPreview.status === "empty" ? "File belum berisi soal" : "File perlu diperbaiki"}
-            </p>
-            <ul className="mt-1 max-h-52 list-disc space-y-1 overflow-auto pl-5 text-current/85">
-              {csvPreview.errors.length
-                ? csvPreview.errors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)
-                : <li>File tidak menghasilkan soal yang bisa digunakan.</li>}
-            </ul>
-          </div>
-        </div>
-      ) : null}
       <QuestionBankXlsxDraftPreviewPanel
         file={fileKind === "xlsx" ? file : null}
-        mediaFolderReservationId={mediaFolderReservationId}
         onDraftApplied={(draft) => {
           xlsxDraftAppliedRef.current = true;
           onXlsxDraftApplied(draft);
@@ -223,7 +216,7 @@ function QuestionBankCreateFileImportControl({
         onUploadStatusChange={setXlsxUploadStatus}
         open={xlsxPanelOpen}
       />
-    </div>
+    </section>
   );
 }
 

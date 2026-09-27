@@ -81,6 +81,60 @@ async function assertKaptenBankImagesMayBeTrashed(
   throw new MediaServiceError(message, 409, "in_use");
 }
 
+async function assertQuizImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const uniqueIds = [...new Set(assetIds)];
+  if (!uniqueIds.length) return;
+
+  // Legacy items and every versioned Kuis draft/active snapshot share this
+  // table. Their option media lives on the related option rows.
+  const referencedItem = await tx.standaloneQuizItem.findFirst({
+    where: {
+      OR: [
+        { promptAssetId: { in: uniqueIds } },
+        { explanationAssetId: { in: uniqueIds } },
+        { options: { some: { assetId: { in: uniqueIds } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!referencedItem) return;
+
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Kuis, jadi tidak bisa dipindahkan ke sampah."
+    : "Folder ini berisi gambar yang masih dipakai oleh Kuis, jadi tidak bisa dipindahkan ke sampah.";
+  throw new MediaServiceError(message, 409, "in_use");
+}
+
+async function assertTryoutImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const uniqueIds = [...new Set(assetIds)];
+  if (!uniqueIds.length) return;
+
+  const referencedItem = await tx.tryoutItem.findFirst({
+    where: {
+      OR: [
+        { promptAssetId: { in: uniqueIds } },
+        { explanationAssetId: { in: uniqueIds } },
+        { options: { some: { assetId: { in: uniqueIds } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!referencedItem) return;
+
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Tryout, jadi tidak bisa dipindahkan ke sampah."
+    : "Folder ini berisi gambar yang masih dipakai Tryout, jadi tidak bisa dipindahkan ke sampah.";
+  throw new MediaServiceError(message, 409, "in_use");
+}
+
 const scopeToDatabase = (scope: MediaScope) =>
   scope === "kapten" ? MediaLibraryScope.kapten : MediaLibraryScope.admin;
 
@@ -778,6 +832,16 @@ const trashMediaFolder = async (
           "folder",
         );
       }
+      await assertQuizImagesMayBeTrashed(
+        tx,
+        affectedAssets.map(({ id }) => id),
+        "folder",
+      );
+      await assertTryoutImagesMayBeTrashed(
+        tx,
+        affectedAssets.map(({ id }) => id),
+        "folder",
+      );
 
       const trashedAt = new Date();
       await tx.asset.updateMany({
@@ -925,6 +989,8 @@ const trashMediaAsset = async (
       } else {
         await assertKaptenBankImagesMayBeTrashed(tx, [current.id], "asset");
       }
+      await assertQuizImagesMayBeTrashed(tx, [current.id], "asset");
+      await assertTryoutImagesMayBeTrashed(tx, [current.id], "asset");
       const updated = await tx.asset.updateMany({
         data: { state: MediaAssetState.trashed, trashedAt: new Date() },
         where: {

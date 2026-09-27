@@ -487,7 +487,6 @@ function PackageBuilderHeader({ controller }: { controller: PackageBuilderContro
   return <>
     <Button aria-disabled={state.saving} aria-label={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} nativeButton={false} render={<Link href={saved ? `/mentor/packages/${id}` : "/mentor/packages"} />} size="icon" title={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} variant="ghost"><ChevronLeft /></Button>
     <ReferencePageHeader
-      description="Susun sumber, soal, dan poin dalam satu ruang kerja. Simpan draf kapan saja atau lanjutkan sampai siap."
       title={saved ? `Edit pertanyaan & poin · ${state.draft.title}` : "Buat Paket Soal"}
     />
   </>;

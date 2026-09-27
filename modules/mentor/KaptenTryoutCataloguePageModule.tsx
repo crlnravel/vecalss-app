@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ChevronRight, ClipboardList, Lock, Plus, Target } from "@/lib/icons";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   ReferenceEmptyState,
@@ -20,10 +21,12 @@ import {
   PaginationControls,
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { MentorTryoutCreateDialog } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 
 type TryoutItem = {
   description: string;
   id: string;
+  isHidden?: boolean;
   locked: boolean;
   sections: Array<{ directQuestions?: Array<{ sourceQuestionId: string }> }>;
   status: "draft" | "published";
@@ -101,6 +104,14 @@ function TryoutCard({ item }: { item: TryoutItem }) {
               size="sm"
               status={item.status}
             />
+            {item.isHidden ? (
+              <ReferenceStatusBadge
+                appearance="mentor"
+                label="Disembunyikan"
+                size="sm"
+                status="blocked"
+              />
+            ) : null}
             {item.locked ? (
               <ReferenceStatusBadge
                 appearance="mentor"
@@ -129,12 +140,18 @@ function TryoutCard({ item }: { item: TryoutItem }) {
 }
 
 function KaptenTryoutCataloguePageModule({
+  initialCreateDialogOpen = false,
   initialItems,
   session,
 }: {
+  initialCreateDialogOpen?: boolean;
   initialItems: TryoutItem[];
   session: SessionContext;
 }) {
+  const router = useRouter();
+  const [createDialogOpen, setCreateDialogOpen] = useState(
+    initialCreateDialogOpen,
+  );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TryoutStatusFilter>("");
   const [page, setPage] = useState(1);
@@ -164,6 +181,17 @@ function KaptenTryoutCataloguePageModule({
     setPage(1);
   };
 
+  useEffect(() => {
+    setCreateDialogOpen(initialCreateDialogOpen);
+  }, [initialCreateDialogOpen]);
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    setCreateDialogOpen(open);
+    if (!open && initialCreateDialogOpen) {
+      router.replace("/mentor/tryout", { scroll: false });
+    }
+  }
+
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
@@ -177,9 +205,9 @@ function KaptenTryoutCataloguePageModule({
           actions={
             <Button
               aria-label="Buat Tryout"
-              nativeButton={false}
-              render={<Link href="/mentor/tryout/create" />}
+              onClick={() => setCreateDialogOpen(true)}
               size="default"
+              type="button"
               variant="brand"
             >
               <Plus />
@@ -218,9 +246,9 @@ function KaptenTryoutCataloguePageModule({
               <ReferenceEmptyState
                 action={
                   <Button
-                    nativeButton={false}
-                    render={<Link href="/mentor/tryout/create" />}
+                    onClick={() => setCreateDialogOpen(true)}
                     size="default"
+                    type="button"
                     variant="brand"
                   >
                     <Plus />
@@ -259,6 +287,10 @@ function KaptenTryoutCataloguePageModule({
           />
         ) : null}
       </div>
+      <MentorTryoutCreateDialog
+        onOpenChange={handleCreateDialogOpenChange}
+        open={createDialogOpen}
+      />
     </MentorWorkspaceShell>
   );
 }

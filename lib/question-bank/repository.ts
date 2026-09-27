@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import {
   ContentStatus,
   DifficultyLevel,
+  MediaAssetState,
+  MediaLibraryScope,
   Prisma,
   QuestionBankPurpose,
   QuestionRevisionProvenance,
@@ -46,6 +48,7 @@ import {
   type NewKaptenRootFolderIdentity,
 } from "./media-folder";
 import {
+  getQuestionBankReadinessFromDrafts,
   getQuestionBankReadinessFromRevisions,
   getQuestionReadinessFromRevision,
   type QuestionBankReadiness,
@@ -451,6 +454,32 @@ function validate(input: SaveBankInput) {
   return subjectCodes;
 }
 
+function assertBankQuestionsReady(questions: readonly BankQuestionInput[]) {
+  const readiness = getQuestionBankReadinessFromDrafts(
+    questions.map((question, index) => ({
+      choices: question.choices.map((choice) => ({
+        id: choice.id,
+        mediaAssetId: choice.mediaAssetId,
+        text: choice.text,
+      })),
+      correctChoiceId: question.correctChoiceId,
+      correctChoiceIds: question.correctChoiceIds,
+      explanationMediaAssetId: question.explanationMediaAssetId,
+      id: question.id ?? `question-${index + 1}`,
+      prompt: question.prompt,
+      promptMediaAssetId: question.promptMediaAssetId,
+      questionType: question.questionType,
+      subjectCode: question.subjectCode,
+    })),
+  );
+  if (readiness.incompleteCount > 0) {
+    throw new QuestionBankError(
+      "Lengkapi semua soal sebelum menyimpan Bank Soal.",
+      { code: "readiness_failed", readiness },
+    );
+  }
+}
+
 function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
   if (folderId === undefined || folderId === null) return null;
   if (
@@ -620,12 +649,74 @@ function buildReadySourceQuestionCondition(questionAlias: string, bankAlias: str
   `;
 }
 
+/** Keep the quiz picker/count aligned with the standalone snapshot import gate. */
+function buildQuizSnapshotSourceQuestionCondition(
+  questionAlias: string,
+  bankAlias: string | null = null,
+): Prisma.Sql {
+  // react-doctor-disable-next-line raw-sql-injection-risk -- internal aliases only
+  const revisionAlias = `${questionAlias}_quiz_snapshot_revision`;
+  const optionAlias = `${questionAlias}_quiz_snapshot_option`;
+  const assetAlias = `${questionAlias}_quiz_snapshot_asset`;
+  return Prisma.sql`
+    ${Prisma.raw(`${questionAlias}.status`)} = ${ContentStatus.published}
+    AND ${buildReadySourceQuestionCondition(questionAlias, bankAlias)}
+    AND EXISTS (
+      SELECT 1
+      FROM question_revisions ${Prisma.raw(revisionAlias)}
+      WHERE ${Prisma.raw(`${revisionAlias}.id`)} = ${Prisma.raw(`${questionAlias}.current_revision_id`)}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM question_revision_options ${Prisma.raw(optionAlias)}
+          WHERE ${Prisma.raw(`${optionAlias}.question_revision_id`)} = ${Prisma.raw(`${revisionAlias}.id`)}
+            AND BTRIM(${Prisma.raw(`${optionAlias}.label`)}) = ''
+        )
+        AND (
+          ${Prisma.raw(`${revisionAlias}.prompt_asset_id`)} IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM assets ${Prisma.raw(`${assetAlias}_prompt`)}
+            WHERE ${Prisma.raw(`${assetAlias}_prompt.id`)} = ${Prisma.raw(`${revisionAlias}.prompt_asset_id`)}
+              AND ${Prisma.raw(`${assetAlias}_prompt.library_scope`)} = ${MediaLibraryScope.kapten}
+              AND ${Prisma.raw(`${assetAlias}_prompt.state`)} = ${MediaAssetState.ready}
+              AND ${Prisma.raw(`${assetAlias}_prompt.trashed_at`)} IS NULL
+          )
+        )
+        AND (
+          ${Prisma.raw(`${revisionAlias}.explanation_asset_id`)} IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM assets ${Prisma.raw(`${assetAlias}_explanation`)}
+            WHERE ${Prisma.raw(`${assetAlias}_explanation.id`)} = ${Prisma.raw(`${revisionAlias}.explanation_asset_id`)}
+              AND ${Prisma.raw(`${assetAlias}_explanation.library_scope`)} = ${MediaLibraryScope.kapten}
+              AND ${Prisma.raw(`${assetAlias}_explanation.state`)} = ${MediaAssetState.ready}
+              AND ${Prisma.raw(`${assetAlias}_explanation.trashed_at`)} IS NULL
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM question_revision_options ${Prisma.raw(`${optionAlias}_media`)}
+          WHERE ${Prisma.raw(`${optionAlias}_media.question_revision_id`)} = ${Prisma.raw(`${revisionAlias}.id`)}
+            AND ${Prisma.raw(`${optionAlias}_media.asset_id`)} IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM assets ${Prisma.raw(`${assetAlias}_option`)}
+              WHERE ${Prisma.raw(`${assetAlias}_option.id`)} = ${Prisma.raw(`${optionAlias}_media.asset_id`)}
+                AND ${Prisma.raw(`${assetAlias}_option.library_scope`)} = ${MediaLibraryScope.kapten}
+                AND ${Prisma.raw(`${assetAlias}_option.state`)} = ${MediaAssetState.ready}
+                AND ${Prisma.raw(`${assetAlias}_option.trashed_at`)} IS NULL
+            )
+        )
+    )
+  `;
+}
+
 function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma.Sql {
   const purpose = assertQuestionBankPurpose(options.purpose);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`b.purpose = ${purpose}`,
     Prisma.sql`b.status <> ${ContentStatus.archived}`,
-    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND rq.status <> ${ContentStatus.archived} AND ${buildReadySourceQuestionCondition("rq", "b")})`,
+    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.status <> ${ContentStatus.archived} AND ${options.purpose === QuestionBankPurpose.quiz ? buildQuizSnapshotSourceQuestionCondition("rq", "b") : buildReadySourceQuestionCondition("rq", "b")})`,
   ];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
   if (options.folderId !== undefined) {
@@ -644,7 +735,7 @@ function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma
       JOIN subtests ss ON ss.id = sq.subtest_id
       WHERE sq.question_bank_id = b.id
         AND sq.status <> ${ContentStatus.archived}
-        AND ${buildReadySourceQuestionCondition("sq", "b")}
+        AND ${options.purpose === QuestionBankPurpose.quiz ? buildQuizSnapshotSourceQuestionCondition("sq", "b") : buildReadySourceQuestionCondition("sq", "b")}
         AND ss.code IN (${Prisma.join(options.subjectCoverage.map((code) => Prisma.sql`${code}`))})
     )`);
   }
@@ -726,7 +817,9 @@ async function listQuestionBankSourceQuestions(bankId: string, options: ListQues
     Prisma.sql`q.question_bank_id = ${bankId}::uuid`,
     Prisma.sql`q.status <> ${ContentStatus.archived}`,
     Prisma.sql`EXISTS (SELECT 1 FROM question_banks qb WHERE qb.id = q.question_bank_id AND qb.purpose = ${purpose} AND qb.status <> ${ContentStatus.archived})`,
-    buildReadySourceQuestionCondition("q"),
+    purpose === QuestionBankPurpose.quiz
+      ? buildQuizSnapshotSourceQuestionCondition("q")
+      : buildReadySourceQuestionCondition("q"),
   ];
   if (options.subjectCode) {
     questionConditions.push(Prisma.sql`EXISTS (SELECT 1 FROM subtests qs WHERE qs.id = q.subtest_id AND qs.code = ${options.subjectCode})`);
@@ -918,6 +1011,7 @@ async function createQuestionRevision(
     questionType: QuestionAnswerMode;
   },
 ) {
+  const status = input.status ?? QuestionRevisionStatus.draft;
   const contentDigest = questionRevisionContentDigest({
     difficulty: input.difficulty,
     explanation: input.explanation,
@@ -942,7 +1036,8 @@ async function createQuestionRevision(
       questionId: input.questionId,
       questionType: input.questionType,
       revisionNo: input.revisionNo,
-      status: input.status ?? QuestionRevisionStatus.draft,
+      readyAt: status === QuestionRevisionStatus.ready ? new Date() : null,
+      status,
       stem: input.stem,
       updatedByUserId: input.actorId,
     },
@@ -1038,6 +1133,7 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
 
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
+  assertBankQuestionsReady(input.questions);
   const folderId = normalizeQuestionBankFolderId(input.folderId);
   const mediaFolderReservationId = normalizeMediaFolderReservationId(input.mediaFolderReservationId);
   let newBankId: string | undefined;
@@ -1285,10 +1381,11 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             options,
             promptAssetId: data.promptAssetId,
             questionId: saved.id,
-            revisionNo: 1,
-            stem: data.stem,
-            questionType,
-          });
+          revisionNo: 1,
+          status: QuestionRevisionStatus.ready,
+          stem: data.stem,
+          questionType,
+        });
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
           retainedIds.add(saved.id);
           continue;
@@ -1296,12 +1393,28 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
         retainedIds.add(current.id);
         const currentRevision = current.currentRevision;
-        const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
-        if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
-          continue;
-        }
         if (!currentRevision) {
           throw new QuestionBankError("Revisi aktif soal tidak ditemukan.", { code: "invalid_input", details: { questionId: current.id } });
+        }
+        const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
+        if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
+          if (currentRevision.status !== QuestionRevisionStatus.ready) {
+            await tx.questionRevision.update({
+              where: { id: currentRevision.id },
+              data: {
+                readyAt: currentRevision.readyAt ?? new Date(),
+                status: QuestionRevisionStatus.ready,
+                updatedByUserId: actorId,
+              },
+            });
+          }
+          if (current.status !== ContentStatus.published) {
+            await tx.question.update({
+              where: { id: current.id },
+              data: { status: ContentStatus.published, updatedByUserId: actorId },
+            });
+          }
+          continue;
         }
 
         const requiresNewRevision = currentRevision.status === QuestionRevisionStatus.ready;
@@ -1317,6 +1430,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             promptAssetId: data.promptAssetId,
             questionId: current.id,
             revisionNo: nextRevisionNo,
+            status: QuestionRevisionStatus.ready,
             stem: data.stem,
             questionType,
           });
@@ -1332,6 +1446,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             promptAssetId: data.promptAssetId,
             stem: data.stem,
             questionType,
+          });
+          await tx.questionRevision.update({
+            where: { id: currentRevision.id },
+            data: {
+              readyAt: currentRevision.readyAt ?? new Date(),
+              status: QuestionRevisionStatus.ready,
+              updatedByUserId: actorId,
+            },
           });
           // QuestionRevision is now the content authority. Keep the legacy
           // QuestionOption projection stable so historical source-option IDs
@@ -1634,7 +1756,7 @@ async function deleteQuestionBank(
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, revision: true, status: true, updatedByUserId: true } });
-    if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
+    if (!bank) throw new QuestionBankError("Question bank not found.", { code: "not_found" });
     const modifierId = actorId;
 
     const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([
@@ -1666,7 +1788,7 @@ async function deleteQuestionBank(
     ]);
 
     if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount) {
-      throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan oleh Quiz, Tryout, atau sesi belajar.");
+      throw new QuestionBankError("This question bank cannot be deleted because it is already used by a quiz, tryout, or learning session.");
     }
 
     const currentQuestions = await tx.question.findMany({

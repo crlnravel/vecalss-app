@@ -18,9 +18,9 @@ export default async function QuizOngoingPage({
   ]);
   const result = await getAvailableQuizAttempt(slug, quizSlug, session.user.id, searchParams.attemptId);
   if (!result) {
-    const preview = await getAvailableQuizPreview(slug, quizSlug);
+    const preview = await getAvailableQuizPreview(slug, quizSlug, session.user.id);
     if (!preview) notFound();
-    return <QuizStartPageModule policy={preview.policy} quiz={preview.quiz} subjectCode={preview.subject.title} subjectSlug={slug} subjectTitle={preview.subject.title} />;
+    return <QuizStartPageModule policy={preview.policy} quiz={preview.quiz} startAvailability={preview.startAvailability} subjectCode={preview.subject.title} subjectSlug={slug} subjectTitle={preview.subject.title} />;
   }
   if (result.attempt.isSubmitted) redirect(`/quiz/${slug}/${quizSlug}/result?attemptId=${encodeURIComponent(result.attemptId)}`);
   return <QuizOngoingPageModule key={result.attemptId} attempt={result.attempt} attemptId={result.attemptId} quiz={result.quiz} subjectSlug={slug} subjectTitle={result.subject.title} />;

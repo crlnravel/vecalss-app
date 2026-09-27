@@ -1128,7 +1128,6 @@ function ImportDetailHeader({ copy, loadStatus, refreshing, status }: { copy: Re
           </div>
         )}
         className="min-w-0 flex-1"
-        description="Tinjau baris dan rilis handoff berikutnya."
         title="Review import"
       />
     </div>

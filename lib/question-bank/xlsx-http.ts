@@ -150,9 +150,13 @@ async function parseQuestionBankXlsxApplyRequest(request: Request) {
     !value
     || typeof value !== "object"
     || Array.isArray(value)
-    || Object.keys(value).length !== 1
+    || Object.keys(value).some((key) => key !== "previewId" && key !== "mediaFolderReservationId")
+    || !Object.hasOwn(value, "previewId")
     || typeof (value as { previewId?: unknown }).previewId !== "string"
     || !isUuid((value as { previewId: string }).previewId)
+    || (Object.hasOwn(value, "mediaFolderReservationId")
+      && (typeof (value as { mediaFolderReservationId?: unknown }).mediaFolderReservationId !== "string"
+        || !isUuid((value as { mediaFolderReservationId: string }).mediaFolderReservationId)))
   ) {
     throw new QuestionBankXlsxHttpError("invalid_request", 400);
   }
@@ -186,19 +190,14 @@ async function parseQuestionBankXlsxDraftApplyRequest(request: Request) {
     !value
     || typeof value !== "object"
     || Array.isArray(value)
-    || Object.keys(value).some((key) => key !== "previewId" && key !== "mediaFolderReservationId")
-    || !Object.hasOwn(value, "previewId")
+    || Object.keys(value).length !== 1
     || typeof (value as { previewId?: unknown }).previewId !== "string"
     || !isUuid((value as { previewId: string }).previewId)
-    || (Object.hasOwn(value, "mediaFolderReservationId")
-      && (typeof (value as { mediaFolderReservationId?: unknown }).mediaFolderReservationId !== "string"
-        || !isUuid((value as { mediaFolderReservationId: string }).mediaFolderReservationId)))
   ) {
     throw new QuestionBankXlsxHttpError("invalid_request", 400);
   }
-  const parsed = value as { mediaFolderReservationId?: string; previewId: string };
+  const parsed = value as { previewId: string };
   return {
-    mediaFolderReservationId: parsed.mediaFolderReservationId?.toLowerCase(),
     previewId: parsed.previewId.toLowerCase(),
   };
 }

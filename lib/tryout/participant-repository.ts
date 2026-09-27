@@ -1,14 +1,19 @@
 import "server-only";
 
 import {
+  AssessmentResultReleaseState,
+  AttemptStatus,
   ContentStatus,
   MediaAssetState,
   Prisma,
   TryoutAssignmentStatus,
+  TryoutResultReleasePolicy,
 } from "@/generated/prisma/client";
 import { isImageMimeType } from "@/lib/media/domain";
 import { createMediaPreviewUrl, R2ConfigurationError } from "@/lib/media/r2";
+import { projectParticipantTryoutResultAvailability, type ParticipantTryoutResultAvailability } from "@/lib/tryout/participant-result-projection";
 import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
+import { isTryoutSessionExpired } from "@/lib/tryout/registration-availability";
 import { prisma } from "@/lib/prisma";
 
 type ParticipantTryoutSection = {
@@ -24,9 +29,10 @@ type ParticipantTryoutSection = {
 
 type ParticipantTryoutAssignment = {
   assessmentRelease: ParticipantAssessmentReleaseMetadata | null;
-  attempt: { id: string; status: string } | null;
+  attempt: { attemptReleaseState: AssessmentResultReleaseState; id: string; resultAvailability: ParticipantTryoutResultAvailability; status: string } | null;
   availableFrom: Date;
   availableUntil: Date;
+  effectiveResultReleasePolicy: TryoutResultReleasePolicy;
   fullscreenPrompt: boolean;
   id: string;
   isDefaultOpenRegistration: boolean;
@@ -35,6 +41,8 @@ type ParticipantTryoutAssignment = {
   name: string;
   rankingRule: string;
   resultReleasePolicy: string;
+  releaseState: AssessmentResultReleaseState;
+  scheduledReleaseAt: Date | null;
   sections: ParticipantTryoutSection[];
   status: string;
 };
@@ -68,57 +76,62 @@ type ParticipantTargetProfile = {
   university: { id: string; name: string; shortName: string | null } | null;
 };
 
-const tryoutInclude = {
-  _count: { select: { admissions: true } },
-  admissions: {
-    include: {
-      assignments: {
-        include: {
-          deliverySession: {
-            include: {
-              assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
-              attempts: {
-                select: { id: true, status: true, studentId: true },
+function participantTryoutInclude(studentId: string) {
+  return {
+    _count: { select: { admissions: true } },
+    admissions: {
+      include: {
+        assignments: {
+          include: {
+            deliverySession: {
+              include: {
+                assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
+                attempts: {
+                  select: { id: true, releaseState: true, score: true, scoringState: true, status: true },
+                  where: { studentId },
+                },
               },
             },
           },
+          orderBy: { assignedAt: "desc" as const },
+          where: { status: TryoutAssignmentStatus.active },
         },
-        orderBy: { assignedAt: "desc" as const },
-        where: { status: TryoutAssignmentStatus.active },
       },
     },
-  },
-  createdBy: { select: { fullName: true } },
-  bannerMedia: { select: { mimeType: true, objectKey: true, state: true, url: true } },
-  assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 },
-  deliverySessions: {
-    orderBy: { availableFrom: "asc" as const },
-    select: {
-      availableFrom: true,
-      availableUntil: true,
-      assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
-      fullscreenPrompt: true,
-      id: true,
-      isDefaultOpenRegistration: true,
-      name: true,
-      rankingRule: true,
-      resultReleasePolicy: true,
-      status: true,
+    createdBy: { select: { fullName: true } },
+    bannerMedia: { select: { mimeType: true, objectKey: true, state: true, url: true } },
+    assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 },
+    deliverySessions: {
+      orderBy: { availableFrom: "asc" as const },
+      select: {
+        availableFrom: true,
+        availableUntil: true,
+        assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
+        fullscreenPrompt: true,
+        id: true,
+        isDefaultOpenRegistration: true,
+        name: true,
+        rankingRule: true,
+        resultReleasePolicy: true,
+        releaseState: true,
+        scheduledReleaseAt: true,
+        status: true,
+      },
+      where: { status: { in: ["active", "closed"] as const } },
     },
-    where: { status: { in: ["active", "closed"] as const } },
-  },
-  examEvent: { select: { id: true, name: true } },
-  sections: {
-    include: {
-      items: { select: { difficulty: true } },
-      subtest: { select: { code: true, name: true } },
+    examEvent: { select: { id: true, name: true } },
+    sections: {
+      include: {
+        items: { select: { difficulty: true } },
+        subtest: { select: { code: true, name: true } },
+      },
+      orderBy: { sequenceNo: "asc" as const },
     },
-    orderBy: { sequenceNo: "asc" as const },
-  },
-} satisfies Prisma.TryoutPackageInclude;
+  } satisfies Prisma.TryoutPackageInclude;
+}
 
 type ParticipantTryoutRecord = Prisma.TryoutPackageGetPayload<{
-  include: typeof tryoutInclude;
+  include: ReturnType<typeof participantTryoutInclude>;
 }>;
 
 function sectionDifficulty(items: Array<{ difficulty: string }>) {
@@ -214,14 +227,30 @@ function serializeTryout(
     assessmentType: tryout.assessmentType,
     assignments: (admission?.assignments ?? []).map((assignment) => {
       const deliverySession = assignment.deliverySession;
-      const attempt = deliverySession.attempts.find((candidate) => candidate.studentId === studentId) ?? null;
+      const attempt = deliverySession.attempts[0] ?? null;
       return {
         assessmentRelease: deliverySession.assessmentRelease
           ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
           : null,
-        attempt: attempt ? { id: attempt.id, status: attempt.status } : null,
+        attempt: attempt
+          ? {
+            attemptReleaseState: attempt.releaseState,
+            id: attempt.id,
+            resultAvailability: projectParticipantTryoutResultAvailability({
+              attemptReleaseState: attempt.releaseState,
+              attemptScoringState: attempt.scoringState,
+              attemptStatus: attempt.status,
+              hasScore: attempt.score !== null,
+              sessionReleaseState: deliverySession.releaseState,
+            }),
+            status: attempt.status,
+          }
+          : null,
         availableFrom: deliverySession.availableFrom,
         availableUntil: deliverySession.availableUntil,
+        effectiveResultReleasePolicy: deliverySession.resultReleasePolicy === "inherit"
+          ? tryout.defaultResultReleasePolicy
+          : deliverySession.resultReleasePolicy,
         fullscreenPrompt: deliverySession.fullscreenPrompt,
         id: deliverySession.id,
         isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
@@ -229,10 +258,12 @@ function serializeTryout(
           Boolean(deliverySession.assessmentRelease) &&
           deliverySession.availableFrom <= now &&
           deliverySession.availableUntil > now,
-        isExpired: deliverySession.availableUntil <= now,
+        isExpired: isTryoutSessionExpired(deliverySession.availableUntil, now),
         name: deliverySession.name,
         rankingRule: deliverySession.rankingRule,
         resultReleasePolicy: deliverySession.resultReleasePolicy,
+        releaseState: deliverySession.releaseState,
+        scheduledReleaseAt: deliverySession.scheduledReleaseAt,
         sections: deliverySession.assessmentRelease
           ? releaseSections(deliverySession.assessmentRelease)
           : [],
@@ -253,6 +284,9 @@ function serializeTryout(
         : null,
       availableFrom: deliverySession.availableFrom,
       availableUntil: deliverySession.availableUntil,
+      effectiveResultReleasePolicy: deliverySession.resultReleasePolicy === "inherit"
+        ? tryout.defaultResultReleasePolicy
+        : deliverySession.resultReleasePolicy,
       fullscreenPrompt: deliverySession.fullscreenPrompt,
       id: deliverySession.id,
       isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
@@ -260,10 +294,12 @@ function serializeTryout(
         Boolean(deliverySession.assessmentRelease) &&
         deliverySession.availableFrom <= now &&
         deliverySession.availableUntil > now,
-      isExpired: deliverySession.availableUntil <= now,
+      isExpired: isTryoutSessionExpired(deliverySession.availableUntil, now),
       name: deliverySession.name,
       rankingRule: deliverySession.rankingRule,
       resultReleasePolicy: deliverySession.resultReleasePolicy,
+      releaseState: deliverySession.releaseState,
+      scheduledReleaseAt: deliverySession.scheduledReleaseAt,
       sections: deliverySession.assessmentRelease
         ? releaseSections(deliverySession.assessmentRelease)
         : [],
@@ -274,6 +310,7 @@ function serializeTryout(
 }
 
 async function queryParticipantTryouts(studentId: string, tryoutId?: string) {
+  const tryoutInclude = participantTryoutInclude(studentId);
   return prisma.tryoutPackage.findMany({
     include: {
       ...tryoutInclude,
@@ -285,6 +322,22 @@ async function queryParticipantTryouts(studentId: string, tryoutId?: string) {
     orderBy: { updatedAt: "desc" },
     where: {
       ...(tryoutId ? { id: tryoutId } : {}),
+      AND: [
+        {
+          OR: [
+            { isHidden: false },
+            { status: { not: ContentStatus.published } },
+            {
+              attempts: {
+                some: {
+                  status: AttemptStatus.in_progress,
+                  studentId,
+                },
+              },
+            },
+          ],
+        },
+      ],
       OR: [
         { admissions: { some: { studentId } } },
         { status: ContentStatus.published },

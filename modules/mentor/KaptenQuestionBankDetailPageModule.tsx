@@ -6,11 +6,11 @@ import {
   Archive,
   AlertTriangle,
   Check,
-  ChevronLeft,
   CircleHelp,
   Folder,
   LibraryBig,
   Pencil,
+  Trash2,
   Upload,
   X,
 } from "@/lib/icons";
@@ -59,15 +59,13 @@ import {
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
 import {
   QuestionBankCsvExportAction,
-  QuestionBankCsvImportControl,
   type QuestionBankCsvImportResult,
 } from "@/modules/mentor/components/question-bank-csv-flow";
-import {
-  QuestionBankXlsxImportControl,
-  type QuestionBankXlsxImportResult,
-} from "@/modules/mentor/components/question-bank-xlsx-flow";
+import type { QuestionBankXlsxImportResult } from "@/modules/mentor/components/question-bank-xlsx-flow";
+import { QuestionBankImportControl } from "@/modules/mentor/components/question-bank-import-control";
 import {
   ResourceAuthoringLockBanner,
   type AuthoringLockState,
@@ -77,8 +75,9 @@ import type {
   KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
-  saveQuestionBankAction,
+  deleteQuestionBankAction,
   getQuestionBankForEditAction,
+  saveQuestionBankAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
 import {
@@ -123,7 +122,7 @@ function QuestionBankStatusAction({
         variant="brandOutline"
       >
         <Upload />
-        {isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}
+        {isSavingLifecycle ? "Memulihkan…" : "Pulihkan"}
       </Button>
     );
   }
@@ -172,65 +171,74 @@ function QuestionBankLifecycleActions({
   );
 }
 
-function QuestionBankDetailHeaderBar({
-  bank,
-}: {
-  bank: KaptenQuestionBank;
-}) {
-  const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <Button
-          aria-label={`Kembali ke ${navigationLabel}`}
-          nativeButton={false}
-          render={
-            <Link
-              href={`/mentor/quiz/question-bank?purpose=${bank.purpose ?? "quiz"}`}
-            />
-          }
-          size="icon-sm"
-          title={`Kembali ke ${navigationLabel}`}
-          variant="ghost"
-        >
-          <ChevronLeft />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function QuestionBankArchiveSection({
   bank,
   handleLifecycle,
+  isDeleting,
   isReadOnly,
   isSavingLifecycle,
+  requestDelete,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  isDeleting: boolean;
   isReadOnly: boolean;
   isSavingLifecycle: boolean;
+  requestDelete: () => void;
   requestArchive: () => void;
 }) {
   return (
     <ReferenceSurface as="section" className="p-5 sm:p-6">
-      <div className="flex flex-col gap-4">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">
-            Administrasi
-          </h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <QuestionBankCsvExportAction bankId={bank.id} />
-          <QuestionBankLifecycleActions
-            bank={bank}
-            handleLifecycle={handleLifecycle}
-            isReadOnly={isReadOnly}
-            isSavingLifecycle={isSavingLifecycle}
-            requestArchive={requestArchive}
-          />
+      <div className="space-y-5">
+        <h2 className="text-lg font-semibold text-secondary-900">
+          Administrasi
+        </h2>
+        <div>
+          <AdministrationActionRow
+            action="Unduh soal"
+            description="Unduh seluruh soal dalam bank soal ini ke perangkat Anda."
+          >
+            <QuestionBankCsvExportAction bankId={bank.id} />
+          </AdministrationActionRow>
+          <AdministrationActionRow
+            action={
+              bank.status === "archived"
+                ? "Pulihkan bank soal"
+                : "Arsipkan bank soal"
+            }
+            description={
+              bank.status === "archived"
+                ? "Pulihkan bank soal ini agar dapat digunakan dan diperbarui kembali."
+                : "Arsipkan bank soal ini agar tidak lagi muncul di daftar bank soal."
+            }
+          >
+            <QuestionBankLifecycleActions
+              bank={bank}
+              handleLifecycle={handleLifecycle}
+              isReadOnly={isReadOnly}
+              isSavingLifecycle={isSavingLifecycle}
+              requestArchive={requestArchive}
+            />
+          </AdministrationActionRow>
+          <AdministrationActionRow
+            action="Hapus bank soal"
+            description="Hapus bank soal ini. Soal yang sudah digunakan dalam ujian atau kuis sebelumnya akan tetap tersimpan."
+          >
+            <Button
+              aria-busy={isDeleting}
+              aria-label="Hapus bank soal"
+              data-question-bank-delete-action="delete"
+              disabled={isDeleting || isSavingLifecycle || isReadOnly}
+              onClick={requestDelete}
+              size="sm"
+              type="button"
+              variant="dangerOutline"
+            >
+              <Trash2 />
+              {isDeleting ? "Menghapus…" : "Hapus bank soal"}
+            </Button>
+          </AdministrationActionRow>
         </div>
       </div>
     </ReferenceSurface>
@@ -682,7 +690,7 @@ function QuestionBankEditorButton({
   const editorButton = (
     <Button
       aria-label="Buka Editor"
-      className="w-full"
+      className="shrink-0"
       disabled={editorUnavailable}
       nativeButton={editorUnavailable}
       render={
@@ -706,7 +714,7 @@ function QuestionBankEditorButton({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<span className="flex w-full" />}>
+        <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
           {editorButton}
         </TooltipTrigger>
         <TooltipContent>{editorLockReason}</TooltipContent>
@@ -736,9 +744,9 @@ function QuestionBankQuestionsSection({
 }) {
   return (
     <section className="space-y-6">
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
+      <QuestionBankReadOnlyContext.Provider value={isReadOnly}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-2.5">
             <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
               Daftar Soal
             </h2>
@@ -746,25 +754,10 @@ function QuestionBankQuestionsSection({
               {questions.length} Soal
             </MentorBadge>
           </div>
-        </div>
-      </div>
 
-      <QuestionBankReadOnlyContext.Provider value={isReadOnly}>
-        <div className="grid w-full gap-2 sm:grid-cols-3">
-          <div className="min-w-0">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <QuestionBankEditorButton bank={bank} bankId={bankId} />
-          </div>
-          <div className="min-w-0">
-            <QuestionBankCsvImportControl
-              bankId={bankId}
-              disabled={isReadOnly}
-              editLease={editLease}
-              expectedRevision={expectedRevision}
-              onApplied={onImport}
-            />
-          </div>
-          <div className="min-w-0">
-            <QuestionBankXlsxImportControl
+            <QuestionBankImportControl
               bankId={bankId}
               currentQuestionCount={questions.length}
               disabled={isReadOnly}
@@ -882,6 +875,7 @@ function QuestionBankDetailContent({
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const [isSavingLifecycle, setIsSavingLifecycle] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [confirmationRequest, setConfirmationRequest] =
     useState<ConfirmationRequest | null>(null);
   const [readiness, setReadiness] = useState<QuestionBankReadiness>(
@@ -1030,14 +1024,16 @@ function QuestionBankDetailContent({
         status: result.result.status,
       }));
       const lifecycleMessage = {
-        archive: "Bank Soal diarsipkan.",
-        restore: "Bank Soal dipulihkan.",
+        archive: "Question bank archived.",
+        restore: "Question bank restored.",
       }[operation];
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : "Gagal mengubah status bank.",
+        err instanceof Error
+          ? err.message
+          : "The question bank status could not be updated right now.",
         { variant: "error" },
       );
     } finally {
@@ -1045,16 +1041,57 @@ function QuestionBankDetailContent({
     }
   }
 
+  async function handleDelete() {
+    if (isReadOnly || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteQuestionBankAction(
+        bank.id,
+        resourceLock.proof ?? undefined,
+      );
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return;
+      }
+      showToast("Question bank removed from active use.", { variant: "success" });
+      router.replace(
+        `/mentor/quiz/question-bank?purpose=${encodeURIComponent(bank.purpose ?? "quiz")}`,
+      );
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "The question bank could not be deleted right now.",
+        { variant: "error" },
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   function requestArchive() {
     setConfirmationRequest({
       confirmLabel: "Arsipkan",
       description:
-        "Bank soal yang diarsipkan tidak dapat digunakan untuk membuat soal hingga dipulihkan.",
+        "Arsipkan bank soal ini agar tidak lagi muncul di daftar bank soal.",
       onConfirm: () => {
         setConfirmationRequest(null);
         void handleLifecycle("archive");
       },
-      title: "Arsipkan Bank Soal?",
+      title: "Arsipkan bank soal?",
+    });
+  }
+
+  function requestDelete() {
+    setConfirmationRequest({
+      confirmLabel: "Hapus bank soal",
+      description:
+        "Hapus bank soal ini. Soal yang sudah digunakan dalam ujian atau kuis sebelumnya akan tetap tersimpan.",
+      onConfirm: () => {
+        setConfirmationRequest(null);
+        void handleDelete();
+      },
+      title: "Hapus bank soal?",
     });
   }
 
@@ -1071,10 +1108,6 @@ function QuestionBankDetailContent({
       showSearch={false}
     >
       <div className="space-y-8">
-        <QuestionBankDetailHeaderBar
-          bank={bank}
-        />
-
         <ResourceAuthoringLockBanner
           hasLocalChanges={isEditingTitle || isEditingDescription}
           onRetry={resourceLock.retry}
@@ -1120,7 +1153,7 @@ function QuestionBankDetailContent({
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="pengaturan"
             >
-              Pengaturan
+              Administrasi
             </FullWidthLineTabsTrigger>
           </FullWidthLineTabsList>
           <TabsContent className="m-0" value="soal">
@@ -1153,8 +1186,10 @@ function QuestionBankDetailContent({
             <QuestionBankArchiveSection
               bank={bank}
               handleLifecycle={handleLifecycle}
+              isDeleting={isDeleting}
               isReadOnly={isReadOnly}
               isSavingLifecycle={isSavingLifecycle}
+              requestDelete={requestDelete}
               requestArchive={requestArchive}
             />
           </TabsContent>

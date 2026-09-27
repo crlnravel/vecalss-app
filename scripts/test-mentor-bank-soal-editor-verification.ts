@@ -23,7 +23,8 @@ const packageJson = JSON.parse(read("package.json")) as {
 // Editor entry points and the product vocabulary are intentionally tested
 // together: the editor owns the Bank Soal root label and never leaks the
 // catalogue's legacy "unfiled" terminology into authoring.
-assert.match(createRoute, /mode="create"/u);
+assert.match(createRoute, /params\.set\("create", "1"\)/u);
+assert.match(createRoute, /redirect\(`\/mentor\/quiz\/question-bank\?/u);
 assert.match(detailRoute, /KaptenQuestionBankDetailPageModule/u);
 assert.match(editRoute, /mode="edit"/u);
 assert.doesNotMatch(builder, /activeTab|collapsedByDefault=\{mode === "create"\}/u);
@@ -91,8 +92,8 @@ assert.match(detail, /<FullWidthLineTabsList aria-label="Bagian detail Bank Soal
 assert.match(detail, /function QuestionBankEditorButton\([\s\S]*?className="w-full shadow-sm"/u);
 assert.match(detail, /<TabsContent className="m-0" value="soal">[\s\S]*?<QuestionBankQuestionsSection/u);
 const archiveSection = detail.match(/function QuestionBankArchiveSection\([\s\S]*?\n\}\n\ntype QuestionBankMetadataFormState/u)?.[0] ?? "";
-assert.match(archiveSection, /Administrasi[\s\S]*?<QuestionBankLifecycleActions/u);
-assert.doesNotMatch(archiveSection, /<p\b/u, "Administrasi should not render helper copy below its title");
+assert.match(archiveSection, /Administrasi[\s\S]*?<AdministrationActionRow/u);
+assert.match(archiveSection, /description="Unduh salinan seluruh soal/u, "Administrasi actions should expose descriptive subtitles");
 assert.match(detail, /<TabsContent className="m-0" value="pengaturan">[\s\S]*?<QuestionBankArchiveSection/u);
 assert.match(detail, /<span className="text-xs font-semibold text-secondary-500">\s*Tipe\s*<\/span>[\s\S]*?questionBankPurposeLabel\(bank\.purpose \?\? "quiz"\)[\s\S]*?Deskripsi/u, "Bank Soal should show its type before the description");
 assert.doesNotMatch(detail, /<StatusPill status=\{bank\.status\} \/>|QUESTION_BANK_METADATA_PILL_CLASS_NAME/u, "Bank Soal metadata should not render title badges");

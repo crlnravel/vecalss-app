@@ -25,6 +25,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import {
   Tooltip,
@@ -58,6 +64,8 @@ import {
 } from "@/modules/media/media-library";
 import type { MediaAssetDto } from "@/lib/media/types";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
+import { UnsavedChangesConfirmationDialog } from "@/modules/mentor/components/unsaved-changes-confirmation-dialog";
 import {
   ResourceAuthoringLockBanner,
   type AuthoringLockState,
@@ -636,63 +644,67 @@ function MateriAdministrationSection({
         aria-labelledby="materi-administration-title"
         className="grid gap-5 p-5 sm:p-7"
       >
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <h2
-              className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
-              id="materi-administration-title"
-            >
-              Administrasi
-            </h2>
-            {!isPublished ? (
-              <p className="max-w-2xl text-sm leading-6 text-secondary-600">
-                {isDraft
-                  ? "Terbitkan materi setelah data dan bacaan siap."
-                  : isArchived
-                    ? "Materi ini diarsipkan dan tidak dapat diedit."
-                    : "Atur status publikasi materi."}
-              </p>
-            ) : null}
-          </div>
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="materi-administration-title"
+        >
+          Administrasi
+        </h2>
+        <div>
           {isDraft ? (
-            hasUnsavedChanges ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger render={<span className="inline-flex" />}>
-                    {publishButton}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Simpan perubahan sebelum mengubah status publikasi materi.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              publishButton
-            )
+            <AdministrationActionRow
+              action="Terbitkan materi"
+              description="Terbitkan materi setelah data dan bacaan siap."
+            >
+              {hasUnsavedChanges ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={<span className="inline-flex" />}>
+                      {publishButton}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Simpan perubahan sebelum mengubah status publikasi materi.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                publishButton
+              )}
+            </AdministrationActionRow>
           ) : null}
           {isPublished ? (
-            <Button
-              aria-busy={isSaving}
-              disabled={isLifecycleActionBlocked}
-              onClick={() => setIsArchiveDialogOpen(true)}
-              type="button"
-              variant="dangerOutline"
+            <AdministrationActionRow
+              action="Arsipkan materi"
+              description="Pindahkan materi ke arsip agar tidak dapat diedit sampai dipulihkan kembali."
             >
-              <Archive />
-              {isSaving ? "Mengarsipkan…" : "Arsipkan materi"}
-            </Button>
+              <Button
+                aria-busy={isSaving}
+                disabled={isLifecycleActionBlocked}
+                onClick={() => setIsArchiveDialogOpen(true)}
+                type="button"
+                variant="dangerOutline"
+              >
+                <Archive />
+                {isSaving ? "Mengarsipkan…" : "Arsipkan materi"}
+              </Button>
+            </AdministrationActionRow>
           ) : null}
           {isArchived ? (
-            <Button
-              aria-busy={isSaving}
-              disabled={isSaving}
-              onClick={onRestore}
-              type="button"
-              variant="brandOutline"
+            <AdministrationActionRow
+              action="Pulihkan materi"
+              description="Kembalikan materi dari arsip agar dapat dikelola kembali."
             >
-              <Upload />
-              {isSaving ? "Memulihkan…" : "Pulihkan materi"}
-            </Button>
+              <Button
+                aria-busy={isSaving}
+                disabled={isSaving}
+                onClick={onRestore}
+                type="button"
+                variant="brandOutline"
+              >
+                <Upload />
+                {isSaving ? "Memulihkan…" : "Pulihkan materi"}
+              </Button>
+            </AdministrationActionRow>
           ) : null}
         </div>
         {readiness !== "ready" && isDraft ? (
@@ -912,20 +924,26 @@ function useMateriNavigationGuards({
 }
 
 function MateriBuilderContent({
+  dialogOpen = false,
   initialMateri = null,
   initialPreview = false,
   initialSubjectSlug,
+  isCreateDialog = false,
   materiId,
   mode,
+  onDialogOpenChange,
   returnTo,
   session,
   subjects,
 }: {
+  dialogOpen?: boolean;
   initialMateri?: KaptenMateriView | null;
   initialPreview?: boolean;
   initialSubjectSlug?: string;
+  isCreateDialog?: boolean;
   materiId?: string;
   mode: "create" | "edit";
+  onDialogOpenChange?: (open: boolean) => void;
   returnTo?: string;
   session: SessionContext;
   subjects: KaptenMateriSubjectView[];
@@ -946,6 +964,7 @@ function MateriBuilderContent({
     saveError: null,
     savedMateri: initialMateri,
   });
+  const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
   const {
     errors,
     hasUnsavedChanges,
@@ -1033,6 +1052,25 @@ function MateriBuilderContent({
   function resetChanges() {
     setBuilderState(getInitialState(savedMateri, initialSubjectSlug, subjects));
     updateEditor({ errors: {}, hasUnsavedChanges: false, saveError: null });
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    if (open) {
+      onDialogOpenChange?.(true);
+      return;
+    }
+    if (isSaving) return;
+    if (hasUnsavedChanges) {
+      setDiscardConfirmationOpen(true);
+      return;
+    }
+    onDialogOpenChange?.(false);
+  }
+
+  function discardAndCloseDialog() {
+    setDiscardConfirmationOpen(false);
+    resetChanges();
+    onDialogOpenChange?.(false);
   }
 
   async function saveLesson() {
@@ -1143,25 +1181,22 @@ function MateriBuilderContent({
     }
   }
 
-  return (
-    <MentorWorkspaceShell
-      activeLabel="Materi"
-      breadcrumbLabel={mode === "create" ? "Buat Materi" : "Edit Materi"}
-      mainClassName="!max-w-none gap-6"
-      onNavigateAway={() => !hasUnsavedChanges}
-      searchPlaceholder="Cari materi..."
-      session={session}
-      showSearch={false}
-      sidebarAppearance="reference"
-      shouldGuardNavigation={hasUnsavedChanges}
-    >
-      <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
-        <MateriBuilderHeader
-          builderState={builderState}
-          isPreviewOpen={isPreviewOpen}
-          mode={mode}
-          parentHref={parentHref}
-        />
+  const builderContent = (
+    <>
+      <div
+        className={cn(
+          "flex w-full flex-col gap-6",
+          isCreateDialog ? "gap-5" : "mx-auto max-w-[1180px]",
+        )}
+      >
+        {!isCreateDialog ? (
+          <MateriBuilderHeader
+            builderState={builderState}
+            isPreviewOpen={isPreviewOpen}
+            mode={mode}
+            parentHref={parentHref}
+          />
+        ) : null}
 
         {mode === "edit" ? (
           <ResourceAuthoringLockBanner
@@ -1216,22 +1251,65 @@ function MateriBuilderContent({
 
       {hasUnsavedChanges ? (
         <MateriUnsavedChangesBar
-        isArchived={isArchived || isEditLocked}
+          isArchived={isArchived || isEditLocked}
           isSaving={isSaving}
           onReset={resetChanges}
           onSave={() => void saveLesson()}
         />
       ) : null}
+    </>
+  );
+
+  if (isCreateDialog) {
+    return (
+      <>
+        <Dialog onOpenChange={handleDialogOpenChange} open={dialogOpen}>
+          <DialogContent
+            className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] p-6 sm:max-w-2xl sm:p-8"
+            pending={isSaving}
+          >
+            <DialogHeader className="pr-8">
+              <DialogTitle>Buat Materi</DialogTitle>
+            </DialogHeader>
+            {builderContent}
+          </DialogContent>
+        </Dialog>
+        <UnsavedChangesConfirmationDialog
+          description="Perubahan materi yang belum disimpan akan hilang."
+          onDiscard={discardAndCloseDialog}
+          onOpenChange={setDiscardConfirmationOpen}
+          open={discardConfirmationOpen}
+        />
+      </>
+    );
+  }
+
+  return (
+    <MentorWorkspaceShell
+      activeLabel="Materi"
+      breadcrumbLabel={mode === "create" ? "Buat Materi" : "Edit Materi"}
+      mainClassName="!max-w-none gap-6"
+      onNavigateAway={() => !hasUnsavedChanges}
+      searchPlaceholder="Cari materi..."
+      session={session}
+      showSearch={false}
+      sidebarAppearance="reference"
+      shouldGuardNavigation={hasUnsavedChanges}
+    >
+      {builderContent}
     </MentorWorkspaceShell>
   );
 }
 
 function KaptenMateriBuilderPageModule(props: {
+  dialogOpen?: boolean;
   initialMateri?: KaptenMateriView | null;
   initialPreview?: boolean;
   initialSubjectSlug?: string;
+  isCreateDialog?: boolean;
   materiId?: string;
   mode: "create" | "edit";
+  onDialogOpenChange?: (open: boolean) => void;
   returnTo?: string;
   session: SessionContext;
   subjects: KaptenMateriSubjectView[];
@@ -1247,4 +1325,35 @@ function KaptenMateriBuilderPageModule(props: {
   );
 }
 
-export { KaptenMateriBuilderPageModule };
+function MentorMateriCreateDialog({
+  initialSubjectSlug,
+  onOpenChange,
+  open,
+  returnTo,
+  session,
+  subjects,
+}: {
+  initialSubjectSlug?: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  returnTo?: string;
+  session: SessionContext;
+  subjects: KaptenMateriSubjectView[];
+}) {
+  if (!open) return null;
+
+  return (
+    <KaptenMateriBuilderPageModule
+      dialogOpen={open}
+      initialSubjectSlug={initialSubjectSlug}
+      isCreateDialog
+      mode="create"
+      onDialogOpenChange={onOpenChange}
+      returnTo={returnTo}
+      session={session}
+      subjects={subjects}
+    />
+  );
+}
+
+export { KaptenMateriBuilderPageModule, MentorMateriCreateDialog };

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
@@ -7,7 +8,6 @@ import {
   type CanonicalContextIssue,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
-import { KaptenQuizEditorPageModule } from "@/modules/mentor/KaptenQuizEditorPageModule";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
@@ -41,5 +41,7 @@ export default async function CreateMentorQuizPage({ searchParams }: { searchPar
       </MentorWorkspaceShell>
     );
   }
-  return <KaptenQuizEditorPageModule initialSubjectCode={subjectCode} mode="create" session={session} />;
+  const params = new URLSearchParams({ create: "1" });
+  if (subjectCode) params.set("subject", subjectCode);
+  redirect(`/mentor/quiz?${params.toString()}`);
 }

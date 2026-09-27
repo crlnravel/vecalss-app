@@ -76,7 +76,6 @@ function OperationsConsoleModule({
   return (
     <div className="space-y-8">
       <ReferencePageHeader
-        description="Kelola akses akun admin dan pantau aktivitas operasional terbaru."
         title="Dashboard"
       />
 

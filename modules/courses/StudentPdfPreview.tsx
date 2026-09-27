@@ -9,6 +9,7 @@ import {
   isValidHostedPdfUrl,
   type MateriDocument,
 } from "@/lib/materi/contract";
+import { withMateriDocumentDeliveryMode } from "@/lib/materi/document-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,11 +52,6 @@ async function toggleDocumentFullscreen(preview: HTMLDivElement | null, fullscre
   }
 }
 
-function withDeliveryMode(value: string, mode: "download" | "pdf") {
-  const separator = value.includes("?") ? "&" : "?";
-  return `${value}${separator}${mode}=${mode === "download" ? "1" : "pdf"}`;
-}
-
 function getDocumentPreviewState({
   failedKey,
   isHosted,
@@ -96,10 +92,10 @@ function getStudentPdfPreviewModel({
     ? "Dokumen PDF managed belum dapat dibuka. Coba muat ulang halaman atau gunakan jalur kembali ke Materi."
     : "Dokumen PDF belum tersedia untuk dibaca. Kembali ke Materi untuk memilih unit lain.";
   const requestKey = `${documentDeliveryUrl ?? ""}:${hostedUrl}:${document?.managedAssetId ?? ""}:${requestVersion}`;
-  const previewUrl = shouldResolveDelivery && documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "pdf") : hostedUrl;
+  const previewUrl = shouldResolveDelivery && documentDeliveryUrl ? withMateriDocumentDeliveryMode(documentDeliveryUrl, "pdf") : hostedUrl;
   const state = getDocumentPreviewState({ failedKey, isHosted, requestKey, resolvedKey: shouldResolveDelivery ? requestKey : null, resolvedUrl: previewUrl, shouldResolveDelivery });
   const downloadUrl = shouldResolveDelivery
-    ? documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "download") : null
+    ? documentDeliveryUrl ? withMateriDocumentDeliveryMode(documentDeliveryUrl, "download") : null
     : getDownloadUrl(hostedUrl);
 
   return {

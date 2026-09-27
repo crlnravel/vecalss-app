@@ -16,7 +16,7 @@ assert.match(repository, /revision\.id === item\.sourceQuestionRevisionId/);
 assert.match(repository, /async function acceptStandaloneQuizQuestionUpdate/);
 assert.match(repository, /expectedCurrentContentDigest/);
 assert.match(repository, /targetRevisionId/);
-assert.match(repository, /record\.status !== ContentStatus\.draft/);
+assert.match(repository, /assertStandaloneQuizNotArchived\(record\)/);
 assert.match(repository, /record\.participations\.length/);
 assert.match(repository, /Revisi Bank Soal berubah\. Muat ulang lalu tinjau kembali\./);
 assert.match(repository, /await tx\.standaloneQuizItemOption\.deleteMany/);

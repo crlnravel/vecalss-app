@@ -62,7 +62,7 @@ function TryoutWorkspace({
   session,
   tryoutId,
 }: {
-  activeWorkspace: "identity" | "subtests" | "operations" | "participants" | "settings";
+  activeWorkspace: "subtests" | "operations" | "participants" | "settings";
   initialDraft: TryoutDraft;
   initialOperations: InitialOperations;
   parentDraft: TryoutDraft | null;
@@ -92,12 +92,12 @@ function redirectLegacyTryoutWorkspace(tryoutId: string, workspace: ParsedTryout
   }
 }
 
-function initialWorkspaceForContext(parsedQuery: ParsedTryoutContext): "identity" | "subtests" | "operations" | "participants" | "settings" {
+function initialWorkspaceForContext(parsedQuery: ParsedTryoutContext): "subtests" | "operations" | "participants" | "settings" {
   if (parsedQuery.workspace === "participants" || parsedQuery.delivery === "participants") return "participants";
   if (parsedQuery.workspace === "settings") return "settings";
   if (parsedQuery.workspace === "operations" || parsedQuery.delivery) return "operations";
   if (parsedQuery.workspace === "sections") return "subtests";
-  return "identity";
+  return "subtests";
 }
 
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {

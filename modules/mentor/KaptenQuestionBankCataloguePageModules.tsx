@@ -6,7 +6,6 @@ import {
   Archive,
   ChevronRight,
   CircleHelp,
-  Ellipsis,
   Folder,
   FolderPlus,
   LibraryBig,
@@ -63,9 +62,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -77,7 +73,7 @@ import { cn } from "@/lib/utils";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { QuestionBankCreateMethodDialog } from "@/modules/mentor/components/question-bank-csv-flow";
+import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 import {
   kaptenSubjects,
   type KaptenQuestionBank,
@@ -172,17 +168,25 @@ function questionBankHref({
 }
 
 function questionBankCreateHref({
+  categories,
   folder = ROOT_FOLDER,
+  page,
   purpose = "quiz",
+  query,
+  sort,
+  status,
+  subjects,
 }: {
+  categories?: string[];
   folder?: FolderSelection;
+  page?: number;
   purpose?: QuestionBankPurpose;
+  query?: string;
+  sort?: BankSortMode;
+  status?: string;
+  subjects?: string[];
 } = {}) {
-  const params = new URLSearchParams({ purpose });
-  if (folder !== ROOT_FOLDER) {
-    params.set("folder", folder === null ? "unfiled" : folder);
-  }
-  return `/mentor/quiz/question-bank/create?${params.toString()}`;
+  return `${questionBankHref({ categories, folder, page, purpose, query, sort, status, subjects })}&create=1`;
 }
 
 function flattenFolders(
@@ -578,34 +582,6 @@ function QuestionBankFolderBreadcrumb({
         </span>
       ))}
     </nav>
-  );
-}
-
-function QuestionBankSortMenu({
-  initialSort,
-  onChange,
-}: {
-  initialSort: BankSortMode;
-  onChange: (sort: BankSortMode) => void;
-}) {
-  return (
-    <>
-      <DropdownMenuLabel className="font-semibold text-secondary-900">
-        Urutkan koleksi
-      </DropdownMenuLabel>
-      <DropdownMenuRadioGroup
-        onValueChange={(value) => onChange(value as BankSortMode)}
-        value={initialSort}
-      >
-        <DropdownMenuRadioItem value="updated">
-          Terbaru diperbarui
-        </DropdownMenuRadioItem>
-        <DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem>
-        <DropdownMenuRadioItem value="questions">
-          Jumlah soal
-        </DropdownMenuRadioItem>
-      </DropdownMenuRadioGroup>
-    </>
   );
 }
 
@@ -1486,6 +1462,7 @@ function useQuestionBankCatalogueState({
   initialSelectedSubjects = [],
   initialSort = "updated",
   initialStatusFilter = "",
+  initialCreateDialogOpen = false,
   initialTotal,
 }: {
   initialEntries: BankEntry[];
@@ -1499,6 +1476,7 @@ function useQuestionBankCatalogueState({
   initialSelectedSubjects?: string[];
   initialSort?: BankSortMode;
   initialStatusFilter?: string;
+  initialCreateDialogOpen?: boolean;
   initialTotal: number;
 }) {
   const router = useRouter();
@@ -1526,7 +1504,7 @@ function useQuestionBankCatalogueState({
   const [folderName, setFolderName] = useState("");
   const [folderParentId, setFolderParentId] = useState<string | null>(null);
   const [bankMoveId, setBankMoveId] = useState<string | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(initialCreateDialogOpen);
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const {
@@ -1707,16 +1685,6 @@ function useQuestionBankCatalogueState({
       }}
     />
   );
-  const sortMenu = (
-    <QuestionBankSortMenu
-      initialSort={initialSort}
-      onChange={(sort) => {
-        resetPage();
-        navigateCatalogue({ page: 1, sort });
-      }}
-    />
-  );
-
   return {
     activeFilters,
     applyLifecycle,
@@ -1764,7 +1732,6 @@ function useQuestionBankCatalogueState({
     setSelectedFolder,
     setSelectedSubjects,
     setStatusFilter,
-    sortMenu,
     statusFilter,
     submitFolderDialog,
     totalPages,
@@ -1793,12 +1760,14 @@ type QuestionBankCatalogueState = ReturnType<
 >;
 
 function QuestionBankCataloguePageContent({
+  session,
   initialPurpose,
   initialSearch,
   initialSort,
   initialTotal,
   state,
 }: {
+  session: SessionContext;
   initialPurpose: QuestionBankPurpose;
   initialSearch: string;
   initialSort: BankSortMode;
@@ -1850,7 +1819,6 @@ function QuestionBankCataloguePageContent({
     setPendingLifecycle,
     setSelectedSubjects,
     setStatusFilter,
-    sortMenu,
     statusFilter,
     submitFolderDialog,
     totalPages,
@@ -1859,6 +1827,22 @@ function QuestionBankCataloguePageContent({
   const router = useRouter();
   const lifecycleCopy = getQuestionBankLifecycleCopy(pendingLifecycle?.action);
   const pageTitle = questionBankNavigationLabel(initialPurpose);
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    setCreateDialogOpen(open);
+    if (!open && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("create")) {
+      router.replace(questionBankHref({
+        categories: selectedCategories,
+        folder: selectedFolder,
+        page: visiblePage,
+        purpose: initialPurpose,
+        query: initialSearch,
+        sort: initialSort,
+        status: statusFilter,
+        subjects: selectedSubjects,
+      }), { scroll: false });
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -1877,7 +1861,19 @@ function QuestionBankCataloguePageContent({
             </Button>
             <Button
               aria-label="Buat Soal"
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={() => {
+                setCreateDialogOpen(true);
+                router.push(questionBankCreateHref({
+                  categories: selectedCategories,
+                  folder: selectedFolder,
+                  page: visiblePage,
+                  purpose: initialPurpose,
+                  query: initialSearch,
+                  sort: initialSort,
+                  status: statusFilter,
+                  subjects: selectedSubjects,
+                }), { scroll: false });
+              }}
               size="sm"
               title="Buat Bank"
               type="button"
@@ -1958,7 +1954,6 @@ function QuestionBankCataloguePageContent({
           }
           isLoading={isCataloguePending}
           loadingLabel="Memuat bank soal…"
-          moreMenu={sortMenu}
           onRowClick={openCatalogueRow}
           rowContextMenu={catalogueRowContextMenu}
           rows={catalogueRows}
@@ -2035,28 +2030,17 @@ function QuestionBankCataloguePageContent({
         ) : null}
       </div>
 
-      <QuestionBankCreateMethodDialog
-        onContinueForm={() => {
-          setCreateDialogOpen(false);
-          router.push(
-            questionBankCreateHref({
-              folder: selectedFolder,
-              purpose: initialPurpose,
-            }),
-          );
-        }}
-        onCsvReady={() => {
-          setCreateDialogOpen(false);
-          router.push(
-            questionBankCreateHref({
-              folder: selectedFolder,
-              purpose: initialPurpose,
-            }),
-          );
-        }}
-        onOpenChange={setCreateDialogOpen}
-        open={createDialogOpen}
-      />
+      {createDialogOpen ? (
+        <KaptenQuestionBankBuilderPageModule
+          initialFolderId={selectedFolder === ROOT_FOLDER ? null : selectedFolder}
+          mode="create"
+          onOpenChange={handleCreateDialogOpenChange}
+          open
+          presentation="modal"
+          purpose={initialPurpose}
+          session={session}
+        />
+      ) : null}
       <QuestionBankFolderDialog
         flatFolders={flatFolders}
         folderDialog={folderDialog}
@@ -2123,6 +2107,7 @@ function KaptenQuestionBankPageModule({
   initialSelectedFolder = ROOT_FOLDER,
   initialSelectedSubjects = [],
   initialStatusFilter = "",
+  initialCreateDialogOpen = false,
   initialTotal,
   session,
 }: {
@@ -2137,6 +2122,7 @@ function KaptenQuestionBankPageModule({
   initialSelectedFolder?: FolderSelection;
   initialSelectedSubjects?: string[];
   initialStatusFilter?: string;
+  initialCreateDialogOpen?: boolean;
   initialTotal: number;
   session: SessionContext;
 }) {
@@ -2152,6 +2138,7 @@ function KaptenQuestionBankPageModule({
     initialSelectedSubjects,
     initialSort,
     initialStatusFilter,
+    initialCreateDialogOpen,
     initialTotal,
   });
   const navigationLabel = questionBankNavigationLabel(initialPurpose);
@@ -2167,6 +2154,7 @@ function KaptenQuestionBankPageModule({
       sidebarAppearance="reference"
     >
       <QuestionBankCataloguePageContent
+        session={session}
         initialPurpose={initialPurpose}
         initialSearch={initialSearch}
         initialSort={initialSort}

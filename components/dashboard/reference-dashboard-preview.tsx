@@ -68,7 +68,6 @@ function ReferenceDashboardComponentPreview() {
       navigation={previewNavigation}
     >
       <ReferencePageHeader
-        description="Kumpulan komponen terambil dari referensi dashboard, diterjemahkan ke token Vecalss."
         title="Dashboard components"
       />
 

@@ -26,10 +26,9 @@ import {
   readPrivateStagingObject,
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
-import { ensureQuestionBankMediaFolder, reserveDraftQuestionBankMediaFolder } from "@/lib/question-bank/media-folder";
+import { ensureQuestionBankMediaFolder } from "@/lib/question-bank/media-folder";
 import {
   findQuestionBankImageReferences,
-  lockAndValidateKaptenBankImages,
   lockAndPrepareKaptenBankImageCleanup,
 } from "@/lib/question-bank/media-validator";
 import {
@@ -1371,7 +1370,6 @@ type QuestionBankXlsxApplyTarget = {
   ownerUserId: string;
   targetBankId: string | null;
   targetMode: QuestionBankCsvImportMode | "draft";
-  requestedReservationId?: string;
 };
 
 type QuestionBankXlsxApplyClaim = {
@@ -1399,9 +1397,8 @@ type QuestionBankXlsxBankApplyResult = QuestionBankCsvApplyResult & {
 };
 
 type QuestionBankXlsxDraftApplyResult = {
-  imageAssetIds: string[];
-  mediaFolderReservationId: string;
   normalizedRows: QuestionBankCsvRow[];
+  normalizedRowWorksheetRefs: QuestionBankXlsxPreviewManifest["normalizedRowWorksheetRefs"];
   previewId: string;
 };
 
@@ -1425,7 +1422,6 @@ async function claimQuestionBankXlsxApplyAttempt(input: QuestionBankXlsxApplyTar
     || (input.targetBankId !== null && !isUuid(input.targetBankId))
     || (input.targetMode === "draft" && input.targetBankId !== null)
     || (input.targetMode !== "draft" && input.targetBankId === null)
-    || (input.requestedReservationId !== undefined && !isUuid(input.requestedReservationId))
   ) {
     throw new QuestionBankXlsxImportError("attempt_invalid");
   }
@@ -1445,17 +1441,14 @@ async function claimQuestionBankXlsxApplyAttempt(input: QuestionBankXlsxApplyTar
     const firstClaim = current.targetMode === null && current.targetBankId === null;
     const targetMatches = current.targetBankId === input.targetBankId
       && current.targetMode === input.targetMode;
-    const reservationMatches = input.targetMode !== "draft"
-      || input.requestedReservationId === undefined
-      || current.mediaFolderReservationId === input.requestedReservationId;
-    if ((!firstClaim && !targetMatches) || !reservationMatches) {
+    if (!firstClaim && !targetMatches) {
       throw new QuestionBankXlsxImportError("attempt_target_mismatch");
     }
 
     const now = new Date();
     if (current.state === QuestionBankXlsxImportAttemptState.completed) {
       if (current.expiresAt <= now) throw new QuestionBankXlsxImportError("attempt_expired");
-      if (!current.result || !targetMatches || !reservationMatches) {
+      if (!current.result || !targetMatches) {
         throw new QuestionBankXlsxImportError("attempt_target_mismatch");
       }
       return { kind: "replay", result: current.result as Prisma.JsonValue };
@@ -1475,9 +1468,7 @@ async function claimQuestionBankXlsxApplyAttempt(input: QuestionBankXlsxApplyTar
     if (current.cancelRequestedAt) throw new QuestionBankXlsxImportError("attempt_cancelled");
 
     const leaseExpiresAt = operationLeaseUntil(now.getTime());
-    const mediaFolderReservationId = input.targetMode === "draft"
-      ? current.mediaFolderReservationId ?? input.requestedReservationId ?? randomUUID()
-      : null;
+    const mediaFolderReservationId = null;
     const attempt = await tx.questionBankXlsxImportAttempt.update({
       data: {
         expiresAt: expiresAfterOperation(leaseExpiresAt),
@@ -1784,7 +1775,7 @@ async function completeQuestionBankXlsxApplyAttempt<TResult extends QuestionBank
     data: {
       completedAt,
       expiresAt: new Date(now.getTime() + questionBankXlsxApplyCompletedRetentionMs),
-      imageCount: result.imageAssetIds.length,
+      imageCount: "imageAssetIds" in result ? result.imageAssetIds.length : 0,
       lastErrorCode: null,
       operationLeaseExpiresAt: null,
       questionCount: "normalizedRows" in result ? result.normalizedRows.length : result.importedCount,
@@ -2085,14 +2076,12 @@ async function applyQuestionBankXlsxToBank(input: {
 
 async function applyQuestionBankXlsxToDraft(input: {
   attemptId: string;
-  mediaFolderReservationId?: string;
   ownerUserId: string;
   signal?: AbortSignal;
 }): Promise<QuestionBankXlsxDraftApplyResult> {
   const target: QuestionBankXlsxApplyTarget = {
     attemptId: input.attemptId,
     ownerUserId: input.ownerUserId,
-    requestedReservationId: input.mediaFolderReservationId,
     targetBankId: null,
     targetMode: "draft",
   };
@@ -2103,34 +2092,7 @@ async function applyQuestionBankXlsxToDraft(input: {
   const claim = outcome.claim;
 
   try {
-    if (!claim.mediaFolderReservationId) throw new QuestionBankXlsxImportError("attempt_unavailable");
-    const reservation = await reserveDraftQuestionBankMediaFolder(
-      input.ownerUserId,
-      claim.mediaFolderReservationId,
-    );
     const preview = await readQuestionBankXlsxPreviewForApply(input.ownerUserId, input.attemptId, input.signal);
-    const imageBytes = await readFrozenQuestionBankXlsxImages(preview, input.signal);
-    const images = preview.previewImageIndex.map((image) => ({
-      contentSha256: image.contentSha256,
-      height: image.height,
-      mimeType: image.mimeType,
-      sizeBytes: image.sizeBytes,
-      width: image.width,
-    }));
-    const attemptAssets = await ensureQuestionBankXlsxAttemptAssets(
-      target,
-      claim,
-      reservation.mediaFolderId,
-      images,
-    );
-    const assetIdByHash = new Map(attemptAssets.map((asset) => [asset.contentSha256, asset.assetId]));
-    const rows = applyImageAssetIdsToRows(
-      preview.manifest.normalizedRows,
-      preview.manifest.imageSlots,
-      preview.normalizedRowIndexByWorksheetRef,
-      assetIdByHash,
-    );
-    await uploadAndVerifyQuestionBankXlsxImages(attemptAssets, imageBytes, input.signal);
 
     const result = await prisma.$transaction(async (tx) => {
       await setTransactionLockTimeout(tx);
@@ -2146,33 +2108,9 @@ async function applyQuestionBankXlsxToDraft(input: {
         claim.leaseExpiresAt,
         claim.mediaFolderReservationId,
       );
-      await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id
-        FROM question_bank_media_folder_reservations
-        WHERE id = ${reservation.id}::uuid
-        FOR UPDATE
-      `;
-      const reservationStillValid = await tx.questionBankMediaFolderReservation.findFirst({
-        select: { id: true },
-        where: {
-          id: reservation.id,
-          mediaFolderId: reservation.mediaFolderId,
-          ownerUserId: input.ownerUserId,
-          adoptedBankId: null,
-        },
-      });
-      if (!reservationStillValid) throw new QuestionBankXlsxImportError("attempt_unavailable");
-      const assetIds = attemptAssets.map((asset) => asset.assetId);
-      await lockAndValidateKaptenBankImages(tx, {
-        assetIds,
-        attemptOwnedPendingAssetIds: assetIds,
-        destinationFolderId: reservation.mediaFolderId,
-      });
-      await completeQuestionBankXlsxAttemptAssets(tx, input.attemptId, assetIds);
       const saved: QuestionBankXlsxDraftApplyResult = {
-        imageAssetIds: attemptAssets.map((asset) => asset.assetId),
-        mediaFolderReservationId: reservation.id,
-        normalizedRows: rows,
+        normalizedRows: preview.manifest.normalizedRows,
+        normalizedRowWorksheetRefs: preview.manifest.normalizedRowWorksheetRefs,
         previewId: input.attemptId,
       };
       return completeQuestionBankXlsxApplyAttempt(tx, target, claim, saved);

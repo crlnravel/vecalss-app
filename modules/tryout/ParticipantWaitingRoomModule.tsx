@@ -10,11 +10,9 @@ import {
   WifiHigh,
 } from "@/lib/icons";
 import Link from "next/link";
-import { ChevronLeft } from "@/lib/icons";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import { showToast } from "@/components/ui/toast";
@@ -46,8 +44,19 @@ function WaitingRoomAttemptState({ assignment, notificationFeed, returnToHref, s
   const attempt = assignment.attempt;
   if (!attempt) return null;
   const resultReady = attempt.status !== "in_progress";
+  const resultReleased = attempt.resultAvailability === "released";
+  const resultMessage = resultReleased
+    ? "Hasilmu sudah tersedia."
+    : attempt.resultAvailability === "processing"
+      ? "Hasil sedang disiapkan. Kamu bisa memeriksa lagi nanti."
+      : assignment.effectiveResultReleasePolicy === "manual"
+        ? "Hasil belum dibuka oleh Kapten. Kamu bisa memeriksa statusnya lagi nanti."
+        : "Hasil belum dibuka. Kamu bisa memeriksa statusnya lagi nanti.";
   const href = buildStudentAttemptHref(attempt.id, resultReady ? { result: true, returnTo: returnToHref, session: assignment.id } : { returnTo: returnToHref, session: assignment.id });
-  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}><BackButton href={returnToHref ?? "/tryout"} label="Kembali ke katalog tryout"><ChevronLeft aria-hidden="true" className="size-5" /></BackButton><div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12"><CheckCircle2 aria-hidden="true" className="mx-auto text-5xl text-primary-700" /><h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1><p className="text-secondary-600">{resultReady ? "Hasilmu siap diperiksa saat kebijakan rilis mengizinkan." : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p><Button className="mx-auto" nativeButton={false} render={<Link href={href} />} variant="brand">{resultReady ? "Lihat hasil" : "Lanjutkan ujian"} <ArrowRight /></Button></div></CourseWorkspaceShell>;
+  const actionLabel = resultReady
+    ? resultReleased ? "Lihat hasil" : "Periksa status hasil"
+    : "Lanjutkan ujian";
+  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}><div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12"><CheckCircle2 aria-hidden="true" className="mx-auto text-5xl text-primary-700" /><h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1><p className="text-secondary-600">{resultReady ? resultMessage : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p><Button className="mx-auto" nativeButton={false} render={<Link href={href} />} variant="brand">{actionLabel} <ArrowRight /></Button></div></CourseWorkspaceShell>;
 }
 
 function WaitingRoomGuide({ assignment, blockedReason, busy, canStart, onStart, tryout }: { assignment: ParticipantTryoutAssignment; blockedReason: string | null; busy: boolean; canStart: boolean; onStart: () => void; tryout: ParticipantTryout; }) {
@@ -107,13 +116,6 @@ function ParticipantWaitingRoomModule({
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
-      <BackButton
-        href={returnToHref ?? "/tryout"}
-        label="Kembali ke katalog tryout"
-      >
-        <ChevronLeft aria-hidden="true" className="size-5" />
-      </BackButton>
-
       <div className="mx-auto grid w-full max-w-3xl gap-8"><WaitingRoomGuide assignment={assignment} blockedReason={blockedReason} busy={busy} canStart={canStart} onStart={() => void handleStart()} tryout={tryout} /></div>
     </CourseWorkspaceShell>
   );

@@ -415,7 +415,6 @@ function AuditLogsPageModule({
     >
       <div className="space-y-8">
         <ReferencePageHeader
-           description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
            title="Log audit"
         />
 

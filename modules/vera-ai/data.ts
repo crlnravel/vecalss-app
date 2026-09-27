@@ -1,35 +1,5 @@
 type VeraToolId = "analysis" | "route" | "review";
 
-type VeraContextTypeId = "practice" | "material";
-
-type VeraContextType = {
-  id: VeraContextTypeId;
-  label: string;
-  description: string;
-};
-
-type VeraContextSource = {
-  id: string;
-  title: string;
-  type: VeraContextTypeId;
-};
-
-type VeraPracticeHistory = {
-  id: string;
-  title: string;
-  kind: "Tryout" | "Quiz";
-  meta: string;
-  result: string;
-};
-
-type VeraMaterialHistory = {
-  id: string;
-  title: string;
-  kind: "Modul" | "Video" | "Teks" | "Contoh soal" | "Pembahasan";
-  topic: string;
-  lastAccessed: string;
-};
-
 type VeraQuickPrompt = {
   id: string;
   label: string;
@@ -58,142 +28,6 @@ type VeraToolMode = {
   primaryAction: string;
   followUp: string;
 };
-
-const veraContextSources: VeraContextSource[] = [
-  {
-    id: "tryout-04",
-    title: "Tryout SNBT 04",
-    type: "practice",
-  },
-  {
-    id: "quiz-pk-02",
-    title: "Quiz PK Modul 02",
-    type: "practice",
-  },
-  {
-    id: "tryout-03",
-    title: "Tryout SNBT 03",
-    type: "practice",
-  },
-  {
-    id: "quiz-pu-argumen",
-    title: "Quiz PU Struktur Argumen",
-    type: "practice",
-  },
-  {
-    id: "module-ratio",
-    title: "Modul Rasio Dasar",
-    type: "material",
-  },
-  {
-    id: "concept-review",
-    title: "Pembahasan Struktur Argumen",
-    type: "material",
-  },
-  {
-    id: "video-persentase",
-    title: "Video Trik Persentase",
-    type: "material",
-  },
-  {
-    id: "text-argument",
-    title: "Teks Struktur Argumen",
-    type: "material",
-  },
-  {
-    id: "implicit-conclusion",
-    title: "Contoh Soal Simpulan Implisit",
-    type: "material",
-  },
-  {
-    id: "graph-review",
-    title: "Pembahasan Konsep Grafik",
-    type: "material",
-  },
-];
-
-const veraContextTypes: VeraContextType[] = [
-  {
-    id: "practice",
-    label: "Hasil Latihan",
-    description: "Tryout or quiz.",
-  },
-  {
-    id: "material",
-    label: "Materi",
-    description:
-      "Modul resmi Vecalss, video, teks pembelajaran, contoh soal, pembahasan konsep.",
-  },
-];
-
-const veraPracticeHistory: VeraPracticeHistory[] = [
-  {
-    id: "tryout-snbt-04",
-    title: "Tryout SNBT 04",
-    kind: "Tryout",
-    meta: "Selesai 4 Juli 2026",
-    result: "Skor 676",
-  },
-  {
-    id: "quiz-pk-modul-02",
-    title: "Quiz PK Modul 02",
-    kind: "Quiz",
-    meta: "Selesai 3 Juli 2026",
-    result: "12 soal",
-  },
-  {
-    id: "tryout-snbt-03",
-    title: "Tryout SNBT 03",
-    kind: "Tryout",
-    meta: "Selesai 28 Juni 2026",
-    result: "Skor 652",
-  },
-  {
-    id: "quiz-pu-argumen",
-    title: "Quiz PU Struktur Argumen",
-    kind: "Quiz",
-    meta: "Selesai 25 Juni 2026",
-    result: "8 soal",
-  },
-];
-
-const veraMaterialHistory: VeraMaterialHistory[] = [
-  {
-    id: "modul-rasio-dasar",
-    title: "Modul Rasio Dasar",
-    kind: "Modul",
-    topic: "Pengetahuan Kuantitatif",
-    lastAccessed: "Terakhir dibuka hari ini",
-  },
-  {
-    id: "video-persentase",
-    title: "Video Trik Persentase",
-    kind: "Video",
-    topic: "Pengetahuan Kuantitatif",
-    lastAccessed: "Terakhir dibuka kemarin",
-  },
-  {
-    id: "teks-struktur-argumen",
-    title: "Teks Struktur Argumen",
-    kind: "Teks",
-    topic: "Penalaran Umum",
-    lastAccessed: "Terakhir dibuka 2 hari lalu",
-  },
-  {
-    id: "contoh-simpulan",
-    title: "Contoh Soal Simpulan Implisit",
-    kind: "Contoh soal",
-    topic: "Penalaran Umum",
-    lastAccessed: "Terakhir dibuka minggu ini",
-  },
-  {
-    id: "pembahasan-grafik",
-    title: "Pembahasan Konsep Grafik",
-    kind: "Pembahasan",
-    topic: "Literasi Data",
-    lastAccessed: "Terakhir dibuka minggu ini",
-  },
-];
 
 const veraQuickPrompts: VeraQuickPrompt[] = [
   {
@@ -294,20 +128,11 @@ const veraToolModes: Record<VeraToolId, VeraToolMode> = {
 };
 
 export {
-  veraContextSources,
-  veraContextTypes,
-  veraMaterialHistory,
-  veraPracticeHistory,
   veraQuickPrompts,
   veraStudioTools,
   veraToolModes,
 };
 export type {
-  VeraContextSource,
-  VeraContextType,
-  VeraContextTypeId,
-  VeraMaterialHistory,
-  VeraPracticeHistory,
   VeraQuickPrompt,
   VeraStudioTool,
   VeraToolId,

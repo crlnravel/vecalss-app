@@ -583,8 +583,9 @@ function getAttemptSaveStatus(saveState: ParticipantAttemptScreenProps["saveStat
 function getAttemptNavigationItems(items: Item[], index: number, marked: Set<string>, answerIds: Set<string>): AssessmentQuestionMarkerItem[] {
   return items.map((candidate, candidateIndex) => ({
     id: candidate.id,
+    isCurrent: candidateIndex === index,
     number: candidateIndex + 1,
-    state: candidateIndex === index ? "active" : marked.has(candidate.id) ? "flagged" : answerIds.has(candidate.id) ? "answered" : "empty",
+    state: marked.has(candidate.id) ? "flagged" : answerIds.has(candidate.id) ? "answered" : "empty",
   }));
 }
 

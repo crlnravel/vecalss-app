@@ -1172,6 +1172,14 @@ function csvFieldToQuestionSheetField(field: string) {
   return field;
 }
 
+function normalizeXlsxOptionText(value: string) {
+  return value.replace(/^\s*[A-E]\s*[.)]\s*/iu, "").trimStart();
+}
+
+function isXlsxOptionField(field: string) {
+  return /^option_[a-e]$/u.test(field);
+}
+
 function xlsxToCsvRecords(
   worksheet: ExcelJS.Worksheet,
   layout: XlsxQuestionSheetLayout,
@@ -1208,7 +1216,10 @@ function xlsxToCsvRecords(
         const xlsxField = csvFieldToQuestionSheetField(csvField);
         if (IMAGE_FIELDS.includes(xlsxField as (typeof IMAGE_FIELDS)[number])) continue;
         const csvIndex = QUESTION_BANK_CSV_HEADER.indexOf(csvField);
-        values[csvIndex] = rawFields.get(xlsxField) ?? "";
+        const value = rawFields.get(xlsxField) ?? "";
+        values[csvIndex] = isXlsxOptionField(xlsxField)
+          ? normalizeXlsxOptionText(value)
+          : value;
       }
     } else {
       const sourceLabel = rawFields.get("source_question_id") ?? "";
@@ -1225,11 +1236,11 @@ function xlsxToCsvRecords(
         difficulty: normalizeStakeholderDifficulty(rawFields.get("difficulty") ?? ""),
         question_type: answer.questionType,
         prompt: rawFields.get("prompt") ?? "",
-        option_a: rawFields.get("option_a") ?? "",
-        option_b: rawFields.get("option_b") ?? "",
-        option_c: rawFields.get("option_c") ?? "",
-        option_d: rawFields.get("option_d") ?? "",
-        option_e: rawFields.get("option_e") ?? "",
+        option_a: normalizeXlsxOptionText(rawFields.get("option_a") ?? ""),
+        option_b: normalizeXlsxOptionText(rawFields.get("option_b") ?? ""),
+        option_c: normalizeXlsxOptionText(rawFields.get("option_c") ?? ""),
+        option_d: normalizeXlsxOptionText(rawFields.get("option_d") ?? ""),
+        option_e: normalizeXlsxOptionText(rawFields.get("option_e") ?? ""),
         correct_options: answer.correctOptions,
         explanation: rawFields.get("explanation") ?? "",
       };

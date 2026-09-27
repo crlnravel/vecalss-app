@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronLeft,
   Clipboard,
   LockKeyhole,
   MessageCircle,
@@ -13,7 +12,6 @@ import {
 } from "@/lib/icons";
 import { useState } from "react";
 
-import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
@@ -190,13 +188,6 @@ function LessonPlayer({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <BackButton
-        href={`/courses/${course.slug}`}
-        label={`Kembali ke ${course.description} (${course.title})`}
-      >
-        <ChevronLeft />
-      </BackButton>
-
       <MateriLessonPresentation
         action={(
           <Tooltip>
@@ -311,16 +302,7 @@ function LockedLessonState({
           Lanjut ke Bagian yang tersedia
           <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
         </Button>
-      ) : (
-        <BackButton
-          className="mt-7"
-          href={`/courses/${course.slug}`}
-          label="Kembali ke Materi"
-          variant="brand"
-        >
-          <ChevronLeft />
-        </BackButton>
-      )}
+      ) : null}
     </section>
   );
 }

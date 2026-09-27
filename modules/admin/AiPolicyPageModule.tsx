@@ -917,7 +917,6 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
 
       <ReferencePageHeader
         actions={<div className="flex shrink-0 flex-wrap gap-2"><ReferenceStatusBadge label={formatAiProviderGateState("open_blocked")} size="sm" status="blocked" /><ReferenceStatusBadge label={state.capabilitySummary} size="sm" status={state.metadata.canMutate ? "active" : "neutral"} /></div>}
-        description="Kelola snapshot operasional untuk penerimaan, reservasi laporan, penyelesaian, dan bukti konten yang berlaku ke depan. Perubahan tidak menulis ulang riwayat."
         title="Kebijakan kendali Vera AI"
       />
 

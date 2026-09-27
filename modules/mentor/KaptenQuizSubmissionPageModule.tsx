@@ -3,7 +3,6 @@ import { Check, ChevronLeft } from "@/lib/icons";
 
 import {
   ReferencePageHeader,
-  ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
@@ -59,17 +58,6 @@ function KaptenQuizSubmissionPageModule({
         </Button>
         <ReferencePageHeader
           className="min-w-0 flex-1"
-          description={
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <ReferenceStatusBadge
-                appearance="mentor"
-                label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"}
-                size="xs"
-                status={isSubmitted ? "completed" : "in_progress"}
-              />
-              <span>{submission.quiz.title}</span>
-            </span>
-          }
           title={submission.student.name}
         />
       </div>

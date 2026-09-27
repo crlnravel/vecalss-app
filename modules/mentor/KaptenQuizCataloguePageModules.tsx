@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ListChecks, Plus, X } from "@/lib/icons";
-import { useMemo, useReducer, type Dispatch } from "react";
+import { ChevronRight, ListChecks, Plus } from "@/lib/icons";
+import { useEffect, useMemo, useReducer, useState } from "react";
 
 import {
   ReferenceEmptyState,
@@ -12,94 +12,45 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { MentorBadge } from "@/components/ui/mentor-badge";
-import { showToast } from "@/components/ui/toast";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { SessionContext } from "@/lib/auth/types";
-import { buildMentorQuizCreateHref } from "@/lib/navigation/canonical-context";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import {
+  MentorQuizCreateDialog,
+  QuizCreateDialogTrigger,
+} from "@/modules/mentor/KaptenQuizEditorPageModule";
 import {
   CatalogueSearchInput,
   PaginationControls,
 } from "@/modules/mentor/components/kapten-ui";
 import type { KaptenQuiz, KaptenSubject } from "@/modules/mentor/mock-data";
-import {
-  bulkPublishStandaloneQuizzesAction,
-  bulkUnpublishStandaloneQuizzesAction,
-} from "@/modules/mentor/quiz-actions";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
 import { cn } from "@/lib/utils";
 
-type QuizStatusFilter = "" | "draft" | "published";
+type QuizStatusFilter = "" | "published" | "archived";
 
 type QuizCatalogueState = {
   quizzes: KaptenQuiz[];
   query: string;
   page: number;
-  selectedIds: Set<string>;
-  intent: "publish" | "unpublish" | null;
-  isPending: boolean;
-  selectionMode: boolean;
   statusFilter: QuizStatusFilter;
 };
 
 type QuizCatalogueAction =
-  | { type: "patch"; patch: Partial<QuizCatalogueState> }
-  | { type: "toggle-selected"; checked: boolean; id: string }
-  | { type: "toggle-all-visible"; checked: boolean; ids: string[] }
-  | { type: "update-status"; ids: string[]; status: KaptenQuiz["status"] }
-  | { type: "replace-quiz"; quiz: KaptenQuiz };
+  | { type: "patch"; patch: Partial<QuizCatalogueState> };
 
 function quizCatalogueReducer(
   state: QuizCatalogueState,
   action: QuizCatalogueAction,
 ): QuizCatalogueState {
-  if (action.type === "patch") return { ...state, ...action.patch };
-  if (action.type === "toggle-selected") {
-    const selectedIds = new Set(state.selectedIds);
-    if (action.checked) selectedIds.add(action.id);
-    else selectedIds.delete(action.id);
-    return { ...state, selectedIds };
-  }
-  if (action.type === "toggle-all-visible") {
-    const selectedIds = new Set(state.selectedIds);
-    action.ids.forEach((id) =>
-      action.checked ? selectedIds.add(id) : selectedIds.delete(id),
-    );
-    return { ...state, selectedIds };
-  }
-  if (action.type === "update-status") {
-    const affectedIds = new Set(action.ids);
-    return {
-      ...state,
-      quizzes: state.quizzes.map((quiz) =>
-        affectedIds.has(quiz.id) ? { ...quiz, status: action.status } : quiz,
-      ),
-    };
-  }
-  return {
-    ...state,
-    quizzes: state.quizzes.map((quiz) =>
-      quiz.id === action.quiz.id ? action.quiz : quiz,
-    ),
-  };
+  return { ...state, ...action.patch };
 }
 
 const quizStatusTabs: Array<{ label: string; value: QuizStatusFilter }> = [
   { label: "Semua", value: "" },
   { label: "Diterbitkan", value: "published" },
-  { label: "Draf", value: "draft" },
+  { label: "Diarsipkan", value: "archived" },
 ];
 
 function QuizStatusTabs({
@@ -114,7 +65,7 @@ function QuizStatusTabs({
   const counts = useMemo(
     () => ({
       "": items.length,
-      draft: items.filter((item) => item.status === "draft").length,
+      archived: items.filter((item) => item.status === "archived").length,
       published: items.filter((item) => item.status === "published").length,
     }),
     [items],
@@ -172,12 +123,32 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
 }
 
 function KaptenQuizPageModule({
+  initialCreateDialogOpen = false,
+  initialSubjectCode,
   session,
   subjects,
 }: {
+  initialCreateDialogOpen?: boolean;
+  initialSubjectCode?: string;
   session: SessionContext;
   subjects: KaptenSubject[];
 }) {
+  const router = useRouter();
+  const [createDialogOpen, setCreateDialogOpen] = useState(
+    initialCreateDialogOpen,
+  );
+
+  useEffect(() => {
+    setCreateDialogOpen(initialCreateDialogOpen);
+  }, [initialCreateDialogOpen]);
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    setCreateDialogOpen(open);
+    if (!open && initialCreateDialogOpen) {
+      router.replace("/mentor/quiz", { scroll: false });
+    }
+  }
+
   return (
     <MentorWorkspaceShell
       activeLabel="Kuis"
@@ -201,15 +172,10 @@ function KaptenQuizPageModule({
           <ReferenceSurface className="min-h-56" variant="inset">
             <ReferenceEmptyState
               action={
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/mentor/quiz/create" />}
-                  size="default"
-                  variant="brand"
-                >
+                <QuizCreateDialogTrigger ariaLabel="Buat Kuis pertama">
                   <Plus />
                   Buat Kuis pertama
-                </Button>
+                </QuizCreateDialogTrigger>
               }
               description="Buat latihan pertama untuk mulai menyusun pengalaman belajar siswa."
               icon={ListChecks}
@@ -218,38 +184,26 @@ function KaptenQuizPageModule({
           </ReferenceSurface>
         )}
       </div>
+      <MentorQuizCreateDialog
+        initialSubjectCode={initialSubjectCode}
+        onOpenChange={handleCreateDialogOpenChange}
+        open={createDialogOpen}
+      />
     </MentorWorkspaceShell>
   );
 }
 
-function QuizRow({
-  onSelectedChange,
-  quiz,
-  selectionMode,
-  selected,
-}: {
-  onSelectedChange: (checked: boolean) => void;
-  quiz: KaptenQuiz;
-  selectionMode: boolean;
-  selected: boolean;
-}) {
+function QuizRow({ quiz }: { quiz: KaptenQuiz }) {
   return (
     <article
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
         REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
         "grid min-w-0 gap-4 p-5",
-        selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)]" : "sm:grid-cols-1",
+        "sm:grid-cols-1",
         "sm:items-center",
       )}
     >
-      {selectionMode ? (
-        <Checkbox
-          aria-label={`Pilih ${quiz.title}`}
-          checked={selected}
-          onCheckedChange={(checked) => onSelectedChange(checked === true)}
-        />
-      ) : null}
       <Link
         aria-label={`Buka ${quiz.title}`}
         className="group flex min-w-0 items-start justify-between gap-4 rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20 sm:items-center"
@@ -269,6 +223,11 @@ function QuizRow({
                 size="sm"
                 status={quiz.status}
               />
+              {quiz.isHidden ? (
+                <MentorBadge size="sm" tone="category">
+                  Disembunyikan
+                </MentorBadge>
+              ) : null}
             </div>
           </div>
         </div>
@@ -281,217 +240,37 @@ function QuizRow({
   );
 }
 
-function quizLifecycleConfirmation(
-  intent: QuizCatalogueState["intent"],
-  count: number,
-) {
-  return intent === "publish"
-    ? {
-        confirm: "Terbitkan semua",
-        description: `${count} quiz akan tersedia untuk siswa.`,
-        title: "Terbitkan quiz terpilih?",
-      }
-    : {
-        confirm: "Batalkan terbit",
-        description: `${count} quiz kembali menjadi draf dan tidak tersedia untuk siswa.`,
-        title: "Batalkan penerbitan quiz?",
-      };
-}
-
-async function runQuizLifecycle({
-  dispatch,
-  intent,
-  isPending,
-  refresh,
-  selectedQuizzes,
-}: {
-  dispatch: Dispatch<QuizCatalogueAction>;
-  intent: QuizCatalogueState["intent"];
-  isPending: boolean;
-  refresh: () => void;
-  selectedQuizzes: KaptenQuiz[];
-}) {
-  if (!intent || isPending || !selectedQuizzes.length) return;
-  dispatch({ patch: { isPending: true }, type: "patch" });
-  try {
-    const ids = selectedQuizzes.map((quiz) => quiz.id);
-    const result =
-      intent === "publish"
-        ? await bulkPublishStandaloneQuizzesAction(ids)
-        : await bulkUnpublishStandaloneQuizzesAction(ids);
-    if (!result.ok) {
-      showToast(result.message, { variant: "error" });
-      return;
-    }
-    dispatch({
-      ids: result.affectedIds,
-      status: result.status,
-      type: "update-status",
-    });
-    dispatch({
-      patch: {
-        intent: null,
-        selectedIds: new Set(),
-        selectionMode: false,
-      },
-      type: "patch",
-    });
-    showToast(result.message, { variant: "success" });
-    refresh();
-  } catch (caughtError) {
-    showToast(
-      caughtError instanceof Error
-        ? caughtError.message
-        : "Status quiz tidak dapat diubah saat ini. Coba lagi.",
-      { variant: "error" },
-    );
-  } finally {
-    dispatch({ patch: { isPending: false }, type: "patch" });
-  }
-}
-
 function QuizSubjectHeader({ subject }: { subject: KaptenSubject }) {
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <ReferencePageHeader
-        className="min-w-0 flex-1"
-        actions={
-          <Button
-            aria-label="Buat quiz baru"
-            nativeButton={false}
-            render={<Link href={buildMentorQuizCreateHref(subject.code)} />}
-            size="default"
-            variant="brand"
-          >
-            <Plus />
-            Buat Kuis
-          </Button>
-        }
-        description={subject.name}
-        title={subject.code}
-      />
-    </div>
-  );
-}
-
-function QuizSelectionToolbar({
-  areAllVisibleSelected,
-  canPublish,
-  canUnpublish,
-  dispatch,
-  eligibilityReason,
-  isPending,
-  onToggleAll,
-  selectedCount,
-}: {
-  areAllVisibleSelected: boolean;
-  canPublish: boolean;
-  canUnpublish: boolean;
-  dispatch: Dispatch<QuizCatalogueAction>;
-  eligibilityReason: string | null;
-  isPending: boolean;
-  onToggleAll: (checked: boolean) => void;
-  selectedCount: number;
-}) {
-  return (
-    <ReferenceSurface
-      as="div"
-      className="flex flex-wrap items-center gap-5 px-5 py-4"
-      variant="inset"
-    >
-      <Button
-        aria-label="Keluar dari mode pilih"
-        onClick={() =>
-          dispatch({
-            patch: { selectedIds: new Set(), selectionMode: false },
-            type: "patch",
-          })
-        }
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        <X />
-      </Button>
-      <span className="text-sm font-semibold text-secondary-900">
-        {selectedCount} dipilih
-      </span>
-      <Checkbox
-        aria-label="Pilih semua quiz yang terlihat"
-        checked={areAllVisibleSelected}
-        onCheckedChange={(checked) => onToggleAll(checked === true)}
-      />
-      <span className="text-sm font-semibold text-secondary-700">
-        Semua hasil
-      </span>
-      <div className="ml-auto flex flex-wrap items-center gap-3">
-        <Button
-          disabled={!canPublish || isPending}
-          onClick={() =>
-            dispatch({
-              patch: { intent: "publish" },
-              type: "patch",
-            })
-          }
-          size="default"
-          type="button"
-          variant="reference"
+    <ReferencePageHeader
+      actions={
+        <QuizCreateDialogTrigger
+          ariaLabel="Buat quiz baru"
+          initialSubjectCode={subject.code}
         >
-          Terbitkan
-        </Button>
-        <Button
-          disabled={!canUnpublish || isPending}
-          onClick={() =>
-            dispatch({
-              patch: { intent: "unpublish" },
-              type: "patch",
-            })
-          }
-          size="default"
-          type="button"
-          variant="brandOutline"
-        >
-          Batalkan terbit
-        </Button>
-        <Button
-          disabled={isPending}
-          onClick={() =>
-            dispatch({ patch: { selectedIds: new Set() }, type: "patch" })
-          }
-          size="default"
-          type="button"
-          variant="ghost"
-        >
-          Hapus pilihan
-        </Button>
-      </div>
-      {eligibilityReason ? (
-        <p className="basis-full text-sm text-secondary-600" role="status">
-          {eligibilityReason}
-        </p>
-      ) : null}
-    </ReferenceSurface>
+          <Plus />
+          Buat Kuis
+        </QuizCreateDialogTrigger>
+      }
+      title={subject.code}
+    />
   );
 }
 
 function QuizSubjectList({
-  createHref,
   dispatch,
   pagedQuizzes,
   page,
   pageCount,
   quizzes,
-  selectedIds,
-  selectionMode,
+  subjectCode,
 }: {
-  createHref: string;
-  dispatch: Dispatch<QuizCatalogueAction>;
+  dispatch: (action: QuizCatalogueAction) => void;
   pagedQuizzes: KaptenQuiz[];
   page: number;
   pageCount: number;
   quizzes: KaptenQuiz[];
-  selectedIds: Set<string>;
-  selectionMode: boolean;
+  subjectCode: string;
 }) {
   return (
     <section className="space-y-3">
@@ -499,27 +278,20 @@ function QuizSubjectList({
         pagedQuizzes.map((quiz) => (
           <QuizRow
             key={quiz.id}
-            onSelectedChange={(checked) =>
-              dispatch({ checked, id: quiz.id, type: "toggle-selected" })
-            }
             quiz={quiz}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(quiz.id)}
           />
         ))
       ) : quizzes.length === 0 ? (
         <ReferenceSurface className="min-h-56" variant="inset">
           <ReferenceEmptyState
             action={
-              <Button
-                nativeButton={false}
-                render={<Link href={createHref} />}
-                size="default"
-                variant="brand"
+              <QuizCreateDialogTrigger
+                ariaLabel="Buat quiz pertama"
+                initialSubjectCode={subjectCode}
               >
                 <Plus />
                 Buat quiz pertama
-              </Button>
+              </QuizCreateDialogTrigger>
             }
             description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka."
             icon={ListChecks}
@@ -529,7 +301,7 @@ function QuizSubjectList({
       ) : (
         <ReferenceSurface className="min-h-52" variant="inset">
           <ReferenceEmptyState
-            description="Coba kata kunci lain atau tampilkan semua status quiz."
+            description="Coba kata kunci lain atau tampilkan semua status Kuis."
             icon={ListChecks}
             title="Tidak ada quiz yang cocok"
           />
@@ -546,65 +318,6 @@ function QuizSubjectList({
   );
 }
 
-function QuizLifecycleDialog({
-  canPublish,
-  canUnpublish,
-  dispatch,
-  intent,
-  isPending,
-  onConfirm,
-  selectedCount,
-}: {
-  canPublish: boolean;
-  canUnpublish: boolean;
-  dispatch: Dispatch<QuizCatalogueAction>;
-  intent: QuizCatalogueState["intent"];
-  isPending: boolean;
-  onConfirm: () => void;
-  selectedCount: number;
-}) {
-  if (!intent) return null;
-  const confirmation = quizLifecycleConfirmation(intent, selectedCount);
-  return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (!open && !isPending)
-          dispatch({ patch: { intent: null }, type: "patch" });
-      }}
-      open
-    >
-      <DialogContent
-        pending={isPending}
-        showCloseButton={!isPending}
-        variant="info"
-      >
-        <DialogHeader>
-          <DialogTitle>{confirmation.title}</DialogTitle>
-          <DialogDescription>{confirmation.description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose
-            disabled={isPending}
-            render={<Button type="button" variant="brandOutline" />}
-          >
-            Batal
-          </DialogClose>
-          <Button
-            disabled={
-              isPending || (intent === "publish" ? !canPublish : !canUnpublish)
-            }
-            onClick={onConfirm}
-            type="button"
-            variant="brand"
-          >
-            {isPending ? "Memproses..." : confirmation.confirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function KaptenQuizSubjectPageModule({
   catalogue,
   session,
@@ -614,27 +327,13 @@ function KaptenQuizSubjectPageModule({
   session: SessionContext;
   subject: KaptenSubject;
 }) {
-  const router = useRouter();
   const [catalogueState, dispatch] = useReducer(quizCatalogueReducer, {
-    intent: null,
-    isPending: false,
     page: 1,
     query: "",
     quizzes: catalogue.filter((quiz) => quiz.subjectCode === subject.code),
-    selectedIds: new Set<string>(),
-    selectionMode: false,
     statusFilter: "",
   });
-  const {
-    intent,
-    isPending,
-    page,
-    query,
-    quizzes,
-    selectedIds,
-    selectionMode,
-    statusFilter,
-  } = catalogueState;
+  const { page, query, quizzes, statusFilter } = catalogueState;
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleQuizzes = quizzes.filter(
     (quiz) =>
@@ -650,30 +349,6 @@ function KaptenQuizSubjectPageModule({
     (page - 1) * pageSize,
     page * pageSize,
   );
-  const selectedQuizzes = quizzes.filter((quiz) => selectedIds.has(quiz.id));
-  const canPublish =
-    selectedQuizzes.length > 0 &&
-    selectedQuizzes.every(
-      (quiz) => quiz.status === "draft" && quiz.questionCount > 0,
-    );
-  const canUnpublish =
-    selectedQuizzes.length > 0 &&
-    selectedQuizzes.every((quiz) => quiz.status === "published");
-  const areAllVisibleSelected =
-    visibleQuizzes.length > 0 &&
-    visibleQuizzes.every((quiz) => selectedIds.has(quiz.id));
-  const eligibilityReason =
-    selectedQuizzes.length > 0 && !canPublish && !canUnpublish
-      ? "Pilih hanya quiz draf yang memiliki soal atau quiz yang sudah diterbitkan."
-      : null;
-  const confirmLifecycle = () =>
-    void runQuizLifecycle({
-      dispatch,
-      intent,
-      isPending,
-      refresh: () => router.refresh(),
-      selectedQuizzes,
-    });
   return (
     <MentorWorkspaceShell
       activeLabel="Kuis"
@@ -689,7 +364,7 @@ function KaptenQuizSubjectPageModule({
             <CatalogueSearchInput
               onChange={(value) =>
                 dispatch({
-                  patch: { page: 1, query: value, selectedIds: new Set() },
+                  patch: { page: 1, query: value },
                   type: "patch",
                 })
               }
@@ -701,51 +376,22 @@ function KaptenQuizSubjectPageModule({
             items={quizzes}
             onChange={(value) =>
               dispatch({
-                patch: { page: 1, selectedIds: new Set(), statusFilter: value },
+                patch: { page: 1, statusFilter: value },
                 type: "patch",
               })
             }
             value={statusFilter}
           />
         </section>
-        {selectionMode ? (
-          <QuizSelectionToolbar
-            areAllVisibleSelected={areAllVisibleSelected}
-            canPublish={canPublish}
-            canUnpublish={canUnpublish}
-            dispatch={dispatch}
-            eligibilityReason={eligibilityReason}
-            isPending={isPending}
-            onToggleAll={(checked) =>
-              dispatch({
-                checked,
-                ids: visibleQuizzes.map((quiz) => quiz.id),
-                type: "toggle-all-visible",
-              })
-            }
-            selectedCount={selectedQuizzes.length}
-          />
-        ) : null}
         <QuizSubjectList
-          createHref={buildMentorQuizCreateHref(subject.code)}
           dispatch={dispatch}
           page={page}
           pageCount={pageCount}
           pagedQuizzes={pagedQuizzes}
           quizzes={quizzes}
-          selectedIds={selectedIds}
-          selectionMode={selectionMode}
+          subjectCode={subject.code}
         />
       </div>
-      <QuizLifecycleDialog
-        canPublish={canPublish}
-        canUnpublish={canUnpublish}
-        dispatch={dispatch}
-        intent={intent}
-        isPending={isPending}
-        onConfirm={confirmLifecycle}
-        selectedCount={selectedQuizzes.length}
-      />
     </MentorWorkspaceShell>
   );
 }

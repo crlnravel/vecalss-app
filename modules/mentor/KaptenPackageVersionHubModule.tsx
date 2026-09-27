@@ -139,7 +139,6 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
 
       <ReferencePageHeader
         actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge appearance="mentor" label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="reference"><Pencil /></Button></div>}
-        description={hub.description || undefined}
         title={hub.title}
       />
       <ReferenceSurface as="section" aria-label="Ringkasan Paket Soal" className="p-5 sm:p-7">

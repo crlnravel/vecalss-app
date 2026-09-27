@@ -9,13 +9,16 @@ import {
   ChevronLeft,
   ChevronDown,
   CircleHelp,
+  ImagePlus,
   LibraryBig,
   Plus,
   Save,
   Trash2,
+  X,
 } from "@/lib/icons";
 import {
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -48,6 +51,12 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
@@ -75,7 +84,10 @@ import {
 } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { MediaAssetPreview } from "@/modules/media/media-library";
+import {
+  MediaAssetPreview,
+  MediaPickerDialog,
+} from "@/modules/media/media-library";
 import {
   ResourceAuthoringLockBanner,
   type AuthoringLockState,
@@ -85,6 +97,21 @@ import {
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
 
+type QuizQuestionDifficulty = NonNullable<QuizQuestionSnapshot["difficulty"]>;
+type QuizEditorQuestion = QuizQuestionSnapshot & {
+  difficulty: QuizQuestionDifficulty;
+};
+
+type QuizQuestionMediaTarget =
+  | { field: "prompt"; label: string; questionId: string }
+  | { field: "explanation"; label: string; questionId: string }
+  | {
+      choiceId: string;
+      field: "choice";
+      label: string;
+      questionId: string;
+    };
+
 type QuizEditorForm = {
   attemptsAllowed: number | null;
   closesAt: string;
@@ -92,7 +119,7 @@ type QuizEditorForm = {
   description: string;
   formBehavior: NonNullable<KaptenQuiz["formBehavior"]>;
   opensAt: string;
-  questions: QuizQuestionSnapshot[];
+  questions: QuizEditorQuestion[];
   retryDelaySeconds: number | null;
   reviewTiming: NonNullable<KaptenQuiz["reviewTiming"]>;
   scorePolicy: NonNullable<KaptenQuiz["scorePolicy"]>;
@@ -113,14 +140,13 @@ function correctChoiceIdsFor(
   return [...new Set(ids)];
 }
 
-function asEditorQuestion(
-  question: QuizQuestionSnapshot,
-): QuizQuestionSnapshot {
+function asEditorQuestion(question: QuizQuestionSnapshot): QuizEditorQuestion {
   const correctChoiceIds = correctChoiceIdsFor(question);
   return {
     choices: question.choices.map((choice) => ({ ...choice })),
     correctChoiceId: correctChoiceIds[0] ?? question.correctChoiceId,
     correctChoiceIds,
+    difficulty: question.difficulty ?? "medium",
     explanation: question.explanation,
     explanationMediaAssetId: question.explanationMediaAssetId,
     id: question.id,
@@ -214,21 +240,25 @@ function hasQuizDraftContent(
 
 function QuestionInventory({
   activeQuestionId,
+  bankPickerDisabled,
   disabled,
   onAddFromBank,
   onDelete,
   onMove,
   onSelect,
+  showAddFromBank,
   sourceBankHref,
   sourceBankTitle,
   questions,
 }: {
   activeQuestionId: string | null;
+  bankPickerDisabled: boolean;
   disabled: boolean;
   onAddFromBank: () => void;
   onDelete: (id: string) => void;
   onMove: (id: string, direction: "up" | "down") => void;
   onSelect: (id: string) => void;
+  showAddFromBank: boolean;
   sourceBankHref?: string;
   sourceBankTitle?: string;
   questions: QuizQuestionSnapshot[];
@@ -260,26 +290,29 @@ function QuestionInventory({
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <Button
-              aria-label="Tambah soal dari Bank Soal"
-              disabled={disabled}
-              onClick={onAddFromBank}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <Plus />
-              <span className="hidden lg:inline">Tambah Soal</span>
-            </Button>
-            {sourceBankHref && sourceBankTitle ? (
+            {showAddFromBank ? (
+              <Button
+                aria-label="Tambah soal dari Bank Soal"
+                disabled={disabled || bankPickerDisabled}
+                id="quiz-desktop-add-bank-question"
+                onClick={onAddFromBank}
+                size="sm"
+                type="button"
+                variant="brandOutline"
+              >
+                <Plus />
+                <span className="hidden lg:inline">Tambah Soal</span>
+              </Button>
+            ) : null}
+            {sourceBankHref ? (
               <p className="max-w-[13rem] truncate text-right text-xs text-secondary-500">
-                Bank Soal:{" "}
+                {sourceBankTitle ? "Bank Soal: " : null}
                 <Link
                   className="font-semibold text-primary-800 hover:underline"
                   href={sourceBankHref}
-                  title={sourceBankTitle}
+                  title={sourceBankTitle ?? "Bank Soal yang terhubung"}
                 >
-                  {sourceBankTitle}
+                  {sourceBankTitle ?? "Bank Soal yang terhubung"}
                 </Link>
               </p>
             ) : null}
@@ -315,6 +348,7 @@ function QuestionInventory({
                       aria-current={isActive ? "true" : undefined}
                       aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
                       className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                      id={`quiz-question-select-${question.id}`}
                       onClick={() => onSelect(question.id)}
                       type="button"
                     >
@@ -379,7 +413,7 @@ function QuestionInventory({
               })
             ) : (
               <li className="px-2 py-4 text-sm leading-6 text-secondary-500">
-                Belum ada soal dari Bank Soal.
+                Belum ada soal di Kuis ini.
               </li>
             )}
           </ul>
@@ -391,23 +425,32 @@ function QuestionInventory({
 
 function QuizMobileInventory({
   activeQuestionId,
+  bankPickerDisabled,
   disabled,
   onAddFromBank,
+  onDelete,
+  onMove,
   onSelect,
+  showAddFromBank,
   sourceBankHref,
   sourceBankTitle,
   questions,
 }: {
   activeQuestionId: string | null;
+  bankPickerDisabled: boolean;
   disabled: boolean;
   onAddFromBank: () => void;
+  onDelete: (id: string) => void;
+  onMove: (id: string, direction: "up" | "down") => void;
   onSelect: (id: string) => void;
+  showAddFromBank: boolean;
   sourceBankHref?: string;
   sourceBankTitle?: string;
   questions: QuizQuestionSnapshot[];
 }) {
-  const activeIndex = questions.findIndex(
-    (question) => question.id === activeQuestionId,
+  const activeIndex = Math.max(
+    questions.findIndex((question) => question.id === activeQuestionId),
+    0,
   );
   const activeQuestion = questions[activeIndex] ?? questions[0];
   const incompleteCount = questions.reduce(
@@ -421,6 +464,7 @@ function QuizMobileInventory({
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="Pilih soal yang sedang ditinjau"
+            id="quiz-mobile-question-picker-trigger"
             render={
               <Button
                 className={cn(
@@ -465,41 +509,102 @@ function QuizMobileInventory({
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <Button
-            aria-label="Tambah soal dari Bank Soal"
-            disabled={disabled}
-            onClick={onAddFromBank}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <Plus />
-            <span className="hidden sm:inline">Tambah Soal</span>
-          </Button>
-          {sourceBankHref && sourceBankTitle ? (
+          {showAddFromBank ? (
+            <Button
+              aria-label="Tambah soal dari Bank Soal"
+              disabled={disabled || bankPickerDisabled}
+              id="quiz-mobile-add-bank-question"
+              onClick={onAddFromBank}
+              size="default"
+              type="button"
+              variant="brandOutline"
+            >
+              <Plus />
+              <span className="hidden sm:inline">Tambah Soal</span>
+            </Button>
+          ) : null}
+          {sourceBankHref ? (
             <p className="max-w-[11rem] truncate text-right text-xs text-secondary-500">
-              Bank Soal:{" "}
+              {sourceBankTitle ? "Bank Soal: " : null}
               <Link
                 className="font-semibold text-primary-800 hover:underline"
                 href={sourceBankHref}
-                title={sourceBankTitle}
+                title={sourceBankTitle ?? "Bank Soal yang terhubung"}
               >
-                {sourceBankTitle}
+                {sourceBankTitle ?? "Bank Soal yang terhubung"}
               </Link>
             </p>
           ) : null}
         </div>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
-        <span>{questions.length} soal di Kuis</span>
-        {incompleteCount > 0 ? (
-          <span className="font-semibold text-warning-900">
-            {incompleteCount} perlu diperbaiki
-          </span>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500">
+          <span>{questions.length} soal di Kuis</span>
+          {incompleteCount > 0 ? (
+            <span className="font-semibold text-warning-900">
+              {incompleteCount} perlu diperbaiki
+            </span>
+          ) : null}
+        </div>
+        {activeQuestion ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              aria-label={`Pindah soal ${activeIndex + 1} ke atas`}
+              disabled={disabled || activeIndex <= 0}
+              onClick={() => onMove(activeQuestion.id, "up")}
+              size="icon"
+              title="Pindah ke atas"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowUp aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={`Pindah soal ${activeIndex + 1} ke bawah`}
+              disabled={
+                disabled ||
+                activeIndex < 0 ||
+                activeIndex >= questions.length - 1
+              }
+              onClick={() => onMove(activeQuestion.id, "down")}
+              size="icon"
+              title="Pindah ke bawah"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowDown aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={`Hapus soal ${activeIndex + 1}`}
+              disabled={disabled}
+              onClick={() => onDelete(activeQuestion.id)}
+              size="icon"
+              title="Hapus soal"
+              type="button"
+              variant="ghost"
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          </div>
         ) : null}
       </div>
     </div>
   );
+}
+
+function withCorrectChoiceIds(
+  question: QuizEditorQuestion,
+  selectedIds: readonly string[],
+): QuizEditorQuestion {
+  const selected = new Set(selectedIds);
+  const correctChoiceIds = question.choices
+    .filter((choice) => selected.has(choice.id))
+    .map((choice) => choice.id);
+  return {
+    ...question,
+    correctChoiceId: correctChoiceIds[0] ?? "",
+    correctChoiceIds,
+  };
 }
 
 function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
@@ -567,6 +672,430 @@ function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
           ) : null}
         </div>
       ) : null}
+    </ReferenceSurface>
+  );
+}
+
+function setQuestionMediaAsset(
+  question: QuizEditorQuestion,
+  target: QuizQuestionMediaTarget,
+  assetId: string | undefined,
+): QuizEditorQuestion {
+  if (target.questionId !== question.id) return question;
+  if (target.field === "prompt") {
+    const next = { ...question };
+    if (assetId) next.promptMediaAssetId = assetId;
+    else delete next.promptMediaAssetId;
+    return next;
+  }
+  if (target.field === "explanation") {
+    const next = { ...question };
+    if (assetId) next.explanationMediaAssetId = assetId;
+    else delete next.explanationMediaAssetId;
+    return next;
+  }
+  return {
+    ...question,
+    choices: question.choices.map((choice) => {
+      if (choice.id !== target.choiceId) return choice;
+      const next = { ...choice };
+      if (assetId) next.mediaAssetId = assetId;
+      else delete next.mediaAssetId;
+      return next;
+    }),
+  };
+}
+
+function QuizQuestionMediaActions({
+  assetId,
+  compact = false,
+  disabled,
+  label,
+  onOpen,
+  onRemove,
+}: {
+  assetId?: string;
+  compact?: boolean;
+  disabled: boolean;
+  label: string;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  const addLabel = `${assetId ? "Ganti" : "Tambah"} ${label.toLowerCase()}`;
+  const removeLabel = `Lepas ${label.toLowerCase()}`;
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        aria-label={addLabel}
+        disabled={disabled}
+        onClick={onOpen}
+        size={compact ? "icon-sm" : "sm"}
+        title={compact ? addLabel : undefined}
+        type="button"
+        variant="ghost"
+      >
+        <ImagePlus aria-hidden="true" />
+        {compact ? (
+          <span className="sr-only">{addLabel}</span>
+        ) : assetId ? (
+          "Ganti gambar"
+        ) : (
+          "Tambah gambar"
+        )}
+      </Button>
+      {assetId ? (
+        <Button
+          aria-label={removeLabel}
+          disabled={disabled}
+          onClick={onRemove}
+          size={compact ? "icon-sm" : "sm"}
+          title={compact ? removeLabel : undefined}
+          type="button"
+          variant="ghost"
+        >
+          <X aria-hidden="true" />
+          {compact ? <span className="sr-only">{removeLabel}</span> : "Lepas"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function QuizQuestionEditor({
+  disabled,
+  onOpenMedia,
+  question,
+  updateQuestion,
+}: {
+  disabled: boolean;
+  onOpenMedia: (target: QuizQuestionMediaTarget) => void;
+  question: QuizEditorQuestion;
+  updateQuestion: (
+    questionId: string,
+    update: (current: QuizEditorQuestion) => QuizEditorQuestion,
+  ) => void;
+}) {
+  const questionType = questionTypeFor(question);
+  const correctChoiceIds = correctChoiceIdsFor(question);
+  const promptMediaTarget: QuizQuestionMediaTarget = {
+    field: "prompt",
+    label: "Gambar pertanyaan",
+    questionId: question.id,
+  };
+  const explanationMediaTarget: QuizQuestionMediaTarget = {
+    field: "explanation",
+    label: "Gambar penjelasan",
+    questionId: question.id,
+  };
+
+  return (
+    <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 md:p-6">
+      <Field>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <FieldLabel
+            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+            htmlFor={`quiz-question-${question.id}-prompt`}
+            required
+          >
+            Pertanyaan
+          </FieldLabel>
+          <QuizQuestionMediaActions
+            assetId={question.promptMediaAssetId}
+            disabled={disabled}
+            label="Gambar pertanyaan"
+            onOpen={() => onOpenMedia(promptMediaTarget)}
+            onRemove={() =>
+              updateQuestion(question.id, (current) =>
+                setQuestionMediaAsset(current, promptMediaTarget, undefined),
+              )
+            }
+          />
+        </div>
+        <FieldTextarea
+          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[160px] resize-y`}
+          disabled={disabled}
+          id={`quiz-question-${question.id}-prompt`}
+          onChange={(event) =>
+            updateQuestion(question.id, (current) => ({
+              ...current,
+              prompt: event.target.value,
+            }))
+          }
+          required
+          value={question.prompt}
+        />
+        {question.promptMediaAssetId ? (
+          <MediaAssetPreview
+            alt="Gambar pertanyaan"
+            assetId={question.promptMediaAssetId}
+            className="max-h-48 bg-white"
+          />
+        ) : null}
+      </Field>
+
+      <Field>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor={`quiz-question-${question.id}-type`}
+          required
+        >
+          Jenis soal
+        </FieldLabel>
+        <ReferenceSelect
+          disabled={disabled}
+          id={`quiz-question-${question.id}-type`}
+          onValueChange={(value) => {
+            const nextType =
+              value === "multiple_choice" ? "multiple_choice" : "single_choice";
+            updateQuestion(question.id, (current) => {
+              const selectedIds = correctChoiceIdsFor(current);
+              return withCorrectChoiceIds(
+                {
+                  ...current,
+                  questionType: nextType,
+                },
+                nextType === "single_choice"
+                  ? selectedIds.slice(0, 1)
+                  : selectedIds,
+              );
+            });
+          }}
+          options={[
+            { label: "Pilihan ganda", value: "single_choice" },
+            { label: "Pilihan ganda kompleks", value: "multiple_choice" },
+          ]}
+          required
+          value={questionType}
+        />
+      </Field>
+
+      <fieldset
+        aria-required="true"
+        className="grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2"
+        disabled={disabled}
+      >
+        <legend
+          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "col-span-full")}
+        >
+          Pilihan jawaban{" "}
+          <span aria-hidden="true" className="text-student-status-danger-fg">
+            *
+          </span>
+        </legend>
+        {question.choices.map((choice, index) => {
+          const optionLabel = String.fromCharCode(65 + index);
+          const answerInputId = `quiz-question-${question.id}-answer-${choice.id}`;
+          const textInputId = `quiz-question-${question.id}-choice-${choice.id}`;
+          const mediaTarget: QuizQuestionMediaTarget = {
+            choiceId: choice.id,
+            field: "choice",
+            label: `Gambar opsi ${optionLabel}`,
+            questionId: question.id,
+          };
+          const isCorrect = correctChoiceIds.includes(choice.id);
+          return (
+            <div
+              className={cn(
+                REFERENCE_CONTROL_CLASS_NAMES.choice,
+                "min-w-0 flex-col items-stretch gap-3 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50",
+                disabled && "cursor-not-allowed opacity-55",
+              )}
+              key={choice.id}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <input
+                  aria-describedby={`quiz-question-${question.id}-answer-hint`}
+                  aria-label={`Opsi ${optionLabel} adalah jawaban benar`}
+                  checked={isCorrect}
+                  className="size-4 shrink-0 accent-primary-700 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                  id={answerInputId}
+                  name={`quiz-question-${question.id}-answer`}
+                  onChange={(event) =>
+                    updateQuestion(question.id, (current) => {
+                      const selectedIds = correctChoiceIdsFor(current);
+                      const nextIds =
+                        questionTypeFor(current) === "single_choice"
+                          ? [choice.id]
+                          : event.target.checked
+                            ? [...selectedIds, choice.id]
+                            : selectedIds.filter((id) => id !== choice.id);
+                      return withCorrectChoiceIds(current, nextIds);
+                    })
+                  }
+                  type={
+                    questionType === "multiple_choice" ? "checkbox" : "radio"
+                  }
+                  value={choice.id}
+                />
+                <span className="text-sm font-semibold text-primary-800">
+                  {optionLabel}
+                </span>
+                <input
+                  aria-label={`Opsi ${optionLabel}`}
+                  className={cn(
+                    REFERENCE_CONTROL_CLASS_NAMES.input,
+                    "min-w-0 flex-1 bg-transparent py-2",
+                  )}
+                  disabled={disabled}
+                  id={textInputId}
+                  onChange={(event) =>
+                    updateQuestion(question.id, (current) => ({
+                      ...current,
+                      choices: current.choices.map((currentChoice) =>
+                        currentChoice.id === choice.id
+                          ? { ...currentChoice, text: event.target.value }
+                          : currentChoice,
+                      ),
+                    }))
+                  }
+                  placeholder={`Opsi ${optionLabel}`}
+                  required
+                  value={choice.text}
+                />
+                <QuizQuestionMediaActions
+                  assetId={choice.mediaAssetId}
+                  compact
+                  disabled={disabled}
+                  label={`Gambar opsi ${optionLabel}`}
+                  onOpen={() => onOpenMedia(mediaTarget)}
+                  onRemove={() =>
+                    updateQuestion(question.id, (current) =>
+                      setQuestionMediaAsset(current, mediaTarget, undefined),
+                    )
+                  }
+                />
+                <Button
+                  aria-label={`Hapus opsi ${optionLabel}`}
+                  disabled={disabled || question.choices.length <= 2}
+                  onClick={() =>
+                    updateQuestion(question.id, (current) => {
+                      const choices = current.choices.filter(
+                        (currentChoice) => currentChoice.id !== choice.id,
+                      );
+                      return withCorrectChoiceIds(
+                        { ...current, choices },
+                        correctChoiceIdsFor(current).filter(
+                          (id) => id !== choice.id,
+                        ),
+                      );
+                    })
+                  }
+                  size="icon-sm"
+                  title={`Hapus opsi ${optionLabel}`}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+              {choice.mediaAssetId ? (
+                <MediaAssetPreview
+                  alt={`Gambar opsi ${optionLabel}`}
+                  assetId={choice.mediaAssetId}
+                  className="max-h-36 bg-white"
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </fieldset>
+      <div className="flex justify-end">
+        <Button
+          disabled={disabled || question.choices.length >= 5}
+          onClick={() => {
+            const choiceId = crypto.randomUUID();
+            updateQuestion(question.id, (current) => ({
+              ...current,
+              choices: [...current.choices, { id: choiceId, text: "" }],
+            }));
+          }}
+          size="sm"
+          type="button"
+          variant="brandOutline"
+        >
+          <Plus aria-hidden="true" />
+          Tambah opsi
+        </Button>
+      </div>
+
+      <Field>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor={`quiz-question-${question.id}-difficulty`}
+          required
+        >
+          Tingkat kesulitan
+        </FieldLabel>
+        <ReferenceSelect
+          disabled={disabled}
+          id={`quiz-question-${question.id}-difficulty`}
+          onValueChange={(value) => {
+            const difficulty: QuizQuestionDifficulty =
+              value === "easy" || value === "hard" || value === "adaptive"
+                ? value
+                : "medium";
+            updateQuestion(question.id, (current) => ({
+              ...current,
+              difficulty,
+            }));
+          }}
+          options={[
+            { label: "Mudah", value: "easy" },
+            { label: "Sedang", value: "medium" },
+            { label: "Sulit", value: "hard" },
+            { label: "Adaptif", value: "adaptive" },
+          ]}
+          required
+          value={question.difficulty}
+        />
+      </Field>
+
+      <div className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
+        <Field>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <FieldLabel
+              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+              htmlFor={`quiz-question-${question.id}-explanation`}
+            >
+              Penjelasan
+            </FieldLabel>
+            <QuizQuestionMediaActions
+              assetId={question.explanationMediaAssetId}
+              disabled={disabled}
+              label="Gambar penjelasan"
+              onOpen={() => onOpenMedia(explanationMediaTarget)}
+              onRemove={() =>
+                updateQuestion(question.id, (current) =>
+                  setQuestionMediaAsset(
+                    current,
+                    explanationMediaTarget,
+                    undefined,
+                  ),
+                )
+              }
+            />
+          </div>
+          <FieldTextarea
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[120px] resize-y`}
+            disabled={disabled}
+            id={`quiz-question-${question.id}-explanation`}
+            onChange={(event) =>
+              updateQuestion(question.id, (current) => ({
+                ...current,
+                explanation: event.target.value,
+              }))
+            }
+            value={question.explanation}
+          />
+          {question.explanationMediaAssetId ? (
+            <MediaAssetPreview
+              alt="Gambar penjelasan"
+              assetId={question.explanationMediaAssetId}
+              className="max-h-48 bg-white"
+            />
+          ) : null}
+        </Field>
+      </div>
     </ReferenceSurface>
   );
 }
@@ -730,8 +1259,7 @@ function useQuizEditorPersistence({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const shouldPublish = savedQuiz?.status === "published";
-      if (shouldPublish && !publishRequestIdRef.current)
+      if (savedQuiz && !publishRequestIdRef.current)
         publishRequestIdRef.current = crypto.randomUUID();
       const result = await saveStandaloneQuizAction({
         attemptsAllowed: form.attemptsAllowed,
@@ -743,12 +1271,11 @@ function useQuizEditorPersistence({
         formBehavior: form.formBehavior,
         id: savedQuiz?.id ?? quizId,
         opensAt: form.opensAt,
-        publishRequestId: shouldPublish ? publishRequestIdRef.current : null,
+        publishRequestId: publishRequestIdRef.current,
         questions: mode === "create" ? [] : form.questions,
         retryDelaySeconds: form.retryDelaySeconds,
         reviewTiming: form.reviewTiming,
         scorePolicy: form.scorePolicy,
-        status: shouldPublish ? "published" : "draft",
         subjectCode: form.subjectCode,
         title: form.title,
       });
@@ -833,8 +1360,7 @@ function useQuizEditorState({
     initialForm.questions[0]?.id ?? null,
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(
-    mode === "create" &&
-      hasQuizDraftContent(initialForm, pristineSubjectCode),
+    mode === "create" && hasQuizDraftContent(initialForm, pristineSubjectCode),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -844,6 +1370,8 @@ function useQuizEditorState({
     string | null
   >(null);
   const [questionBankPickerOpen, setQuestionBankPickerOpen] = useState(false);
+  const [mediaPickerTarget, setMediaPickerTarget] =
+    useState<QuizQuestionMediaTarget | null>(null);
   const [acceptingUpdateQuestionId, setAcceptingUpdateQuestionId] = useState<
     string | null
   >(null);
@@ -854,7 +1382,9 @@ function useQuizEditorState({
       null,
     [activeQuestionId, form.questions],
   );
-  const editorDisabled = savedQuiz?.status === "archived" || (mode === "edit" && !resourceLock.canEdit);
+  const editorDisabled =
+    savedQuiz?.status === "archived" ||
+    (mode === "edit" && !resourceLock.canEdit);
   const scheduleError =
     form.opensAt &&
     form.closesAt &&
@@ -882,14 +1412,44 @@ function useQuizEditorState({
     },
     [form, markChanged],
   );
-  const replaceImportedQuestions = useCallback(
-    (questions: QuizQuestionSnapshot[], quiz: KaptenQuiz) => {
-      setForm((current) => ({ ...current, questions }));
-      setSavedQuiz(quiz);
-      setActiveQuestionId(questions[0]?.id ?? null);
-      setHasUnsavedChanges(false);
+  const updateQuestion = useCallback(
+    (
+      questionId: string,
+      update: (current: QuizEditorQuestion) => QuizEditorQuestion,
+    ) => {
+      if (editorDisabled) return;
+      const nextForm = {
+        ...form,
+        questions: form.questions.map((question) =>
+          question.id === questionId ? update(question) : question,
+        ),
+      };
+      setForm(nextForm);
+      markChanged(nextForm);
+    },
+    [editorDisabled, form, markChanged],
+  );
+  const applySelectedMedia = useCallback(
+    (assetId: string) => {
+      if (!mediaPickerTarget) return;
+      updateQuestion(mediaPickerTarget.questionId, (question) =>
+        setQuestionMediaAsset(question, mediaPickerTarget, assetId),
+      );
+    },
+    [mediaPickerTarget, updateQuestion],
+  );
+  const appendImportedQuestions = useCallback(
+    (questions: QuizQuestionSnapshot[], importedCount: number) => {
+      const editorQuestions = questions.map(asEditorQuestion);
+      if (!editorQuestions.length) return;
+      setForm((current) => ({
+        ...current,
+        questions: [...current.questions, ...editorQuestions],
+      }));
+      setActiveQuestionId(editorQuestions[0]?.id ?? null);
+      setHasUnsavedChanges(true);
       setSaveError(null);
-      showToast("Soal dari Bank Soal ditambahkan ke Kuis.", {
+      showToast(`${importedCount} soal ditambahkan ke Kuis.`, {
         variant: "success",
       });
     },
@@ -900,6 +1460,7 @@ function useQuizEditorState({
       if (
         acceptingUpdateQuestionId ||
         !savedQuiz?.id ||
+        savedQuiz.sourceMode !== "assembly" ||
         savedQuiz.status === "archived" ||
         !question.sourceUpdate ||
         !question.sourceQuestionRevisionId ||
@@ -912,7 +1473,8 @@ function useQuizEditorState({
       setSaveError(null);
       try {
         const result = await acceptStandaloneQuizQuestionUpdateAction({
-          editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
+          editLease:
+            mode === "edit" ? (resourceLock.proof ?? undefined) : undefined,
           expectedCurrentContentDigest: question.sourceContentDigest,
           expectedCurrentRevisionId: question.sourceQuestionRevisionId,
           quizId: savedQuiz.id,
@@ -959,7 +1521,7 @@ function useQuizEditorState({
         setSavedQuiz(result.quiz);
         setHasUnsavedChanges(hadUnsavedChanges);
         setSaveError(null);
-        showToast("Revisi Bank Soal otomatis diterapkan ke draf Kuis.", {
+      showToast("Revisi Bank Soal otomatis diterapkan ke Kuis.", {
           variant: "success",
         });
         return true;
@@ -992,6 +1554,7 @@ function useQuizEditorState({
       mode !== "edit" ||
       editorDisabled ||
       !savedQuiz?.id ||
+      savedQuiz.sourceMode !== "assembly" ||
       isSaving ||
       acceptingUpdateQuestionId
     ) {
@@ -1021,6 +1584,7 @@ function useQuizEditorState({
     isSaving,
     mode,
     savedQuiz?.id,
+    savedQuiz?.sourceMode,
   ]);
   const navigation = useQuizEditorNavigation({
     hasUnsavedChanges,
@@ -1040,7 +1604,7 @@ function useQuizEditorState({
   const persistence = useQuizEditorPersistence({
     activeQuestionId,
     editorDisabled,
-    editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
+    editLease: mode === "edit" ? (resourceLock.proof ?? undefined) : undefined,
     form,
     isSaving,
     mode,
@@ -1068,26 +1632,44 @@ function useQuizEditorState({
     pendingDeleteId,
     pendingExitRoute,
     patchForm,
+    updateQuestion,
+    applySelectedMedia,
     persistence,
+    editLease: resourceLock.proof ?? undefined,
     questionBankPickerOpen,
     questionActions,
     saveError,
     savedQuiz,
     scheduleError,
-    lockState: (mode === "create" ? "owned" : resourceLock.state) as AuthoringLockState,
+    lockState: (mode === "create"
+      ? "owned"
+      : resourceLock.state) as AuthoringLockState,
     retryLock: resourceLock.retry,
     setActiveQuestionId,
     setPendingDeleteId,
     setPendingExitRoute,
     setQuestionBankPickerOpen,
-    replaceImportedQuestions,
+    mediaPickerTarget,
+    setMediaPickerTarget,
+    appendImportedQuestions,
     router,
   };
 }
 
 type QuizEditorState = ReturnType<typeof useQuizEditorState>;
 
-function QuizEditorFeedback({ scheduleError }: Pick<QuizEditorState, "scheduleError">) {
+function isQuizBankPickerDisabled(state: QuizEditorState) {
+  return (
+    state.editorDisabled ||
+    !state.savedQuiz ||
+    !state.editLease ||
+    state.savedQuiz.sourceMode === "assembly"
+  );
+}
+
+function QuizEditorFeedback({
+  scheduleError,
+}: Pick<QuizEditorState, "scheduleError">) {
   return (
     <>
       {scheduleError ? (
@@ -1151,6 +1733,7 @@ function QuizEditHeader({
           aria-busy={state.isSaving}
           aria-label="Simpan"
           disabled={state.isSaving || state.editorDisabled}
+          id="quiz-save-button"
           onClick={() => void state.persistence.saveQuiz()}
           size="sm"
           title="Simpan perubahan"
@@ -1170,15 +1753,49 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     state.setActiveQuestionId(id);
   };
   const hasQuestions = state.form.questions.length > 0;
+  const bankPickerDisabled = isQuizBankPickerDisabled(state);
+  const showAddFromBank = state.savedQuiz?.sourceMode !== "assembly";
+  const assemblyBank =
+    state.savedQuiz?.sourceMode === "assembly"
+      ? state.savedQuiz.assembly
+      : undefined;
+  const assemblySourceBankId =
+    state.savedQuiz?.sourceMode === "assembly"
+      ? state.savedQuiz.sourceBankId
+      : undefined;
+  const sourceBankHref = assemblySourceBankId
+    ? `/mentor/quiz/question-bank/${assemblySourceBankId}?purpose=quiz`
+    : undefined;
+  const sourceBankTitle =
+    assemblyBank &&
+    assemblySourceBankId &&
+    assemblyBank.bankId === assemblySourceBankId
+      ? assemblyBank.bankName || undefined
+      : undefined;
   const questionEditor = state.activeQuestion ? (
     <div
       className="flex min-w-0 flex-col gap-4"
-      data-quiz-question-content-editor="disabled"
+      data-quiz-question-content-editor={
+        state.activeQuestion.origin === "local" ? "enabled" : "disabled"
+      }
     >
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-secondary-900">Preview Soal</h2>
+        <h2 className="text-xl font-bold text-secondary-900">
+          {state.activeQuestion.origin === "local"
+            ? "Edit soal"
+            : "Pratinjau soal"}
+        </h2>
       </div>
-      <QuestionPreview question={state.activeQuestion} />
+      {state.activeQuestion.origin === "local" ? (
+        <QuizQuestionEditor
+          disabled={state.editorDisabled}
+          onOpenMedia={state.setMediaPickerTarget}
+          question={state.activeQuestion}
+          updateQuestion={state.updateQuestion}
+        />
+      ) : (
+        <QuestionPreview question={state.activeQuestion} />
+      )}
     </div>
   ) : (
     <ReferenceSurface
@@ -1188,9 +1805,10 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     >
       <ReferenceEmptyState
         action={
-          !hasQuestions && !state.editorDisabled ? (
+          !hasQuestions && !bankPickerDisabled ? (
             <Button
               aria-label="Tambah soal dari Bank Soal"
+              id="quiz-empty-state-add-bank-question"
               onClick={() => state.setQuestionBankPickerOpen(true)}
               size="sm"
               type="button"
@@ -1204,7 +1822,11 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
         description={
           hasQuestions
             ? "Pilih soal dari daftar untuk meninjau isinya."
-            : "Pilih soal dari Bank Soal untuk mulai menyusun Kuis."
+            : state.savedQuiz?.sourceMode === "assembly"
+              ? "Kuis ini disusun dari Bank Soal yang terhubung. Gunakan tautan Bank Soal untuk mengelola soal sumber."
+              : state.savedQuiz
+                ? "Pilih soal dari Bank Soal untuk mulai menyusun Kuis."
+                : "Simpan Kuis terlebih dahulu untuk menambahkan soal dari Bank Soal."
         }
         icon={hasQuestions ? CircleHelp : LibraryBig}
         title={
@@ -1220,55 +1842,97 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     <>
       <QuizMobileInventory
         activeQuestionId={state.activeQuestionId}
+        bankPickerDisabled={bankPickerDisabled}
         disabled={state.editorDisabled}
         onAddFromBank={() => state.setQuestionBankPickerOpen(true)}
+        onDelete={state.setPendingDeleteId}
+        onMove={state.questionActions.moveQuestion}
         onSelect={selectQuestion}
-        sourceBankHref={
-          state.savedQuiz?.sourceBankId
-            ? `/mentor/quiz/question-bank/${state.savedQuiz.sourceBankId}?purpose=quiz`
-            : undefined
-        }
-        sourceBankTitle={state.savedQuiz?.sourceBank}
+        showAddFromBank={showAddFromBank}
+        sourceBankHref={sourceBankHref}
+        sourceBankTitle={sourceBankTitle}
         questions={state.form.questions}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
           <QuestionInventory
             activeQuestionId={state.activeQuestionId}
+            bankPickerDisabled={bankPickerDisabled}
             disabled={state.editorDisabled}
             onAddFromBank={() => state.setQuestionBankPickerOpen(true)}
             onDelete={state.setPendingDeleteId}
             onMove={state.questionActions.moveQuestion}
             onSelect={selectQuestion}
-            sourceBankHref={
-              state.savedQuiz?.sourceBankId
-                ? `/mentor/quiz/question-bank/${state.savedQuiz.sourceBankId}?purpose=quiz`
-                : undefined
-            }
-            sourceBankTitle={state.savedQuiz?.sourceBank}
+            showAddFromBank={showAddFromBank}
+            sourceBankHref={sourceBankHref}
+            sourceBankTitle={sourceBankTitle}
             questions={state.form.questions}
           />
         </div>
-        <main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8">
+        <main
+          className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"
+          id="quiz-question-editor-main"
+          tabIndex={-1}
+        >
           <div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div>
         </main>
       </div>
     </>
   );
 }
+function focusFirstAvailableQuizEditorControl(ids: readonly string[]) {
+  for (const id of ids) {
+    const control = document.getElementById(id);
+    if (
+      !(control instanceof HTMLElement) ||
+      control.hasAttribute("disabled") ||
+      control.getClientRects().length === 0
+    ) {
+      continue;
+    }
+    control.focus();
+    return;
+  }
+}
+
 function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
+  const bankPickerDisabled = isQuizBankPickerDisabled(state);
+  const mediaTarget = state.mediaPickerTarget;
+  const mediaQuestion = mediaTarget
+    ? state.form.questions.find(
+        (question) => question.id === mediaTarget.questionId,
+      )
+    : undefined;
+  const selectedMediaAssetId = mediaTarget
+    ? mediaTarget.field === "prompt"
+      ? mediaQuestion?.promptMediaAssetId
+      : mediaTarget.field === "explanation"
+        ? mediaQuestion?.explanationMediaAssetId
+        : mediaQuestion?.choices.find(
+            (choice) => choice.id === mediaTarget.choiceId,
+          )?.mediaAssetId
+    : undefined;
+
   return (
     <>
+      <MediaPickerDialog
+        onOpenChange={(open) => {
+          if (!open) state.setMediaPickerTarget(null);
+        }}
+        onSelect={(asset) => state.applySelectedMedia(asset.id)}
+        open={Boolean(mediaTarget)}
+        selectedAssetId={selectedMediaAssetId}
+        title={mediaTarget?.label ?? "Pilih gambar"}
+      />
       <QuestionBankPickerDialog
+        editLease={state.editLease}
         expectedDraftRevision={state.savedQuiz?.draftRevision}
-        key={`${state.questionBankPickerOpen ? "open" : "closed"}-${state.savedQuiz?.sourceBankId ?? "none"}`}
-        currentQuestions={state.form.questions}
-        disabled={state.editorDisabled}
-        onImported={state.replaceImportedQuestions}
+        key={`${state.questionBankPickerOpen ? "open" : "closed"}-${state.savedQuiz?.id ?? "none"}`}
+        disabled={bankPickerDisabled}
+        onImported={state.appendImportedQuestions}
         onOpenChange={state.setQuestionBankPickerOpen}
-        open={state.questionBankPickerOpen}
+        open={state.questionBankPickerOpen && !bankPickerDisabled}
         quizId={state.savedQuiz?.id}
-        sourceBankId={state.savedQuiz?.sourceBankId}
         subjectCode={state.form.subjectCode}
       />
       <AlertDialog
@@ -1294,8 +1958,43 @@ function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (state.pendingDeleteId)
-                  state.questionActions.removeQuestion(state.pendingDeleteId);
+                const questionId = state.pendingDeleteId;
+                if (!questionId) return;
+
+                const remainingQuestions = state.form.questions.filter(
+                  (question) => question.id !== questionId,
+                );
+                const deletedIndex = state.form.questions.findIndex(
+                  (question) => question.id === questionId,
+                );
+                const nextActiveQuestionId =
+                  remainingQuestions.find(
+                    (question) => question.id === state.activeQuestionId,
+                  )?.id ??
+                  remainingQuestions[Math.max(0, deletedIndex - 1)]?.id ??
+                  remainingQuestions[0]?.id;
+
+                state.questionActions.removeQuestion(questionId);
+                window.requestAnimationFrame(() => {
+                  if (remainingQuestions.length > 0) {
+                    focusFirstAvailableQuizEditorControl([
+                      "quiz-mobile-question-picker-trigger",
+                      ...(nextActiveQuestionId
+                        ? [`quiz-question-select-${nextActiveQuestionId}`]
+                        : []),
+                      "quiz-save-button",
+                    ]);
+                    return;
+                  }
+
+                  focusFirstAvailableQuizEditorControl([
+                    "quiz-mobile-add-bank-question",
+                    "quiz-desktop-add-bank-question",
+                    "quiz-empty-state-add-bank-question",
+                    "quiz-save-button",
+                    "quiz-question-editor-main",
+                  ]);
+                });
               }}
               variant="destructive"
             >
@@ -1384,10 +2083,7 @@ function QuizCreateHeader() {
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Button>
-      <ReferencePageHeader
-        className="min-w-0 flex-1"
-        title="Kuis baru"
-      />
+      <ReferencePageHeader className="min-w-0 flex-1" title="Kuis baru" />
     </div>
   );
 }
@@ -1410,12 +2106,15 @@ function QuizCreateSubmitButton({ state }: { state: QuizEditorState }) {
   );
 }
 
-function QuizCreateFields({ state }: { state: QuizEditorState }) {
-  return (
-    <ReferenceSurface
-      as="section"
-      className="grid gap-5 p-5 md:p-7"
-    >
+function QuizCreateFields({
+  presentation = "page",
+  state,
+}: {
+  presentation?: "page" | "modal";
+  state: QuizEditorState;
+}) {
+  const fields = (
+    <>
       <Field>
         <FieldLabel
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -1469,7 +2168,155 @@ function QuizCreateFields({ state }: { state: QuizEditorState }) {
           value={state.form.description}
         />
       </Field>
+    </>
+  );
+
+  if (presentation === "modal") {
+    return <div className="grid gap-5">{fields}</div>;
+  }
+
+  return (
+    <ReferenceSurface as="section" className="grid gap-5 p-5 md:p-7">
+      {fields}
     </ReferenceSurface>
+  );
+}
+
+function QuizCreateDialogContent({
+  initialSubjectCode,
+  onOpenChange,
+  open,
+}: {
+  initialSubjectCode?: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  const state = useQuizEditorState({
+    initialQuestions: [],
+    initialQuiz: null,
+    initialSubjectCode,
+    mode: "create",
+  });
+  const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    if (state.isSaving) return;
+    if (state.hasUnsavedChanges) {
+      setDiscardConfirmationOpen(true);
+      return;
+    }
+    onOpenChange(false);
+  }
+
+  return (
+    <>
+      <Dialog onOpenChange={handleOpenChange} open={open}>
+        <DialogContent
+          className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8"
+          data-quiz-create-modal="true"
+          pending={state.isSaving}
+        >
+          <DialogHeader className="pr-8">
+            <DialogTitle>Kuis baru</DialogTitle>
+          </DialogHeader>
+          <QuizEditorFeedback scheduleError={state.scheduleError} />
+          <QuizCreateFields presentation="modal" state={state} />
+          <QuizCreateSubmitButton state={state} />
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        onOpenChange={setDiscardConfirmationOpen}
+        open={discardConfirmationOpen}
+      >
+        <AlertDialogContent size="sm" variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Perubahan Kuis yang belum disimpan akan hilang.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setDiscardConfirmationOpen(false)}
+            >
+              Lanjut mengedit
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDiscardConfirmationOpen(false);
+                onOpenChange(false);
+              }}
+            >
+              Keluar tanpa menyimpan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function MentorQuizCreateDialog({
+  initialSubjectCode,
+  onOpenChange,
+  open,
+}: {
+  initialSubjectCode?: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  if (!open) return null;
+
+  return (
+    <ResourceEditLockProvider
+      enabled={false}
+      resourceId="00000000-0000-4000-8000-000000000000"
+      resourceType="quiz"
+    >
+      <QuizCreateDialogContent
+        initialSubjectCode={initialSubjectCode}
+        onOpenChange={onOpenChange}
+        open={open}
+      />
+    </ResourceEditLockProvider>
+  );
+}
+
+function QuizCreateDialogTrigger({
+  ariaLabel,
+  buttonClassName,
+  children,
+  initialSubjectCode,
+}: {
+  ariaLabel?: string;
+  buttonClassName?: string;
+  children: ReactNode;
+  initialSubjectCode?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        aria-label={ariaLabel}
+        className={buttonClassName}
+        onClick={() => setOpen(true)}
+        size="default"
+        type="button"
+        variant="brand"
+      >
+        {children}
+      </Button>
+      <MentorQuizCreateDialog
+        initialSubjectCode={initialSubjectCode}
+        onOpenChange={setOpen}
+        open={open}
+      />
+    </>
   );
 }
 
@@ -1550,4 +2397,8 @@ function KaptenQuizEditorPageModule(props: {
   );
 }
 
-export { KaptenQuizEditorPageModule };
+export {
+  KaptenQuizEditorPageModule,
+  MentorQuizCreateDialog,
+  QuizCreateDialogTrigger,
+};

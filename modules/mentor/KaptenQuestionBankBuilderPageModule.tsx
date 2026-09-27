@@ -13,6 +13,7 @@ import {
   LibraryBig,
   Plus,
   Save,
+  Search,
   Trash2,
   X,
 } from "@/lib/icons";
@@ -45,6 +46,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   Field,
@@ -86,14 +93,13 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 import {
-  QuestionBankCsvDraftImportControl,
-  QuestionBankCsvDraftStatus,
-  clearQuestionBankCsvPendingDraft,
-  readQuestionBankCsvPendingDraft,
   type QuestionBankCsvDraftSummary,
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import {
-  QuestionBankXlsxDraftImportControl,
+  QuestionBankCreateFileImportControl,
+  type QuestionBankCreateFileImportState,
+} from "@/modules/mentor/components/question-bank-create-file-import";
+import {
   type QuestionBankXlsxDraftApplied,
 } from "@/modules/mentor/components/question-bank-xlsx-flow";
 import {
@@ -138,11 +144,13 @@ type QuestionBankEditorState = {
   confirmationRequest: ConfirmationRequest | null;
   questionDraft: BankQuestion;
   hasUnsavedChanges: boolean;
+  hasAutosaved: boolean;
   pendingRouteReplacement: string | null;
   readinessAnnouncement: string;
   serverReadiness: QuestionBankReadiness | null;
   mediaPickerTarget: MediaPickerTarget | null;
   lifecycleError: string | null;
+  saveError: string | null;
   lifecycleStatus: KaptenQuestionBank["status"];
   isSaving: boolean;
   questionEditorTab: string;
@@ -160,6 +168,10 @@ type LocalQuestionBankState = {
   subjectCode: string;
   title: string;
 };
+
+function questionBankSaveSnapshotKey(state: LocalQuestionBankState) {
+  return JSON.stringify(state);
+}
 
 function hasQuestionBankDraftContent(
   state: Pick<
@@ -1676,7 +1688,19 @@ function QuestionBankInventory({
   questionRowRefs: QuestionRowRefs;
   readiness: QuestionBankReadiness;
 }) {
-  const visibleQuestions = builderState.questions;
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleQuestions = normalizedQuery
+    ? builderState.questions.filter((question) => [
+      question.prompt,
+      question.subjectCode,
+      question.materi,
+      question.topic,
+      question.explanation,
+      ...question.choices.map((choice) => choice.text),
+      ...question.tags,
+    ].some((value) => value?.toLocaleLowerCase().includes(normalizedQuery)))
+    : builderState.questions;
   const isQuestionReady = (questionId: string) =>
     !readiness.issues.some((issue) => issue.questionId === questionId);
   const focusableQuestionId =
@@ -1741,7 +1765,9 @@ function QuestionBankInventory({
             className="text-lg font-semibold text-secondary-900"
             id="question-bank-inventory-title"
           >
-            Inventori soal ({builderState.questions.length})
+            {normalizedQuery
+              ? `Inventori soal (${visibleQuestions.length} dari ${builderState.questions.length})`
+              : `Inventori soal (${builderState.questions.length})`}
           </h2>
         </div>
         <Button
@@ -1755,6 +1781,21 @@ function QuestionBankInventory({
           <Plus />
         </Button>
       </div>
+      <label className="relative mt-3 block">
+        <span className="sr-only">Cari soal</span>
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-500"
+        />
+        <input
+          aria-label="Cari soal di inventori"
+          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-10 pl-9")}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Cari soal…"
+          type="search"
+          value={query}
+        />
+      </label>
       <nav
         aria-label="Navigasi soal"
         className="mt-3 flex min-h-0 flex-1 flex-col"
@@ -1848,7 +1889,9 @@ function QuestionBankInventory({
               })
             ) : (
               <li className="px-2 py-4 text-sm leading-6 text-secondary-500">
-                Belum ada soal.
+                {normalizedQuery
+                  ? "Tidak ada soal yang cocok dengan pencarian."
+                  : "Belum ada soal."}
               </li>
             )}
           </ul>
@@ -1962,11 +2005,13 @@ type QuestionBankBuilderViewState = {
   confirmationRequest: ConfirmationRequest | null;
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
+  hasAutosaved: boolean;
   isMetadataLocked: boolean;
   isQuestionContentLocked: boolean;
   isSaving: boolean;
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
+  saveError: string | null;
   lockState: AuthoringLockState;
   mediaFolderReservationId?: string;
   mediaPickerTarget: MediaPickerTarget | null;
@@ -2001,7 +2046,11 @@ type QuestionBankBuilderActions = {
     fileName: string;
     rowCount: number;
   } | null;
-  xlsxDraftInfo: Pick<QuestionBankXlsxDraftApplied, "fileName" | "imageCount" | "rowCount"> | null;
+  xlsxDraftInfo: QuestionBankXlsxDraftApplied | null;
+  createXlsxBanks: (
+    sheets: QuestionBankXlsxDraftApplied["sheets"],
+    onSheetCreated: (sheetKey: string) => void,
+  ) => Promise<boolean>;
   removeCsvDraft: () => void;
   removeXlsxDraft: () => void;
   replaceCsvDraft: (summary: QuestionBankCsvDraftSummary) => void;
@@ -2080,6 +2129,8 @@ function QuestionBankSaveAction({
   actions,
   builderState,
   className,
+  onCreateRequest,
+  disabledOverride = false,
   mode,
   state,
   size = "sm",
@@ -2087,7 +2138,9 @@ function QuestionBankSaveAction({
   actions: QuestionBankBuilderActions;
   builderState: QuestionBankBuilderFormState;
   className?: string;
+  disabledOverride?: boolean;
   mode: "create" | "edit";
+  onCreateRequest?: () => void;
   state: QuestionBankBuilderViewState;
   size?: "default" | "sm";
 }) {
@@ -2097,8 +2150,8 @@ function QuestionBankSaveAction({
     <Button
       aria-label={saveLabel}
       className={className}
-      disabled={state.isSaving || state.isMetadataLocked || titleMissing}
-      onClick={actions.saveDraft}
+      disabled={state.isSaving || state.isMetadataLocked || titleMissing || disabledOverride}
+      onClick={mode === "create" && onCreateRequest ? onCreateRequest : actions.saveDraft}
       size={size}
       title={mode === "create" ? undefined : saveLabel}
       type="button"
@@ -2152,25 +2205,71 @@ function QuestionBankLifecycleMenu({
 
 function QuestionBankHeaderActions({
   actions,
-  builderState,
   mode,
   state,
 }: {
   actions: QuestionBankBuilderActions;
-  builderState: QuestionBankBuilderFormState;
   mode: "create" | "edit";
   state: QuestionBankBuilderViewState;
 }) {
   if (mode === "create") return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <QuestionBankSaveAction
-        actions={actions}
-        builderState={builderState}
-        mode={mode}
-        state={state}
-      />
+      <QuestionBankAutoSaveStatus actions={actions} state={state} />
       <QuestionBankLifecycleMenu actions={actions} mode={mode} state={state} />
+    </div>
+  );
+}
+
+function QuestionBankAutoSaveStatus({
+  actions,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  state: QuestionBankBuilderViewState;
+}) {
+  const isBlocked = state.hasUnsavedChanges && state.readiness.incompleteCount > 0;
+  if (!state.hasUnsavedChanges && !state.hasAutosaved && !state.saveError) return null;
+
+  const statusMessage = state.isSaving
+    ? "Menyimpan perubahan…"
+    : isBlocked
+      ? `Selesaikan ${state.readiness.incompleteCount} soal yang belum lengkap agar perubahan dapat disimpan.`
+      : state.hasUnsavedChanges && state.lockState !== "owned"
+        ? "Akses edit terputus. Perubahan belum tersimpan."
+        : state.saveError
+          ? state.saveError
+          : state.hasUnsavedChanges
+            ? "Perubahan akan tersimpan otomatis."
+            : "Tersimpan otomatis.";
+  const hasError =
+    Boolean(state.saveError) ||
+    isBlocked ||
+    (state.hasUnsavedChanges && state.lockState !== "owned");
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <p
+        aria-live="polite"
+        className={cn(
+          "text-sm",
+          hasError ? "text-student-status-danger-fg" : "text-secondary-600",
+        )}
+        role="status"
+      >
+        {statusMessage}
+      </p>
+      {state.saveError && !isBlocked && state.lockState === "owned" ? (
+        <Button
+          disabled={state.isSaving || state.isMetadataLocked}
+          onClick={() => void actions.saveDraft()}
+          size="sm"
+          type="button"
+          variant="reference"
+        >
+          Coba lagi
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -2196,7 +2295,6 @@ function QuestionBankEditorHeader({
       />
       <QuestionBankHeaderActions
         actions={actions}
-        builderState={builderState}
         mode={mode}
         state={state}
       />
@@ -2206,61 +2304,79 @@ function QuestionBankEditorHeader({
 function QuestionBankMetadataForm({
   actions,
   builderState,
+  fileImportBlocked = false,
+  onCreateRequest,
+  presentation,
+  showSaveAction = true,
   state,
 }: {
   actions: QuestionBankBuilderActions;
   builderState: QuestionBankBuilderFormState;
+  fileImportBlocked?: boolean;
+  onCreateRequest?: () => void;
+  presentation: "page" | "modal";
+  showSaveAction?: boolean;
   state: QuestionBankBuilderViewState;
 }) {
+  const fields = (
+    <>
+      <Field>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="bank-title"
+          required
+        >
+          Judul bank
+        </FieldLabel>
+        <FieldInput
+          aria-required="true"
+          className={REFERENCE_CONTROL_CLASS_NAMES.input}
+          disabled={state.isMetadataLocked}
+          id="bank-title"
+          onChange={(event) => actions.updateMetadata("title", event.target.value)}
+          required
+          value={builderState.title}
+        />
+      </Field>
+      <Field>
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="bank-description"
+        >
+          Deskripsi
+        </FieldLabel>
+        <FieldTextarea
+          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
+          disabled={state.isMetadataLocked}
+          id="bank-description"
+          onChange={(event) => actions.updateMetadata("description", event.target.value)}
+          value={builderState.description}
+        />
+      </Field>
+    </>
+  );
+
   return (
     <div className="space-y-4">
-      <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
-        <Field>
-          <FieldLabel
-            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-            htmlFor="bank-title"
-            required
-          >
-            Judul bank
-          </FieldLabel>
-          <FieldInput
-            aria-required="true"
-            className={REFERENCE_CONTROL_CLASS_NAMES.input}
-            disabled={state.isMetadataLocked}
-            id="bank-title"
-            onChange={(event) =>
-              actions.updateMetadata("title", event.target.value)
-            }
-            required
-            value={builderState.title}
-          />
-        </Field>
-        <Field>
-          <FieldLabel
-            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-            htmlFor="bank-description"
-          >
-            Deskripsi
-          </FieldLabel>
-          <FieldTextarea
-            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
-            disabled={state.isMetadataLocked}
-            id="bank-description"
-            onChange={(event) =>
-              actions.updateMetadata("description", event.target.value)
-            }
-            value={builderState.description}
-          />
-        </Field>
-      </ReferenceSurface>
-      <QuestionBankSaveAction
-        actions={actions}
-        builderState={builderState}
-        className="w-full"
-        mode="create"
-        size="default"
-        state={state}
-      />
+      {presentation === "modal" ? (
+        <div className="grid w-full gap-5">{fields}</div>
+      ) : (
+        <ReferenceSurface as="section" className="grid w-full gap-5 p-5 md:p-7">
+          {fields}
+        </ReferenceSurface>
+      )}
+      {showSaveAction ? (
+        <QuestionBankSaveAction
+          actions={actions}
+          builderState={builderState}
+          disabledOverride={fileImportBlocked}
+          className="w-full"
+          mode="create"
+          onCreateRequest={onCreateRequest}
+          size="default"
+          state={state}
+        />
+      ) : null}
     </div>
   );
 }
@@ -2270,6 +2386,7 @@ type QuestionBankBuilderScreenProps = {
   bankId?: string;
   builderState: QuestionBankBuilderFormState;
   mode: "create" | "edit";
+  presentation: "page" | "modal";
   session: SessionContext;
   state: QuestionBankBuilderViewState;
   workspaceRef: { current: HTMLDivElement | null };
@@ -2361,7 +2478,7 @@ function QuestionBankEditWorkspaceHeader({
           </h1>
           {state.hasUnsavedChanges ? (
             <MentorBadge size="xs" tone="attention">
-              Belum disimpan
+              {state.isSaving ? "Menyimpan…" : "Belum disimpan"}
             </MentorBadge>
           ) : null}
         </div>
@@ -2384,18 +2501,7 @@ function QuestionBankEditWorkspaceHeader({
         ) : null}
       </div>
       <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
-        <Button
-          aria-label="Simpan"
-          disabled={state.isSaving || state.isMetadataLocked}
-          onClick={actions.saveDraft}
-          size="sm"
-          title="Simpan perubahan"
-          type="button"
-          variant={state.hasUnsavedChanges ? "brand" : "reference"}
-        >
-          <Save />
-          {state.isSaving ? "Menyimpan…" : "Simpan"}
-        </Button>
+        <QuestionBankAutoSaveStatus actions={actions} state={state} />
       </div>
     </header>
   );
@@ -2537,15 +2643,210 @@ function QuestionBankEditQuestionWorkspace({
 function QuestionBankCreateWorkspace({
   actions,
   builderState,
+  presentation,
   session,
   state,
 }: {
   actions: QuestionBankBuilderActions;
   builderState: QuestionBankBuilderFormState;
+  presentation: "page" | "modal";
   session: SessionContext;
   state: QuestionBankBuilderViewState;
 }) {
   const navigationLabel = questionBankNavigationLabel(builderState.purpose);
+  const [fileImportState, setFileImportState] = useState<QuestionBankCreateFileImportState>("idle");
+  const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
+  const [selectedSheetKeys, setSelectedSheetKeys] = useState<string[]>([]);
+  const [completedSheetKeys, setCompletedSheetKeys] = useState<string[]>([]);
+  const completedSheetKeySet = new Set(completedSheetKeys);
+  const isChoosingSheets = sheetPickerOpen && Boolean(actions.xlsxDraftInfo);
+  const sheets = actions.xlsxDraftInfo?.sheets ?? [];
+  const pendingSheetKeys = sheets
+    .filter((sheet) => !completedSheetKeySet.has(sheet.key))
+    .map((sheet) => sheet.key);
+  const selectedPendingCount = pendingSheetKeys.filter((key) =>
+    selectedSheetKeys.includes(key),
+  ).length;
+  const selectedSheetCount = sheets.length - pendingSheetKeys.length + selectedPendingCount;
+  const allSheetsSelected = sheets.length > 0 && selectedSheetCount === sheets.length;
+  const someSheetsSelected = selectedSheetCount > 0 && !allSheetsSelected;
+
+  function requestCreate() {
+    if (actions.xlsxDraftInfo) {
+      setSheetPickerOpen(true);
+      return;
+    }
+    actions.saveDraft();
+  }
+
+  async function createSelectedSheets() {
+    const draft = actions.xlsxDraftInfo;
+    if (!draft || state.isSaving) return;
+    const completed = new Set(completedSheetKeys);
+    const sheets = draft.sheets.filter(
+      (sheet) => selectedSheetKeys.includes(sheet.key) && !completed.has(sheet.key),
+    );
+    if (!sheets.length) {
+      showToast("Pilih setidaknya satu judul lembar yang belum dibuat.", { variant: "error" });
+      return;
+    }
+
+    const saved = await actions.createXlsxBanks(sheets, (sheetKey) => {
+      setCompletedSheetKeys((current) => current.includes(sheetKey) ? current : [...current, sheetKey]);
+    });
+    if (saved) setSheetPickerOpen(false);
+  }
+
+  const createContent = (
+    <>
+      {presentation === "modal" ? (
+        <DialogHeader className="pr-8">
+          <DialogTitle>
+            {isChoosingSheets
+              ? "Pilih sheets"
+              : `Buat Bank Soal ${builderState.purpose === "quiz" ? "Kuis" : "Tryout"}`}
+          </DialogTitle>
+        </DialogHeader>
+      ) : (
+        <QuestionBankEditorHeader
+          actions={actions}
+          builderState={builderState}
+          mode="create"
+          state={state}
+        />
+      )}
+      <p aria-live="polite" className="sr-only" role="status">
+        {state.readinessAnnouncement}
+      </p>
+      {isChoosingSheets && actions.xlsxDraftInfo ? (
+        <section
+          className="grid gap-4"
+          data-question-bank-xlsx-sheet-selection="true"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-secondary-800">
+              <input
+                aria-label="Pilih semua"
+                checked={allSheetsSelected}
+                className="size-3.5 shrink-0 accent-primary-700"
+                disabled={state.isSaving || pendingSheetKeys.length === 0}
+                onChange={(event) => {
+                  setSelectedSheetKeys(event.target.checked ? pendingSheetKeys : []);
+                }}
+                ref={(element) => {
+                  if (element) element.indeterminate = someSheetsSelected;
+                }}
+                type="checkbox"
+              />
+              Pilih semua
+            </label>
+            <span className="text-sm text-secondary-600">
+              {selectedSheetCount} dari {sheets.length} dipilih
+            </span>
+          </div>
+          <ul className="max-h-[min(42vh,360px)] divide-y divide-primary-100 overflow-y-auto">
+            {actions.xlsxDraftInfo.sheets.map((sheet) => {
+              const completed = completedSheetKeySet.has(sheet.key);
+              const selected = selectedSheetKeys.includes(sheet.key);
+              const generatedTitle = [builderState.title.trim(), sheet.title].filter(Boolean).join(" - ");
+              return (
+                <li className="flex min-w-0 items-start gap-3 py-3" key={sheet.key}>
+                  <input
+                    aria-label={`Buat Bank Soal ${generatedTitle}`}
+                    checked={completed || selected}
+                    className="mt-1 size-4 shrink-0 accent-primary-700"
+                    disabled={state.isSaving || completed}
+                    onChange={(event) => {
+                      setSelectedSheetKeys((current) => event.target.checked
+                        ? current.includes(sheet.key) ? current : [...current, sheet.key]
+                        : current.filter((key) => key !== sheet.key));
+                    }}
+                    type="checkbox"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-sm font-medium text-secondary-900">
+                      {generatedTitle}
+                    </span>
+                    <span className="mt-1 block text-xs text-secondary-600">
+                      {sheet.questions.length.toLocaleString("id-ID")} soal
+                    </span>
+                  </span>
+                  {completed ? (
+                    <MentorBadge size="xs" tone="success">Sudah dibuat</MentorBadge>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex w-full gap-2">
+            <Button
+              className="min-w-0 flex-1"
+              disabled={state.isSaving}
+              onClick={() => setSheetPickerOpen(false)}
+              type="button"
+              variant="brandOutline"
+            >
+              Kembali
+            </Button>
+            <Button
+              className="min-w-0 flex-1"
+              disabled={state.isSaving || selectedPendingCount === 0}
+              onClick={() => void createSelectedSheets()}
+              type="button"
+              variant="brand"
+            >
+              {state.isSaving ? "Membuat…" : "Buat"}
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <QuestionBankMetadataForm
+          actions={actions}
+          builderState={builderState}
+          fileImportBlocked={fileImportState === "processing" || fileImportState === "invalid"}
+          presentation={presentation}
+          onCreateRequest={requestCreate}
+          showSaveAction={false}
+          state={state}
+        />
+      )}
+      <QuestionBankCreateFileImportControl
+        disabled={state.isQuestionContentLocked}
+        hidden={isChoosingSheets}
+        onCsvDraftApplied={actions.replaceCsvDraft}
+        onRemoveCsvDraft={actions.removeCsvDraft}
+        onRemoveXlsxDraft={actions.removeXlsxDraft}
+        onStateChange={setFileImportState}
+        onXlsxDraftApplied={(draft) => {
+          setSelectedSheetKeys(draft.sheets.map((sheet) => sheet.key));
+          setCompletedSheetKeys([]);
+          actions.replaceXlsxDraft(draft);
+        }}
+      />
+      {!isChoosingSheets ? (
+        <QuestionBankSaveAction
+          actions={actions}
+          builderState={builderState}
+          disabledOverride={fileImportState === "processing" || fileImportState === "invalid"}
+          className="w-full"
+          mode="create"
+          onCreateRequest={requestCreate}
+          size="default"
+          state={state}
+        />
+      ) : null}
+      <QuestionBankBuilderDialogs
+        actions={actions}
+        confirmation={state.confirmationRequest}
+        mediaPickerTarget={state.mediaPickerTarget}
+        selectedMediaAssetId={state.selectedMediaAssetId}
+      />
+    </>
+  );
+
+  if (presentation === "modal") {
+    return <div className="grid gap-5">{createContent}</div>;
+  }
 
   return (
     <MentorWorkspaceShell
@@ -2560,44 +2861,7 @@ function QuestionBankCreateWorkspace({
       shouldGuardNavigation={state.hasUnsavedChanges}
       sidebarAppearance="reference"
     >
-      <QuestionBankEditorHeader
-        actions={actions}
-        builderState={builderState}
-        mode="create"
-        state={state}
-      />
-      <p aria-live="polite" className="sr-only" role="status">
-        {state.readinessAnnouncement}
-      </p>
-      <QuestionBankCsvDraftStatus
-        disabled={state.isQuestionContentLocked}
-        draft={actions.csvDraftInfo}
-        onRemove={actions.removeCsvDraft}
-      />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <QuestionBankCsvDraftImportControl
-          disabled={state.isQuestionContentLocked}
-          onDraftApplied={actions.replaceCsvDraft}
-        />
-        <QuestionBankXlsxDraftImportControl
-          disabled={state.isQuestionContentLocked}
-          draft={actions.xlsxDraftInfo}
-          mediaFolderReservationId={state.mediaFolderReservationId}
-          onDraftApplied={actions.replaceXlsxDraft}
-          onRemove={actions.removeXlsxDraft}
-        />
-      </div>
-      <QuestionBankMetadataForm
-        actions={actions}
-        builderState={builderState}
-        state={state}
-      />
-      <QuestionBankBuilderDialogs
-        actions={actions}
-        confirmation={state.confirmationRequest}
-        mediaPickerTarget={state.mediaPickerTarget}
-        selectedMediaAssetId={state.selectedMediaAssetId}
-      />
+      {createContent}
     </MentorWorkspaceShell>
   );
 }
@@ -2684,6 +2948,7 @@ function QuestionBankBuilderScreen({
   bankId,
   builderState,
   mode,
+  presentation,
   session,
   state,
   workspaceRef,
@@ -2693,6 +2958,7 @@ function QuestionBankBuilderScreen({
       <QuestionBankCreateWorkspace
         actions={actions}
         builderState={builderState}
+        presentation={presentation}
         session={session}
         state={state}
       />
@@ -2739,9 +3005,13 @@ function useQuestionBankPersistence({
   bankIdRef,
   builderState,
   editLease,
+  hasUnsavedChanges,
+  isMetadataLocked,
+  isSaving,
   mediaFolderReservationId,
   mode,
   onBankNoLongerEditable,
+  readiness,
   revisionRef,
   setMediaFolderReservationId,
   setServerReadiness,
@@ -2751,17 +3021,34 @@ function useQuestionBankPersistence({
   bankIdRef: { current: string | undefined };
   builderState: LocalQuestionBankState;
   editLease?: import("@/lib/serialization/authoring-lease").AuthoringEditLease;
+  hasUnsavedChanges: boolean;
+  isMetadataLocked: boolean;
+  isSaving: boolean;
   mediaFolderReservationId?: string;
   mode: "create" | "edit";
   onBankNoLongerEditable: (bankId: string) => void;
+  readiness: QuestionBankReadiness;
   revisionRef: { current: number | undefined };
   setMediaFolderReservationId: (reservationId: string | undefined) => void;
   setServerReadiness: (readiness: QuestionBankReadiness | null) => void;
   setLocalBuilderState: (state: LocalQuestionBankState) => void;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
 }) {
-  async function saveDraft() {
-    updateEditor({ isSaving: true, lifecycleError: null });
+  const lastSuccessfulSnapshotRef = useRef<string | null>(
+    mode === "edit" ? questionBankSaveSnapshotKey(builderState) : null,
+  );
+  const lastAttemptedSnapshotRef = useRef<string | null>(null);
+
+  const saveDraft = useCallback(async () => {
+    if (isSaving || (mode === "edit" && isMetadataLocked)) return;
+    if (readiness.incompleteCount > 0) {
+      const message = `Lengkapi ${readiness.incompleteCount} soal yang belum lengkap sebelum menyimpan Bank Soal.`;
+      updateEditor({ saveError: message });
+      showToast(message, { variant: "error" });
+      return;
+    }
+
+    updateEditor({ isSaving: true, lifecycleError: null, saveError: null });
     try {
       const result = await saveQuestionBankAction({
         description: builderState.description,
@@ -2776,7 +3063,8 @@ function useQuestionBankPersistence({
       });
       if (!result.ok) {
         if (result.readiness) setServerReadiness(result.readiness);
-        showToast(result.message, { variant: "error" });
+        updateEditor({ saveError: result.message });
+        if (mode === "create") showToast(result.message, { variant: "error" });
         return;
       }
       revisionRef.current = result.result.bank.revision;
@@ -2805,33 +3093,145 @@ function useQuestionBankPersistence({
         );
         if (!categoryResult.ok) {
           setLocalBuilderState(contentState);
-          updateEditor({ hasUnsavedChanges: true });
-          showToast(categoryResult.message, { variant: "error" });
+          updateEditor({ hasUnsavedChanges: true, saveError: categoryResult.message });
+          if (mode === "create") showToast(categoryResult.message, { variant: "error" });
           return;
         }
+        revisionRef.current = categoryResult.result.revision;
       }
 
       setLocalBuilderState(contentState);
       setServerReadiness(result.result.readiness);
+      lastSuccessfulSnapshotRef.current = questionBankSaveSnapshotKey(contentState);
       if (mode === "create" && mediaFolderReservationId) {
         setMediaFolderReservationId(undefined);
       }
       updateEditor({
         hasUnsavedChanges: false,
+        ...(mode === "edit" ? { hasAutosaved: true } : {}),
         lifecycleStatus: result.result.bank.status,
+        saveError: null,
       });
-      showToast(
-        mode === "create"
-          ? "Bank Soal dibuat."
-          : "Perubahan Bank Soal tersimpan.",
-        { variant: "success" },
-      );
+      if (mode === "create") showToast("Bank Soal dibuat.", { variant: "success" });
       if (mode === "create")
         updateEditor({
           pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}?purpose=${result.result.bank.purpose}`,
         });
     } catch {
-      showToast("Bank Soal belum dapat disimpan. Coba lagi.", { variant: "error" });
+      const message = "Bank Soal belum dapat disimpan. Coba lagi.";
+      updateEditor({ saveError: message });
+      if (mode === "create") showToast(message, { variant: "error" });
+    } finally {
+      updateEditor({ isSaving: false });
+    }
+  }, [
+    bankIdRef,
+    builderState,
+    editLease,
+    isMetadataLocked,
+    isSaving,
+    mediaFolderReservationId,
+    mode,
+    readiness.incompleteCount,
+    revisionRef,
+    setLocalBuilderState,
+    setMediaFolderReservationId,
+    setServerReadiness,
+    updateEditor,
+  ]);
+
+  useEffect(() => {
+    if (
+      mode !== "edit" ||
+      !hasUnsavedChanges ||
+      isSaving ||
+      isMetadataLocked ||
+      readiness.incompleteCount > 0
+    ) {
+      return;
+    }
+
+    const snapshotKey = questionBankSaveSnapshotKey(builderState);
+    if (snapshotKey === lastSuccessfulSnapshotRef.current) {
+      updateEditor({ hasUnsavedChanges: false, saveError: null });
+      return;
+    }
+    if (snapshotKey === lastAttemptedSnapshotRef.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      lastAttemptedSnapshotRef.current = snapshotKey;
+      void saveDraft();
+    }, 750);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    builderState,
+    hasUnsavedChanges,
+    isMetadataLocked,
+    isSaving,
+    mode,
+    readiness.incompleteCount,
+    saveDraft,
+    updateEditor,
+  ]);
+
+  async function saveXlsxBanks(
+    sheets: QuestionBankXlsxDraftApplied["sheets"],
+    onSheetCreated: (sheetKey: string) => void,
+  ) {
+    if (mode !== "create" || sheets.length === 0) return false;
+    updateEditor({ isSaving: true, lifecycleError: null });
+    let createdCount = 0;
+    let categoryFailureCount = 0;
+
+    try {
+      for (const sheet of sheets) {
+        const result = await saveQuestionBankAction({
+          description: builderState.description,
+          folderId: builderState.folderId,
+          purpose: builderState.purpose,
+          questions: toBuilderQuestions(sheet.questions, "question-bank-draft"),
+          title: `${builderState.title.trim()} - ${sheet.title}`,
+        });
+        if (!result.ok) {
+          showToast(result.message, { variant: "error" });
+          return false;
+        }
+
+        createdCount += 1;
+        onSheetCreated(sheet.key);
+
+        if (builderState.categoryIds.length > 0) {
+          try {
+            const categoryResult = await setQuestionBankCategoriesAction(
+              result.result.bank.id,
+              builderState.categoryIds,
+              {
+                expectedRevision: result.result.bank.revision,
+                expectedUpdatedAt: result.result.bank.updatedAt,
+              },
+            );
+            if (!categoryResult.ok) categoryFailureCount += 1;
+          } catch {
+            categoryFailureCount += 1;
+          }
+        }
+      }
+
+      const searchHref = `/mentor/quiz/question-bank?purpose=${builderState.purpose}&folder=root&page=1&q=${encodeURIComponent(builderState.title.trim())}&sort=updated`;
+      updateEditor({
+        hasUnsavedChanges: false,
+        pendingRouteReplacement: searchHref,
+      });
+      showToast(
+        categoryFailureCount > 0
+          ? `${createdCount} Bank Soal dibuat. Kategori belum tersimpan pada ${categoryFailureCount} Bank.`
+          : `${createdCount} Bank Soal berhasil dibuat.`,
+        { variant: categoryFailureCount > 0 ? "error" : "success" },
+      );
+      return true;
+    } catch {
+      showToast("Penyimpanan berhenti. Bank yang sudah dibuat tetap tersimpan; coba lagi untuk melanjutkan.", { variant: "error" });
+      return false;
     } finally {
       updateEditor({ isSaving: false });
     }
@@ -2878,7 +3278,7 @@ function useQuestionBankPersistence({
     }
   }
 
-  return { saveDraft, updateLifecycle };
+  return { saveDraft, saveXlsxBanks, updateLifecycle };
 }
 
 function getQuestionNumber(
@@ -2934,6 +3334,7 @@ function useQuestionBankDraftActions({
           markChangedMode === "create"
             ? hasQuestionBankDraftContent(nextState)
             : true,
+        saveError: null,
         serverReadiness: pruneServerReadinessForDraftChange(
           serverReadiness,
           builderState.questions,
@@ -2956,7 +3357,7 @@ function useQuestionBankDraftActions({
   } | null>(null);
   const [xlsxDraftInfo, setXlsxDraftInfo] = useState<Pick<
     QuestionBankXlsxDraftApplied,
-    "fileName" | "imageCount" | "rowCount"
+    "fileName" | "previewId" | "rowCount" | "sheets"
   > | null>(null);
 
   const updateMetadata = useCallback(
@@ -3163,6 +3564,7 @@ function useQuestionBankDraftActions({
       fileDerivedQuestionIdsRef.current = importedQuestionIds;
       setCsvDraftInfo({ fileName: summary.fileName, rowCount: summary.rowCount });
       setXlsxDraftInfo(null);
+      setMediaFolderReservationId(undefined);
       const nextState = {
         ...builderState,
         questions: [...retainedQuestions, ...draftQuestions],
@@ -3188,6 +3590,7 @@ function useQuestionBankDraftActions({
       initialBank?.id,
       isQuestionContentLocked,
       markChanged,
+      setMediaFolderReservationId,
       updateEditor,
       fileDerivedQuestionIdsRef,
     ],
@@ -3195,46 +3598,24 @@ function useQuestionBankDraftActions({
 
   const replaceXlsxDraft = useCallback(
     (draft: QuestionBankXlsxDraftApplied) => {
-      if (isQuestionContentLocked || draft.questions.length < 1) return;
-      const draftQuestions = toBuilderQuestions(
-        draft.questions,
-        bankId ?? initialBank?.id ?? "question-bank-draft",
-      );
-      const importedQuestionIds = new Set(draftQuestions.map((question) => question.id));
+      if (isQuestionContentLocked || draft.sheets.length < 1) return;
       const retainedQuestions = builderState.questions.filter(
         (question) => !fileDerivedQuestionIdsRef.current.has(question.id),
       );
-      fileDerivedQuestionIdsRef.current = importedQuestionIds;
+      fileDerivedQuestionIdsRef.current = new Set();
       setCsvDraftInfo(null);
-      setXlsxDraftInfo({
-        fileName: draft.fileName,
-        imageCount: draft.imageCount,
-        rowCount: draft.rowCount,
-      });
-      setMediaFolderReservationId(draft.mediaFolderReservationId);
-      const nextState = {
-        ...builderState,
-        questions: [...retainedQuestions, ...draftQuestions],
-      };
-      markChanged(nextState);
+      setXlsxDraftInfo(draft);
+      setMediaFolderReservationId(undefined);
+      if (retainedQuestions.length !== builderState.questions.length) {
+        markChanged({ ...builderState, questions: retainedQuestions });
+      }
       updateEditor({
-        activeQuestionId: draftQuestions[0]?.id ?? retainedQuestions[0]?.id ?? null,
-        hasSubmittedPreview: false,
-        previewChoiceId: null,
-        previewChoiceIds: [],
-        questionDraft: draftQuestions[0]
-          ? toQuestionDraft(draftQuestions[0])
-          : retainedQuestions[0]
-            ? toQuestionDraft(retainedQuestions[0])
-            : fallbackQuestion,
-        readinessAnnouncement: `${draft.rowCount} soal dari ${draft.fileName} siap disimpan bersama Bank Soal.`,
+        hasUnsavedChanges: true,
+        readinessAnnouncement: `${draft.rowCount} soal dari ${draft.sheets.length} lembar siap dipilih untuk dibuat menjadi Bank Soal.`,
       });
     },
     [
-      bankId,
       builderState,
-      fallbackQuestion,
-      initialBank?.id,
       isQuestionContentLocked,
       markChanged,
       setMediaFolderReservationId,
@@ -3242,15 +3623,17 @@ function useQuestionBankDraftActions({
     ],
   );
 
-  const removeFileDraft = useCallback(() => {
-    if (isQuestionContentLocked || fileDerivedQuestionIdsRef.current.size === 0) return;
+  const removeCsvDraft = useCallback(() => {
+    if (isQuestionContentLocked) return;
     const questions = builderState.questions.filter(
       (question) => !fileDerivedQuestionIdsRef.current.has(question.id),
     );
     fileDerivedQuestionIdsRef.current = new Set();
     setCsvDraftInfo(null);
-    setXlsxDraftInfo(null);
-    if (questions.length === builderState.questions.length) return;
+    if (questions.length === builderState.questions.length) {
+      updateEditor({ hasUnsavedChanges: hasQuestionBankDraftContent(builderState) });
+      return;
+    }
     const nextActiveQuestion = questions[0] ?? null;
     markChanged({ ...builderState, questions });
     updateEditor({
@@ -3263,15 +3646,18 @@ function useQuestionBankDraftActions({
     });
   }, [
     builderState,
-    fileDerivedQuestionIdsRef,
     fallbackQuestion,
     isQuestionContentLocked,
     markChanged,
     updateEditor,
   ]);
 
-  const removeCsvDraft = removeFileDraft;
-  const removeXlsxDraft = removeFileDraft;
+  const removeXlsxDraft = useCallback(() => {
+    if (isQuestionContentLocked) return;
+    setXlsxDraftInfo(null);
+    setMediaFolderReservationId(undefined);
+    updateEditor({ hasUnsavedChanges: hasQuestionBankDraftContent(builderState) });
+  }, [builderState, isQuestionContentLocked, setMediaFolderReservationId, updateEditor]);
 
   const removeQuestion = useCallback(
     (id: string) => {
@@ -3713,6 +4099,7 @@ function getQuestionBankBuilderInitialData({
     hasSubmittedPreview: false,
     hasUnsavedChanges:
       mode === "create" && hasQuestionBankDraftContent(initialBuilderState),
+    hasAutosaved: false,
     isSaving: false,
     lifecycleError: null,
     lifecycleStatus: initialBank?.status ?? "draft",
@@ -3725,6 +4112,7 @@ function getQuestionBankBuilderInitialData({
       : fallbackQuestionDraft,
     questionEditorTab: "edit",
     readinessAnnouncement: "",
+    saveError: null,
     serverReadiness: mode === "edit" ? initialReadiness : null,
   };
   return { fallbackQuestionDraft, initialBuilderState, initialEditorState };
@@ -3744,8 +4132,14 @@ function getQuestionBankBuilderDerivedState({
         (question) => question.id === editorState.activeQuestionId,
       ) ?? null)
     : null;
-  const isMetadataLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
-  const isQuestionContentLocked = editorState.lifecycleStatus === "archived" || lockState !== "owned";
+  const isMetadataLocked =
+    editorState.isSaving ||
+    editorState.lifecycleStatus === "archived" ||
+    lockState !== "owned";
+  const isQuestionContentLocked =
+    editorState.isSaving ||
+    editorState.lifecycleStatus === "archived" ||
+    lockState !== "owned";
   const localReadiness = getQuestionBankReadinessFromDrafts(
     builderState.questions,
   );
@@ -3813,6 +4207,7 @@ function createQuestionBankBuilderActions({
     saveDraft: persistence.saveDraft,
     updateCategories: draftActions.updateCategories,
     updateLifecycle: persistence.updateLifecycle,
+    createXlsxBanks: persistence.saveXlsxBanks,
     updateMetadata: draftActions.updateMetadata,
   };
 }
@@ -3863,6 +4258,11 @@ function useQuestionBankBuilderState({
       dispatch({ patch, type: "patch" }),
     [],
   );
+  const setServerReadiness = useCallback(
+    (nextReadiness: QuestionBankReadiness | null) =>
+      updateEditor({ serverReadiness: nextReadiness }),
+    [updateEditor],
+  );
   const revisionRef = useRef(initialBank?.revision);
   const bankIdRef = useRef(initialBank?.id ?? bankId);
   const questionRowRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -3872,7 +4272,6 @@ function useQuestionBankBuilderState({
   );
   const questionFocusAfterDeleteRef = useRef<string | null>(null);
   const pendingIssueFocusRef = useRef<QuestionReadinessIssue | null>(null);
-  const pendingCsvDraftConsumedRef = useRef(false);
   const builderState = localBuilderState;
   const {
     activeQuestion,
@@ -3926,16 +4325,19 @@ function useQuestionBankBuilderState({
     bankIdRef,
     builderState,
     editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
+    hasUnsavedChanges: editorState.hasUnsavedChanges,
+    isMetadataLocked,
+    isSaving: editorState.isSaving,
     mediaFolderReservationId,
     mode,
     onBankNoLongerEditable: (id) =>
       updateEditor({
         pendingRouteReplacement: `/mentor/quiz/question-bank/${id}?purpose=${builderState.purpose}`,
       }),
+    readiness,
     revisionRef,
     setMediaFolderReservationId,
-    setServerReadiness: (nextReadiness) =>
-      updateEditor({ serverReadiness: nextReadiness }),
+    setServerReadiness,
     setLocalBuilderState,
     updateEditor,
   });
@@ -3973,15 +4375,6 @@ function useQuestionBankBuilderState({
     persistence,
     retryLock: resourceLock.retry,
   });
-  const replaceCsvDraft = actions.replaceCsvDraft;
-  useEffect(() => {
-    if (mode !== "create" || pendingCsvDraftConsumedRef.current) return;
-    pendingCsvDraftConsumedRef.current = true;
-    const pendingDraft = readQuestionBankCsvPendingDraft();
-    if (!pendingDraft) return;
-    clearQuestionBankCsvPendingDraft();
-    replaceCsvDraft(pendingDraft);
-  }, [mode, replaceCsvDraft]);
   return {
     actions,
     bankIdValue: bankId ?? initialBank?.id,
@@ -4006,6 +4399,9 @@ function QuestionBankBuilderContent({
   initialQuestions = [],
   initialReadiness = null,
   mode,
+  onOpenChange,
+  open = true,
+  presentation = "page",
   purpose = "quiz",
   session,
 }: {
@@ -4016,6 +4412,9 @@ function QuestionBankBuilderContent({
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+  presentation?: "page" | "modal";
   purpose?: "quiz" | "tryout";
   session: SessionContext;
 }) {
@@ -4043,38 +4442,65 @@ function QuestionBankBuilderContent({
     purpose,
   });
 
-  return (
+  const viewState: QuestionBankBuilderViewState = {
+    activeQuestionId: editorState.activeQuestionId,
+    confirmationRequest: editorState.confirmationRequest,
+    hasSubmittedPreview: editorState.hasSubmittedPreview,
+    hasUnsavedChanges: editorState.hasUnsavedChanges,
+    hasAutosaved: editorState.hasAutosaved,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    lockState,
+    isSaving: editorState.isSaving,
+    lifecycleError: editorState.lifecycleError,
+    saveError: editorState.saveError,
+    lifecycleStatus: editorState.lifecycleStatus,
+    mediaFolderReservationId,
+    mediaPickerTarget: editorState.mediaPickerTarget,
+    pendingRouteReplacement: editorState.pendingRouteReplacement,
+    previewChoiceId: editorState.previewChoiceId,
+    previewChoiceIds: editorState.previewChoiceIds,
+    questionDraft: editorState.questionDraft,
+    questionEditorTab: editorState.questionEditorTab,
+    questionRowRefs,
+    readiness,
+    readinessAnnouncement: editorState.readinessAnnouncement,
+    selectedMediaAssetId,
+  };
+  const screen = (
     <QuestionBankBuilderScreen
       actions={actions}
       bankId={bankIdValue}
       builderState={builderState}
       mode={mode}
+      presentation={presentation}
       session={session}
-      state={{
-        activeQuestionId: editorState.activeQuestionId,
-        confirmationRequest: editorState.confirmationRequest,
-        hasSubmittedPreview: editorState.hasSubmittedPreview,
-        hasUnsavedChanges: editorState.hasUnsavedChanges,
-        isMetadataLocked,
-        isQuestionContentLocked,
-        lockState,
-        isSaving: editorState.isSaving,
-        lifecycleError: editorState.lifecycleError,
-        lifecycleStatus: editorState.lifecycleStatus,
-        mediaFolderReservationId,
-        mediaPickerTarget: editorState.mediaPickerTarget,
-        pendingRouteReplacement: editorState.pendingRouteReplacement,
-        previewChoiceId: editorState.previewChoiceId,
-        previewChoiceIds: editorState.previewChoiceIds,
-        questionDraft: editorState.questionDraft,
-        questionEditorTab: editorState.questionEditorTab,
-        questionRowRefs,
-        readiness,
-        readinessAnnouncement: editorState.readinessAnnouncement,
-        selectedMediaAssetId,
-      }}
+      state={viewState}
       workspaceRef={workspaceRef}
     />
+  );
+
+  if (mode !== "create" || presentation !== "modal") return screen;
+
+  function requestClose() {
+    onOpenChange?.(false);
+  }
+
+  return (
+    <Dialog
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) onOpenChange?.(true);
+        else requestClose();
+      }}
+      open={open}
+    >
+      <DialogContent
+        className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8"
+        data-question-bank-create-modal="true"
+      >
+        {screen}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -4086,6 +4512,9 @@ function KaptenQuestionBankBuilderPageModule({
   initialQuestions = [],
   initialReadiness = null,
   mode,
+  onOpenChange,
+  open,
+  presentation = "page",
   purpose = "quiz",
   session,
 }: {
@@ -4096,6 +4525,9 @@ function KaptenQuestionBankBuilderPageModule({
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+  presentation?: "page" | "modal";
   purpose?: "quiz" | "tryout";
   session: SessionContext;
 }) {
@@ -4113,6 +4545,9 @@ function KaptenQuestionBankBuilderPageModule({
         initialQuestions={initialQuestions}
         initialReadiness={initialReadiness}
         mode={mode}
+        onOpenChange={onOpenChange}
+        open={open}
+        presentation={presentation}
         purpose={purpose}
         session={session}
       />

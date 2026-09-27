@@ -20,7 +20,13 @@ import { markAllNotificationsReadAction } from "@/modules/student/actions";
 import { NotificationDetailModal } from "@/modules/student/NotificationDetailModal";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
-function NotificationEntry({ item, page }: { item: StudentNotificationItem; page: number }) {
+function NotificationEntry({
+  item,
+  page,
+}: {
+  item: StudentNotificationItem;
+  page: number;
+}) {
   const content = (
     <>
       <span
@@ -64,7 +70,10 @@ function NotificationEntry({ item, page }: { item: StudentNotificationItem; page
       )}
       href={{
         pathname: "/notifications",
-        query: { notification: item.id, ...(page > 1 ? { page: String(page) } : {}) },
+        query: {
+          notification: item.id,
+          ...(page > 1 ? { page: String(page) } : {}),
+        },
       }}
       prefetch={false}
     >
@@ -89,7 +98,8 @@ function NotificationsPageModule({
   unreadCount: number;
 }) {
   const hasUnread = unreadCount > 0;
-  const pageHref = (nextPage: number) => nextPage === 1 ? "/notifications" : `/notifications?page=${nextPage}`;
+  const pageHref = (nextPage: number) =>
+    nextPage === 1 ? "/notifications" : `/notifications?page=${nextPage}`;
 
   return (
     <StudentWorkspaceShell
@@ -102,10 +112,17 @@ function NotificationsPageModule({
     >
       <section className="flex flex-col gap-8">
         <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Notifikasi</h1>
+          <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">
+            Notifikasi
+          </h1>
           <form action={markAllNotificationsReadAction}>
-            <Button disabled={!hasUnread} size="default" type="submit" variant="brand">
-              Tandai sudah dibaca
+            <Button
+              disabled={!hasUnread}
+              size="default"
+              type="submit"
+              variant="brandOutline"
+            >
+              Tandai dibaca
             </Button>
           </form>
         </header>
@@ -113,7 +130,9 @@ function NotificationsPageModule({
         {items.length > 0 ? (
           <section aria-label="Daftar notifikasi" className="grid gap-4">
             <div className="grid gap-4">
-              {items.map((item) => <NotificationEntry item={item} key={item.id} page={page} />)}
+              {items.map((item) => (
+                <NotificationEntry item={item} key={item.id} page={page} />
+              ))}
             </div>
             {pageCount > 1 ? (
               <Pagination aria-label="Halaman notifikasi" className="pt-2">
@@ -129,7 +148,10 @@ function NotificationsPageModule({
                     )}
                   </PaginationItem>
                   <PaginationItem>
-                    <span aria-current="page" className="px-3 text-sm font-semibold tabular-nums text-secondary-600">
+                    <span
+                      aria-current="page"
+                      className="px-3 text-sm font-semibold tabular-nums text-secondary-600"
+                    >
                       Halaman {page} dari {pageCount}
                     </span>
                   </PaginationItem>
@@ -149,7 +171,10 @@ function NotificationsPageModule({
           </section>
         ) : (
           <ReferenceEmptyState
-            className={cn(REFERENCE_SURFACE_CLASS_NAMES.tactile, "border-learning-card-border overflow-hidden")}
+            className={cn(
+              REFERENCE_SURFACE_CLASS_NAMES.tactile,
+              "border-learning-card-border overflow-hidden",
+            )}
             description="Update dari kelas dan aktivitas belajar akan muncul di sini."
             icon={Bell}
             title="Belum ada notifikasi"

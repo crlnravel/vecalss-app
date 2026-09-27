@@ -54,13 +54,11 @@ function ReferenceSurface({
 function ReferencePageHeader({
   actions,
   className,
-  description,
   title,
   titleClassName,
   ...props
 }: React.ComponentProps<"header"> & {
   actions?: ReactNode;
-  description?: ReactNode;
   title: ReactNode;
   titleClassName?: string;
 }) {
@@ -82,11 +80,6 @@ function ReferencePageHeader({
         >
           {title}
         </h1>
-        {description ? (
-          <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500 md:text-base">
-            {description}
-          </p>
-        ) : null}
       </div>
       {actions ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">

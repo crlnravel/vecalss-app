@@ -208,7 +208,6 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
     <div className="space-y-8">
       <ReferencePageHeader
         actions={<Button nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button>}
-        description="Kelola paket soal yang siap digunakan dalam Tryout."
         title="Paket Soal"
       />
       <PackageCatalogueContent isCataloguePending={isCataloguePending} items={items} navigateCatalogue={navigateCatalogue} page={page} query={query} status={status} subtest={subtest} totalItems={totalItems} totalPages={totalPages} />

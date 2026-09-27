@@ -34,7 +34,8 @@ const AUTHORING_LOCK_STATE_COPY: Record<
   { description: string; title: string }
 > = {
   acquiring: {
-    description: "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
+    description:
+      "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
     title: "Menyiapkan halaman…",
   },
   owned: {
@@ -43,11 +44,12 @@ const AUTHORING_LOCK_STATE_COPY: Record<
   },
   locked: {
     description:
-      "Perubahan dinonaktifkan sementara. Anda tetap dapat melihat {resource} dan menggunakan fitur yang tersedia.",
+      "Kuis ini sementara hanya bisa dilihat karena sedang diedit oleh Kapten lain. Kamu bisa kembali mengedit setelah mereka selesai.",
     title: "Sedang diedit oleh {holder}",
   },
   uncertain: {
-    description: "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
+    description:
+      "Tombol perubahan akan aktif setelah halaman selesai diperiksa.",
     title: "Memeriksa halaman…",
   },
   lost: {
@@ -88,7 +90,8 @@ function ResourceAuthoringLockBanner({
 
   const readOnly = state === "locked" || state === "lost";
   const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
-  const isQuestionBankLock = state === "locked" && resourceLabel === "Bank Soal";
+  const isQuestionBankLock =
+    state === "locked" && resourceLabel === "Bank Soal";
   const title = isQuestionBankLock
     ? "Soal Terkunci"
     : stateCopy.title.replace("{holder}", holderName);
@@ -126,12 +129,10 @@ function ResourceAuthoringLockBanner({
               id="resource-authoring-lock-description"
             >
               {description}
-              {state === "locked"
-                && !isQuestionBankLock
+              {state === "locked" && !isQuestionBankLock
                 ? ` Perubahan diperkirakan tersedia lagi dalam ${remainingSeconds} detik.`
                 : null}
-              {hasLocalChanges
-                && !isQuestionBankLock
+              {hasLocalChanges && !isQuestionBankLock
                 ? " Perubahan yang belum disimpan tetap ada di layar."
                 : null}
             </p>

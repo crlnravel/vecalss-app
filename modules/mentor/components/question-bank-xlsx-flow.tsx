@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import {
@@ -31,6 +31,7 @@ import type {
   QuestionBankXlsxIssue,
   QuestionBankXlsxPreviewSummary,
   QuestionBankXlsxThumbnail,
+  QuestionBankXlsxWorksheetRowRef,
 } from "@/lib/question-bank/xlsx-contract";
 import {
   QUESTION_BANK_XLSX_LIMITS,
@@ -76,18 +77,20 @@ type XlsxPreview = {
 
 type DraftApplied = {
   fileName: string;
-  imageCount: number;
-  mediaFolderReservationId: string;
-  questions: QuestionBankCsvDraftQuestion[];
+  previewId: string;
   rowCount: number;
+  sheets: Array<{
+    key: string;
+    questions: QuestionBankCsvDraftQuestion[];
+    title: string;
+  }>;
 };
 
-type DraftImportProps = {
-  disabled?: boolean;
-  draft: Pick<DraftApplied, "fileName" | "imageCount" | "rowCount"> | null;
-  mediaFolderReservationId?: string;
-  onDraftApplied: (draft: DraftApplied) => void;
-  onRemove: () => void;
+type XlsxDraftUploadStatus = {
+  completed: boolean;
+  label: string;
+  meta: string;
+  progress: number | null;
 };
 
 type ExistingImportResult = QuestionBankCsvImportResult & {
@@ -119,9 +122,8 @@ type XlsxUploadGrant = {
 };
 
 type XlsxDraftApplyResult = {
-  imageAssetIds: string[];
-  mediaFolderReservationId: string;
   normalizedRows: QuestionBankCsvParseResult["normalizedRows"];
+  normalizedRowWorksheetRefs: QuestionBankXlsxWorksheetRowRef[];
   previewId: string;
 };
 
@@ -219,7 +221,7 @@ function errorMessage(code: string) {
   const messages: Record<string, string> = {
     attempt_busy: "Sistem sedang sibuk. Coba lagi sebentar.",
     attempt_cancelled: "Proses file dibatalkan. Pilih file untuk memulai lagi.",
-    attempt_expired: "Waktu untuk mengunggah file sudah habis. Pilih file kembali.",
+    attempt_expired: "Waktu untuk memproses file ini sudah habis. Hapus file lalu unggah kembali.",
     attempt_not_found: "File sudah tidak tersedia. Pilih file kembali.",
     attempt_target_mismatch: "Pratinjau ini sudah tidak cocok. Unggah file kembali.",
     attempt_unavailable: "File belum dapat diproses saat ini. Coba lagi sebentar.",
@@ -276,6 +278,68 @@ function formatFileSize(value: number) {
   return value < 1024 * 1024
     ? `${Math.max(1, Math.round(value / 1024))} KB`
     : `${(value / (1024 * 1024)).toFixed(1).replace(/\.0$/u, "")} MB`;
+}
+
+function worksheetDraftTitle(
+  sheetName: string,
+  rows: QuestionBankCsvParseResult["normalizedRows"],
+) {
+  const materiValues = [...new Set(
+    rows
+      .map((row) => row.materi?.trim())
+      .filter((value): value is string => Boolean(value)),
+  )];
+  if (materiValues.length === 1) return materiValues[0]!;
+
+  const cleanedSheetName = sheetName
+    .replace(/^[^\p{L}\p{N}]*/u, "")
+    .replace(/\bLBE\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const tryoutName = cleanedSheetName.match(/\bTO\s*(\d+)\b(?:\s+(.+))?/i);
+  if (tryoutName) {
+    const detail = tryoutName[2]?.trim();
+    return `TO ${tryoutName[1]}${detail ? ` ${detail}` : ""}`;
+  }
+  return cleanedSheetName || sheetName;
+}
+
+function groupDraftWorksheets(
+  normalizedRows: QuestionBankCsvParseResult["normalizedRows"],
+  worksheetRefs: QuestionBankXlsxWorksheetRowRef[],
+) {
+  if (normalizedRows.length !== worksheetRefs.length) return null;
+  const rowsBySheet = new Map<string, QuestionBankCsvParseResult["normalizedRows"]>();
+  let invalidReference = false;
+  normalizedRows.forEach((row, index) => {
+    const sheetName = worksheetRefs[index]?.sheetName;
+    if (typeof sheetName !== "string" || !sheetName.trim()) {
+      invalidReference = true;
+      return;
+    }
+    const rows = rowsBySheet.get(sheetName) ?? [];
+    rows.push(row);
+    rowsBySheet.set(sheetName, rows);
+  });
+  if (invalidReference || rowsBySheet.size === 0 || [...rowsBySheet.values()].some((rows) => rows.length === 0)) return null;
+
+  return [...rowsBySheet.entries()].map(([sheetName, rows]) => {
+    const payload = toQuestionBankCsvDraftPayload({
+      normalizedRows: rows,
+      summary: {
+        acceptedRows: rows.length,
+        dataRowCount: rows.length,
+        rejectedRows: 0,
+        rowErrorCount: 0,
+        structuralErrorCount: 0,
+      },
+    }, "question-bank-draft");
+    return {
+      key: sheetName,
+      questions: payload.questions,
+      title: worksheetDraftTitle(sheetName, rows),
+    };
+  });
 }
 
 function isAbortError(error: unknown) {
@@ -417,10 +481,10 @@ async function uploadExactParts(
   grant: XlsxUploadGrant,
   deadline: number,
   controller: AbortController,
-  onProgress: (completed: number, total: number) => void,
+  onProgress: (uploadedBytes: number, totalBytes: number) => void,
 ) {
   let nextPart = 0;
-  let completedParts = 0;
+  const uploadedBytesByPart = new Map<number, number>();
   let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
   const abortAtDeadline = () => {
     const remainingMs = deadline - Date.now();
@@ -433,6 +497,61 @@ async function uploadExactParts(
     deadlineTimer = setTimeout(abortAtDeadline, remainingMs);
   };
   abortAtDeadline();
+  const reportProgress = () => {
+    onProgress(
+      [...uploadedBytesByPart.values()].reduce((sum, value) => sum + value, 0),
+      file.size,
+    );
+  };
+  const uploadPart = (
+    part: XlsxUploadGrant["parts"][number],
+    body: Blob,
+  ) => new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    let settled = false;
+    const abortRequest = () => {
+      request.abort();
+      finish(controller.signal.reason instanceof Error
+        ? controller.signal.reason
+        : new DOMException("Upload dibatalkan.", "AbortError"));
+    };
+    const cleanup = () => controller.signal.removeEventListener("abort", abortRequest);
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      uploadedBytesByPart.set(part.partNumber, Math.min(part.contentLength, event.loaded));
+      reportProgress();
+    });
+    request.addEventListener("load", () => {
+      if (request.status < 200 || request.status >= 300) {
+        finish(new Error("upload_failed"));
+        return;
+      }
+      uploadedBytesByPart.set(part.partNumber, part.contentLength);
+      reportProgress();
+      finish();
+    });
+    request.addEventListener("error", () => finish(new Error("upload_failed")));
+    request.addEventListener("abort", () => {
+      if (!settled) {
+        finish(controller.signal.reason instanceof Error
+          ? controller.signal.reason
+          : new DOMException("Upload dibatalkan.", "AbortError"));
+      }
+    });
+    controller.signal.addEventListener("abort", abortRequest, { once: true });
+    request.open("PUT", part.uploadUrl);
+    request.withCredentials = false;
+    request.send(body);
+  });
+
   const uploadNextPart = async () => {
     while (nextPart < grant.parts.length) {
       if (controller.signal.aborted) throw controller.signal.reason ?? new DOMException("Upload dibatalkan.", "AbortError");
@@ -443,17 +562,7 @@ async function uploadExactParts(
       const start = (part.partNumber - 1) * grant.partSizeBytes;
       const body = file.slice(start, start + part.contentLength);
       if (body.size !== part.contentLength) throw new Error("attempt_unavailable");
-      const response = await fetch(part.uploadUrl, {
-        body,
-        cache: "no-store",
-        credentials: "omit",
-        method: "PUT",
-        referrerPolicy: "no-referrer",
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("upload_failed");
-      completedParts += 1;
-      onProgress(completedParts, grant.parts.length);
+      await uploadPart(part, body);
     }
   };
 
@@ -555,7 +664,9 @@ function PreviewSummary({
       <div>
         <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Isi file</p>
         <p className="mt-1 text-sm font-semibold text-secondary-900">
-          {formatCount(preview.summary.acceptedRows)} soal dari {formatCount(preview.summary.questionSheetCount)} tab · {formatCount(preview.summary.imageCount)} gambar
+          {target.kind === "draft"
+            ? `${formatCount(preview.summary.acceptedRows)} soal dari ${formatCount(preview.summary.questionSheetCount)} tab`
+            : `${formatCount(preview.summary.acceptedRows)} soal dari ${formatCount(preview.summary.questionSheetCount)} tab · ${formatCount(preview.summary.imageCount)} gambar`}
         </p>
       </div>
       {target.kind === "bank" ? (
@@ -660,14 +771,24 @@ function CompletionSummary({ text }: { text: string }) {
   );
 }
 
-function QuestionBankXlsxImportDialog({
+function QuestionBankXlsxImportFlow({
+  initialFile = null,
+  onBusyChange,
+  onFileCleared,
   onOpenChange,
+  onUploadStatusChange,
   open,
+  presentation = "dialog",
   target,
 }: {
+  initialFile?: File | null;
+  onBusyChange?: (busy: boolean) => void;
+  onFileCleared?: () => void;
   onOpenChange: (open: boolean) => void;
+  onUploadStatusChange?: (status: XlsxDraftUploadStatus | null) => void;
   open: boolean;
-  target: { kind: "draft"; mediaFolderReservationId?: string; onDraftApplied: (draft: DraftApplied) => void }
+  presentation?: "dialog" | "embedded" | "inline";
+  target: { kind: "draft"; onDraftApplied: (draft: DraftApplied) => void }
     | { kind: "bank"; bankId: string; currentQuestionCount: number; disabled?: boolean; editLease: EditLeaseProof | null; expectedRevision: number; onApplied?: (result: XlsxBankApplyResult) => Promise<void> | void };
 }) {
   const inputId = useId();
@@ -682,7 +803,9 @@ function QuestionBankXlsxImportDialog({
   } | null>(null);
   const [issues, setIssues] = useState<QuestionBankXlsxIssue[]>([]);
   const [partProgress, setPartProgress] = useState({ completed: 0, total: 0 });
-  const [formError, setFormError] = useState<string | null>(null);
+  const [smoothUploadProgress, setSmoothUploadProgress] = useState(0);
+  const smoothUploadProgressRef = useRef(0);
+  const uploadProgressTargetRef = useRef<number | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   const [isLoadingThumbnails, setIsLoadingThumbnails] = useState(false);
@@ -691,6 +814,9 @@ function QuestionBankXlsxImportDialog({
   const uploadIdRef = useRef<string | null>(null);
   const workflowControllerRef = useRef<AbortController | null>(null);
   const thumbnailControllerRef = useRef<AbortController | null>(null);
+  const autoStartedFileRef = useRef<File | null>(null);
+  const autoAppliedPreviewIdRef = useRef<string | null>(null);
+  const inlineErrorNotifiedPreviewIdRef = useRef<string | null>(null);
   const cancelRequestedRef = useRef(false);
   const invalidatedImpactKeyRef = useRef<string | null>(null);
   const generationRef = useRef(0);
@@ -736,6 +862,7 @@ function QuestionBankXlsxImportDialog({
     setOverwriteImpactResult(null);
     invalidatedImpactKeyRef.current = null;
     setIssues([]);
+    inlineErrorNotifiedPreviewIdRef.current = null;
     setApplyError(null);
     setThumbnailError(null);
     setIsLoadingThumbnails(false);
@@ -753,7 +880,6 @@ function QuestionBankXlsxImportDialog({
   function resetForm() {
     setFile(null);
     setMode("append");
-    setFormError(null);
     clearPreviewState();
     uploadIdRef.current = null;
     cancelRequestedRef.current = false;
@@ -783,6 +909,8 @@ function QuestionBankXlsxImportDialog({
     else resetForm();
     onOpenChange(false);
   }
+
+  const handleFileChangeEvent = useEffectEvent(handleFileChange);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -861,21 +989,22 @@ function QuestionBankXlsxImportDialog({
     const generation = ++generationRef.current;
     cancelRequestedRef.current = false;
     clearPreviewState();
-    setFormError(null);
+    smoothUploadProgressRef.current = 0;
+    setSmoothUploadProgress(0);
     setFile(selectedFile);
 
     if (!selectedFile.name.toLowerCase().endsWith(".xlsx")) {
-      setFormError("Pilih file Excel dengan format .xlsx.");
+      showToast("Pilih file Excel dengan format .xlsx.", { duration: 6_500, variant: "error" });
       updatePhase("invalid");
       return;
     }
     if (selectedFile.size <= 0) {
-      setFormError("File kosong. Pilih file yang berisi soal.");
+      showToast("File kosong. Pilih file yang berisi soal.", { duration: 6_500, variant: "error" });
       updatePhase("invalid");
       return;
     }
     if (selectedFile.size > XLSX_MAX_BYTES) {
-      setFormError("Ukuran file melebihi batas 24 MB.");
+      showToast("Ukuran file melebihi batas 24 MB.", { duration: 6_500, variant: "error" });
       updatePhase("invalid");
       return;
     }
@@ -909,16 +1038,16 @@ function QuestionBankXlsxImportDialog({
       }
       uploadIdRef.current = workflowUploadId;
       const deadline = validateGrant(grant, selectedFile);
-      setPartProgress({ completed: 0, total: grant.parts.length });
+      setPartProgress({ completed: 0, total: selectedFile.size });
       updatePhase("uploading");
       await uploadExactParts(
         selectedFile,
         grant,
         deadline,
         controller,
-        (completed, total) => {
+        (uploadedBytes, totalBytes) => {
           if (mountedRef.current && generation === generationRef.current) {
-            setPartProgress({ completed, total });
+            setPartProgress({ completed: uploadedBytes, total: totalBytes });
           }
         },
       );
@@ -964,7 +1093,6 @@ function QuestionBankXlsxImportDialog({
           const previewIssues = previewPayload.issues as QuestionBankXlsxIssue[];
           if (mountedRef.current && generation === generationRef.current) {
             setIssues(previewIssues);
-            setFormError(null);
             setPreview({
               issues: previewIssues,
               normalizedRows: [],
@@ -996,7 +1124,10 @@ function QuestionBankXlsxImportDialog({
       requestDiscard(workflowUploadId);
       if (uploadIdRef.current === workflowUploadId) uploadIdRef.current = null;
       if (mountedRef.current) {
-        setFormError(errorMessage(error instanceof Error ? error.message : "upload_failed"));
+        showToast(errorMessage(error instanceof Error ? error.message : "upload_failed"), {
+          duration: 6_500,
+          variant: "error",
+        });
         updatePhase("invalid");
       }
     } finally {
@@ -1008,6 +1139,7 @@ function QuestionBankXlsxImportDialog({
     if (workflowPhaseRef.current === "applying") return;
     if (!nextFile) {
       cancelFlow(false);
+      if (presentation === "embedded") onFileCleared?.();
       return;
     }
     generationRef.current += 1;
@@ -1017,6 +1149,18 @@ function QuestionBankXlsxImportDialog({
     uploadIdRef.current = null;
     void startFileWorkflow(nextFile);
   }
+
+  useEffect(() => {
+    if (
+      !open
+      || (target.kind !== "draft" && presentation !== "embedded")
+      || !initialFile
+      || file === initialFile
+      || autoStartedFileRef.current === initialFile
+    ) return;
+    autoStartedFileRef.current = initialFile;
+    handleFileChangeEvent(initialFile);
+  }, [file, initialFile, open, presentation, target.kind]);
 
   async function loadNextThumbnailPage() {
     if (!preview || preview.thumbnailPage.nextOffset === null || isLoadingThumbnails) return;
@@ -1083,6 +1227,7 @@ function QuestionBankXlsxImportDialog({
     setApplyError(null);
     setClaimedMode(target.kind === "bank" ? mode : null);
     updatePhase("applying");
+    onBusyChange?.(true);
     try {
       let endpoint: string;
       let body: Record<string, string>;
@@ -1090,9 +1235,6 @@ function QuestionBankXlsxImportDialog({
       if (target.kind === "draft") {
         endpoint = `${XLSX_API_ROOT}/draft`;
         body = { previewId: preview.previewId };
-        if (target.mediaFolderReservationId) {
-          body.mediaFolderReservationId = target.mediaFolderReservationId;
-        }
       } else {
         endpoint = `/api/mentor/question-banks/${encodeURIComponent(target.bankId)}/xlsx/import?mode=${mode}`;
         body = { previewId: preview.previewId };
@@ -1116,24 +1258,25 @@ function QuestionBankXlsxImportDialog({
       if (target.kind === "draft") {
         const result = payload.result as unknown as XlsxDraftApplyResult;
         if (!Array.isArray(result.normalizedRows)
-          || typeof result.mediaFolderReservationId !== "string"
-          || !Array.isArray(result.imageAssetIds)) {
+          || !Array.isArray(result.normalizedRowWorksheetRefs)) {
           throw new Error("attempt_unavailable");
         }
-        const draftPayload = toQuestionBankCsvDraftPayload({
-          normalizedRows: result.normalizedRows,
-          summary: preview.summary,
-        }, "question-bank-draft");
+        const sheets = groupDraftWorksheets(
+          result.normalizedRows,
+          result.normalizedRowWorksheetRefs,
+        );
+        if (!sheets || sheets.some((sheet) => !sheet.title.trim() || !sheet.questions.length)) {
+          throw new Error("attempt_unavailable");
+        }
         const applied: DraftApplied = {
           fileName: file?.name ?? "workbook-bank-soal.xlsx",
-          imageCount: result.imageAssetIds.length,
-          mediaFolderReservationId: result.mediaFolderReservationId,
-          questions: draftPayload.questions,
-          rowCount: draftPayload.questions.length,
+          previewId: result.previewId,
+          rowCount: result.normalizedRows.length,
+          sheets,
         };
         target.onDraftApplied(applied);
-        completionMessage = `${formatCount(applied.rowCount)} soal siap disimpan bersama Bank Soal. ${formatCount(applied.imageCount)} gambar sudah disimpan di Media Kapten. Jika Bank Soal tidak jadi dibuat, gambar tetap ada di sana.`;
-        showToast(`${formatCount(applied.rowCount)} soal siap disimpan bersama Bank Soal.`, { variant: "success" });
+        completionMessage = `${formatCount(applied.rowCount)} soal siap dibagi menjadi ${formatCount(applied.sheets.length)} Bank Soal.`;
+        showToast(`${formatCount(applied.rowCount)} soal dari ${formatCount(applied.sheets.length)} lembar siap dipilih.`, { variant: "success" });
       } else {
         const result = payload.result as unknown as XlsxBankApplyResult;
         if (result.bankId !== target.bankId
@@ -1158,6 +1301,7 @@ function QuestionBankXlsxImportDialog({
       clearPreviewState();
       setCompletionText(completionMessage);
       updatePhase("complete");
+      if (presentation === "inline" && target.kind === "draft") onOpenChange(false);
     } catch (error) {
       if (!isAbortError(error) && mountedRef.current) {
         const code = error instanceof Error ? error.message : "attempt_unavailable";
@@ -1168,24 +1312,128 @@ function QuestionBankXlsxImportDialog({
         } else {
           setApplyError(message);
         }
-        showToast("Impor belum berhasil. Rincian tersedia di dialog.", { variant: "error" });
+        showToast(message, { duration: 6_500, variant: "error" });
         updatePhase("ready");
       }
     } finally {
       if (workflowControllerRef.current === controller) workflowControllerRef.current = null;
+      onBusyChange?.(false);
     }
   }
 
+  const applyInlineDraftImportEvent = useEffectEvent(() => {
+    void applyImport();
+  });
+
+  useEffect(() => {
+    if (
+      presentation !== "inline"
+      || !open
+      || target.kind !== "draft"
+      || phase !== "ready"
+      || !preview
+      || issues.length > 0
+      || preview.summary.acceptedRows <= 0
+      || autoAppliedPreviewIdRef.current === preview.previewId
+    ) return;
+    autoAppliedPreviewIdRef.current = preview.previewId;
+    applyInlineDraftImportEvent();
+  }, [issues.length, open, phase, presentation, preview, target.kind]);
+
   const isBusy = phase === "granting" || phase === "uploading" || phase === "completing" || phase === "previewing";
   const disabled = target.kind === "bank" ? Boolean(target.disabled) : false;
-  const progress = phase === "uploading"
-    ? partProgress.total ? (partProgress.completed / partProgress.total) * 100 : 0
+  const inlineDraftWaitingToApply = presentation === "inline"
+    && target.kind === "draft"
+    && phase === "ready"
+    && Boolean(preview)
+    && Boolean(preview?.summary.acceptedRows)
+    && !applyError;
+  const inlineDraftApplying = presentation === "inline" && target.kind === "draft" && phase === "applying";
+  const uploadStatusBusy = isBusy || inlineDraftWaitingToApply || inlineDraftApplying;
+  const uploadLabel = inlineDraftWaitingToApply || inlineDraftApplying
+    ? "Menyiapkan soal dari file"
+    : phase === "previewing"
+      ? "Memeriksa isi file"
+      : phase === "completing"
+        ? "Menyelesaikan unggahan"
+        : "Mengunggah file soal";
+  const uploadProgressTarget = phase === "uploading" && partProgress.total > 0
+    ? (partProgress.completed / partProgress.total) * 100
     : null;
-  const uploadLabel = phase === "previewing"
-    ? "Memeriksa isi file"
-    : phase === "completing"
-      ? "Menyelesaikan unggahan"
-      : "Mengunggah file soal";
+  useEffect(() => {
+    uploadProgressTargetRef.current = uploadProgressTarget;
+  }, [uploadProgressTarget]);
+  useEffect(() => {
+    if (phase !== "uploading") {
+      smoothUploadProgressRef.current = 0;
+      return;
+    }
+    let frame = 0;
+    const animate = () => {
+      const target = uploadProgressTargetRef.current ?? 0;
+      const current = smoothUploadProgressRef.current;
+      const distance = target - current;
+      const next = Math.abs(distance) <= 0.1 ? target : current + distance * 0.2;
+      if (next !== current) {
+        smoothUploadProgressRef.current = next;
+        setSmoothUploadProgress(next);
+      }
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [phase]);
+  const progress = phase === "uploading"
+    ? Math.round(smoothUploadProgress * 10) / 10
+    : null;
+  const uploadStatusProgress = inlineDraftWaitingToApply || inlineDraftApplying ? 100 : progress;
+  useEffect(() => {
+    if (!onUploadStatusChange || presentation !== "inline" || target.kind !== "draft" || !open) {
+      onUploadStatusChange?.(null);
+      return;
+    }
+    if (!uploadStatusBusy && phase !== "ready") {
+      onUploadStatusChange(null);
+      return;
+    }
+    onUploadStatusChange({
+      completed: !uploadStatusBusy,
+      label: uploadStatusBusy ? uploadLabel : "Unggahan selesai",
+      meta: file ? formatFileSize(file.size) : "",
+      progress: uploadStatusBusy ? uploadStatusProgress : 100,
+    });
+  }, [file, onUploadStatusChange, open, phase, presentation, progress, target.kind, uploadLabel, uploadStatusBusy, uploadStatusProgress]);
+  useEffect(() => {
+    if (
+      presentation !== "inline"
+      || target.kind !== "draft"
+      || !open
+      || phase !== "invalid"
+      || !preview
+      || inlineErrorNotifiedPreviewIdRef.current === preview.previewId
+    ) return;
+    inlineErrorNotifiedPreviewIdRef.current = preview.previewId;
+    const details = issues.slice(0, 2).map(issueMessage).join(" · ");
+    const remaining = issues.length > 2 ? ` +${formatCount(issues.length - 2)} masalah lainnya` : "";
+    showToast(
+      issues.length
+        ? `File perlu diperbaiki sebelum dapat digunakan. ${details}${remaining}`
+        : "File belum berisi soal yang bisa digunakan.",
+      { duration: 7_000, variant: "error" },
+    );
+  }, [issues, open, phase, presentation, preview, target.kind]);
+  useEffect(() => () => onUploadStatusChange?.(null), [onUploadStatusChange]);
+  const cancelInlineFlowEvent = useEffectEvent(() => cancelFlow(false));
+  useEffect(() => {
+    if (
+      presentation !== "inline"
+      || open
+      || phase === "idle"
+      || phase === "applying"
+      || phase === "complete"
+    ) return;
+    cancelInlineFlowEvent();
+  }, [open, phase, presentation]);
   const canApply = Boolean(
     preview
     && preview.summary.acceptedRows > 0
@@ -1207,13 +1455,13 @@ function QuestionBankXlsxImportDialog({
     ),
   );
 
-  return (
-    <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent
-        aria-describedby="question-bank-xlsx-import-description"
-        className="max-h-[min(90vh,820px)] overflow-y-auto sm:max-w-3xl"
-        data-question-bank-xlsx-import="true"
-      >
+  if (presentation === "inline") {
+    return null;
+  }
+
+  const content = (
+    <>
+      {presentation === "dialog" ? (
         <DialogHeader>
           <DialogTitle>{target.kind === "draft" ? "Impor soal dari Excel" : "Tambahkan soal dari Excel"}</DialogTitle>
           <DialogDescription id="question-bank-xlsx-import-description">
@@ -1222,38 +1470,39 @@ function QuestionBankXlsxImportDialog({
               : "File diperiksa terlebih dahulu. Pastikan ringkasan sesuai sebelum Anda mengonfirmasi impor."}
           </DialogDescription>
         </DialogHeader>
+      ) : null}
 
-        {phase === "complete" ? (
-          <CompletionSummary text={completionText ?? "Impor selesai."} />
-        ) : (
-          <div className="grid gap-5">
-            <StakeholderWorkbookNotice />
+      {phase === "complete" ? (
+        <CompletionSummary text={completionText ?? "Impor selesai."} />
+      ) : (
+        <div className="grid gap-5">
+            {presentation === "dialog" ? <StakeholderWorkbookNotice /> : null}
             <div className="grid gap-2">
-              <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>
-                File soal
-              </label>
-              <FileUploadSlot
-                accept={`.xlsx,${XLSX_MIME_TYPE}`}
-                disabled={disabled || isBusy || phase === "applying"}
-                file={file}
-                id={inputId}
-                maxSizeLabel="Maks. 24 MB · 1.000 soal"
-                onCancelUpload={() => cancelFlow(true)}
-                onChange={handleFileChange}
-                progress={progress}
-                uploadLabel={uploadLabel}
-                uploading={isBusy}
-                uploadMeta={file ? formatFileSize(file.size) : undefined}
-              />
-              {isBusy ? (
-                <p aria-live="polite" className="text-sm text-secondary-600" role="status">
-                  {phase === "uploading"
-                    ? "File sedang diunggah. Tunggu sampai pemeriksaan selesai."
-                    : phase === "previewing"
-                      ? "Soal dan gambar sedang diperiksa."
-                      : "Unggahan sedang disiapkan."}
-                </p>
-              ) : null}
+                <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={inputId}>
+                  File soal
+                </label>
+                <FileUploadSlot
+                  accept={`.xlsx,${XLSX_MIME_TYPE}`}
+                  disabled={disabled || isBusy || phase === "applying"}
+                  file={file}
+                  id={inputId}
+                  maxSizeLabel="Maks. 24 MB · 1.000 soal"
+                  onCancelUpload={() => cancelFlow(true)}
+                  onChange={handleFileChange}
+                  progress={progress}
+                  uploadLabel={uploadLabel}
+                  uploading={isBusy}
+                  uploadMeta={file ? formatFileSize(file.size) : undefined}
+                />
+                {isBusy ? (
+                  <p aria-live="polite" className="text-sm text-secondary-600" role="status">
+                    {phase === "uploading"
+                      ? "File sedang diunggah. Tunggu sampai pemeriksaan selesai."
+                      : phase === "previewing"
+                        ? "Soal dan gambar sedang diperiksa."
+                        : "Unggahan sedang disiapkan."}
+                  </p>
+                ) : null}
             </div>
 
             {target.kind === "bank" ? (
@@ -1299,7 +1548,9 @@ function QuestionBankXlsxImportDialog({
                 <div>
                   <h3 className="font-semibold text-secondary-900">Ringkasan file</h3>
                   <p className="mt-1 text-sm text-secondary-600">
-                    {formatCount(preview.summary.acceptedRows)} soal dari {formatCount(preview.summary.questionSheetCount)} tab · {formatCount(preview.summary.imageCount)} gambar
+                    {target.kind === "draft"
+                      ? `${formatCount(preview.summary.acceptedRows)} soal dari ${formatCount(preview.summary.questionSheetCount)} tab`
+                      : `${formatCount(preview.summary.acceptedRows)} soal dari ${formatCount(preview.summary.questionSheetCount)} tab · ${formatCount(preview.summary.imageCount)} gambar`}
                   </p>
                 </div>
                 {preview.summary.rejectedRows > 0 || issues.length > 0 ? (
@@ -1361,34 +1612,16 @@ function QuestionBankXlsxImportDialog({
               </section>
             ) : null}
 
-            {formError ? (
-              <div
-                aria-live="assertive"
-                className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-                role="alert"
-              >
-                {formError}
-              </div>
-            ) : null}
-            {applyError ? (
-              <div
-                aria-live="assertive"
-                className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-                role="alert"
-              >
-                {applyError}
-              </div>
-            ) : null}
             {preview && target.kind === "draft" && !issues.length ? (
-              <p className="rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-3 text-sm leading-6 text-secondary-700">
-                Setelah dikonfirmasi, gambar disimpan di Media Kapten. Soal dan gambar akan ikut tersimpan saat Anda membuat Bank Soal. Jika Bank Soal tidak jadi dibuat, gambar tetap ada di Media Kapten.
+              <p className="text-sm leading-6 text-secondary-600">
+                Setelah diperiksa, pilih lembar yang akan dibuat menjadi Bank Soal. Gambar di workbook belum ditambahkan ke Media.
               </p>
             ) : null}
           </div>
-        )}
+      )}
 
-        <DialogFooter>
-          {phase === "complete" ? (
+      <DialogFooter>
+        {phase === "complete" ? (
             <Button onClick={() => handleOpenChange(false)} type="button" variant="brand">
               Selesai
             </Button>
@@ -1418,68 +1651,47 @@ function QuestionBankXlsxImportDialog({
               </Button>
             </>
           )}
-        </DialogFooter>
+      </DialogFooter>
+    </>
+  );
+
+  if (presentation === "embedded") return content;
+
+  return (
+    <Dialog onOpenChange={handleOpenChange} open={open}>
+      <DialogContent
+        aria-describedby="question-bank-xlsx-import-description"
+        className="max-h-[min(90vh,820px)] overflow-y-auto sm:max-w-3xl"
+        data-question-bank-xlsx-import="true"
+      >
+        {content}
       </DialogContent>
     </Dialog>
   );
 }
 
-function QuestionBankXlsxDraftImportControl({
-  disabled = false,
-  draft,
-  mediaFolderReservationId,
+function QuestionBankXlsxDraftPreviewPanel({
+  file,
   onDraftApplied,
-  onRemove,
-}: DraftImportProps) {
-  const [open, setOpen] = useState(false);
+  onOpenChange,
+  onUploadStatusChange,
+  open,
+}: {
+  file: File | null;
+  onDraftApplied: (draft: DraftApplied) => void;
+  onOpenChange: (open: boolean) => void;
+  onUploadStatusChange: (status: XlsxDraftUploadStatus | null) => void;
+  open: boolean;
+}) {
   return (
-    <div className="grid gap-3">
-      {draft ? (
-        <ReferenceSurface
-          as="section"
-          className="grid gap-3 border-primary-200 bg-primary-50/60 p-5"
-          data-question-bank-xlsx-draft-status="true"
-        >
-          <div>
-            <h3 className="font-semibold text-secondary-900">Soal dari Excel siap disimpan</h3>
-            <p className="mt-1 text-sm leading-6 text-secondary-700">
-              {formatCount(draft.rowCount)} soal dari {draft.fileName} akan ikut disimpan saat Bank Soal dibuat, bersama nama dan deskripsi yang Anda isi.
-            </p>
-            <p className="mt-1 text-sm leading-6 text-secondary-700">
-              {formatCount(draft.imageCount)} gambar sudah disimpan di Media Kapten. Jika Bank Soal tidak jadi dibuat, gambar tetap ada di sana.
-            </p>
-          </div>
-          <Button
-            disabled={disabled}
-            onClick={onRemove}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            Hapus soal dari file
-          </Button>
-        </ReferenceSurface>
-      ) : null}
-      <Button
-        className="w-full sm:w-fit"
-        disabled={disabled}
-        onClick={() => setOpen(true)}
-        type="button"
-        variant="brandOutline"
-      >
-        <Upload aria-hidden="true" data-icon="inline-start" />
-        Impor dari Excel
-      </Button>
-      <QuestionBankXlsxImportDialog
-        onOpenChange={setOpen}
-        open={open}
-        target={{
-          kind: "draft",
-          mediaFolderReservationId,
-          onDraftApplied,
-        }}
-      />
-    </div>
+    <QuestionBankXlsxImportFlow
+      initialFile={file}
+      onOpenChange={onOpenChange}
+      onUploadStatusChange={onUploadStatusChange}
+      open={open}
+      presentation="inline"
+      target={{ kind: "draft", onDraftApplied }}
+    />
   );
 }
 
@@ -1504,7 +1716,7 @@ function QuestionBankXlsxImportControl({
         <Upload aria-hidden="true" data-icon="inline-start" />
         Impor Excel
       </Button>
-      <QuestionBankXlsxImportDialog
+      <QuestionBankXlsxImportFlow
         onOpenChange={setOpen}
         open={open}
         target={{
@@ -1521,5 +1733,53 @@ function QuestionBankXlsxImportControl({
   );
 }
 
-export { QuestionBankXlsxDraftImportControl, QuestionBankXlsxImportControl };
-export type { DraftApplied as QuestionBankXlsxDraftApplied, ExistingImportResult as QuestionBankXlsxImportResult };
+function QuestionBankXlsxImportContent({
+  bankId,
+  currentQuestionCount,
+  disabled,
+  editLease,
+  expectedRevision,
+  file,
+  onApplied,
+  onBusyChange,
+  onFileCleared,
+  onOpenChange,
+  open,
+}: ExistingImportProps & {
+  file: File;
+  onBusyChange?: (busy: boolean) => void;
+  onFileCleared?: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  return (
+    <QuestionBankXlsxImportFlow
+      initialFile={file}
+      onBusyChange={onBusyChange}
+      onFileCleared={onFileCleared}
+      onOpenChange={onOpenChange}
+      open={open}
+      presentation="embedded"
+      target={{
+        bankId,
+        currentQuestionCount,
+        disabled,
+        editLease,
+        expectedRevision,
+        kind: "bank",
+        onApplied,
+      }}
+    />
+  );
+}
+
+export {
+  QuestionBankXlsxDraftPreviewPanel,
+  QuestionBankXlsxImportContent,
+  QuestionBankXlsxImportControl,
+};
+export type {
+  DraftApplied as QuestionBankXlsxDraftApplied,
+  ExistingImportResult as QuestionBankXlsxImportResult,
+  XlsxDraftUploadStatus as QuestionBankXlsxDraftUploadStatus,
+};

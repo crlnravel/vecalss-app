@@ -78,6 +78,7 @@ export default async function MentorMateriSubjectPage({
       initialStatusFilter={parsedQuery.status}
       key={JSON.stringify({ direction: parsedQuery.direction, page: parsedQuery.page, q: parsedQuery.q, sort: parsedQuery.sort, status: parsedQuery.status, subjectSlug })}
       session={session}
+      subjects={view.subjects}
       subject={subject}
     />
   );

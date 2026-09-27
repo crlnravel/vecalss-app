@@ -25,6 +25,8 @@ type KaptenSubject = {
 };
 
 type KaptenQuiz = KaptenResource & {
+  isHidden?: boolean;
+  status: "published" | "archived";
   assembly?: {
     bankId: string;
     bankName: string;
@@ -190,7 +192,7 @@ const quizzes: KaptenQuiz[] = [
     resourceType: "quiz",
     sourceBank: "Bank Soal PU Inferensi",
     sourceBankId: "bank-pu-inferensi",
-    status: "draft",
+    status: "published",
     subjectCode: "PU",
     subjectName: "Penalaran Umum",
     title: "Quiz PU: Simpulan Implisit",

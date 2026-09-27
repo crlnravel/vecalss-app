@@ -24,7 +24,7 @@ const QUESTION_BANK_XLSX_LIMITS = Object.freeze({
   totalExpandedZipBytes: 96 * MIB,
   totalRawImageSourceBytes: 32 * MIB,
   totalUniqueImageBytes: 32 * MIB,
-  uploadGrantExpiresSeconds: 5 * 60,
+  uploadGrantExpiresSeconds: 60 * 60,
   workbookBytes: 24 * MIB,
   xmlPartBytes: 12 * MIB,
   zipEntries: 2_000,

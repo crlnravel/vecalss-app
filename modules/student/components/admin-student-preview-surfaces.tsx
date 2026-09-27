@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   BookOpen,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   FileText,
@@ -17,8 +16,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
-  getStudentBannerDescription,
-  getStudentBannerHeading,
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
 } from "@/lib/student/banner-presentation";
@@ -42,6 +39,7 @@ import type {
 } from "@/lib/admin/student-preview-tryout-reads";
 import { MateriLessonPresentation } from "@/modules/courses/MateriLessonPresentation";
 import { AdminStudentPreviewTryoutRestart } from "@/modules/student/components/admin-student-preview-tryout-restart";
+import { AdminStudentPreviewBannerHeader } from "@/modules/student/components/admin-student-preview-banner-header";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
 function PreviewSurfaceHeader({
@@ -55,40 +53,14 @@ function PreviewSurfaceHeader({
   title?: string;
   variables?: StudentBannerVariables;
 }) {
-  if (banner && isStudentBannerDraftUnavailable(banner)) {
-    return (
-      <header className="relative isolate overflow-hidden rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg px-6 py-7 text-student-status-danger-fg shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-10 md:py-9">
-        <div className="relative max-w-2xl">
-          <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">Draf banner tidak tersedia</h1>
-          <p className="mt-3 max-w-xl text-sm leading-7 md:text-base">{banner.message}</p>
-        </div>
-      </header>
-    );
-  }
-
-  const resolvedTitle = banner
-    ? getStudentBannerHeading(banner, variables)
-    : title ?? "Student preview";
-  const resolvedDescription = banner
-    ? getStudentBannerDescription(banner, variables)
-    : description ?? "";
-
   return (
-    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
-      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={variables} /> : null}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
-      />
-      <div className="relative max-w-2xl">
-        <h1 className={banner?.design ? "sr-only" : "text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl"}>
-          {resolvedTitle}
-        </h1>
-        <p className={banner?.design ? "sr-only" : "mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base"}>
-          {resolvedDescription}
-        </p>
-      </div>
-    </header>
+    <AdminStudentPreviewBannerHeader
+      banner={banner}
+      description={description}
+      fallbackTitle="Student preview"
+      title={title}
+      variables={variables}
+    />
   );
 }
 
@@ -293,16 +265,6 @@ function AdminStudentPreviewMateriCatalogueSurface({
 function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPreviewMateriCourse }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-6">
-      <Button
-        aria-label="Kembali ke katalog Materi"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewRoute("/courses")} />}
-        size="icon"
-        title="Kembali ke katalog Materi"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
       <PreviewSurfaceHeader
         description="Jalur ini hanya menampilkan lesson yang berstatus published. Progress, lock, dan skip siswa tidak digunakan dalam preview."
         title={`${course.name} (${course.code})`}
@@ -351,16 +313,6 @@ function AdminStudentPreviewMateriLessonSurface({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <Button
-        aria-label={`Kembali ke ${course.name}`}
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewMateriRoute(course.slug)} />}
-        size="icon"
-        title={`Kembali ke ${course.name}`}
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
       <MateriLessonPresentation
         document={lesson.document}
         documentDeliveryUrl={documentUrl}
@@ -538,18 +490,6 @@ function AdminStudentPreviewTryoutCatalogueSurface({
 function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPreviewTryout }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <Button
-        aria-label="Kembali ke katalog Tryout"
-        className="self-start"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewTryoutRoute()} />}
-        size="icon"
-        title="Kembali ke katalog Tryout"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-
       <PreviewSurfaceHeader
         description={tryout.description ?? "Tryout terbit untuk dibaca dalam pengalaman siswa."}
         title={tryout.title}

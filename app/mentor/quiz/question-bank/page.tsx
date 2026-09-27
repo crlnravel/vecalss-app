@@ -30,6 +30,12 @@ export default async function MentorQuestionBankPage({
   const session = await requireTutorSession();
   const params = await searchParams;
   const parsedQuery = parseQuestionBankQuery(params);
+  const createValues = Array.isArray(params.create)
+    ? params.create
+    : params.create === undefined || params.create === null
+      ? []
+      : [params.create];
+  const initialCreateDialogOpen = createValues.length === 1 && createValues[0] === "1";
   if (parsedQuery.issues.length || parsedQuery.purpose === null) {
     const requestedPurpose = Array.isArray(params.purpose) ? params.purpose[0] : params.purpose;
     const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
@@ -43,8 +49,12 @@ export default async function MentorQuestionBankPage({
       </MentorWorkspaceShell>
     );
   }
-  if (!canonicalQueryEquals(params, buildQuestionBankHref(parsedQuery))) {
-    redirect(buildQuestionBankHref(parsedQuery));
+  const catalogueHref = buildQuestionBankHref(parsedQuery);
+  const canonicalHref = initialCreateDialogOpen
+    ? `${catalogueHref}&create=1`
+    : catalogueHref;
+  if (!canonicalQueryEquals(params, canonicalHref)) {
+    redirect(canonicalHref);
   }
   const requestedPurpose = parsedQuery.purpose;
   const requestedSubjects = parsedQuery.subtest;
@@ -64,9 +74,10 @@ export default async function MentorQuestionBankPage({
 
   return (
     <KaptenQuestionBankPageModule
-      key={JSON.stringify({ category: requestedCategories, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
+      key={JSON.stringify({ category: requestedCategories, create: initialCreateDialogOpen, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
       initialEntries={banks.items}
       initialFolderTree={folderTree}
+      initialCreateDialogOpen={initialCreateDialogOpen}
       initialPage={banks.page}
       initialPageSize={banks.pageSize}
       initialPurpose={requestedPurpose}

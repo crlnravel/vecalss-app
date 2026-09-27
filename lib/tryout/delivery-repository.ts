@@ -18,6 +18,9 @@ import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { createTryoutInvitationNotification } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
 import { MAIN_TRYOUT_SESSION_NAME } from "@/lib/tryout/main-session";
+import {
+  isTryoutAdmissionSessionAvailable,
+} from "@/lib/tryout/registration-availability";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
 import {
   acquireTryoutIdentityMutex,
@@ -227,14 +230,13 @@ function assertEligibleSession(
   if (session.status === TryoutDeliverySessionStatus.archived) throw new TryoutDeliveryValidationError(`${label} sudah diarsipkan dan tidak dapat digunakan.`);
   if (session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError(`${label} belum dibuka untuk peserta.`);
   if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError(`${label} belum memiliki AssessmentRelease yang valid.`);
-  if (session.availableUntil <= now) throw new TryoutDeliveryValidationError(`${label} sudah berakhir.`);
+  if (!isTryoutAdmissionSessionAvailable(session, now)) throw new TryoutDeliveryValidationError(`${label} sudah berakhir.`);
   return session;
 }
 
-async function findDefaultSession(
+async function findDefaultSessionCandidate(
   tx: Prisma.TransactionClient,
   tryoutId: string,
-  now: Date,
 ) {
   const candidates = await tx.tryoutDeliverySession.findMany({
     where: { isDefaultOpenRegistration: true, tryoutId },
@@ -253,7 +255,19 @@ async function findDefaultSession(
   if (candidates.length > 1) {
     throw new TryoutDeliveryValidationError("Tryout memiliki lebih dari satu sesi default; perbaiki konfigurasi akses terlebih dahulu.");
   }
-  return assertEligibleSession(candidates[0] ?? null, now, "default");
+  return candidates[0] ?? null;
+}
+
+async function findDefaultSession(
+  tx: Prisma.TransactionClient,
+  tryoutId: string,
+  now: Date,
+) {
+  return assertEligibleSession(
+    await findDefaultSessionCandidate(tx, tryoutId),
+    now,
+    "default",
+  );
 }
 
 async function findSelectedSession(
@@ -709,8 +723,8 @@ async function registerForTryout(
       }
       return { admissionId: existing.id, assignmentId: existingAssignment?.id ?? null, deliverySessionId: existingAssignment?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
     }
-    const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
-    if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
+    const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, isHidden: true, status: true } });
+    if (!tryout || tryout.status !== ContentStatus.published || tryout.isHidden) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (tryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const status = tryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
     const now = new Date();
@@ -726,12 +740,34 @@ async function registerForTryout(
         }
         throw error;
       }
+    } else {
+      try {
+        const defaultSession = await findDefaultSessionCandidate(tx, tryoutId);
+        if (defaultSession) {
+          registrationSession = assertEligibleSession(defaultSession, now, "default");
+        }
+        if (selectedSessionId !== undefined && selectedSessionId !== null) {
+          registrationSession = await findSelectedSession(
+            tx,
+            tryoutId,
+            selectedSessionId,
+            now,
+          );
+        }
+      } catch (error) {
+        if (
+          error instanceof TryoutDeliveryValidationError &&
+          (selectedSessionId === undefined || selectedSessionId === null)
+        ) {
+          return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
+        }
+        throw error;
+      }
     }
-    // Keep the established local name for the session that will receive a new
-    // registration. It is either the requested session or the default session;
-    // the selection above never falls back when a session was declared.
-    const defaultSession = registrationSession;
-    if (status === TryoutAdmissionStatus.active && !defaultSession) return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
+    // Open admissions bind to this session. Approval-required admissions use
+    // it only to validate the selected/default registration window.
+    const admissionWindowSession = registrationSession;
+    if (status === TryoutAdmissionStatus.active && !admissionWindowSession) return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
     existing = await tx.tryoutAdmission.findUnique({
       where: { tryoutId_studentId: { studentId, tryoutId } },
       include: {
@@ -765,9 +801,9 @@ async function registerForTryout(
       if (target) await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
       return { admissionId: existing.id, assignmentId: existingAssignment?.id ?? null, deliverySessionId: existingAssignment?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
     }
-    if (defaultSession) await lockSessionScope(tx, defaultSession);
-    const lockedDefaultSession = defaultSession
-      ? await findSelectedSession(tx, tryoutId, defaultSession.id, now)
+    if (admissionWindowSession) await lockSessionScope(tx, admissionWindowSession);
+    const lockedDefaultSession = admissionWindowSession
+      ? await findSelectedSession(tx, tryoutId, admissionWindowSession.id, new Date())
       : null;
     const lockedRegistrationSession = lockedDefaultSession;
     const lockedTryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
@@ -1118,13 +1154,27 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
   });
 }
 
+async function getOwnedTryoutDeliverySessionIdsWithAttempts(tryoutId: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const ownedTryout = await tx.tryoutPackage.findFirst({
+      select: { id: true },
+      where: { createdByUserId: actorId, id: tryoutId },
+    });
+    if (!ownedTryout) return null;
+    const sessions = await tx.tryoutDeliverySession.findMany({
+      orderBy: { id: "asc" },
+      select: { id: true },
+      where: { tryoutId: ownedTryout.id, attempts: { some: {} } },
+    });
+    return sessions.map((session) => session.id);
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
 async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-  await prepareTryoutTransaction(tx);
-  await lockTryoutIdentityScope(tx, { id: tryoutId, kind: "tryout" });
-  // Resolve ownership in a narrow query before the graph query can touch
-  // student identities or attempt payloads. Keep the predicate on the graph
-  // query too so a concurrent ownership change cannot widen the read.
+  // This is a read-only graph load. A repeatable-read snapshot keeps the
+  // owner check and graph consistent without holding the exclusive Tryout
+  // mutation mutex while the large result payload is fetched.
   const ownedTryout = await tx.tryoutPackage.findFirst({
     select: { id: true },
     where: { createdByUserId: actorId, id: tryoutId },
@@ -1212,8 +1262,11 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
   });
   if (!tryout) return null;
   return tryout;
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    timeout: 15_000,
   });
 }
 
-export { assignTryoutDeliverySession, configureTryoutAdmission, configureTryoutDefaultResultRelease, createTryoutDeliverySession, createTryoutRetake, decideTryoutAdmission, getTryoutDeliveryOperations, inviteTryoutParticipant, openTryoutDeliverySession, registerForTryout, revokeTryoutDeliveryAssignment, setTryoutDefaultOpenRegistrationSession, TryoutDeliveryValidationError, updateTryoutDeliverySessionSchedule };
+export { assignTryoutDeliverySession, configureTryoutAdmission, configureTryoutDefaultResultRelease, createTryoutDeliverySession, createTryoutRetake, decideTryoutAdmission, getOwnedTryoutDeliverySessionIdsWithAttempts, getTryoutDeliveryOperations, inviteTryoutParticipant, openTryoutDeliverySession, registerForTryout, revokeTryoutDeliveryAssignment, setTryoutDefaultOpenRegistrationSession, TryoutDeliveryValidationError, updateTryoutDeliverySessionSchedule };
 export type { AssignmentInput, DeliverySessionInput, DeliverySessionScheduleInput, RetakeInput };

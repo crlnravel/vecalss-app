@@ -10,13 +10,16 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
-import { BackButton } from "@/components/ui/back-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildStudentAttemptHref, buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
+import {
+  canRequestNewTryoutAdmission,
+  isTryoutAdmissionSessionAvailable,
+  isTryoutSessionExpired,
+} from "@/lib/tryout/registration-availability";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
-import { ChevronLeft } from "@/lib/icons";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { ParticipantTryoutEnrollmentPanel, type MajorOption, type UniversityOption } from "@/modules/tryout/ParticipantTryoutEnrollmentPanel";
 
@@ -229,12 +232,32 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
   const assignedSession = sessionId ? tryout.assignments.find((assignment) => assignment.id === sessionId) : tryout.assignments[0];
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
-  const canPreviewSchedule = tryout.admissionMode === "open" && tryout.admissionStatus === null;
-  const defaultOpenSession = canPreviewSchedule
-    ? tryout.sessions.find((deliverySession) => deliverySession.isDefaultOpenRegistration && deliverySession.status === "active" && !deliverySession.isExpired)
-    : undefined;
+  const now = new Date();
+  const defaultAdmissionSession = tryout.sessions.find((deliverySession) => deliverySession.isDefaultOpenRegistration);
   const selectedSession = sessionId ? tryout.sessions.find((deliverySession) => deliverySession.id === sessionId) : undefined;
-  const summarySession = assignedSession ?? selectedSession ?? (canPreviewSchedule ? defaultOpenSession : undefined);
+  const defaultOpenSession = defaultAdmissionSession && isTryoutAdmissionSessionAvailable(defaultAdmissionSession, now)
+    ? defaultAdmissionSession
+    : undefined;
+  const canRequestAdmission = canRequestNewTryoutAdmission(
+    tryout.admissionMode,
+    tryout.sessions,
+    now,
+    sessionId,
+  );
+  const registrationWindowClosed =
+    tryout.admissionStatus === null &&
+    tryout.admissionMode !== "invitation_only" &&
+    !canRequestAdmission;
+  const registrationWindowSession = selectedSession ?? defaultAdmissionSession;
+  const registrationWindowEnded = Boolean(
+    registrationWindowSession &&
+      isTryoutSessionExpired(registrationWindowSession.availableUntil, now),
+  );
+  const summarySession = assignedSession ?? selectedSession ?? (
+    tryout.admissionStatus === null && tryout.admissionMode !== "invitation_only"
+      ? defaultAdmissionSession
+      : undefined
+  );
   const context = { returnTo: returnToHref, session: summarySession?.id ?? sessionId };
 
   let actionHref = buildStudentTryoutHref(tryout.id, context);
@@ -245,13 +268,17 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
     actionLabel = "Lanjutkan ujian";
   } else if (attempt) {
     actionHref = buildStudentAttemptHref(attempt.id, { ...context, result: true });
-    actionLabel = "Lihat hasil";
+    actionLabel = attempt.resultAvailability === "released" ? "Lihat hasil" : "Periksa status hasil";
   } else if (tryout.admissionStatus === "active" && assignedSession && assignedSession.status === "active" && !assignedSession.isExpired) {
     actionHref = buildStudentTryoutSubrouteHref(tryout.id, "waiting", context);
     actionLabel = "Mulai";
   } else if (tryout.admissionStatus === "active" && assignedSession) {
     actionHref = buildStudentTryoutHref(tryout.id, context);
     actionLabel = "Sesi selesai";
+    canTakeAction = false;
+  }
+  if (registrationWindowClosed && !attempt) {
+    actionLabel = registrationWindowEnded ? "Sesi selesai" : "Pendaftaran ditutup";
     canTakeAction = false;
   }
 
@@ -269,14 +296,23 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
           title: "Menunggu jadwal sesi",
           tone: "green" as const,
         }
-      : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
+        : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
         ? {
             icon: CircleAlert,
             message: tryout.admissionStatus === "rejected" ? "Pendaftaran ini tidak disetujui. Hubungi Kapten jika kamu memerlukan penjelasan atau ingin mengikuti sesi lain." : "Aksesmu ke tryout ini sudah dinonaktifkan. Hubungi Kapten untuk mengetahui langkah berikutnya.",
             title: tryout.admissionStatus === "rejected" ? "Pendaftaran tidak disetujui" : "Akses dinonaktifkan",
             tone: "red" as const,
           }
-        : tryout.admissionMode === "invitation_only" && !hasEnrolled
+        : registrationWindowClosed
+          ? {
+              icon: Info,
+              message: registrationWindowEnded
+                ? "Sesi ini sudah berakhir. Kamu tidak bisa mendaftar lagi."
+                : "Belum ada sesi yang dapat menerima pendaftaran. Coba lagi nanti.",
+              title: registrationWindowEnded ? "Sesi sudah berakhir" : "Pendaftaran ditutup",
+              tone: "amber" as const,
+            }
+          : tryout.admissionMode === "invitation_only" && !hasEnrolled
           ? {
               icon: LockKeyhole,
               message: "Tryout ini hanya dapat diikuti melalui undangan Kapten. Jika kamu seharusnya mendapat akses, hubungi Kapten.",
@@ -288,15 +324,21 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
   const availability = attempt?.status === "in_progress"
     ? { label: "Sedang dikerjakan", tone: "success" as const }
     : attempt
-      ? { label: "Hasil tersedia", tone: "neutral" as const }
+      ? attempt.resultAvailability === "released"
+        ? { label: "Hasil tersedia", tone: "neutral" as const }
+        : attempt.resultAvailability === "processing"
+          ? { label: "Hasil sedang disiapkan", tone: "attention" as const }
+          : { label: "Hasil belum dibuka", tone: "attention" as const }
       : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
         ? { label: "Tidak tersedia", tone: "danger" as const }
         : tryout.admissionStatus === "pending"
           ? { label: "Menunggu", tone: "attention" as const }
           : tryout.admissionStatus === "active" && !assignedSession
             ? { label: "Menunggu jadwal", tone: "attention" as const }
-            : tryout.admissionMode === "invitation_only" && !hasEnrolled
-              ? { label: "Undangan", tone: "attention" as const }
+            : registrationWindowClosed
+              ? { label: registrationWindowEnded ? "Selesai" : "Ditutup", tone: "neutral" as const }
+              : tryout.admissionMode === "invitation_only" && !hasEnrolled
+                ? { label: "Undangan", tone: "attention" as const }
               : assignedSession
                 ? assignedSession.status !== "active"
                   ? { label: "Ditutup", tone: "neutral" as const }
@@ -341,14 +383,69 @@ type ParticipantTryoutDetailModel = ReturnType<typeof getParticipantTryoutDetail
 
 function TryoutDetailHero({
   model,
-  returnToHref,
   tryout,
 }: {
   model: ParticipantTryoutDetailModel;
-  returnToHref?: string;
   tryout: ParticipantTryout;
 }) {
-  return <section aria-labelledby="tryout-information" className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"><div className="relative isolate overflow-hidden bg-[var(--voyage-deep)]"><Image alt="" className="absolute inset-0 size-full object-cover object-center opacity-45 saturate-[0.72]" fill priority sizes="(min-width: 1024px) 64rem, calc(100vw - 2rem)" src={tryout.bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"} unoptimized={Boolean(tryout.bannerUrl)} /><div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--voyage-deep)_88%,transparent)_0%,color-mix(in_oklab,var(--voyage-deep)_68%,transparent)_52%,color-mix(in_oklab,var(--voyage-deep)_74%,transparent)_100%)]" /><div className="relative mx-auto w-full px-5 pb-24 pt-8 sm:px-6 sm:pt-10"><BackButton className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40" href={returnToHref ?? "/tryout"} label="Kembali ke katalog" variant="ghost"><ChevronLeft aria-hidden="true" className="size-6" /></BackButton></div></div><div className="px-5 py-5 sm:px-6 sm:py-6"><h1 id="tryout-information" className="text-center font-heading text-xl leading-tight font-extrabold tracking-[-0.035em] text-secondary-900 sm:text-2xl">{tryout.title}</h1><p className="mt-2 text-center text-sm leading-6 font-medium text-secondary-700 sm:text-base">{formatSessionWindow(model.summarySession) ?? "Jadwal akan muncul setelah pendaftaran disetujui."}</p><p className={`mt-4 rounded-xl px-4 py-2.5 text-center text-sm leading-6 font-bold ${model.availability.tone === "success" ? "bg-student-status-success-bg text-student-status-success-fg" : model.availability.tone === "danger" ? "bg-student-status-danger-bg text-student-status-danger-fg" : model.availability.tone === "attention" ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-primary-50 text-primary-700"}`}>{model.statusMessage}</p><dl className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-secondary-700"><div className="flex items-center gap-2"><Clock className="size-5 text-primary-700" /><dt>Total Waktu</dt><dd className="font-extrabold text-primary-700">{formatTotalMinutes(model.totalDuration)}</dd></div><span aria-hidden="true" className="text-secondary-300">|</span><div className="flex items-center gap-2"><ListChecks className="size-5 text-primary-700" /><dt>Total Soal</dt><dd className="font-extrabold text-primary-700">{model.totalQuestions} soal</dd></div></dl></div></section>;
+  return (
+    <section
+      aria-labelledby="tryout-information"
+      className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
+    >
+      <div className="relative isolate overflow-hidden bg-[var(--voyage-deep)]">
+        <Image
+          alt=""
+          className="absolute inset-0 size-full object-cover object-center opacity-45 saturate-[0.72]"
+          fill
+          priority
+          sizes="(min-width: 1024px) 64rem, calc(100vw - 2rem)"
+          src={tryout.bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"}
+          unoptimized={Boolean(tryout.bannerUrl)}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--voyage-deep)_88%,transparent)_0%,color-mix(in_oklab,var(--voyage-deep)_68%,transparent)_52%,color-mix(in_oklab,var(--voyage-deep)_74%,transparent)_100%)]"
+        />
+        <div aria-hidden="true" className="h-[10.75rem] w-full sm:h-[11.25rem]" />
+      </div>
+      <div className="px-5 py-5 sm:px-6 sm:py-6">
+        <h1
+          className="text-center font-heading text-xl leading-tight font-extrabold tracking-[-0.035em] text-secondary-900 sm:text-2xl"
+          id="tryout-information"
+        >
+          {tryout.title}
+        </h1>
+        <p className="mt-2 text-center text-sm leading-6 font-medium text-secondary-700 sm:text-base">
+          {formatSessionWindow(model.summarySession) ?? "Jadwal akan muncul setelah pendaftaran disetujui."}
+        </p>
+        <p
+          className={`mt-4 rounded-xl px-4 py-2.5 text-center text-sm leading-6 font-bold ${model.availability.tone === "success" ? "bg-student-status-success-bg text-student-status-success-fg" : model.availability.tone === "danger" ? "bg-student-status-danger-bg text-student-status-danger-fg" : model.availability.tone === "attention" ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-primary-50 text-primary-700"}`}
+        >
+          {model.statusMessage}
+        </p>
+        <dl className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-secondary-700">
+          <div className="flex items-center gap-2">
+            <Clock className="size-5 text-primary-700" />
+            <dt>Total Waktu</dt>
+            <dd className="font-extrabold text-primary-700">
+              {formatTotalMinutes(model.totalDuration)}
+            </dd>
+          </div>
+          <span aria-hidden="true" className="text-secondary-300">
+            |
+          </span>
+          <div className="flex items-center gap-2">
+            <ListChecks className="size-5 text-primary-700" />
+            <dt>Total Soal</dt>
+            <dd className="font-extrabold text-primary-700">
+              {model.totalQuestions} soal
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  );
 }
 
 function TryoutAdmissionNotice({ model }: { model: ParticipantTryoutDetailModel }) {
@@ -411,7 +508,7 @@ function ParticipantTryoutDetailContent({
   tryout: ParticipantTryout;
   universities: UniversityOption[];
 }) {
-  return <div className="min-h-full font-sans text-[var(--voyage-ink)]"><div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8"><TryoutDetailHero model={model} returnToHref={returnToHref} tryout={tryout} /><TryoutAdmissionNotice model={model} /><TryoutSectionList lockedSections={model.lockedSections} sectionGroups={model.sectionGroups} /><TryoutDetailAction initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></div></div>;
+  return <div className="min-h-full font-sans text-[var(--voyage-ink)]"><div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8"><TryoutDetailHero model={model} tryout={tryout} /><TryoutAdmissionNotice model={model} /><TryoutSectionList lockedSections={model.lockedSections} sectionGroups={model.sectionGroups} /><TryoutDetailAction initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></div></div>;
 }
 
 function ParticipantTryoutDetailModule({

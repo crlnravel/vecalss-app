@@ -353,7 +353,6 @@ function StudentDetailPageModule({
               </div>
             )}
             className="min-w-0 flex-1"
-            description={<span className="block break-all">{student.email}</span>}
             title={student.fullName}
           />
         </div>

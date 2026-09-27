@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
@@ -10,7 +11,6 @@ import {
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import { getMentorMateriCatalogue } from "@/lib/materi/repository";
-import { KaptenMateriBuilderPageModule } from "@/modules/mentor/KaptenMateriBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
@@ -72,14 +72,9 @@ export default async function CreateMentorMateriPage({
   }
 
   const returnTo = returnContext.returnTo ?? (subjectSlug ? buildMentorMateriSubjectHref(subjectSlug) : undefined);
+  const dialogQuery = new URLSearchParams({ create: "1" });
+  if (subjectSlug) dialogQuery.set("subject", subjectSlug);
+  if (returnTo) dialogQuery.set("returnTo", returnTo);
 
-  return (
-    <KaptenMateriBuilderPageModule
-      initialSubjectSlug={subjectSlug}
-      mode="create"
-      returnTo={returnTo}
-      session={session}
-      subjects={view.subjects}
-    />
-  );
+  redirect(`/mentor/materi?${dialogQuery.toString()}`);
 }

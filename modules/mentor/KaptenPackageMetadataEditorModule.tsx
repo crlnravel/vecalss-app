@@ -56,7 +56,6 @@ function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: Pa
       <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
       <ReferencePageHeader
         actions={<Button disabled={saving || !resourceLock.canEdit} onClick={() => void save()} size="sm" variant="reference"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
-        description="Ubah judul dan deskripsi Paket. Bank, Subtest, soal, urutan, dan poin dikelola saat membuat versi baru."
         title="Edit Paket Soal"
       />
       <ReferenceSurface as="section" aria-labelledby="package-metadata-heading" className="grid gap-6 p-5 sm:p-7">

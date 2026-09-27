@@ -25,7 +25,6 @@ function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
       <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
       <ReferencePageHeader
         actions={<MentorBadge size="sm" tone="category">{packageReleaseLabel(detail.versionNo)}</MentorBadge>}
-        description="Snapshot tersimpan yang dapat ditinjau tanpa mengubah versi aktif."
         title={detail.packageTitle}
       />
       <ReferenceSurface as="section" aria-label="Ringkasan versi" className="p-5 sm:p-7">

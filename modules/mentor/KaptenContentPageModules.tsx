@@ -28,6 +28,7 @@ import {
   StatusPill,
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { QuizCreateDialogTrigger } from "@/modules/mentor/KaptenQuizEditorPageModule";
 import {
   kaptenSubjects,
   questionBanks,
@@ -75,7 +76,12 @@ function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes:
       session={session}
     >
       <PageIntro
-        action={<CreateButton href="/mentor/quiz/create" label="Buat Quiz" />}
+        action={
+          <QuizCreateDialogTrigger ariaLabel="Buat Quiz">
+            <Plus />
+            Buat Quiz
+          </QuizCreateDialogTrigger>
+        }
         title="Quiz"
       />
 
@@ -321,7 +327,6 @@ function KaptenSettingsPageModule({
       sidebarAppearance="reference"
     >
       <ReferencePageHeader
-        description="Kelola profil dan workspace konten Kapten."
         title="Pengaturan"
       />
 

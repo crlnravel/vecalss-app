@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
   Copy,
-  Eye,
+  FilePenLine,
   ImagePlus,
+  Pencil,
   Save,
-  Search,
-  SendHorizontal,
   Trash2,
+  X,
 } from "@/lib/icons";
 import {
   useCallback,
@@ -24,10 +21,8 @@ import {
   useReducer,
   useRef,
   useState,
-  type ComponentProps,
+  type ReactNode,
 } from "react";
-import { imageMediaMimeTypes } from "@/lib/media/domain";
-import type { MediaAssetDto } from "@/lib/media/types";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 
 import {
@@ -41,7 +36,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { showToast } from "@/components/ui/toast";
 import {
   Dialog,
@@ -49,23 +43,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldInput,
-  FieldLabel,
-  FieldTextarea,
-} from "@/components/ui/field";
-import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+import { FieldInput, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -82,11 +61,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
-import { buildQuestionBankHref } from "@/lib/navigation/canonical-context";
-import {
-  HelpFieldLabel,
-  OptionSet,
-} from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { OptionSet } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
   type DefaultPolicy,
   type Mode,
@@ -96,11 +71,9 @@ import {
   CBT_FIXED_POINTS_METHOD,
   CBT_IRT_2PL_METHOD,
 } from "@/lib/tryout/cbt-scoring-policy";
-import {
-  MediaAssetPreview,
-  MediaPickerDialog,
-} from "@/modules/media/media-library";
-import { PaginationControls } from "@/modules/mentor/components/kapten-ui";
+import { MediaAssetPreview } from "@/modules/media/media-library";
+import { TryoutBannerUploadDialog } from "@/modules/mentor/components/tryout-banner-upload-dialog";
+import { UnsavedChangesConfirmationDialog } from "@/modules/mentor/components/unsaved-changes-confirmation-dialog";
 import {
   listQuestionBankSourcePageAction,
   listQuestionBankSourceQuestionsAction,
@@ -109,7 +82,9 @@ import {
   duplicateTryoutAction,
   archiveTryoutAction,
   deleteTryoutAction,
+  importTryoutBankQuestionSnapshotsAction,
   saveTryoutAction,
+  setTryoutHiddenAction,
   unpublishTryoutAction,
   updateTryoutMetadataAction,
 } from "@/modules/mentor/tryout-actions";
@@ -128,28 +103,28 @@ import {
   ResourceEditLockProvider,
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
+import {
+  TRYOUT_SOURCE_QUESTION_PAGE_SIZE,
+  TryoutSectionQuestionManager,
+  type TryoutDirectQuestionDraft,
+  type TryoutQuestionChange,
+  type TryoutQuestionImportOutcome,
+  type TryoutQuestionImportRequest,
+  type TryoutQuestionSnapshotDraft,
+  type TryoutSourceBank,
+  type TryoutSourceQuestion,
+} from "@/modules/mentor/components/tryout-section-question-manager";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<
   "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM"
 >;
-const SOURCE_QUESTION_PAGE_SIZE = 10;
 type SubjectCode = (typeof subjectCodes)[number];
-type DirectQuestionDraft = {
-  bankId?: string;
-  bankTitle?: string;
-  difficulty?: "easy" | "medium" | "hard";
-  hasExplanation?: boolean;
-  hasReadyMedia?: boolean;
-  prompt?: string;
-  sourceContentDigest?: string;
-  sourceQuestionId: string;
-  sourceQuestionRevisionId?: string;
-  questionType?: "single_choice" | "multiple_choice";
-};
+type DirectQuestionDraft = TryoutDirectQuestionDraft;
 type TestDraft = {
   directQuestions?: DirectQuestionDraft[];
   durationMinutes: number;
   instructions: string;
+  packageVersionId?: string | null;
   scoringConfig?: Record<string, unknown>;
   shuffleItems: boolean;
   subtest: SubjectCode;
@@ -169,6 +144,7 @@ type TryoutDraft = {
   defaultReleasePolicy?: DefaultPolicy | "inherit" | "scheduled";
   description: string;
   id: string;
+  isHidden?: boolean;
   locked: boolean;
   sections: TestDraft[];
   status: "draft" | "published";
@@ -185,34 +161,10 @@ function defaultPolicyForDraft(
     ? value
     : "automatic_at_end";
 }
-type SourceBank = {
-  categories?: Array<{ id: string; name: string }>;
-  description: string;
-  folderPath?: Array<{ id: string | null; name: string }>;
-  id: string;
-  questionCount: number;
-  subjectCoverage?: string[];
-  title: string;
-};
-type SourceQuestion = {
-  bankId: string;
-  choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
-  correctChoiceIds?: string[];
-  difficulty: "easy" | "medium" | "hard";
-  explanation: string;
-  explanationMediaAssetId?: string;
-  id: string;
-  prompt: string;
-  promptMediaAssetId?: string;
-  questionContentDigest?: string;
-  questionRevisionId?: string;
-  questionType?: "single_choice" | "multiple_choice";
-  subjectCode: string;
-};
+type SourceBank = TryoutSourceBank;
+type SourceQuestion = TryoutSourceQuestion;
 type Workspace = "basics" | "schedule";
 type WorkflowMode = "draft" | "published";
-type SubtestDetailTab = "info" | "bank";
-
 function defaultSections(): TestDraft[] {
   return subjectCodes.map((subtest) => ({
     directQuestions: [],
@@ -251,24 +203,6 @@ function normalize(draft: TryoutDraft): TryoutDraft {
   };
 }
 
-function subjectName(code: SubjectCode) {
-  return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
-}
-
-function difficultyLabel(difficulty: SourceQuestion["difficulty"]) {
-  return difficulty === "easy"
-    ? "Mudah"
-    : difficulty === "hard"
-      ? "Sulit"
-      : "Sedang";
-}
-
-function questionTypeLabel(questionType?: SourceQuestion["questionType"]) {
-  return questionType === "multiple_choice"
-    ? "Pilihan Ganda Kompleks"
-    : "Pilihan Ganda";
-}
-
 function RequiredMark() {
   return (
     <>
@@ -287,75 +221,8 @@ type SectionReadiness = {
 };
 
 function directQuestionsReady(questions: DirectQuestionDraft[]) {
-  // The source chooser only exposes Ready questions; attaching one completes the subtest.
+  // Server-side validation handles content readiness; the section needs at least one question.
   return questions.length > 0;
-}
-
-function SourceBankList({
-  activeSectionSubtest,
-  browseBankId,
-  disabled,
-  guardExternalNavigation,
-  onSelectBank,
-  sourceBanks,
-}: {
-  activeSectionSubtest: SubjectCode;
-  browseBankId: string | null;
-  disabled: boolean;
-  guardExternalNavigation: (
-    href: string,
-    event: { preventDefault: () => void },
-  ) => void;
-  onSelectBank: (bankId: string) => void;
-  sourceBanks: SourceBank[];
-}) {
-  if (!sourceBanks.length) {
-    return (
-      <div className="grid gap-3 px-3 py-5">
-        <p className="text-sm text-secondary-500">
-          Belum ada Bank Soal dengan soal Ready untuk {activeSectionSubtest}.
-        </p>
-        <Button
-          className="w-fit"
-          disabled={disabled}
-          nativeButton={false}
-          onClick={(event) =>
-            guardExternalNavigation(
-              buildQuestionBankHref({ purpose: "tryout" }),
-              event,
-            )
-          }
-          render={<Link href={buildQuestionBankHref({ purpose: "tryout" })} />}
-          size="sm"
-          variant="reference"
-        >
-          Buka Bank Soal
-        </Button>
-      </div>
-    );
-  }
-  return sourceBanks.map((bank) => (
-    <Button
-      aria-selected={browseBankId === bank.id}
-      className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
-      disabled={disabled}
-      key={bank.id}
-      onClick={() => onSelectBank(bank.id)}
-      role="option"
-      variant={browseBankId === bank.id ? "contextSelected" : "ghost"}
-    >
-      <span className="min-w-0">
-        <span className="block truncate font-semibold">{bank.title}</span>
-        <span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">
-          {bank.questionCount} soal
-          {bank.folderPath?.length
-            ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}`
-            : ""}
-        </span>
-      </span>
-      {browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}
-    </Button>
-  ));
 }
 
 type BuilderState = {
@@ -502,85 +369,363 @@ function builderReducer(
   }
 }
 
-function TryoutBannerField({
+function TryoutBannerHero({
   bannerMediaId,
   disabled,
+  onSave,
   onChange,
+  presentation,
 }: {
   bannerMediaId?: string | null;
   disabled: boolean;
+  onSave?: () => void;
   onChange: (bannerMediaId: string | null) => void;
+  presentation: "dialog" | "page";
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const handleBannerChange = (nextBannerMediaId: string | null) => {
+    onChange(nextBannerMediaId);
+    onSave?.();
+  };
+
   return (
-    <Field>
-      <HelpFieldLabel
-        htmlFor="tryout-banner-choose"
-        label="Banner Tryout"
-        tooltip="Banner tampil di halaman dan kartu Tryout peserta. Gunakan gambar lanskap rasio 16:9, disarankan 1280×720. Tanpa banner, gambar bawaan tetap dipakai."
-      />
-      {bannerMediaId ? (
-        <div className="grid gap-3">
-          <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-primary-100 bg-primary-50 [&_img]:object-cover">
-            <MediaAssetPreview
-              alt="Preview banner Tryout"
-              assetId={bannerMediaId}
-              className="absolute inset-0 min-h-0 w-full"
+    <section
+      aria-label="Banner Tryout"
+      className="grid min-w-0 max-w-full gap-2"
+    >
+      <div
+        className={`group relative min-w-0 max-w-full overflow-hidden border border-primary-100 bg-primary-50 ${
+          presentation === "dialog"
+            ? "aspect-[2.85/1] min-h-52 rounded-[2.5rem] sm:min-h-72 lg:min-h-[22.5rem]"
+            : "aspect-[6/1] min-h-40 rounded-3xl sm:min-h-48"
+        }`}
+      >
+        {bannerMediaId ? (
+          <MediaAssetPreview
+            alt="Banner Tryout"
+            assetId={bannerMediaId}
+            className="absolute inset-0 min-h-0 min-w-0 w-full max-w-full [&_img]:object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-50 px-6 text-center text-secondary-600">
+            <ImagePlus
+              aria-hidden="true"
+              className={
+                presentation === "dialog"
+                  ? "size-10 text-primary-700"
+                  : "size-7 text-primary-700"
+              }
             />
+            <span
+              className={`font-semibold ${presentation === "dialog" ? "text-xl" : "text-sm"}`}
+            >
+              Belum ada banner
+            </span>
           </div>
+        )}
+        <div
+          aria-hidden="true"
+          className={`absolute inset-0 transition-colors ${
+            presentation === "dialog"
+              ? "bg-secondary-950/0 group-hover:bg-secondary-950/20 group-focus-within:bg-secondary-950/10"
+              : "bg-secondary-950/20 group-hover:bg-secondary-950/30"
+          }`}
+        />
+        <TooltipProvider>
+          <div
+            className={`absolute flex items-center gap-2 ${
+              presentation === "dialog"
+                ? "right-5 top-5 sm:right-7 sm:top-7"
+                : "right-4 top-4"
+            }`}
+          >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="Ubah banner Tryout"
+                    className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
+                      presentation === "dialog"
+                        ? "size-12 sm:size-16 lg:size-[5.25rem] lg:rounded-2xl"
+                        : "size-11"
+                    }`}
+                    disabled={disabled}
+                    onClick={() => setPickerOpen(true)}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <Pencil
+                  aria-hidden="true"
+                  className={presentation === "dialog" ? "size-5 lg:size-6" : "size-4"}
+                />
+              </TooltipTrigger>
+              <TooltipContent>Ubah banner Tryout</TooltipContent>
+            </Tooltip>
+            {bannerMediaId ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-label="Hapus banner Tryout"
+                      className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
+                        presentation === "dialog"
+                          ? "size-12 sm:size-16 lg:size-[5.25rem] lg:rounded-2xl"
+                          : "size-11"
+                      }`}
+                      disabled={disabled}
+                      onClick={() => handleBannerChange(null)}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <Trash2
+                    aria-hidden="true"
+                    className={presentation === "dialog" ? "size-5 lg:size-6" : "size-4"}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Hapus banner Tryout</TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+        </TooltipProvider>
+      </div>
+      <TryoutBannerUploadDialog
+        onOpenChange={setPickerOpen}
+        onSelect={handleBannerChange}
+        open={pickerOpen && !disabled}
+      />
+    </section>
+  );
+}
+
+function TryoutTitleField({
+  disabled,
+  isSaving,
+  onChange,
+  onSave,
+  presentation,
+  value,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+  onChange: (title: string) => void;
+  onSave: () => void;
+  presentation: "dialog" | "page";
+  value: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const cancel = () => {
+    setDraft(value);
+    setEditing(false);
+  };
+
+  const save = () => {
+    const next = draft.trim();
+    if (!next) {
+      cancel();
+      return;
+    }
+    onChange(next);
+    setEditing(false);
+    onSave();
+  };
+
+  if (editing) {
+    return (
+      <div className="grid gap-2">
+        <FieldInput
+          autoFocus
+          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} font-semibold tracking-tight ${presentation === "dialog" ? "h-14 text-3xl sm:h-16 sm:text-4xl" : "h-12 text-2xl md:text-3xl"}`}
+          disabled={disabled || isSaving}
+          id="tryout-title"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              save();
+            } else if (event.key === "Escape") {
+              cancel();
+            }
+          }}
+          required
+          value={draft}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            disabled={disabled || isSaving || !draft.trim()}
+            onClick={save}
+            size="sm"
+            type="button"
+            variant="brand"
+          >
+            <Check aria-hidden="true" />
+            Simpan
+          </Button>
+          <Button
+            disabled={disabled || isSaving}
+            onClick={cancel}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden="true" />
+            Batal
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex items-start gap-3">
+      <h2
+        className={`min-w-0 break-words font-semibold text-secondary-900 ${
+          presentation === "dialog"
+            ? "text-4xl leading-[1.08] tracking-[-0.035em] sm:text-5xl lg:text-6xl"
+            : "text-3xl tracking-tight md:text-4xl"
+        }`}
+      >
+        {value || "Tryout tanpa judul"}
+      </h2>
+      {!disabled ? (
+        <Button
+          aria-label="Ubah judul Tryout"
+          className={`shrink-0 text-secondary-400 opacity-70 hover:text-secondary-900 group-hover:opacity-100 ${
+            presentation === "dialog" ? "mt-2 size-10 sm:size-11" : "mt-1 size-8"
+          }`}
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+          size={presentation === "dialog" ? "icon" : "icon-sm"}
+          title="Ubah judul Tryout"
+          type="button"
+          variant="ghost"
+        >
+          <Pencil
+            aria-hidden="true"
+            className={presentation === "dialog" ? "size-5" : "size-4"}
+          />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function TryoutDescriptionField({
+  disabled,
+  isSaving,
+  onChange,
+  onSave,
+  presentation,
+  value,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+  onChange: (description: string) => void;
+  onSave: () => void;
+  presentation: "dialog" | "page";
+  value: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const cancel = () => {
+    setDraft(value);
+    setEditing(false);
+  };
+
+  const save = () => {
+    onChange(draft.trim());
+    setEditing(false);
+    onSave();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span
+          className={`font-semibold text-secondary-500 ${presentation === "dialog" ? "text-lg sm:text-xl" : "text-xs"}`}
+        >
+          Deskripsi
+        </span>
+        {!editing && !disabled ? (
+          <Button
+            aria-label="Ubah deskripsi Tryout"
+            className={`text-secondary-400 hover:text-secondary-900 ${presentation === "dialog" ? "size-9 sm:size-10" : "size-7"}`}
+            onClick={() => {
+              setDraft(value);
+              setEditing(true);
+            }}
+            size={presentation === "dialog" ? "icon" : "icon-sm"}
+            title="Ubah deskripsi Tryout"
+            type="button"
+            variant="ghost"
+          >
+            <Pencil
+              aria-hidden="true"
+              className={presentation === "dialog" ? "size-5" : "size-3.5"}
+            />
+          </Button>
+        ) : null}
+      </div>
+      {editing ? (
+        <div className="mt-2 grid gap-2">
+          <FieldTextarea
+            autoFocus
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} ${presentation === "dialog" ? "min-h-40 text-lg leading-7 sm:min-h-48 sm:text-xl" : "min-h-[110px] text-sm leading-6"}`}
+            disabled={disabled || isSaving}
+            id="tryout-description"
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Tuliskan deskripsi ringkas tentang Tryout ini…"
+            value={draft}
+          />
           <div className="flex flex-wrap gap-2">
             <Button
-              className={REFERENCE_CONTROL_CLASS_NAMES.file}
-              disabled={disabled}
-              id="tryout-banner-choose"
-              onClick={() => setPickerOpen(true)}
-              variant="reference"
+              disabled={disabled || isSaving}
+              onClick={save}
+              size="sm"
+              type="button"
+              variant="brand"
             >
-              <ImagePlus />
-              Ganti gambar
+              <Check aria-hidden="true" />
+              Simpan
             </Button>
             <Button
-              disabled={disabled}
-              onClick={() => onChange(null)}
+              disabled={disabled || isSaving}
+              onClick={cancel}
               size="sm"
+              type="button"
               variant="ghost"
             >
-              <Trash2 />
-              Hapus banner
+              <X aria-hidden="true" />
+              Batal
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid gap-3">
-          <div
-            aria-hidden="true"
-            className="grid aspect-[16/9] place-items-center rounded-2xl border border-dashed border-primary-200 bg-primary-50/60 text-sm text-secondary-500"
-          >
-            Belum ada banner — peserta melihat gambar bawaan.
-          </div>
-          <div>
-            <Button
-              className={REFERENCE_CONTROL_CLASS_NAMES.file}
-              disabled={disabled}
-              id="tryout-banner-choose"
-              onClick={() => setPickerOpen(true)}
-              variant="reference"
+        <p
+          className={`mt-1 leading-7 ${presentation === "dialog" ? "text-lg text-secondary-600 sm:text-2xl sm:leading-9" : "text-sm text-secondary-700 leading-6"}`}
+        >
+          {value || (
+            <span
+              className={`italic ${presentation === "dialog" ? "text-secondary-500" : "text-secondary-400"}`}
             >
-              <ImagePlus />
-              Pilih gambar
-            </Button>
-          </div>
-        </div>
+              Belum ada deskripsi untuk Tryout ini. Klik ikon pensil untuk
+              menambahkan.
+            </span>
+          )}
+        </p>
       )}
-      <MediaPickerDialog
-        allowedMimeTypes={imageMediaMimeTypes}
-        onOpenChange={setPickerOpen}
-        onSelect={(asset: MediaAssetDto) => onChange(asset.id)}
-        open={pickerOpen && !disabled}
-        selectedAssetId={bannerMediaId ?? null}
-        title="Pilih banner Tryout"
-      />
-    </Field>
+    </div>
   );
 }
 
@@ -593,6 +738,7 @@ function TryoutIdentityPanel({
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
+  presentation = "page",
   saving,
 }: {
   draft: TryoutDraft;
@@ -603,84 +749,77 @@ function TryoutIdentityPanel({
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
+  presentation?: "dialog" | "page";
   saving: boolean;
 }) {
-  const identityDisabled = saving || (mode === "draft" && draft.locked);
+  const identityDisabled =
+    saving || metadataSaving || (mode === "draft" && draft.locked);
+  const isSaving = saving || metadataSaving;
+  const informationCard = (
+    <ReferenceSurface
+      aria-labelledby="tryout-basic-info-title"
+      as="section"
+      className={`grid min-w-0 w-full max-w-full overflow-hidden ${
+        presentation === "dialog"
+          ? "gap-14 rounded-[2.75rem] p-5 sm:p-8 lg:p-14"
+          : "gap-7 p-5 sm:p-7"
+      }`}
+    >
+      <h2 className="sr-only" id="tryout-basic-info-title">
+        Informasi Tryout
+      </h2>
+      <TryoutBannerHero
+        bannerMediaId={draft.bannerMediaId}
+        disabled={identityDisabled}
+        onChange={onBannerChange}
+        onSave={onSaveMetadata}
+        presentation={presentation}
+      />
+      <TryoutTitleField
+        disabled={identityDisabled}
+        isSaving={isSaving}
+        onChange={onTitleChange}
+        onSave={onSaveMetadata}
+        presentation={presentation}
+        value={draft.title}
+      />
+      <TryoutDescriptionField
+        disabled={identityDisabled}
+        isSaving={isSaving}
+        onChange={onDescriptionChange}
+        onSave={onSaveMetadata}
+        presentation={presentation}
+        value={draft.description}
+      />
+    </ReferenceSurface>
+  );
+
   return (
     <>
-      <ReferenceSurface
-        as="section"
-        className="grid w-full mt-4 gap-6 p-5 sm:p-7"
+      <div
+        className={
+          presentation === "dialog"
+            ? "grid min-w-0 w-full gap-5 sm:gap-12"
+            : "grid min-w-0 w-full gap-6"
+        }
       >
-        <h2
-          className="text-xl font-semibold text-secondary-900"
-          id="tryout-basic-info-title"
-        >
-          Informasi Tryout
-        </h2>
-        <div className="grid gap-5">
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="tryout-title"
-            >
-              Judul Tryout <RequiredMark />
-            </FieldLabel>
-            <FieldInput
-              className={REFERENCE_CONTROL_CLASS_NAMES.input}
-              disabled={identityDisabled}
-              id="tryout-title"
-              onChange={(event) => onTitleChange(event.target.value)}
-              required
-              value={draft.title}
-            />
-          </Field>
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="tryout-description"
-            >
-              Deskripsi
-            </FieldLabel>
-            <FieldTextarea
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`}
-              disabled={identityDisabled}
-              id="tryout-description"
-              onChange={(event) => onDescriptionChange(event.target.value)}
-              placeholder="Contoh: Simulasi UTBK dengan tujuh subtest."
-              value={draft.description}
-            />
-          </Field>
-          <TryoutBannerField
-            bannerMediaId={draft.bannerMediaId}
-            disabled={identityDisabled}
-            onChange={onBannerChange}
-          />
-        </div>
-        {mode === "published" ? (
-          <div className="flex justify-end pt-1">
-            <Button
-              className="w-full"
-              disabled={metadataSaving || !draft.title.trim()}
-              onClick={onSaveMetadata}
-              variant="brand"
-            >
-              {metadataSaving ? "Menyimpan…" : "Simpan"}
-            </Button>
-          </div>
-        ) : null}
-      </ReferenceSurface>
+        {informationCard}
+      </div>
       {onCreate ? (
         <Button
           aria-busy={saving}
           aria-label="Buat Tryout"
-          className="mt-4 w-full"
+          className={
+            presentation === "dialog"
+              ? "h-[5.5rem] w-full rounded-3xl text-2xl sm:rounded-[1.5rem] sm:text-2xl"
+              : "mt-4 w-full"
+          }
           disabled={saving || !draft.title.trim()}
           onClick={onCreate}
           type="button"
           variant="brand"
         >
-          <Save />
+          <Save className={presentation === "dialog" ? "size-6" : undefined} />
           {saving ? "Membuat…" : "Buat"}
         </Button>
       ) : null}
@@ -701,12 +840,25 @@ type TryoutSubtestEditorProps = {
   ) => void;
   onBankPageNext: () => void;
   onBankSearchChange: (search: string) => void;
+  onImport: (
+    subtest: SubjectCode,
+    request: TryoutQuestionImportRequest,
+  ) => Promise<TryoutQuestionImportOutcome>;
+  onMoveQuestion: (
+    subtest: SubjectCode,
+    snapshotId: string,
+    direction: "up" | "down",
+  ) => void;
   onQuestionPageChange: (page: number) => void;
   onQuestionSearchChange: (search: string) => void;
+  onRemoveQuestion: (subtest: SubjectCode, snapshotId: string) => void;
   onSelectBank: (bankId: string) => void;
-  onToggleQuestion: (question: SourceQuestion) => void;
+  onUpdateQuestion: (
+    subtest: SubjectCode,
+    snapshotId: string,
+    change: TryoutQuestionChange,
+  ) => void;
   onUpdateSection: (change: Partial<TestDraft>) => void;
-  selectedSourceQuestionIdsSet: Set<string>;
   sourceBankLoading: boolean;
   sourceBankSearch: string;
   sourceBankTotal: number;
@@ -719,592 +871,505 @@ type TryoutSubtestEditorProps = {
   saving: boolean;
 };
 
-function TryoutSourceQuestionCard({
-  activeDirectQuestions,
-  onPreviewQuestion,
-  onToggleQuestion,
-  question,
-  selectedSourceQuestionIdsSet,
-  saving,
-  locked,
-}: {
-  activeDirectQuestions: DirectQuestionDraft[];
-  locked: boolean;
-  onPreviewQuestion: (question: SourceQuestion) => void;
-  onToggleQuestion: (question: SourceQuestion) => void;
-  question: SourceQuestion;
-  selectedSourceQuestionIdsSet: Set<string>;
-  saving: boolean;
-}) {
-  const selected = activeDirectQuestions.some(
-    (candidate) => candidate.sourceQuestionId === question.id,
-  );
-  const selectedInOtherSection =
-    !selected && selectedSourceQuestionIdsSet.has(question.id);
-  const checkboxId = `source-question-${question.id}`;
-
-  return (
-    <article
-      className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`}
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <Checkbox
-          aria-label={
-            selected
-              ? `Hapus pilihan ${question.prompt}`
-              : `Pilih ${question.prompt}`
-          }
-          checked={selected}
-          disabled={saving || locked || selectedInOtherSection}
-          id={checkboxId}
-          onCheckedChange={() => onToggleQuestion(question)}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <label
-              className="min-w-0 flex-1 cursor-pointer overflow-hidden"
-              htmlFor={checkboxId}
-            >
-              <div className="flex flex-wrap gap-2">
-                <MentorBadge size="compact" tone="category">
-                  {question.subjectCode}
-                </MentorBadge>
-                <MentorBadge size="compact" tone="neutral">
-                  {difficultyLabel(question.difficulty)}
-                </MentorBadge>
-                <MentorBadge
-                  size="compact"
-                  tone={
-                    question.questionType === "multiple_choice"
-                      ? "attention"
-                      : "neutral"
-                  }
-                >
-                  {questionTypeLabel(question.questionType)}
-                </MentorBadge>
-              </div>
-              <p
-                className="mt-2 block w-full min-w-0 max-w-[60ch] truncate text-sm leading-6 text-secondary-900"
-                title={question.prompt}
-              >
-                {question.prompt}
-              </p>
-            </label>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-label={`Lihat pratinjau soal ${question.subjectCode}`}
-                    disabled={saving}
-                    onClick={() => onPreviewQuestion(question)}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <Eye />
-              </TooltipTrigger>
-              <TooltipContent>Preview soal</TooltipContent>
-            </Tooltip>
-          </div>
-          {selectedInOtherSection ? (
-            <p className="mt-2 text-xs font-semibold text-secondary-500">
-              Dipilih di subtest lain
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function TryoutSourceBankPicker({
-  activeBrowseBank,
-  activeSection,
-  browseBankId,
-  draft,
-  guardExternalNavigation,
-  onBankPageNext,
-  onBankSearchChange,
-  onSelectBank,
-  sourceBankLoading,
-  sourceBankSearch,
-  sourceBankTotal,
-  sourceBanks,
-  readOnly,
-  saving,
-}: Pick<
-  TryoutSubtestEditorProps,
-  | "activeBrowseBank"
-  | "activeSection"
-  | "browseBankId"
-  | "draft"
-  | "guardExternalNavigation"
-  | "onBankPageNext"
-  | "onBankSearchChange"
-  | "onSelectBank"
-  | "readOnly"
-  | "sourceBankLoading"
-  | "sourceBankSearch"
-  | "sourceBankTotal"
-  | "sourceBanks"
-  | "saving"
->) {
-  return (
-    <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
-      <Field>
-        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
-          Bank Soal terpilih
-          <RequiredMark />
-        </FieldLabel>
-        <Popover>
-          <PopoverTrigger
-            disabled={saving || readOnly || draft.locked}
-            render={
-              <Button
-                aria-haspopup="listbox"
-                className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`}
-                variant="reference"
-              />
-            }
-          >
-            <span className="min-w-0 truncate">
-              {activeBrowseBank?.title ?? "Pilih Bank Soal"}
-            </span>
-            <ChevronDown />
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-[min(30rem,calc(100vw-2rem))] gap-3"
-          >
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-              <FieldInput
-                aria-label="Cari Bank Soal"
-                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`}
-                disabled={saving || readOnly}
-                onChange={(event) => onBankSearchChange(event.target.value)}
-                placeholder="Cari judul, folder, atau kategori…"
-                value={sourceBankSearch}
-              />
-            </div>
-            {sourceBankLoading ? (
-              <p className="px-2 text-xs text-secondary-500">
-                Memuat Bank Soal…
-              </p>
-            ) : null}
-            <div
-              aria-label="Bank Soal sumber"
-              className="grid max-h-72 gap-1 overflow-y-auto"
-              role="listbox"
-            >
-              <SourceBankList
-                activeSectionSubtest={activeSection.subtest}
-                browseBankId={browseBankId}
-                disabled={saving || readOnly || draft.locked}
-                guardExternalNavigation={guardExternalNavigation}
-                onSelectBank={onSelectBank}
-                sourceBanks={sourceBanks}
-              />
-            </div>
-            {sourceBankTotal > sourceBanks.length ? (
-              <Button
-                className="w-full"
-                disabled={saving || readOnly || sourceBankLoading}
-                onClick={onBankPageNext}
-                size="sm"
-                variant="reference"
-              >
-                {sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}
-              </Button>
-            ) : null}
-          </PopoverContent>
-        </Popover>
-      </Field>
-    </ReferenceSurface>
-  );
-}
-
-function TryoutSourceQuestionList({
-  activeBrowseBank,
-  activeDirectQuestions,
-  activeSection,
-  activeSourceQuestions,
-  browseBankId,
-  draft,
-  onPreviewQuestion,
-  onQuestionPageChange,
-  onQuestionSearchChange,
-  onToggleQuestion,
-  onUpdateSection,
-  selectedSourceQuestionIdsSet,
-  sourceQuestionLoading,
-  sourceQuestionPage,
-  sourceQuestionSearch,
-  sourceQuestionTotal,
-  readOnly,
-  saving,
-}: Pick<
-  TryoutSubtestEditorProps,
-  | "activeBrowseBank"
-  | "activeDirectQuestions"
-  | "activeSection"
-  | "activeSourceQuestions"
-  | "browseBankId"
-  | "draft"
-  | "onQuestionPageChange"
-  | "onQuestionSearchChange"
-  | "onToggleQuestion"
-  | "onUpdateSection"
-  | "readOnly"
-  | "selectedSourceQuestionIdsSet"
-  | "sourceQuestionLoading"
-  | "sourceQuestionPage"
-  | "sourceQuestionSearch"
-  | "sourceQuestionTotal"
-  | "saving"
-> & { onPreviewQuestion: (question: SourceQuestion) => void }) {
-  const sourceQuestionPageCount = Math.max(
-    1,
-    Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE),
-  );
-  const selectedCount = activeDirectQuestions.length;
-  const moveSelectedQuestion = (index: number, direction: "up" | "down") => {
-    const nextIndex = direction === "up" ? index - 1 : index + 1;
-    if (
-      nextIndex < 0 ||
-      nextIndex >= activeDirectQuestions.length ||
-      readOnly ||
-      draft.locked ||
-      saving
-    )
-      return;
-    const nextQuestions = [...activeDirectQuestions];
-    const [moved] = nextQuestions.splice(index, 1);
-    if (!moved) return;
-    nextQuestions.splice(nextIndex, 0, moved);
-    onUpdateSection({ directQuestions: nextQuestions });
-  };
-  const removeSelectedQuestion = (sourceQuestionId: string) => {
-    if (readOnly || draft.locked || saving) return;
-    onUpdateSection({
-      directQuestions: activeDirectQuestions.filter(
-        (question) => question.sourceQuestionId !== sourceQuestionId,
-      ),
-    });
-  };
-
-  return (
-    <ReferenceSurface className="min-w-0 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-5 mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-secondary-900">
-            Daftar Soal
-          </h3>
-        </div>
-        <MentorBadge
-          size="compact"
-          tone={selectedCount ? "category" : "neutral"}
-        >
-          {selectedCount} terpilih
-        </MentorBadge>
-      </div>
-      {/* {selectedCount ? ( */}
-      {/*   <section */}
-      {/*     aria-labelledby={`selected-questions-${activeSection.subtest}`} */}
-      {/*     className="grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3" */}
-      {/*   > */}
-      {/*     <div className="flex flex-wrap items-center justify-between gap-2"> */}
-      {/*       <h4 */}
-      {/*         className="text-sm font-semibold text-secondary-900" */}
-      {/*         id={`selected-questions-${activeSection.subtest}`} */}
-      {/*       > */}
-      {/*         Urutan soal di subtest */}
-      {/*       </h4> */}
-      {/*       {!readOnly ? ( */}
-      {/*         <span className="text-xs text-secondary-500"> */}
-      {/*           Gunakan tombol naik/turun untuk mengatur urutan. */}
-      {/*         </span> */}
-      {/*       ) : null} */}
-      {/*     </div> */}
-      {/*     <ol */}
-      {/*       aria-label={`Urutan soal subtest ${activeSection.subtest}`} */}
-      {/*       className="grid gap-2" */}
-      {/*     > */}
-      {/*       {activeDirectQuestions.map((question, index) => ( */}
-      {/*         <li */}
-      {/*           className="flex min-w-0 items-center gap-2 rounded-xl border border-primary-100 bg-white px-3 py-2" */}
-      {/*           key={question.sourceQuestionId} */}
-      {/*         > */}
-      {/*           <span */}
-      {/*             aria-hidden="true" */}
-      {/*             className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-800" */}
-      {/*           > */}
-      {/*             {index + 1} */}
-      {/*           </span> */}
-      {/*           <span */}
-      {/*             className="min-w-0 flex-1 truncate text-sm text-secondary-800" */}
-      {/*             title={question.prompt} */}
-      {/*           > */}
-      {/*             {question.prompt || "Soal tanpa pertanyaan"} */}
-      {/*           </span> */}
-      {/*           {question.questionType === "multiple_choice" ? ( */}
-      {/*             <MentorBadge size="compact" tone="attention"> */}
-      {/*               Beberapa jawaban */}
-      {/*             </MentorBadge> */}
-      {/*           ) : null} */}
-      {/*           {!readOnly ? ( */}
-      {/*             <div className="flex shrink-0 items-center gap-0.5"> */}
-      {/*               <Button */}
-      {/*                 aria-label={`Pindah soal ${index + 1} ke atas`} */}
-      {/*                 disabled={draft.locked || saving || index === 0} */}
-      {/*                 onClick={() => moveSelectedQuestion(index, "up")} */}
-      {/*                 size="icon-sm" */}
-      {/*                 type="button" */}
-      {/*                 variant="ghost" */}
-      {/*               > */}
-      {/*                 <ArrowUp className="size-3.5" /> */}
-      {/*               </Button> */}
-      {/*               <Button */}
-      {/*                 aria-label={`Pindah soal ${index + 1} ke bawah`} */}
-      {/*                 disabled={ */}
-      {/*                   draft.locked || saving || index === selectedCount - 1 */}
-      {/*                 } */}
-      {/*                 onClick={() => moveSelectedQuestion(index, "down")} */}
-      {/*                 size="icon-sm" */}
-      {/*                 type="button" */}
-      {/*                 variant="ghost" */}
-      {/*               > */}
-      {/*                 <ArrowDown className="size-3.5" /> */}
-      {/*               </Button> */}
-      {/*               <Button */}
-      {/*                 aria-label={`Hapus soal ${index + 1} dari subtest`} */}
-      {/*                 disabled={draft.locked || saving} */}
-      {/*                 onClick={() => */}
-      {/*                   removeSelectedQuestion(question.sourceQuestionId) */}
-      {/*                 } */}
-      {/*                 size="icon-sm" */}
-      {/*                 type="button" */}
-      {/*                 variant="ghost" */}
-      {/*               > */}
-      {/*                 <Trash2 className="size-3.5" /> */}
-      {/*               </Button> */}
-      {/*             </div> */}
-      {/*           ) : null} */}
-      {/*         </li> */}
-      {/*       ))} */}
-      {/*     </ol> */}
-      {/*   </section> */}
-      {/* ) : null} */}
-      {!readOnly ? (
-        <>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-            <FieldInput
-              aria-label="Cari soal Ready"
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`}
-              disabled={saving || !browseBankId}
-              onChange={(event) => onQuestionSearchChange(event.target.value)}
-              placeholder={
-                activeBrowseBank
-                  ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…`
-                  : "Pilih Bank Soal terlebih dahulu"
-              }
-              value={sourceQuestionSearch}
-            />
-          </div>
-          {sourceQuestionLoading ? (
-            <p className="mt-3 text-xs text-secondary-500">
-              Memuat soal Ready…
-            </p>
-          ) : null}
-          {activeSourceQuestions.length ? (
-            <div className="mt-4 grid gap-3">
-              {activeSourceQuestions.map((question) => (
-                <TryoutSourceQuestionCard
-                  activeDirectQuestions={activeDirectQuestions}
-                  locked={draft.locked}
-                  onPreviewQuestion={onPreviewQuestion}
-                  onToggleQuestion={onToggleQuestion}
-                  question={question}
-                  selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
-                  key={question.id}
-                  saving={saving}
-                />
-              ))}
-            </div>
-          ) : (
-            <ReferenceSurface
-              className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500"
-              variant="inset"
-            >
-              {browseBankId
-                ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.`
-                : "Pilih Bank Soal untuk mulai memilih."}
-            </ReferenceSurface>
-          )}
-          {browseBankId && sourceQuestionTotal > 0 ? (
-            <div
-              aria-busy={sourceQuestionLoading}
-              className="mt-4 flex justify-center pt-4 sm:justify-end"
-            >
-              <PaginationControls
-                onPageChange={onQuestionPageChange}
-                page={sourceQuestionPage}
-                pageCount={sourceQuestionPageCount}
-              />
-            </div>
-          ) : null}
-        </>
-      ) : selectedCount === 0 ? (
-        <ReferenceSurface
-          className="mt-4 px-4 py-8 text-center text-sm leading-6 text-secondary-500"
-          variant="inset"
-        >
-          Belum ada soal yang tersimpan untuk subtest ini.
-        </ReferenceSurface>
-      ) : null}
-    </ReferenceSurface>
-  );
-}
-
 function TryoutSavedQuestionList({
   activeDirectQuestions,
   activeSection,
 }: Pick<TryoutSubtestEditorProps, "activeDirectQuestions" | "activeSection">) {
-  if (!activeDirectQuestions.length) {
-    return (
-      <p className="text-sm leading-6 text-secondary-500">
-        Belum ada soal yang tersimpan untuk subtest ini.
-      </p>
-    );
-  }
-
   return (
-    <ol
-      aria-label={`Daftar soal subtest ${activeSection.subtest}`}
-      className="m-0 grid list-none divide-y divide-primary-100 border-y border-primary-100 p-0"
+    <section
+      aria-label={`Daftar soal subtes ${activeSection.subtest}`}
+      className="grid gap-4"
     >
-      {activeDirectQuestions.map((question, index) => (
-        <li
-          className="flex min-w-0 items-start gap-3 py-3"
-          key={question.sourceQuestionId}
+      <h2 className="text-xl font-semibold text-secondary-900">Soal</h2>
+      {activeDirectQuestions.length === 0 ? (
+        <ReferenceSurface
+          className="px-4 py-10 text-center text-sm leading-6 text-secondary-500"
+          variant="inset"
         >
-          <span
-            aria-hidden="true"
-            className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-800"
-          >
-            {index + 1}
-          </span>
-          <span
-            className="min-w-0 flex-1 break-words text-sm leading-6 text-secondary-900"
-            title={question.prompt}
-          >
-            {question.prompt || "Soal tanpa pertanyaan"}
-          </span>
-        </li>
-      ))}
-    </ol>
+          Belum ada soal di subtes ini.
+        </ReferenceSurface>
+      ) : (
+        <div className="grid gap-4">
+          {activeDirectQuestions.map((question, index) => {
+            const questionKey =
+              "snapshotId" in question
+                ? question.snapshotId
+                : `${question.sourceQuestionId}-${index}`;
+            const difficulty = question.difficulty ?? "medium";
+            const difficultyLabel =
+              difficulty === "easy"
+                ? "Mudah"
+                : difficulty === "hard"
+                  ? "Sulit"
+                  : difficulty === "adaptive"
+                    ? "Adaptif"
+                    : "Sedang";
+            const questionTypeLabel =
+              question.questionType === "multiple_choice"
+                ? "Pilihan ganda kompleks"
+                : "Pilihan ganda";
+            const options = question.options ?? [];
+
+            return (
+              <ReferenceSurface
+                as="article"
+                className="p-5 sm:p-6"
+                key={questionKey}
+              >
+                <div className="flex flex-col items-start gap-4 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
+                    {index + 1}
+                  </span>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <MentorBadge size="xs" tone="category">
+                      {questionTypeLabel}
+                    </MentorBadge>
+                    <MentorBadge size="xs" tone="category">
+                      {difficultyLabel}
+                    </MentorBadge>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4">
+                  <div>
+                    <p className="break-words text-base font-medium leading-7 text-secondary-900">
+                      {question.prompt || (
+                        <span className="italic text-secondary-400">
+                          Pertanyaan belum diisi.
+                        </span>
+                      )}
+                    </p>
+                    {question.promptAssetId ? (
+                      <div className="mt-3 max-w-md overflow-hidden rounded-xl border border-primary-100">
+                        <MediaAssetPreview
+                          alt={`Gambar soal ${index + 1}`}
+                          assetId={question.promptAssetId}
+                          className="max-h-48 bg-white"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  {options.length ? (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {options.map((option, optionIndex) => {
+                        const choiceLabel =
+                          option.choiceKey ||
+                          String.fromCharCode(65 + optionIndex);
+                        const correct = option.isCorrect === true;
+                        const optionKey =
+                          option.snapshotOptionId ||
+                          ("sourceQuestionOptionId" in option
+                            ? option.sourceQuestionOptionId
+                            : undefined) ||
+                          `${questionKey}-choice-${optionIndex}`;
+
+                        return (
+                          <div
+                            className={
+                              correct
+                                ? "flex min-w-0 items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50/60 p-3 text-sm font-medium text-primary-950"
+                                : "flex min-w-0 items-start gap-2.5 rounded-xl border border-secondary-100 bg-secondary-50/40 p-3 text-sm text-secondary-700"
+                            }
+                            key={optionKey}
+                          >
+                            <span
+                              className={
+                                correct
+                                  ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold uppercase text-white"
+                                  : "flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary-200 text-xs font-bold uppercase text-secondary-700"
+                              }
+                            >
+                              {choiceLabel}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="break-words leading-5">
+                                {option.content || (
+                                  <span className="italic text-secondary-400">
+                                    Pilihan belum diisi.
+                                  </span>
+                                )}
+                              </p>
+                              {option.assetId ? (
+                                <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
+                                  <MediaAssetPreview
+                                    alt={`Media pilihan ${choiceLabel}`}
+                                    assetId={option.assetId}
+                                    className="max-h-24 bg-white"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm leading-6 text-secondary-500">
+                      Pilihan jawaban belum tersedia.
+                    </p>
+                  )}
+                  {question.explanation || question.explanationAssetId ? (
+                    <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700">
+                      <span className="font-bold text-primary-900">
+                        Pembahasan:{" "}
+                      </span>
+                      {question.explanation}
+                      {question.explanationAssetId ? (
+                        <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
+                          <MediaAssetPreview
+                            alt="Gambar pembahasan"
+                            assetId={question.explanationAssetId}
+                            className="max-h-28 bg-white"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </ReferenceSurface>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
-function TryoutQuestionSourcePanel(
-  props: TryoutSubtestEditorProps & {
-    onPreviewQuestion: (question: SourceQuestion) => void;
-  },
-) {
-  const { readOnly } = props;
+function TryoutQuestionSourcePanel(props: TryoutSubtestEditorProps) {
+  const { activeDirectQuestions, activeSection, readOnly } = props;
+  const packageBound = Boolean(activeSection.packageVersionId);
+
   return (
-    <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
+    <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 sm:p-7">
       <div
-        aria-label="Sumber soal"
+        aria-label="Soal subtes"
         className="grid gap-1"
         id="question-source-chooser"
       >
         <h2 className="text-xl font-semibold text-secondary-900">
-          {readOnly ? "Daftar soal" : "Pilih bank soal"}
+          {readOnly ? "Daftar soal" : "Soal di subtes"}
         </h2>
       </div>
-      <div className="grid gap-5">
-        {!readOnly ? <TryoutSourceBankPicker {...props} /> : null}
-        {readOnly ? (
-          <TryoutSavedQuestionList
-            activeDirectQuestions={props.activeDirectQuestions}
-            activeSection={props.activeSection}
-          />
-        ) : (
-          <TryoutSourceQuestionList {...props} />
-        )}
-      </div>
+      {packageBound && !readOnly ? (
+        <p className="text-sm leading-6 text-secondary-600" role="status">
+          Konten subtes ini dikelola melalui Paket Soal. Impor langsung dari
+          Bank Soal tidak tersedia di sini.
+        </p>
+      ) : readOnly ? (
+        <TryoutSavedQuestionList
+          activeDirectQuestions={activeDirectQuestions}
+          activeSection={activeSection}
+        />
+      ) : (
+        <TryoutSectionQuestionManager
+          activeBrowseBank={props.activeBrowseBank}
+          activeSourceQuestions={props.activeSourceQuestions}
+          browseBankId={props.browseBankId}
+          draftLocked={props.draft.locked}
+          guardExternalNavigation={props.guardExternalNavigation}
+          onBankPageNext={props.onBankPageNext}
+          onBankSearchChange={props.onBankSearchChange}
+          onImport={(request) => props.onImport(activeSection.subtest, request)}
+          onMoveQuestion={(snapshotId, direction) =>
+            props.onMoveQuestion(activeSection.subtest, snapshotId, direction)
+          }
+          onQuestionPageChange={props.onQuestionPageChange}
+          onQuestionSearchChange={props.onQuestionSearchChange}
+          onRemoveQuestion={(snapshotId) =>
+            props.onRemoveQuestion(activeSection.subtest, snapshotId)
+          }
+          onSelectBank={props.onSelectBank}
+          onUpdateQuestion={(snapshotId, change) =>
+            props.onUpdateQuestion(activeSection.subtest, snapshotId, change)
+          }
+          packageVersionId={activeSection.packageVersionId}
+          questions={activeDirectQuestions}
+          readOnly={readOnly}
+          saving={props.saving}
+          sectionSubject={activeSection.subtest}
+          sourceBankLoading={props.sourceBankLoading}
+          sourceBankSearch={props.sourceBankSearch}
+          sourceBankTotal={props.sourceBankTotal}
+          sourceBanks={props.sourceBanks}
+          sourceQuestionLoading={props.sourceQuestionLoading}
+          sourceQuestionPage={props.sourceQuestionPage}
+          sourceQuestionSearch={props.sourceQuestionSearch}
+          sourceQuestionTotal={props.sourceQuestionTotal}
+        />
+      )}
     </ReferenceSurface>
   );
 }
 
-function TryoutSourceQuestionPreview({
-  question,
-  onClose,
+function TryoutSubtestMetadataField({
+  canSave = true,
+  children,
+  disabled,
+  editing,
+  label,
+  onCancel,
+  onEdit,
+  onSave,
+  required = false,
+  value,
 }: {
-  question: SourceQuestion | null;
-  onClose: () => void;
+  canSave?: boolean;
+  children: ReactNode;
+  disabled: boolean;
+  editing: boolean;
+  label: string;
+  onCancel: () => void;
+  onEdit: () => void;
+  onSave: () => void;
+  required?: boolean;
+  value: ReactNode;
 }) {
   return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      open={Boolean(question)}
-    >
-      <DialogContent
-        className="max-h-[calc(100svh-2rem)] sm:max-w-2xl"
-        variant="default"
-      >
-        <DialogHeader>
-          <DialogTitle>Preview soal</DialogTitle>
-        </DialogHeader>
-        {question ? (
-          <div className="grid gap-5">
-            <p className="break-words text-base leading-7 text-secondary-900">
-              {question.prompt || "Pertanyaan belum tersedia."}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <MentorBadge size="compact" tone="category">
-                {questionTypeLabel(question.questionType)}
-              </MentorBadge>
-              <MentorBadge size="compact" tone="neutral">
-                {difficultyLabel(question.difficulty)}
-              </MentorBadge>
-            </div>
-            <ol
-              aria-label="Pilihan jawaban"
-              className="m-0 grid list-none gap-3 p-0"
+    <div className="grid min-w-0 gap-2">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
+          {label}
+          {required ? <RequiredMark /> : null}
+        </p>
+        {editing ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              aria-label={`Simpan ${label.toLowerCase()}`}
+              disabled={disabled || !canSave}
+              onClick={onSave}
+              size="icon"
+              type="button"
+              variant="ghost"
             >
-              {question.choices.map((choice, index) => (
-                <li
-                  className={`flex min-w-0 items-start gap-3 rounded-xl border px-3 py-3 ${question.correctChoiceIds?.includes(choice.id) ? "border-success-200 bg-success-50/55" : "border-primary-100 bg-primary-50/45"}`}
-                  key={choice.id}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-primary-800"
-                  >
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">
-                    {choice.text}
-                    {question.correctChoiceIds?.includes(choice.id) ? (
-                      <span className="ml-2 text-xs font-semibold text-success-700">
-                        Kunci
-                      </span>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ol>
+              <Check aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={`Batalkan perubahan ${label.toLowerCase()}`}
+              onClick={onCancel}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <X aria-hidden="true" />
+            </Button>
           </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+        ) : disabled ? null : (
+          <Button
+            aria-label={`Edit ${label.toLowerCase()}`}
+            onClick={onEdit}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <Pencil aria-hidden="true" />
+          </Button>
+        )}
+      </div>
+      {editing ? (
+        children
+      ) : (
+        <div className="text-base leading-7 text-secondary-800">{value}</div>
+      )}
+    </div>
+  );
+}
+
+function TryoutSubtestMetadataCard({
+  activeSection,
+  draft,
+  onUpdateSection,
+  readOnly,
+  saving,
+}: Pick<
+  TryoutSubtestEditorProps,
+  "activeSection" | "draft" | "onUpdateSection" | "readOnly" | "saving"
+>) {
+  const canEdit = !readOnly && !draft.locked && !saving;
+  const [editingDuration, setEditingDuration] = useState(false);
+  const [durationDraft, setDurationDraft] = useState(
+    String(activeSection.durationMinutes),
+  );
+  const [editingScoringMethod, setEditingScoringMethod] = useState(false);
+  const [scoringMethodDraft, setScoringMethodDraft] = useState(
+    scoringMethodForSection(activeSection),
+  );
+  const [editingInstructions, setEditingInstructions] = useState(false);
+  const [instructionsDraft, setInstructionsDraft] = useState(
+    activeSection.instructions,
+  );
+  const subjectName =
+    kaptenSubjects.find((subject) => subject.code === activeSection.subtest)
+      ?.name ?? activeSection.subtest;
+  const durationValue = Number(durationDraft);
+  const durationIsValid = Number.isInteger(durationValue) && durationValue > 0;
+  const sectionId = activeSection.subtest.toLowerCase();
+
+  const cancelDurationEdit = () => {
+    setDurationDraft(String(activeSection.durationMinutes));
+    setEditingDuration(false);
+  };
+  const cancelScoringMethodEdit = () => {
+    setScoringMethodDraft(scoringMethodForSection(activeSection));
+    setEditingScoringMethod(false);
+  };
+  const cancelInstructionsEdit = () => {
+    setInstructionsDraft(activeSection.instructions);
+    setEditingInstructions(false);
+  };
+
+  return (
+    <ReferenceSurface
+      as="section"
+      aria-labelledby="tryout-subtest-title"
+      className="grid gap-6 p-5 sm:p-7"
+    >
+      <h1
+        className="text-2xl font-semibold tracking-[-0.025em] text-secondary-900 sm:text-3xl"
+        id="tryout-subtest-title"
+      >
+        {subjectName}
+      </h1>
+      <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+        <TryoutSubtestMetadataField
+          canSave={durationIsValid}
+          disabled={!canEdit}
+          editing={editingDuration}
+          label="Durasi"
+          onCancel={cancelDurationEdit}
+          required
+          onEdit={() => {
+            setDurationDraft(String(activeSection.durationMinutes));
+            setEditingDuration(true);
+          }}
+          onSave={() => {
+            if (!durationIsValid) return;
+            onUpdateSection({ durationMinutes: durationValue });
+            setEditingDuration(false);
+          }}
+          value={
+            activeSection.durationMinutes > 0 ? (
+              `${activeSection.durationMinutes} menit`
+            ) : (
+              <span className="italic text-secondary-400">Belum diatur</span>
+            )
+          }
+        >
+          <div className="relative">
+            <FieldInput
+              aria-label="Durasi dalam menit"
+              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`}
+              disabled={!canEdit}
+              id={`tryout-subtest-duration-${sectionId}`}
+              min={1}
+              onChange={(event) => setDurationDraft(event.target.value)}
+              required
+              type="number"
+              value={durationDraft}
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">
+              menit
+            </span>
+          </div>
+          {!durationIsValid ? (
+            <p className="text-xs leading-5 text-danger-500" role="alert">
+              Masukkan durasi dalam jumlah menit yang lebih dari nol.
+            </p>
+          ) : null}
+        </TryoutSubtestMetadataField>
+
+        <TryoutSubtestMetadataField
+          disabled={!canEdit}
+          editing={editingScoringMethod}
+          label="Metode penilaian"
+          onCancel={cancelScoringMethodEdit}
+          onEdit={() => {
+            setScoringMethodDraft(scoringMethodForSection(activeSection));
+            setEditingScoringMethod(true);
+          }}
+          required
+          onSave={() => {
+            onUpdateSection({
+              scoringConfig:
+                scoringMethodDraft === CBT_IRT_2PL_METHOD
+                  ? {
+                      estimatorVersion: "bounded-map-v1",
+                      method: CBT_IRT_2PL_METHOD,
+                      modelVersion: "irt-2pl-cbt-v1",
+                      normalizationVersion: "logistic-0-100-v1",
+                    }
+                  : {
+                      correctAnswerPoints: 1,
+                      method: CBT_FIXED_POINTS_METHOD,
+                      unansweredPoints: 0,
+                      wrongAnswerPoints: 0,
+                    },
+            });
+            setEditingScoringMethod(false);
+          }}
+          value={
+            scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD
+              ? "IRT"
+              : "Poin tetap"
+          }
+        >
+          <OptionSet
+            label="Metode penilaian"
+            onValueChange={setScoringMethodDraft}
+            options={[
+              {
+                label: "Poin tetap",
+                value: CBT_FIXED_POINTS_METHOD,
+              },
+              {
+                label: "IRT",
+                tooltip:
+                  "IRT membutuhkan kalibrasi yang disetujui untuk seluruh soal sebelum rilis.",
+                value: CBT_IRT_2PL_METHOD,
+              },
+            ]}
+            required
+            value={scoringMethodDraft}
+          />
+        </TryoutSubtestMetadataField>
+
+        <div className="sm:col-span-2">
+          <TryoutSubtestMetadataField
+            disabled={!canEdit}
+            editing={editingInstructions}
+            label="Instruksi peserta"
+            onCancel={cancelInstructionsEdit}
+            onEdit={() => {
+              setInstructionsDraft(activeSection.instructions);
+              setEditingInstructions(true);
+            }}
+            onSave={() => {
+              onUpdateSection({ instructions: instructionsDraft });
+              setEditingInstructions(false);
+            }}
+            value={
+              activeSection.instructions.trim() ? (
+                <p className="whitespace-pre-wrap">
+                  {activeSection.instructions}
+                </p>
+              ) : (
+                <span className="italic text-secondary-400">
+                  Belum ada instruksi peserta.
+                </span>
+              )
+            }
+          >
+            <FieldTextarea
+              aria-label="Instruksi peserta"
+              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28`}
+              disabled={!canEdit}
+              id={`tryout-subtest-instructions-${sectionId}`}
+              onChange={(event) => setInstructionsDraft(event.target.value)}
+              placeholder="Tuliskan arahan untuk peserta sebelum mengerjakan subtes."
+              value={instructionsDraft}
+            />
+          </TryoutSubtestMetadataField>
+        </div>
+      </div>
+    </ReferenceSurface>
   );
 }
 
@@ -1318,12 +1383,14 @@ function TryoutSubtestEditor({
   guardExternalNavigation,
   onBankPageNext,
   onBankSearchChange,
+  onImport,
+  onMoveQuestion,
   onQuestionPageChange,
   onQuestionSearchChange,
+  onRemoveQuestion,
   onSelectBank,
-  onToggleQuestion,
+  onUpdateQuestion,
   onUpdateSection,
-  selectedSourceQuestionIdsSet,
   sourceBankLoading,
   sourceBankSearch,
   sourceBankTotal,
@@ -1335,179 +1402,127 @@ function TryoutSubtestEditor({
   readOnly,
   saving,
 }: TryoutSubtestEditorProps) {
-  const [previewQuestion, setPreviewQuestion] = useState<SourceQuestion | null>(
-    null,
-  );
-  const [activeTab, setActiveTab] = useState<SubtestDetailTab>("info");
+  const [editingQuestions, setEditingQuestions] = useState(false);
+  const [questionEditorMounted, setQuestionEditorMounted] = useState(false);
+  const packageBound = Boolean(activeSection.packageVersionId);
+  const canEditQuestions = !readOnly && !draft.locked && !packageBound;
+  const showQuestionEditor = editingQuestions && canEditQuestions;
 
-  const changeTab = (value: string) => {
-    if (value !== "info" && value !== "bank") return;
-    setActiveTab(value);
-  };
+  useEffect(() => {
+    if (!canEditQuestions) setEditingQuestions(false);
+  }, [canEditQuestions]);
+
+  const questionSourcePanel = (
+    <TryoutQuestionSourcePanel
+      activeBrowseBank={activeBrowseBank}
+      activeDirectQuestions={activeDirectQuestions}
+      activeSection={activeSection}
+      activeSourceQuestions={activeSourceQuestions}
+      browseBankId={browseBankId}
+      draft={draft}
+      guardExternalNavigation={guardExternalNavigation}
+      onBankPageNext={onBankPageNext}
+      onBankSearchChange={onBankSearchChange}
+      onImport={onImport}
+      onMoveQuestion={onMoveQuestion}
+      onQuestionPageChange={onQuestionPageChange}
+      onQuestionSearchChange={onQuestionSearchChange}
+      onRemoveQuestion={onRemoveQuestion}
+      onSelectBank={onSelectBank}
+      onUpdateQuestion={onUpdateQuestion}
+      onUpdateSection={onUpdateSection}
+      readOnly={readOnly}
+      sourceBankLoading={sourceBankLoading}
+      sourceBankSearch={sourceBankSearch}
+      sourceBankTotal={sourceBankTotal}
+      sourceBanks={sourceBanks}
+      sourceQuestionLoading={sourceQuestionLoading}
+      sourceQuestionPage={sourceQuestionPage}
+      sourceQuestionSearch={sourceQuestionSearch}
+      sourceQuestionTotal={sourceQuestionTotal}
+      saving={saving}
+    />
+  );
 
   return (
     <TooltipProvider>
-      <>
-        <Tabs
-          className="w-full min-w-0 gap-5"
-          onValueChange={changeTab}
-          value={activeTab}
-        >
-          <FullWidthLineTabsList aria-label="Bagian detail soal">
-            <FullWidthLineTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
-              value="info"
-            >
-              Informasi dasar
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
-              value="bank"
-            >
-              Pilih bank soal
-            </FullWidthLineTabsTrigger>
-          </FullWidthLineTabsList>
-          <TabsContent className="m-0" value="info">
-            <ReferenceSurface
-              as="section"
-              aria-labelledby="tryout-basic-info-title"
-              className="grid gap-5 p-5 sm:p-7"
-            >
-              <h2
-                className="text-xl font-semibold text-secondary-900"
-                id="tryout-basic-info-title"
-              >
-                Informasi dasar
-              </h2>
-              <div className="grid gap-5">
-                <Field>
-                  <FieldLabel
-                    className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-                    htmlFor={`duration-${activeSection.subtest}`}
-                  >
-                    Durasi <RequiredMark />
-                  </FieldLabel>
-                  <div className="relative">
-                    <FieldInput
-                      className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`}
-                      disabled={saving || readOnly || draft.locked}
-                      id={`duration-${activeSection.subtest}`}
-                      min="1"
-                      onChange={(event) =>
-                        onUpdateSection({
-                          durationMinutes: Number(event.target.value),
-                        })
-                      }
-                      required
-                      type="number"
-                      value={activeSection.durationMinutes}
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">
-                      menit
-                    </span>
-                  </div>
-                </Field>
-                <ReferenceSurface
-                  as="section"
-                  aria-label="Metode penilaian CBT"
-                  className="grid gap-4 p-4"
-                  variant="inset"
-                >
-                  <OptionSet
-                    label="Metode penilaian"
-                    onValueChange={(method) =>
-                      onUpdateSection({
-                        scoringConfig:
-                          method === CBT_IRT_2PL_METHOD
-                            ? {
-                                estimatorVersion: "bounded-map-v1",
-                                method: CBT_IRT_2PL_METHOD,
-                                modelVersion: "irt-2pl-cbt-v1",
-                                normalizationVersion: "logistic-0-100-v1",
-                              }
-                            : {
-                                correctAnswerPoints: 1,
-                                method: CBT_FIXED_POINTS_METHOD,
-                                unansweredPoints: 0,
-                                wrongAnswerPoints: 0,
-                              },
-                      })
-                    }
-                    options={[
-                      {
-                        disabled: readOnly,
-                        label: "Poin tetap",
-                        value: CBT_FIXED_POINTS_METHOD,
-                      },
-                      {
-                        disabled: readOnly,
-                        label: "IRT",
-                        tooltip:
-                          "IRT membutuhkan kalibrasi yang disetujui untuk seluruh soal sebelum rilis.",
-                        value: CBT_IRT_2PL_METHOD,
-                      },
-                    ]}
-                    required
-                    value={scoringMethodForSection(activeSection)}
-                  />
-                </ReferenceSurface>
-                <Field>
-                  <FieldLabel
-                    className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-                    htmlFor={`instruction-${activeSection.subtest}`}
-                  >
-                    Instruksi peserta
-                  </FieldLabel>
-                  <FieldTextarea
-                    className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32`}
-                    disabled={saving || readOnly || draft.locked}
-                    id={`instruction-${activeSection.subtest}`}
-                    onChange={(event) =>
-                      onUpdateSection({ instructions: event.target.value })
-                    }
-                    placeholder="Instruksi yang dibaca peserta sebelum Test dimulai."
-                    value={activeSection.instructions}
-                  />
-                </Field>
-              </div>
-            </ReferenceSurface>
-          </TabsContent>
-          <TabsContent className="m-0" value="bank">
-            <TryoutQuestionSourcePanel
-              activeBrowseBank={activeBrowseBank}
-              activeDirectQuestions={activeDirectQuestions}
-              activeSection={activeSection}
-              activeSourceQuestions={activeSourceQuestions}
-              browseBankId={browseBankId}
-              draft={draft}
-              guardExternalNavigation={guardExternalNavigation}
-              onBankPageNext={onBankPageNext}
-              onBankSearchChange={onBankSearchChange}
-              onPreviewQuestion={setPreviewQuestion}
-              onQuestionPageChange={onQuestionPageChange}
-              onQuestionSearchChange={onQuestionSearchChange}
-              onSelectBank={onSelectBank}
-              onToggleQuestion={onToggleQuestion}
-              onUpdateSection={onUpdateSection}
-              readOnly={readOnly}
-              selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
-              sourceBankLoading={sourceBankLoading}
-              sourceBankSearch={sourceBankSearch}
-              sourceBankTotal={sourceBankTotal}
-              sourceBanks={sourceBanks}
-              sourceQuestionLoading={sourceQuestionLoading}
-              sourceQuestionPage={sourceQuestionPage}
-              sourceQuestionSearch={sourceQuestionSearch}
-              sourceQuestionTotal={sourceQuestionTotal}
-              saving={saving}
-            />
-          </TabsContent>
-        </Tabs>
-        <TryoutSourceQuestionPreview
-          onClose={() => setPreviewQuestion(null)}
-          question={previewQuestion}
+      <div className="grid min-w-0 gap-5">
+        <TryoutSubtestMetadataCard
+          activeSection={activeSection}
+          draft={draft}
+          onUpdateSection={onUpdateSection}
+          readOnly={readOnly}
+          saving={saving}
         />
-      </>
+
+        {canEditQuestions ? (
+          <div className="flex justify-end">
+            <Button
+              aria-pressed={editingQuestions}
+              onClick={() => {
+                if (!editingQuestions) setQuestionEditorMounted(true);
+                setEditingQuestions((current) => !current);
+              }}
+              type="button"
+              variant={editingQuestions ? "brandOutline" : "brand"}
+            >
+              {editingQuestions ? (
+                <>
+                  <Check aria-hidden="true" />
+                  Selesai mengedit
+                </>
+              ) : (
+                <>
+                  <FilePenLine aria-hidden="true" />
+                  Edit Soal
+                </>
+              )}
+            </Button>
+          </div>
+        ) : null}
+
+        {canEditQuestions && questionEditorMounted ? (
+          <div className="min-w-0" hidden={!showQuestionEditor}>
+            {questionSourcePanel}
+          </div>
+        ) : null}
+
+        {!showQuestionEditor && packageBound && !readOnly
+          ? questionSourcePanel
+          : null}
+
+        {!showQuestionEditor && !(packageBound && !readOnly) ? (
+          <TryoutSavedQuestionList
+            activeDirectQuestions={activeDirectQuestions}
+            activeSection={activeSection}
+          />
+        ) : null}
+
+        {!readOnly &&
+        !draft.locked &&
+        scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
+        activeDirectQuestions.length > 0 ? (
+          <ReferenceSurface
+            className="flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-4 text-sm leading-6 text-secondary-700"
+            role="status"
+            variant="inset"
+          >
+            <CircleAlert
+              aria-hidden="true"
+              className="mt-1 size-4 shrink-0 text-primary-700"
+            />
+            <div>
+              <p className="font-semibold text-secondary-900">
+                Kalibrasi IRT belum tersedia
+              </p>
+              <p className="mt-1">
+                Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan
+                dengan IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
+              </p>
+            </div>
+          </ReferenceSurface>
+        ) : null}
+      </div>
     </TooltipProvider>
   );
 }
@@ -1519,6 +1534,11 @@ function tryoutSubtestEditorHref(
 ) {
   const href = `/mentor/tryout/${encodeURIComponent(id)}/soal/${encodeURIComponent(subtest)}`;
   return parentId ? `${href}?parent=${encodeURIComponent(parentId)}` : href;
+}
+
+function tryoutSubtestListHref(id: string, parentId?: string) {
+  const href = `/mentor/tryout/${encodeURIComponent(id)}?workspace=sections`;
+  return parentId ? `${href}&parent=${encodeURIComponent(parentId)}` : href;
 }
 
 function TryoutSubtestIndex({
@@ -1540,30 +1560,38 @@ function TryoutSubtestIndex({
   saving: boolean;
 }) {
   return (
-    <ReferenceSurface
-      as="section"
+    <section
       aria-labelledby="tryout-subtest-index-title"
-      className="grid mt-4 gap-5 p-5 sm:p-7"
+      className="mt-4 min-w-0"
     >
-      <div className="grid gap-1">
-        <h2
-          className="text-xl font-semibold text-secondary-900"
-          id="tryout-subtest-index-title"
-        >
-          Subtest Tryout
-        </h2>
-      </div>
+      <h2 className="sr-only" id="tryout-subtest-index-title">
+        Subtes Tryout
+      </h2>
       <ul
-        aria-label="Daftar subtest Tryout"
+        aria-label="Daftar subtes Tryout"
         className="m-0 grid list-none gap-3 p-0"
       >
         {draft.sections.map((section) => {
           const href = id
             ? tryoutSubtestEditorHref(id, section.subtest, parentId)
             : undefined;
+          const subjectName =
+            kaptenSubjects.find((subject) => subject.code === section.subtest)
+              ?.name ?? section.subtest;
+          const questionCount = section.directQuestions?.length ?? 0;
           const actionLabel = readOnly
-            ? `Lihat soal ${section.subtest}`
-            : `Edit soal ${section.subtest}`;
+            ? `Lihat detail subtes ${subjectName}`
+            : `Buka detail subtes ${subjectName}`;
+          const content = (
+            <span className="grid min-w-0 gap-0.5 text-left">
+              <span className="text-base font-semibold text-secondary-900">
+                {subjectName}
+              </span>
+              <span className="text-xs leading-5 text-secondary-500">
+                {section.subtest} · {questionCount} soal
+              </span>
+            </span>
+          );
           return (
             <li key={section.subtest}>
               {href ? (
@@ -1576,9 +1604,7 @@ function TryoutSubtestIndex({
                   render={<Link href={href} />}
                   variant="ghost"
                 >
-                  <span className="text-base font-semibold text-secondary-900">
-                    {section.subtest}
-                  </span>
+                  {content}
                   <ChevronRight
                     aria-hidden="true"
                     className="ml-auto size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5"
@@ -1592,9 +1618,7 @@ function TryoutSubtestIndex({
                   onClick={() => onOpenSubtest(section.subtest)}
                   variant="ghost"
                 >
-                  <span className="text-base font-semibold text-secondary-900">
-                    {section.subtest}
-                  </span>
+                  {content}
                   <ChevronRight
                     aria-hidden="true"
                     className="ml-auto size-5 shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5"
@@ -1605,7 +1629,7 @@ function TryoutSubtestIndex({
           );
         })}
       </ul>
-    </ReferenceSurface>
+    </section>
   );
 }
 
@@ -1807,6 +1831,7 @@ function useTryoutBuilderState({
           defaultReleasePolicy: "automatic_at_end",
           description: "",
           id: id ?? "baru",
+          isHidden: false,
           locked: false,
           sections: defaultSections(),
           status: "draft",
@@ -1903,46 +1928,39 @@ function useTryoutBuilderState({
     draft.sections.find((section) => section.subtest === activeCode) ??
     draft.sections[0]!;
   const activeDirectQuestions = activeSection.directQuestions ?? [];
-  const selectedSourceQuestionIdsSet = useMemo(() => {
-    const ids = new Set<string>();
-    draft.sections.forEach((section) => {
-      section.directQuestions?.forEach((question) =>
-        ids.add(question.sourceQuestionId),
-      );
-    });
-    return ids;
-  }, [draft.sections]);
 
   const sectionReadiness = useMemo(() => {
     return draft.sections.reduce<Record<SubjectCode, SectionReadiness>>(
       (acc, section) => {
         const questions = section.directQuestions ?? [];
         const hasDirectQuestions = Boolean(questions.length);
-        const isReady = directQuestionsReady(questions);
+        const missingIrtCalibration =
+          hasDirectQuestions &&
+          scoringMethodForSection(section) === CBT_IRT_2PL_METHOD;
+        const isReady =
+          directQuestionsReady(questions) && !missingIrtCalibration;
         acc[section.subtest] = {
-          detail: isReady
-            ? `${questions.length} soal ready`
-            : hasDirectQuestions
-              ? `${questions.length} soal (cek kelengkapan)`
-              : "Belum ada soal",
+          detail: missingIrtCalibration
+            ? `${questions.length} soal · kalibrasi IRT belum tersedia`
+            : isReady
+              ? `${questions.length} soal siap`
+              : hasDirectQuestions
+                ? `${questions.length} soal (cek kelengkapan)`
+                : "Belum ada soal",
           issueCount: isReady ? 0 : 1,
-          status: isReady
-            ? "ready"
-            : hasDirectQuestions
-              ? "in_progress"
-              : "setup",
+          status: missingIrtCalibration
+            ? "attention"
+            : isReady
+              ? "ready"
+              : hasDirectQuestions
+                ? "in_progress"
+                : "setup",
         };
         return acc;
       },
       {} as Record<SubjectCode, SectionReadiness>,
     );
   }, [draft.sections]);
-
-  const configureReady = useMemo(() => {
-    return draft.sections.every(
-      (section) => sectionReadiness[section.subtest]?.status === "ready",
-    );
-  }, [draft.sections, sectionReadiness]);
 
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter(
@@ -1967,60 +1985,151 @@ function useTryoutBuilderState({
     }));
   };
 
-  const toggleDirectQuestion = (question: SourceQuestion) => {
-    const currentDraft = latestDraftRef.current;
-    const currentSection =
-      currentDraft.sections.find((section) => section.subtest === activeCode) ??
-      currentDraft.sections[0]!;
-    const currentDirectQuestions = currentSection.directQuestions ?? [];
-    const selectedInActiveSection = currentDirectQuestions.some(
-      (candidate) => candidate.sourceQuestionId === question.id,
-    );
-    if (selectedInActiveSection) {
-      update(activeCode, {
-        directQuestions: currentDirectQuestions.filter(
-          (candidate) => candidate.sourceQuestionId !== question.id,
-        ),
-      });
-      dispatch({ error: null, type: "setError" });
-      return;
-    }
-    const selectedInAnySection = currentDraft.sections.some((section) =>
-      section.directQuestions?.some(
-        (candidate) => candidate.sourceQuestionId === question.id,
+  const appendImportedQuestions = (
+    subtest: SubjectCode,
+    snapshots: TryoutQuestionSnapshotDraft[],
+  ) => {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.subtest === subtest
+          ? {
+              ...section,
+              directQuestions: [
+                ...(section.directQuestions ?? []),
+                ...snapshots,
+              ],
+              testType: "cbt",
+            }
+          : section,
       ),
-    );
-    if (selectedInAnySection) {
-      dispatch({
-        error: "Soal ini sudah dipilih di subtest lain.",
-        type: "setError",
-      });
-      return;
+    }));
+  };
+
+  const importQuestions = async (
+    subtest: SubjectCode,
+    request: TryoutQuestionImportRequest,
+  ): Promise<TryoutQuestionImportOutcome> => {
+    if (id && (!resourceLock.canEdit || !resourceLock.proof)) {
+      return {
+        message:
+          "Kunci edit Tryout belum aktif. Muat ulang halaman, lalu coba lagi.",
+        ok: false,
+      };
     }
-    const bank = sourceBanks.find(
-      (candidate) => candidate.id === question.bankId,
-    );
-    update(activeCode, {
-      directQuestions: [
-        ...currentDirectQuestions,
+
+    try {
+      const selection = request.allInBank
+        ? { allInBank: true as const }
+        : {
+            expectedSourceRevisions: request.expectedSourceRevisions,
+            questionIds: request.questionIds,
+          };
+      const result = await importTryoutBankQuestionSnapshotsAction({
+        bankId: request.bankId,
+        ...selection,
+        ...(id
+          ? { editLease: resourceLock.proof ?? undefined, tryoutId: id }
+          : {}),
+        sectionSubjectCode: subtest,
+      });
+      if (!result.ok) return { message: result.message, ok: false };
+      if (!result.importedCount || !result.snapshots.length) {
+        return {
+          message:
+            "Tidak ada soal siap yang dapat ditambahkan dari Bank Soal ini. Pilih bank lain atau muat ulang daftar soal.",
+          ok: false,
+        };
+      }
+
+      const snapshots = result.snapshots as TryoutQuestionSnapshotDraft[];
+      appendImportedQuestions(subtest, snapshots);
+      showToast(
+        `${result.importedCount} soal ditambahkan ke subtes ${subtest}.`,
         {
-          bankId: question.bankId,
-          bankTitle: bank?.title,
-          difficulty: question.difficulty,
-          hasExplanation: Boolean(
-            question.explanation.trim() || question.explanationMediaAssetId,
-          ),
-          hasReadyMedia: true,
-          prompt: question.prompt,
-          sourceContentDigest: question.questionContentDigest,
-          sourceQuestionId: question.id,
-          sourceQuestionRevisionId: question.questionRevisionId,
-          questionType: question.questionType,
+          variant: "success",
         },
-      ],
-      testType: "cbt",
+      );
+      return {
+        importedCount: result.importedCount,
+        ok: true,
+        snapshots,
+      };
+    } catch (importError) {
+      return {
+        message:
+          importError instanceof Error
+            ? importError.message
+            : "Soal belum dapat ditambahkan. Coba lagi.",
+        ok: false,
+      };
+    }
+  };
+
+  const updateQuestion = (
+    subtest: SubjectCode,
+    snapshotId: string,
+    change: TryoutQuestionChange,
+  ) => {
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.subtest === subtest
+          ? {
+              ...section,
+              directQuestions: (section.directQuestions ?? []).map(
+                (question) =>
+                  "snapshotId" in question && question.snapshotId === snapshotId
+                    ? { ...question, ...change }
+                    : question,
+              ),
+            }
+          : section,
+      ),
+    }));
+  };
+
+  const moveQuestion = (
+    subtest: SubjectCode,
+    snapshotId: string,
+    direction: "up" | "down",
+  ) => {
+    const currentSection = latestDraftRef.current.sections.find(
+      (section) => section.subtest === subtest,
+    );
+    const currentQuestions = currentSection?.directQuestions ?? [];
+    const snapshots = currentQuestions.filter(
+      (question): question is TryoutQuestionSnapshotDraft =>
+        "snapshotId" in question,
+    );
+    const index = snapshots.findIndex(
+      (question) => question.snapshotId === snapshotId,
+    );
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || nextIndex < 0 || nextIndex >= snapshots.length) return;
+
+    const moved = [...snapshots];
+    const [question] = moved.splice(index, 1);
+    if (!question) return;
+    moved.splice(nextIndex, 0, question);
+    let nextSnapshotIndex = 0;
+    update(subtest, {
+      directQuestions: currentQuestions.map((candidate) =>
+        "snapshotId" in candidate ? moved[nextSnapshotIndex++]! : candidate,
+      ),
     });
-    dispatch({ error: null, type: "setError" });
+  };
+
+  const removeQuestion = (subtest: SubjectCode, snapshotId: string) => {
+    const currentSection = latestDraftRef.current.sections.find(
+      (section) => section.subtest === subtest,
+    );
+    update(subtest, {
+      directQuestions: (currentSection?.directQuestions ?? []).filter(
+        (question) =>
+          !("snapshotId" in question && question.snapshotId === snapshotId),
+      ),
+    });
   };
 
   const save = useCallback(
@@ -2043,14 +2152,36 @@ function useTryoutBuilderState({
             ? undefined
             : defaultPolicyForDraft(draftToSave.defaultReleasePolicy),
           description: draftToSave.description,
-          editLease: id ? resourceLock.proof ?? undefined : undefined,
+          editLease: id ? (resourceLock.proof ?? undefined) : undefined,
           id,
           sections: draftToSave.sections.map((section) => ({
-            directQuestions: section.directQuestions?.map((question) => ({
-              sourceContentDigest: question.sourceContentDigest ?? "",
-              sourceQuestionId: question.sourceQuestionId,
-              sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "",
-            })),
+            directQuestions: section.directQuestions?.map((question) => {
+              if ("snapshotId" in question) {
+                return {
+                  difficulty: question.difficulty,
+                  explanation: question.explanation,
+                  explanationAssetId: question.explanationAssetId,
+                  options: question.options.map((option, sortOrder) => ({
+                    assetId: option.assetId,
+                    choiceKey: option.choiceKey,
+                    content: option.content,
+                    isCorrect: option.isCorrect,
+                    snapshotOptionId: option.snapshotOptionId,
+                    sortOrder,
+                  })),
+                  prompt: question.prompt,
+                  promptAssetId: question.promptAssetId,
+                  questionType: question.questionType,
+                  snapshotId: question.snapshotId,
+                };
+              }
+              return {
+                sourceContentDigest: question.sourceContentDigest ?? "",
+                sourceQuestionId: question.sourceQuestionId,
+                sourceQuestionRevisionId:
+                  question.sourceQuestionRevisionId ?? "",
+              };
+            }),
             durationMinutes: section.durationMinutes,
             instructions: section.instructions,
             scoringConfig: section.scoringConfig,
@@ -2154,7 +2285,10 @@ function useTryoutBuilderState({
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await unpublishTryoutAction(id, resourceLock.proof ?? undefined);
+      const result = await unpublishTryoutAction(
+        id,
+        resourceLock.proof ?? undefined,
+      );
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2177,7 +2311,10 @@ function useTryoutBuilderState({
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await archiveTryoutAction(id, resourceLock.proof ?? undefined);
+      const result = await archiveTryoutAction(
+        id,
+        resourceLock.proof ?? undefined,
+      );
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2195,12 +2332,56 @@ function useTryoutBuilderState({
     }
   };
 
+  const setTryoutVisibility = async (isHidden: boolean) => {
+    if (!id || isEditLocked) return;
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
+    try {
+      const result = await setTryoutHiddenAction(
+        id,
+        isHidden,
+        resourceLock.proof ?? undefined,
+      );
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return;
+      }
+      const savedHidden = result.result.isHidden;
+      const nextDraft = {
+        ...latestDraftRef.current,
+        isHidden: savedHidden,
+      };
+      savedDraftRef.current = {
+        ...savedDraftRef.current,
+        isHidden: savedHidden,
+      };
+      latestDraftRef.current = nextDraft;
+      dispatch({ draft: nextDraft, type: "setDraft" });
+      showToast(
+        isHidden ? "Tryout disembunyikan." : "Tryout ditampilkan kembali.",
+        { variant: "success" },
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Visibilitas Tryout belum dapat diubah. Coba lagi.",
+        { variant: "error" },
+      );
+    } finally {
+      dispatch({ saving: false, type: "setSaving" });
+    }
+  };
+
   const remove = async () => {
     if (!id || isEditLocked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await deleteTryoutAction(id, resourceLock.proof ?? undefined);
+      const result = await deleteTryoutAction(
+        id,
+        resourceLock.proof ?? undefined,
+      );
       if (!result.ok) {
         showToast(result.message, { variant: "error" });
         return;
@@ -2358,7 +2539,7 @@ function useTryoutBuilderState({
             browseBankId,
             {
               page: sourceQuestionPage,
-              pageSize: SOURCE_QUESTION_PAGE_SIZE,
+              pageSize: TRYOUT_SOURCE_QUESTION_PAGE_SIZE,
               purpose: "tryout",
               search: sourceQuestionSearch,
               subjectCode: activeSection.subtest,
@@ -2422,7 +2603,6 @@ function useTryoutBuilderState({
     activeSourceQuestions,
     archive,
     browseBankId,
-    configureReady,
     discardDraft,
     dirty,
     dirtyNavigationOpen,
@@ -2433,6 +2613,7 @@ function useTryoutBuilderState({
     error,
     guardExternalNavigation,
     hasActiveAttempt,
+    importQuestions,
     metadataSaving,
     mode,
     pendingHrefRef,
@@ -2442,7 +2623,6 @@ function useTryoutBuilderState({
     savedDraftRef,
     saving,
     sectionReadiness,
-    selectedSourceQuestionIdsSet,
     sourceBankLoading,
     sourceBankPage,
     sourceBankSearch,
@@ -2452,7 +2632,9 @@ function useTryoutBuilderState({
     sourceQuestionPage,
     sourceQuestionSearch,
     sourceQuestionTotal,
-    toggleDirectQuestion,
+    moveQuestion,
+    removeQuestion,
+    updateQuestion,
     unpublish,
     remove,
     updateDraft,
@@ -2462,46 +2644,6 @@ function useTryoutBuilderState({
     lockState: (id ? resourceLock.state : "owned") as AuthoringLockState,
     retryLock: resourceLock.retry,
   };
-}
-
-function TryoutBuilderHeaderActions({
-  configureReady,
-  draft,
-  id,
-  mode,
-  onPublishClick,
-  saving,
-}: Pick<
-  ComponentProps<typeof TryoutBuilderHeader>,
-  "draft" | "id" | "mode" | "saving"
-> & {
-  configureReady: boolean;
-  onPublishClick: () => void;
-}) {
-  if (!id) return undefined;
-
-  return (
-    <div className="flex items-center gap-2">
-      {mode === "draft" && !draft.locked ? (
-        <Button
-          aria-busy={saving}
-          aria-label="Terbitkan Tryout"
-          disabled={saving || !configureReady}
-          onClick={onPublishClick}
-          title={
-            configureReady
-              ? "Terbitkan Tryout"
-              : "Lengkapi semua subtest sebelum menerbitkan."
-          }
-          type="button"
-          variant="brand"
-        >
-          <SendHorizontal />
-          {saving ? "Menerbitkan…" : "Terbitkan"}
-        </Button>
-      ) : null}
-    </div>
-  );
 }
 
 function TryoutBuilderNotices({
@@ -2562,21 +2704,18 @@ function TryoutBuilderNotices({
 }
 
 function TryoutBuilderHeader({
-  configureReady,
+  children,
   draft,
   error,
   guardExternalNavigation,
   id,
   activeWorkspace,
-  initialSubtest,
   initialParent,
   mode,
-  onPublishClick,
   onWorkspaceChange,
-  saving,
 }: {
   activeWorkspace: TryoutWorkspaceTab;
-  configureReady: boolean;
+  children?: ReactNode;
   draft: TryoutDraft;
   error: string | null;
   guardExternalNavigation: (
@@ -2584,51 +2723,29 @@ function TryoutBuilderHeader({
     event: { preventDefault: () => void },
   ) => void;
   id?: string;
-  initialSubtest?: SubjectCode;
   initialParent?: { id: string; publishedAt?: string; title: string };
   mode: "draft" | "published";
-  onPublishClick: () => void;
   onWorkspaceChange: (tab: TryoutWorkspaceTab) => void;
-  saving: boolean;
 }) {
-  const isSubtestEditor = Boolean(initialSubtest && id);
-  const isReadOnly = mode === "published" || draft.locked;
-  const backHref = isSubtestEditor
-    ? `/mentor/tryout/${encodeURIComponent(id!)}${initialParent ? `?parent=${encodeURIComponent(initialParent.id)}` : ""}`
-    : "/mentor/tryout";
-  const backLabel = isSubtestEditor
-    ? "Kembali ke daftar subtest"
-    : "Kembali ke semua Tryout";
-  const actions = (
-    <TryoutBuilderHeaderActions
-      configureReady={configureReady}
-      draft={draft}
-      id={id}
-      mode={mode}
-      onPublishClick={onPublishClick}
-      saving={saving}
-    />
-  );
-  const workspaceBackHref = isSubtestEditor
-    ? `/mentor/tryout/${encodeURIComponent(id!)}?workspace=sections${initialParent ? `&parent=${encodeURIComponent(initialParent.id)}` : ""}`
-    : undefined;
-
+  const backHref = "/mentor/tryout";
+  const backLabel = "Kembali ke semua Tryout";
   if (id) {
     return (
       <>
         <TryoutWorkspaceHeader
-          activeTab={isSubtestEditor ? "subtests" : activeWorkspace}
-          actions={actions}
-          backHref={workspaceBackHref}
-          backLabel={isSubtestEditor ? "Kembali ke Subtest" : undefined}
+          activeTab={activeWorkspace}
           id={id}
           locked={draft.locked}
           onTabChange={onWorkspaceChange}
           onNavigate={(href, event) => guardExternalNavigation(href, event)}
           parentId={initialParent?.id}
-          showTabs={!isSubtestEditor}
-          title={isSubtestEditor ? `Subtes ${initialSubtest}` : draft.title}
-        />
+          showBackButton={false}
+          showTabs
+          showTitle={false}
+          title={draft.title}
+        >
+          {children}
+        </TryoutWorkspaceHeader>
         <TryoutBuilderNotices
           error={error}
           guardExternalNavigation={guardExternalNavigation}
@@ -2656,27 +2773,7 @@ function TryoutBuilderHeader({
         </Button>
         <ReferencePageHeader
           className="min-w-0 flex-1"
-          description={
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {initialSubtest ? (
-                <span>{subjectName(initialSubtest)}</span>
-              ) : null}
-              {mode === "published" && !initialSubtest ? (
-                <span>Kelola akses, sesi, dan hasil untuk Tryout ini.</span>
-              ) : null}
-              {initialSubtest && mode === "draft" && saving ? (
-                <span aria-live="polite">Menyimpan otomatis…</span>
-              ) : null}
-            </span>
-          }
-          title={
-            initialSubtest
-              ? `${isReadOnly ? "Detail" : "Edit"} Soal ${initialSubtest}`
-              : id
-                ? "Konten Tryout"
-                : "Buat Tryout"
-          }
-          actions={actions}
+          title={id ? "Konten Tryout" : "Buat Tryout"}
         />
       </div>
       <TryoutBuilderNotices
@@ -2690,6 +2787,7 @@ function TryoutBuilderHeader({
 }
 
 function TryoutBuilderContent({
+  dialogOpen,
   id,
   initialDraft,
   initialParent,
@@ -2698,7 +2796,10 @@ function TryoutBuilderContent({
   operationsInitial,
   initialSourceBankTotal,
   initialSourceBanks,
+  onDialogOpenChange,
+  presentation = "page",
 }: {
+  dialogOpen?: boolean;
   id?: string;
   initialDeliveryArea?: string;
   initialDraft?: TryoutDraft | null;
@@ -2708,12 +2809,16 @@ function TryoutBuilderContent({
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
   initialWorkspace?: TryoutWorkspaceTab;
+  onDialogOpenChange?: (open: boolean) => void;
+  presentation?: "dialog" | "page";
   operationsInitial?: TryoutOperationsView & {
     workflow?: CanonicalTryoutWorkflowProjection;
   };
 }) {
+  const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const [createDialogDirty, setCreateDialogDirty] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
-    initialSubtest ? "subtests" : initialWorkspace ?? "identity",
+    initialSubtest ? "subtests" : (initialWorkspace ?? "subtests"),
   );
   const {
     activeBrowseBank,
@@ -2722,7 +2827,6 @@ function TryoutBuilderContent({
     activeSourceQuestions,
     archive,
     browseBankId,
-    configureReady,
     discardDraft,
     dirtyNavigationOpen,
     dispatch,
@@ -2734,6 +2838,7 @@ function TryoutBuilderContent({
     error,
     guardExternalNavigation,
     hasActiveAttempt,
+    importQuestions,
     metadataSaving,
     mode,
     pendingHrefRef,
@@ -2743,7 +2848,6 @@ function TryoutBuilderContent({
     saving,
     lockState,
     retryLock,
-    selectedSourceQuestionIdsSet,
     sourceBankLoading,
     sourceBankPage,
     sourceBankSearch,
@@ -2753,7 +2857,9 @@ function TryoutBuilderContent({
     sourceQuestionPage,
     sourceQuestionSearch,
     sourceQuestionTotal,
-    toggleDirectQuestion,
+    moveQuestion,
+    removeQuestion,
+    updateQuestion,
     unpublish,
     remove,
     unpublishOpen,
@@ -2770,24 +2876,142 @@ function TryoutBuilderContent({
   const viewDraft = editLocked ? { ...draft, locked: true } : draft;
   const viewSaving = saving || editLocked;
   const viewMetadataSaving = metadataSaving || editLocked;
+
+  const isCreateDialog = presentation === "dialog" && !id;
+  const updateIdentityDraft = (
+    change: (current: TryoutDraft) => TryoutDraft,
+  ) => {
+    if (isCreateDialog) setCreateDialogDirty(true);
+    updateDraft(change);
+  };
+  const handleCreateDialogOpenChange = (open: boolean) => {
+    if (open) {
+      onDialogOpenChange?.(true);
+      return;
+    }
+    if (viewSaving) return;
+    if (createDialogDirty) {
+      setDiscardConfirmationOpen(true);
+      return;
+    }
+    onDialogOpenChange?.(false);
+  };
+  const closeCreateDialogAfterDiscard = () => {
+    discardDraft();
+    setCreateDialogDirty(false);
+    setDiscardConfirmationOpen(false);
+    onDialogOpenChange?.(false);
+  };
+  const identityPanel = (
+    <TryoutIdentityPanel
+      draft={viewDraft}
+      metadataSaving={viewMetadataSaving}
+      mode={mode}
+      onBannerChange={(bannerMediaId) =>
+        updateIdentityDraft((current) => ({ ...current, bannerMediaId }))
+      }
+      onCreate={!id ? () => void save("draft") : undefined}
+      onDescriptionChange={(description) =>
+        updateIdentityDraft((current) => ({ ...current, description }))
+      }
+      onSaveMetadata={() => void saveMetadata()}
+      onTitleChange={(title) =>
+        updateIdentityDraft((current) => ({ ...current, title }))
+      }
+      presentation={isCreateDialog ? "dialog" : "page"}
+      saving={viewSaving}
+    />
+  );
+
+  if (isCreateDialog) {
+    return (
+      <>
+        <Dialog
+          onOpenChange={handleCreateDialogOpenChange}
+          open={Boolean(dialogOpen)}
+        >
+          <DialogContent
+            className="max-h-[92svh] w-[calc(100vw-2rem)] gap-8 overflow-y-auto p-5 sm:max-w-[min(calc(100vw-3rem),78.75rem)] sm:gap-10 sm:p-8 lg:gap-14 lg:p-14 lg:[&>button]:right-12 lg:[&>button]:top-12"
+            data-tryout-create-modal="true"
+            pending={viewSaving}
+          >
+            <DialogHeader className="pr-12">
+              <DialogTitle className="text-3xl font-medium tracking-tight sm:text-4xl">
+                Buat Tryout
+              </DialogTitle>
+            </DialogHeader>
+            <TryoutBuilderNotices
+              error={error}
+              guardExternalNavigation={guardExternalNavigation}
+              initialParent={initialParent}
+              mode={mode}
+            />
+            {identityPanel}
+          </DialogContent>
+        </Dialog>
+        <UnsavedChangesConfirmationDialog
+          description="Perubahan Tryout yang belum disimpan akan hilang."
+          onDiscard={closeCreateDialogAfterDiscard}
+          onOpenChange={setDiscardConfirmationOpen}
+          open={discardConfirmationOpen}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <TryoutBuilderHeader
-        activeWorkspace={activeWorkspace}
-        configureReady={configureReady}
-        draft={viewDraft}
-        error={error}
-        guardExternalNavigation={guardExternalNavigation}
-        id={id}
-        initialSubtest={initialSubtest}
-        initialParent={initialParent}
-        mode={mode}
-        onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
-        onWorkspaceChange={setActiveWorkspace}
-        saving={viewSaving}
-      />
+      {initialSubtest ? (
+        <TryoutBuilderNotices
+          error={error}
+          guardExternalNavigation={guardExternalNavigation}
+          initialParent={initialParent}
+          mode={mode}
+        />
+      ) : (
+        <TryoutBuilderHeader
+          activeWorkspace={activeWorkspace}
+          draft={viewDraft}
+          error={error}
+          guardExternalNavigation={guardExternalNavigation}
+          id={id}
+          initialParent={initialParent}
+          mode={mode}
+          onWorkspaceChange={setActiveWorkspace}
+        >
+          {identityPanel}
+        </TryoutBuilderHeader>
+      )}
 
-      {id ? <ResourceAuthoringLockBanner hasLocalChanges={dirty} onRetry={retryLock} resourceLabel="Tryout" state={lockState} /> : null}
+      {initialSubtest && id ? (
+        <div className="-mt-4 md:hidden">
+          <Button
+            className="px-0 text-sm text-secondary-600 hover:text-secondary-900"
+            nativeButton={false}
+            onClick={(event) =>
+              guardExternalNavigation(
+                tryoutSubtestListHref(id, initialParent?.id),
+                event,
+              )
+            }
+            render={
+              <Link href={tryoutSubtestListHref(id, initialParent?.id)} />
+            }
+            variant="ghost"
+          >
+            Kembali ke daftar subtes
+          </Button>
+        </div>
+      ) : null}
+
+      {id ? (
+        <ResourceAuthoringLockBanner
+          hasLocalChanges={dirty}
+          onRetry={retryLock}
+          resourceLabel="Tryout"
+          state={lockState}
+        />
+      ) : null}
 
       {initialSubtest ? (
         <TryoutSubtestEditor
@@ -2804,19 +3028,21 @@ function TryoutBuilderContent({
           onBankSearchChange={(search) =>
             dispatch({ search, type: "setSourceBankSearch" })
           }
+          onImport={importQuestions}
+          onMoveQuestion={moveQuestion}
           onQuestionPageChange={(page) =>
             dispatch({ page, type: "setSourceQuestionPage" })
           }
           onQuestionSearchChange={(search) =>
             dispatch({ search, type: "setSourceQuestionSearch" })
           }
+          onRemoveQuestion={removeQuestion}
           onSelectBank={(bankId) =>
             dispatch({ bankId, type: "setBrowseBankId" })
           }
-          onToggleQuestion={toggleDirectQuestion}
+          onUpdateQuestion={updateQuestion}
           onUpdateSection={(change) => update(activeSection.subtest, change)}
           readOnly={mode === "published" || viewDraft.locked}
-          selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
           sourceBankLoading={sourceBankLoading}
           sourceBankSearch={sourceBankSearch}
           sourceBankTotal={sourceBankTotal}
@@ -2861,43 +3087,29 @@ function TryoutBuilderContent({
           <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
         </ReferenceSurface>
       ) : activeWorkspace === "participants" && operationsInitial ? (
-        <ReferenceSurface as="section" className="mt-4 p-5 sm:p-7">
-          <KaptenTryoutParticipantsPageModule
-            embedded
-            initial={operationsInitial}
-            parentId={initialParent?.id}
-          />
-        </ReferenceSurface>
+        <KaptenTryoutParticipantsPageModule
+          embedded
+          initial={operationsInitial}
+          parentId={initialParent?.id}
+        />
       ) : activeWorkspace === "settings" ? (
         <KaptenTryoutSettingsPageModule
-          draft={{ locked: viewDraft.locked, status: viewDraft.status, title: viewDraft.title }}
+          draft={{
+            isHidden: viewDraft.isHidden === true,
+            locked: viewDraft.locked,
+            status: viewDraft.status,
+            title: viewDraft.title,
+          }}
           error={error}
           hasActiveAttempt={hasActiveAttempt}
           onArchive={() => void archive()}
           onDelete={() => void remove()}
           onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
+          onSetHidden={(isHidden) => void setTryoutVisibility(isHidden)}
           onUnpublish={() => dispatch({ open: true, type: "setUnpublishOpen" })}
           saving={viewSaving}
         />
-      ) : (
-        <TryoutIdentityPanel
-          draft={viewDraft}
-          metadataSaving={viewMetadataSaving}
-          mode={mode}
-          onBannerChange={(bannerMediaId) =>
-            updateDraft((current) => ({ ...current, bannerMediaId }))
-          }
-          onCreate={!id ? () => void save("draft") : undefined}
-          onDescriptionChange={(description) =>
-            updateDraft((current) => ({ ...current, description }))
-          }
-          onSaveMetadata={() => void saveMetadata()}
-          onTitleChange={(title) =>
-            updateDraft((current) => ({ ...current, title }))
-          }
-          saving={viewSaving}
-        />
-      )}
+      ) : null}
 
       <TryoutLifecycleModals
         dirtyNavigationOpen={dirtyNavigationOpen}
@@ -2958,6 +3170,7 @@ function TryoutBuilderContent({
 }
 
 function KaptenTryoutBuilderPageModule(props: {
+  dialogOpen?: boolean;
   id?: string;
   initialDeliveryArea?: string;
   initialDraft?: TryoutDraft | null;
@@ -2967,7 +3180,11 @@ function KaptenTryoutBuilderPageModule(props: {
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
   initialWorkspace?: TryoutWorkspaceTab;
-  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
+  onDialogOpenChange?: (open: boolean) => void;
+  presentation?: "dialog" | "page";
+  operationsInitial?: TryoutOperationsView & {
+    workflow?: CanonicalTryoutWorkflowProjection;
+  };
 }) {
   return (
     <ResourceEditLockProvider
@@ -2980,4 +3197,22 @@ function KaptenTryoutBuilderPageModule(props: {
   );
 }
 
-export { KaptenTryoutBuilderPageModule };
+function MentorTryoutCreateDialog({
+  onOpenChange,
+  open,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  if (!open) return null;
+
+  return (
+    <KaptenTryoutBuilderPageModule
+      dialogOpen={open}
+      onDialogOpenChange={onOpenChange}
+      presentation="dialog"
+    />
+  );
+}
+
+export { KaptenTryoutBuilderPageModule, MentorTryoutCreateDialog };
