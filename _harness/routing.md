@@ -100,6 +100,18 @@ Route to the minimum files needed for each task type. Read this file first to de
 2. Read `.agents/skills/vercel-cli-with-tokens/SKILL.md` for token authentication (`VERCEL_TOKEN`), environment variables, inspecting deployment/runtime logs, and custom domains
 3. Read `.agents/skills/vercel-optimize/SKILL.md` for cost, performance, function invocations, and caching audit
 
+## Engineering lifecycle & skills (Matt Pocock Priority)
+
+Default operational lifecycle for all software engineering work:
+
+1. **Routing:** Start with `ask-matt` (`.agents/skills/ask-matt/SKILL.md`) to choose the path.
+2. **Sharpening:** Run `/grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`) to test ideas, resolve ambiguity, and log ADRs.
+3. **Specifying:** Run `/to-spec` (`.agents/skills/to-spec/SKILL.md`) to synthesize discussions into an issue spec.
+4. **Ticket decomposition:** Run `/to-tickets` (`.agents/skills/to-tickets/SKILL.md`) to split into tracer-bullet tickets with blocking edges.
+5. **Building:** Run `/implement` (`.agents/skills/implement/SKILL.md`), which drives `/tdd` (`.agents/skills/tdd/SKILL.md`) (red-green-refactor) and concludes with `/code-review` (`.agents/skills/code-review/SKILL.md`).
+6. **Bug diagnosis:** Run `/diagnosing-bugs` (`.agents/skills/diagnosing-bugs/SKILL.md`) before fixing difficult regressions.
+7. **Incoming issues:** Run `/triage` (`.agents/skills/triage/SKILL.md`) on unvetted bug reports or external PRs.
+
 ## Task-to-directory quick reference
 
 | Task area | Primary directories |
