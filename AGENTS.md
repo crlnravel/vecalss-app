@@ -100,7 +100,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 
 ### Copywriting and Indonesian content policy
 
-- **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
+- **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
 - Student-facing and marketing copy in Vecalss must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
 - User-facing copy must be written for nontechnical readers. Do not expose implementation labels or version markers such as `v1`, `version`, `revision`, `UUID`, `UTF-8`, `API`, MIME types, raw field names, or backend error codes. Translate them into clear, actionable Indonesian; keep technical identifiers in code, tests, and internal contracts only.
 
@@ -125,20 +125,20 @@ the configured project copy is `_harness/resource-guard.sh`.
 To prevent cognitive overload, conflicting guidance, and prompt bloat, agent skills are strictly tiered. **Matt Pocock's Software Engineering Suite is the primary operational framework** for all engineering, architectural, planning, and debugging tasks.
 
 1. **Tier 1 — Core Operating Engine (Matt Pocock Suite - Mandatory Priority):**
-   - **Router:** Always start with `ask-matt` (`.agents/skills/ask-matt/SKILL.md`) when selecting a path or workflow.
-   - **Ideation & Alignment:** Use `/grill-with-docs` (`.agents/skills/grill-with-docs/SKILL.md`) in-repo to eliminate ambiguities and capture decisions in `CONTEXT.md` / ADRs. Use `/grill-me` for stateless sessions.
-   - **Large / Foggy Efforts:** Use `/wayfinder` (`.agents/skills/wayfinder/SKILL.md`) to build a map of decision tickets before coding.
-   - **External Blocker Clarification:** Use `/to-questionnaire` (`.agents/skills/to-questionnaire/SKILL.md`) when blocked by external stakeholders.
-   - **Specification & Decomposition:** Use `/to-spec` (`.agents/skills/to-spec/SKILL.md`) to synthesize discussions into specs; use `/to-tickets` (`.agents/skills/to-tickets/SKILL.md`) to decompose specs into tracer-bullet tickets with explicit blocking edges.
-   - **Build & Quality:** Run `/implement` (`.agents/skills/implement/SKILL.md`), which drives `/tdd` (`.agents/skills/tdd/SKILL.md`) for test-first development and closes with `/code-review` (`.agents/skills/code-review/SKILL.md`) (Standards + Spec fidelity).
-   - **Bug Diagnosis:** Use `/diagnosing-bugs` (`.agents/skills/diagnosing-bugs/SKILL.md`) to lock down a tight, repeatable reproduction before modifying code.
-   - **Backlog & PR Triage:** Use `/triage` (`.agents/skills/triage/SKILL.md`) for unvetted bug reports or external PRs.
+   - **Router:** Always start with `ask-matt` (`.agents/skills-library/matt-pocock/ask-matt/SKILL.md`) when selecting a path or workflow.
+   - **Ideation & Alignment:** Use `/grill-with-docs` (`.agents/skills-library/matt-pocock/grill-with-docs/SKILL.md`) in-repo to eliminate ambiguities and capture decisions in `CONTEXT.md` / ADRs. Use `/grill-me` for stateless sessions.
+   - **Large / Foggy Efforts:** Use `/wayfinder` (`.agents/skills-library/matt-pocock/wayfinder/SKILL.md`) to build a map of decision tickets before coding.
+   - **External Blocker Clarification:** Use `/to-questionnaire` (`.agents/skills-library/matt-pocock/to-questionnaire/SKILL.md`) when blocked by external stakeholders.
+   - **Specification & Decomposition:** Use `/to-spec` (`.agents/skills-library/matt-pocock/to-spec/SKILL.md`) to synthesize discussions into specs; use `/to-tickets` (`.agents/skills-library/matt-pocock/to-tickets/SKILL.md`) to decompose specs into tracer-bullet tickets with explicit blocking edges.
+   - **Build & Quality:** Run `/implement` (`.agents/skills-library/matt-pocock/implement/SKILL.md`), which drives `/tdd` (`.agents/skills-library/matt-pocock/tdd/SKILL.md`) for test-first development and closes with `/code-review` (`.agents/skills-library/matt-pocock/code-review/SKILL.md`) (Standards + Spec fidelity).
+   - **Bug Diagnosis:** Use `/diagnosing-bugs` (`.agents/skills-library/matt-pocock/diagnosing-bugs/SKILL.md`) to lock down a tight, repeatable reproduction before modifying code.
+   - **Backlog & PR Triage:** Use `/triage` (`.agents/skills-library/matt-pocock/triage/SKILL.md`) for unvetted bug reports or external PRs.
    - **Architecture & Domain Upkeep:** Use `/improve-codebase-architecture` and `/codebase-design` for deep module design; use `/domain-modeling` to preserve ubiquitous language.
    - **Session Hygiene & Coordination:** Use `/handoff` across phase/agent boundaries, `/resolving-merge-conflicts` for intent-based git resolution, `/shared-worktree-housekeeping` for safe dirty tree checks, and `/wizard` for human-only secrets/dashboards.
 
 2. **Tier 2 — Domain Specialist Skills (Strictly Scoped):**
-   - **UI / Frontend:** Must strictly obey `DESIGN.md`. Use `impeccable` (`.agents/skills/impeccable/SKILL.md`) for token alignment and polish, `ui-typography` (`.agents/skills/ui-typography/SKILL.md`) for screen typography rules, and `design-audit` (`.agents/skills/design-audit/SKILL.md`) for visual audits.
-   - **Copywriting:** Apply `tutur-humanizer` (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` for student/user-facing Indonesian copy.
+   - **UI / Frontend:** Must strictly obey `DESIGN.md`. Use `impeccable` (`.agents/skills/impeccable/SKILL.md`) for token alignment and polish, `ui-typography` (`.agents/skills-library/domain/ui-typography/SKILL.md`) for screen typography rules, and `design-audit` (`.agents/skills-library/domain/design-audit/SKILL.md`) for visual audits.
+   - **Copywriting:** Apply `tutur-humanizer` (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` for student/user-facing Indonesian copy.
    - **Cloud & DB:** Use `neon` / `neon-postgres` for database branching/pooling, and `deploy-to-vercel` / `vercel-cli-with-tokens` / `vercel-optimize` for Vercel deployment and cost audit.
    - **Host Protection & Harness:** Enforce `agent-resource-guard` (`_harness/resource-guard.sh`) for CPU gating and `harness` (`_harness/skills/harness/SKILL.md`) for harness auditing.
 
@@ -153,39 +153,40 @@ To prevent cognitive overload, conflicting guidance, and prompt bloat, agent ski
 
 - Project overview → `_harness/readme.md`
 - Task-to-file routing → `_harness/routing.md`
+- Skill knowledge graph & decision tree → `_harness/skill-map.md`
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
 - App testing & seeded login → `docs/agent-app-testing-guide.md`
 - Database & environments guide → `docs/database-environments.md`
-- Copywriting & Indonesian content → `.agents/skills/tutur-humanizer/SKILL.md` and `_harness/routing.md`
+- Copywriting & Indonesian content → `.agents/skills-library/domain/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`
 
 #### Skill routing quick reference
 
 | Need / Task | Primary skill / flow | Path |
 |---|---|---|
-| Selecting a flow / routing | `ask-matt` | `.agents/skills/ask-matt/SKILL.md` |
-| Sharpening ideas / scoping feature | `grill-with-docs` | `.agents/skills/grill-with-docs/SKILL.md` |
-| Planning large foggy initiatives | `wayfinder` | `.agents/skills/wayfinder/SKILL.md` |
-| Formulating questions for stakeholders | `to-questionnaire` | `.agents/skills/to-questionnaire/SKILL.md` |
-| Synthesizing spec from discussion | `to-spec` | `.agents/skills/to-spec/SKILL.md` |
-| Decomposing spec into tickets | `to-tickets` | `.agents/skills/to-tickets/SKILL.md` |
-| Implementing tickets test-first | `implement` (drives `tdd`) | `.agents/skills/implement/SKILL.md` |
-| Reviewing diffs (Standards + Spec) | `code-review` | `.agents/skills/code-review/SKILL.md` |
-| Investigating difficult bugs / flakes | `diagnosing-bugs` | `.agents/skills/diagnosing-bugs/SKILL.md` |
-| Triaging incoming bugs & PRs | `triage` | `.agents/skills/triage/SKILL.md` |
-| Deep-module architecture review | `improve-codebase-architecture` | `.agents/skills/improve-codebase-architecture/SKILL.md` |
-| Domain dictionary & ADR discipline | `domain-modeling` | `.agents/skills/domain-modeling/SKILL.md` |
-| Session boundary / context handoff | `handoff` | `.agents/skills/handoff/SKILL.md` |
-| Resolving merge conflicts | `resolving-merge-conflicts` | `.agents/skills/resolving-merge-conflicts/SKILL.md` |
-| Human-only steps (secrets, cloud UI) | `wizard` | `.agents/skills/wizard/SKILL.md` |
+| Selecting a flow / routing | `ask-matt` | `.agents/skills-library/matt-pocock/ask-matt/SKILL.md` |
+| Sharpening ideas / scoping feature | `grill-with-docs` | `.agents/skills-library/matt-pocock/grill-with-docs/SKILL.md` |
+| Planning large foggy initiatives | `wayfinder` | `.agents/skills-library/matt-pocock/wayfinder/SKILL.md` |
+| Formulating questions for stakeholders | `to-questionnaire` | `.agents/skills-library/matt-pocock/to-questionnaire/SKILL.md` |
+| Synthesizing spec from discussion | `to-spec` | `.agents/skills-library/matt-pocock/to-spec/SKILL.md` |
+| Decomposing spec into tickets | `to-tickets` | `.agents/skills-library/matt-pocock/to-tickets/SKILL.md` |
+| Implementing tickets test-first | `implement` (drives `tdd`) | `.agents/skills-library/matt-pocock/implement/SKILL.md` |
+| Reviewing diffs (Standards + Spec) | `code-review` | `.agents/skills-library/matt-pocock/code-review/SKILL.md` |
+| Investigating difficult bugs / flakes | `diagnosing-bugs` | `.agents/skills-library/matt-pocock/diagnosing-bugs/SKILL.md` |
+| Triaging incoming bugs & PRs | `triage` | `.agents/skills-library/matt-pocock/triage/SKILL.md` |
+| Deep-module architecture review | `improve-codebase-architecture` | `.agents/skills-library/matt-pocock/improve-codebase-architecture/SKILL.md` |
+| Domain dictionary & ADR discipline | `domain-modeling` | `.agents/skills-library/matt-pocock/domain-modeling/SKILL.md` |
+| Session boundary / context handoff | `handoff` | `.agents/skills-library/matt-pocock/handoff/SKILL.md` |
+| Resolving merge conflicts | `resolving-merge-conflicts` | `.agents/skills-library/matt-pocock/resolving-merge-conflicts/SKILL.md` |
+| Human-only steps (secrets, cloud UI) | `wizard` | `.agents/skills-library/matt-pocock/wizard/SKILL.md` |
 | UI implementation & polish | `impeccable` (governed by `DESIGN.md`) | `.agents/skills/impeccable/SKILL.md` |
-| Screen typography rules | `ui-typography` | `.agents/skills/ui-typography/SKILL.md` |
-| UI/UX visual audit | `design-audit` | `.agents/skills/design-audit/SKILL.md` |
-| Indonesian copywriting / tone | `tutur-humanizer` | `.agents/skills/tutur-humanizer/SKILL.md` |
-| Neon PostgreSQL operations | `neon` / `neon-postgres` | `.agents/skills/neon/SKILL.md` |
-| Vercel deployment & optimization | `deploy-to-vercel` / `vercel-optimize` | `.agents/skills/deploy-to-vercel/SKILL.md` |
+| Screen typography rules | `ui-typography` | `.agents/skills-library/domain/ui-typography/SKILL.md` |
+| UI/UX visual audit | `design-audit` | `.agents/skills-library/domain/design-audit/SKILL.md` |
+| Indonesian copywriting / tone | `tutur-humanizer` | `.agents/skills-library/domain/tutur-humanizer/SKILL.md` |
+| Neon PostgreSQL operations | `neon` / `neon-postgres` | `.agents/skills-library/domain/neon/SKILL.md` |
+| Vercel deployment & optimization | `deploy-to-vercel` / `vercel-optimize` | `.agents/skills-library/domain/deploy-to-vercel/SKILL.md` |
 | Shared CPU & process budgeting | `agent-resource-guard` | `_harness/resource-guard.sh` |
 | Harness self-audit & token check | `harness` | `_harness/skills/harness/SKILL.md` |
 

@@ -21,9 +21,12 @@ description: Project structure and module lookup
 | `workers/` | Background worker processes | e.g., admin import worker. |
 | `public/` | Static assets | Brand assets, landing assets, images. |
 | `content/` | Repository-managed content | MDX and similar content files. |
-| `.agents/skills/` | Reusable agent skills | Cross-project capabilities, including `agent-resource-guard`, `tutur-humanizer`, and Vercel skills (`deploy-to-vercel`, `vercel-cli-with-tokens`, `vercel-optimize`). |
+| `.agents/skills/` | Eagerly loaded runtime skills | Minimal hook/setup-dependent capabilities: `agent-resource-guard` and `impeccable`. |
+| `.agents/skills-library/` | Lazy-loaded skill library | Organized by tier: `matt-pocock/` (core lifecycle) and `domain/` (specialists), routed on demand. |
+| `.agents/skills-archive/` | Archived skills | Preserved but inactive capabilities (aesthetics, niche theory, unused tech). |
 | `.agents/rules/` | Workspace agent rules | Agent rules discovered hierarchically (e.g., RTK CLI proxy, copywriting policy). |
 | `_harness/` | Agent harness | Routing, rules, workflow, catalog, memory, tracking, GC. |
+| `_harness/skill-map.md` | Skill knowledge graph | Compact decision tree and lifecycle map for lazy skill routing. |
 | `_harness/tracking/` | Session and feature tracking | `feature_list.json`, `progress.md`, `session-handoff.md`. |
 | `_harness/memory/` | Agent memory | `project.md` (durable), `agents/*.local.md` (ephemeral). |
 
