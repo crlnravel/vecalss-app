@@ -142,8 +142,12 @@ To prevent cognitive overload, conflicting guidance, and prompt bloat, agent ski
    - **Cloud & DB:** Use `neon` / `neon-postgres` for database branching/pooling, and `deploy-to-vercel` / `vercel-cli-with-tokens` / `vercel-optimize` for Vercel deployment and cost audit.
    - **Host Protection & Harness:** Enforce `agent-resource-guard` (`_harness/resource-guard.sh`) for CPU gating and `harness` (`_harness/skills/harness/SKILL.md`) for harness auditing.
 
-3. **Tier 3 — On-Demand Only (Do Not Autonomously Invoke):**
-   - Alternate aesthetic generators (`bencium-*`, `gpt-taste`, `minimalist-ui`, `high-end-visual-design`, `redesign-existing-projects`, `renaissance-architecture`) are deactivated from autonomous default invocation. They must NOT override `DESIGN.md` and are only used if the user explicitly requests that specific style by name.
+3. **Tier 3 — Archived (Physically removed from runtime injection):**
+   - The following skills have been moved to `.agents/skills-archive/` and are no longer injected into the agent context. They can be restored on explicit user request.
+   - **Aesthetics** (`.agents/skills-archive/tier-3-aesthetics/`): `bencium-controlled-ux-designer`, `bencium-impact-designer`, `bencium-innovative-ux-designer`, `gpt-taste`, `minimalist-ui`, `high-end-visual-design`, `redesign-existing-projects`, `renaissance-architecture`.
+   - **Niche theory** (`.agents/skills-archive/niche-theory/`): `agentic-ux-design-relationship-centric-interfaces`, `information-architecture`.
+   - **Unused tech** (`.agents/skills-archive/unused-tech/`): `prisma-composer-core-concepts`.
+   - **Setup scripts** (`.agents/skills-archive/setup-scripts/`): `setup-matt-pocock-skills`.
 
 ### Routing
 
