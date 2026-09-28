@@ -2893,15 +2893,13 @@ function QuestionBankEditWorkspace({
         detailHref={detailHref}
         state={state}
       />
-      <div className="shrink-0 px-3 pt-3 md:px-6">
-        <ResourceAuthoringLockBanner
-          className="mx-auto max-w-5xl"
-          hasLocalChanges={state.hasUnsavedChanges}
-          onRetry={actions.retryLock}
-          resourceLabel="Bank Soal"
-          state={state.lockState}
-        />
-      </div>
+      <ResourceAuthoringLockBanner
+        className="mx-auto max-w-5xl"
+        hasLocalChanges={state.hasUnsavedChanges}
+        onRetry={actions.retryLock}
+        resourceLabel="Bank Soal"
+        state={state.lockState}
+      />
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
