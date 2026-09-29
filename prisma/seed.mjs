@@ -22,6 +22,12 @@ const DEFAULT_ADMIN = {
   password: process.env.SEED_ADMIN_PASSWORD?.trim() || "Admin12345!",
 };
 
+const DEFAULT_DEVELOPER = {
+  email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
+  fullName: "Vecalss Developer",
+  password: process.env.SEED_DEVELOPER_PASSWORD?.trim() || "Developer12345!",
+};
+
 const DEFAULT_STUDENT = {
   email: process.env.SEED_STUDENT_EMAIL?.trim() || "student@vecalss.local",
   fullName: "Alya Ramadhani",
@@ -1087,6 +1093,21 @@ async function main() {
     });
     await ensureNotificationPreference(client, adminUserId);
 
+    const developerUserId = await upsertUser(client, {
+      email: DEFAULT_DEVELOPER.email,
+      fullName: DEFAULT_DEVELOPER.fullName,
+      mustChangePassword: false,
+      passwordHash: await hashPassword(DEFAULT_DEVELOPER.password),
+      passwordUpdatedAt: new Date(),
+    });
+
+    await ensureRoleAssignment(client, {
+      assignedByUserId: adminUserId,
+      role: "developer",
+      userId: developerUserId,
+    });
+    await ensureNotificationPreference(client, developerUserId);
+
     await ensureAdminStudentPreviewFixture(client, { adminUserId });
 
     const studentUserId = await upsertUser(client, {
@@ -1280,6 +1301,12 @@ async function main() {
         loginPath: "/login",
         password: DEFAULT_ADMIN.password,
         role: "admin",
+      },
+      {
+        email: DEFAULT_DEVELOPER.email,
+        loginPath: "/login",
+        password: DEFAULT_DEVELOPER.password,
+        role: "developer",
       },
       {
         email: DEFAULT_STUDENT.email,

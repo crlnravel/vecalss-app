@@ -90,6 +90,18 @@ type MediaStorageTestOverrides = {
   ) => Promise<Uint8Array>;
   deletePrivateStagingObject?: (objectKey: string, signal?: AbortSignal) => Promise<void>;
   deletePrivateStagingObjects?: (objectKeys: readonly string[], signal?: AbortSignal) => Promise<void>;
+  putPrivateReportAttachment?: (
+    objectKey: string,
+    bytes: Uint8Array,
+    contentType: string,
+    signal?: AbortSignal,
+  ) => Promise<void>;
+  readPrivateReportAttachment?: (
+    objectKey: string,
+    maxBytes: number,
+    signal?: AbortSignal,
+  ) => Promise<Uint8Array>;
+  deletePrivateReportAttachment?: (objectKey: string, signal?: AbortSignal) => Promise<void>;
   putKaptenImageObject?: (
     objectKey: string,
     bytes: Uint8Array,
@@ -125,10 +137,19 @@ class PrivateStagingObjectTooLargeError extends Error {
   }
 }
 
+class PrivateReportAttachmentTooLargeError extends Error {
+  constructor() {
+    super("Lampiran laporan melebihi batas ukuran.");
+    this.name = "PrivateReportAttachmentTooLargeError";
+  }
+}
+
 const PRIVATE_QUESTION_BANK_XLSX_KEY_PATTERN =
   /^question-bank-xlsx-staging\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/(?:workbook\.xlsx|manifest\.json|images\/[0-9a-f]{64}\.bin)$/iu;
 const KAPTEN_IMAGE_OBJECT_KEY_PATTERN =
   /^kapten\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:gif|jpg|png|webp)$/iu;
+const PRIVATE_REPORT_ATTACHMENT_KEY_PATTERN =
+  /^mentor-reports\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:gif|jpg|png|webp|pdf)$/iu;
 
 function assertPrivateQuestionBankXlsxKey(objectKey: string) {
   if (!PRIVATE_QUESTION_BANK_XLSX_KEY_PATTERN.test(objectKey)) {
@@ -139,6 +160,12 @@ function assertPrivateQuestionBankXlsxKey(objectKey: string) {
 function assertKaptenImageObjectKey(objectKey: string) {
   if (!KAPTEN_IMAGE_OBJECT_KEY_PATTERN.test(objectKey)) {
     throw new Error("Invalid Kapten image object key.");
+  }
+}
+
+function assertPrivateReportAttachmentKey(objectKey: string) {
+  if (!PRIVATE_REPORT_ATTACHMENT_KEY_PATTERN.test(objectKey)) {
+    throw new Error("Invalid private report attachment key.");
   }
 }
 
@@ -522,6 +549,77 @@ const deletePrivateStagingObjectFromR2 = async (objectKey: string, signal?: Abor
   await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }), signal ? { abortSignal: signal } : undefined);
 };
 
+const putPrivateReportAttachmentFromR2 = async (
+  objectKey: string,
+  bytes: Uint8Array,
+  contentType: string,
+  signal?: AbortSignal,
+) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  const { client, configuration } = getR2Client();
+  await client.send(new PutObjectCommand({
+    Body: bytes,
+    Bucket: configuration.bucketName,
+    CacheControl: "private, no-store, max-age=0",
+    ContentType: contentType,
+    Key: objectKey,
+  }), signal ? { abortSignal: signal } : undefined);
+};
+
+const readPrivateReportAttachmentFromR2 = async (
+  objectKey: string,
+  maxBytes: number,
+  signal?: AbortSignal,
+) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  const object = await readMediaObjectStreamFromR2(objectKey, signal);
+  if (object.contentLength !== undefined && object.contentLength > maxBytes) {
+    await object.body.cancel().catch(() => undefined);
+    throw new PrivateReportAttachmentTooLargeError();
+  }
+
+  const reader = object.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel(signal.reason);
+        throw signal.reason ?? new Error("Attachment read was aborted.");
+      }
+      const next = await reader.read();
+      if (next.done) break;
+      byteLength += next.value.byteLength;
+      if (byteLength > maxBytes) {
+        await reader.cancel();
+        throw new PrivateReportAttachmentTooLargeError();
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (signal?.aborted) throw signal.reason ?? new Error("Attachment read was aborted.");
+  if (object.contentLength !== undefined && object.contentLength !== byteLength) {
+    throw new Error("Private report attachment size does not match its metadata.");
+  }
+
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+};
+
+const deletePrivateReportAttachmentFromR2 = async (objectKey: string, signal?: AbortSignal) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  const { client, configuration } = getR2Client();
+  await client.send(new DeleteObjectCommand({ Bucket: configuration.bucketName, Key: objectKey }), signal ? { abortSignal: signal } : undefined);
+};
+
 const putKaptenImageObjectFromR2 = async (
   objectKey: string,
   bytes: Uint8Array,
@@ -677,6 +775,33 @@ const deletePrivateStagingObjects = async (objectKeys: readonly string[], signal
   }
 };
 
+const putPrivateReportAttachment = async (
+  objectKey: string,
+  bytes: Uint8Array,
+  contentType: string,
+  signal?: AbortSignal,
+) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  return mediaStorageTestOverrides?.putPrivateReportAttachment?.(objectKey, bytes, contentType, signal)
+    ?? putPrivateReportAttachmentFromR2(objectKey, bytes, contentType, signal);
+};
+
+const readPrivateReportAttachment = async (
+  objectKey: string,
+  maxBytes: number,
+  signal?: AbortSignal,
+) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  return mediaStorageTestOverrides?.readPrivateReportAttachment?.(objectKey, maxBytes, signal)
+    ?? readPrivateReportAttachmentFromR2(objectKey, maxBytes, signal);
+};
+
+const deletePrivateReportAttachment = async (objectKey: string, signal?: AbortSignal) => {
+  assertPrivateReportAttachmentKey(objectKey);
+  return mediaStorageTestOverrides?.deletePrivateReportAttachment?.(objectKey, signal)
+    ?? deletePrivateReportAttachmentFromR2(objectKey, signal);
+};
+
 const putKaptenImageObject = async (
   objectKey: string,
   bytes: Uint8Array,
@@ -721,6 +846,7 @@ export {
   PREVIEW_URL_TTL_SECONDS,
   R2ConfigurationError,
   PrivateStagingObjectTooLargeError,
+  PrivateReportAttachmentTooLargeError,
   createMediaPreviewUrl,
   createMediaUploadUrl,
   createPrivateStagingUploadUrl,
@@ -732,13 +858,16 @@ export {
   abortPrivateStagingMultipartUpload,
   deletePrivateStagingObject,
   deletePrivateStagingObjects,
+  deletePrivateReportAttachment,
   deleteKaptenImageObject,
   headMediaObject,
   isR2Configured,
   readMediaObject,
   readMediaObjectStream,
   readPrivateStagingObject,
+  readPrivateReportAttachment,
   putPrivateStagingObject,
+  putPrivateReportAttachment,
   putKaptenImageObject,
   withMediaStorageTestOverrides,
 };

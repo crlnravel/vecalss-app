@@ -6,6 +6,7 @@ import {
   BookOpenText,
   ChevronLeft,
   ChevronRight,
+  Flag,
   Gauge,
   Image as ImageIcon,
   LayoutDashboard,
@@ -61,6 +62,7 @@ const kaptenTryoutNavigation: KaptenNavigationItem[] = [
 
 const kaptenUtilityNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/media", icon: ImageIcon, label: "Media" },
+  { href: "/mentor/report", icon: Flag, label: "Report" },
   { href: "/mentor/settings", icon: Settings, label: "Pengaturan" },
 ];
 

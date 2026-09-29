@@ -25,8 +25,23 @@ enum RoleName {
   tutor
   admin
   affiliator
+  developer
 
   @@map("role_name")
+}
+
+enum MentorReportFeature {
+  dashboard
+  materi
+  video
+  kuis
+  bank_soal_kuis
+  tryout
+  bank_soal_tryout
+  media
+  profile
+
+  @@map("mentor_report_feature")
 }
 
 enum KaptenVideoSubtest {
@@ -1306,6 +1321,7 @@ model User {
   loginAttempts                          LoginAttempt[]
   roleAssignments                        RoleAssignment[]                 @relation("UserRoles")
   assignedRolesBy                        RoleAssignment[]                 @relation("RolesAssignedBy")
+  mentorReports                          MentorReport[]
   studentProfile                         StudentProfile?                  @relation("StudentProfileAccount")
   enrolledStudents                       StudentProfile[]                 @relation("EnrolledBy")
   tutorProfile                           TutorProfile?
@@ -1496,6 +1512,26 @@ model RoleAssignment {
   @@index([userId, role])
   @@index([role, revokedAt, userId], map: "role_assignments_directory_role_idx")
   @@map("role_assignments")
+}
+
+model MentorReport {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId              String              @map("author_id") @db.Uuid
+  title                 String              @db.VarChar(160)
+  feature               MentorReportFeature
+  url                   String              @db.VarChar(2048)
+  description           String              @db.Text
+  attachmentKey         String?             @map("attachment_key") @db.Text
+  attachmentFileName    String?             @map("attachment_file_name") @db.VarChar(255)
+  attachmentContentType String?             @map("attachment_content_type") @db.VarChar(100)
+  attachmentSizeBytes   Int?                @map("attachment_size_bytes")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([authorId, createdAt])
+  @@index([createdAt])
+  @@map("mentor_reports")
 }
 
 /// One-time invite or temporary-password handoff for an enrolled account.

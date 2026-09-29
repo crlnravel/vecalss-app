@@ -1,6 +1,6 @@
 import type { OnboardingStatus, RoleName, UserStatus } from "@/generated/prisma/client";
 
-type LoginAudience = "student" | "tutor" | "admin" | "affiliator";
+type LoginAudience = "student" | "tutor" | "admin" | "affiliator" | "developer";
 
 type AuthenticatedUser = {
   email: string;

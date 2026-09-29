@@ -42,6 +42,7 @@ Use these accounts for the principal test journeys:
 | Journey | Account | Password | Start page |
 | --- | --- | --- | --- |
 | Administrator enrollment | `admin@vecalss.local` | `Admin12345!` | `/login` |
+| Developer report inbox | `developer@vecalss.local` | `Developer12345!` | `/login` |
 | Returning student with learning history | `student@vecalss.local` | `Student12345!` | `/login` |
 | New student completing first login | `newstudent@vecalss.local` | `TempStudent123!` | `/login` |
 | Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/login` |

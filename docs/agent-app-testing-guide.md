@@ -34,6 +34,7 @@ All seeded accounts authenticate through `http://localhost:5023/login`.
 | Role / Persona | Email | Password | Default Redirect | Purpose / Test Scope |
 |---|---|---|---|---|
 | **Admin** | `admin@vecalss.local` | `Admin12345!` | `/admin` | Administration, student enrollment, question bank governance, notification broadcasting, operations |
+| **Developer** | `developer@vecalss.local` | `Developer12345!` | `/developer/reports` | Developer-only report inbox and report details |
 | **Kapten (Tutor)** | `tutor@vecalss.local` | `Tutor12345!` | `/mentor/dashboard` | Mentor workspaces, question bank authoring, tryout package assembly, learning material management |
 | **Voyager (Student - Active)** | `student@vecalss.local` | `Student12345!` | `/dashboard` | Primary student learning journey, module courses (`/courses`), quizzes (`/quiz`), tryout exam delivery (`/tryout`), Vera AI assistant (`/vera-ai`), account settings (`/settings`) |
 | **Student (New / Onboarding)** | `newstudent@vecalss.local` | `TempStudent123!` | `/onboarding` (or `/change-password`) | First-time onboarding flow, compulsory password reset flow, initial diagnostic flows |
