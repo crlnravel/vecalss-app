@@ -19,7 +19,7 @@ import { KaptenQuestionBankPageModule } from "@/modules/mentor/KaptenQuestionBan
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Question Bank Kapten | Vecalss LMS",
+  title: "Bank Soal Kapten | Vecalss LMS",
 };
 
 export default async function MentorQuestionBankPage({
@@ -44,7 +44,7 @@ export default async function MentorQuestionBankPage({
         <section aria-labelledby="question-bank-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="question-bank-context-unavailable">Konteks Bank Soal tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtest, folder, dan filter yang tersedia untuk melanjutkan.</p>
+          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtes, folder, dan filter yang tersedia untuk melanjutkan.</p>
         </section>
       </MentorWorkspaceShell>
     );

@@ -71,7 +71,7 @@ const packageCatalogueColumns: DataTableColumn<PackageItem>[] = [
     cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
     headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1.5 sm:px-5 lg:min-w-[6rem]",
     id: "subtest",
-    label: "Subtest",
+    label: "Subtes",
     width: 12,
   },
   {
@@ -138,14 +138,14 @@ function PackageRowAction({ item }: { item: PackageItem }) {
 
 function PackageCatalogueFilters({ navigateCatalogue, query, status, subtest }: { navigateCatalogue: (href: string) => void; query: string; status: string; subtest: string }) {
   const filters: DataTableFilter[] = [
-    ...(subtest ? [{ id: "subtest", label: "Subtest", value: subtest, href: catalogueHref(query, 1, status, "") }] : []),
+    ...(subtest ? [{ id: "subtest", label: "Subtes", value: subtest, href: catalogueHref(query, 1, status, "") }] : []),
     ...(status ? [{ id: "status", label: "Status", value: packageStatusCopy(status as PackageItem["availability"]), href: catalogueHref(query, 1, "", subtest) }] : []),
   ];
   const filterPanel = (
     <div className="space-y-3 p-1">
       <label className={cn("block space-y-1.5", REFERENCE_FIELD_LABEL_CLASS_NAME)} htmlFor="package-subtest-filter">
-        <span>Subtest</span>
-        <DropdownField ariaLabel="Filter Subtest" className={REFERENCE_CONTROL_CLASS_NAMES.select} id="package-subtest-filter" onValueChange={(value) => navigateCatalogue(catalogueHref(query, 1, status, value))} options={kaptenSubjects.map((subject) => ({ label: subject.code + " · " + subject.name, value: subject.code }))} placeholder="Semua Subtest" value={subtest} />
+        <span>Subtes</span>
+        <DropdownField ariaLabel="Filter subtes" className={REFERENCE_CONTROL_CLASS_NAMES.select} id="package-subtest-filter" onValueChange={(value) => navigateCatalogue(catalogueHref(query, 1, status, value))} options={kaptenSubjects.map((subject) => ({ label: subject.code + " · " + subject.name, value: subject.code }))} placeholder="Semua subtes" value={subtest} />
       </label>
       <label className={cn("block space-y-1.5", REFERENCE_FIELD_LABEL_CLASS_NAME)} htmlFor="package-status-filter">
         <span>Status</span>
@@ -190,7 +190,7 @@ function PackageCatalogueContent({ isCataloguePending, items, navigateCatalogue,
         isLoading={isCataloguePending}
         loadingLabel="Memuat Paket Soal…"
         rows={items}
-        search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
+        search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau subtes…", value: query }}
         tableClassName="min-w-0"
         wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
       />

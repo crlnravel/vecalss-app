@@ -77,7 +77,7 @@ const quickAccessItems: Array<{
   label: string;
 }> = [
   {
-    description: "Lanjutkan bacaanmu",
+    description: "Jelajahi materi belajar",
     href: "/courses",
     icon: BookOpen,
     label: "Materi",
@@ -119,7 +119,7 @@ const quickAccessItems: Array<{
     label: "Target Belajar",
   },
   {
-    description: "Selesaikan tugas belajar hari ini",
+    description: "Lihat misi harian",
     href: "#daily-mission",
     icon: CalendarCheck,
     label: "Misi Harian",
@@ -128,14 +128,14 @@ const quickAccessItems: Array<{
     description: "Lihat performa dan latihanmu",
     href: "#progress",
     icon: Activity,
-    label: "Progress Belajar",
+    label: "Progres Belajar",
   },
 ];
 
 const dailyMissionItems = [
   "Daftar Tryout SNBT",
-  "Kerjakan Latihan Kilat 10 Soal PU (Penalaran Umum)",
-  "Selesaikan 1 Bacaan Materi",
+  "Kerjakan 10 soal Penalaran Umum",
+  "Selesaikan 1 materi",
 ];
 
 const chapterTabs = [
@@ -322,12 +322,10 @@ function DashboardDataNotice() {
         />
         <div>
           <p className="text-sm font-semibold text-secondary-900">
-            Data dashboard belum tersedia
+            Ringkasan belajar belum tersedia
           </p>
           <p className="mt-1 text-sm leading-6 text-secondary-600">
-            Ringkasan aktivitas di bawah belum tersambung ke sumber live. Nilai
-            XP, misi, dan analitik tidak akan dianggap tersimpan sampai data
-            tersedia.
+            Progres, misi harian, dan aktivitas belajarmu belum bisa ditampilkan saat ini.
           </p>
         </div>
       </CardContent>
@@ -408,10 +406,10 @@ function DailyMissionSection() {
       >
         <CardHeader className="flex flex-row items-center justify-between gap-5 px-6 pb-5 pt-6">
           <CardDescription className="text-sm text-learning-muted-ink">
-            Belum tersedia karena sumber aktivitas belum tersambung.
+            Contoh misi harian. Misi belum tersedia untuk dikerjakan saat ini.
           </CardDescription>
           <span className="shrink-0 text-xs font-semibold text-learning-muted-ink">
-            Belum dimulai
+            Contoh
           </span>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 px-6 pb-6">
@@ -523,11 +521,11 @@ function UnavailableAnalyticsCard({
 
 function TryoutProgressCard() {
   return (
-    <AnalyticsCard description="Nilai Tryout terakhir" title="Progress Tryout">
+    <AnalyticsCard description="Skor Tryout terakhir" title="Progres Tryout">
       <Empty className="min-h-40 gap-4 border-0 p-5">
         <EmptyHeader>
           <EmptyTitle className="text-sm font-medium text-learning-muted-ink">
-            Belum ada data Tryout yang selesai
+            Hasil Tryout belum tersedia di dashboard.
           </EmptyTitle>
         </EmptyHeader>
       </Empty>
@@ -538,7 +536,7 @@ function TryoutProgressCard() {
 function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-5">
-      <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
+      <DashboardSectionHeading icon={Gauge} title="Performa per Subtes" />
       <Card
         className={cn(
           REFERENCE_SURFACE_CLASS_NAMES.tactile,
@@ -547,7 +545,7 @@ function ChapterSkillsSection() {
       >
         <CardContent className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
           <Tabs defaultValue="PU">
-            <CompactTabsList aria-label="Pilih bab">
+            <CompactTabsList aria-label="Pilih subtes">
               {chapterTabs.map((chapter) => (
                 <CompactTabsTrigger key={chapter.value} value={chapter.value}>
                   {chapter.value}
@@ -569,11 +567,10 @@ function ChapterSkillsSection() {
                   </EmptyMedia>
                   <EmptyHeader>
                     <EmptyTitle className="text-base font-medium text-secondary-900">
-                      Belum ada data
+                      Data performa belum tersedia.
                     </EmptyTitle>
                     <EmptyDescription>
-                      Mulai latihan {chapter.label} untuk melihat keahlian per
-                      bab!
+                      Data latihan {chapter.label} akan muncul di sini saat tersedia.
                     </EmptyDescription>
                   </EmptyHeader>
                   <EmptyContent>
@@ -583,7 +580,7 @@ function ChapterSkillsSection() {
                       size="sm"
                       variant="brand"
                     >
-                      Latihan Sekarang
+                      Mulai latihan
                     </Button>
                   </EmptyContent>
                 </Empty>
@@ -619,10 +616,10 @@ function RecentActivitySection() {
             </EmptyMedia>
             <EmptyHeader>
               <EmptyTitle className="text-base font-medium text-secondary-900">
-                Kamu belum ada belajar nih.
+                Aktivitas belajarmu belum tersedia.
               </EmptyTitle>
               <EmptyDescription>
-                Yuk, mulai progress belajarmu sekarang!
+                Mulai dari materi untuk melanjutkan belajar.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -632,7 +629,7 @@ function RecentActivitySection() {
                 size="sm"
                 variant="brand"
               >
-                Lihat Materi
+                Jelajahi materi
               </Button>
             </EmptyContent>
           </Empty>

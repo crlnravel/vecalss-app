@@ -61,9 +61,9 @@ function QuizStartPageModule({
       router.replace(
         `/quiz/${subjectSlug}/${quiz.slug}?attemptId=${encodeURIComponent(response.result.attemptId)}`,
       );
-    } catch (error) {
+    } catch {
       showToast(
-        error instanceof Error ? error.message : "Kuis belum dapat dimulai.",
+        "Kuis belum berhasil dimulai. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {

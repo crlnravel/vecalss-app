@@ -110,62 +110,62 @@ export type CampusCrewMark = {
 };
 
 export const marketingNavItems: NavItem[] = [
-  { label: "About Us", href: "/#about" },
+  { label: "Tentang Vecalss", href: "/#about" },
   { label: "Program", href: "/#program" },
-  { label: "Login", href: "/login" },
+  { label: "Masuk", href: "/login" },
 ];
 
 export const journeyStats: JourneyStat[] = [
   { value: 15000, suffix: "+", label: "Voyager" },
-  { value: 4, suffix: " Tahun", label: "Perjalanan Berlayar" },
-  { value: 1000, suffix: "+", label: "Voyager Berhasil" },
+  { value: 4, suffix: " tahun", label: "pengalaman" },
+  { value: 1000, suffix: "+", label: "Voyager berhasil" },
 ];
 
 export const campusCrewMarks: CampusCrewMark[] = [
   {
     name: "ITB",
     markSrc: "/brand/campuses/itb.svg",
-    markAlt: "Institut Teknologi Bandung mark",
+    markAlt: "Logo Institut Teknologi Bandung",
   },
   {
     name: "UI",
     markSrc: "/brand/campuses/ui.png",
-    markAlt: "Universitas Indonesia mark",
+    markAlt: "Logo Universitas Indonesia",
   },
   {
     name: "Unpad",
     markSrc: "/brand/campuses/unpad.png",
-    markAlt: "Universitas Padjadjaran mark",
+    markAlt: "Logo Universitas Padjadjaran",
   },
   {
     name: "UGM",
     markSrc: "/brand/campuses/ugm.png",
-    markAlt: "Universitas Gadjah Mada mark",
+    markAlt: "Logo Universitas Gadjah Mada",
   },
   {
     name: "UPN",
     markSrc: "/brand/campuses/upn.png",
-    markAlt: "Universitas Pembangunan Nasional Veteran Jakarta mark",
+    markAlt: "Logo Universitas Pembangunan Nasional Veteran Jakarta",
   },
   {
     name: "Unair",
     markSrc: "/brand/campuses/unair.png",
-    markAlt: "Universitas Airlangga mark",
+    markAlt: "Logo Universitas Airlangga",
   },
 ];
 
 export const voyagePrinciples: VoyagePrinciple[] = [
   {
-    title: "Fundamental",
-    body: "Fondasi konsep dibuat kuat sebelum masuk ke latihan berat.",
+    title: "Fondasi",
+    body: "Pahami konsep dasar sebelum mengerjakan latihan yang lebih menantang.",
   },
   {
     title: "Konsisten",
-    body: "Ritme belajar dijaga agar Voyager tetap bergerak setiap minggu.",
+    body: "Bangun kebiasaan belajar yang bisa kamu jalani secara konsisten.",
   },
   {
     title: "Disiplin",
-    body: "Kebiasaan belajar dibangun sampai hari ujian tiba.",
+    body: "Ikuti rencana belajar secara bertahap sampai hari ujian.",
   },
 ];
 
@@ -175,7 +175,7 @@ export const pathways: Pathway[] = [
     kicker: "01",
     title: "Summer Class",
     summary: "Jaga ritme belajar selama liburan.",
-    outcome: "Holiday Expedition",
+    outcome: "Belajar selama liburan",
     details: [
       "Latihan terarah selama masa liburan.",
       "Cocok untuk kelas 10 dan 11 yang ingin mulai lebih awal.",
@@ -189,9 +189,9 @@ export const pathways: Pathway[] = [
     kicker: "02",
     title: "Supercharge TKA & SNBT",
     summary: "Kelas dan latihan terarah untuk SNBT dan TKA.",
-    outcome: "Ocean Mission",
+    outcome: "Kelas dan latihan SNBT",
     details: [
-      "Live class dan latihan berkala.",
+      "Kelas langsung dan latihan berkala.",
       "Struktur belajar yang mudah diikuti.",
     ],
     art: "/landing-assets/program-weekly.svg",
@@ -203,7 +203,7 @@ export const pathways: Pathway[] = [
     kicker: "03",
     title: "Tryout",
     summary: "Ukur kesiapan lewat simulasi dan evaluasi.",
-    outcome: "Exam Readiness Check",
+    outcome: "Evaluasi kesiapan ujian",
     details: [
       "Simulasi mengikuti ritme ujian sesungguhnya.",
       "Hasil membantu menentukan fokus belajar berikutnya.",
@@ -217,10 +217,10 @@ export const pathways: Pathway[] = [
     kicker: "04",
     title: "Vera AI",
     summary: "Ringkas, berlatih, lalu tentukan langkah berikutnya.",
-    outcome: "Adaptive Study Companion",
+    outcome: "Teman belajar berbasis AI",
     details: [
-      "Percakapan belajar tetap terhubung dengan aktivitasmu.",
-      "Rekomendasi membantu menjaga arah perjalanan.",
+      "Tanyakan hal yang belum kamu pahami kepada Vera AI.",
+      "Gunakan jawabannya untuk menentukan langkah belajar berikutnya.",
     ],
     art: "/landing-assets/program-consultation.svg",
     artAlt: "Ilustrasi asisten belajar Vera AI",
@@ -231,7 +231,7 @@ export const pathways: Pathway[] = [
     kicker: "05",
     title: "Materi SNBT",
     summary: "Kuasai konsep inti SNBT dari dasar.",
-    outcome: "SNBT Knowledge Base",
+    outcome: "Materi persiapan SNBT",
     details: [
       "Konsep disusun dalam urutan yang mudah diikuti.",
       "Materi terhubung dengan kuis dan latihan.",
@@ -250,7 +250,7 @@ export const crewMembers: CrewMember[] = [
     campus: "ITB",
     university: "Institut Teknologi Bandung (ITB)",
     campusMarkSrc: "/brand/campuses/itb.svg",
-    campusMarkAlt: "Institut Teknologi Bandung mark",
+    campusMarkAlt: "Logo Institut Teknologi Bandung",
     major: "Arsitektur",
     focus: "Arsitektur",
     utbkScore: "700",
@@ -271,7 +271,7 @@ export const crewMembers: CrewMember[] = [
     campus: "UPN Veteran Jakarta",
     university: "UPN Veteran Jakarta (UPNVJ)",
     campusMarkSrc: "/brand/campuses/upn.png",
-    campusMarkAlt: "Universitas Pembangunan Nasional Veteran Jakarta mark",
+    campusMarkAlt: "Logo Universitas Pembangunan Nasional Veteran Jakarta",
     major: "Kedokteran",
     focus: "Kedokteran",
     utbkScore: "686.7",
@@ -292,7 +292,7 @@ export const crewMembers: CrewMember[] = [
     campus: "Unpad",
     university: "Universitas Padjadjaran",
     campusMarkSrc: "/brand/campuses/unpad.png",
-    campusMarkAlt: "Universitas Padjadjaran mark",
+    campusMarkAlt: "Logo Universitas Padjadjaran",
     major: "Hubungan Internasional",
     focus: "Hubungan Internasional",
     utbkScore: "700",
@@ -313,7 +313,7 @@ export const crewMembers: CrewMember[] = [
     campus: "UI",
     university: "Universitas Indonesia",
     campusMarkSrc: "/brand/campuses/ui.png",
-    campusMarkAlt: "Universitas Indonesia mark",
+    campusMarkAlt: "Logo Universitas Indonesia",
     major: "Fisika",
     focus: "Fisika",
     utbkScore: "SNBP 90",
@@ -335,7 +335,7 @@ export const crewMembers: CrewMember[] = [
     campus: "UPN Veteran Jakarta",
     university: "UPN Veteran Jakarta (UPNVJ)",
     campusMarkSrc: "/brand/campuses/upn.png",
-    campusMarkAlt: "Universitas Pembangunan Nasional Veteran Jakarta mark",
+    campusMarkAlt: "Logo Universitas Pembangunan Nasional Veteran Jakarta",
     major: "Kedokteran",
     focus: "Kedokteran",
     utbkScore: "704.95",
@@ -356,7 +356,7 @@ export const crewMembers: CrewMember[] = [
     campus: "ITB",
     university: "Institut Teknologi Bandung (ITB)",
     campusMarkSrc: "/brand/campuses/itb.svg",
-    campusMarkAlt: "Institut Teknologi Bandung mark",
+    campusMarkAlt: "Logo Institut Teknologi Bandung",
     major: "Sistem Tenaga Listrik",
     focus: "Sistem Tenaga Listrik",
     utbkScore: "718",
@@ -378,7 +378,7 @@ export const crewMembers: CrewMember[] = [
     campus: "UI",
     university: "Universitas Indonesia",
     campusMarkSrc: "/brand/campuses/ui.png",
-    campusMarkAlt: "Universitas Indonesia mark",
+    campusMarkAlt: "Logo Universitas Indonesia",
     major: "Ilmu Psikologi",
     focus: "Ilmu Psikologi",
     utbkScore: "PPU 800.91",
@@ -398,7 +398,7 @@ export const crewMembers: CrewMember[] = [
     campus: "UGM",
     university: "Universitas Gadjah Mada",
     campusMarkSrc: "/brand/campuses/ugm.png",
-    campusMarkAlt: "Universitas Gadjah Mada mark",
+    campusMarkAlt: "Logo Universitas Gadjah Mada",
     major: "Teknik Nuklir",
     focus: "Teknik Nuklir",
     utbkScore: "736",
@@ -420,7 +420,7 @@ export const testimonials: Testimonial[] = [
     quote: "Selama aku di Vecalss, ngerasa terbantu karena bahan ajarnya lengkap dari recording zoomnya yang bisa diakses kalau berhalangan hadir. Tutornya juga so fun dan penjelasannya oke banget!",
     university: "Universitas Padjadjaran",
     universityMarkSrc: "/brand/campuses/unpad.png",
-    universityMarkAlt: "Universitas Padjadjaran mark",
+    universityMarkAlt: "Logo Universitas Padjadjaran",
     avatarSrc: "/landing-assets/testimonials/Ayesha.png",
     avatarAlt: "Foto Ayesha, alumni Kedokteran Universitas Padjadjaran",
   },
@@ -449,7 +449,7 @@ export const testimonials: Testimonial[] = [
     quote: "Banget! Belajarku jadi lebih terarah dan nggak berasa sendirian karena ada community yang selalu nemenin prosesnya.",
     university: "Universitas Airlangga",
     universityMarkSrc: "/brand/campuses/unair.png",
-    universityMarkAlt: "Universitas Airlangga mark",
+    universityMarkAlt: "Logo Universitas Airlangga",
     avatarSrc: "/landing-assets/testimonials/Naila.png",
     avatarAlt: "Foto Naila, alumni Sosiologi UNAIR",
   },
@@ -460,7 +460,7 @@ export const testimonials: Testimonial[] = [
     quote: "YES banget! Di waktu yang mepet pun materi-materinya masih bisa dipahami dengan baik berkat mentor dan kelas-kelasnya.",
     university: "Universitas Indonesia",
     universityMarkSrc: "/brand/campuses/ui.png",
-    universityMarkAlt: "Universitas Indonesia mark",
+    universityMarkAlt: "Logo Universitas Indonesia",
     avatarSrc: "/landing-assets/testimonials/Housen.png",
     avatarAlt: "Foto Housen, alumni Administrasi Perkantoran UI",
   },
@@ -471,7 +471,7 @@ export const testimonials: Testimonial[] = [
     quote: "Ngebantu banget! Jadi nggak bingung harus mulai belajar dari mana karena semuanya udah lebih terarah.",
     university: "Universitas Indonesia",
     universityMarkSrc: "/brand/campuses/ui.png",
-    universityMarkAlt: "Universitas Indonesia mark",
+    universityMarkAlt: "Logo Universitas Indonesia",
     avatarSrc: "/landing-assets/testimonials/Sheren.png",
     avatarAlt: "Foto Sheren, alumni Geologi UI",
   },
@@ -500,7 +500,7 @@ export const testimonials: Testimonial[] = [
     quote: "Iyaa banget! Materinya lengkap, soal-soalnya banyak, jadi lebih enak buat latihan terus.",
     university: "Universitas Padjadjaran",
     universityMarkSrc: "/brand/campuses/unpad.png",
-    universityMarkAlt: "Universitas Padjadjaran mark",
+    universityMarkAlt: "Logo Universitas Padjadjaran",
     avatarSrc: "/landing-assets/testimonials/Ayesha.png",
     avatarAlt: "Foto Ayesha, alumni Kedokteran UNPAD",
   },
@@ -510,9 +510,9 @@ export const faqItems: Item[] = [
   {
     id: "1",
     number: "01",
-    question: "Vecalss itu full online atau ada offline-nya?",
+    question: "Belajar di Vecalss online atau ada kelas tatap muka?",
     answer:
-      "Vecalss 100% online, sehingga Voyager dari berbagai kota bisa belajar bersama tanpa batas lokasi.",
+      "Semua program Vecalss berlangsung online, jadi kamu bisa belajar dari mana saja.",
   },
   {
     id: "2",
@@ -526,39 +526,39 @@ export const faqItems: Item[] = [
     number: "03",
     question: "Siapa saja tutor di Vecalss?",
     answer:
-      "Tutor Vecalss berasal dari UI, ITB, UGM, dan PTN unggulan lainnya.",
+      "Kapten Vecalss berasal dari UI, ITB, UGM, dan beberapa PTN lainnya.",
   },
   {
     id: "4",
     number: "04",
     question: "Apakah ada rekaman kalau tidak bisa hadir?",
     answer:
-      "Ada. Sesi dapat ditonton ulang agar tidak ada Voyager yang tertinggal.",
+      "Ada. Kalau kamu berhalangan hadir, rekaman sesi dapat ditonton kembali.",
   },
   {
     id: "5",
     number: "05",
     question: "Cocok untuk siswa kelas berapa?",
     answer:
-      "Cocok untuk kelas 10, 11, 12, gap year, dan semi gap.",
+      "Cocok untuk siswa SMA kelas 10–12, gap year, dan yang menjalani semi gap year.",
   },
   {
     id: "6",
     number: "06",
     question: "Apakah ada komunitas setelah bergabung?",
     answer:
-      "Ya. Voyager bergabung ke komunitas untuk berbagi strategi dan saling mendukung.",
+      "Ya. Setelah bergabung, kamu bisa ikut komunitas Vecalss untuk berbagi strategi dan saling mendukung.",
   },
   {
     id: "7",
     number: "07",
     question: "Bagaimana cara mulai bergabung?",
     answer:
-      "Kamu bisa mulai dari linktr.ee/vecalss.academy untuk melihat program yang sedang berjalan.",
+      "Kunjungi linktr.ee/vecalss.academy untuk melihat program yang sedang dibuka.",
   },
 ];
 
 export const contactTopicOptions: readonly RadioPillOption<"quote" | "say-hi">[] = [
   { label: "Tanya program", value: "say-hi" },
-  { label: "Mentoring pribadi", value: "quote" },
+  { label: "Konsultasi belajar", value: "quote" },
 ];

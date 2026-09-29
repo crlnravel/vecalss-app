@@ -48,7 +48,7 @@ export default async function MentorMateriBuilderPage({
   const issues: CanonicalContextIssue[] = [];
   const previewValues = readQueryValues(query, "preview");
   if (previewValues.length > 1 || (previewValues[0] !== undefined && previewValues[0] !== "1")) {
-    issues.push({ code: "invalid", field: "preview", message: "Mode preview materi tidak tersedia.", value: previewValues[0] });
+    issues.push({ code: "invalid", field: "preview", message: "Pratinjau Materi tidak tersedia.", value: previewValues[0] });
   }
   const returnContext = parseMateriReturnTo(query);
   issues.push(...returnContext.issues);

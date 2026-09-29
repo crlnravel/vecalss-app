@@ -95,7 +95,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
 
   return (
     <div className={showLabel ? "flex flex-col items-start gap-3 pt-2" : "flex flex-col items-start gap-3"}>
-      {showLabel ? <p className="text-base leading-7 text-primary-900">Profile picture</p> : null}
+      {showLabel ? <p className="text-base leading-7 text-primary-900">Foto profil</p> : null}
       <div className="group/photo relative">
         <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_color-mix(in_oklab,var(--voyage-deep)_32%,transparent)]">
           {committedPhotoSrc ? (

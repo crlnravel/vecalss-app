@@ -45,7 +45,7 @@ const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/ai", icon: Sparkles, id: "ai", label: "Vera AI" },
   { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Kirim notifikasi" },
-  { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Log audit" },
+  { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Riwayat audit" },
 ];
 
 const adminDirectoryNavigation: AdminNavigationItem[] = [
@@ -55,7 +55,7 @@ const adminDirectoryNavigation: AdminNavigationItem[] = [
 ];
 
 const adminContentNavigation: AdminNavigationItem[] = [
-  { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Banner maker" },
+  { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Editor banner" },
 ];
 
 function AdminNavigationGroup({

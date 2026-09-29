@@ -13,5 +13,5 @@ export default async function MentorQuizSubmissionPage({
   const [{ attemptId, quizId }, session] = await Promise.all([params, requireTutorSession()]);
   const submission = await getMentorStandaloneQuizSubmission(quizId, attemptId, session.user.id);
   if (!submission) notFound();
-  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${submission.quiz.subject} · Pengiriman`} mainClassName="max-w-none" searchPlaceholder="Cari kuis atau subjek..." session={session} showSearch={false} sidebarAppearance="reference"><KaptenQuizSubmissionPageModule submission={submission} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${submission.quiz.subject} · Hasil pengerjaan`} mainClassName="max-w-none" searchPlaceholder="Cari kuis atau subtes..." session={session} showSearch={false} sidebarAppearance="reference"><KaptenQuizSubmissionPageModule submission={submission} /></MentorWorkspaceShell>;
 }

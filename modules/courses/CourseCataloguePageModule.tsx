@@ -143,9 +143,9 @@ function CourseCataloguePageModule({
         ) : (
           <ReferenceEmptyState
             className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "overflow-hidden")}
-            description="Bacaan yang tersedia akan muncul di sini."
+            description="Materi belajar yang tersedia akan muncul di sini."
             icon={BookOpen}
-            title="Belum ada bacaan terbit"
+            title="Belum ada materi"
           />
         )}
       </section>

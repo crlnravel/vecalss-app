@@ -121,7 +121,7 @@ async function lockTryoutAuthoringIdentity(
   editLease: AuthoringEditLease | undefined,
 ) {
   const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
-  if (!identity) throw new TryoutValidationError("Tryout tidak ditemukan.");
+  if (!identity) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
   await assertAuthoringEditLease(tx, { resourceId: tryoutId, resourceType: "tryout" }, actorId, editLease);
   await lockTryoutAggregate(tx, identity.tryoutId);
   return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
@@ -133,10 +133,10 @@ async function lockTryoutTransientIdentity(
   proof: Extract<TryoutAuthoringProof, { kind: "transient" }>,
 ) {
   if (proof.resource.resourceType !== "tryout" || proof.resource.resourceId !== tryoutId) {
-    throw new TryoutValidationError("Bukti transient Tryout tidak valid.");
+    throw new TryoutValidationError("Tryout tidak dapat diedit saat ini. Muat ulang halaman lalu coba lagi.");
   }
   const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
-  if (!identity) throw new TryoutValidationError("Tryout tidak ditemukan.");
+  if (!identity) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
   await lockTryoutAggregate(tx, identity.tryoutId);
   return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
 }
@@ -164,14 +164,14 @@ async function withTransientTryoutLifecycle<T>(
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
-    if (!identity) throw new TryoutValidationError("Tryout tidak ditemukan.");
+    if (!identity) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
     return withTransientAuthoringEditLeases(
       tx,
       [{ resourceId: identity.tryoutId, resourceType: "tryout" }],
       actorId,
       async (resources) => {
         const resource = resources[0];
-        if (!resource) throw new TryoutValidationError("Bukti transient Tryout tidak tersedia.");
+        if (!resource) throw new TryoutValidationError("Tryout tidak dapat diedit saat ini. Muat ulang halaman lalu coba lagi.");
         return body(tx, { kind: "transient", resource });
       },
     );
@@ -180,7 +180,7 @@ async function withTransientTryoutLifecycle<T>(
 
 async function lockTryoutCreateIdentity(tx: Prisma.TransactionClient, tryoutId: string) {
   const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
-  if (!identity) throw new TryoutValidationError("Tryout tidak ditemukan.");
+  if (!identity) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
   await lockTryoutAggregate(tx, identity.tryoutId);
   return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
 }
@@ -239,7 +239,7 @@ async function ensureMainTryoutDeliverySession(
       return updated;
     }
     if (!input.assessmentReleaseId) {
-      throw new TryoutValidationError("Tryout belum memiliki AssessmentRelease untuk membuka sesi utama.");
+      throw new TryoutValidationError("Tryout belum siap dibuka. Periksa susunan dan kelengkapan soalnya, lalu coba lagi.");
     }
 
     const window = schedule ?? { availableFrom: existing.availableFrom, availableUntil: existing.availableUntil };
@@ -340,7 +340,7 @@ async function resolveBannerMediaId(tx: Prisma.TransactionClient, bannerMediaId:
   if (!bannerMediaId) return null;
   const asset = await tx.asset.findUnique({ where: { id: bannerMediaId }, select: { libraryScope: true, mimeType: true, state: true } });
   if (!asset || asset.libraryScope !== MediaLibraryScope.kapten || asset.state !== MediaAssetState.ready || !isImageMimeType(asset.mimeType)) {
-    throw new TryoutValidationError("Banner Tryout harus berupa gambar Ready dari library media Kapten.");
+    throw new TryoutValidationError("Pilih gambar berstatus siap dari pustaka media Kapten untuk banner Tryout.");
   }
   return bannerMediaId;
 }
@@ -422,7 +422,7 @@ function isSnapshotQuestionInput(question: DirectQuestionInput): question is Dir
 function nullableAssetId(value: unknown, label: string) {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value !== "string" || !UUID_PATTERN.test(value)) {
-    throw new TryoutValidationError(`${label} tidak valid.`);
+    throw new TryoutValidationError(`${label} belum dapat digunakan. Pilih media lagi.`);
   }
   return value;
 }
@@ -433,40 +433,40 @@ function normalizeDirectSnapshotInput(
   subtestId: string,
 ): PersistedDirectQuestion {
   if (!UUID_PATTERN.test(input.snapshotId)) {
-    throw new TryoutValidationError("Identitas soal salinan tidak valid.");
+    throw new TryoutValidationError("Data soal tidak sesuai. Muat ulang halaman lalu coba lagi.");
   }
   if (typeof input.prompt !== "string" || !input.prompt.trim()) {
-    throw new TryoutValidationError("Pertanyaan harus memiliki isi.");
+    throw new TryoutValidationError("Isi pertanyaan terlebih dahulu.");
   }
   const questionType = input.questionType === "single_choice"
     ? QuestionType.single_choice
     : input.questionType === "multiple_choice"
       ? QuestionType.multiple_choice
       : null;
-  if (!questionType) throw new TryoutValidationError("Jenis soal langsung tidak didukung.");
+  if (!questionType) throw new TryoutValidationError("Jenis soal tidak didukung. Pilih soal pilihan ganda.");
   if (typeof input.difficulty !== "string" || !SNAPSHOT_DIFFICULTIES.has(input.difficulty as DifficultyLevel)) {
-    throw new TryoutValidationError("Tingkat kesulitan soal tidak valid.");
+    throw new TryoutValidationError("Pilih tingkat kesulitan soal yang tersedia.");
   }
   if (input.explanation !== undefined && input.explanation !== null && typeof input.explanation !== "string") {
-    throw new TryoutValidationError("Pembahasan soal tidak valid.");
+    throw new TryoutValidationError("Pembahasan soal belum dapat disimpan. Periksa kembali isinya.");
   }
   if (!Array.isArray(input.options) || input.options.length < 2 || input.options.length > 5) {
     throw new TryoutValidationError("Soal harus memiliki 2–5 pilihan jawaban.");
   }
 
   const options = input.options.map((option) => {
-    if (!option || typeof option !== "object") throw new TryoutValidationError("Pilihan jawaban tidak valid.");
+    if (!option || typeof option !== "object") throw new TryoutValidationError("Periksa kembali pilihan jawaban.");
     if (!UUID_PATTERN.test(option.snapshotOptionId)) {
-      throw new TryoutValidationError("Identitas pilihan jawaban tidak valid.");
+      throw new TryoutValidationError("Data pilihan jawaban tidak valid. Muat ulang halaman lalu coba lagi.");
     }
     if (typeof option.choiceKey !== "string" || !option.choiceKey.trim() || option.choiceKey.trim().length > 64) {
-      throw new TryoutValidationError("Setiap pilihan jawaban harus memiliki label yang valid.");
+      throw new TryoutValidationError("Setiap pilihan jawaban perlu memiliki label.");
     }
     if (typeof option.content !== "string" || !option.content.trim() || typeof option.isCorrect !== "boolean") {
-      throw new TryoutValidationError("Isi atau kunci pilihan jawaban tidak valid.");
+      throw new TryoutValidationError("Lengkapi isi dan kunci setiap pilihan jawaban.");
     }
     if (!Number.isInteger(option.sortOrder) || option.sortOrder < 0) {
-      throw new TryoutValidationError("Urutan pilihan jawaban tidak valid.");
+      throw new TryoutValidationError("Periksa urutan pilihan jawaban.");
     }
     return {
       assetId: nullableAssetId(option.assetId, "Media pilihan jawaban"),
@@ -484,10 +484,10 @@ function normalizeDirectSnapshotInput(
     || new Set(options.map((option) => option.choiceKey)).size !== options.length
     || new Set(options.map((option) => option.sortOrder)).size !== options.length
     || options.some((option, index) => option.sortOrder !== index)) {
-    throw new TryoutValidationError("Pilihan jawaban harus memiliki label dan urutan yang berbeda tanpa celah.");
+    throw new TryoutValidationError("Label dan urutan pilihan jawaban harus unik dan berurutan.");
   }
   const answerKey = validateAnswerKey(questionType, options.map((option) => ({ id: option.choiceKey, isCorrect: option.isCorrect })));
-  if (!answerKey.ok) throw new TryoutValidationError("Kunci jawaban soal tidak valid.");
+  if (!answerKey.ok) throw new TryoutValidationError("Atur kunci jawaban dengan benar sebelum menyimpan.");
 
   return {
     difficulty: input.difficulty as DifficultyLevel,
@@ -554,7 +554,7 @@ async function lockDirectQuestionMedia(
     await lockAndValidateKaptenBankImages(tx, { assetIds });
   } catch (error) {
     if (error instanceof ManagedImageAssetValidationError || error instanceof ManagedImageAssetConflictError) {
-      throw new TryoutValidationError("Semua media soal harus berupa gambar Kapten yang siap digunakan.");
+      throw new TryoutValidationError("Gunakan gambar dari pustaka media Kapten yang berstatus siap untuk semua soal.");
     }
     throw error;
   }
@@ -580,12 +580,12 @@ function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionG
   return { contentReady, hasExplanations, hasReadyMedia, itemCount: version.items.length, sourceQuestionIds } satisfies PackageVersionReadiness;
 }
 function assertPackageInput(input: PackageInput) {
-  if (!input.title.trim()) throw new TryoutValidationError("Judul Paket Soal wajib diisi.");
-  if (!SUBJECTS.includes(input.subtest)) throw new TryoutValidationError("Subtest Paket Soal tidak valid.");
+  if (!input.title.trim()) throw new TryoutValidationError("Isi judul Paket Soal terlebih dahulu.");
+  if (!SUBJECTS.includes(input.subtest)) throw new TryoutValidationError("Subtes Paket Soal tidak valid.");
   if (!input.sourceBankId) throw new TryoutValidationError("Pilih satu Bank Soal sumber terlebih dahulu.");
-  if (!input.items.length || new Set(input.items.map((item) => item.sourceQuestionId)).size !== input.items.length || input.items.some((item) => !Number.isFinite(item.pointValue) || item.pointValue <= 0)) throw new TryoutValidationError("Paket harus berisi soal unik dengan poin positif.");
-  if (input.completionIntent !== undefined && input.completionIntent !== "draft" && input.completionIntent !== "ready") throw new TryoutValidationError("Intent penyelesaian Paket Soal tidak valid.");
-  if (input.expectedRevision !== undefined && (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 0)) throw new TryoutValidationError("Revisi Paket Soal tidak valid.");
+  if (!input.items.length || new Set(input.items.map((item) => item.sourceQuestionId)).size !== input.items.length || input.items.some((item) => !Number.isFinite(item.pointValue) || item.pointValue <= 0)) throw new TryoutValidationError("Paket harus berisi soal yang berbeda dan setiap soal harus memiliki poin lebih dari 0.");
+  if (input.completionIntent !== undefined && input.completionIntent !== "draft" && input.completionIntent !== "ready") throw new TryoutValidationError("Pilih apakah Paket Soal akan disimpan sebagai draf atau ditandai siap digunakan.");
+  if (input.expectedRevision !== undefined && (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 0)) throw new TryoutValidationError("Perubahan Paket Soal tidak dapat disimpan. Muat ulang halaman lalu coba lagi.");
 }
 function assertReadySources(sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], subtest: SubjectCode, sourceBankId: string) {
   if (!sources.length || sources.some((source) => {
@@ -606,7 +606,7 @@ function assertReadySources(sources: Prisma.QuestionGetPayload<{ include: typeof
       || !revision.stem.trim()
       || !isReadyAsset(revision.promptAsset)
       || !isReadyAsset(revision.explanationAsset);
-  })) throw new TryoutValidationError("Paket hanya dapat memakai soal siap dari satu Bank yang aktif, dengan media siap dan Subtest yang sama.");
+  })) throw new TryoutValidationError("Pilih soal siap dari satu Bank Soal aktif dengan subtes yang sama dan media yang siap.");
 }
 function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], selections: DirectSourceQuestionInput[], subtest: SubjectCode) {
   const selectionById = new Map(selections.map((selection) => [selection.sourceQuestionId, selection]));
@@ -633,14 +633,14 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
       || !revision.stem.trim()
       || !isReadyAsset(revision.promptAsset)
       || !isReadyAsset(revision.explanationAsset);
-  })) throw new TryoutValidationError("Pilih soal langsung hanya dari revisi Ready yang masih aktif, kompatibel dengan Subtest, dan memiliki media siap.");
+  })) throw new TryoutValidationError("Pilih soal aktif dari Bank Soal untuk Tryout, dengan subtes yang sama dan media yang siap.");
 }
 async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourceQuestionIds: string[], subtest: SubjectCode, sourceBankId: string) {
   // Lock both source questions and their Banks before rereading lifecycle/media state.
   // Bank writes use the same aggregate row, so selection cannot race an archive.
   await tx.$queryRaw`SELECT q.id FROM questions q JOIN question_banks b ON b.id = q.question_bank_id WHERE q.id IN (${Prisma.join(sourceQuestionIds)}) ORDER BY q.id FOR SHARE OF q, b`;
   const sources = await tx.question.findMany({ where: { id: { in: sourceQuestionIds } }, include: sourceInclude });
-  if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian sumber Paket tidak tersedia.");
+  if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian soal dalam Paket tidak tersedia. Muat ulang halaman lalu periksa kembali.");
   assertReadySources(sources, subtest, sourceBankId);
   return sources;
 }
@@ -650,12 +650,12 @@ function assertPackageItemRevisions(items: readonly PackageItemInput[] | readonl
   for (const item of items) {
     const source = sourceById.get(item.sourceQuestionId);
     if ("pointValue" in item) {
-      if (requirePinnedRevision && !item.sourceQuestionRevisionId) throw new TryoutValidationError("Paket siap terbit harus menunjuk QuestionRevision aktif yang dipilih.");
-      if (item.sourceQuestionRevisionId && item.sourceQuestionRevisionId !== source?.currentRevision?.id) throw new TryoutValidationError("Sumber Paket harus menunjuk QuestionRevision aktif yang sama.");
+      if (requirePinnedRevision && !item.sourceQuestionRevisionId) throw new TryoutValidationError("Paket yang siap diterbitkan harus menggunakan soal dari Bank Soal yang kamu pilih.");
+      if (item.sourceQuestionRevisionId && item.sourceQuestionRevisionId !== source?.currentRevision?.id) throw new TryoutValidationError("Soal di Bank Soal sudah berubah. Muat ulang daftar soal lalu pilih kembali.");
       continue;
     }
     if (!item.sourceQuestionRevisionId || item.sourceQuestionRevisionId !== source?.currentRevision?.id) {
-      throw new TryoutValidationError("Paket memiliki sumber soal yang sudah berubah. Muat ulang Paket lalu simpan ulang sebelum menerbitkan versi.");
+      throw new TryoutValidationError("Sumber soal Paket sudah berubah. Muat ulang Paket lalu simpan lagi.");
     }
   }
 }
@@ -664,7 +664,7 @@ function packageItemRows(packageId: string, items: readonly PackageItemInput[], 
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   return items.map((item, index) => {
     const source = sourceById.get(item.sourceQuestionId);
-    if (!source?.currentRevision) throw new TryoutValidationError("Sebagian sumber Paket tidak memiliki revisi aktif.");
+    if (!source?.currentRevision) throw new TryoutValidationError("Sebagian soal dari Bank Soal sudah tidak tersedia. Perbarui isi Paket Soal lalu coba lagi.");
     return {
       packageId,
       pointValue: item.pointValue,
@@ -679,10 +679,10 @@ function packageItemRows(packageId: string, items: readonly PackageItemInput[], 
 async function readAndValidateDirectSources(tx: Prisma.TransactionClient, selections: DirectSourceQuestionInput[], subtest: SubjectCode) {
   const sourceQuestionIds = selections.map((selection) => selection.sourceQuestionId);
   if (!sourceQuestionIds.length) return [] as Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[];
-  if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh dipilih sekali dalam satu Section.");
+  if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal hanya boleh dipakai sekali dalam satu bagian Tryout.");
   await tx.$queryRaw`SELECT q.id FROM questions q JOIN question_banks b ON b.id = q.question_bank_id WHERE q.id IN (${Prisma.join(sourceQuestionIds)}) ORDER BY q.id FOR SHARE OF q, b`;
   const sources = await tx.question.findMany({ where: { id: { in: sourceQuestionIds } }, include: sourceInclude });
-  if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian soal langsung tidak tersedia.");
+  if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian soal dari Bank Soal tidak tersedia. Muat ulang Tryout lalu periksa kembali.");
   assertReadyDirectSources(sources, selections, subtest);
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   return sourceQuestionIds.map((sourceQuestionId) => sourceById.get(sourceQuestionId)!);
@@ -815,6 +815,19 @@ function toTryoutDto(record: TryoutReadRecord) {
   };
 }
 
+type TryoutCatalogueDto = Omit<ReturnType<typeof toTryoutDto>, "status"> & {
+  status: "draft" | "published" | "archived";
+};
+
+function toTryoutCatalogueDto(record: TryoutReadRecord): TryoutCatalogueDto {
+  const dto = toTryoutDto(record);
+  return {
+    ...dto,
+    status:
+      record.status === ContentStatus.archived ? "archived" : dto.status,
+  };
+}
+
 async function readPackageUsageCounts(packageIds: readonly string[], client: typeof prisma | Prisma.TransactionClient = prisma) {
   if (!packageIds.length) return new Map<string, number>();
   const bindings = await client.tryoutSection.findMany({
@@ -932,9 +945,9 @@ async function commitPackageReadyVersion(tx: Prisma.TransactionClient, packageId
   // source validation, immutable snapshot writes, and version allocation.
   await lockQuestionPackageAggregate(tx, packageId);
   const pkg = await tx.reusableQuestionPackage.findFirst({ where: { id: packageId, createdByUserId: actorId }, include: { subtest: true, items: { orderBy: { sortOrder: "asc" } } } });
-  if (!pkg) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
+  if (!pkg) throw new TryoutValidationError("Paket Soal tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Paket Soal.");
   const sourceBank = await tx.questionBank.findUnique({ where: { id: pkg.sourceBankId }, select: { id: true, purpose: true } });
-  if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Paket hanya dapat memakai Bank Soal tujuan Tryout.");
+  if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Pilih Bank Soal yang disiapkan untuk Tryout.");
   const sources = await readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId);
   assertPackageItemRevisions(pkg.items, sources);
 
@@ -955,7 +968,7 @@ async function commitPackageReadyVersion(tx: Prisma.TransactionClient, packageId
     const source = sourceById.get(membership.sourceQuestionId);
     const revision = source?.currentRevision;
     if (!source || !revision || !membership.sourceQuestionRevisionId || membership.sourceQuestionRevisionId !== revision.id) {
-      throw new TryoutValidationError("Paket memiliki sumber soal yang sudah berubah. Muat ulang Paket lalu simpan ulang sebelum menerbitkan versi.");
+      throw new TryoutValidationError("Soal di Bank Soal sudah berubah. Muat ulang daftar soal lalu simpan Paket lagi.");
     }
   }
   await Promise.all(
@@ -1020,16 +1033,16 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
       await assertAuthoringEditLease(tx, { resourceId: id, resourceType: "question_package" }, actorId, input.editLease);
       await lockQuestionPackageAggregate(tx, id);
       current = await tx.reusableQuestionPackage.findFirst({ where: { id, createdByUserId: actorId }, select: { revision: true, sourceBankId: true, subtestId: true } });
-      if (!current) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
+      if (!current) throw new TryoutValidationError("Paket Soal tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Paket Soal.");
       if (input.expectedRevision !== undefined && current.revision !== input.expectedRevision) throw new PackageConflictError(id, input.expectedRevision, current.revision);
     }
 
     const subtest = await tx.subtest.findUnique({ where: { code: input.subtest } });
-    if (!subtest) throw new TryoutValidationError("Subtest Paket tidak ditemukan.");
+    if (!subtest) throw new TryoutValidationError("Subtes untuk Paket Soal ini tidak tersedia. Muat ulang halaman lalu coba lagi.");
     const sourceBank = await tx.questionBank.findUnique({ where: { id: input.sourceBankId }, select: { id: true, purpose: true } });
-    if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Paket hanya dapat memakai Bank Soal tujuan Tryout.");
-    if (current?.subtestId && current.subtestId !== subtest.id) throw new TryoutValidationError("Subtest Paket tidak dapat diubah setelah dibuat.");
-    if (current?.sourceBankId && current.sourceBankId !== input.sourceBankId) throw new TryoutValidationError("Bank sumber Paket tidak dapat diubah.");
+    if (!sourceBank || sourceBank.purpose !== "tryout") throw new TryoutValidationError("Pilih Bank Soal yang disiapkan untuk Tryout.");
+    if (current?.subtestId && current.subtestId !== subtest.id) throw new TryoutValidationError("Subtes Paket Soal sudah ditetapkan dan tidak dapat diubah. Buat Paket Soal baru untuk memilih subtes lain.");
+    if (current?.sourceBankId && current.sourceBankId !== input.sourceBankId) throw new TryoutValidationError("Bank Soal sumber sudah ditetapkan dan tidak dapat diubah. Buat Paket Soal baru untuk menggunakan Bank Soal lain.");
 
     const sources = await readAndValidatePackageSources(tx, input.items.map((item) => item.sourceQuestionId), input.subtest, input.sourceBankId);
     assertPackageItemRevisions(input.items, sources, completionIntent === "ready");
@@ -1055,13 +1068,13 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
 }
 
 async function saveReusableQuestionPackageMetadata(input: PackageMetadataInput, actorId: string) {
-  if (!input.title.trim()) throw new TryoutValidationError("Judul Paket Soal wajib diisi.");
+  if (!input.title.trim()) throw new TryoutValidationError("Isi judul Paket Soal terlebih dahulu.");
   return prisma.$transaction(async (tx) => {
     await setTransactionLockTimeout(tx);
     await assertAuthoringEditLease(tx, { resourceId: input.id, resourceType: "question_package" }, actorId, input.editLease);
     await lockQuestionPackageAggregate(tx, input.id);
     const current = await tx.reusableQuestionPackage.findFirst({ where: { id: input.id, createdByUserId: actorId } });
-    if (!current) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
+    if (!current) throw new TryoutValidationError("Paket Soal tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Paket Soal.");
     const [saved, usageCounts] = await Promise.all([
       tx.reusableQuestionPackage.update({ where: { id: input.id }, data: { description: input.description.trim() || null, revision: { increment: 1 }, title: input.title.trim(), updatedByUserId: actorId }, include: packageInclude }),
       readPackageUsageCounts([input.id], tx),
@@ -1081,8 +1094,8 @@ async function updateTryoutMetadataCore(
       where: { id: input.id, createdByUserId: actorId },
       include: tryoutInclude,
     });
-    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-    if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah.");
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+    if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Paket Soal yang digunakan sudah diarsipkan. Buat Tryout baru dengan memilih soal dari Bank Soal.");
     const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
     return toTryoutDto(await tx.tryoutPackage.update({
       where: { id: input.id },
@@ -1097,7 +1110,7 @@ async function updateTryoutMetadataCore(
 }
 
 async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string, editLease: AuthoringEditLease) {
-  if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
+  if (!input.title.trim()) throw new TryoutValidationError("Isi judul Tryout terlebih dahulu.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     return updateTryoutMetadataCore(tx, input, actorId, { editLease, kind: "held" });
@@ -1105,7 +1118,7 @@ async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string,
 }
 
 async function updateTryoutMetadataTransient(input: Omit<TryoutMetadataInput, "editLease">, actorId: string) {
-  if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
+  if (!input.title.trim()) throw new TryoutValidationError("Isi judul Tryout terlebih dahulu.");
   return withTransientTryoutLifecycle(input.id, actorId, (tx, editLease) => updateTryoutMetadataCore(tx, input, actorId, editLease));
 }
 
@@ -1122,11 +1135,17 @@ async function unpublishTryoutCore(
     });
     if (mainSessionForLock) await lockTryoutSessions(tx, [mainSessionForLock.id]);
     const current = await tx.tryoutPackage.findFirst({
-      select: { id: true, publishedAt: true, status: true },
+      select: {
+        attempts: { select: { id: true }, take: 1 },
+        id: true,
+        publishedAt: true,
+        status: true,
+      },
       where: { createdByUserId: actorId, id },
     });
-    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-    if (current.status !== ContentStatus.published) throw new TryoutValidationError("Tryout ini sudah tidak berstatus diterbitkan.");
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+    if (current.status !== ContentStatus.published) throw new TryoutValidationError("Data Tryout sudah berubah. Muat ulang halaman lalu coba lagi.");
+    if (current.attempts.length) throw new TryoutValidationError("Tryout sudah terkunci karena peserta telah mulai mengerjakan. Buat draf perubahan untuk menyiapkan versi baru.");
     const activeAttempt = await tx.tryoutAttempt.findFirst({
       select: { id: true },
       where: {
@@ -1138,7 +1157,7 @@ async function unpublishTryoutCore(
         tryoutId: id,
       },
     });
-    if (activeAttempt) throw new TryoutValidationError("Tryout masih sedang dikerjakan peserta. Tunggu sampai semua attempt selesai sebelum menjadikannya draf.");
+    if (activeAttempt) throw new TryoutValidationError("Tryout masih dikerjakan peserta. Tunggu sampai semua pengerjaan selesai sebelum mengubahnya menjadi draf.");
 
     const updated = await tx.tryoutPackage.update({
       data: { publishedAt: null, status: ContentStatus.draft },
@@ -1221,7 +1240,7 @@ async function setTryoutHiddenCore(
       select: { id: true, isHidden: true, status: true },
       where: { createdByUserId: actorId, id },
     });
-    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
     if (current.status !== ContentStatus.published)
       throw new TryoutValidationError(
         "Tryout harus diterbitkan sebelum dapat disembunyikan atau ditampilkan kembali.",
@@ -1295,8 +1314,8 @@ async function archiveTryoutCore(
       select: { id: true, publishedAt: true, status: true },
       where: { createdByUserId: actorId, id },
     });
-    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-    if (current.status === ContentStatus.archived) throw new TryoutValidationError("Tryout ini sudah diarsipkan.");
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+    if (current.status === ContentStatus.archived) throw new TryoutValidationError("Tryout ini sudah diarsipkan. Muat ulang halaman untuk melihat status terbaru.");
 
     const updated = await tx.tryoutPackage.update({
       data: { publishedAt: null, status: ContentStatus.archived },
@@ -1339,8 +1358,8 @@ async function deleteTryoutCore(
       select: { id: true, status: true },
       where: { createdByUserId: actorId, id },
     });
-    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-    if (current.status !== ContentStatus.draft) throw new TryoutValidationError("Hanya Tryout draf yang dapat dihapus. Arsipkan Tryout yang sudah terbit.");
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+    if (current.status !== ContentStatus.draft) throw new TryoutValidationError("Hanya Tryout draf yang dapat dihapus. Arsipkan Tryout yang sudah terbit terlebih dahulu.");
     const sessionsForLock = await tx.tryoutDeliverySession.findMany({
       where: { tryoutId: id },
       orderBy: { id: "asc" },
@@ -1357,7 +1376,7 @@ async function deleteTryoutCore(
       tx.adminPreviewTryoutRestart.count({ where: { tryoutId: id } }),
     ]);
     if (attemptCount || releaseCount || admissionCount || auditCount || previewRestartCount) {
-      throw new TryoutValidationError("Tryout memiliki riwayat atau sesi terkait. Gunakan Arsipkan Tryout agar riwayat tetap tersimpan.");
+      throw new TryoutValidationError("Tryout memiliki riwayat pengerjaan atau sesi. Arsipkan Tryout agar riwayat tetap tersimpan.");
     }
 
     await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
@@ -1387,9 +1406,20 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
   });
 }
 
-async function listTryouts(actorId: string) {
+async function listTryouts(
+  actorId: string,
+  options: { includeArchived?: boolean } = {},
+): Promise<TryoutCatalogueDto[]> {
   const records = await prisma.tryoutPackage.findMany({ where: { createdByUserId: actorId }, include: tryoutInclude, orderBy: { updatedAt: "desc" } });
-  return records.flatMap((record) => record.status === ContentStatus.archived || hasArchivedPackageBinding(record) ? [] : [toTryoutDto(record)]);
+  return records.flatMap((record) => {
+    if (
+      (record.status === ContentStatus.archived && !options.includeArchived) ||
+      (record.status !== ContentStatus.archived && hasArchivedPackageBinding(record))
+    ) {
+      return [];
+    }
+    return [toTryoutCatalogueDto(record)];
+  });
 }
 async function getTryoutForEdit(id: string, actorId: string) {
   const record = await prisma.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: tryoutInclude });
@@ -1398,30 +1428,30 @@ async function getTryoutForEdit(id: string, actorId: string) {
 function validateTryoutInput(input: SaveTryoutInput) {
   for (const section of input.sections) {
     const legacySection = section as unknown as Record<string, unknown>;
-    if (legacySection.packageVersionId) throw new TryoutValidationError("Paket Soal sudah diarsipkan. Pilih soal langsung dari Bank Soal.");
-    if (section.testType !== "cbt") throw new TryoutValidationError("Tryout hanya mendukung Test CBT.");
+    if (legacySection.packageVersionId) throw new TryoutValidationError("Paket Soal ini sudah diarsipkan. Buat Tryout baru dengan memilih soal dari Bank Soal.");
+    if (section.testType !== "cbt") throw new TryoutValidationError("Tryout ini harus menggunakan ujian berbasis komputer (CBT).");
     try {
       canonicalizeCbtScoringConfig(section.scoringConfig);
     } catch (error) {
-      throw new TryoutValidationError(error instanceof Error ? error.message : "Metode penilaian CBT tidak valid.");
+      throw new TryoutValidationError("Pengaturan penilaian CBT tidak valid. Periksa kembali metode penilaiannya.");
     }
   }
-  if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
-  if (input.admissionMode !== undefined && !["open", "approval_required", "invitation_only"].includes(input.admissionMode)) throw new TryoutValidationError("Kebijakan akses Tryout tidak valid.");
-  if (input.defaultResultReleasePolicy !== undefined && !["immediate", "manual", "automatic_at_end"].includes(input.defaultResultReleasePolicy)) throw new TryoutValidationError("Kebijakan rilis hasil Tryout tidak valid.");
-  if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tepat tujuh Test subject.");
-  if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1)) throw new TryoutValidationError("Konfigurasi durasi Test tidak valid.");
+  if (!input.title.trim()) throw new TryoutValidationError("Isi judul Tryout terlebih dahulu.");
+  if (input.admissionMode !== undefined && !["open", "approval_required", "invitation_only"].includes(input.admissionMode)) throw new TryoutValidationError("Pilih kebijakan akses Tryout yang tersedia.");
+  if (input.defaultResultReleasePolicy !== undefined && !["immediate", "manual", "automatic_at_end"].includes(input.defaultResultReleasePolicy)) throw new TryoutValidationError("Pilih waktu pembukaan hasil Tryout yang tersedia.");
+  if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tujuh subtes yang berbeda. Periksa kembali susunannya.");
+  if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1)) throw new TryoutValidationError("Atur durasi setiap bagian Tryout minimal 1 menit.");
 }
 
 function parseTryoutSchedule(input: SaveTryoutInput) {
   if (input.availableFrom === undefined && input.availableUntil === undefined) return null;
   if (input.availableFrom === undefined || input.availableUntil === undefined) {
-    throw new TryoutValidationError("Waktu buka dan tutup Tryout harus diisi bersama.");
+    throw new TryoutValidationError("Isi waktu buka dan waktu tutup Tryout.");
   }
   const availableFrom = parseTryoutDateTime(input.availableFrom);
   const availableUntil = parseTryoutDateTime(input.availableUntil);
   if (Number.isNaN(availableFrom.getTime()) || Number.isNaN(availableUntil.getTime())) {
-    throw new TryoutValidationError("Waktu buka dan tutup Tryout tidak valid.");
+    throw new TryoutValidationError("Periksa kembali tanggal dan waktu buka serta tutup Tryout.");
   }
   if (availableUntil <= availableFrom) {
     throw new TryoutValidationError("Waktu tutup Tryout harus setelah waktu buka.");
@@ -1464,10 +1494,10 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
     if (id) {
       const current = await tx.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: { attempts: { take: 1 }, sections: { select: { items: { select: { packageVersionId: true } }, packageVersionId: true } } } });
-      if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-      if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah. Buat Tryout baru dari soal langsung di Bank Soal.");
+      if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+      if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Paket Soal yang digunakan sudah diarsipkan. Buat Tryout baru dengan memilih soal dari Bank Soal.");
       if (current.status === ContentStatus.published) throw new TryoutValidationError("Tryout yang sudah terbit tidak dapat diubah strukturnya. Gunakan Buat draf perubahan.");
-      if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dimulai peserta tidak dapat diubah. Gunakan Buat draf perubahan.");
+      if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dikerjakan peserta tidak dapat diubah. Gunakan Buat draf perubahan.");
       // A release-bound active session is participant-accessible. Keep its
       // physical bridge stable for the pinned release; the author must close
       // or archive that session before replacing section/item rows.
@@ -1475,7 +1505,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
         where: { assessmentReleaseId: { not: null }, status: TryoutDeliverySessionStatus.active, tryoutId: id },
         select: { id: true },
       });
-      if (participantAccessibleRelease) throw new TryoutValidationError("Tryout memiliki sesi aktif yang telah mengikat AssessmentRelease. Tutup atau arsipkan sesi sebelum mengganti baris fisik.");
+      if (participantAccessibleRelease) throw new TryoutValidationError("Tryout memiliki sesi yang sedang aktif. Tutup atau arsipkan sesi sebelum mengubah susunan soal.");
     }
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
@@ -1492,7 +1522,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     for (const [index, subjectCode] of SUBJECTS.entries()) {
       const sectionInput = sectionBySubtest.get(subjectCode)!;
       const subtest = subtestByCode.get(sectionInput.subtest);
-      if (!subtest) throw new TryoutValidationError(`Subtest ${sectionInput.subtest} tidak ditemukan.`);
+      if (!subtest) throw new TryoutValidationError("Subtes Tryout tidak ditemukan. Periksa kembali susunan Tryout.");
       const directQuestions = sectionInput.directQuestions ?? [];
       const sourceSelections = directQuestions.filter((question): question is DirectSourceQuestionInput => !isSnapshotQuestionInput(question));
       const directSources = sourceSelections.length
@@ -1507,16 +1537,16 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
         }
         allSourceIds.push(question.sourceQuestionId);
         const source = sourceById.get(question.sourceQuestionId);
-        if (!source) throw new TryoutValidationError("Sebagian soal langsung tidak tersedia.");
+        if (!source) throw new TryoutValidationError("Sebagian soal dari Bank Soal tidak tersedia. Muat ulang Tryout lalu periksa kembali.");
         return snapshotFromDirectSource(source, questionIndex + 1);
       });
-      if (input.status === "published" && !snapshots.length) throw new TryoutValidationError("Setiap Test harus memiliki minimal satu soal langsung sebelum Tryout diterbitkan.");
+      if (input.status === "published" && !snapshots.length) throw new TryoutValidationError("Tambahkan minimal satu soal ke setiap bagian sebelum menerbitkan Tryout.");
       const itemIds = snapshots.flatMap((snapshot) => snapshot.snapshotId ? [snapshot.snapshotId] : snapshot.sourceQuestionId ? [snapshot.sourceQuestionId] : []);
       const scoringConfig = resolveCbtScoringConfig(sectionInput.scoringConfig, itemIds, input.status === "published");
       preparedSections.push({ itemIds, scoringConfig, sectionInput, snapshots, subtest });
     }
-    if (new Set(allSourceIds).size !== allSourceIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
-    if (new Set(allSnapshotIds).size !== allSnapshotIds.length) throw new TryoutValidationError("Identitas soal salinan harus berbeda di seluruh Tryout.");
+    if (new Set(allSourceIds).size !== allSourceIds.length) throw new TryoutValidationError("Satu soal hanya boleh dipakai sekali di seluruh Tryout.");
+    if (new Set(allSnapshotIds).size !== allSnapshotIds.length) throw new TryoutValidationError("Soal yang sama tidak boleh muncul lebih dari sekali dalam Tryout.");
     await lockDirectQuestionMedia(tx, preparedSections.flatMap(({ snapshots }) => snapshots));
 
     if (id) {
@@ -1583,7 +1613,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 }
 async function duplicateTryout(id: string, actorId: string) {
   const current = await getTryoutForEdit(id, actorId);
-  if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
+  if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
   return saveTryout({
     bannerMediaId: current.bannerMediaId,
     description: current.description,

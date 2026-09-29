@@ -431,14 +431,14 @@ function validate(input: SaveBankInput) {
   const questionIds = input.questions.flatMap((question) => question.id ? [question.id] : []);
   if (!input.title.trim()) throw new QuestionBankError("Judul Bank Soal wajib diisi.");
   if (subjectCodes.some((subject) => !SUBJECT_CODES.includes(subject as (typeof SUBJECT_CODES)[number]))) {
-    throw new QuestionBankError("Tambahkan soal dengan subject yang valid.");
+    throw new QuestionBankError("Tambahkan soal dengan subtes yang valid.");
   }
   if (new Set(questionIds).size !== questionIds.length) {
     throw new QuestionBankError("Setiap soal hanya boleh muncul satu kali.", { code: "invalid_input" });
   }
   for (const question of input.questions) {
     if (!isQuestionBankMateri(question.subjectCode, question.materi)) {
-      throw new QuestionBankError("Materi harus sesuai dengan subject soal.", { code: "invalid_input" });
+      throw new QuestionBankError("Materi harus sesuai dengan subtes soal.", { code: "invalid_input" });
     }
     if (question.choices.length < 2 || question.choices.length > 5) throw new QuestionBankError("Setiap soal harus memiliki 2 sampai 5 opsi.");
     const questionType = question.questionType ?? QuestionType.single_choice;
@@ -1050,6 +1050,21 @@ async function createQuestionRevision(
   return revision;
 }
 
+async function markQuestionRevisionReady(
+  tx: Prisma.TransactionClient,
+  revisionId: string,
+  actorId: string,
+) {
+  return tx.questionRevision.update({
+    where: { id: revisionId },
+    data: {
+      readyAt: new Date(),
+      status: QuestionRevisionStatus.ready,
+      updatedByUserId: actorId,
+    },
+  });
+}
+
 async function updateDraftQuestionRevision(
   tx: Prisma.TransactionClient,
   revision: QuestionRevisionRecord,
@@ -1331,7 +1346,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const retainedIds = new Set<string>();
     for (const [questionIndex, question] of input.questions.entries()) {
         const subtest = subtestByCode.get(question.subjectCode);
-        if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
+  if (!subtest) throw new QuestionBankError(`Subtes ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
         const isTemporary = isTemporaryQuestionId(question.id);
         const current = question.id && !isTemporary ? existingById.get(question.id) : undefined;
         if (question.id && !isTemporary && !current) {
@@ -1339,7 +1354,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         }
         if (current?.currentRevision?.status === QuestionRevisionStatus.retired) {
           throw new QuestionBankError(
-            "Soal yang sudah retired tidak dapat diaktifkan kembali.",
+            "Soal yang sudah dinonaktifkan tidak dapat diaktifkan kembali.",
             { code: "question_retired", details: { questionId: current.id } },
           );
         }
@@ -1381,12 +1396,13 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             options,
             promptAssetId: data.promptAssetId,
             questionId: saved.id,
-          revisionNo: 1,
-          status: QuestionRevisionStatus.ready,
-          stem: data.stem,
-          questionType,
-        });
+            revisionNo: 1,
+            status: QuestionRevisionStatus.draft,
+            stem: data.stem,
+            questionType,
+          });
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
+          await markQuestionRevisionReady(tx, revisionId, actorId);
           retainedIds.add(saved.id);
           continue;
         }
@@ -1399,14 +1415,8 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
         if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
           if (currentRevision.status !== QuestionRevisionStatus.ready) {
-            await tx.questionRevision.update({
-              where: { id: currentRevision.id },
-              data: {
-                readyAt: currentRevision.readyAt ?? new Date(),
-                status: QuestionRevisionStatus.ready,
-                updatedByUserId: actorId,
-              },
-            });
+            await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+            await markQuestionRevisionReady(tx, currentRevision.id, actorId);
           }
           if (current.status !== ContentStatus.published) {
             await tx.question.update({
@@ -1430,11 +1440,13 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             promptAssetId: data.promptAssetId,
             questionId: current.id,
             revisionNo: nextRevisionNo,
-            status: QuestionRevisionStatus.ready,
+            status: QuestionRevisionStatus.draft,
             stem: data.stem,
             questionType,
           });
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: revision.id, revision: nextRevisionNo } });
+          await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+          await markQuestionRevisionReady(tx, revision.id, actorId);
         } else {
           await updateDraftQuestionRevision(tx, currentRevision, {
             actorId,
@@ -1447,20 +1459,13 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             stem: data.stem,
             questionType,
           });
-          await tx.questionRevision.update({
-            where: { id: currentRevision.id },
-            data: {
-              readyAt: currentRevision.readyAt ?? new Date(),
-              status: QuestionRevisionStatus.ready,
-              updatedByUserId: actorId,
-            },
-          });
           // QuestionRevision is now the content authority. Keep the legacy
           // QuestionOption projection stable so historical source-option IDs
           // cannot silently change when a draft is edited.
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: currentRevision.id } });
+          await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+          await markQuestionRevisionReady(tx, currentRevision.id, actorId);
         }
-        await syncLegacyQuestionOptions(tx, current.id, current.options, options);
     }
     const removed = existing.filter((question) => !retainedIds.has(question.id));
     for (const question of removed) {
@@ -1653,19 +1658,19 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
     const current = revision.status;
     const isCurrent = revision.question.currentRevisionId === revision.id;
     if (current === QuestionRevisionStatus.retired && target !== QuestionRevisionStatus.retired) {
-      throw new QuestionBankError("Revisi yang sudah retired tidak dapat diaktifkan kembali.", { code: "question_retired" });
+      throw new QuestionBankError("Revisi yang sudah dinonaktifkan tidak dapat diaktifkan kembali.", { code: "question_retired" });
     }
     if (current === QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.retired) {
-      throw new QuestionBankError("Revisi Ready tidak dapat diturunkan statusnya. Buat revisi baru untuk perubahan.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Revisi yang sudah siap tidak dapat dikembalikan ke draf atau peninjauan. Buat revisi baru untuk mengubah isinya.", { code: "invalid_lifecycle_transition" });
     }
     if (target === QuestionRevisionStatus.ready) {
-      if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat dipindahkan ke Ready.", { code: "invalid_lifecycle_transition" });
+      if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat ditandai siap.", { code: "invalid_lifecycle_transition" });
       if (!revision.question.questionBank) {
         // Standalone revisions predate the Bank Soal readiness contract and
         // intentionally have no Subtest requirement. Preserve that structural
         // predicate while keeping the typed failure used by the action.
         if (!isValidRevision(revision)) {
-          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", { code: "readiness_failed" });
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk ditandai siap.", { code: "readiness_failed" });
         }
       } else {
         const issues = getQuestionReadinessFromRevision({
@@ -1674,7 +1679,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
           subtestCode: revision.question.subtest?.code,
         });
         if (issues.length) {
-          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", {
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk ditandai siap.", {
             code: "readiness_failed",
             details: { questionId: revision.questionId },
             readiness: {
@@ -1688,10 +1693,10 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
       }
     }
     if (target === QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
-      throw new QuestionBankError("Hanya revisi Draft atau Review yang dapat masuk ke Draft.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Hanya revisi berstatus draf atau dalam peninjauan yang bisa dikembalikan ke draf.", { code: "invalid_lifecycle_transition" });
     }
     if (target === QuestionRevisionStatus.review && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
-      throw new QuestionBankError("Hanya revisi Draft yang dapat masuk ke Review.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Hanya revisi berstatus draf yang bisa diajukan untuk ditinjau.", { code: "invalid_lifecycle_transition" });
     }
 
     const now = new Date();
@@ -1756,7 +1761,7 @@ async function deleteQuestionBank(
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, revision: true, status: true, updatedByUserId: true } });
-    if (!bank) throw new QuestionBankError("Question bank not found.", { code: "not_found" });
+    if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     const modifierId = actorId;
 
     const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([
@@ -1788,7 +1793,7 @@ async function deleteQuestionBank(
     ]);
 
     if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount) {
-      throw new QuestionBankError("This question bank cannot be deleted because it is already used by a quiz, tryout, or learning session.");
+      throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan dalam kuis, Tryout, atau sesi belajar.");
     }
 
     const currentQuestions = await tx.question.findMany({

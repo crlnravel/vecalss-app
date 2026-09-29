@@ -29,7 +29,7 @@ const TAB_NONCE_STORAGE_KEY = "vecalss:resource-edit-lock:tab-nonce:v1";
 const TAB_CHANNEL_NAME = "vecalss:resource-edit-lock:tabs:v1";
 const PROOF_STORAGE_PREFIX = "vecalss:resource-edit-lock:proof:v1:";
 const HANDSHAKE_WAIT_MS = 75;
-const LOCK_RECHECK_POLL_MS = 2_000;
+const LOCK_RECHECK_POLL_MS = 1_000;
 
 type ProviderProps = PropsWithChildren<{
   enabled?: boolean;
@@ -40,7 +40,9 @@ type ProviderProps = PropsWithChildren<{
 type ResourceEditLockContextValue = {
   canEdit: boolean;
   generation: number | null;
+  holderEmail: string | null;
   holderName: string | null;
+  holderUserId: string | null;
   lastError: string | null;
   proof: EditLeaseProof | null;
   remainingMs: number;
@@ -187,7 +189,9 @@ function ResourceEditLockProvider({
   const resourceKey = canonicalResource?.resourceKey ?? null;
   const [state, setState] = useState<EditLeaseState>(enabled && resourceKey ? "acquiring" : "lost");
   const [proof, setProof] = useState<EditLeaseProof | null>(null);
+  const [holderEmail, setHolderEmail] = useState<string | null>(null);
   const [holderName, setHolderName] = useState<string | null>(null);
+  const [holderUserId, setHolderUserId] = useState<string | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [serverNow, setServerNow] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -215,7 +219,9 @@ function ResourceEditLockProvider({
     proofRef.current = nextProof;
     setProof(nextProof);
     storeProof(resourceKey ?? "", nextProof);
+    setHolderEmail(null);
     setHolderName(null);
+    setHolderUserId(null);
     setLastError(null);
     setServerNow(status.serverNow);
     setRemainingMs(status.remainingMs);
@@ -227,7 +233,9 @@ function ResourceEditLockProvider({
     proofRef.current = null;
     setProof(null);
     storeProof(resourceKey ?? "", null);
+    setHolderEmail(status.holderEmail ?? null);
     setHolderName(status.holderName ?? null);
+    setHolderUserId(status.holderUserId ?? null);
     setServerNow(status.serverNow);
     setRemainingMs(status.remainingMs);
     deadlineRef.current = 0;
@@ -238,7 +246,9 @@ function ResourceEditLockProvider({
     proofRef.current = null;
     setProof(null);
     storeProof(resourceKey ?? "", null);
+    setHolderEmail(null);
     setHolderName(null);
+    setHolderUserId(null);
     setRemainingMs(0);
     deadlineRef.current = 0;
     setLastError(errorCode);
@@ -309,7 +319,9 @@ function ResourceEditLockProvider({
     }
     commandSerialRef.current += 1;
     const serial = commandSerialRef.current;
+    setHolderEmail(null);
     setHolderName(null);
+    setHolderUserId(null);
     setLastError(null);
     setRemainingMs(0);
     updateState("acquiring");
@@ -447,8 +459,16 @@ function ResourceEditLockProvider({
       if (document.visibilityState === "hidden") return;
       const elapsed = performance.now() - lifecycleAtRef.current;
       lifecycleAtRef.current = performance.now();
-      if (stateRef.current === "locked") return;
-      if (stateRef.current !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recover();
+      const currentState = stateRef.current;
+      // A refresh can fire both events during the startup handshake; don't race its pending acquire or recovery.
+      if (
+        currentState === "locked"
+        || currentState === "acquiring"
+        || currentState === "uncertain"
+      ) {
+        return;
+      }
+      if (currentState !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recover();
       else renewCurrent();
     };
     const onPageHide = () => {
@@ -636,7 +656,9 @@ function ResourceEditLockProvider({
   const context = useMemo<ResourceEditLockContextValue>(() => ({
     canEdit: state === "owned" && proof !== null && remainingMs > EDIT_LEASE_SAFETY_MARGIN_MS,
     generation: proof?.generation ?? null,
+    holderEmail,
     holderName,
+    holderUserId,
     lastError,
     proof,
     release,
@@ -644,7 +666,7 @@ function ResourceEditLockProvider({
     retry,
     serverNow,
     state,
-  }), [holderName, lastError, proof, release, remainingMs, retry, serverNow, state]);
+  }), [holderEmail, holderName, holderUserId, lastError, proof, release, remainingMs, retry, serverNow, state]);
 
   return <ResourceEditLockContext.Provider value={context}>{children}</ResourceEditLockContext.Provider>;
 }

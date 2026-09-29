@@ -41,7 +41,7 @@ export function MediaAssetPreview({
   }, [assetId, scope]);
 
   if (hasError) {
-    return <div className={cn("flex min-h-24 items-center justify-center rounded-2xl bg-primary-50 text-sm text-secondary-500", className)}><ImageOff className="mr-2 size-4" />Media tidak tersedia</div>;
+    return <div className={cn("flex min-h-24 items-center justify-center rounded-2xl bg-primary-50 text-sm text-secondary-500", className)}><ImageOff className="mr-2 size-4" />Pratinjau media belum tersedia</div>;
   }
   if (!previewUrl) return <Skeleton className={cn("min-h-24 w-full rounded-2xl", className)} />;
 
@@ -58,11 +58,11 @@ export function MediaAssetPreview({
       </Button>
       {showDownloadControls ? <Button
         nativeButton={false}
-        render={<a aria-label="Download PDF" download href={previewUrl} />}
+        render={<a aria-label="Unduh PDF" download href={previewUrl} />}
         size="default"
         variant="brand"
       >
-        Download PDF
+        Unduh PDF
       </Button> : null}
     </div>;
   }

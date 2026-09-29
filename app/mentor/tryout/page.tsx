@@ -21,7 +21,9 @@ export default async function MentorTryoutPage({
     requireTutorSession(),
     searchParams,
   ]);
-  const initialItems = await listTryouts(session.user.id);
+  const initialItems = await listTryouts(session.user.id, {
+    includeArchived: true,
+  });
   const createValues = readQueryValues(query, "create");
 
   return (

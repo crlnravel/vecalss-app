@@ -148,7 +148,7 @@ const requireMediaSession = async (scope: MediaScope) => {
   const requiredRole = scope === "kapten" ? RoleName.tutor : RoleName.admin;
 
   if (!hasRole(session, requiredRole)) {
-    throw new MediaServiceError("Anda tidak memiliki akses ke library media ini.", 403);
+    throw new MediaServiceError("Kamu tidak memiliki akses ke pustaka media ini.", 403);
   }
 
   return session;
@@ -1024,14 +1024,14 @@ const requestMediaUpload = async ({
   uploadedByUserId: string;
 }): Promise<MediaUploadTicket> => {
   if (typeof fileName !== "string" || typeof mimeType !== "string" || typeof sizeBytes !== "number") {
-    throw new MediaServiceError("Data upload tidak valid.");
+    throw new MediaServiceError("Data unggahan tidak valid.");
   }
   const validation = validateMediaUpload({ fileName, mimeType, sizeBytes });
   if (!validation.isValid) throw new MediaServiceError(validation.error);
   const normalizedMimeType = mimeType.trim().toLowerCase();
   if (!isSupportedMediaMimeType(normalizedMimeType)) throw new MediaServiceError("Format media tidak didukung.");
   if (scope === "admin" && isPdfMimeType(normalizedMimeType)) {
-    throw new MediaServiceError("Dokumen PDF hanya dapat diupload ke Media Kapten.", 403);
+    throw new MediaServiceError("Dokumen PDF hanya dapat diunggah ke Media Kapten.", 403);
   }
 
   const safeFolderId = normalizeNullableId(folderId);
@@ -1043,7 +1043,7 @@ const requestMediaUpload = async ({
     signedUpload = await createMediaUploadUrl(objectKey, normalizedMimeType);
   } catch (error) {
     if (error instanceof R2ConfigurationError) {
-      throw new MediaServiceError(error.message, 503);
+      throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     }
     throw error;
   }
@@ -1091,8 +1091,8 @@ const finalizeMediaUpload = async ({
         state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
       },
     });
-    if (!asset) throw new MediaServiceError("Upload tidak tersedia atau sudah tidak dapat diubah.", 409);
-    if (!asset.objectKey) throw new MediaServiceError("Object key gambar tidak tersedia.", 409);
+    if (!asset) throw new MediaServiceError("Unggahan ini sudah tidak bisa diubah. Coba unggah file lagi.", 409);
+    if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 409);
     const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
     return { asset, folderAncestry };
   });
@@ -1109,8 +1109,8 @@ const finalizeMediaUpload = async ({
     // storage/network operation may run while the shared mutation lock is held.
     head = await headMediaObject(verifiedObjectKey);
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
-    throw new MediaServiceError("Upload belum dapat diverifikasi. Coba lagi.", 502);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
+    throw new MediaServiceError("Unggahan belum berhasil diverifikasi. Periksa koneksi lalu coba lagi.", 502);
   }
 
   const verifiedChecksum = head.ETag?.replaceAll('"', "") ?? null;
@@ -1138,7 +1138,7 @@ const finalizeMediaUpload = async ({
         },
       });
     });
-    throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan upload.", 409);
+    throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan unggah.", 409);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -1146,7 +1146,7 @@ const finalizeMediaUpload = async ({
     await acquireBannerMediaMutationLock(tx);
     const current = await tx.asset.findUnique({ where: { id: asset.id } });
     if (!current || current.libraryScope !== scopeToDatabase(scope)) {
-      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+      throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
     }
 
     const currentAncestry = await readActiveFolderAncestry(scope, current.folderId, tx).catch(() => null);
@@ -1176,7 +1176,7 @@ const finalizeMediaUpload = async ({
       || current.folderId !== asset.folderId
       || !sameAncestry
     ) {
-      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+      throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
     }
 
     const updated = await tx.asset.updateMany({
@@ -1197,7 +1197,7 @@ const finalizeMediaUpload = async ({
         trashedAt: null,
       },
     });
-    if (updated.count !== 1) throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+    if (updated.count !== 1) throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
   });
 };
 
@@ -1214,7 +1214,7 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
   try {
     return { mimeType: asset.mimeType, originalName: asset.originalName, previewUrl: await createMediaPreviewUrl(asset.objectKey) };
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     throw error;
   }
 };
@@ -1222,7 +1222,7 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
 const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
   const asset = await assertAsset(scope, assetId, [MediaAssetState.ready, MediaAssetState.trashed]);
   if (!isImageMimeType(asset.mimeType)) {
-    throw new MediaServiceError("Thumbnail hanya tersedia untuk gambar.", 415);
+    throw new MediaServiceError("Pratinjau hanya tersedia untuk gambar.", 415);
   }
   if (asset.url) return { body: null, contentType: asset.mimeType, fallbackUrl: asset.url };
   if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 404);
@@ -1235,7 +1235,7 @@ const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
       .toBuffer();
     return { body, contentType: "image/webp", fallbackUrl: null };
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     throw error;
   }
 };

@@ -98,7 +98,7 @@ function KaptenTryoutSessionPrimaryAction({
               <span className="font-semibold text-secondary-900">{sessionName}</span> akan menjadi tujuan pendaftaran terbuka.
               {currentPrimaryName
                 ? ` Sesi utama saat ini, ${currentPrimaryName}, akan digantikan.`
-                : " Peserta baru akan ditempatkan ke sesi ini."} Perubahan ini dicatat otomatis di audit log.
+                : " Peserta baru akan ditempatkan ke sesi ini."} Perubahan ini otomatis tercatat dalam riwayat audit.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

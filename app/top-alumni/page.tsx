@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import TopAlumniPageModule from "@/modules/alumni/TopAlumniPageModule";
 
 export const metadata: Metadata = {
-  title: "Top 90 Alumni | Vecalss LMS",
+  title: "Contoh profil alumni | Vecalss",
   description:
-    "Explore the top 90 Vecalss alumni and the universities they were accepted into.",
+    "Lihat contoh tampilan profil alumni Vecalss. Data pada halaman ini belum mencerminkan alumni Vecalss yang sebenarnya.",
 };
 
 export default async function TopAlumniPage() {

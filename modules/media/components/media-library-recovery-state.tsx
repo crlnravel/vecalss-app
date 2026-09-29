@@ -11,21 +11,21 @@ function getRecoveryCopy(kind: MediaLibraryRecoveryKind, mediaLabel: string, err
   const isStorageUnavailable = kind === "storage";
   const Icon = kind === "error" ? AlertCircle : isStorageUnavailable ? ImageOff : isFiltered ? Search : FileImage;
   const title = kind === "error"
-    ? "Library media belum dapat dibuka"
+    ? "Pustaka media belum dapat dibuka"
     : isStorageUnavailable
       ? "Penyimpanan media tidak tersedia"
       : isFiltered
         ? `${mediaLabel[0]?.toUpperCase() ?? "M"}${mediaLabel.slice(1)} tidak ditemukan`
         : `Belum ada ${mediaName}`;
   const description = kind === "error"
-    ? errorMessage || "Koneksi ke library media belum berhasil. Coba lagi untuk memuat ulang daftar media."
+    ? errorMessage || "Koneksi ke pustaka media belum berhasil. Coba lagi untuk memuat daftar media."
     : isStorageUnavailable
-      ? "Penyimpanan R2 belum dikonfigurasi, jadi upload dan preview media belum dapat digunakan. Coba lagi atau hubungi pemilik operasi setelah storage dikonfigurasi."
+      ? "Penyimpanan media belum siap, jadi unggah dan pratinjau belum tersedia. Coba lagi nanti atau hubungi admin jika masalah berlanjut."
       : isFiltered
-        ? "Tidak ada media yang cocok dengan pencarian atau filter ini. Hapus filter untuk melihat isi library."
+        ? "Tidak ada media yang cocok dengan pencarian atau filter ini. Hapus filter untuk melihat semua media."
         : canUpload
-          ? `Belum ada ${mediaName} di folder ini. Upload ${mediaName} untuk mulai menyusun library.`
-          : `Belum ada ${mediaName} di folder ini. Upload ${mediaName} setelah penyimpanan tersedia.`;
+          ? `Belum ada ${mediaName} di folder ini. Unggah ${mediaName} untuk menambahkannya.`
+          : `Belum ada ${mediaName} di folder ini. Unggah ${mediaName} setelah penyimpanan tersedia.`;
 
   return { Icon, isFiltered, isStorageUnavailable, title, description };
 }
@@ -64,7 +64,7 @@ function MediaLibraryRecoveryActions({
       {isFiltered && onClear ? <Button onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button> : null}
       {isStorageUnavailable && onRetry ? <Button onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
       {kind === "error" && onRetry ? <Button onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "empty" && showUploadAction && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Upload {mediaName}</Button> : null}
+      {kind === "empty" && showUploadAction && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Unggah {mediaName}</Button> : null}
     </div>
   );
 }

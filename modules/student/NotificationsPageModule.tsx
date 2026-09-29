@@ -107,7 +107,7 @@ function NotificationsPageModule({
       breadcrumbLabel="Notifikasi"
       notificationItems={items}
       notificationUnreadCount={unreadCount}
-      searchPlaceholder="Cari notifikasi atau update belajar..."
+      searchPlaceholder="Cari notifikasi atau kabar belajar…"
       session={session}
     >
       <section className="flex flex-col gap-8">
@@ -122,7 +122,7 @@ function NotificationsPageModule({
               type="submit"
               variant="brandOutline"
             >
-              Tandai dibaca
+              Tandai semua sebagai dibaca
             </Button>
           </form>
         </header>
@@ -175,7 +175,7 @@ function NotificationsPageModule({
               REFERENCE_SURFACE_CLASS_NAMES.tactile,
               "border-learning-card-border overflow-hidden",
             )}
-            description="Update dari kelas dan aktivitas belajar akan muncul di sini."
+            description="Notifikasi tentang kelas dan kegiatan belajarmu akan muncul di sini."
             icon={Bell}
             title="Belum ada notifikasi"
           />

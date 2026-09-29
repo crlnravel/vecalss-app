@@ -1,5 +1,24 @@
 import type { MediaScope } from "@/lib/media/domain";
 
+class MediaResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MediaResponseError";
+  }
+}
+
+const mediaErrorCodeMessages: Record<string, string> = {
+  invalid_proof: "Izin mengedit sudah tidak berlaku. Muat ulang halaman untuk melanjutkan.",
+  lease_expired: "Izin mengedit sudah berakhir. Muat ulang halaman untuk melanjutkan.",
+  lease_superseded: "Izin mengedit berubah. Muat ulang halaman untuk melanjutkan.",
+  resource_busy_retry: "Media sedang diperbarui. Coba lagi sebentar.",
+  resource_inaccessible: "Media tidak dapat diakses. Muat ulang halaman atau hubungi admin.",
+  resource_locked: "Media sedang diedit oleh pengguna lain. Coba lagi nanti.",
+};
+
+export const getMediaErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof MediaResponseError ? error.message : fallback;
+
 export const jakartaMonthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"] as const;
 export const driveAssetGridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))" };
 export const driveFolderGridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" };
@@ -9,13 +28,13 @@ export const readJson = async <T,>(response: Response): Promise<T> => {
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = typeof payload === "object"
+    const responseMessage = typeof payload === "object"
       && payload !== null
       && "error" in payload
       && typeof payload.error === "string"
       ? payload.error
       : "Media belum dapat diproses. Coba lagi.";
-    throw new Error(message);
+    throw new MediaResponseError(mediaErrorCodeMessages[responseMessage] ?? responseMessage);
   }
 
   return payload as T;
@@ -61,9 +80,9 @@ export const putFile = (
   });
   request.addEventListener("load", () => {
     if (request.status >= 200 && request.status < 300) resolve();
-    else reject(new Error("Upload ke penyimpanan gagal. Coba lagi."));
+    else reject(new Error("Unggah media belum berhasil. Coba lagi."));
   });
-  request.addEventListener("error", () => reject(new Error("Koneksi upload terputus. Coba lagi.")));
+  request.addEventListener("error", () => reject(new Error("Koneksi terputus saat mengunggah media. Coba lagi.")));
   request.send(file);
 });
 

@@ -170,7 +170,7 @@ export function LoadingPageModule() {
 
             <div className="flex flex-col justify-center px-1 py-2 sm:px-4 lg:px-0 lg:py-12">
               <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold text-[var(--voyage-deep)]">
-                Menyusun rute belajarmu...
+                Memuat halaman…
               </h1>
             </div>
           </div>

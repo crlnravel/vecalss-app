@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, ClipboardList, Lock, Plus, Target } from "@/lib/icons";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   ReferenceEmptyState,
@@ -14,6 +14,12 @@ import {
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { SessionContext } from "@/lib/auth/types";
 import {
@@ -28,8 +34,7 @@ type TryoutItem = {
   id: string;
   isHidden?: boolean;
   locked: boolean;
-  sections: Array<{ directQuestions?: Array<{ sourceQuestionId: string }> }>;
-  status: "draft" | "published";
+  status: "draft" | "published" | "archived";
   title: string;
 };
 
@@ -39,6 +44,7 @@ const tryoutStatusTabs: Array<{ label: string; value: TryoutStatusFilter }> = [
   { label: "Semua", value: "" },
   { label: "Diterbitkan", value: "published" },
   { label: "Draf", value: "draft" },
+  { label: "Diarsipkan", value: "archived" },
 ];
 
 function TryoutStatusTabs({
@@ -53,6 +59,7 @@ function TryoutStatusTabs({
   const counts = useMemo(
     () => ({
       "": items.length,
+      archived: items.filter((item) => item.status === "archived").length,
       draft: items.filter((item) => item.status === "draft").length,
       published: items.filter((item) => item.status === "published").length,
     }),
@@ -80,24 +87,47 @@ function TryoutStatusTabs({
 }
 
 function TryoutCard({ item }: { item: TryoutItem }) {
-  return (
-    <Link
-      aria-label={`Buka ${item.title}`}
-      className={cn(
-        REFERENCE_SURFACE_CLASS_NAMES.raised,
-        REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
-        "group flex min-w-0 items-center justify-between gap-4 rounded-3xl p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/40 sm:gap-5 sm:p-5",
-      )}
-      href={`/mentor/tryout/${item.id}`}
-    >
+  const isArchived = item.status === "archived";
+  const cardClassName = cn(
+    REFERENCE_SURFACE_CLASS_NAMES.raised,
+    !isArchived && REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
+    "flex min-w-0 items-center justify-between gap-4 rounded-3xl p-3 sm:gap-5 sm:p-5",
+    !isArchived &&
+      "group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/40",
+  );
+  const content = (
+    <>
       <div className="flex min-w-0 items-start gap-3 sm:items-center">
         <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
           <ClipboardList aria-hidden="true" className="size-5" />
         </span>
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-secondary-900">
-            {item.title}
-          </h2>
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="min-w-0 truncate text-base font-semibold text-secondary-900">
+              {item.title}
+            </h2>
+            {item.locked ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        aria-label="Tryout terkunci"
+                        className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-secondary-500 outline-none transition-colors hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-2 focus-visible:ring-primary-700/40"
+                        role="img"
+                        tabIndex={0}
+                      />
+                    }
+                  >
+                    <Lock aria-hidden="true" className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Tryout terkunci karena peserta sudah mulai mengerjakannya.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ReferenceStatusBadge
               appearance="mentor"
@@ -112,29 +142,29 @@ function TryoutCard({ item }: { item: TryoutItem }) {
                 status="blocked"
               />
             ) : null}
-            {item.locked ? (
-              <ReferenceStatusBadge
-                appearance="mentor"
-                label={
-                  <span
-                    aria-label="Tryout terkunci"
-                    className="inline-flex items-center"
-                    title="Tryout terkunci"
-                  >
-                    <Lock aria-hidden="true" className="size-3" />
-                  </span>
-                }
-                size="sm"
-                status="blocked"
-              />
-            ) : null}
           </div>
         </div>
       </div>
-      <ChevronRight
-        aria-hidden="true"
-        className="size-5 shrink-0 text-secondary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-safe:group-focus-visible:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none"
-      />
+      {!isArchived ? (
+        <ChevronRight
+          aria-hidden="true"
+          className="size-5 shrink-0 text-secondary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-safe:group-focus-visible:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none"
+        />
+      ) : null}
+    </>
+  );
+
+  return isArchived ? (
+    <article aria-label={`${item.title}, Tryout diarsipkan`} className={cardClassName}>
+      {content}
+    </article>
+  ) : (
+    <Link
+      aria-label={`Buka ${item.title}`}
+      className={cardClassName}
+      href={`/mentor/tryout/${item.id}`}
+    >
+      {content}
     </Link>
   );
 }
@@ -180,10 +210,6 @@ function KaptenTryoutCataloguePageModule({
     setStatusFilter("");
     setPage(1);
   };
-
-  useEffect(() => {
-    setCreateDialogOpen(initialCreateDialogOpen);
-  }, [initialCreateDialogOpen]);
 
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);

@@ -72,21 +72,21 @@ function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes:
     <MentorWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel="Kuis"
-      searchPlaceholder="Cari kuis, subjek, atau bank soal..."
+      searchPlaceholder="Cari kuis, subtes, atau Bank Soal..."
       session={session}
     >
       <PageIntro
         action={
-          <QuizCreateDialogTrigger ariaLabel="Buat Quiz">
+          <QuizCreateDialogTrigger ariaLabel="Buat Kuis">
             <Plus />
-            Buat Quiz
+            Buat Kuis
           </QuizCreateDialogTrigger>
         }
-        title="Quiz"
+        title="Kuis"
       />
 
       <section className="space-y-4">
-        <SearchPanel placeholder="Cari kuis atau subjek..." />
+        <SearchPanel placeholder="Cari kuis atau subtes..." />
         <div className="space-y-2">
           {displayQuizzes.map((quiz) => (
             <ResourceRow key={quiz.id} resource={quiz} />
@@ -202,7 +202,7 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Tryout"
-      searchPlaceholder="Cari tryout, subtest, atau paket..."
+      searchPlaceholder="Cari Tryout, subtes, atau paket soal..."
       session={session}
     >
       <PageIntro
@@ -211,7 +211,7 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
       />
 
       <section className="space-y-4">
-        <SearchPanel placeholder="Cari tryout, subtest, atau paket..." />
+        <SearchPanel placeholder="Cari Tryout, subtes, atau paket soal..." />
         <div className="rounded-3xl border border-primary-100 bg-white px-5 py-5 shadow-sm">
           {tryouts.map((tryout) => (
             <TryoutRow key={tryout.id} tryout={tryout} />

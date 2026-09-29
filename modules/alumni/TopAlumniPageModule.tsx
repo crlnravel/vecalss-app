@@ -13,10 +13,11 @@ function TopAlumniPageModule() {
       <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-16 px-4 pb-20 pt-12 md:px-8 md:gap-20 md:pt-16 lg:px-10">
         <div className="mx-auto max-w-[860px] text-center">
           <h1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[var(--voyage-deep)] md:text-7xl">
-            Top 90 Alumni
+            Contoh profil alumni
           </h1>
           <p className="mt-4 text-base leading-7 text-[var(--voyage-deep)]/68 md:text-lg">
-            Tempat para voyager berlabuh!
+            Daftar ini memakai data contoh dan belum mencerminkan alumni Vecalss
+            yang sebenarnya.
           </p>
         </div>
 
@@ -35,7 +36,7 @@ function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
     <article className="group overflow-hidden rounded-4xl border border-[var(--voyage-deep)]/10 bg-white shadow-[0_26px_80px_-66px_color-mix(in_oklab,var(--voyage-deep)_28%,transparent)] transition duration-300 hover:-translate-y-1 hover:border-[var(--voyage-deep)]/18">
       <div className="relative aspect-[4/3] bg-[var(--voyage-deep)]/[0.04]">
         <Image
-          alt={`${alumnus.name} profile photo`}
+          alt={`Foto profil ${alumnus.name}`}
           fill
           className="object-cover"
           sizes="(min-width: 1536px) 260px, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"

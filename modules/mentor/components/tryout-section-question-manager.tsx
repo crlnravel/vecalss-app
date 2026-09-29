@@ -4,8 +4,8 @@ import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
-  Check,
   ImagePlus,
+  Plus,
   Search,
   Trash2,
 } from "@/lib/icons";
@@ -16,7 +16,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -27,8 +26,12 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
@@ -42,6 +45,22 @@ import {
   MediaPickerDialog,
 } from "@/modules/media/media-library";
 import { PaginationControls } from "@/modules/mentor/components/kapten-ui";
+import {
+  QUESTION_BANK_PICKER_DIALOG_CLASS_NAME,
+  QUESTION_BANK_PICKER_FOOTER_CLASS_NAME,
+  QuestionBankPickerRow,
+} from "@/modules/mentor/components/question-bank-picker-layout";
+import {
+  EditorMobileInventory,
+  EditorQuestionInventory,
+  QuestionEditorWorkspace,
+} from "@/modules/mentor/components/question-editor-workspace";
+import {
+  QuestionContentEditor,
+  setQuestionMediaAsset,
+  type QuestionMediaTarget,
+} from "@/modules/mentor/components/question-content-editor";
+import { asContentEditorQuestion, toTryoutQuestionChange } from "@/modules/mentor/components/tryout-question-content-adapter";
 
 export const TRYOUT_SOURCE_QUESTION_PAGE_SIZE = 10;
 
@@ -179,6 +198,7 @@ type TryoutSectionQuestionManagerProps = {
   onUpdateQuestion: (snapshotId: string, change: TryoutQuestionChange) => void;
   packageVersionId?: string | null;
   questions: TryoutDirectQuestionDraft[];
+  presentation?: "embedded" | "workspace";
   readOnly: boolean;
   saving: boolean;
   sectionSubject: string;
@@ -206,12 +226,6 @@ function difficultyLabel(difficulty: TryoutQuestionDifficulty) {
       : difficulty === "adaptive"
         ? "Adaptif"
         : "Sedang";
-}
-
-function questionTypeLabel(questionType?: TryoutQuestionType) {
-  return questionType === "multiple_choice"
-    ? "Pilihan ganda kompleks"
-    : "Pilihan ganda";
 }
 
 function SourceBankList({
@@ -252,17 +266,16 @@ function SourceBankList({
   }
 
   return sourceBanks.map((bank) => (
-    <Button
-      aria-selected={browseBankId === bank.id}
-      className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+    <button
+      aria-pressed={browseBankId === bank.id}
+      className={`min-h-11 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:ring-3 focus-visible:ring-primary-200 ${browseBankId === bank.id ? "bg-primary-50 font-semibold text-primary-900" : "text-secondary-700 hover:bg-secondary-50"}`}
       disabled={disabled}
       key={bank.id}
       onClick={() => onSelectBank(bank.id)}
-      role="option"
-      variant={browseBankId === bank.id ? "contextSelected" : "ghost"}
+      type="button"
     >
       <span className="min-w-0">
-        <span className="block truncate font-semibold">{bank.title}</span>
+        <span className="block truncate">{bank.title}</span>
         <span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">
           {bank.questionCount} soal
           {bank.folderPath?.length
@@ -270,10 +283,7 @@ function SourceBankList({
             : ""}
         </span>
       </span>
-      {browseBankId === bank.id ? (
-        <Check aria-hidden="true" className="ml-auto size-4 shrink-0 text-primary-700" />
-      ) : null}
-    </Button>
+    </button>
   ));
 }
 
@@ -353,6 +363,7 @@ function TryoutQuestionSnapshotEditor({
   onUpdate,
   question,
   questionCount,
+  showInventoryActions = true,
   readOnly,
   saving,
 }: {
@@ -362,6 +373,7 @@ function TryoutQuestionSnapshotEditor({
   onUpdate: (change: TryoutQuestionChange) => void;
   question: TryoutQuestionSnapshotDraft;
   questionCount: number;
+  showInventoryActions?: boolean;
   readOnly: boolean;
   saving: boolean;
 }) {
@@ -493,38 +505,40 @@ function TryoutQuestionSnapshotEditor({
             Edit soal
           </h3>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            aria-label={`Pindah soal ${index + 1} ke atas`}
-            disabled={disabled || index === 0}
-            onClick={() => onMove("up")}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowUp aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label={`Pindah soal ${index + 1} ke bawah`}
-            disabled={disabled || index === questionCount - 1}
-            onClick={() => onMove("down")}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowDown aria-hidden="true" />
-          </Button>
-          <Button
-            aria-label={`Hapus soal ${index + 1} dari subtes`}
-            disabled={disabled}
-            onClick={onRemove}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <Trash2 aria-hidden="true" />
-          </Button>
-        </div>
+        {showInventoryActions ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              aria-label={`Pindah soal ${index + 1} ke atas`}
+              disabled={disabled || index === 0}
+              onClick={() => onMove("up")}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowUp aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={`Pindah soal ${index + 1} ke bawah`}
+              disabled={disabled || index === questionCount - 1}
+              onClick={() => onMove("down")}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowDown aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={`Hapus soal ${index + 1} dari subtes`}
+              disabled={disabled}
+              onClick={onRemove}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Trash2 aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <Field>
@@ -883,12 +897,72 @@ function TryoutQuestionSnapshotEditor({
   );
 }
 
+function TryoutQuestionContentEditor({
+  onUpdate,
+  question,
+  readOnly,
+  saving,
+}: {
+  onUpdate: (change: TryoutQuestionChange) => void;
+  question: TryoutQuestionSnapshotDraft;
+  readOnly: boolean;
+  saving: boolean;
+}) {
+  const [mediaTarget, setMediaTarget] = useState<QuestionMediaTarget | null>(null);
+  const editorQuestion = asContentEditorQuestion(question);
+  const disabled = readOnly || saving;
+  const selectedAssetId = mediaTarget?.field === "prompt"
+    ? question.promptAssetId
+    : mediaTarget?.field === "explanation"
+      ? question.explanationAssetId
+      : mediaTarget?.field === "choice"
+        ? question.options.find(
+            (option) => option.snapshotOptionId === mediaTarget.choiceId,
+          )?.assetId
+        : undefined;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4" data-tryout-question-content-editor={disabled ? "disabled" : "enabled"}>
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
+      </div>
+      <QuestionContentEditor
+        disabled={disabled}
+        idPrefix="tryout"
+        onOpenMedia={setMediaTarget}
+        question={editorQuestion}
+        updateQuestion={(_questionId, update) => {
+          onUpdate(toTryoutQuestionChange(update(editorQuestion)));
+        }}
+      />
+      <MediaPickerDialog
+        allowedMimeTypes={imageMediaMimeTypes}
+        onOpenChange={(open) => {
+          if (!open) setMediaTarget(null);
+        }}
+        onSelect={(asset: MediaAssetDto) => {
+          if (!mediaTarget) return;
+          onUpdate(toTryoutQuestionChange(
+            setQuestionMediaAsset(editorQuestion, mediaTarget, asset.id),
+          ));
+        }}
+        open={Boolean(mediaTarget) && !disabled}
+        selectedAssetId={selectedAssetId ?? undefined}
+        title={mediaTarget?.label ?? "Pilih gambar"}
+      />
+    </div>
+  );
+}
+
 function TryoutQuestionImportDialog({
   activeBrowseBank,
   activeSourceQuestions,
   browseBankId,
   disabled,
   guardExternalNavigation,
+  hideTrigger = false,
+  onOpenChange,
+  open,
   onBankPageNext,
   onBankSearchChange,
   onImport,
@@ -925,8 +999,12 @@ function TryoutQuestionImportDialog({
   | "sourceQuestionPage"
   | "sourceQuestionSearch"
   | "sourceQuestionTotal"
-> & { disabled: boolean }) {
-  const [open, setOpen] = useState(false);
+> & {
+  disabled: boolean;
+  hideTrigger?: boolean;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
   const [importing, setImporting] = useState(false);
   const [allInBank, setAllInBank] = useState(false);
   const [selectedRevisions, setSelectedRevisions] = useState(
@@ -978,11 +1056,6 @@ function TryoutQuestionImportDialog({
     });
   };
 
-  const clearSelection = () => {
-    setSelectedRevisions(new Map());
-    setImportError(null);
-  };
-
   const runImport = async () => {
     if (!browseBankId || !canImport) return;
     setImporting(true);
@@ -1008,12 +1081,10 @@ function TryoutQuestionImportDialog({
       }
       setSelectedRevisions(new Map());
       setAllInBank(false);
-      setOpen(false);
-    } catch (error) {
+      onOpenChange(false);
+    } catch {
       setImportError(
-        error instanceof Error
-          ? error.message
-          : "Soal belum dapat ditambahkan. Coba lagi.",
+        "Soal belum berhasil ditambahkan dari Bank Soal. Muat ulang daftar lalu coba lagi.",
       );
     } finally {
       setImporting(false);
@@ -1022,284 +1093,227 @@ function TryoutQuestionImportDialog({
 
   return (
     <>
-      <Button
-        disabled={importing || disabled}
-        onClick={() => {
-          setImportError(null);
-          setOpen(true);
-        }}
-        type="button"
-        variant="brand"
-      >
-        <Search aria-hidden="true" />
-        Tambah dari Bank Soal
-      </Button>
+      {!hideTrigger ? (
+        <Button
+          disabled={importing || disabled}
+          onClick={() => {
+            setImportError(null);
+            onOpenChange(true);
+          }}
+          type="button"
+          variant="brand"
+        >
+          <Search aria-hidden="true" />
+          Tambah dari Bank Soal
+        </Button>
+      ) : null}
       <Dialog
         onOpenChange={(nextOpen) => {
           if (importing) return;
-          setOpen(nextOpen);
+          onOpenChange(nextOpen);
           if (nextOpen) setImportError(null);
         }}
         open={open}
       >
         <DialogContent
-          className="gap-4 sm:max-w-5xl"
+          className={QUESTION_BANK_PICKER_DIALOG_CLASS_NAME}
           pending={importing}
-          variant="default"
         >
           <DialogHeader>
             <DialogTitle>Tambah soal dari Bank Soal</DialogTitle>
-            <DialogDescription>
-              Pilih Bank Soal untuk subtes {sectionSubject}. Soal yang ditambahkan
-              menjadi salinan terpisah dan tidak mengubah bank asal.
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.5fr)]">
-            <ReferenceSurface
-              aria-label="Pilih Bank Soal"
-              className="grid min-w-0 content-start gap-3 p-3"
-              variant="inset"
-            >
-              <Field>
-                <FieldLabel
-                  className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-                  htmlFor={`tryout-bank-search-${sectionSubject}`}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+            <div className="grid shrink-0 gap-2">
+              <p className="text-xs font-bold tracking-[0.12em] text-secondary-500 uppercase">
+                Bank Soal Tryout
+              </p>
+              <Popover>
+                <PopoverTrigger
+                  disabled={disabled || importing || sourceBankLoading}
+                  render={
+                    <Button
+                      className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full justify-between`}
+                      type="button"
+                      variant="reference"
+                    />
+                  }
                 >
-                  Cari Bank Soal
-                </FieldLabel>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                  <span className="min-w-0 truncate">
+                    {activeBrowseBank?.title ??
+                      (browseBankId ? "Memuat Bank Soal…" : "Pilih Bank Soal")}
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[min(34rem,calc(100vw-2rem))] gap-3"
+                >
                   <FieldInput
-                    className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`}
-                    disabled={importing || disabled}
-                    id={`tryout-bank-search-${sectionSubject}`}
+                    aria-label="Cari Bank Soal Tryout"
+                    className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11`}
+                    disabled={disabled || importing}
                     onChange={(event) => onBankSearchChange(event.target.value)}
-                    placeholder="Cari nama bank atau folder…"
+                    placeholder="Cari judul, folder, atau materi…"
                     value={sourceBankSearch}
                   />
-                </div>
-              </Field>
-              {sourceBankLoading ? (
-                <p className="px-2 text-xs text-secondary-500">
-                  Memuat Bank Soal…
-                </p>
-              ) : null}
-              <div
-                aria-label="Bank Soal yang sesuai"
-                className="grid max-h-64 gap-1 overflow-y-auto md:max-h-[28rem]"
-                role="listbox"
-              >
-                <SourceBankList
-                  activeSectionSubtest={sectionSubject}
-                  browseBankId={browseBankId}
-                  disabled={importing || disabled}
-                  guardExternalNavigation={guardExternalNavigation}
-                  onSelectBank={(bankId) => {
-                    setImportError(null);
-                    onSelectBank(bankId);
-                  }}
-                  sourceBanks={sourceBanks}
-                />
-              </div>
-              {sourceBankTotal > sourceBanks.length ? (
-                <Button
-                  className="w-full"
-                  disabled={importing || disabled || sourceBankLoading}
-                  onClick={onBankPageNext}
-                  size="sm"
-                  type="button"
-                  variant="reference"
-                >
-                  {sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}
-                </Button>
-              ) : null}
-            </ReferenceSurface>
-
-            <ReferenceSurface
-              aria-label="Pilih soal"
-              className="grid min-w-0 content-start gap-3 p-3 sm:p-4"
-              variant="inset"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-secondary-900">
-                    {activeBrowseBank?.title ?? "Pilih bank terlebih dahulu"}
-                  </h3>
-                  <p aria-live="polite" className="mt-1 text-xs text-secondary-500">
-                    {allInBank
-                      ? "Semua soal siap di bank ini akan ditambahkan."
-                      : `${selectionCount} soal dipilih`}
-                  </p>
-                </div>
-                {selectionCount > 0 ? (
-                  <Button
-                    disabled={importing}
-                    onClick={clearSelection}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
+                  {sourceBankLoading ? (
+                    <p className="px-2 text-xs text-secondary-500">
+                      Memuat Bank Soal…
+                    </p>
+                  ) : null}
+                  <div
+                    aria-label="Bank Soal Tryout"
+                    className="grid max-h-64 gap-1 overflow-y-auto"
+                    role="group"
                   >
-                    Kosongkan pilihan
-                  </Button>
-                ) : null}
-              </div>
+                    <SourceBankList
+                      activeSectionSubtest={sectionSubject}
+                      browseBankId={browseBankId}
+                      disabled={importing || disabled}
+                      guardExternalNavigation={guardExternalNavigation}
+                      onSelectBank={(bankId) => {
+                        setImportError(null);
+                        onSelectBank(bankId);
+                      }}
+                      sourceBanks={sourceBanks}
+                    />
+                  </div>
+                  {sourceBankTotal > sourceBanks.length ? (
+                    <Button
+                      className="w-full"
+                      disabled={importing || disabled || sourceBankLoading}
+                      onClick={onBankPageNext}
+                      size="sm"
+                      type="button"
+                      variant="reference"
+                    >
+                      {sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}
+                    </Button>
+                  ) : null}
+                </PopoverContent>
+              </Popover>
+            </div>
 
-              <Field>
-                <FieldLabel
-                  className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-                  htmlFor={`tryout-question-search-${sectionSubject}`}
-                >
-                  Cari soal
-                </FieldLabel>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                  <FieldInput
-                    className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`}
-                    disabled={importing || disabled || !browseBankId}
-                    id={`tryout-question-search-${sectionSubject}`}
-                    onChange={(event) => onQuestionSearchChange(event.target.value)}
-                    placeholder={activeBrowseBank ? "Cari isi pertanyaan…" : "Pilih Bank Soal terlebih dahulu"}
-                    value={sourceQuestionSearch}
-                  />
-                </div>
-              </Field>
-
-              <label
-                className="flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-primary-100 bg-white px-3 py-3 text-sm text-secondary-800 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-primary-200 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
-                htmlFor={`tryout-all-in-bank-${sectionSubject}`}
-              >
-                <Checkbox
-                  checked={allInBank}
+            <div className="grid shrink-0 gap-3">
+              <div className="relative min-w-[min(100%,20rem)]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                <FieldInput
+                  aria-label="Cari soal di bank ini"
+                  className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 pl-9`}
                   disabled={importing || disabled || !browseBankId}
-                  id={`tryout-all-in-bank-${sectionSubject}`}
-                  onCheckedChange={(checked) => {
-                    setAllInBank(checked === true);
-                    setImportError(null);
-                  }}
+                  onChange={(event) => onQuestionSearchChange(event.target.value)}
+                  placeholder={
+                    browseBankId
+                      ? `Cari soal ${sectionSubject}…`
+                      : "Pilih Bank Soal terlebih dahulu"
+                  }
+                  value={sourceQuestionSearch}
                 />
-                <span>
-                  <span className="block font-semibold">
-                    Tambahkan semua soal siap di bank ini
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-5 text-secondary-500">
-                    Pilihan ini mengikuti seluruh bank, tidak dibatasi pencarian
-                    atau halaman yang sedang dibuka.
-                  </span>
-                </span>
-              </label>
-
-              {sourceQuestionLoading ? (
-                <p className="text-xs text-secondary-500">Memuat soal…</p>
-              ) : null}
-              {activeSourceQuestions.length ? (
-                <div className="grid max-h-72 gap-2 overflow-y-auto md:max-h-[22rem]">
-                  {activeSourceQuestions.map((question) => {
-                    const selected = selectedRevisions.has(question.id);
-                    const checkboxId = `tryout-source-question-${question.id}`;
-                    return (
-                      <label
-                        className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${selected ? "border-primary-300 bg-white" : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/60"} has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-primary-200 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60`}
-                        htmlFor={checkboxId}
-                        key={question.id}
-                      >
-                        <Checkbox
-                          checked={selected}
-                          disabled={
-                            importing ||
-                            disabled ||
-                            sourceQuestionLoading ||
-                            ((!question.questionRevisionId ||
-                              !question.questionContentDigest) &&
-                              !selected)
-                          }
-                          id={checkboxId}
-                          onCheckedChange={() => toggleQuestion(question)}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap gap-2">
-                            <MentorBadge size="compact" tone="neutral">
-                              {difficultyLabel(question.difficulty)}
-                            </MentorBadge>
-                            <MentorBadge
-                              size="compact"
-                              tone={
-                                question.questionType === "multiple_choice"
-                                  ? "attention"
-                                  : "neutral"
-                              }
-                            >
-                              {questionTypeLabel(question.questionType)}
-                            </MentorBadge>
-                          </span>
-                          <span
-                            className="mt-2 block line-clamp-3 break-words text-sm leading-6 text-secondary-900"
-                            title={question.prompt}
-                          >
-                            {question.prompt}
-                          </span>
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <ReferenceSurface
-                  className="px-4 py-8 text-center text-sm leading-6 text-secondary-500"
-                  variant="inset"
-                >
-                  {browseBankId
-                    ? "Tidak ada soal siap yang cocok dengan pencarian ini."
-                    : "Pilih Bank Soal untuk melihat soalnya."}
-                </ReferenceSurface>
-              )}
-
+              </div>
               {browseBankId && sourceQuestionTotal > 0 ? (
-                <div className="flex justify-center pt-1 sm:justify-end">
+                <label
+                  className={`flex min-h-11 w-fit max-w-full items-center gap-3 text-sm text-secondary-900 ${importing || disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
+                  htmlFor={`tryout-all-in-bank-${sectionSubject}`}
+                >
+                  <Checkbox
+                    checked={allInBank}
+                    disabled={importing || disabled}
+                    id={`tryout-all-in-bank-${sectionSubject}`}
+                    indeterminate={!allInBank && selectionCount > 0}
+                    onCheckedChange={(checked) => {
+                      setSelectedRevisions(new Map());
+                      setAllInBank(checked === true);
+                      setImportError(null);
+                    }}
+                  />
+                  <span>Pilih semua</span>
+                </label>
+              ) : null}
+            </div>
+
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+              <div className="grid gap-3">
+                {sourceQuestionLoading ? (
+                  <p aria-live="polite" className="text-xs text-secondary-500">
+                    Memuat soal siap…
+                  </p>
+                ) : null}
+                {importError ? (
+                  <div
+                    className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
+                    role="alert"
+                  >
+                    {importError}
+                  </div>
+                ) : null}
+                {!sourceQuestionLoading && !activeSourceQuestions.length ? (
+                  <ReferenceSurface
+                    className="px-4 py-10 text-center"
+                    variant="inset"
+                  >
+                    <p className="text-sm font-semibold text-secondary-900">
+                      {browseBankId
+                        ? "Tidak ada soal siap yang cocok"
+                        : "Pilih Bank Soal untuk mulai memilih"}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-secondary-500">
+                      Periksa pencarian atau pilih Bank Soal lain yang sesuai.
+                    </p>
+                  </ReferenceSurface>
+                ) : null}
+                {activeSourceQuestions.length ? (
+                  <div className="grid gap-2">
+                    {activeSourceQuestions.map((question) => {
+                      const selected = allInBank || selectedRevisions.has(question.id);
+                      const checkboxId = `tryout-source-question-${question.id}`;
+                      const rowDisabled =
+                        importing ||
+                        disabled ||
+                        allInBank ||
+                        sourceQuestionLoading ||
+                        ((!question.questionRevisionId ||
+                          !question.questionContentDigest) &&
+                          !selected);
+                      return (
+                        <QuestionBankPickerRow
+                          allInBank={allInBank}
+                          checkboxId={checkboxId}
+                          difficulty={difficultyLabel(question.difficulty)}
+                          disabled={rowDisabled}
+                          key={question.id}
+                          onToggle={() => toggleQuestion(question)}
+                          prompt={question.prompt}
+                          selected={selected}
+                          subjectCode={question.subjectCode}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {browseBankId && sourceQuestionTotal > 0 ? (
                   <PaginationControls
                     onPageChange={onQuestionPageChange}
                     page={sourceQuestionPage}
                     pageCount={sourceQuestionPageCount}
                   />
-                </div>
-              ) : null}
-            </ReferenceSurface>
+                ) : null}
+              </div>
+            </div>
           </div>
 
-          {importError ? (
-            <p
-              className="flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500"
-              role="alert"
+          <DialogFooter className={QUESTION_BANK_PICKER_FOOTER_CLASS_NAME}>
+            <span aria-live="polite" className="text-sm font-semibold text-secondary-700">
+              {allInBank ? "Semua soal siap dipilih" : `${selectionCount} soal dipilih`}
+            </span>
+            <Button
+              aria-busy={importing}
+              disabled={!canImport || !activeBrowseBank}
+              onClick={() => void runImport()}
+              type="button"
+              variant="brand"
             >
-              {importError}
-            </p>
-          ) : null}
-
-          <DialogFooter className="sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-5 text-secondary-500">
-              {allInBank
-                ? "Semua soal siap di bank ini akan diperiksa saat ditambahkan."
-                : "Pilihan tetap tersimpan saat Anda mencari atau membuka halaman lain."}
-            </p>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button
-                disabled={importing || disabled}
-                onClick={() => setOpen(false)}
-                type="button"
-                variant="reference"
-              >
-                Batal
-              </Button>
-              <Button
-                aria-busy={importing}
-                disabled={!canImport || !activeBrowseBank}
-                onClick={() => void runImport()}
-                type="button"
-                variant="brand"
-              >
-                {importing ? "Menambahkan…" : "Tambahkan soal"}
-              </Button>
-            </div>
+              {importing ? "Menambahkan…" : "Tambahkan"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1332,6 +1346,7 @@ export function TryoutSectionQuestionManager({
   onSelectBank,
   onUpdateQuestion,
   packageVersionId,
+  presentation = "embedded",
   questions,
   readOnly,
   saving,
@@ -1350,24 +1365,24 @@ export function TryoutSectionQuestionManager({
     [questions],
   );
   const legacyQuestions = useMemo(
-    () => questions.filter((question) => !isSnapshotQuestion(question)),
+    () => questions.filter(
+      (question): question is TryoutLegacyQuestionDraft => !isSnapshotQuestion(question),
+    ),
     [questions],
   );
   const [activeSnapshotId, setActiveSnapshotId] = useState(
     snapshotQuestions[0]?.snapshotId ?? "",
   );
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const directEditingAvailable =
     !readOnly && !draftLocked && !packageVersionId;
   const editable = directEditingAvailable && !saving;
 
-  useEffect(() => {
-    if (snapshotQuestions.some((question) => question.snapshotId === activeSnapshotId))
-      return;
-    setActiveSnapshotId(snapshotQuestions[0]?.snapshotId ?? "");
-  }, [activeSnapshotId, snapshotQuestions]);
-
-  const activeQuestionIndex = snapshotQuestions.findIndex(
+  const currentSnapshotId = snapshotQuestions.some(
     (question) => question.snapshotId === activeSnapshotId,
+  ) ? activeSnapshotId : (snapshotQuestions[0]?.snapshotId ?? "");
+  const activeQuestionIndex = snapshotQuestions.findIndex(
+    (question) => question.snapshotId === currentSnapshotId,
   );
   const activeQuestion = snapshotQuestions[activeQuestionIndex];
 
@@ -1390,6 +1405,100 @@ export function TryoutSectionQuestionManager({
     return outcome;
   };
 
+  const importDialog = directEditingAvailable ? (
+    <TryoutQuestionImportDialog
+      activeBrowseBank={activeBrowseBank}
+      activeSourceQuestions={activeSourceQuestions}
+      browseBankId={browseBankId}
+      disabled={saving}
+      guardExternalNavigation={guardExternalNavigation}
+      hideTrigger={presentation === "workspace"}
+      onBankPageNext={onBankPageNext}
+      onBankSearchChange={onBankSearchChange}
+      onImport={importSelectedQuestions}
+      onOpenChange={setImportDialogOpen}
+      onQuestionPageChange={onQuestionPageChange}
+      onQuestionSearchChange={onQuestionSearchChange}
+      onSelectBank={onSelectBank}
+      open={importDialogOpen}
+      sectionSubject={sectionSubject}
+      sourceBankLoading={sourceBankLoading}
+      sourceBankSearch={sourceBankSearch}
+      sourceBankTotal={sourceBankTotal}
+      sourceBanks={sourceBanks}
+      sourceQuestionLoading={sourceQuestionLoading}
+      sourceQuestionPage={sourceQuestionPage}
+      sourceQuestionSearch={sourceQuestionSearch}
+      sourceQuestionTotal={sourceQuestionTotal}
+    />
+  ) : null;
+
+  if (presentation === "workspace") {
+    const inventoryProps = {
+      activeQuestionId: currentSnapshotId,
+      addDisabled: saving,
+      addVisible: directEditingAvailable,
+      countLabel: `${questions.length} soal di subtes ${sectionSubject}`,
+      disabled: !editable,
+      emptyLabel: "Belum ada soal di subtes ini.",
+      idPrefix: "tryout",
+      onAdd: () => setImportDialogOpen(true),
+      onDelete: removeSnapshot,
+      onMove: onMoveQuestion,
+      onSelect: setActiveSnapshotId,
+      questions: snapshotQuestions.map((question) => ({
+        id: question.snapshotId,
+        prompt: question.prompt,
+      })),
+    };
+
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-tryout-question-workspace="true">
+        <QuestionEditorWorkspace
+          inventory={<EditorQuestionInventory {...inventoryProps} />}
+          mainId="tryout-question-editor-main"
+          mobileInventory={<EditorMobileInventory {...inventoryProps} />}
+        >
+          {legacyQuestions.length > 0 ? (
+            <ReferenceSurface className="grid gap-2 p-4 text-sm leading-6 text-secondary-700" role="status" variant="inset">
+              <p className="font-semibold text-secondary-900">Soal tersimpan sebelumnya</p>
+              <p>Soal ini tetap tercantum dan hanya dapat dilihat. Soal baru dari Bank Soal dapat disunting langsung di Tryout.</p>
+              <ul className="m-0 grid list-disc gap-1 pl-5">
+                {legacyQuestions.map((question, index) => (
+                  <li className="break-words" key={question.sourceQuestionId || `legacy-question-${index}`}>
+                    {question.prompt || "Soal tanpa pertanyaan"}
+                  </li>
+                ))}
+              </ul>
+            </ReferenceSurface>
+          ) : null}
+          {activeQuestion ? (
+            <TryoutQuestionContentEditor
+              key={activeQuestion.snapshotId}
+              onUpdate={(change) => onUpdateQuestion(activeQuestion.snapshotId, change)}
+              question={activeQuestion}
+              readOnly={!editable}
+              saving={saving}
+            />
+          ) : snapshotQuestions.length > 0 || legacyQuestions.length === 0 ? (
+            <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" data-tryout-question-empty={questions.length === 0 ? "true" : undefined} variant="inset">
+              <div className="max-w-lg">
+                <h2 className="text-lg font-semibold text-secondary-900">{snapshotQuestions.length > 0 ? "Pilih soal untuk ditinjau" : "Belum ada soal di subtes ini"}</h2>
+                <p className="mt-2 text-sm leading-6 text-secondary-500">{snapshotQuestions.length > 0 ? "Pilih salinan soal dari daftar inventori untuk mengedit isinya." : "Tambahkan soal dari Bank Soal untuk mulai menyusun subtes ini."}</p>
+                {snapshotQuestions.length === 0 && directEditingAvailable ? (
+                  <Button className="mt-5" onClick={() => setImportDialogOpen(true)} size="sm" type="button" variant="brand">
+                    <Plus aria-hidden="true" />Tambah dari Bank Soal
+                  </Button>
+                ) : null}
+              </div>
+            </ReferenceSurface>
+          ) : null}
+        </QuestionEditorWorkspace>
+        {importDialog}
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-w-0 gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1401,30 +1510,7 @@ export function TryoutSectionQuestionManager({
             {snapshotQuestions.length} salinan soal
           </p>
         </div>
-        {directEditingAvailable ? (
-          <TryoutQuestionImportDialog
-            activeBrowseBank={activeBrowseBank}
-            activeSourceQuestions={activeSourceQuestions}
-            browseBankId={browseBankId}
-            disabled={saving}
-            guardExternalNavigation={guardExternalNavigation}
-            onBankPageNext={onBankPageNext}
-            onBankSearchChange={onBankSearchChange}
-            onImport={importSelectedQuestions}
-            onQuestionPageChange={onQuestionPageChange}
-            onQuestionSearchChange={onQuestionSearchChange}
-            onSelectBank={onSelectBank}
-            sectionSubject={sectionSubject}
-            sourceBankLoading={sourceBankLoading}
-            sourceBankSearch={sourceBankSearch}
-            sourceBankTotal={sourceBankTotal}
-            sourceBanks={sourceBanks}
-            sourceQuestionLoading={sourceQuestionLoading}
-            sourceQuestionPage={sourceQuestionPage}
-            sourceQuestionSearch={sourceQuestionSearch}
-            sourceQuestionTotal={sourceQuestionTotal}
-          />
-        ) : null}
+        {importDialog}
       </div>
 
       {legacyQuestions.length ? (
@@ -1456,7 +1542,7 @@ export function TryoutSectionQuestionManager({
       {activeQuestion ? (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(13rem,0.7fr)_minmax(0,1.5fr)]">
           <ReferenceSurface
-            as="nav"
+            as="aside"
             aria-label={`Daftar salinan soal ${sectionSubject}`}
             className="grid min-w-0 content-start gap-2 p-3"
             variant="inset"
@@ -1469,13 +1555,13 @@ export function TryoutSectionQuestionManager({
                 <li className="min-w-0" key={question.snapshotId}>
                   <Button
                     aria-current={
-                      question.snapshotId === activeSnapshotId ? "true" : undefined
+                      question.snapshotId === currentSnapshotId ? "true" : undefined
                     }
                     className="h-auto min-h-12 w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left"
                     onClick={() => setActiveSnapshotId(question.snapshotId)}
                     type="button"
                     variant={
-                      question.snapshotId === activeSnapshotId
+                      question.snapshotId === currentSnapshotId
                         ? "contextSelected"
                         : "ghost"
                     }

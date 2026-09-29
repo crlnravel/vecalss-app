@@ -15,27 +15,27 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 const faqHighlights = [
   {
-    title: "Programs",
-    description: "Study paths, weekly tryouts, targeted drills, and consultation.",
+    title: "Program dan latihan",
+    description: "Kenali pilihan program, Kuis, dan Tryout Vecalss.",
     icon: ScanSearch,
   },
   {
     title: "Vera AI",
-    description: "Always-available explanations, hints, and study-session resets.",
+    description: "Bantuan belajar saat kamu membutuhkan penjelasan tambahan.",
     icon: Sparkles,
   },
   {
-    title: "Starting point",
-    description: "What to share with the team and how students enter the flow.",
+    title: "Cara bergabung",
+    description: "Informasi untuk memilih program dan mulai belajar.",
     icon: MessageCircleQuestionMark,
   },
 ];
 
 const supportLanes = [
-  "University-prep structure",
-  "Tryouts and analytics",
-  "AI mentoring support",
-  "Enrollment guidance",
+  "Persiapan masuk PTN",
+  "Materi, Kuis, dan Tryout",
+  "Bantuan belajar dengan Vera AI",
+  "Informasi program Vecalss",
 ];
 
 export default function FaqPageModule() {
@@ -53,19 +53,18 @@ export default function FaqPageModule() {
                 </Badge>
 
                 <h1 className="mt-7 max-w-[840px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
-                  Clear answers before you choose a study path.
+                  Temukan jawaban sebelum memilih program belajar.
                 </h1>
 
                 <p className="mt-6 max-w-[660px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
-                  A focused guide to Vecalss programs, Vera AI support, tryouts,
-                  analytics, and the first step for students who want a more
-                  structured prep routine.
+                  Cari tahu tentang program Vecalss, Vera AI, Tryout, dan cara
+                  memulai persiapan masuk PTN.
                 </p>
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                  <ActionButtonLink href="/#contact">Ask us directly</ActionButtonLink>
-                  <ActionButtonLink href="/about" variant="marketingOutline">
-                    Learn about Vecalss
+                  <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
+                  <ActionButtonLink href="/#about" variant="marketingOutline">
+                    Tentang Vecalss
                   </ActionButtonLink>
                 </div>
               </div>
@@ -74,10 +73,10 @@ export default function FaqPageModule() {
                 <div className="flex items-center justify-between gap-5 border-b border-secondary-900/12 pb-5">
                   <div>
                     <p className="text-sm font-medium tracking-[0.16em] text-primary-700 uppercase">
-                      Quick map
+                      Ringkasan
                     </p>
                     <h2 className="mt-2 text-3xl leading-[1.12] font-medium text-black md:text-4xl">
-                      The most common decisions in one place.
+                      Hal penting sebelum kamu mulai.
                     </h2>
                   </div>
                   <span className="hidden size-11 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 md:flex">
@@ -118,10 +117,10 @@ export default function FaqPageModule() {
           <div className="grid gap-10 md:grid-cols-[300px_minmax(0,1fr)] md:gap-16">
             <aside className="rounded-5xl bg-[color-mix(in_oklab,var(--warning-50)_72%,transparent)] p-6 shadow-[0_22px_58px_-44px_color-mix(in_oklab,var(--voyage-ink)_16%,transparent)] md:sticky md:top-8 md:self-start">
               <Badge size="section" variant="accent">
-                Common questions
+                Pertanyaan umum
               </Badge>
               <h2 className="mt-6 text-4xl leading-[1.1] font-medium text-black md:text-5xl">
-                Straight answers, no maze.
+                Jawaban yang kamu cari.
               </h2>
               <div className="mt-7 rounded-3xl border border-secondary-900/10 bg-white/72 px-4">
                 {supportLanes.map((lane) => (
@@ -177,22 +176,22 @@ export default function FaqPageModule() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--voyage-warm-sun)_18%,transparent),transparent_34%),radial-gradient(circle_at_bottom_left,color-mix(in_oklab,var(--voyage-surface)_7%,transparent),transparent_28%)]" />
             <div className="relative">
               <p className="text-sm font-medium tracking-[0.16em] text-accent-300 uppercase">
-                Still unsure
+                Masih bingung?
               </p>
               <h2 className="mt-4 max-w-[690px] text-4xl leading-[1.1] font-medium md:text-5xl">
-                Tell us your goal and we will help find the cleanest starting lane.
+                Lihat pilihan kontak untuk bertanya tentang program dan cara mulai
+                belajar.
               </h2>
               <p className="mt-5 max-w-[650px] text-lg leading-7 text-white/76 md:text-lg">
-                Share your current level, target campus, and the subjects that feel
-                hardest right now. The team can point you toward a realistic first
-                step.
+                Lihat pilihan kontak untuk bertanya tentang program dan cara mulai
+                belajar.
               </p>
             </div>
 
             <div className="relative flex flex-col gap-4 sm:flex-row md:flex-col">
-              <ActionButtonLink href="/#contact">Contact the team</ActionButtonLink>
-              <ActionButtonLink href="/about" variant="inverseOutline">
-                Read our approach
+              <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
+              <ActionButtonLink href="/#about" variant="inverseOutline">
+                Tentang Vecalss
               </ActionButtonLink>
             </div>
           </div>

@@ -1024,18 +1024,13 @@ function QuestionBankDetailContent({
         status: result.result.status,
       }));
       const lifecycleMessage = {
-        archive: "Question bank archived.",
-        restore: "Question bank restored.",
+        archive: "Bank soal berhasil diarsipkan.",
+        restore: "Bank soal berhasil dipulihkan.",
       }[operation];
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch (err) {
-      showToast(
-        err instanceof Error
-          ? err.message
-          : "The question bank status could not be updated right now.",
-        { variant: "error" },
-      );
+      showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", { variant: "error" });
     } finally {
       setIsSavingLifecycle(false);
     }
@@ -1053,17 +1048,12 @@ function QuestionBankDetailContent({
         showToast(result.message, { variant: "error" });
         return;
       }
-      showToast("Question bank removed from active use.", { variant: "success" });
+      showToast("Bank soal berhasil dihapus.", { variant: "success" });
       router.replace(
         `/mentor/quiz/question-bank?purpose=${encodeURIComponent(bank.purpose ?? "quiz")}`,
       );
     } catch (err) {
-      showToast(
-        err instanceof Error
-          ? err.message
-          : "The question bank could not be deleted right now.",
-        { variant: "error" },
-      );
+      showToast("Bank soal tidak dapat dihapus. Coba lagi.", { variant: "error" });
     } finally {
       setIsDeleting(false);
     }

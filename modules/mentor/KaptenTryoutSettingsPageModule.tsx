@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-import { Archive, Copy, FilePenLine, Trash2 } from "@/lib/icons";
+import {
+  Archive,
+  Copy,
+  Eye,
+  EyeOff,
+  FilePenLine,
+  Trash2,
+  Upload,
+} from "@/lib/icons";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
@@ -27,6 +35,7 @@ function KaptenTryoutSettingsPageModule({
   onArchive,
   onDelete,
   onDuplicate,
+  onPublish,
   onSetHidden,
   onUnpublish,
   saving,
@@ -42,6 +51,7 @@ function KaptenTryoutSettingsPageModule({
   onArchive: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onPublish: () => void;
   onSetHidden: (isHidden: boolean) => void;
   onUnpublish: () => void;
   saving: boolean;
@@ -50,7 +60,10 @@ function KaptenTryoutSettingsPageModule({
     useState<AdministrationAction | null>(null);
   const isPublished = draft.status === "published";
   const canDelete = !isPublished && !draft.locked;
-  const canDraft = isPublished && !hasActiveAttempt;
+  const canDraft = isPublished && !draft.locked && !hasActiveAttempt;
+  const draftDisabledReason = draft.locked
+    ? "Tryout sudah terkunci karena peserta telah mulai mengerjakan. Buat draf perubahan untuk menyiapkan versi baru."
+    : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf.";
 
   const confirmAction = () => {
     if (pendingAction === "archive") onArchive();
@@ -82,10 +95,31 @@ function KaptenTryoutSettingsPageModule({
         ) : null}
 
         <div>
+          {!isPublished && !draft.locked ? (
+            <AdministrationActionRow
+              action="Terbitkan Tryout"
+              description="Terbitkan Tryout setelah judul, bagian, dan soal sudah siap."
+            >
+              <Button
+                aria-busy={saving}
+                disabled={saving}
+                onClick={onPublish}
+                type="button"
+                variant="brand"
+              >
+                <Upload aria-hidden="true" />
+                {saving ? "Menerbitkan…" : "Terbitkan"}
+              </Button>
+            </AdministrationActionRow>
+          ) : null}
           {isPublished ? (
             <AdministrationActionRow
               action="Jadikan draf"
-              description="Kembalikan Tryout ke draf setelah semua peserta selesai mengerjakan."
+              description={
+                canDraft
+                  ? "Kembalikan Tryout ke draf sebelum ada peserta yang mulai mengerjakan."
+                  : draftDisabledReason
+              }
             >
               <Button
                 disabled={saving || !canDraft}
@@ -93,7 +127,7 @@ function KaptenTryoutSettingsPageModule({
                 title={
                   canDraft
                     ? "Kembalikan Tryout ke draf"
-                    : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf."
+                    : draftDisabledReason
                 }
                 type="button"
                 variant="brandOutline"
@@ -118,6 +152,11 @@ function KaptenTryoutSettingsPageModule({
                 type="button"
                 variant="brandOutline"
               >
+                {draft.isHidden ? (
+                  <Eye aria-hidden="true" />
+                ) : (
+                  <EyeOff aria-hidden="true" />
+                )}
                 {draft.isHidden ? "Tampilkan lagi" : "Sembunyikan"}
               </Button>
             </AdministrationActionRow>

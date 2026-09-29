@@ -35,7 +35,7 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
       <h2 className="sr-only" id="tryout-live-title">Status peserta</h2>
       <header className="flex justify-end">
         <TryoutRefreshToolbar
-          ariaLabel="Refresh status peserta"
+          ariaLabel="Perbarui status peserta"
           onRefresh={retryRefresh}
           refreshState={refreshState}
           updatedLabel={updatedLabel}

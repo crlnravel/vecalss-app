@@ -17,7 +17,7 @@ import { ParticipantWaitingRoomModule } from "@/modules/tryout/ParticipantWaitin
 import { canEnterParticipantWaitingRoom } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
 
 export const metadata: Metadata = {
-  title: "Ruang tunggu tryout | Vecalss",
+  title: "Ruang tunggu Tryout | Vecalss",
 };
 
 export default async function TryoutWaitingRoomPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {

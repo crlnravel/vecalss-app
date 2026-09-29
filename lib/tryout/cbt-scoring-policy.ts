@@ -12,7 +12,7 @@ export const CBT_IRT_2PL_METHOD = "irt_2pl" as const;
 export const CBT_IRT_MODEL_VERSION = "irt-2pl-cbt-v1" as const;
 export const CBT_IRT_ESTIMATOR_VERSION = "bounded-map-v1" as const;
 export const CBT_IRT_NORMALIZATION_VERSION = "logistic-0-100-v1" as const;
-export const CBT_IRT_CALIBRATION_REQUIRED_MESSAGE = "IRT belum bisa dipakai untuk menerbitkan Tryout karena kalibrasi dari jawaban peserta belum tersedia. Ubah penilaian ke poin tetap.";
+export const CBT_IRT_CALIBRATION_REQUIRED_MESSAGE = "Kalibrasi IRT untuk semua soal belum tersedia. Pilih Poin tetap untuk menerbitkan Tryout.";
 
 const MIN_IRT_ABILITY = -4;
 const MAX_IRT_ABILITY = 4;

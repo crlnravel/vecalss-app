@@ -379,7 +379,7 @@ function MateriBasicsSection({
             htmlFor="materi-subject"
             required
           >
-            Subject
+            Subtes
           </FieldLabel>
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -387,7 +387,7 @@ function MateriBasicsSection({
                 errors.subjectSlug ? "materi-subject-error" : undefined
               }
               aria-invalid={Boolean(errors.subjectSlug)}
-              aria-label="Subject"
+              aria-label="Pilih subtes Materi"
               disabled={isArchived}
               id="materi-subject"
               render={
@@ -406,7 +406,7 @@ function MateriBasicsSection({
                   ? selectedSubjectOption.code +
                     " · " +
                     selectedSubjectOption.name
-                  : "Pilih subject"}
+                  : "Pilih subtes"}
               </span>
               <ChevronDown
                 aria-hidden="true"
@@ -1132,13 +1132,11 @@ function MateriBuilderContent({
         });
       }
       router.refresh();
-    } catch (error) {
+    } catch {
       updateEditor({
         hasUnsavedChanges: true,
         saveError:
-          error instanceof Error
-            ? error.message
-            : "Materi tidak dapat disimpan. Coba lagi.",
+          "Materi belum berhasil disimpan. Periksa koneksi lalu coba lagi.",
       });
     } finally {
       updateEditor({ isSaving: false });
@@ -1170,11 +1168,9 @@ function MateriBuilderContent({
       });
       toast.success(result.message);
       router.refresh();
-    } catch (error) {
+    } catch {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Status materi tidak dapat diubah. Coba lagi.",
+        "Status Materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
       );
     } finally {
       updateEditor({ isLifecycleSaving: false });

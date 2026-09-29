@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [builder, repository, sourceRepository, createRoute, editRoute, catalogue] = await Promise.all([
+const [builder, questionManager, repository, sourceRepository, createRoute, editRoute, catalogue] = await Promise.all([
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/components/tryout-section-question-manager.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/question-bank/repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/create/page.tsx", import.meta.url), "utf8"),
@@ -11,17 +12,16 @@ const [builder, repository, sourceRepository, createRoute, editRoute, catalogue]
 ]);
 const assessmentRelease = await readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8");
 
-assert.match(builder, /Pilih bank soal/u, "Tryout Questions must expose direct selection");
+assert.match(questionManager, /Pilih Bank Soal/u, "Tryout Questions must expose direct selection");
 assert.doesNotMatch(builder, /Set Ready|Pool Soal|Blueprint|CAT Pool/u, "Tryout Questions must expose only direct selection");
 assert.doesNotMatch(builder, /Behavior &amp; rules|question-selection-mode|DropdownMenuRadioGroup|<Switch/u, "authoring must not expose CAT or source-mode controls");
-assert.match(builder, /<Checkbox/u, "direct selection must use a checklist");
-assert.match(builder, /questionTypeLabel/u, "direct selection must communicate the answer mode");
-assert.match(builder, /correctChoiceIds/u, "question preview must expose the authored answer key");
-assert.match(builder, /\{selectedCount\} dipilih/u, "direct selection must keep the selected count visible");
-assert.match(builder, /Urutan soal di Section/u, "direct selection must expose the assessment-owned question order");
-assert.match(builder, /Pindah soal \$\{index \+ 1\} ke atas/u, "direct selection must support keyboard-accessible upward movement");
-assert.match(builder, /Pindah soal \$\{index \+ 1\} ke bawah/u, "direct selection must support keyboard-accessible downward movement");
-assert.match(builder, /toggleDirectQuestion/u, "checking a source question must add or remove it from the active Section");
+assert.match(questionManager, /<Checkbox/u, "direct selection must use a checklist");
+assert.match(questionManager, /questionTypeLabel/u, "direct selection must communicate the answer mode");
+assert.match(questionManager, /correctChoiceIds/u, "question preview must expose the authored answer key");
+assert.match(questionManager, /\$\{selectionCount\} soal dipilih/u, "direct selection must keep the selected count visible");
+assert.match(questionManager, /aria-label=\{`Pindah soal \$\{index \+ 1\} ke atas`\}/u, "direct selection must expose keyboard-accessible ordering");
+assert.match(questionManager, /aria-label=\{`Pindah soal \$\{index \+ 1\} ke bawah`\}/u, "direct selection must support keyboard-accessible downward movement");
+assert.match(questionManager, /questionIds:\s*Array\.from\(selectedRevisions\.keys\(\)\)/u, "checking a source question must add or remove it from the selected request");
 assert.match(builder, /shuffleItems: true/u, "new and saved sections must randomize question order");
 assert.match(builder, /listQuestionBankSourcePageAction/u, "direct selection must browse source Banks through the server action");
 assert.match(builder, /listQuestionBankSourceQuestionsAction/u, "direct selection must load Ready questions through the server action");
@@ -31,10 +31,12 @@ assert.match(builder, /subjectCode: activeSection\.subtest/u, "source questions 
 assert.match(builder, /const updateDraft = \(change: \(current: TryoutDraft\) => TryoutDraft\) => \{[\s\S]*latestDraftRef\.current = nextDraft[\s\S]*dispatch\(\{ draft: nextDraft, type: "setDraft" \}\)/u, "draft edits must synchronously advance the snapshot used by save");
 assert.match(builder, /const draftToSave = latestDraftRef\.current;/u, "save must read the latest synchronous draft snapshot");
 assert.doesNotMatch(builder, /useEffect\(\(\) => \{\s*latestDraftRef\.current = draft/u, "save snapshots must not depend on a lagging draft effect");
-assert.match(builder, /const currentDraft = latestDraftRef\.current;[\s\S]*currentDirectQuestions[\s\S]*update\(activeCode/u, "question add/remove must derive from the synchronous draft snapshot");
+assert.match(builder, /const appendImportedQuestions = \(/u, "the builder must import selected questions into the draft");
+assert.match(builder, /directQuestions:/u, "the builder must keep imported questions in the draft");
+assert.match(builder, /\.\.\.snapshots,/u, "imported questions must append to the latest subtest draft");
 
-assert.match(repository, /type DirectQuestionInput/u, "the save boundary must define direct question inputs");
-assert.match(repository, /type DirectQuestionInput = \{ sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string \}/u, "direct selections must carry required source identity");
+assert.match(repository, /type DirectSourceQuestionInput/u, "the save boundary must define direct question inputs");
+assert.match(repository, /type DirectSourceQuestionInput = \{ sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string \}/u, "direct selections must carry required source identity");
 assert.match(repository, /async function readAndValidateDirectSources/u, "direct source IDs must be re-read on the server");
 assert.match(repository, /!selection\.sourceQuestionRevisionId[\s\S]*?selection\.sourceQuestionRevisionId !== revision\.id/u, "missing or stale direct revisions must be rejected");
 assert.match(repository, /!selection\.sourceContentDigest[\s\S]*?selection\.sourceContentDigest !== revision\.contentDigest/u, "missing or stale direct content digests must be rejected");

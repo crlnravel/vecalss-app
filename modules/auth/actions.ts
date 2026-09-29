@@ -50,14 +50,22 @@ function readAudience(formData: FormData): LoginAudience {
 
 function getChangePasswordErrorMessage(error: unknown) {
   if (error instanceof Error && error.message === "Password must include uppercase, lowercase, and number characters.") {
-    return "Kata sandi harus mengandung huruf besar, huruf kecil, dan angka.";
+    return "Kata sandi baru harus memuat huruf besar, huruf kecil, dan angka.";
   }
 
   if (error instanceof Error && error.message === `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`) {
-    return `Kata sandi harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+    return `Kata sandi baru harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter.`;
   }
 
-  return "Maaf, kata sandi tidak dapat diperbarui. Silakan coba lagi.";
+  return "Kata sandi belum berhasil diperbarui. Coba lagi beberapa saat lagi.";
+}
+
+function getResetPasswordErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message === "This reset link is invalid or has already expired.") {
+    return "Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru untuk mengatur ulang kata sandi.";
+  }
+
+  return getChangePasswordErrorMessage(error);
 }
 
 async function handleLoginAction(
@@ -70,10 +78,10 @@ async function handleLoginAction(
   if (!email || !password) {
     return withFieldError(
       { email },
-      "Enter both your email and password to continue.",
+      "Masukkan email dan kata sandi untuk masuk.",
       {
-        ...(email ? {} : { email: "Email is required." }),
-        ...(password ? {} : { password: "Password is required." }),
+        ...(email ? {} : { email: "Masukkan email akunmu." }),
+        ...(password ? {} : { password: "Masukkan kata sandi." }),
       },
     );
   }
@@ -84,7 +92,7 @@ async function handleLoginAction(
     if (result.code === "service_unavailable") {
       return {
         fields: { email },
-        message: "We're sorry, sign-in is unavailable right now. Please try again soon.",
+        message: "Kamu belum bisa masuk saat ini. Coba lagi beberapa saat lagi.",
         status: "error",
       };
     }
@@ -93,14 +101,14 @@ async function handleLoginAction(
       return {
         fields: { email },
         message:
-          "Your account is temporarily locked after repeated failed attempts. Please wait 15 minutes before trying again.",
+          "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.",
         status: "error",
       };
     }
 
     return {
       fields: { email },
-      message: "Kredensial tidak valid. Jika Anda belum terdaftar, silakan selesaikan proses pendaftaran terlebih dahulu.",
+      message: "Email atau kata sandi belum cocok. Periksa kembali, lalu coba lagi.",
       status: "error",
     };
   }
@@ -129,8 +137,8 @@ async function forgotPasswordAction(
   if (!email) {
     return withFieldError(
       { email },
-      "Enter the email tied to your Vecalss account.",
-      { email: "Email is required." },
+      "Masukkan email yang terhubung dengan akun Vecalss.",
+      { email: "Masukkan email akunmu." },
     );
   }
 
@@ -139,8 +147,9 @@ async function forgotPasswordAction(
 
     return {
       fields: { email: "" },
-      message:
-        "If that account is active, we have prepared a password reset link. In production this message always stays generic.",
+      message: result.deliveredResetUrl
+        ? "Tautan pengaturan ulang kata sandi sudah siap. Buka tautan di bawah untuk melanjutkan."
+        : "Tautan pengaturan ulang belum tersedia di halaman ini. Hubungi admin Vecalss untuk meminta bantuan.",
       resetUrl: result.deliveredResetUrl ?? undefined,
       status: "success",
     };
@@ -149,7 +158,7 @@ async function forgotPasswordAction(
 
     return {
       fields: { email },
-      message: "We're sorry, we can't send a reset link right now. Please try again soon.",
+      message: "Permintaan pengaturan ulang kata sandi belum berhasil diproses. Coba lagi beberapa saat lagi.",
       status: "error",
     };
   }
@@ -166,7 +175,7 @@ async function resetPasswordAction(
 
   if (!token) {
     return {
-      message: "This reset link is invalid.",
+      message: "Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru.",
       status: "error",
     };
   }
@@ -174,10 +183,10 @@ async function resetPasswordAction(
   if (!password || !confirmPassword) {
     return withFieldError(
       {},
-      "Enter and confirm your new password.",
+      "Isi kata sandi baru dan ulangi untuk konfirmasi.",
       {
-        ...(password ? {} : { password: "New password is required." }),
-        ...(confirmPassword ? {} : { confirmPassword: "Confirm your new password." }),
+        ...(password ? {} : { password: "Isi kata sandi baru." }),
+        ...(confirmPassword ? {} : { confirmPassword: "Ulangi kata sandi baru." }),
       },
     );
   }
@@ -185,8 +194,8 @@ async function resetPasswordAction(
   if (password !== confirmPassword) {
     return withFieldError(
       {},
-      "The confirmation does not match your new password.",
-      { confirmPassword: "Passwords do not match." },
+      "Kata sandi yang kamu masukkan belum sama. Periksa kembali.",
+      { confirmPassword: "Kata sandi belum sama." },
     );
   }
 
@@ -194,10 +203,7 @@ async function resetPasswordAction(
     await completePasswordReset(token, password);
   } catch (error) {
     return {
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, this reset link no longer works. Please request a new one.",
+      message: getResetPasswordErrorMessage(error),
       status: "error",
     };
   }
@@ -216,10 +222,10 @@ async function changePasswordAction(
   if (!password || !confirmPassword) {
     return withFieldError(
       {},
-      "Buat dan konfirmasi kata sandi yang kuat sebelum melanjutkan.",
+      "Isi kata sandi baru dan ulangi untuk konfirmasi.",
       {
-        ...(password ? {} : { password: "Kata sandi baru wajib diisi." }),
-        ...(confirmPassword ? {} : { confirmPassword: "Konfirmasi kata sandi wajib diisi." }),
+        ...(password ? {} : { password: "Isi kata sandi baru." }),
+        ...(confirmPassword ? {} : { confirmPassword: "Ulangi kata sandi baru." }),
       },
     );
   }
@@ -227,8 +233,8 @@ async function changePasswordAction(
   if (password !== confirmPassword) {
     return withFieldError(
       {},
-      "Konfirmasi tidak cocok dengan kata sandi baru.",
-      { confirmPassword: "Kata sandi tidak cocok." },
+      "Kata sandi yang kamu masukkan belum sama. Periksa kembali.",
+      { confirmPassword: "Kata sandi belum sama." },
     );
   }
 

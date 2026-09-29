@@ -148,7 +148,7 @@ function MentorDashboardPageModule({
       activeLabel="Dashboard"
       breadcrumbLabel="Dashboard"
       mainClassName="gap-10 lg:gap-12"
-      searchPlaceholder="Cari konten, draft, jadwal, atau asset..."
+      searchPlaceholder="Cari konten, draf, jadwal, atau media..."
       session={session}
       sidebarAppearance="reference"
     >

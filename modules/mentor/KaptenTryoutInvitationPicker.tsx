@@ -307,7 +307,7 @@ function InvitationDetailCard({
             required
             value={reason}
           />
-          <p className="text-xs leading-5 text-secondary-500" id={`${reasonInputId}-hint`}>Catatan ini tersimpan di audit log dan wajib diisi.</p>
+          <p className="text-xs leading-5 text-secondary-500" id={`${reasonInputId}-hint`}>Catatan ini tersimpan dalam riwayat audit dan wajib diisi.</p>
         </Field>
 
         <InvitationSubmitButton disabled={!selectedStudent || !effectiveSelectedSessionId || !reason.trim()} busy={busy} onSubmit={onSubmit} />

@@ -297,7 +297,7 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
     if (!release) {
       throw new AdminPreviewTryoutRestartError(
         "tryout_not_ready",
-        "Tryout preview belum memiliki AssessmentRelease yang sudah dipublikasikan.",
+        "Tryout ini belum siap untuk dipratinjau. Periksa kelengkapan soal dan status penerbitannya.",
       );
     }
 

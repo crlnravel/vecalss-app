@@ -12,10 +12,12 @@ test plan; they do not claim that browser or database verification has run.
   assets, and Media folders.
 - An owner renews its two-minute lease every 30 seconds. A lease with no
   renewal expires after two minutes.
-- A visible page waiting for a lock retries acquisition every two seconds.
+- A visible page waiting for a lock retries acquisition every second.
   Polling pauses while that page is hidden.
 - A page refresh tries to rotate its saved proof and reclaim the same lease.
   Leaving the page also sends a best-effort release request.
+- When an active lease blocks editing, the lock notice can expand to show the
+  holder's account email and user ID alongside their display name.
 
 ## Test setup
 
@@ -37,7 +39,7 @@ test plan; they do not claim that browser or database verification has run.
 | REL-01 | Open an editable saved resource as Kapten A. Observe the page while it checks access, then after acquisition. | Edit controls are disabled while checking and enabled after acquisition. The floating lock notice is absent while checking and while A owns the lock. |
 | REL-02 | Keep A editing. Open the same resource as Kapten B. Try each save or edit action available on that page. | B can read the resource, but every authoring change is disabled or rejected. A remains able to edit. On Bank Soal, the notice reads **“Soal Terkunci”** with **“Anda tidak dapat mengedit bank soal ini karena terdapat mentor lain yang sedang mengedit soal yang sama.”** |
 | REL-03 | As A, refresh the same tab while A owns the resource. After the page reloads, try to edit. Keep B open as a contender. | A reclaims the lease through its saved proof or reacquires it after release. A becomes editable after checking; B stays read-only. A refresh does not leave a second stale lock behind. |
-| REL-04 | With A owning and B waiting visibly, have A leave the editor normally. | A releases its lease. B acquires it on the next successful poll (nominally within two seconds, plus request/render time) and becomes editable without a manual retry. |
+| REL-04 | With A owning and B waiting visibly, have A leave the editor normally. | A releases its lease. B acquires it on the next successful poll (nominally within one second, plus request/render time) and becomes editable without a manual retry. |
 | REL-05 | With A owning and B waiting, disconnect A from the network, then close A's tab so the release request cannot reach the server. | B remains read-only while the lease is active, then acquires it after two minutes without a renewal, on the next successful poll. Measure from A's last successful heartbeat. No other editor can save during the wait. |
 | REL-06 | Keep A's editor open and responsive for longer than two minutes while B waits. | A's heartbeat keeps the lease active; B remains read-only. A can continue to save. |
 | REL-07 | Keep B waiting, hide B's tab, release A's lock, then return B to the foreground. | B does not keep polling while hidden. After it becomes visible, it retries and acquires the available lock within the next polling interval plus request/render time. |
@@ -55,6 +57,7 @@ test plan; they do not claim that browser or database verification has run.
 | REL-14 | Acquire a Media asset lock, then try to move or trash a containing folder that would affect that asset. Repeat with a folder transition already in progress, then try to create/finalize an upload into that folder. | Conflicting folder and descendant changes serialize or fail safely. No descendant mutation bypasses an active lease and no partial folder transition remains. |
 | REL-15 | In a controlled race, run admin student-preview restart against a Tryout while another request saves, publishes/unpublishes, or deletes it. Repeat against session creation, release, and state-synchronization paths. | Each path takes the Tryout mutex before preview-specific locks, revalidates the source-session mapping after acquiring it, and finishes without deadlock or a write bypassing the shared Tryout boundary. |
 | REL-16 | Repeat REL-01 through REL-04 with each resource family: Materi, Kuis, Bank Soal, Paket Soal, Tryout, Media asset, and Media folder. | Each resource family has the same single-editor, read-only, release, and recovery behavior. A lock on one resource does not lock unrelated resources. |
+| REL-17 | Refresh one editor tab and let `visibilitychange` and `focus` fire during the startup handshake or lease recovery. | Lifecycle events do not start a competing acquire or recovery while the provider is already acquiring or uncertain. The tab retains or reacquires its lease instead of showing itself as locked. |
 
 ## Existing automated coverage
 

@@ -35,13 +35,13 @@ export default async function CreateMentorMateriPage({
   const subjectValues = readQueryValues(query, "subject");
   const subjectSlug = subjectValues[0]?.trim() || undefined;
   if (subjectValues.length > 1) {
-    issues.push({ code: "invalid", field: "subject", message: "Subject materi hanya boleh dipilih satu kali.", value: subjectSlug });
+    issues.push({ code: "invalid", field: "subject", message: "Subtes materi hanya boleh dipilih satu kali.", value: subjectSlug });
   }
   if (subjectValues.length === 1 && !subjectSlug) {
-    issues.push({ code: "invalid", field: "subject", message: "Subject materi tidak boleh kosong." });
+    issues.push({ code: "invalid", field: "subject", message: "Subtes materi tidak boleh kosong." });
   }
   if (subjectSlug && !view.subjects.some((subject) => subject.slug === subjectSlug)) {
-    issues.push({ code: "unsupported", field: "subject", message: "Subject materi tersebut tidak tersedia.", value: subjectSlug });
+    issues.push({ code: "unsupported", field: "subject", message: "Subtes materi tersebut tidak tersedia.", value: subjectSlug });
   }
 
   const returnContext = parseMateriReturnTo(query);

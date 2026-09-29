@@ -23,7 +23,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { formatTryoutDateTime } from "@/lib/tryout/time";
 
 import {
   AlertDialog,
@@ -43,7 +42,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FieldInput, FieldTextarea } from "@/components/ui/field";
+import {
+  Field,
+  FieldInput,
+  FieldLabel,
+  FieldTextarea,
+} from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   Tooltip,
@@ -73,6 +77,10 @@ import {
 } from "@/lib/tryout/cbt-scoring-policy";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { TryoutBannerUploadDialog } from "@/modules/mentor/components/tryout-banner-upload-dialog";
+import {
+  QuestionEditorHeader,
+  QuestionEditorPageShell,
+} from "@/modules/mentor/components/question-editor-workspace";
 import { UnsavedChangesConfirmationDialog } from "@/modules/mentor/components/unsaved-changes-confirmation-dialog";
 import {
   listQuestionBankSourcePageAction,
@@ -391,14 +399,25 @@ function TryoutBannerHero({
 
   return (
     <section
-      aria-label="Banner Tryout"
-      className="grid min-w-0 max-w-full gap-2"
+      aria-label={presentation === "page" ? "Banner Tryout" : undefined}
+      aria-labelledby={
+        presentation === "dialog" ? "tryout-banner-label" : undefined
+      }
+      className={`grid min-w-0 max-w-full ${presentation === "dialog" ? "gap-2 sm:gap-3" : "gap-2"}`}
     >
+      {presentation === "dialog" ? (
+        <p
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          id="tryout-banner-label"
+        >
+          Banner Tryout
+        </p>
+      ) : null}
       <div
-        className={`group relative min-w-0 max-w-full overflow-hidden border border-primary-100 bg-primary-50 ${
+        className={`group relative min-w-0 max-w-full overflow-hidden ${
           presentation === "dialog"
-            ? "aspect-[2.85/1] min-h-52 rounded-[2.5rem] sm:min-h-72 lg:min-h-[22.5rem]"
-            : "aspect-[6/1] min-h-40 rounded-3xl sm:min-h-48"
+            ? `aspect-[2.4/1] min-h-48 rounded-2xl sm:min-h-56 ${bannerMediaId ? "border border-primary-100 bg-primary-50" : "border-2 border-dashed border-primary-200 bg-primary-50/35"}`
+            : "aspect-[6/1] min-h-40 rounded-3xl border border-primary-100 bg-primary-50 sm:min-h-48"
         }`}
       >
         {bannerMediaId ? (
@@ -407,6 +426,31 @@ function TryoutBannerHero({
             assetId={bannerMediaId}
             className="absolute inset-0 min-h-0 min-w-0 w-full max-w-full [&_img]:object-cover"
           />
+        ) : presentation === "dialog" ? (
+          <button
+            aria-label="Pilih gambar banner Tryout"
+            aria-describedby="tryout-banner-upload-hint"
+            className="absolute inset-0 z-10 flex w-full flex-col items-center justify-center gap-3 px-5 text-center outline-none transition-[transform,background-color] hover:bg-primary-100/25 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-700/20 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none"
+            disabled={disabled}
+            onClick={() => setPickerOpen(true)}
+            type="button"
+          >
+            <span className="flex size-12 items-center justify-center rounded-full bg-primary-100 text-primary-900 sm:size-14">
+              <ImagePlus aria-hidden="true" className="size-6" />
+            </span>
+            <span className="text-sm leading-6 text-secondary-500">
+              Pilih gambar banner
+            </span>
+            <span
+              className="text-xs leading-5 text-secondary-500"
+              id="tryout-banner-upload-hint"
+            >
+              JPG, PNG, WebP, atau GIF · maks. 15 MB
+            </span>
+            <span className="text-sm font-semibold leading-6 text-primary-800 underline decoration-primary-300 underline-offset-4">
+              Telusuri file
+            </span>
+          </button>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-50 px-6 text-center text-secondary-600">
             <ImagePlus
@@ -424,76 +468,80 @@ function TryoutBannerHero({
             </span>
           </div>
         )}
-        <div
-          aria-hidden="true"
-          className={`absolute inset-0 transition-colors ${
-            presentation === "dialog"
-              ? "bg-secondary-950/0 group-hover:bg-secondary-950/20 group-focus-within:bg-secondary-950/10"
-              : "bg-secondary-950/20 group-hover:bg-secondary-950/30"
-          }`}
-        />
-        <TooltipProvider>
-          <div
-            className={`absolute flex items-center gap-2 ${
-              presentation === "dialog"
-                ? "right-5 top-5 sm:right-7 sm:top-7"
-                : "right-4 top-4"
-            }`}
-          >
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-label="Ubah banner Tryout"
-                    className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
-                      presentation === "dialog"
-                        ? "size-12 sm:size-16 lg:size-[5.25rem] lg:rounded-2xl"
-                        : "size-11"
-                    }`}
-                    disabled={disabled}
-                    onClick={() => setPickerOpen(true)}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
+        {bannerMediaId || presentation === "page" ? (
+          <>
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 transition-colors ${
+                presentation === "dialog"
+                  ? "bg-secondary-950/0 group-hover:bg-secondary-950/20 group-focus-within:bg-secondary-950/10"
+                  : "bg-secondary-950/20 group-hover:bg-secondary-950/30"
+              }`}
+            />
+            <TooltipProvider>
+              <div
+                className={`absolute z-20 flex items-center gap-2 ${
+                  presentation === "dialog"
+                    ? "right-3 top-3 sm:right-4 sm:top-4"
+                    : "right-4 top-4"
+                }`}
               >
-                <Pencil
-                  aria-hidden="true"
-                  className={presentation === "dialog" ? "size-5 lg:size-6" : "size-4"}
-                />
-              </TooltipTrigger>
-              <TooltipContent>Ubah banner Tryout</TooltipContent>
-            </Tooltip>
-            {bannerMediaId ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-label="Hapus banner Tryout"
-                      className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
-                        presentation === "dialog"
-                          ? "size-12 sm:size-16 lg:size-[5.25rem] lg:rounded-2xl"
-                          : "size-11"
-                      }`}
-                      disabled={disabled}
-                      onClick={() => handleBannerChange(null)}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label="Ubah banner Tryout"
+                        className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
+                          presentation === "dialog"
+                            ? "size-10 sm:size-11"
+                            : "size-11"
+                        }`}
+                        disabled={disabled}
+                        onClick={() => setPickerOpen(true)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      />
+                    }
+                  >
+                    <Pencil
+                      aria-hidden="true"
+                      className="size-4"
                     />
-                  }
-                >
-                  <Trash2
-                    aria-hidden="true"
-                    className={presentation === "dialog" ? "size-5 lg:size-6" : "size-4"}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Hapus banner Tryout</TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-        </TooltipProvider>
+                  </TooltipTrigger>
+                  <TooltipContent>Ubah banner Tryout</TooltipContent>
+                </Tooltip>
+                {bannerMediaId ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          aria-label="Hapus banner Tryout"
+                          className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
+                            presentation === "dialog"
+                              ? "size-10 sm:size-11"
+                              : "size-11"
+                          }`}
+                          disabled={disabled}
+                          onClick={() => handleBannerChange(null)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        />
+                      }
+                    >
+                      <Trash2
+                        aria-hidden="true"
+                        className="size-4"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>Hapus banner Tryout</TooltipContent>
+                  </Tooltip>
+                ) : null}
+              </div>
+            </TooltipProvider>
+          </>
+        ) : null}
       </div>
       <TryoutBannerUploadDialog
         onOpenChange={setPickerOpen}
@@ -537,6 +585,28 @@ function TryoutTitleField({
     setEditing(false);
     onSave();
   };
+
+  if (presentation === "dialog") {
+    return (
+      <Field className="gap-3">
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="tryout-title"
+          required
+        >
+          Judul Tryout
+        </FieldLabel>
+        <FieldInput
+          className={REFERENCE_CONTROL_CLASS_NAMES.input}
+          disabled={disabled || isSaving}
+          id="tryout-title"
+          onChange={(event) => onChange(event.target.value)}
+          required
+          value={value}
+        />
+      </Field>
+    );
+  }
 
   if (editing) {
     return (
@@ -649,6 +719,26 @@ function TryoutDescriptionField({
     onSave();
   };
 
+  if (presentation === "dialog") {
+    return (
+      <Field className="gap-3">
+        <FieldLabel
+          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+          htmlFor="tryout-description"
+        >
+          Deskripsi
+        </FieldLabel>
+        <FieldTextarea
+          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 resize-y`}
+          disabled={disabled || isSaving}
+          id="tryout-description"
+          onChange={(event) => onChange(event.target.value)}
+          value={value}
+        />
+      </Field>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center gap-1.5">
@@ -755,55 +845,73 @@ function TryoutIdentityPanel({
   const identityDisabled =
     saving || metadataSaving || (mode === "draft" && draft.locked);
   const isSaving = saving || metadataSaving;
-  const informationCard = (
-    <ReferenceSurface
-      aria-labelledby="tryout-basic-info-title"
-      as="section"
-      className={`grid min-w-0 w-full max-w-full overflow-hidden ${
-        presentation === "dialog"
-          ? "gap-14 rounded-[2.75rem] p-5 sm:p-8 lg:p-14"
-          : "gap-7 p-5 sm:p-7"
-      }`}
-    >
-      <h2 className="sr-only" id="tryout-basic-info-title">
-        Informasi Tryout
-      </h2>
-      <TryoutBannerHero
-        bannerMediaId={draft.bannerMediaId}
-        disabled={identityDisabled}
-        onChange={onBannerChange}
-        onSave={onSaveMetadata}
-        presentation={presentation}
-      />
-      <TryoutTitleField
-        disabled={identityDisabled}
-        isSaving={isSaving}
-        onChange={onTitleChange}
-        onSave={onSaveMetadata}
-        presentation={presentation}
-        value={draft.title}
-      />
-      <TryoutDescriptionField
-        disabled={identityDisabled}
-        isSaving={isSaving}
-        onChange={onDescriptionChange}
-        onSave={onSaveMetadata}
-        presentation={presentation}
-        value={draft.description}
-      />
-    </ReferenceSurface>
+  const bannerHero = (
+    <TryoutBannerHero
+      bannerMediaId={draft.bannerMediaId}
+      disabled={identityDisabled}
+      onChange={onBannerChange}
+      onSave={onSaveMetadata}
+      presentation={presentation}
+    />
   );
+  const titleField = (
+    <TryoutTitleField
+      disabled={identityDisabled}
+      isSaving={isSaving}
+      onChange={onTitleChange}
+      onSave={onSaveMetadata}
+      presentation={presentation}
+      value={draft.title}
+    />
+  );
+  const descriptionField = (
+    <TryoutDescriptionField
+      disabled={identityDisabled}
+      isSaving={isSaving}
+      onChange={onDescriptionChange}
+      onSave={onSaveMetadata}
+      presentation={presentation}
+      value={draft.description}
+    />
+  );
+  const informationContent =
+    presentation === "dialog" ? (
+      <section
+        aria-labelledby="tryout-basic-info-title"
+        className="grid min-w-0 w-full max-w-full gap-5 sm:gap-6"
+      >
+        <h2 className="sr-only" id="tryout-basic-info-title">
+          Informasi Tryout
+        </h2>
+        {titleField}
+        {descriptionField}
+        {bannerHero}
+      </section>
+    ) : (
+      <ReferenceSurface
+        aria-labelledby="tryout-basic-info-title"
+        as="section"
+        className="grid min-w-0 w-full max-w-full gap-7 overflow-hidden p-5 sm:p-7"
+      >
+        <h2 className="sr-only" id="tryout-basic-info-title">
+          Informasi Tryout
+        </h2>
+        {bannerHero}
+        {titleField}
+        {descriptionField}
+      </ReferenceSurface>
+    );
 
   return (
     <>
       <div
         className={
           presentation === "dialog"
-            ? "grid min-w-0 w-full gap-5 sm:gap-12"
+            ? "grid min-w-0 w-full gap-6"
             : "grid min-w-0 w-full gap-6"
         }
       >
-        {informationCard}
+        {informationContent}
       </div>
       {onCreate ? (
         <Button
@@ -811,13 +919,17 @@ function TryoutIdentityPanel({
           aria-label="Buat Tryout"
           className={
             presentation === "dialog"
-              ? "h-[5.5rem] w-full rounded-3xl text-2xl sm:rounded-[1.5rem] sm:text-2xl"
+              ? "w-full"
               : "mt-4 w-full"
           }
           disabled={saving || !draft.title.trim()}
           onClick={onCreate}
           type="button"
-          variant="brand"
+          variant={
+            presentation === "dialog" && !draft.title.trim()
+              ? "brandOutline"
+              : "brand"
+          }
         >
           <Save className={presentation === "dialog" ? "size-6" : undefined} />
           {saving ? "Membuat…" : "Buat"}
@@ -834,6 +946,8 @@ type TryoutSubtestEditorProps = {
   activeSourceQuestions: SourceQuestion[];
   browseBankId: string | null;
   draft: TryoutDraft;
+  dirty: boolean;
+  editorMode: boolean;
   guardExternalNavigation: (
     href: string,
     event: { preventDefault: () => void },
@@ -859,6 +973,8 @@ type TryoutSubtestEditorProps = {
     change: TryoutQuestionChange,
   ) => void;
   onUpdateSection: (change: Partial<TestDraft>) => void;
+  questionEditorHref?: string;
+  saveDraft: () => Promise<boolean>;
   sourceBankLoading: boolean;
   sourceBankSearch: string;
   sourceBankTotal: number;
@@ -872,15 +988,21 @@ type TryoutSubtestEditorProps = {
 };
 
 function TryoutSavedQuestionList({
+  action,
   activeDirectQuestions,
   activeSection,
-}: Pick<TryoutSubtestEditorProps, "activeDirectQuestions" | "activeSection">) {
+}: Pick<TryoutSubtestEditorProps, "activeDirectQuestions" | "activeSection"> & {
+  action?: ReactNode;
+}) {
   return (
     <section
       aria-label={`Daftar soal subtes ${activeSection.subtest}`}
       className="grid gap-4"
     >
-      <h2 className="text-xl font-semibold text-secondary-900">Soal</h2>
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-secondary-900">Soal</h2>
+        {action}
+      </div>
       {activeDirectQuestions.length === 0 ? (
         <ReferenceSurface
           className="px-4 py-10 text-center text-sm leading-6 text-secondary-500"
@@ -1037,6 +1159,46 @@ function TryoutSavedQuestionList({
 function TryoutQuestionSourcePanel(props: TryoutSubtestEditorProps) {
   const { activeDirectQuestions, activeSection, readOnly } = props;
   const packageBound = Boolean(activeSection.packageVersionId);
+  const manager = (
+    <TryoutSectionQuestionManager
+      activeBrowseBank={props.activeBrowseBank}
+      activeSourceQuestions={props.activeSourceQuestions}
+      browseBankId={props.browseBankId}
+      draftLocked={props.draft.locked}
+      guardExternalNavigation={props.guardExternalNavigation}
+      onBankPageNext={props.onBankPageNext}
+      onBankSearchChange={props.onBankSearchChange}
+      onImport={(request) => props.onImport(activeSection.subtest, request)}
+      onMoveQuestion={(snapshotId, direction) =>
+        props.onMoveQuestion(activeSection.subtest, snapshotId, direction)
+      }
+      onQuestionPageChange={props.onQuestionPageChange}
+      onQuestionSearchChange={props.onQuestionSearchChange}
+      onRemoveQuestion={(snapshotId) =>
+        props.onRemoveQuestion(activeSection.subtest, snapshotId)
+      }
+      onSelectBank={props.onSelectBank}
+      onUpdateQuestion={(snapshotId, change) =>
+        props.onUpdateQuestion(activeSection.subtest, snapshotId, change)
+      }
+      packageVersionId={activeSection.packageVersionId}
+      presentation={props.editorMode ? "workspace" : "embedded"}
+      questions={activeDirectQuestions}
+      readOnly={readOnly}
+      saving={props.saving}
+      sectionSubject={activeSection.subtest}
+      sourceBankLoading={props.sourceBankLoading}
+      sourceBankSearch={props.sourceBankSearch}
+      sourceBankTotal={props.sourceBankTotal}
+      sourceBanks={props.sourceBanks}
+      sourceQuestionLoading={props.sourceQuestionLoading}
+      sourceQuestionPage={props.sourceQuestionPage}
+      sourceQuestionSearch={props.sourceQuestionSearch}
+      sourceQuestionTotal={props.sourceQuestionTotal}
+    />
+  );
+
+  if (props.editorMode && !packageBound) return manager;
 
   return (
     <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 sm:p-7">
@@ -1060,41 +1222,7 @@ function TryoutQuestionSourcePanel(props: TryoutSubtestEditorProps) {
           activeSection={activeSection}
         />
       ) : (
-        <TryoutSectionQuestionManager
-          activeBrowseBank={props.activeBrowseBank}
-          activeSourceQuestions={props.activeSourceQuestions}
-          browseBankId={props.browseBankId}
-          draftLocked={props.draft.locked}
-          guardExternalNavigation={props.guardExternalNavigation}
-          onBankPageNext={props.onBankPageNext}
-          onBankSearchChange={props.onBankSearchChange}
-          onImport={(request) => props.onImport(activeSection.subtest, request)}
-          onMoveQuestion={(snapshotId, direction) =>
-            props.onMoveQuestion(activeSection.subtest, snapshotId, direction)
-          }
-          onQuestionPageChange={props.onQuestionPageChange}
-          onQuestionSearchChange={props.onQuestionSearchChange}
-          onRemoveQuestion={(snapshotId) =>
-            props.onRemoveQuestion(activeSection.subtest, snapshotId)
-          }
-          onSelectBank={props.onSelectBank}
-          onUpdateQuestion={(snapshotId, change) =>
-            props.onUpdateQuestion(activeSection.subtest, snapshotId, change)
-          }
-          packageVersionId={activeSection.packageVersionId}
-          questions={activeDirectQuestions}
-          readOnly={readOnly}
-          saving={props.saving}
-          sectionSubject={activeSection.subtest}
-          sourceBankLoading={props.sourceBankLoading}
-          sourceBankSearch={props.sourceBankSearch}
-          sourceBankTotal={props.sourceBankTotal}
-          sourceBanks={props.sourceBanks}
-          sourceQuestionLoading={props.sourceQuestionLoading}
-          sourceQuestionPage={props.sourceQuestionPage}
-          sourceQuestionSearch={props.sourceQuestionSearch}
-          sourceQuestionTotal={props.sourceQuestionTotal}
-        />
+        manager
       )}
     </ReferenceSurface>
   );
@@ -1124,9 +1252,9 @@ function TryoutSubtestMetadataField({
   value: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2">
-      <div className="flex min-h-8 items-center justify-between gap-3">
-        <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
+    <div className="min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-secondary-500">
           {label}
           {required ? <RequiredMark /> : null}
         </p>
@@ -1165,9 +1293,9 @@ function TryoutSubtestMetadataField({
         )}
       </div>
       {editing ? (
-        children
+        <div className="mt-2">{children}</div>
       ) : (
-        <div className="text-base leading-7 text-secondary-800">{value}</div>
+        <div className="mt-1 text-sm leading-6 text-secondary-700">{value}</div>
       )}
     </div>
   );
@@ -1220,15 +1348,16 @@ function TryoutSubtestMetadataCard({
     <ReferenceSurface
       as="section"
       aria-labelledby="tryout-subtest-title"
-      className="grid gap-6 p-5 sm:p-7"
+      className="p-5 sm:p-6"
     >
-      <h1
-        className="text-2xl font-semibold tracking-[-0.025em] text-secondary-900 sm:text-3xl"
-        id="tryout-subtest-title"
-      >
-        {subjectName}
-      </h1>
-      <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+      <div className="space-y-6">
+        <h1
+          className="mt-3 text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl"
+          id="tryout-subtest-title"
+        >
+          {subjectName}
+        </h1>
+        <div className="space-y-5">
         <TryoutSubtestMetadataField
           canSave={durationIsValid}
           disabled={!canEdit}
@@ -1331,7 +1460,6 @@ function TryoutSubtestMetadataCard({
           />
         </TryoutSubtestMetadataField>
 
-        <div className="sm:col-span-2">
           <TryoutSubtestMetadataField
             disabled={!canEdit}
             editing={editingInstructions}
@@ -1380,6 +1508,8 @@ function TryoutSubtestEditor({
   activeSourceQuestions,
   browseBankId,
   draft,
+  dirty,
+  editorMode,
   guardExternalNavigation,
   onBankPageNext,
   onBankSearchChange,
@@ -1391,6 +1521,8 @@ function TryoutSubtestEditor({
   onSelectBank,
   onUpdateQuestion,
   onUpdateSection,
+  questionEditorHref,
+  saveDraft,
   sourceBankLoading,
   sourceBankSearch,
   sourceBankTotal,
@@ -1402,15 +1534,8 @@ function TryoutSubtestEditor({
   readOnly,
   saving,
 }: TryoutSubtestEditorProps) {
-  const [editingQuestions, setEditingQuestions] = useState(false);
-  const [questionEditorMounted, setQuestionEditorMounted] = useState(false);
   const packageBound = Boolean(activeSection.packageVersionId);
   const canEditQuestions = !readOnly && !draft.locked && !packageBound;
-  const showQuestionEditor = editingQuestions && canEditQuestions;
-
-  useEffect(() => {
-    if (!canEditQuestions) setEditingQuestions(false);
-  }, [canEditQuestions]);
 
   const questionSourcePanel = (
     <TryoutQuestionSourcePanel
@@ -1420,6 +1545,8 @@ function TryoutSubtestEditor({
       activeSourceQuestions={activeSourceQuestions}
       browseBankId={browseBankId}
       draft={draft}
+      dirty={dirty}
+      editorMode={editorMode}
       guardExternalNavigation={guardExternalNavigation}
       onBankPageNext={onBankPageNext}
       onBankSearchChange={onBankSearchChange}
@@ -1432,6 +1559,7 @@ function TryoutSubtestEditor({
       onUpdateQuestion={onUpdateQuestion}
       onUpdateSection={onUpdateSection}
       readOnly={readOnly}
+      saveDraft={saveDraft}
       sourceBankLoading={sourceBankLoading}
       sourceBankSearch={sourceBankSearch}
       sourceBankTotal={sourceBankTotal}
@@ -1446,59 +1574,58 @@ function TryoutSubtestEditor({
 
   return (
     <TooltipProvider>
-      <div className="grid min-w-0 gap-5">
-        <TryoutSubtestMetadataCard
-          activeSection={activeSection}
-          draft={draft}
-          onUpdateSection={onUpdateSection}
-          readOnly={readOnly}
-          saving={saving}
-        />
-
-        {canEditQuestions ? (
-          <div className="flex justify-end">
-            <Button
-              aria-pressed={editingQuestions}
-              onClick={() => {
-                if (!editingQuestions) setQuestionEditorMounted(true);
-                setEditingQuestions((current) => !current);
-              }}
-              type="button"
-              variant={editingQuestions ? "brandOutline" : "brand"}
-            >
-              {editingQuestions ? (
-                <>
-                  <Check aria-hidden="true" />
-                  Selesai mengedit
-                </>
-              ) : (
-                <>
-                  <FilePenLine aria-hidden="true" />
-                  Edit Soal
-                </>
-              )}
-            </Button>
-          </div>
-        ) : null}
-
-        {canEditQuestions && questionEditorMounted ? (
-          <div className="min-w-0" hidden={!showQuestionEditor}>
-            {questionSourcePanel}
-          </div>
-        ) : null}
-
-        {!showQuestionEditor && packageBound && !readOnly
-          ? questionSourcePanel
-          : null}
-
-        {!showQuestionEditor && !(packageBound && !readOnly) ? (
-          <TryoutSavedQuestionList
-            activeDirectQuestions={activeDirectQuestions}
+      <div
+        className={
+          editorMode
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : "grid min-w-0 gap-5"
+        }
+      >
+        {!editorMode ? (
+          <TryoutSubtestMetadataCard
             activeSection={activeSection}
+            draft={draft}
+            onUpdateSection={onUpdateSection}
+            readOnly={readOnly}
+            saving={saving}
           />
         ) : null}
 
-        {!readOnly &&
+        {editorMode || (packageBound && !readOnly)
+          ? questionSourcePanel
+          : null}
+
+        {!editorMode && !(packageBound && !readOnly) ? (
+          <TryoutSavedQuestionList
+            activeDirectQuestions={activeDirectQuestions}
+            activeSection={activeSection}
+            action={
+              canEditQuestions && questionEditorHref ? (
+                <Button
+                  disabled={saving}
+                  nativeButton={false}
+                  onClick={(event) => {
+                    if (!dirty) return;
+                    event.preventDefault();
+                    void saveDraft().then((saved) => {
+                      if (saved)
+                        window.location.assign(questionEditorHref);
+                    });
+                  }}
+                  render={<Link href={questionEditorHref} />}
+                  type="button"
+                  variant="brand"
+                >
+                  <FilePenLine aria-hidden="true" />
+                  Edit Soal
+                </Button>
+              ) : null
+            }
+          />
+        ) : null}
+
+        {!editorMode &&
+        !readOnly &&
         !draft.locked &&
         scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
         activeDirectQuestions.length > 0 ? (
@@ -1527,12 +1654,26 @@ function TryoutSubtestEditor({
   );
 }
 
-function tryoutSubtestEditorHref(
+function tryoutSubtestDetailHref(
   id: string,
   subtest: SubjectCode,
   parentId?: string,
 ) {
   const href = `/mentor/tryout/${encodeURIComponent(id)}/soal/${encodeURIComponent(subtest)}`;
+  return parentId ? `${href}?parent=${encodeURIComponent(parentId)}` : href;
+}
+
+function tryoutQuestionEditorHref(
+  id: string,
+  subtest: SubjectCode,
+  parentId?: string,
+) {
+  const href =
+    "/mentor/tryout/" +
+    encodeURIComponent(id) +
+    "/soal/" +
+    encodeURIComponent(subtest) +
+    "/editor";
   return parentId ? `${href}?parent=${encodeURIComponent(parentId)}` : href;
 }
 
@@ -1573,7 +1714,7 @@ function TryoutSubtestIndex({
       >
         {draft.sections.map((section) => {
           const href = id
-            ? tryoutSubtestEditorHref(id, section.subtest, parentId)
+            ? tryoutSubtestDetailHref(id, section.subtest, parentId)
             : undefined;
           const subjectName =
             kaptenSubjects.find((subject) => subject.code === section.subtest)
@@ -1681,8 +1822,8 @@ function TryoutLifecycleModals({
           <AlertDialogHeader>
             <AlertDialogTitle>Terbitkan Tryout?</AlertDialogTitle>
             <AlertDialogDescription>
-              Setelah tryout di-publish dan terdapat siswa mengerjakan, soal
-              akan terkunci dan Anda tidak dapat mengubahnya kembali.
+              Setelah Tryout diterbitkan, susunan soal akan terkunci. Untuk
+              mengubahnya, buat draf perubahan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="grid gap-2 sm:grid-cols-2">
@@ -1710,15 +1851,16 @@ function TryoutLifecycleModals({
           <AlertDialogHeader>
             <AlertDialogTitle>Jadikan Tryout draf?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat peserta
-              dan AssessmentRelease tetap tersimpan. Perintah ini hanya dapat
-              dilakukan saat tidak ada peserta yang sedang mengerjakan.
+              Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat
+              pengerjaan peserta dan soal yang sudah digunakan tetap tersimpan.
+              Tindakan ini hanya dapat dilakukan saat tidak ada peserta yang
+              sedang mengerjakan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel>
             <AlertDialogAction
-              disabled={saving || hasActiveAttempt}
+              disabled={saving || draft.locked || hasActiveAttempt}
               onClick={onConfirmUnpublish}
               variant="brand"
             >
@@ -1737,8 +1879,8 @@ function TryoutLifecycleModals({
           <AlertDialogHeader>
             <AlertDialogTitle>Duplikasi Tryout?</AlertDialogTitle>
             <AlertDialogDescription>
-              Salinan akan dibuat sebagai draf yang dapat diedit. Riwayat
-              peserta dan AssessmentRelease Tryout ini tetap tidak berubah.
+              Salinan akan dibuat sebagai draf yang bisa diedit. Riwayat
+              pengerjaan peserta dan isi Tryout ini tetap tidak berubah.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1808,6 +1950,7 @@ function useTryoutBuilderState({
   id,
   initialDraft,
   initialSubtest,
+  manualQuestionEditor = false,
   initialSourceBankTotal,
   initialSourceBanks = [],
   operationsInitial,
@@ -1815,6 +1958,7 @@ function useTryoutBuilderState({
   id?: string;
   initialDraft?: TryoutDraft | null;
   initialSubtest?: SubjectCode;
+  manualQuestionEditor?: boolean;
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
   operationsInitial?: TryoutOperationsView & {
@@ -1835,7 +1979,7 @@ function useTryoutBuilderState({
           locked: false,
           sections: defaultSections(),
           status: "draft",
-          title: "Draft Tryout Baru",
+          title: "Draf Tryout baru",
           updatedAt: 0,
         },
       ),
@@ -1922,7 +2066,12 @@ function useTryoutBuilderState({
     draft.status === "published" ? "published" : "draft";
   const isEditLocked = Boolean(id && !resourceLock.canEdit);
   const isAutosaveSubtest = Boolean(
-    initialSubtest && id && mode === "draft" && !draft.locked && dirty,
+    !manualQuestionEditor &&
+      initialSubtest &&
+      id &&
+      mode === "draft" &&
+      !draft.locked &&
+      dirty,
   );
   const activeSection =
     draft.sections.find((section) => section.subtest === activeCode) ??
@@ -2055,12 +2204,10 @@ function useTryoutBuilderState({
         ok: true,
         snapshots,
       };
-    } catch (importError) {
+    } catch {
       return {
         message:
-          importError instanceof Error
-            ? importError.message
-            : "Soal belum dapat ditambahkan. Coba lagi.",
+          "Soal belum berhasil ditambahkan dari Bank Soal. Muat ulang daftar lalu coba lagi.",
         ok: false,
       };
     }
@@ -2206,7 +2353,7 @@ function useTryoutBuilderState({
         if (!id) {
           const nextUrl = new URL(
             redirectSubtest
-              ? tryoutSubtestEditorHref(result.result.id, redirectSubtest)
+              ? tryoutSubtestDetailHref(result.result.id, redirectSubtest)
               : `/mentor/tryout/${result.result.id}`,
             window.location.origin,
           );
@@ -2281,7 +2428,7 @@ function useTryoutBuilderState({
   };
 
   const unpublish = async () => {
-    if (!id || isEditLocked) return;
+    if (!id || isEditLocked || draft.locked) return;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
@@ -2442,14 +2589,19 @@ function useTryoutBuilderState({
   };
 
   useEffect(() => {
-    if (initialSubtest || !dirty || mode !== "draft") return;
+    if (
+      (initialSubtest && !manualQuestionEditor) ||
+      !dirty ||
+      mode !== "draft"
+    )
+      return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirty, initialSubtest, mode]);
+  }, [dirty, initialSubtest, manualQuestionEditor, mode]);
 
   useEffect(() => {
     if (!isAutosaveSubtest) return;
@@ -2458,7 +2610,7 @@ function useTryoutBuilderState({
   }, [draft, isAutosaveSubtest]);
 
   useEffect(() => {
-    if (!initialSubtest || !id) return;
+    if (!initialSubtest || !id || manualQuestionEditor) return;
     const flushAutosave = () => autosaveRequestRef.current();
     const handlePageHide = () => flushAutosave();
     const handleVisibilityChange = () => {
@@ -2471,7 +2623,7 @@ function useTryoutBuilderState({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       flushAutosave();
     };
-  }, [id, initialSubtest]);
+  }, [id, initialSubtest, manualQuestionEditor]);
 
   useEffect(() => {
     if (!initialSubtest || mode === "published" || draft.locked) return;
@@ -2585,7 +2737,13 @@ function useTryoutBuilderState({
     href: string,
     event: { preventDefault: () => void },
   ) => {
-    if (initialSubtest && id && mode === "draft" && !draft.locked) {
+    if (
+      !manualQuestionEditor &&
+      initialSubtest &&
+      id &&
+      mode === "draft" &&
+      !draft.locked
+    ) {
       autosaveRequestRef.current();
       return;
     }
@@ -2620,6 +2778,7 @@ function useTryoutBuilderState({
     publishOpen,
     save,
     saveMetadata,
+    setTryoutVisibility,
     savedDraftRef,
     saving,
     sectionReadiness,
@@ -2646,15 +2805,7 @@ function useTryoutBuilderState({
   };
 }
 
-function TryoutBuilderNotices({
-  error,
-  guardExternalNavigation,
-  initialParent,
-  mode,
-}: Pick<
-  React.ComponentProps<typeof TryoutBuilderHeader>,
-  "error" | "guardExternalNavigation" | "initialParent" | "mode"
->) {
+function TryoutBuilderNotices({ error }: { error: string | null }) {
   return (
     <>
       {error ? (
@@ -2666,41 +2817,49 @@ function TryoutBuilderNotices({
           {error}
         </p>
       ) : null}
-      {initialParent && mode === "draft" ? (
-        <ReferenceSurface
-          className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700"
-          role="status"
-          variant="inset"
-        >
-          <div>
-            <p className="font-semibold text-secondary-900">Draf perubahan</p>
-            <p className="mt-1">
-              Berdasarkan “{initialParent.title}”
-              {initialParent.publishedAt
-                ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}`
-                : ""}
-              . Perubahan di sini tidak memengaruhi versi terbit, sesi, atau
-              hasil sebelumnya.
-            </p>
-          </div>
-          <Button
-            nativeButton={false}
-            onClick={(event) =>
-              guardExternalNavigation(
-                `/mentor/tryout/${initialParent.id}`,
-                event,
-              )
-            }
-            render={<Link href={`/mentor/tryout/${initialParent.id}`} />}
-            size="sm"
-            variant="brandOutline"
-          >
-            Lihat versi terbit
-          </Button>
-        </ReferenceSurface>
-      ) : null}
     </>
   );
+}
+
+function TryoutQuestionEditorHeader({
+  backHref,
+  dirty,
+  draftTitle,
+  guardExternalNavigation,
+  readOnly,
+  saving,
+  saveDraft,
+  subtest,
+}: {
+  backHref: string;
+  dirty: boolean;
+  draftTitle: string;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  saveDraft: () => Promise<boolean>;
+  readOnly: boolean;
+  saving: boolean;
+  subtest: SubjectCode;
+}) {
+  return <QuestionEditorHeader
+    backControl={<Button
+      aria-label={`Kembali ke detail subtes ${subtest}`}
+      className="shrink-0"
+      disabled={saving}
+      nativeButton={false}
+      onClick={(event) => guardExternalNavigation(backHref, event)}
+      render={<Link href={backHref} />}
+      size="sm"
+      type="button"
+      variant="ghost"
+    ><ChevronLeft aria-hidden="true" /></Button>}
+    category={subtest}
+    dirty={dirty}
+    onSave={readOnly ? undefined : () => void saveDraft()}
+    saveDisabled={saving}
+    saveId="tryout-save-button"
+    saving={saving}
+    title={draftTitle || "Tryout"}
+  />;
 }
 
 function TryoutBuilderHeader({
@@ -2711,7 +2870,6 @@ function TryoutBuilderHeader({
   id,
   activeWorkspace,
   initialParent,
-  mode,
   onWorkspaceChange,
 }: {
   activeWorkspace: TryoutWorkspaceTab;
@@ -2724,7 +2882,6 @@ function TryoutBuilderHeader({
   ) => void;
   id?: string;
   initialParent?: { id: string; publishedAt?: string; title: string };
-  mode: "draft" | "published";
   onWorkspaceChange: (tab: TryoutWorkspaceTab) => void;
 }) {
   const backHref = "/mentor/tryout";
@@ -2748,9 +2905,6 @@ function TryoutBuilderHeader({
         </TryoutWorkspaceHeader>
         <TryoutBuilderNotices
           error={error}
-          guardExternalNavigation={guardExternalNavigation}
-          initialParent={initialParent}
-          mode={mode}
         />
       </>
     );
@@ -2778,9 +2932,6 @@ function TryoutBuilderHeader({
       </div>
       <TryoutBuilderNotices
         error={error}
-        guardExternalNavigation={guardExternalNavigation}
-        initialParent={initialParent}
-        mode={mode}
       />
     </>
   );
@@ -2792,6 +2943,7 @@ function TryoutBuilderContent({
   initialDraft,
   initialParent,
   initialSubtest,
+  questionEditorMode = false,
   initialWorkspace,
   operationsInitial,
   initialSourceBankTotal,
@@ -2806,6 +2958,7 @@ function TryoutBuilderContent({
   initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
   initialSubtest?: SubjectCode;
+  questionEditorMode?: boolean;
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
   initialWorkspace?: TryoutWorkspaceTab;
@@ -2845,6 +2998,7 @@ function TryoutBuilderContent({
     publishOpen,
     save,
     saveMetadata,
+    setTryoutVisibility,
     saving,
     lockState,
     retryLock,
@@ -2869,6 +3023,7 @@ function TryoutBuilderContent({
     id,
     initialDraft,
     initialSubtest,
+    manualQuestionEditor: questionEditorMode,
     initialSourceBanks,
     initialSourceBankTotal,
     operationsInitial,
@@ -2923,6 +3078,181 @@ function TryoutBuilderContent({
     />
   );
 
+  const renderSubtestEditor = (editorMode: boolean) => {
+    if (!initialSubtest) return null;
+    return (
+      <TryoutSubtestEditor
+        activeBrowseBank={activeBrowseBank}
+        activeDirectQuestions={activeDirectQuestions}
+        activeSection={activeSection}
+        activeSourceQuestions={activeSourceQuestions}
+        browseBankId={browseBankId}
+        draft={viewDraft}
+        dirty={dirty}
+        editorMode={editorMode}
+        guardExternalNavigation={guardExternalNavigation}
+        onBankPageNext={() =>
+          dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })
+        }
+        onBankSearchChange={(search) =>
+          dispatch({ search, type: "setSourceBankSearch" })
+        }
+        onImport={importQuestions}
+        onMoveQuestion={moveQuestion}
+        onQuestionPageChange={(page) =>
+          dispatch({ page, type: "setSourceQuestionPage" })
+        }
+        onQuestionSearchChange={(search) =>
+          dispatch({ search, type: "setSourceQuestionSearch" })
+        }
+        onRemoveQuestion={removeQuestion}
+        onSelectBank={(bankId) =>
+          dispatch({ bankId, type: "setBrowseBankId" })
+        }
+        onUpdateQuestion={updateQuestion}
+        onUpdateSection={(change) => update(activeSection.subtest, change)}
+        questionEditorHref={
+          id
+            ? tryoutQuestionEditorHref(
+                id,
+                activeSection.subtest,
+                initialParent?.id,
+              )
+            : undefined
+        }
+        saveDraft={() => save("draft")}
+        readOnly={mode === "published" || viewDraft.locked}
+        sourceBankLoading={sourceBankLoading}
+        sourceBankSearch={sourceBankSearch}
+        sourceBankTotal={sourceBankTotal}
+        sourceBanks={sourceBanks}
+        sourceQuestionLoading={sourceQuestionLoading}
+        sourceQuestionPage={sourceQuestionPage}
+        sourceQuestionSearch={sourceQuestionSearch}
+        sourceQuestionTotal={sourceQuestionTotal}
+        saving={viewSaving}
+      />
+    );
+  };
+
+  const lifecycleModals = (
+    <TryoutLifecycleModals
+      dirtyNavigationOpen={dirtyNavigationOpen}
+      draft={viewDraft}
+      duplicateOpen={duplicateOpen}
+      hasActiveAttempt={hasActiveAttempt}
+      onCancelDirtyNavigation={() => {
+        pendingHrefRef.current = null;
+        dispatch({ open: false, type: "setDirtyNavigationOpen" });
+      }}
+      onConfirmDiscard={() => {
+        const href = pendingHrefRef.current;
+        discardDraft();
+        pendingHrefRef.current = null;
+        dispatch({ open: false, type: "setDirtyNavigationOpen" });
+        if (href) window.location.assign(href);
+      }}
+      onConfirmDuplicate={() => {
+        dispatch({ open: false, type: "setDuplicateOpen" });
+        void duplicate();
+      }}
+      onConfirmPublish={() => {
+        dispatch({ open: false, type: "setPublishOpen" });
+        void save("published");
+      }}
+      onConfirmSaveDirty={() => {
+        const href = pendingHrefRef.current;
+        void save("draft").then((ok) => {
+          if (ok && href) window.location.assign(href);
+          if (ok) {
+            pendingHrefRef.current = null;
+            dispatch({ open: false, type: "setDirtyNavigationOpen" });
+          }
+        });
+      }}
+      onConfirmUnpublish={() => {
+        dispatch({ open: false, type: "setUnpublishOpen" });
+        void unpublish();
+      }}
+      onOpenChangeDirtyNavigation={(open) => {
+        if (!saving) dispatch({ open, type: "setDirtyNavigationOpen" });
+      }}
+      onOpenChangeDuplicate={(open) => {
+        if (!saving) dispatch({ open, type: "setDuplicateOpen" });
+      }}
+      onOpenChangePublish={(open) => {
+        if (!saving) dispatch({ open, type: "setPublishOpen" });
+      }}
+      onOpenChangeUnpublish={(open) => {
+        if (!saving) dispatch({ open, type: "setUnpublishOpen" });
+      }}
+      publishOpen={publishOpen}
+      saving={viewSaving}
+      unpublishOpen={unpublishOpen}
+    />
+  );
+
+  if (questionEditorMode && id && initialSubtest) {
+    const readOnly = mode === "published" || viewDraft.locked;
+    const hasUncalibratedIrtQuestions =
+      !readOnly &&
+      scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
+      activeDirectQuestions.length > 0;
+
+    return (
+      <QuestionEditorPageShell marker="tryout">
+        <TryoutQuestionEditorHeader
+          backHref={tryoutSubtestDetailHref(
+            id,
+            activeSection.subtest,
+            initialParent?.id,
+          )}
+          dirty={dirty}
+          draftTitle={viewDraft.title}
+          guardExternalNavigation={guardExternalNavigation}
+          readOnly={readOnly}
+          saving={viewSaving}
+          saveDraft={() => save("draft")}
+          subtest={activeSection.subtest}
+        />
+        <ResourceAuthoringLockBanner
+          hasLocalChanges={dirty}
+          onRetry={retryLock}
+          resourceLabel="Tryout"
+          state={lockState}
+        />
+        <div className="shrink-0 px-4 md:px-6">
+          <TryoutBuilderNotices
+            error={error}
+          />
+          {hasUncalibratedIrtQuestions ? (
+            <ReferenceSurface
+              className="mt-3 flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-3 text-sm leading-6 text-secondary-700"
+              role="status"
+              variant="inset"
+            >
+              <CircleAlert
+                aria-hidden="true"
+                className="mt-1 size-4 shrink-0 text-primary-700"
+              />
+              <div>
+                <p className="font-semibold text-secondary-900">
+                  Kalibrasi IRT belum tersedia
+                </p>
+                <p className="mt-1">
+                  Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan
+                  dengan IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
+                </p>
+              </div>
+            </ReferenceSurface>
+          ) : null}
+        </div>
+        {renderSubtestEditor(true)}
+        {lifecycleModals}
+      </QuestionEditorPageShell>
+    );
+  }
+
   if (isCreateDialog) {
     return (
       <>
@@ -2931,20 +3261,15 @@ function TryoutBuilderContent({
           open={Boolean(dialogOpen)}
         >
           <DialogContent
-            className="max-h-[92svh] w-[calc(100vw-2rem)] gap-8 overflow-y-auto p-5 sm:max-w-[min(calc(100vw-3rem),78.75rem)] sm:gap-10 sm:p-8 lg:gap-14 lg:p-14 lg:[&>button]:right-12 lg:[&>button]:top-12"
+            className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8"
             data-tryout-create-modal="true"
             pending={viewSaving}
           >
             <DialogHeader className="pr-12">
-              <DialogTitle className="text-3xl font-medium tracking-tight sm:text-4xl">
-                Buat Tryout
-              </DialogTitle>
+              <DialogTitle>Buat Tryout</DialogTitle>
             </DialogHeader>
             <TryoutBuilderNotices
               error={error}
-              guardExternalNavigation={guardExternalNavigation}
-              initialParent={initialParent}
-              mode={mode}
             />
             {identityPanel}
           </DialogContent>
@@ -2962,12 +3287,11 @@ function TryoutBuilderContent({
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
       {initialSubtest ? (
-        <TryoutBuilderNotices
-          error={error}
-          guardExternalNavigation={guardExternalNavigation}
-          initialParent={initialParent}
-          mode={mode}
-        />
+        <>
+          <TryoutBuilderNotices
+            error={error}
+          />
+        </>
       ) : (
         <TryoutBuilderHeader
           activeWorkspace={activeWorkspace}
@@ -2976,14 +3300,13 @@ function TryoutBuilderContent({
           guardExternalNavigation={guardExternalNavigation}
           id={id}
           initialParent={initialParent}
-          mode={mode}
           onWorkspaceChange={setActiveWorkspace}
         >
           {identityPanel}
         </TryoutBuilderHeader>
       )}
 
-      {initialSubtest && id ? (
+      {initialSubtest && id && !questionEditorMode ? (
         <div className="-mt-4 md:hidden">
           <Button
             className="px-0 text-sm text-secondary-600 hover:text-secondary-900"
@@ -3013,47 +3336,7 @@ function TryoutBuilderContent({
         />
       ) : null}
 
-      {initialSubtest ? (
-        <TryoutSubtestEditor
-          activeBrowseBank={activeBrowseBank}
-          activeDirectQuestions={activeDirectQuestions}
-          activeSection={activeSection}
-          activeSourceQuestions={activeSourceQuestions}
-          browseBankId={browseBankId}
-          draft={viewDraft}
-          guardExternalNavigation={guardExternalNavigation}
-          onBankPageNext={() =>
-            dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })
-          }
-          onBankSearchChange={(search) =>
-            dispatch({ search, type: "setSourceBankSearch" })
-          }
-          onImport={importQuestions}
-          onMoveQuestion={moveQuestion}
-          onQuestionPageChange={(page) =>
-            dispatch({ page, type: "setSourceQuestionPage" })
-          }
-          onQuestionSearchChange={(search) =>
-            dispatch({ search, type: "setSourceQuestionSearch" })
-          }
-          onRemoveQuestion={removeQuestion}
-          onSelectBank={(bankId) =>
-            dispatch({ bankId, type: "setBrowseBankId" })
-          }
-          onUpdateQuestion={updateQuestion}
-          onUpdateSection={(change) => update(activeSection.subtest, change)}
-          readOnly={mode === "published" || viewDraft.locked}
-          sourceBankLoading={sourceBankLoading}
-          sourceBankSearch={sourceBankSearch}
-          sourceBankTotal={sourceBankTotal}
-          sourceBanks={sourceBanks}
-          sourceQuestionLoading={sourceQuestionLoading}
-          sourceQuestionPage={sourceQuestionPage}
-          sourceQuestionSearch={sourceQuestionSearch}
-          sourceQuestionTotal={sourceQuestionTotal}
-          saving={viewSaving}
-        />
-      ) : activeWorkspace === "subtests" ? (
+      {initialSubtest ? renderSubtestEditor(false) : activeWorkspace === "subtests" ? (
         <TryoutSubtestIndex
           draft={viewDraft}
           id={id}
@@ -3065,7 +3348,7 @@ function TryoutBuilderContent({
             }
             if (event)
               guardExternalNavigation(
-                tryoutSubtestEditorHref(id, subtest, initialParent?.id),
+                tryoutSubtestDetailHref(id, subtest, initialParent?.id),
                 event,
               );
           }}
@@ -3105,71 +3388,19 @@ function TryoutBuilderContent({
           onArchive={() => void archive()}
           onDelete={() => void remove()}
           onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
+          onPublish={() => dispatch({ open: true, type: "setPublishOpen" })}
           onSetHidden={(isHidden) => void setTryoutVisibility(isHidden)}
           onUnpublish={() => dispatch({ open: true, type: "setUnpublishOpen" })}
           saving={viewSaving}
         />
       ) : null}
 
-      <TryoutLifecycleModals
-        dirtyNavigationOpen={dirtyNavigationOpen}
-        draft={viewDraft}
-        duplicateOpen={duplicateOpen}
-        hasActiveAttempt={hasActiveAttempt}
-        onCancelDirtyNavigation={() => {
-          pendingHrefRef.current = null;
-          dispatch({ open: false, type: "setDirtyNavigationOpen" });
-        }}
-        onConfirmDiscard={() => {
-          const href = pendingHrefRef.current;
-          discardDraft();
-          pendingHrefRef.current = null;
-          dispatch({ open: false, type: "setDirtyNavigationOpen" });
-          if (href) window.location.assign(href);
-        }}
-        onConfirmDuplicate={() => {
-          dispatch({ open: false, type: "setDuplicateOpen" });
-          void duplicate();
-        }}
-        onConfirmPublish={() => {
-          dispatch({ open: false, type: "setPublishOpen" });
-          void save("published");
-        }}
-        onConfirmSaveDirty={() => {
-          const href = pendingHrefRef.current;
-          void save("draft").then((ok) => {
-            if (ok && href) window.location.assign(href);
-            if (ok) {
-              pendingHrefRef.current = null;
-              dispatch({ open: false, type: "setDirtyNavigationOpen" });
-            }
-          });
-        }}
-        onConfirmUnpublish={() => {
-          dispatch({ open: false, type: "setUnpublishOpen" });
-          void unpublish();
-        }}
-        onOpenChangeDirtyNavigation={(open) => {
-          if (!saving) dispatch({ open, type: "setDirtyNavigationOpen" });
-        }}
-        onOpenChangeDuplicate={(open) => {
-          if (!saving) dispatch({ open, type: "setDuplicateOpen" });
-        }}
-        onOpenChangePublish={(open) => {
-          if (!saving) dispatch({ open, type: "setPublishOpen" });
-        }}
-        onOpenChangeUnpublish={(open) => {
-          if (!saving) dispatch({ open, type: "setUnpublishOpen" });
-        }}
-        publishOpen={publishOpen}
-        saving={viewSaving}
-        unpublishOpen={unpublishOpen}
-      />
+      {lifecycleModals}
     </div>
   );
 }
 
-function KaptenTryoutBuilderPageModule(props: {
+type TryoutBuilderPageModuleProps = {
   dialogOpen?: boolean;
   id?: string;
   initialDeliveryArea?: string;
@@ -3177,6 +3408,7 @@ function KaptenTryoutBuilderPageModule(props: {
   initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
   initialSubtest?: SubjectCode;
+  questionEditorMode?: boolean;
   initialSourceBankTotal?: number;
   initialSourceBanks?: SourceBank[];
   initialWorkspace?: TryoutWorkspaceTab;
@@ -3185,7 +3417,9 @@ function KaptenTryoutBuilderPageModule(props: {
   operationsInitial?: TryoutOperationsView & {
     workflow?: CanonicalTryoutWorkflowProjection;
   };
-}) {
+};
+
+function KaptenTryoutBuilderPageModule(props: TryoutBuilderPageModuleProps) {
   return (
     <ResourceEditLockProvider
       enabled={Boolean(props.id)}
@@ -3195,6 +3429,12 @@ function KaptenTryoutBuilderPageModule(props: {
       <TryoutBuilderContent {...props} />
     </ResourceEditLockProvider>
   );
+}
+
+function KaptenTryoutQuestionEditorPageModule(
+  props: Omit<TryoutBuilderPageModuleProps, "questionEditorMode">,
+) {
+  return <KaptenTryoutBuilderPageModule {...props} questionEditorMode />;
 }
 
 function MentorTryoutCreateDialog({
@@ -3215,4 +3455,8 @@ function MentorTryoutCreateDialog({
   );
 }
 
-export { KaptenTryoutBuilderPageModule, MentorTryoutCreateDialog };
+export {
+  KaptenTryoutBuilderPageModule,
+  KaptenTryoutQuestionEditorPageModule,
+  MentorTryoutCreateDialog,
+};

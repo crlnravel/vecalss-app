@@ -4,9 +4,9 @@ import { ChangePasswordForm } from "./components/change-password-form";
 function ChangePasswordPageModule() {
   return (
     <AuthShell
-      description="Tolong ubah kata sandi sementara Anda dengan kata sandi baru yaTolong ubah kata sandi sementara Anda dengan kata sandi baru."
+      description="Perbarui kata sandi sementara sebelum melanjutkan."
       eyebrow="Akses pertama"
-      title="Amankan akun Anda sebelum melanjutkan"
+      title="Buat kata sandi baru"
     >
       <ChangePasswordForm />
     </AuthShell>

@@ -85,7 +85,7 @@ export function MediaLibraryModals({
       </Dialog>
       <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setEditingItem(null); } }} open={Boolean(editingItem)}>
         <DialogContent pending={isMutationPending("rename")} showCloseButton={!isMutationPending("rename")} variant="default">
-          <DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi file di R2.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi penyimpanan file.</DialogDescription></DialogHeader>
           <Field>
             <FieldLabel htmlFor="rename-media-item">Nama</FieldLabel>
             <FieldInput autoFocus disabled={mutationsDisabled || isMutationPending("rename")} id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} />
@@ -107,10 +107,10 @@ export function MediaLibraryModals({
               id="move-media-item"
               onValueChange={actions.setMoveTargetId}
               options={[
-                { label: "Root library", value: "" },
+                { label: "Folder utama", value: "" },
                 ...moveTargetOptions,
               ]}
-              placeholder="Root library"
+              placeholder="Folder utama"
               value={moveTargetId}
             />
           </Field>
@@ -125,7 +125,7 @@ export function MediaLibraryModals({
           <AlertDialogHeader>
             <AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia>
             <AlertDialogTitle>Masukkan ke Sampah?</AlertDialogTitle>
-            <AlertDialogDescription>“{trashRequest?.name}” tidak akan muncul di library atau picker baru. Referensi Bank Soal yang sudah ada tetap dapat membacanya.</AlertDialogDescription>
+          <AlertDialogDescription>“{trashRequest?.name}” tidak akan muncul di pustaka media atau pilihan baru. Bank Soal yang sudah menggunakannya tetap dapat mengakses media tersebut.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isMutationPending("trash")}>Batal</AlertDialogCancel>
@@ -137,15 +137,15 @@ export function MediaLibraryModals({
         <DialogContent className="sm:max-w-4xl" variant="info">
           <DialogHeader>
             <DialogTitle>{previewAsset?.name}</DialogTitle>
-            <DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diupload oleh ${previewAsset.uploadedBy}` : "Preview media"}</DialogDescription>
+            <DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diunggah oleh ${previewAsset.uploadedBy}` : "Pratinjau media"}</DialogDescription>
           </DialogHeader>
           <div className="flex min-h-64 items-center justify-center overflow-hidden rounded-3xl bg-primary-50/70">
             {previewAsset?.previewUrl && isPdfMimeType(previewAsset.mimeType) ? (
               <div className="flex w-full flex-col gap-4 p-4">
-                <iframe className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white" sandbox="" src={previewAsset.previewUrl} title={`Preview ${previewAsset.name}`} />
+                <iframe className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white" sandbox="" src={previewAsset.previewUrl} title={`Pratinjau ${previewAsset.name}`} />
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <Button nativeButton={false} render={<a aria-label="Buka PDF" href={previewAsset.previewUrl} rel="noreferrer" target="_blank" />} size="default" variant="brandOutline"><FileText className="size-4" />Buka PDF</Button>
-                  <Button nativeButton={false} render={<a aria-label="Download PDF" download={previewAsset.name} href={previewAsset.previewUrl} />} size="default" variant="brand">Download PDF</Button>
+                  <Button nativeButton={false} render={<a aria-label="Unduh PDF" download={previewAsset.name} href={previewAsset.previewUrl} />} size="default" variant="brand">Unduh PDF</Button>
                 </div>
               </div>
             ) : previewAsset?.previewUrl ? (
@@ -153,7 +153,7 @@ export function MediaLibraryModals({
                 <NextImage alt={previewAsset.name} className="object-contain" fill sizes="(min-width: 1024px) 60vw, 90vw" src={previewAsset.previewUrl} unoptimized />
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 text-secondary-500"><ImageOff className="size-8" /><span>Preview belum tersedia</span></div>
+              <div className="flex flex-col items-center gap-2 text-secondary-500"><ImageOff className="size-8" /><span>Pratinjau belum tersedia</span></div>
             )}
           </div>
           {isPicker && previewAsset ? (

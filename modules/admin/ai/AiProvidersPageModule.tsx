@@ -26,11 +26,11 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
     setError(null);
     try {
       const res = await fetch("/api/admin/ai/providers", { cache: "no-store" });
-      if (!res.ok) throw new Error("Gagal memuat status provider & gateway.");
+      if (!res.ok) throw new Error("Status penyedia layanan AI belum berhasil dimuat.");
       const json = (await res.json()) as VeraAiProvidersDto;
       setData(json);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan sistem.");
+    } catch {
+      setError("Status penyedia layanan AI belum berhasil dimuat. Segarkan halaman untuk mencoba lagi.");
     } finally {
       setIsLoading(false);
     }

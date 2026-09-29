@@ -30,7 +30,7 @@ const errorResponse = (error: unknown) => {
   }
 
   console.error("Unexpected media API error", error);
-  return Response.json({ error: "Media belum dapat diproses. Coba lagi." }, { status: 500 });
+  return Response.json({ error: "Permintaan media belum berhasil diproses. Periksa koneksi lalu coba lagi." }, { status: 500 });
 };
 
 export async function GET(
@@ -40,7 +40,7 @@ export async function GET(
   try {
     const { scope: rawScope } = await context.params;
     const scope = parseMediaScope(rawScope);
-    if (!scope) return Response.json({ error: "Library media tidak valid." }, { status: 404 });
+    if (!scope) return Response.json({ error: "Pustaka media tidak valid." }, { status: 404 });
     await requireMediaSession(scope);
 
     const url = new URL(request.url);
@@ -66,7 +66,7 @@ export async function POST(
   try {
     const { scope: rawScope } = await context.params;
     const scope = parseMediaScope(rawScope);
-    if (!scope) return Response.json({ error: "Library media tidak valid." }, { status: 404 });
+    if (!scope) return Response.json({ error: "Pustaka media tidak valid." }, { status: 404 });
     const session = await requireMediaSession(scope);
     const body: unknown = await request.json();
     if (typeof body !== "object" || body === null || !("action" in body) || typeof body.action !== "string") {

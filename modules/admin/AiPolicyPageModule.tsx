@@ -400,8 +400,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       setReason("");
       setMessage("Draf lengkap dibuat. Lanjutkan dengan mengedit bagian, memvalidasi, memeriksa pratinjau dampak, lalu meminta persetujuan operator kedua.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Draf tidak dapat dibuat.");
+    } catch {
+      setMessage("Draf kebijakan belum berhasil dibuat. Coba lagi atau segarkan halaman.");
     } finally {
       setBusy(false);
     }
@@ -441,8 +441,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       applyBundlePayload(payload);
       setMessage("Perubahan bagian tersimpan ke draf.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Penyimpanan bagian draf gagal.");
+    } catch {
+      setMessage("Perubahan pada draf belum berhasil disimpan. Coba lagi atau muat ulang draf.");
     } finally {
       setBusy(false);
     }
@@ -460,8 +460,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       applyBundlePayload(payload);
       setMessage("Draf tervalidasi. Siap untuk pratinjau dampak dan persetujuan operator kedua.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Validasi draf gagal.");
+    } catch {
+      setMessage("Draf belum berhasil divalidasi. Periksa statusnya lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -485,8 +485,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       });
       applyBundlePayload(payload);
       setMessage(`Pratinjau ${scope === "aggregate" ? "agregat" : "kategori"} selesai dibuat.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Pembuatan pratinjau dampak gagal.");
+    } catch {
+      setMessage("Pratinjau dampak belum berhasil dibuat. Coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -506,8 +506,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       applyBundlePayload(payload);
       setMessage("Draf disetujui. Siap dijadwalkan dengan stempel waktu UTC yang valid.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Persetujuan draf gagal.");
+    } catch {
+      setMessage("Persetujuan draf belum berhasil diproses. Periksa status draf sebelum mencoba lagi.");
     } finally {
       setBusy(false);
     }
@@ -528,8 +528,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       applyBundlePayload(payload);
       setMessage("Draf berhasil dijadwalkan.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Penjadwalan draf gagal.");
+    } catch {
+      setMessage("Jadwal penerapan draf belum berhasil disimpan. Periksa status draf lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -548,8 +548,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       const bundle = applyBundlePayload(payload);
       setMessage(bundle ? "Kebijakan yang jatuh tempo berhasil diaktifkan." : "Tidak ada kebijakan jatuh tempo yang diaktifkan.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Aktivasi kebijakan jatuh tempo gagal.");
+    } catch {
+      setMessage("Kebijakan yang sudah jatuh tempo belum berhasil diaktifkan. Periksa statusnya lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -566,8 +566,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       applyBundlePayload(payload);
       setMessage("Draf pemulihan dibuat sebagai snapshot baru; riwayat lama tetap tidak berubah.");
       await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Pemulihan gagal.");
+    } catch {
+      setMessage("Draf pemulihan belum berhasil dibuat. Periksa riwayat kebijakan lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -587,8 +587,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       setRequestedUpperBound("");
       setReason("");
       setMessage("Serah-terima retensi diterima sebagai menunggu. Tenggat dan siklus hidup belum berubah; T11 tetap menjadi pemilik commit.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Serah-terima retensi tidak dapat dibuat.");
+    } catch {
+      setMessage("Permintaan serah-terima retensi belum berhasil dibuat. Periksa detailnya lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -933,7 +933,7 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
         busy={state.busy}
         canPolicy={state.canPolicy}
         history={state.metadata.history}
-        onRefresh={() => void state.refresh().catch((error) => state.setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))}
+        onRefresh={() => void state.refresh().catch(() => state.setMessage("Riwayat kebijakan belum berhasil dimuat. Segarkan halaman lalu coba lagi."))}
         rollbackBundle={requestRollback}
       />
       <p className="text-sm text-secondary-600">Butuh konteks operasional lain? Kembali ke <Link className="font-bold text-primary-800 underline decoration-primary-200 underline-offset-4" href="/admin">dashboard admin</Link>.</p>

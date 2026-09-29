@@ -240,7 +240,7 @@ function KaptenMateriPageModule({
 
         {subjects.length ? (
           <section
-            aria-label="Daftar subject Materi"
+      aria-label="Daftar subtes Materi"
             className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
           >
             {subjects.map((subject) => (
@@ -250,9 +250,9 @@ function KaptenMateriPageModule({
         ) : (
           <ReferenceSurface className="min-h-56" variant="inset">
             <ReferenceEmptyState
-              description="Belum ada subject untuk menampung bacaan dan video pendamping."
+              description="Belum ada subtes untuk menampung bacaan dan video pendamping."
               icon={FileText}
-              title="Belum ada subject Materi"
+              title="Belum ada subtes Materi"
             />
           </ReferenceSurface>
         )}
@@ -417,11 +417,9 @@ function KaptenMateriSubjectPageModule({
       }
       dispatch({ type: "tableVersionChanged" });
       router.refresh();
-    } catch (error) {
+    } catch {
       showToast(
-        error instanceof Error
-          ? error.message
-          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
+        "Status materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {
@@ -527,12 +525,12 @@ function MateriSubjectCatalogueEmptyState({
     <div className="flex flex-col items-center px-5 py-8 text-center sm:px-8 sm:py-10">
       <FileText aria-hidden="true" className="size-7 text-primary-300" />
       <h2 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-secondary-900">
-        {hasActiveFilters ? "Tidak ada lesson yang cocok" : "Belum ada lesson"}
+        {hasActiveFilters ? "Tidak ada materi yang cocok" : "Belum ada materi"}
       </h2>
       <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
         {hasActiveFilters
-          ? "Coba ubah kata kunci atau filter untuk menemukan lesson lain."
-          : "Buat materi baru untuk mulai mengisi subject ini."}
+          ? "Coba ubah kata kunci atau filter untuk menemukan materi lain."
+          : "Buat materi baru untuk mulai mengisi subtes ini."}
       </p>
       {hasActiveFilters ? (
         <Button
@@ -668,7 +666,7 @@ function MateriSubjectCatalogueScreen({
           onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}
         >
           <Eye />
-          Preview
+          Pratinjau
         </ContextMenuItem>
         {lesson.status === "draft" ? (
           <ContextMenuItem
@@ -720,7 +718,7 @@ function MateriSubjectCatalogueScreen({
     <MentorWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={subject.code}
-      searchPlaceholder="Cari lesson..."
+      searchPlaceholder="Cari materi..."
       session={session}
       sidebarAppearance="reference"
     >

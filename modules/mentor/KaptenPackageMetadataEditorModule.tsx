@@ -73,7 +73,7 @@ function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: Pa
         <ReferenceSurface className="p-4" variant="inset">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <div><dt className="text-secondary-500">Bank</dt><dd className="mt-1 font-semibold text-secondary-900">{initialMetadata.sourceBankName}</dd></div>
-            <div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1"><MentorBadge size="sm" tone="category">{initialMetadata.subtest}</MentorBadge></dd></div>
+            <div><dt className="text-secondary-500">Subtes</dt><dd className="mt-1"><MentorBadge size="sm" tone="category">{initialMetadata.subtest}</MentorBadge></dd></div>
           </dl>
         </ReferenceSurface>
       </ReferenceSurface>

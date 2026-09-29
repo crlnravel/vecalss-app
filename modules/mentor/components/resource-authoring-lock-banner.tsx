@@ -10,6 +10,7 @@ import {
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useResourceEditLock } from "@/modules/mentor/resource-edit-lock-provider";
 
 const AUTHORING_LOCK_STATES = [
   "acquiring",
@@ -24,7 +25,7 @@ type AuthoringLockState = (typeof AUTHORING_LOCK_STATES)[number];
 const AUTHORING_LOCK_STATE_LABELS: Record<AuthoringLockState, string> = {
   acquiring: "Menyiapkan halaman",
   owned: "Siap diedit",
-  locked: "Sedang dipakai orang lain",
+  locked: "Sedang diedit",
   uncertain: "Memeriksa halaman",
   lost: "Perubahan dijeda",
 };
@@ -44,7 +45,7 @@ const AUTHORING_LOCK_STATE_COPY: Record<
   },
   locked: {
     description:
-      "Kuis ini sementara hanya bisa dilihat karena sedang diedit oleh Kapten lain. Kamu bisa kembali mengedit setelah mereka selesai.",
+      "Untuk sementara, {resource} ini hanya bisa dilihat. Coba lagi setelah sesi pengeditan selesai.",
     title: "Sedang diedit oleh {holder}",
   },
   uncertain: {
@@ -70,9 +71,8 @@ function LockStateIcon({ state }: { state: AuthoringLockState }) {
 function ResourceAuthoringLockBanner({
   className,
   hasLocalChanges = false,
-  holderName = "Kapten lain",
+  holderName: providedHolderName,
   onRetry,
-  remainingSeconds = 90,
   resourceLabel = "ruang kerja ini",
   state,
 }: {
@@ -80,10 +80,12 @@ function ResourceAuthoringLockBanner({
   hasLocalChanges?: boolean;
   holderName?: string;
   onRetry?: () => void;
-  remainingSeconds?: number;
   resourceLabel?: string;
   state: AuthoringLockState;
 }) {
+  const resourceLock = useResourceEditLock();
+  const holderName = providedHolderName ?? resourceLock.holderName ?? "Kapten lain";
+
   if (state === "owned" || state === "acquiring" || state === "uncertain") {
     return null;
   }
@@ -93,10 +95,10 @@ function ResourceAuthoringLockBanner({
   const isQuestionBankLock =
     state === "locked" && resourceLabel === "Bank Soal";
   const title = isQuestionBankLock
-    ? "Soal Terkunci"
+    ? `Soal sedang diedit oleh ${holderName}`
     : stateCopy.title.replace("{holder}", holderName);
   const description = isQuestionBankLock
-    ? "Anda tidak dapat mengedit bank soal ini karena terdapat mentor lain yang sedang mengedit soal yang sama."
+    ? "Untuk sementara, Bank Soal ini hanya bisa dilihat. Coba lagi setelah sesi pengeditan selesai."
     : stateCopy.description.replace("{resource}", resourceLabel);
   const toneClass =
     state === "locked"
@@ -129,9 +131,6 @@ function ResourceAuthoringLockBanner({
               id="resource-authoring-lock-description"
             >
               {description}
-              {state === "locked" && !isQuestionBankLock
-                ? ` Perubahan diperkirakan tersedia lagi dalam ${remainingSeconds} detik.`
-                : null}
               {hasLocalChanges && !isQuestionBankLock
                 ? " Perubahan yang belum disimpan tetap ada di layar."
                 : null}

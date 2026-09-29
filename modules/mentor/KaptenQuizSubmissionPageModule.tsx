@@ -64,7 +64,7 @@ function KaptenQuizSubmissionPageModule({
       <ReferenceSurface as="section" className="p-5 sm:p-7">
         <dl className="grid gap-5 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-secondary-500">Quiz</dt>
+            <dt className="text-secondary-500">Kuis</dt>
             <dd className="mt-1 font-semibold text-secondary-900">
               {submission.quiz.title}
             </dd>

@@ -328,12 +328,12 @@ function LearningLoopSection() {
     {
       name: "IPB",
       markSrc: "/brand/campuses/ipb.png",
-      markAlt: "Institut Pertanian Bogor mark",
+      markAlt: "Logo Institut Pertanian Bogor",
     },
     {
       name: "ITS",
       markSrc: "/brand/campuses/its.svg",
-      markAlt: "Institut Teknologi Sepuluh Nopember mark",
+      markAlt: "Logo Institut Teknologi Sepuluh Nopember",
     },
   ].map((campus) => ({
     ...campus,
@@ -504,7 +504,7 @@ function AlumniSection() {
             <div className="home-alumni-card">
               <div className="relative aspect-[4/5] overflow-hidden rounded-[12px]">
                 <Image
-                  alt={`${person.name} profile photo`}
+                  alt={`Foto profil ${person.name}`}
                   fill
                   className="object-cover"
                   sizes="176px"
@@ -559,7 +559,7 @@ function AlumniSection() {
               >
                 <div className="relative aspect-[4/5] overflow-hidden rounded-[10px]">
                   <Image
-                    alt={`${person.name} profile photo`}
+                    alt={`Foto profil ${person.name}`}
                     fill
                     className="object-cover"
                     sizes="30vw"
@@ -646,7 +646,7 @@ function LandingFooter() {
       <div className="motion-footer-content mx-auto grid w-full max-w-[1040px] gap-10 md:grid-cols-[1.35fr_0.7fr_0.7fr_0.8fr]">
         <div>
           <Link
-            aria-label="Vecalss homepage"
+            aria-label="Beranda Vecalss"
             className="inline-flex items-center gap-3"
             href="/"
           >

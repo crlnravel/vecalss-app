@@ -467,7 +467,7 @@ function assertReadyBankSources(
     })
   ) {
     throw new QuizValidationError(
-      "Quiz hanya dapat memakai soal siap dari satu Bank yang aktif, dengan media siap dan Subtest yang sama.",
+      "Kuis hanya dapat menggunakan soal siap dari satu Bank aktif, dengan media dan subtes yang sama.",
     );
   }
 }
@@ -540,7 +540,7 @@ function materializedQuizQuestion(source: QuizBankSourceRecord) {
   if (!revision)
     throw new QuizValidationError("Soal Bank tidak memiliki revisi aktif.");
   if (!source.subtestId)
-    throw new QuizValidationError("Soal Bank tidak memiliki Subtest.");
+    throw new QuizValidationError("Soal Bank tidak memiliki subtes.");
   return {
     difficulty: revision.difficulty,
     explanation: revision.explanation,
@@ -1453,7 +1453,7 @@ async function writeStandaloneQuizItems(
     }
     if (existing.subtestId !== input.requestedSubtestId)
       throw new QuizValidationError(
-        "Semua soal Bank dalam Kuis harus memakai Subtest yang sama.",
+        "Semua soal Bank dalam Kuis harus memakai subtes yang sama.",
       );
     if (!snapshotMatchesStoredBankItem(submitted, existing))
       throw new QuizValidationError(
@@ -1631,7 +1631,7 @@ async function writeStandaloneQuizVersionItems(
       }
       if (existing.subtestId !== input.requestedSubtestId)
         throw new QuizValidationError(
-          "Semua soal Bank dalam Kuis harus memakai Subtest yang sama.",
+          "Semua soal Bank dalam Kuis harus memakai subtes yang sama.",
         );
       if (!snapshotMatchesStoredBankItem(submitted, existing))
         throw new QuizValidationError(
@@ -2048,7 +2048,7 @@ async function saveStandaloneQuizVersioned(
       where: { code: input.subjectCode },
     });
     if (!requestedSubtest)
-      throw new QuizValidationError("Subject quiz tidak valid.");
+      throw new QuizValidationError("Subtes Kuis tidak valid.");
     if (input.assemblyVersionId)
       throw new QuizValidationError(
         "Gunakan perintah attachment khusus untuk mengikat assembly Kuis.",
@@ -2092,7 +2092,7 @@ async function saveStandaloneQuizVersioned(
         );
       if (requestedMode === "bank" && record.subtestId !== requestedSubtest.id)
         throw new QuizValidationError(
-          "Subtest Kuis Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
+          "Subtes Kuis pada Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
         );
     } else if (requestedMode === "bank" || input.sourceBankId) {
       throw new QuizValidationError(
@@ -2393,7 +2393,7 @@ async function saveStandaloneQuiz(
       where: { code: input.subjectCode },
     });
     if (!requestedSubtest)
-      throw new QuizValidationError("Subject quiz tidak valid.");
+      throw new QuizValidationError("Subtes Kuis tidak valid.");
     const requestedMode =
       input.sourceMode ??
       (input.sourceBankId ? "bank" : sourceModeForQuiz(current ?? {}));
@@ -2427,7 +2427,7 @@ async function saveStandaloneQuiz(
         );
       if (requestedMode === "bank" && current.subtestId !== requestedSubtest.id)
         throw new QuizValidationError(
-          "Subtest Kuis Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
+          "Subtes Kuis pada Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
         );
     } else if (requestedMode === "bank" || input.sourceBankId) {
       throw new QuizValidationError(
@@ -4934,7 +4934,7 @@ async function startStandaloneQuiz(
       terminalAttempts.length >= participationPolicy.attemptsAllowed
     ) {
       throw new QuizAttemptValidationError(
-        "Batas percobaan quiz ini sudah tercapai.",
+        "Batas percobaan Kuis ini sudah tercapai.",
       );
     }
     const previous = terminalAttempts[0];

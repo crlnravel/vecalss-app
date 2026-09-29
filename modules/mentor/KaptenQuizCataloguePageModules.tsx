@@ -161,7 +161,7 @@ function KaptenQuizPageModule({
         <ReferencePageHeader title="Kuis" />
         {subjects.length ? (
           <section
-            aria-label="Daftar subjek Kuis"
+            aria-label="Daftar subtes Kuis"
             className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
           >
             {subjects.map((subject) => (
@@ -179,7 +179,7 @@ function KaptenQuizPageModule({
               }
               description="Buat latihan pertama untuk mulai menyusun pengalaman belajar siswa."
               icon={ListChecks}
-              title="Belum ada subjek Kuis"
+              title="Belum ada subtes Kuis"
             />
           </ReferenceSurface>
         )}
@@ -245,7 +245,7 @@ function QuizSubjectHeader({ subject }: { subject: KaptenSubject }) {
     <ReferencePageHeader
       actions={
         <QuizCreateDialogTrigger
-          ariaLabel="Buat quiz baru"
+          ariaLabel="Buat Kuis baru"
           initialSubjectCode={subject.code}
         >
           <Plus />
@@ -286,16 +286,16 @@ function QuizSubjectList({
           <ReferenceEmptyState
             action={
               <QuizCreateDialogTrigger
-                ariaLabel="Buat quiz pertama"
+              ariaLabel="Buat kuis pertama"
                 initialSubjectCode={subjectCode}
               >
                 <Plus />
-                Buat quiz pertama
+                Buat kuis pertama
               </QuizCreateDialogTrigger>
             }
             description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka."
             icon={ListChecks}
-            title="Belum ada quiz di subject ini"
+            title="Belum ada kuis di subtes ini"
           />
         </ReferenceSurface>
       ) : (
@@ -303,7 +303,7 @@ function QuizSubjectList({
           <ReferenceEmptyState
             description="Coba kata kunci lain atau tampilkan semua status Kuis."
             icon={ListChecks}
-            title="Tidak ada quiz yang cocok"
+            title="Tidak ada kuis yang cocok"
           />
         </ReferenceSurface>
       )}

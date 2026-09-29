@@ -957,7 +957,7 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
       </Link>
       <div className="flex min-w-0 items-center gap-2">
         <span className="hidden sm:block"><BrandMark compact /></span>
-        <h1 className="whitespace-nowrap text-base font-semibold">Banner maker</h1>
+        <h1 className="whitespace-nowrap text-base font-semibold">Editor banner</h1>
       </div>
       <label className="order-last w-full min-w-0 sm:order-none sm:ml-3 sm:w-auto sm:max-w-72 sm:flex-1">
         <span className="sr-only">Nama banner</span>

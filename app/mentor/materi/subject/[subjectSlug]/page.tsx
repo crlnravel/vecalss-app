@@ -20,7 +20,7 @@ type MentorMateriSubjectPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Subject Materi Kapten | Vecalss LMS",
+  title: "Subtes Materi Kapten | Vecalss LMS",
 };
 
 export default async function MentorMateriSubjectPage({
@@ -46,7 +46,7 @@ export default async function MentorMateriSubjectPage({
       <MentorWorkspaceShell
         activeLabel="Materi"
         breadcrumbLabel={subject.code}
-        searchPlaceholder="Cari lesson..."
+        searchPlaceholder="Cari materi..."
         session={session}
         sidebarAppearance="reference"
       >

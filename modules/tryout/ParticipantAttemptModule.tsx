@@ -162,7 +162,7 @@ function ParticipantAttemptStatusScreen({
             {tryoutEventName ? (
               <div className="flex items-center gap-3 p-5 sm:p-6">
                 <CalendarDays aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
-                <div className="min-w-0"><dt className="text-xs text-secondary-500">Event</dt><dd className="mt-1 truncate font-semibold" title={tryoutEventName}>{tryoutEventName}</dd></div>
+                <div className="min-w-0"><dt className="text-xs text-secondary-500">Acara</dt><dd className="mt-1 truncate font-semibold" title={tryoutEventName}>{tryoutEventName}</dd></div>
               </div>
             ) : (
               <div className="flex items-center gap-3 p-5 sm:p-6">
@@ -219,7 +219,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const [state, setState] = useState<State | null>(null);
   const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [message, setMessage] = useState("Memulihkan tryout dari server…");
+  const [message, setMessage] = useState("Memulihkan pengerjaan Tryout…");
   const [busy, setBusy] = useState(false);
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -282,7 +282,9 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       setMessage(restoredPositionMessage);
     } catch (refreshError) {
       unstable_rethrow(refreshError);
-      const failureMessage = refreshError instanceof Error ? refreshError.message : "Tryout belum dapat dimuat.";
+      const failureMessage = stateRef.current
+        ? "Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi."
+        : "Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi.";
       if (stateRef.current) {
         setMessage(failureMessage);
       } else {
@@ -407,7 +409,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     } catch (saveError) {
       unstable_rethrow(saveError);
       setSaveState("error");
-      setMessage(saveError instanceof Error ? saveError.message : "Jawaban belum dapat disimpan.");
+      setMessage("Jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.");
     }
   };
 
@@ -423,7 +425,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       await refresh();
     } catch (beginError) {
       unstable_rethrow(beginError);
-      setMessage(beginError instanceof Error ? beginError.message : "Bagian ini belum dapat dimulai.");
+      setMessage("Bagian ini belum berhasil dimulai. Coba lagi beberapa saat lagi.");
     } finally {
       setBusy(false);
     }
@@ -442,7 +444,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       await refresh();
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage(submitError instanceof Error ? submitError.message : "Bagian ini belum dapat dikirim.");
+      setMessage("Bagian ini belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.");
     } finally {
       setBusy(false);
     }
@@ -514,9 +516,9 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
 
   if (!state) {
     if (controller.loadState === "error") {
-      return <TypedRouteState className="student-page-canvas" context="Konteks percobaan tetap dipertahankan saat kamu mencoba lagi." description={controller.loadError ?? "Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."} kind="error" onRetry={() => void controller.refresh()} returnHref={controller.safeReturnHref} returnLabel="Kembali ke Tryout" title="Percobaan Tryout belum dapat dimuat" />;
+      return <TypedRouteState className="student-page-canvas" context="Data pengerjaan tetap ada saat kamu mencoba lagi." description={controller.loadError ?? "Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."} kind="error" onRetry={() => void controller.refresh()} returnHref={controller.safeReturnHref} returnLabel="Kembali ke Tryout" title="Pengerjaan Tryout belum berhasil dimuat" />;
     }
-    return <TypedRouteState className="student-page-canvas" description="Memulihkan percobaan Tryout dari server. Jawaban yang tersimpan tidak diubah." kind="loading" title="Memulihkan percobaan Tryout" />;
+    return <TypedRouteState className="student-page-canvas" description="Memulihkan pengerjaan Tryout. Jawaban yang tersimpan tidak diubah." kind="loading" title="Pengerjaan Tryout" />;
   }
 
   const nextRun = state.runs.find((candidate) => candidate.status === "pending");
@@ -618,7 +620,7 @@ function ParticipantAttemptDialogs({
   unansweredCount,
   onExit,
 }: Pick<ParticipantAttemptScreenProps, "busy" | "exitOpen" | "markedCount" | "setExitOpen" | "setSubmitOpen" | "submit" | "submitOpen" | "unansweredCount" | "onExit">) {
-  return <><AlertDialog onOpenChange={(open) => { if (!busy) setExitOpen(open); }} open={exitOpen}><AlertDialogContent variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia><AlertDialogTitle>Keluar dari tryout?</AlertDialogTitle><AlertDialogDescription>Jawaban yang sudah tersimpan tetap aman. Kamu bisa kembali lagi untuk melanjutkan bagian ini.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Tetap mengerjakan</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={onExit} variant="destructive">Ya, keluar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}><AlertDialogContent pending={busy} variant="warning"><AlertDialogHeader><AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia><AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan bagian ini?"}</AlertDialogTitle><AlertDialogDescription>{unansweredCount ? <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum menyelesaikan bagian ini.</> : <>Bagian yang dikirim tidak dapat dibuka lagi. {markedCount ? <><strong className="text-secondary-900">{markedCount} soal ditandai</strong> masih menunggu pemeriksaanmu.</> : "Semua soal sudah terjawab."}</>}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy} variant="brandOutline">Kembali</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>;
+  return <><AlertDialog onOpenChange={(open) => { if (!busy) setExitOpen(open); }} open={exitOpen}><AlertDialogContent variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia><AlertDialogTitle>Keluar dari Tryout?</AlertDialogTitle><AlertDialogDescription>Jawaban yang sudah tersimpan tetap ada. Kamu bisa kembali ke pengerjaan ini sebelum batas waktu. Waktu tetap berjalan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Tetap mengerjakan</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={onExit} variant="destructive">Keluar dari Tryout</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}><AlertDialogContent pending={busy} variant="warning"><AlertDialogHeader><AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia><AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Kumpulkan bagian ini?"}</AlertDialogTitle><AlertDialogDescription>{unansweredCount ? <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum mengumpulkan bagian ini.</> : <>Setelah dikumpulkan, bagian ini tidak dapat dibuka lagi. {markedCount ? <><strong className="text-secondary-900">{markedCount} soal ditandai</strong> masih menunggu pemeriksaanmu.</> : "Semua soal sudah terjawab."}</>}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy} variant="brandOutline">Kembali</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Mengumpulkan…" : "Kumpulkan bagian"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>;
 }
 
 function ParticipantAttemptFooter({
@@ -631,7 +633,7 @@ function ParticipantAttemptFooter({
   setSubmitOpen,
   snapshot,
 }: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "items" | "onIndexChange" | "saveState" | "selected" | "setSubmitOpen" | "snapshot">) {
-  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{index >= items.length - 1 ? <Button aria-label="Selesai" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Selesai</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
+  return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{index >= items.length - 1 ? <Button aria-label="Kumpulkan bagian" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand">Kumpulkan bagian</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
 }
 
 function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUrgent, tryoutTitle }: Pick<ParticipantAttemptScreenProps, "enterFullscreen" | "now" | "run" | "runCount" | "timerUrgent" | "tryoutTitle">) {
@@ -640,6 +642,6 @@ function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUr
 
 function ParticipantAttemptScreen(props: ParticipantAttemptScreenProps) {
   const navigationItems = getAttemptNavigationItems(props.items, props.index, props.marked, props.answerIds);
-  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} message={props.message} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} selectionMode={props.selectionMode} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari tryout" variant="ghost"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
+  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} message={props.message} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} selectionMode={props.selectionMode} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari Tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari Tryout" variant="ghost"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
 }
 export { ParticipantAttemptModule };

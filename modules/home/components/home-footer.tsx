@@ -3,9 +3,9 @@ import Link from "next/link";
 import { AtSign, BriefcaseBusiness, X } from "@/lib/icons";
 
 const quickLinks = [
-  { label: "About Us", href: "/#about" },
-  { label: "Programs", href: "/#program" },
-  { label: "Login", href: "/login" },
+  { label: "Tentang Vecalss", href: "/#about" },
+  { label: "Program", href: "/#program" },
+  { label: "Masuk", href: "/login" },
 ];
 
 const contactLinks = [
@@ -29,7 +29,7 @@ function HomeFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
           <div className="max-w-[28rem]">
             <Link
-              aria-label="Vecalss homepage"
+              aria-label="Beranda Vecalss"
               className="inline-flex items-center gap-4"
               href="/"
             >
@@ -55,11 +55,11 @@ function HomeFooter() {
           </div>
 
           <nav
-            aria-label="Quick links"
+            aria-label="Tautan cepat"
             className="grid gap-3 text-sm font-medium"
           >
             <p className="kicker-label mb-2 text-voyage-sea-glass">
-              Quick Links
+              Tautan cepat
             </p>
             {quickLinks.map((item) => (
               <Link
@@ -73,11 +73,11 @@ function HomeFooter() {
           </nav>
 
           <nav
-            aria-label="Social media"
+            aria-label="Media sosial"
             className="grid gap-3 text-sm font-medium"
           >
             <p className="kicker-label mb-2 text-voyage-sea-glass">
-              Social Media
+              Media sosial
             </p>
             {contactLinks.map((item) => {
               const Icon = item.icon;

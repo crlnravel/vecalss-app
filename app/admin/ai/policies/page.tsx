@@ -9,7 +9,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Policy Governance Vera AI | Vecalss Admin",
+  title: "Kebijakan Vera AI | Vecalss Admin",
 };
 
 export default async function AdminAiPoliciesPage() {
@@ -20,7 +20,7 @@ export default async function AdminAiPoliciesPage() {
     <PortalShell
       activeAdminSection="ai"
       audience="admin"
-      description="Tata kelola kebijakan versi terbitan, preview dampak, persetujuan, penjadwalan, dan audit Vera AI."
+      description="Kelola kebijakan Vera AI, tinjau dampaknya, atur jadwal, dan lihat riwayat perubahannya."
       session={session}
       title="Kebijakan & Tata Kelola"
     >

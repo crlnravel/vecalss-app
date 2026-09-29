@@ -365,7 +365,7 @@ function useMediaLibraryScreenState({
         >
           <div className="relative aspect-[1.84] overflow-hidden bg-primary-50/75">
             <button
-              aria-label={`Preview ${asset.name}`}
+              aria-label={`Pratinjau ${asset.name}`}
               className="absolute inset-0 flex items-center justify-center overflow-hidden focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/30"
               onClick={() => void actions.handlePreview(asset)}
               type="button"
@@ -587,7 +587,7 @@ function MediaLibraryItemsPane({
             <div className="flex flex-col items-center gap-2 text-primary-900">
               <Upload className="size-8" />
               <p className="font-semibold">
-                Lepaskan {mediaLabel} untuk upload
+                Lepaskan {mediaLabel} untuk diunggah
               </p>
             </div>
           </div>
@@ -747,7 +747,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
       />
       {uploadStatus ? (
         <div className="sr-only" role="status">
-          Mengupload {uploadStatus.fileName}, {uploadStatus.progress}%.
+            Mengunggah {uploadStatus.fileName}, {uploadStatus.progress}%.
         </div>
       ) : null}
       {error && snapshot ? (
@@ -758,7 +758,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           <div className="min-w-0">
             <p>{error}</p>
             <p className="mt-1 text-destructive/80">
-              Data terakhir tetap ditampilkan sampai library berhasil dimuat
+              Data terakhir tetap ditampilkan sampai daftar media berhasil dimuat
               ulang.
             </p>
           </div>
@@ -775,7 +775,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700"
           role="status"
         >
-          <span>R2 belum dikonfigurasi. Upload baru belum tersedia.</span>
+          <span>Penyimpanan media belum siap. Kamu belum bisa mengunggah media.</span>
           <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
@@ -919,7 +919,7 @@ function MediaLibraryWorkspaceStandardToolbar({
         ) : null}
         <Button
           aria-label={
-            uploadStatus ? `Mengupload ${mediaLabel}` : `Upload ${mediaLabel}`
+            uploadStatus ? `Mengunggah ${mediaLabel}` : `Unggah ${mediaLabel}`
           }
           className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined}
           disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
@@ -931,7 +931,7 @@ function MediaLibraryWorkspaceStandardToolbar({
           ) : (
             <Upload />
           )}
-          {uploadStatus ? "Mengupload" : `Upload ${mediaLabel}`}
+          {uploadStatus ? "Mengunggah" : `Unggah ${mediaLabel}`}
         </Button>
         <input
           accept={acceptedMimeTypes.join(",")}
@@ -988,8 +988,8 @@ function MediaLibraryWorkspaceNotices({
           role="status"
         >
           <span>
-            R2 belum dikonfigurasi. Tambahkan kredensial server untuk
-            mengaktifkan upload dan preview media.
+            Penyimpanan media belum siap. Unggah dan pratinjau belum tersedia.
+            Coba lagi nanti atau hubungi admin jika masalah berlanjut.
           </span>
           <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
             <RefreshCw data-icon="inline-start" />
@@ -1058,8 +1058,8 @@ function MediaLibraryReferenceHeader({
             <Button
               aria-label={
                 uploadStatus
-                  ? `Mengupload ${mediaLabel}`
-                  : `Upload ${mediaLabel}`
+                  ? `Mengunggah ${mediaLabel}`
+                  : `Unggah ${mediaLabel}`
               }
               disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
               onClick={() => fileInputRef.current?.click()}
@@ -1071,7 +1071,7 @@ function MediaLibraryReferenceHeader({
               ) : (
                 <Upload />
               )}
-              {uploadStatus ? "Mengupload" : `Upload ${mediaLabel}`}
+              {uploadStatus ? "Mengunggah" : `Unggah ${mediaLabel}`}
             </Button>
           </>
         }
@@ -1138,8 +1138,8 @@ function MediaLibraryDriveHeader({
                 <Button
                   aria-label={
                     uploadStatus
-                      ? `Mengupload ${mediaLabel}`
-                      : "Tambah asset baru"
+                    ? `Mengunggah ${mediaLabel}`
+                    : "Tambah media baru"
                   }
                   disabled={
                     !snapshot?.isStorageConfigured || Boolean(uploadStatus)
@@ -1157,7 +1157,7 @@ function MediaLibraryDriveHeader({
               )}
             </TooltipTrigger>
             <TooltipContent>
-              {uploadStatus ? `Mengupload ${mediaLabel}…` : "Tambah asset baru"}
+              {uploadStatus ? `Mengunggah ${mediaLabel}…` : "Tambah media baru"}
             </TooltipContent>
           </Tooltip>
         </div>

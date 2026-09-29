@@ -20,7 +20,7 @@ function KaptenRowSkeleton() {
 export default function KaptenLoading() {
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div aria-busy="true" aria-label="Loading Kapten directory" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+      <div aria-busy="true" aria-label="Memuat daftar Kapten" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
         <AdminPortalNav activeSection="kapten" />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">

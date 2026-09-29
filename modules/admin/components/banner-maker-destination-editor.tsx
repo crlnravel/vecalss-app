@@ -285,7 +285,7 @@ function DestinationEditorHeader({
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
       <a aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /></a>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Banner maker</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Editor banner</p>
         <h1 className="truncate text-base font-semibold">{label}</h1>
       </div>
       <div className="ml-auto flex items-center gap-2">

@@ -12,7 +12,7 @@ import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Buat Quiz Kapten | Vecalss LMS",
+  title: "Buat Kuis Kapten | Vecalss LMS",
 };
 
 export default async function CreateMentorQuizPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
@@ -22,13 +22,13 @@ export default async function CreateMentorQuizPage({ searchParams }: { searchPar
   const subjectCode = subjectValues[0]?.trim() || undefined;
   const issues: CanonicalContextIssue[] = [];
   if (subjectValues.length > 1) {
-    issues.push({ code: "invalid", field: "subject", message: "Subject Kuis hanya boleh dipilih satu kali.", value: subjectCode });
+    issues.push({ code: "invalid", field: "subject", message: "Subtes Kuis hanya boleh dipilih satu kali.", value: subjectCode });
   }
   if (subjectValues.length === 1 && !subjectCode) {
-    issues.push({ code: "invalid", field: "subject", message: "Subject Kuis tidak boleh kosong." });
+    issues.push({ code: "invalid", field: "subject", message: "Pilih subtes Kuis." });
   }
   if (subjectCode && !kaptenSubjects.some((subject) => subject.code === subjectCode)) {
-    issues.push({ code: "unsupported", field: "subject", message: "Subject Kuis tersebut tidak tersedia.", value: subjectCode });
+    issues.push({ code: "unsupported", field: "subject", message: "Subtes Kuis tersebut tidak tersedia.", value: subjectCode });
   }
   if (issues.length) {
     return (
@@ -36,7 +36,7 @@ export default async function CreateMentorQuizPage({ searchParams }: { searchPar
         <section aria-labelledby="quiz-create-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="quiz-create-context-unavailable">Konteks pembuatan Kuis tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih subject Kuis yang tersedia untuk menjaga konteks form dan hasil.</p>
+          <p className="mt-2 text-sm leading-6">Pilih subtes Kuis yang tersedia untuk melanjutkan.</p>
         </section>
       </MentorWorkspaceShell>
     );

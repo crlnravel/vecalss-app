@@ -73,8 +73,8 @@ type DispatchReconcileCursor = {
 type DispatchErrorCode = "queue_unavailable" | "queue_job_missing";
 
 const DISPATCH_ERROR_MESSAGES: Record<DispatchErrorCode, string> = {
-  queue_job_missing: "The queue job was not found and will be redispatched.",
-  queue_unavailable: "The queue is temporarily unavailable.",
+  queue_job_missing: "Proses impor mengalami kendala sementara dan akan dicoba lagi otomatis.",
+  queue_unavailable: "Proses impor sedang mengalami gangguan. Sistem akan mencoba lagi otomatis.",
 };
 
 // Keep each pass bounded while rotating through a stable created_at/id order.

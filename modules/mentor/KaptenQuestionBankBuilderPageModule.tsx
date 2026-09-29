@@ -11,6 +11,7 @@ import {
   Ellipsis,
   ImagePlus,
   LibraryBig,
+  LoaderCircle,
   Plus,
   Save,
   Search,
@@ -144,7 +145,6 @@ type QuestionBankEditorState = {
   confirmationRequest: ConfirmationRequest | null;
   questionDraft: BankQuestion;
   hasUnsavedChanges: boolean;
-  hasAutosaved: boolean;
   pendingRouteReplacement: string | null;
   readinessAnnouncement: string;
   serverReadiness: QuestionBankReadiness | null;
@@ -376,7 +376,7 @@ function readinessFieldLabel(issue: QuestionReadinessIssue) {
     if (issue.mediaTarget === "prompt") return "media pertanyaan";
     return "media soal";
   }
-  return "Subtest";
+  return "Subtes";
 }
 
 function mergeQuestionBankReadiness(
@@ -1140,7 +1140,7 @@ function QuestionSubtestField({
         htmlFor="question-subtest"
         required
       >
-        Subtest
+        Subtes
       </FieldLabel>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -1164,12 +1164,12 @@ function QuestionSubtestField({
           <span className="truncate">
             {selectedSubject?.name
               ? questionDraft.subjectCode + " - " + selectedSubject.name
-              : "Pilih Subtest"}
+              : "Pilih subtes"}
           </span>
           <ChevronDown className="size-4 text-secondary-400" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-(--anchor-width)">
-          <DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel>
+          <DropdownMenuLabel>Pilih subtes</DropdownMenuLabel>
           <DropdownMenuGroup>
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
@@ -1205,7 +1205,7 @@ function QuestionSubtestField({
           className="text-sm font-medium text-student-status-danger-fg"
           id="question-subtest-error"
         >
-          Pilih Subtest sebelum menyimpan.
+          Pilih subtes sebelum menyimpan.
         </p>
       ) : null}
     </Field>
@@ -1248,13 +1248,13 @@ function QuestionMateriField({
         >
           <span className="truncate">
             {selectedMateri ||
-              (hasOptions ? "Pilih Materi" : "Pilih Subtest terlebih dahulu")}
+              (hasOptions ? "Pilih Materi" : "Pilih subtes terlebih dahulu")}
           </span>
           <ChevronDown className="size-4 text-secondary-400" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-(--anchor-width)">
           <DropdownMenuLabel>
-            {hasOptions ? "Pilih Materi" : "Pilih Subtest terlebih dahulu"}
+            {hasOptions ? "Pilih Materi" : "Pilih subtes terlebih dahulu"}
           </DropdownMenuLabel>
           {hasOptions ? (
             <DropdownMenuGroup>
@@ -2005,7 +2005,6 @@ type QuestionBankBuilderViewState = {
   confirmationRequest: ConfirmationRequest | null;
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
-  hasAutosaved: boolean;
   isMetadataLocked: boolean;
   isQuestionContentLocked: boolean;
   isSaving: boolean;
@@ -2229,23 +2228,14 @@ function QuestionBankAutoSaveStatus({
   state: QuestionBankBuilderViewState;
 }) {
   const isBlocked = state.hasUnsavedChanges && state.readiness.incompleteCount > 0;
-  if (!state.hasUnsavedChanges && !state.hasAutosaved && !state.saveError) return null;
+  const hasDisconnectedLock =
+    state.hasUnsavedChanges && state.lockState !== "owned";
+  if (!hasDisconnectedLock && !state.saveError) return null;
 
-  const statusMessage = state.isSaving
-    ? "Menyimpan perubahan…"
-    : isBlocked
-      ? `Selesaikan ${state.readiness.incompleteCount} soal yang belum lengkap agar perubahan dapat disimpan.`
-      : state.hasUnsavedChanges && state.lockState !== "owned"
-        ? "Akses edit terputus. Perubahan belum tersimpan."
-        : state.saveError
-          ? state.saveError
-          : state.hasUnsavedChanges
-            ? "Perubahan akan tersimpan otomatis."
-            : "Tersimpan otomatis.";
-  const hasError =
-    Boolean(state.saveError) ||
-    isBlocked ||
-    (state.hasUnsavedChanges && state.lockState !== "owned");
+  const statusMessage = hasDisconnectedLock
+    ? "Akses edit terputus. Perubahan belum tersimpan."
+    : state.saveError ?? "Bank Soal belum dapat disimpan. Coba lagi.";
+  const hasError = Boolean(state.saveError) || hasDisconnectedLock;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -2476,10 +2466,21 @@ function QuestionBankEditWorkspaceHeader({
           <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">
             {builderState.title || "Bank Soal"}
           </h1>
-          {state.hasUnsavedChanges ? (
-            <MentorBadge size="xs" tone="attention">
-              {state.isSaving ? "Menyimpan…" : "Belum disimpan"}
-            </MentorBadge>
+          {state.isSaving ? (
+            <Button
+              aria-busy="true"
+              aria-label="Menyimpan perubahan"
+              className="shrink-0"
+              disabled
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <LoaderCircle
+                aria-hidden="true"
+                className="animate-spin motion-reduce:animate-none"
+              />
+            </Button>
           ) : null}
         </div>
         {state.readiness.incompleteCount > 0 ? (
@@ -3106,7 +3107,6 @@ function useQuestionBankPersistence({
       }
       updateEditor({
         hasUnsavedChanges: false,
-        ...(mode === "edit" ? { hasAutosaved: true } : {}),
         lifecycleStatus: result.result.bank.status,
         saveError: null,
       });
@@ -3536,7 +3536,7 @@ function useQuestionBankDraftActions({
       previewChoiceIds: [],
       questionDraft: nextQuestion,
       readinessAnnouncement:
-        "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan Subtest sebelum menyimpan.",
+        "Soal baru ditambahkan. Isi pertanyaan, opsi, jawaban benar, dan subtes sebelum menyimpan.",
     });
   }, [
     activeQuestion?.subjectCode,
@@ -4097,7 +4097,6 @@ function getQuestionBankBuilderInitialData({
     hasSubmittedPreview: false,
     hasUnsavedChanges:
       mode === "create" && hasQuestionBankDraftContent(initialBuilderState),
-    hasAutosaved: false,
     isSaving: false,
     lifecycleError: null,
     lifecycleStatus: initialBank?.status ?? "draft",
@@ -4445,7 +4444,6 @@ function QuestionBankBuilderContent({
     confirmationRequest: editorState.confirmationRequest,
     hasSubmittedPreview: editorState.hasSubmittedPreview,
     hasUnsavedChanges: editorState.hasUnsavedChanges,
-    hasAutosaved: editorState.hasAutosaved,
     isMetadataLocked,
     isQuestionContentLocked,
     lockState,

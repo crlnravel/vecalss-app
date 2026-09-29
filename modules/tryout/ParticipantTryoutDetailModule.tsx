@@ -261,17 +261,17 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
   const context = { returnTo: returnToHref, session: summarySession?.id ?? sessionId };
 
   let actionHref = buildStudentTryoutHref(tryout.id, context);
-  let actionLabel = "Daftar tryout";
+  let actionLabel = "Daftar Tryout";
   let canTakeAction = true;
   if (attempt?.status === "in_progress") {
     actionHref = buildStudentAttemptHref(attempt.id, context);
-    actionLabel = "Lanjutkan ujian";
+    actionLabel = "Lanjutkan Tryout";
   } else if (attempt) {
     actionHref = buildStudentAttemptHref(attempt.id, { ...context, result: true });
     actionLabel = attempt.resultAvailability === "released" ? "Lihat hasil" : "Periksa status hasil";
   } else if (tryout.admissionStatus === "active" && assignedSession && assignedSession.status === "active" && !assignedSession.isExpired) {
     actionHref = buildStudentTryoutSubrouteHref(tryout.id, "waiting", context);
-    actionLabel = "Mulai";
+    actionLabel = "Buka ruang tunggu";
   } else if (tryout.admissionStatus === "active" && assignedSession) {
     actionHref = buildStudentTryoutHref(tryout.id, context);
     actionLabel = "Sesi selesai";
@@ -299,7 +299,7 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
         : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
         ? {
             icon: CircleAlert,
-            message: tryout.admissionStatus === "rejected" ? "Pendaftaran ini tidak disetujui. Hubungi Kapten jika kamu memerlukan penjelasan atau ingin mengikuti sesi lain." : "Aksesmu ke tryout ini sudah dinonaktifkan. Hubungi Kapten untuk mengetahui langkah berikutnya.",
+            message: tryout.admissionStatus === "rejected" ? "Pendaftaran ini tidak disetujui. Hubungi Kapten jika kamu memerlukan penjelasan atau ingin mengikuti sesi lain." : "Aksesmu ke Tryout ini sudah dinonaktifkan. Hubungi Kapten untuk mengetahui langkah berikutnya.",
             title: tryout.admissionStatus === "rejected" ? "Pendaftaran tidak disetujui" : "Akses dinonaktifkan",
             tone: "red" as const,
           }
@@ -354,16 +354,16 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
                     : { label: "Tersedia", tone: "neutral" as const };
 
   const statusMessage = availability.label === "Aktif"
-    ? "Telah Dibuka!"
+    ? "Sudah dibuka"
     : availability.label === "Terjadwal"
-      ? "Akan Dibuka"
+      ? "Akan dibuka"
       : availability.label === "Selesai"
-        ? "Tryout Selesai"
+        ? "Tryout selesai"
         : availability.label === "Tersedia"
-          ? "Pendaftaran Tersedia"
+          ? "Pendaftaran tersedia"
           : availability.label;
   return {
-    actionDisplayLabel: actionLabel === "Daftar tryout" ? "Daftar Sekarang" : actionLabel,
+    actionDisplayLabel: actionLabel === "Daftar Tryout" ? "Daftar Tryout" : actionLabel,
     actionHref,
     actionLabel,
     admissionNotice,
@@ -460,7 +460,7 @@ function TryoutAdmissionNotice({ model }: { model: ParticipantTryoutDetailModel 
   }
 
   if (!model.showReadinessNotice) return null;
-  return <div className="flex items-start gap-3 rounded-xl bg-primary-50 p-4 text-sm leading-6 text-secondary-700"><Info className="mt-0.5 size-5 shrink-0 text-primary-500" /><p>Yuk, daftar tryout ini! Klik <strong>Daftar Sekarang</strong> di bawah.</p></div>;
+  return <div className="flex items-start gap-3 rounded-xl bg-primary-50 p-4 text-sm leading-6 text-secondary-700"><Info className="mt-0.5 size-5 shrink-0 text-primary-500" /><p>Yuk, daftar Tryout ini. Pilih <strong>Daftar Tryout</strong> di bawah.</p></div>;
 }
 
 function TryoutDetailAction({
@@ -483,7 +483,7 @@ function TryoutDetailAction({
   universities: UniversityOption[];
 }) {
   if (model.admissionNotice || !model.canTakeAction) return null;
-  if (model.actionLabel === "Daftar tryout") {
+  if (model.actionLabel === "Daftar Tryout") {
     return <ParticipantTryoutEnrollmentPanel initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} returnToHref={returnToHref} sessionId={model.summarySession?.id ?? sessionId} tryoutId={tryout.id} universities={universities} />;
   }
   return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "brand" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
@@ -533,7 +533,7 @@ function ParticipantTryoutDetailModule({
   universities: UniversityOption[];
 }) {
   const model = getParticipantTryoutDetailModel(tryout, sessionId, returnToHref);
-  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail tryout" mainClassName="max-w-none gap-0 !p-0" notificationFeed={notificationFeed} session={session} showSearch={false}><ParticipantTryoutDetailContent initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></CourseWorkspaceShell>;
+  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail Tryout" mainClassName="max-w-none gap-0 !p-0" notificationFeed={notificationFeed} session={session} showSearch={false}><ParticipantTryoutDetailContent initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></CourseWorkspaceShell>;
 }
 
 export { ParticipantTryoutDetailModule };

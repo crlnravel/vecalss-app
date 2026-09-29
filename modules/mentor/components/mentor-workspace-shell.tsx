@@ -360,7 +360,7 @@ function MentorWorkspaceShell({
   contentElement: ContentElement = "main",
   mainClassName,
   onNavigateAway,
-  searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
+  searchPlaceholder = "Cari konten, Kuis, Tryout, atau media...",
   session,
   showBreadcrumb = true,
   showSearch = false,

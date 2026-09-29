@@ -7,6 +7,7 @@ import { useActionToast } from "@/components/ui/use-action-toast";
 
 import { changePasswordAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
+import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
@@ -20,7 +21,7 @@ function ChangePasswordForm() {
   return (
     <form action={formAction} className="space-y-5">
       {state.message && keepMessageInline ? (
-        <FormNotice label="Maaf" tone="danger">
+        <FormNotice label="Perlu perhatian" tone="danger">
           {state.message}
         </FormNotice>
       ) : null}
@@ -31,10 +32,11 @@ function ChangePasswordForm() {
           autoComplete="new-password"
           id="change-password"
           name="password"
-          placeholder="Buat kata sandi yang kuat"
+          placeholder="Minimal 8 karakter"
           required
           type="password"
         />
+        <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
         {state.fieldErrors?.password ? (
           <p className="text-sm text-danger-700">
             {state.fieldErrors.password}
@@ -50,7 +52,7 @@ function ChangePasswordForm() {
           autoComplete="new-password"
           id="change-password-confirmation"
           name="confirmPassword"
-          placeholder="Ulangi kata sandi baru Anda"
+          placeholder="Ulangi kata sandi baru"
           required
           type="password"
         />
@@ -63,12 +65,12 @@ function ChangePasswordForm() {
 
       <SubmitButton
         className="w-full sm:w-auto"
-        pendingLabel="Memperbarui kata sandi..."
+        pendingLabel="Menyimpan kata sandi..."
         size="lg"
         type="submit"
         variant="brand"
       >
-        Simpan
+        Simpan kata sandi baru
       </SubmitButton>
     </form>
   );

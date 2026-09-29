@@ -117,7 +117,7 @@ function Hero() {
                 TRYOUT <ArrowRight aria-hidden="true" className="size-3.5" /> KAPTEN
               </div>
               <div className="absolute bottom-[9%] left-[10%] z-20 rounded-2xl border border-white/18 bg-voyage-deep/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs font-bold tracking-[0.18em] text-voyage-sea-glass">THE VECALSS WAY</p>
+                <p className="text-xs font-bold tracking-[0.18em] text-voyage-sea-glass">CARA BELAJAR VECALSS</p>
                 <p className="mt-1 text-sm font-semibold text-white">Bergerak setiap hari.</p>
               </div>
 
@@ -145,7 +145,7 @@ function Hero() {
 
         <div className="flex flex-col gap-4 border-t border-white/12 py-5 text-sm text-voyage-sea-glass sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-[32ch]">Dari fondasi sampai hari ujian, kamu tidak perlu menebak sendirian.</p>
-          <div className="flex flex-wrap gap-2" aria-label="Vecalss learning loop">
+          <div className="flex flex-wrap gap-2" aria-label="Alur belajar Vecalss">
             {loopItems.map((item) => (
               <span className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-semibold text-voyage-sea-glass" key={item.title}>
                 {item.title}
@@ -433,7 +433,7 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
     <article className="group overflow-hidden rounded-4xl border border-voyage-deep/10 bg-white transition-transform duration-500 hover:-translate-y-1 hover:shadow-[0_34px_90px_-70px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="relative aspect-[4/5] bg-voyage-deep/[0.04]">
         <Image
-          alt={`${alumnus.name} profile photo`}
+          alt={`Foto profil ${alumnus.name}`}
           className="object-cover transition duration-700 group-hover:scale-[1.04] motion-reduce:transition-none"
           fill
           sizes="(min-width: 1024px) 20vw, (min-width: 640px) 50vw, 100vw"
@@ -448,7 +448,7 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
       <div className="p-4">
         <h3 className="text-lg font-extrabold leading-tight tracking-[-0.03em] text-voyage-deep">{alumnus.name}</h3>
         <p className="mt-1.5 text-sm leading-5 text-voyage-ink">{alumnus.university}</p>
-        {alumnus.isPlaceholder ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.15em] text-voyage-deep">Placeholder</p> : null}
+        {alumnus.isPlaceholder ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.15em] text-voyage-deep">Profil contoh</p> : null}
       </div>
     </article>
   );

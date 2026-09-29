@@ -9,7 +9,7 @@ import { KaptenQuizPageModule } from "@/modules/mentor/KaptenQuizCataloguePageMo
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
 export const metadata: Metadata = {
-  title: "Quiz Kapten | Vecalss LMS",
+  title: "Kuis Kapten | Vecalss LMS",
 };
 
 export default async function MentorQuizPage({

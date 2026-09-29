@@ -73,14 +73,13 @@ assert.match(registerPage, /buildStudentTryoutHref\(tryoutId/);
 assert.match(waiting, /Panduan tryout/);
 assert.match(waiting, /className="w-full"/);
 assert.match(waiting, /Menyiapkan…/);
-assert.match(waiting, /: "Mulai"/);
-assert.match(waiting, /<BackButton\b[^>]*\blabel="Kembali ke katalog tryout"/);
+assert.match(waiting, /: "Mulai Tryout"/);
+assert.match(waiting, /render=\{<Link href="\/tryout" \/>\}/);
 assert.equal(
-  waiting.match(/<BackButton\b/g)?.length,
-  2,
-  "both waiting-room branches need a catalogue back link",
+  waiting.match(/Kembali ke daftar Tryout/g)?.length,
+  1,
+  "an unavailable or expired session needs a catalogue link",
 );
-assert.doesNotMatch(waiting, /<span>Kembali ke katalog tryout<\/span>/);
 assert.doesNotMatch(waiting, /Kembali ke detail tryout/);
 assert.doesNotMatch(waiting, /<Checkbox/);
 assert.doesNotMatch(waiting, /Saya memahami timer tidak dapat dijeda/);

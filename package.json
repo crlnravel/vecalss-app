@@ -121,6 +121,7 @@
     "test:tryout-participant-ux-contract": "tsx scripts/test-tryout-participant-ux-contract.ts",
     "test:tryout-wib-schedule": "tsx scripts/test-tryout-wib-schedule.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
+    "test:tryout-question-content-adapter": "tsx scripts/test-tryout-question-content-adapter.ts",
     "test:tryout-package-handoff": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-tryout-package-handoff.ts",
     "test:mentor-bank-package-ui": "tsx scripts/test-mentor-bank-package-ui.ts",
     "test:mentor-bank-soal-catalogue-context-menu": "tsx scripts/test-mentor-bank-soal-catalogue-context-menu.ts",

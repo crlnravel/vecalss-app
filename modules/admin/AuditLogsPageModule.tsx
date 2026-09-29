@@ -298,7 +298,7 @@ function AuditUserDetailDialog({
           <>
             <DialogHeader className="min-w-0 border-b border-primary-100 px-5 py-5 pr-14 sm:px-6">
               <DialogTitle className="break-words text-xl tracking-[-0.03em]">{user.actorName}</DialogTitle>
-               <DialogDescription>Pengguna yang tercatat di log audit ini.</DialogDescription>
+               <DialogDescription>Pengguna yang tercatat dalam riwayat audit ini.</DialogDescription>
             </DialogHeader>
             <div className="min-w-0 px-5 py-6 sm:px-6">
               <dl className="grid min-w-0 gap-5">
@@ -411,11 +411,11 @@ function AuditLogsPageModule({
       audience="admin"
        description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
       session={session}
-       title="Log audit"
+       title="Riwayat audit"
     >
       <div className="space-y-8">
         <ReferencePageHeader
-           title="Log audit"
+           title="Riwayat audit"
         />
 
         <ReferenceSurface as="section" aria-label="Riwayat audit" className="overflow-hidden">
@@ -446,7 +446,7 @@ function AuditLogsPageModule({
               action: "/admin/audit-logs",
               clearHref: clearSearchHref,
               hiddenFields: auditSearchHiddenFields({ direction, sort, targetType }),
-               label: "Cari log audit",
+               label: "Cari riwayat audit",
                placeholder: "Cari event, pengguna, atau ID…",
               value: query,
             }}
@@ -467,7 +467,7 @@ function AuditLogsPageModule({
           {pageCount > 1 ? (
             <footer className="flex flex-col gap-3 border-t border-primary-100 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-xs text-secondary-600">Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}</p>
-              <nav aria-label="Audit log pages" className="flex items-center gap-2">
+              <nav aria-label="Halaman riwayat audit" className="flex items-center gap-2">
                  {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Sebelumnya</Link> : null}
                  <span aria-current="page" className="inline-flex min-h-11 items-center rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Halaman {page} dari {pageCount}</span>
                  {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Berikutnya</Link> : null}

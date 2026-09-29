@@ -7,7 +7,7 @@ import { packageReleaseLabel } from "@/lib/tryout/version-label";
 import { KaptenPackageVersionDetailModule } from "@/modules/mentor/KaptenPackageVersionDetailModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Snapshot Versi Paket Soal | Vecalss LMS" };
+export const metadata: Metadata = { title: "Versi Paket Soal | Vecalss LMS" };
 
 export default async function PackageVersionDetailPage({ params }: { params: Promise<{ packageId: string; versionNo: string }> }) {
   const [{ packageId, versionNo: rawVersionNo }, session] = await Promise.all([params, requireTutorSession()]);

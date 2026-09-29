@@ -3,18 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
-  ArrowUp,
-  AlertTriangle,
   ChevronLeft,
-  ChevronDown,
   CircleHelp,
-  ImagePlus,
   LibraryBig,
   Plus,
   Save,
   Trash2,
-  X,
 } from "@/lib/icons";
 import {
   type Dispatch,
@@ -41,7 +35,6 @@ import {
 import {
   ReferenceEmptyState,
   ReferencePageHeader,
-  ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
@@ -57,25 +50,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Field,
   FieldInput,
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
 import { validateAnswerKey } from "@/lib/question-bank/answer-contract";
 import { cn } from "@/lib/utils";
-import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
+import {
+  QuestionContentEditor as QuizQuestionEditor,
+  type EditorQuestion as QuizEditorQuestion,
+  type QuestionMediaTarget as QuizQuestionMediaTarget,
+  correctChoiceIdsFor,
+  questionTypeFor,
+  setQuestionMediaAsset,
+} from "@/modules/mentor/components/question-content-editor";
+import {
+  EditorMobileInventory,
+  EditorQuestionInventory,
+  QuestionEditorHeader,
+  QuestionEditorPageShell,
+  QuestionEditorWorkspace,
+} from "@/modules/mentor/components/question-editor-workspace";
 import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import {
@@ -97,21 +96,6 @@ import {
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
 
-type QuizQuestionDifficulty = NonNullable<QuizQuestionSnapshot["difficulty"]>;
-type QuizEditorQuestion = QuizQuestionSnapshot & {
-  difficulty: QuizQuestionDifficulty;
-};
-
-type QuizQuestionMediaTarget =
-  | { field: "prompt"; label: string; questionId: string }
-  | { field: "explanation"; label: string; questionId: string }
-  | {
-      choiceId: string;
-      field: "choice";
-      label: string;
-      questionId: string;
-    };
-
 type QuizEditorForm = {
   attemptsAllowed: number | null;
   closesAt: string;
@@ -126,19 +110,6 @@ type QuizEditorForm = {
   subjectCode: string;
   title: string;
 };
-
-function questionTypeFor(question: Pick<QuizQuestionSnapshot, "questionType">) {
-  return question.questionType ?? "single_choice";
-}
-
-function correctChoiceIdsFor(
-  question: Pick<QuizQuestionSnapshot, "correctChoiceId" | "correctChoiceIds">,
-) {
-  const ids =
-    question.correctChoiceIds ??
-    (question.correctChoiceId ? [question.correctChoiceId] : []);
-  return [...new Set(ids)];
-}
 
 function asEditorQuestion(question: QuizQuestionSnapshot): QuizEditorQuestion {
   const correctChoiceIds = correctChoiceIdsFor(question);
@@ -238,375 +209,6 @@ function hasQuizDraftContent(
   );
 }
 
-function QuestionInventory({
-  activeQuestionId,
-  bankPickerDisabled,
-  disabled,
-  onAddFromBank,
-  onDelete,
-  onMove,
-  onSelect,
-  showAddFromBank,
-  sourceBankHref,
-  sourceBankTitle,
-  questions,
-}: {
-  activeQuestionId: string | null;
-  bankPickerDisabled: boolean;
-  disabled: boolean;
-  onAddFromBank: () => void;
-  onDelete: (id: string) => void;
-  onMove: (id: string, direction: "up" | "down") => void;
-  onSelect: (id: string) => void;
-  showAddFromBank: boolean;
-  sourceBankHref?: string;
-  sourceBankTitle?: string;
-  questions: QuizQuestionSnapshot[];
-}) {
-  const incompleteCount = questions.reduce(
-    (count, question) => count + (questionIssues(question).length > 0 ? 1 : 0),
-    0,
-  );
-
-  return (
-    <aside
-      aria-labelledby="quiz-inventory-title"
-      className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl border border-primary-100 bg-white p-3 md:p-4"
-    >
-      <div className="flex flex-col items-start gap-3">
-        <div className="flex w-full items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2
-              className="text-lg font-semibold text-secondary-900"
-              id="quiz-inventory-title"
-            >
-              Inventori soal
-            </h2>
-            <p className="mt-1 text-xs text-secondary-500">
-              {questions.length} soal
-              {incompleteCount > 0
-                ? ` · ${incompleteCount} perlu diperbaiki`
-                : ""}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            {showAddFromBank ? (
-              <Button
-                aria-label="Tambah soal dari Bank Soal"
-                disabled={disabled || bankPickerDisabled}
-                id="quiz-desktop-add-bank-question"
-                onClick={onAddFromBank}
-                size="sm"
-                type="button"
-                variant="brandOutline"
-              >
-                <Plus />
-                <span className="hidden lg:inline">Tambah Soal</span>
-              </Button>
-            ) : null}
-            {sourceBankHref ? (
-              <p className="max-w-[13rem] truncate text-right text-xs text-secondary-500">
-                {sourceBankTitle ? "Bank Soal: " : null}
-                <Link
-                  className="font-semibold text-primary-800 hover:underline"
-                  href={sourceBankHref}
-                  title={sourceBankTitle ?? "Bank Soal yang terhubung"}
-                >
-                  {sourceBankTitle ?? "Bank Soal yang terhubung"}
-                </Link>
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <nav
-        aria-label="Navigasi soal"
-        className="mt-3 flex min-h-0 flex-1 flex-col"
-      >
-        <div
-          className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1"
-          id="quiz-inventory-list"
-        >
-          <ul aria-label="Daftar soal" className="flex flex-col gap-1.5">
-            {questions.length > 0 ? (
-              questions.map((question, index) => {
-                const issueCount = questionIssues(question).length;
-                const isActive = activeQuestionId === question.id;
-                return (
-                  <li
-                    className={cn(
-                      "group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors",
-                      isActive
-                        ? "border-primary-200 bg-primary-50"
-                        : issueCount > 0
-                          ? "border-warning-300 bg-warning-50/70 hover:border-warning-400 hover:bg-warning-50"
-                          : "hover:border-primary-100 hover:bg-primary-50/60",
-                    )}
-                    key={question.id}
-                  >
-                    <button
-                      aria-current={isActive ? "true" : undefined}
-                      aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
-                      className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                      id={`quiz-question-select-${question.id}`}
-                      onClick={() => onSelect(question.id)}
-                      type="button"
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900">
-                        <span className="min-w-0 flex-1 truncate">
-                          {index + 1}.{" "}
-                          {question.prompt || "Soal tanpa pertanyaan"}
-                        </span>
-                      </span>
-                      {issueCount > 0 ? (
-                        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                          <MentorBadge
-                            aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`}
-                            className="size-7 justify-center !px-0 !py-0"
-                            role="img"
-                            size="xs"
-                            title={`Soal ${index + 1} memiliki ${issueCount} masalah`}
-                            tone="attention"
-                          >
-                            <AlertTriangle
-                              aria-hidden="true"
-                              className="size-3.5 shrink-0"
-                            />
-                          </MentorBadge>
-                        </span>
-                      ) : null}
-                    </button>
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      <Button
-                        aria-label={`Pindah soal ${index + 1} ke atas`}
-                        disabled={disabled || index === 0}
-                        onClick={() => onMove(question.id, "up")}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ArrowUp className="size-3.5" />
-                      </Button>
-                      <Button
-                        aria-label={`Pindah soal ${index + 1} ke bawah`}
-                        disabled={disabled || index === questions.length - 1}
-                        onClick={() => onMove(question.id, "down")}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ArrowDown className="size-3.5" />
-                      </Button>
-                      <Button
-                        aria-label={`Hapus soal ${index + 1}`}
-                        disabled={disabled}
-                        onClick={() => onDelete(question.id)}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })
-            ) : (
-              <li className="px-2 py-4 text-sm leading-6 text-secondary-500">
-                Belum ada soal di Kuis ini.
-              </li>
-            )}
-          </ul>
-        </div>
-      </nav>
-    </aside>
-  );
-}
-
-function QuizMobileInventory({
-  activeQuestionId,
-  bankPickerDisabled,
-  disabled,
-  onAddFromBank,
-  onDelete,
-  onMove,
-  onSelect,
-  showAddFromBank,
-  sourceBankHref,
-  sourceBankTitle,
-  questions,
-}: {
-  activeQuestionId: string | null;
-  bankPickerDisabled: boolean;
-  disabled: boolean;
-  onAddFromBank: () => void;
-  onDelete: (id: string) => void;
-  onMove: (id: string, direction: "up" | "down") => void;
-  onSelect: (id: string) => void;
-  showAddFromBank: boolean;
-  sourceBankHref?: string;
-  sourceBankTitle?: string;
-  questions: QuizQuestionSnapshot[];
-}) {
-  const activeIndex = Math.max(
-    questions.findIndex((question) => question.id === activeQuestionId),
-    0,
-  );
-  const activeQuestion = questions[activeIndex] ?? questions[0];
-  const incompleteCount = questions.reduce(
-    (count, question) => count + (questionIssues(question).length > 0 ? 1 : 0),
-    0,
-  );
-
-  return (
-    <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 shadow-xs md:hidden">
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="Pilih soal yang sedang ditinjau"
-            id="quiz-mobile-question-picker-trigger"
-            render={
-              <Button
-                className={cn(
-                  REFERENCE_CONTROL_CLASS_NAMES.select,
-                  "min-w-0 flex-1",
-                )}
-                disabled={questions.length === 0}
-                type="button"
-                variant="reference"
-              />
-            }
-          >
-            <span className="min-w-0 truncate">
-              {activeQuestion
-                ? `${activeIndex + 1}. ${activeQuestion.prompt || "Soal tanpa pertanyaan"}`
-                : "Belum ada soal"}
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-secondary-400" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="max-h-[60vh] w-[calc(100vw-4.5rem)] max-w-sm overflow-y-auto"
-          >
-            <DropdownMenuLabel>Pilih soal</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              onValueChange={onSelect}
-              value={activeQuestionId ?? undefined}
-            >
-              {questions.map((question, index) => {
-                const issueCount = questionIssues(question).length;
-                return (
-                  <QuestionMobileInventoryOption
-                    issueCount={issueCount}
-                    key={question.id}
-                    prompt={question.prompt}
-                    questionNumber={index + 1}
-                    value={question.id}
-                  />
-                );
-              })}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {showAddFromBank ? (
-            <Button
-              aria-label="Tambah soal dari Bank Soal"
-              disabled={disabled || bankPickerDisabled}
-              id="quiz-mobile-add-bank-question"
-              onClick={onAddFromBank}
-              size="default"
-              type="button"
-              variant="brandOutline"
-            >
-              <Plus />
-              <span className="hidden sm:inline">Tambah Soal</span>
-            </Button>
-          ) : null}
-          {sourceBankHref ? (
-            <p className="max-w-[11rem] truncate text-right text-xs text-secondary-500">
-              {sourceBankTitle ? "Bank Soal: " : null}
-              <Link
-                className="font-semibold text-primary-800 hover:underline"
-                href={sourceBankHref}
-                title={sourceBankTitle ?? "Bank Soal yang terhubung"}
-              >
-                {sourceBankTitle ?? "Bank Soal yang terhubung"}
-              </Link>
-            </p>
-          ) : null}
-        </div>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500">
-          <span>{questions.length} soal di Kuis</span>
-          {incompleteCount > 0 ? (
-            <span className="font-semibold text-warning-900">
-              {incompleteCount} perlu diperbaiki
-            </span>
-          ) : null}
-        </div>
-        {activeQuestion ? (
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              aria-label={`Pindah soal ${activeIndex + 1} ke atas`}
-              disabled={disabled || activeIndex <= 0}
-              onClick={() => onMove(activeQuestion.id, "up")}
-              size="icon"
-              title="Pindah ke atas"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowUp aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label={`Pindah soal ${activeIndex + 1} ke bawah`}
-              disabled={
-                disabled ||
-                activeIndex < 0 ||
-                activeIndex >= questions.length - 1
-              }
-              onClick={() => onMove(activeQuestion.id, "down")}
-              size="icon"
-              title="Pindah ke bawah"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowDown aria-hidden="true" />
-            </Button>
-            <Button
-              aria-label={`Hapus soal ${activeIndex + 1}`}
-              disabled={disabled}
-              onClick={() => onDelete(activeQuestion.id)}
-              size="icon"
-              title="Hapus soal"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 aria-hidden="true" />
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function withCorrectChoiceIds(
-  question: QuizEditorQuestion,
-  selectedIds: readonly string[],
-): QuizEditorQuestion {
-  const selected = new Set(selectedIds);
-  const correctChoiceIds = question.choices
-    .filter((choice) => selected.has(choice.id))
-    .map((choice) => choice.id);
-  return {
-    ...question,
-    correctChoiceId: correctChoiceIds[0] ?? "",
-    correctChoiceIds,
-  };
-}
-
 function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
   const correctChoiceIds = correctChoiceIdsFor(question);
   return (
@@ -672,430 +274,6 @@ function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
           ) : null}
         </div>
       ) : null}
-    </ReferenceSurface>
-  );
-}
-
-function setQuestionMediaAsset(
-  question: QuizEditorQuestion,
-  target: QuizQuestionMediaTarget,
-  assetId: string | undefined,
-): QuizEditorQuestion {
-  if (target.questionId !== question.id) return question;
-  if (target.field === "prompt") {
-    const next = { ...question };
-    if (assetId) next.promptMediaAssetId = assetId;
-    else delete next.promptMediaAssetId;
-    return next;
-  }
-  if (target.field === "explanation") {
-    const next = { ...question };
-    if (assetId) next.explanationMediaAssetId = assetId;
-    else delete next.explanationMediaAssetId;
-    return next;
-  }
-  return {
-    ...question,
-    choices: question.choices.map((choice) => {
-      if (choice.id !== target.choiceId) return choice;
-      const next = { ...choice };
-      if (assetId) next.mediaAssetId = assetId;
-      else delete next.mediaAssetId;
-      return next;
-    }),
-  };
-}
-
-function QuizQuestionMediaActions({
-  assetId,
-  compact = false,
-  disabled,
-  label,
-  onOpen,
-  onRemove,
-}: {
-  assetId?: string;
-  compact?: boolean;
-  disabled: boolean;
-  label: string;
-  onOpen: () => void;
-  onRemove: () => void;
-}) {
-  const addLabel = `${assetId ? "Ganti" : "Tambah"} ${label.toLowerCase()}`;
-  const removeLabel = `Lepas ${label.toLowerCase()}`;
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Button
-        aria-label={addLabel}
-        disabled={disabled}
-        onClick={onOpen}
-        size={compact ? "icon-sm" : "sm"}
-        title={compact ? addLabel : undefined}
-        type="button"
-        variant="ghost"
-      >
-        <ImagePlus aria-hidden="true" />
-        {compact ? (
-          <span className="sr-only">{addLabel}</span>
-        ) : assetId ? (
-          "Ganti gambar"
-        ) : (
-          "Tambah gambar"
-        )}
-      </Button>
-      {assetId ? (
-        <Button
-          aria-label={removeLabel}
-          disabled={disabled}
-          onClick={onRemove}
-          size={compact ? "icon-sm" : "sm"}
-          title={compact ? removeLabel : undefined}
-          type="button"
-          variant="ghost"
-        >
-          <X aria-hidden="true" />
-          {compact ? <span className="sr-only">{removeLabel}</span> : "Lepas"}
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function QuizQuestionEditor({
-  disabled,
-  onOpenMedia,
-  question,
-  updateQuestion,
-}: {
-  disabled: boolean;
-  onOpenMedia: (target: QuizQuestionMediaTarget) => void;
-  question: QuizEditorQuestion;
-  updateQuestion: (
-    questionId: string,
-    update: (current: QuizEditorQuestion) => QuizEditorQuestion,
-  ) => void;
-}) {
-  const questionType = questionTypeFor(question);
-  const correctChoiceIds = correctChoiceIdsFor(question);
-  const promptMediaTarget: QuizQuestionMediaTarget = {
-    field: "prompt",
-    label: "Gambar pertanyaan",
-    questionId: question.id,
-  };
-  const explanationMediaTarget: QuizQuestionMediaTarget = {
-    field: "explanation",
-    label: "Gambar penjelasan",
-    questionId: question.id,
-  };
-
-  return (
-    <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 md:p-6">
-      <Field>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <FieldLabel
-            className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-            htmlFor={`quiz-question-${question.id}-prompt`}
-            required
-          >
-            Pertanyaan
-          </FieldLabel>
-          <QuizQuestionMediaActions
-            assetId={question.promptMediaAssetId}
-            disabled={disabled}
-            label="Gambar pertanyaan"
-            onOpen={() => onOpenMedia(promptMediaTarget)}
-            onRemove={() =>
-              updateQuestion(question.id, (current) =>
-                setQuestionMediaAsset(current, promptMediaTarget, undefined),
-              )
-            }
-          />
-        </div>
-        <FieldTextarea
-          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[160px] resize-y`}
-          disabled={disabled}
-          id={`quiz-question-${question.id}-prompt`}
-          onChange={(event) =>
-            updateQuestion(question.id, (current) => ({
-              ...current,
-              prompt: event.target.value,
-            }))
-          }
-          required
-          value={question.prompt}
-        />
-        {question.promptMediaAssetId ? (
-          <MediaAssetPreview
-            alt="Gambar pertanyaan"
-            assetId={question.promptMediaAssetId}
-            className="max-h-48 bg-white"
-          />
-        ) : null}
-      </Field>
-
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor={`quiz-question-${question.id}-type`}
-          required
-        >
-          Jenis soal
-        </FieldLabel>
-        <ReferenceSelect
-          disabled={disabled}
-          id={`quiz-question-${question.id}-type`}
-          onValueChange={(value) => {
-            const nextType =
-              value === "multiple_choice" ? "multiple_choice" : "single_choice";
-            updateQuestion(question.id, (current) => {
-              const selectedIds = correctChoiceIdsFor(current);
-              return withCorrectChoiceIds(
-                {
-                  ...current,
-                  questionType: nextType,
-                },
-                nextType === "single_choice"
-                  ? selectedIds.slice(0, 1)
-                  : selectedIds,
-              );
-            });
-          }}
-          options={[
-            { label: "Pilihan ganda", value: "single_choice" },
-            { label: "Pilihan ganda kompleks", value: "multiple_choice" },
-          ]}
-          required
-          value={questionType}
-        />
-      </Field>
-
-      <fieldset
-        aria-required="true"
-        className="grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2"
-        disabled={disabled}
-      >
-        <legend
-          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "col-span-full")}
-        >
-          Pilihan jawaban{" "}
-          <span aria-hidden="true" className="text-student-status-danger-fg">
-            *
-          </span>
-        </legend>
-        {question.choices.map((choice, index) => {
-          const optionLabel = String.fromCharCode(65 + index);
-          const answerInputId = `quiz-question-${question.id}-answer-${choice.id}`;
-          const textInputId = `quiz-question-${question.id}-choice-${choice.id}`;
-          const mediaTarget: QuizQuestionMediaTarget = {
-            choiceId: choice.id,
-            field: "choice",
-            label: `Gambar opsi ${optionLabel}`,
-            questionId: question.id,
-          };
-          const isCorrect = correctChoiceIds.includes(choice.id);
-          return (
-            <div
-              className={cn(
-                REFERENCE_CONTROL_CLASS_NAMES.choice,
-                "min-w-0 flex-col items-stretch gap-3 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50",
-                disabled && "cursor-not-allowed opacity-55",
-              )}
-              key={choice.id}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <input
-                  aria-describedby={`quiz-question-${question.id}-answer-hint`}
-                  aria-label={`Opsi ${optionLabel} adalah jawaban benar`}
-                  checked={isCorrect}
-                  className="size-4 shrink-0 accent-primary-700 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                  id={answerInputId}
-                  name={`quiz-question-${question.id}-answer`}
-                  onChange={(event) =>
-                    updateQuestion(question.id, (current) => {
-                      const selectedIds = correctChoiceIdsFor(current);
-                      const nextIds =
-                        questionTypeFor(current) === "single_choice"
-                          ? [choice.id]
-                          : event.target.checked
-                            ? [...selectedIds, choice.id]
-                            : selectedIds.filter((id) => id !== choice.id);
-                      return withCorrectChoiceIds(current, nextIds);
-                    })
-                  }
-                  type={
-                    questionType === "multiple_choice" ? "checkbox" : "radio"
-                  }
-                  value={choice.id}
-                />
-                <span className="text-sm font-semibold text-primary-800">
-                  {optionLabel}
-                </span>
-                <input
-                  aria-label={`Opsi ${optionLabel}`}
-                  className={cn(
-                    REFERENCE_CONTROL_CLASS_NAMES.input,
-                    "min-w-0 flex-1 bg-transparent py-2",
-                  )}
-                  disabled={disabled}
-                  id={textInputId}
-                  onChange={(event) =>
-                    updateQuestion(question.id, (current) => ({
-                      ...current,
-                      choices: current.choices.map((currentChoice) =>
-                        currentChoice.id === choice.id
-                          ? { ...currentChoice, text: event.target.value }
-                          : currentChoice,
-                      ),
-                    }))
-                  }
-                  placeholder={`Opsi ${optionLabel}`}
-                  required
-                  value={choice.text}
-                />
-                <QuizQuestionMediaActions
-                  assetId={choice.mediaAssetId}
-                  compact
-                  disabled={disabled}
-                  label={`Gambar opsi ${optionLabel}`}
-                  onOpen={() => onOpenMedia(mediaTarget)}
-                  onRemove={() =>
-                    updateQuestion(question.id, (current) =>
-                      setQuestionMediaAsset(current, mediaTarget, undefined),
-                    )
-                  }
-                />
-                <Button
-                  aria-label={`Hapus opsi ${optionLabel}`}
-                  disabled={disabled || question.choices.length <= 2}
-                  onClick={() =>
-                    updateQuestion(question.id, (current) => {
-                      const choices = current.choices.filter(
-                        (currentChoice) => currentChoice.id !== choice.id,
-                      );
-                      return withCorrectChoiceIds(
-                        { ...current, choices },
-                        correctChoiceIdsFor(current).filter(
-                          (id) => id !== choice.id,
-                        ),
-                      );
-                    })
-                  }
-                  size="icon-sm"
-                  title={`Hapus opsi ${optionLabel}`}
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trash2 aria-hidden="true" />
-                </Button>
-              </div>
-              {choice.mediaAssetId ? (
-                <MediaAssetPreview
-                  alt={`Gambar opsi ${optionLabel}`}
-                  assetId={choice.mediaAssetId}
-                  className="max-h-36 bg-white"
-                />
-              ) : null}
-            </div>
-          );
-        })}
-      </fieldset>
-      <div className="flex justify-end">
-        <Button
-          disabled={disabled || question.choices.length >= 5}
-          onClick={() => {
-            const choiceId = crypto.randomUUID();
-            updateQuestion(question.id, (current) => ({
-              ...current,
-              choices: [...current.choices, { id: choiceId, text: "" }],
-            }));
-          }}
-          size="sm"
-          type="button"
-          variant="brandOutline"
-        >
-          <Plus aria-hidden="true" />
-          Tambah opsi
-        </Button>
-      </div>
-
-      <Field>
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor={`quiz-question-${question.id}-difficulty`}
-          required
-        >
-          Tingkat kesulitan
-        </FieldLabel>
-        <ReferenceSelect
-          disabled={disabled}
-          id={`quiz-question-${question.id}-difficulty`}
-          onValueChange={(value) => {
-            const difficulty: QuizQuestionDifficulty =
-              value === "easy" || value === "hard" || value === "adaptive"
-                ? value
-                : "medium";
-            updateQuestion(question.id, (current) => ({
-              ...current,
-              difficulty,
-            }));
-          }}
-          options={[
-            { label: "Mudah", value: "easy" },
-            { label: "Sedang", value: "medium" },
-            { label: "Sulit", value: "hard" },
-            { label: "Adaptif", value: "adaptive" },
-          ]}
-          required
-          value={question.difficulty}
-        />
-      </Field>
-
-      <div className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
-        <Field>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor={`quiz-question-${question.id}-explanation`}
-            >
-              Penjelasan
-            </FieldLabel>
-            <QuizQuestionMediaActions
-              assetId={question.explanationMediaAssetId}
-              disabled={disabled}
-              label="Gambar penjelasan"
-              onOpen={() => onOpenMedia(explanationMediaTarget)}
-              onRemove={() =>
-                updateQuestion(question.id, (current) =>
-                  setQuestionMediaAsset(
-                    current,
-                    explanationMediaTarget,
-                    undefined,
-                  ),
-                )
-              }
-            />
-          </div>
-          <FieldTextarea
-            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[120px] resize-y`}
-            disabled={disabled}
-            id={`quiz-question-${question.id}-explanation`}
-            onChange={(event) =>
-              updateQuestion(question.id, (current) => ({
-                ...current,
-                explanation: event.target.value,
-              }))
-            }
-            value={question.explanation}
-          />
-          {question.explanationMediaAssetId ? (
-            <MediaAssetPreview
-              alt="Gambar penjelasan"
-              assetId={question.explanationMediaAssetId}
-              className="max-h-48 bg-white"
-            />
-          ) : null}
-        </Field>
-      </div>
     </ReferenceSurface>
   );
 }
@@ -1521,7 +699,7 @@ function useQuizEditorState({
         setSavedQuiz(result.quiz);
         setHasUnsavedChanges(hadUnsavedChanges);
         setSaveError(null);
-      showToast("Revisi Bank Soal otomatis diterapkan ke Kuis.", {
+        showToast("Revisi Bank Soal otomatis diterapkan ke Kuis.", {
           variant: "success",
         });
         return true;
@@ -1694,8 +872,8 @@ function QuizEditHeader({
   subject?: (typeof kaptenSubjects)[number];
 }) {
   return (
-    <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+    <QuestionEditorHeader
+      backControl={
         <Button
           aria-label="Kembali ke detail Kuis"
           onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}`)}
@@ -1705,46 +883,15 @@ function QuizEditHeader({
         >
           <ChevronLeft />
         </Button>
-        <div className="flex min-w-0 items-center gap-2.5">
-          <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">
-            {state.form.title || "Kuis"}
-          </h1>
-          {state.hasUnsavedChanges ? (
-            <ReferenceStatusBadge
-              appearance="mentor"
-              label="Belum disimpan"
-              size="xs"
-              status="need_help"
-            />
-          ) : null}
-          {subject ? (
-            <MentorBadge
-              className="hidden sm:inline-flex"
-              size="xs"
-              tone="category"
-            >
-              {subject.code}
-            </MentorBadge>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
-        <Button
-          aria-busy={state.isSaving}
-          aria-label="Simpan"
-          disabled={state.isSaving || state.editorDisabled}
-          id="quiz-save-button"
-          onClick={() => void state.persistence.saveQuiz()}
-          size="sm"
-          title="Simpan perubahan"
-          type="button"
-          variant="brand"
-        >
-          <Save />
-          {state.isSaving ? "Menyimpan…" : "Simpan"}
-        </Button>
-      </div>
-    </header>
+      }
+      category={subject?.code}
+      dirty={state.hasUnsavedChanges}
+      onSave={() => void state.persistence.saveQuiz()}
+      saveDisabled={state.isSaving || state.editorDisabled}
+      saveId="quiz-save-button"
+      saving={state.isSaving}
+      title={state.form.title || "Kuis"}
+    />
   );
 }
 
@@ -1838,46 +985,35 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     </ReferenceSurface>
   );
 
+  const inventoryProps = {
+    activeQuestionId: state.activeQuestionId,
+    addDisabled: bankPickerDisabled,
+    addVisible: showAddFromBank,
+    countLabel: `${state.form.questions.length} soal di Kuis`,
+    disabled: state.editorDisabled,
+    emptyLabel: "Belum ada soal di Kuis ini.",
+    idPrefix: "quiz",
+    onAdd: () => state.setQuestionBankPickerOpen(true),
+    onDelete: state.setPendingDeleteId,
+    onMove: state.questionActions.moveQuestion,
+    onSelect: selectQuestion,
+    questions: state.form.questions.map((question) => ({
+      id: question.id,
+      prompt: question.prompt,
+      issueCount: questionIssues(question).length,
+    })),
+    sourceBankHref,
+    sourceBankTitle,
+  };
+
   return (
-    <>
-      <QuizMobileInventory
-        activeQuestionId={state.activeQuestionId}
-        bankPickerDisabled={bankPickerDisabled}
-        disabled={state.editorDisabled}
-        onAddFromBank={() => state.setQuestionBankPickerOpen(true)}
-        onDelete={state.setPendingDeleteId}
-        onMove={state.questionActions.moveQuestion}
-        onSelect={selectQuestion}
-        showAddFromBank={showAddFromBank}
-        sourceBankHref={sourceBankHref}
-        sourceBankTitle={sourceBankTitle}
-        questions={state.form.questions}
-      />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
-          <QuestionInventory
-            activeQuestionId={state.activeQuestionId}
-            bankPickerDisabled={bankPickerDisabled}
-            disabled={state.editorDisabled}
-            onAddFromBank={() => state.setQuestionBankPickerOpen(true)}
-            onDelete={state.setPendingDeleteId}
-            onMove={state.questionActions.moveQuestion}
-            onSelect={selectQuestion}
-            showAddFromBank={showAddFromBank}
-            sourceBankHref={sourceBankHref}
-            sourceBankTitle={sourceBankTitle}
-            questions={state.form.questions}
-          />
-        </div>
-        <main
-          className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"
-          id="quiz-question-editor-main"
-          tabIndex={-1}
-        >
-          <div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div>
-        </main>
-      </div>
-    </>
+    <QuestionEditorWorkspace
+      inventory={<EditorQuestionInventory {...inventoryProps} />}
+      mainId="quiz-question-editor-main"
+      mobileInventory={<EditorMobileInventory {...inventoryProps} />}
+    >
+      {questionEditor}
+    </QuestionEditorWorkspace>
   );
 }
 function focusFirstAvailableQuizEditorControl(ids: readonly string[]) {
@@ -2031,7 +1167,7 @@ function QuizEditorDialogs({ state }: { state: QuizEditorState }) {
               }}
               variant="destructive"
             >
-              Keluar tanpa menyimpan
+              Keluar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2051,10 +1187,7 @@ function QuizEditWorkspace({
     (item) => item.code === state.form.subjectCode,
   );
   return (
-    <div
-      className="flex h-screen flex-col overflow-hidden bg-voyage-canvas"
-      data-quiz-editor-shell="full-page"
-    >
+    <QuestionEditorPageShell marker="quiz">
       <QuizEditHeader quizId={quizId} state={state} subject={subject} />
       <ResourceAuthoringLockBanner
         hasLocalChanges={state.hasUnsavedChanges}
@@ -2065,7 +1198,7 @@ function QuizEditWorkspace({
       <QuizEditorFeedback scheduleError={state.scheduleError} />
       <QuizEditQuestionArea state={state} />
       <QuizEditorDialogs state={state} />
-    </div>
+    </QuestionEditorPageShell>
   );
 }
 

@@ -47,13 +47,13 @@ function failedResult(error: unknown): Extract<MateriActionResult, { ok: false }
   }
 
   console.error("Materi mutation failed", error);
-  return { message: "Lesson tidak dapat disimpan saat ini. Coba lagi.", ok: false };
+  return { message: "Materi belum berhasil disimpan. Coba lagi.", ok: false };
 }
 
 function failedBulkResult(error: unknown): Extract<MateriBulkActionResult, { ok: false }> {
   if (error instanceof MateriValidationError) return { message: error.message, ok: false };
   console.error("Materi bulk lifecycle mutation failed", error);
-  return { message: "Status lesson tidak dapat diubah saat ini. Coba lagi.", ok: false };
+  return { message: "Status materi belum berhasil diubah. Coba lagi.", ok: false };
 }
 
 async function saveMateriLessonAction(input: SaveMateriLessonInput): Promise<MateriActionResult> {
@@ -64,7 +64,7 @@ async function saveMateriLessonAction(input: SaveMateriLessonInput): Promise<Mat
   try {
     const lesson = await saveMateriLesson(input, session.user.id);
     const view = toKaptenMateriEditorView(lesson);
-    if (!view) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
+    if (!view) throw new Error("Materi tersimpan, tetapi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
     return { lesson: view, message: lesson.lifecycleStatus === "published" ? "Perubahan terbit telah disimpan." : "Draf tersimpan.", ok: true };
   } catch (error) {
@@ -77,9 +77,9 @@ async function publishMateriLessonAction(code: string, editLease?: AuthoringEdit
   try {
     const lesson = await publishMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
-    if (!view) throw new Error("Lesson diterbitkan tetapi tidak dapat dimuat ulang.");
+    if (!view) throw new Error("Materi diterbitkan, tetapi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: "Lesson telah diterbitkan dan tersedia untuk siswa.", ok: true };
+    return { lesson: view, message: "Materi berhasil diterbitkan dan tersedia untuk siswa.", ok: true };
   } catch (error) {
     return failedResult(error);
   }
@@ -90,9 +90,9 @@ async function unpublishMateriLessonAction(code: string, editLease?: AuthoringEd
   try {
     const lesson = await unpublishMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
-    if (!view) throw new Error("Status lesson tidak dapat dimuat ulang.");
+    if (!view) throw new Error("Status materi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: "Penerbitan lesson dibatalkan. Lesson kembali menjadi draf.", ok: true };
+    return { lesson: view, message: "Penerbitan materi dibatalkan. Materi kembali menjadi draf.", ok: true };
   } catch (error) {
     return failedResult(error);
   }
@@ -103,9 +103,9 @@ async function archiveMateriLessonAction(code: string, editLease?: AuthoringEdit
   try {
     const lesson = await archiveMateriLesson(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
-    if (!view) throw new Error("Lesson diarsipkan tetapi tidak dapat dimuat ulang.");
+    if (!view) throw new Error("Materi diarsipkan, tetapi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: "Lesson telah diarsipkan.", ok: true };
+    return { lesson: view, message: "Materi berhasil diarsipkan.", ok: true };
   } catch (error) {
     return failedResult(error);
   }
@@ -116,9 +116,9 @@ async function returnMateriLessonToDraftAction(code: string, editLease?: Authori
   try {
     const lesson = await returnMateriLessonToDraft(code, session.user.id, editLease);
     const view = toKaptenMateriEditorView(lesson);
-    if (!view) throw new Error("Status lesson tidak dapat dimuat ulang.");
+    if (!view) throw new Error("Status materi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: "Lesson dikembalikan ke draf.", ok: true };
+    return { lesson: view, message: "Materi dikembalikan ke draf.", ok: true };
   } catch (error) {
     return failedResult(error);
   }
@@ -129,7 +129,7 @@ async function bulkPublishMateriLessonsAction(subjectSlug: string, codes: string
   try {
     const result = await bulkPublishMateriLessons({ codes, subjectSlug }, session.user.id);
     revalidateMateriPaths(subjectSlug, result.codes);
-    return { affectedCodes: result.codes, message: `${result.codes.length} lesson telah diterbitkan.`, ok: true, status: "published" };
+    return { affectedCodes: result.codes, message: `${result.codes.length} materi berhasil diterbitkan.`, ok: true, status: "published" };
   } catch (error) {
     return failedBulkResult(error);
   }
@@ -140,7 +140,7 @@ async function bulkUnpublishMateriLessonsAction(subjectSlug: string, codes: stri
   try {
     const result = await bulkUnpublishMateriLessons({ codes, subjectSlug }, session.user.id);
     revalidateMateriPaths(subjectSlug, result.codes);
-    return { affectedCodes: result.codes, message: `${result.codes.length} lesson kembali menjadi draf.`, ok: true, status: "draft" };
+    return { affectedCodes: result.codes, message: `${result.codes.length} materi dikembalikan ke draf.`, ok: true, status: "draft" };
   } catch (error) {
     return failedBulkResult(error);
   }

@@ -183,7 +183,7 @@ function useParticipantResultLoader(attemptId: string) {
     } catch (loadResultError) {
       unstable_rethrow(loadResultError);
       setLoadState("error");
-      setLoadError(loadResultError instanceof Error ? loadResultError.message : "Hasil Tryout belum dapat dimuat.");
+      setLoadError("Hasil Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi.");
     }
   }, [attemptId]);
 
@@ -207,14 +207,14 @@ function ParticipantResultLoadState({
   safeReturnHref: string;
 }) {
   if (loadState === "error") {
-    return <TypedRouteState className="student-page-canvas" context="Konteks percobaan tetap dipertahankan saat kamu mencoba lagi." description={loadError ?? "Hasil Tryout belum dapat dimuat. Coba lagi untuk memeriksa layanan Tryout."} kind="error" onRetry={() => void load()} returnHref={safeReturnHref} returnLabel="Kembali ke Tryout" title="Hasil Tryout belum dapat dimuat" />;
+    return <TypedRouteState className="student-page-canvas" context="Data pengerjaan tetap ada saat kamu mencoba lagi." description={loadError ?? "Hasil Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi."} kind="error" onRetry={() => void load()} returnHref={safeReturnHref} returnLabel="Kembali ke Tryout" title="Hasil Tryout belum dapat dimuat" />;
   }
 
   return <TypedRouteState className="student-page-canvas" description="Memeriksa hasil percobaan Tryout dari server. Hasil belum dianggap tersedia sebelum pemeriksaan selesai." kind="loading" title="Menyiapkan hasil Tryout" />;
 }
 
 function ParticipantResultPendingState({ load, safeReturnHref, status }: { load: () => Promise<void>; safeReturnHref: string; status: string }) {
-  return <main className="student-page-canvas min-h-svh px-5 py-14"><div className="mx-auto max-w-2xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center sm:p-10"><Clock className="mx-auto text-5xl text-primary-700" /><p className="mt-5 text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Hasil tersimpan</p><h1 className="mt-2 font-heading text-3xl font-semibold tracking-[-0.035em]">Hasil belum dibuka</h1><p className="mt-3 text-sm leading-6 text-secondary-600">{status}</p><div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><Button onClick={() => void load()} variant="brand">Periksa lagi</Button><BackButton href={safeReturnHref} label="Kembali ke tryout" variant="brandOutline"><ArrowLeft /></BackButton></div></div></main>;
+  return <main className="student-page-canvas min-h-svh px-5 py-14"><div className="mx-auto max-w-2xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center sm:p-10"><Clock className="mx-auto text-5xl text-primary-700" /><p className="mt-5 text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Hasil tersimpan</p><h1 className="mt-2 font-heading text-3xl font-semibold tracking-[-0.035em]">Hasil belum dibuka</h1><p className="mt-3 text-sm leading-6 text-secondary-600">{status}</p><div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><Button onClick={() => void load()} variant="brand">Periksa lagi</Button><BackButton href={safeReturnHref} label="Kembali ke Tryout" variant="brandOutline"><ArrowLeft /></BackButton></div></div></main>;
 }
 
 function ParticipantResultSummary({ model, result }: { model: ParticipantResultModel; result: ReleasedResult }) {
@@ -290,7 +290,7 @@ function ParticipantResultReviewPanel({
   reportedQuestions: number[];
 }) {
   if (!model.question) {
-    return <main className="student-page-canvas flex min-h-svh items-center justify-center px-5 py-10"><section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-10" role="status"><CircleAlert aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" /><h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1><p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat ditinjau dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p><Button className="mt-6" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brand"><ArrowLeft />Kembali ke tryout</Button></section></main>;
+    return <main className="student-page-canvas flex min-h-svh items-center justify-center px-5 py-10"><section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-10" role="status"><CircleAlert aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" /><h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1><p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat ditinjau dari paket hasil ini. Kembali ke menu Tryout untuk melihat aktivitas lain.</p><Button className="mt-6" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brand"><ArrowLeft />Kembali ke Tryout</Button></section></main>;
   }
   return <ParticipantResultQuestionReview {...props} currentQuestion={props.currentQuestion} onNext={props.onNext} onPrevious={props.onPrevious} onPrint={props.onPrint} onToggleReport={props.onToggleReport} question={model.question} questionCount={model.reviewItems.length} reportedQuestions={props.reportedQuestions} />;
 }
@@ -317,7 +317,7 @@ function ParticipantReleasedResult({ result, safeReturnHref }: { result: Release
     onToggleReport: toggleReport,
     reportedQuestions,
   };
-  return <AssessmentResultWorkspace headerActions={<><Button className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brandOutline"><RefreshCw />Ulangi</Button><Button aria-label="Kembali ke menu tryout" className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} title="Kembali ke menu tryout" variant="brand"><House />Menu</Button></>} navigation={<AssessmentResultNavigation items={getParticipantResultNavigationItems(model.reviewItems, currentQuestion)} label="Ringkasan soal" onSelect={setCurrentQuestion} />} score={result.finalScore} scoreLabel="Skor Akhir" summary={<ParticipantResultSummary model={model} result={result} />} title={result.tryoutTitle}><div className="space-y-5"><ParticipantResultReviewPanel model={model} safeReturnHref={safeReturnHref} {...reviewProps} /><ParticipantResultPerformance runMetrics={model.runMetrics} /><ParticipantResultFocus weakRuns={model.weakRuns} /></div></AssessmentResultWorkspace>;
+  return <AssessmentResultWorkspace headerActions={<><Button className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} variant="brandOutline"><RefreshCw />Lihat daftar Tryout</Button><Button aria-label="Kembali ke menu Tryout" className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} title="Kembali ke menu Tryout" variant="brand"><House />Menu</Button></>} navigation={<AssessmentResultNavigation items={getParticipantResultNavigationItems(model.reviewItems, currentQuestion)} label="Ringkasan soal" onSelect={setCurrentQuestion} />} score={result.finalScore} scoreLabel="Skor Akhir" summary={<ParticipantResultSummary model={model} result={result} />} title={result.tryoutTitle}><div className="space-y-5"><ParticipantResultReviewPanel model={model} safeReturnHref={safeReturnHref} {...reviewProps} /><ParticipantResultPerformance runMetrics={model.runMetrics} /><ParticipantResultFocus weakRuns={model.weakRuns} /></div></AssessmentResultWorkspace>;
 }
 
 function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {

@@ -577,7 +577,7 @@ function QuestionBankCsvImportControl({
   return (
     <>
       <Button
-        aria-label="Upload CSV"
+        aria-label="Unggah file CSV"
         className="w-full"
         disabled={disabled || !editLease}
         onClick={() => setOpen(true)}
@@ -585,7 +585,7 @@ function QuestionBankCsvImportControl({
         variant="brandOutline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
-        Upload CSV
+        Unggah file CSV
       </Button>
       <QuestionBankCsvImportDialog
         bankId={bankId}

@@ -70,39 +70,39 @@ type ImportPreviewErrorCode =
   | "import_not_found";
 
 const ERROR_MESSAGES: Readonly<Record<ImportPreviewErrorCode | "column_count_mismatch", string>> = {
-  ambiguous_exam: "More than one active exam matches this name.",
-  ambiguous_existing_user: "More than one account matches this email.",
-  column_count_mismatch: "The row has the wrong number of columns.",
-  csv_empty_file: "The CSV must include a header and at least one data row.",
-  csv_header_mismatch: "The CSV header does not match the selected template.",
-  csv_invalid_utf8: "The CSV must be valid UTF-8.",
-  csv_malformed: "The CSV contains malformed quoted data.",
-  csv_row_limit: "The CSV contains more than 500 data rows.",
-  duplicate_email_in_file: "This email appears more than once in the CSV.",
-  exam_not_found: "No active exam matches this name.",
-  field_contains_control_character: "A field contains an unsupported control character.",
-  field_too_long: "A field exceeds the allowed length.",
-  inactive_account: "The matching account is not active.",
-  import_not_draft: "This draft is no longer editable.",
-  invalid_handoff_method: "Choose a supported handoff method.",
-  invalid_import_role: "The import role is invalid.",
-  invalid_import_template: "The import template is invalid for this role.",
-  invalid_import_state: "This import is not ready for confirmation.",
-  invalid_rows_pending_skip: "This bulk import is blocked because the CSV contains invalid rows. Correct the CSV and upload a new file; no rows will be imported.",
-  invalid_email: "Enter a valid email address.",
-  invalid_role: "Choose a supported import role.",
-  invalid_template: "Choose a supported import template.",
-  missing_required_field: "A required field is missing.",
-  managed_preview_fixture: "Managed preview fixtures cannot be changed through enrollment imports.",
-  multipart_invalid: "The multipart request is invalid.",
-  opposite_role: "The email belongs to an account with the opposite role.",
-  request_too_large: "The upload exceeds the 2 MiB request limit.",
-  revoked_role: "The matching role assignment is revoked.",
-  role_conflict: "The email cannot be used for this role.",
-  soft_deleted_user: "The matching account has been deleted.",
-  rows_required: "Select at least one invalid row.",
-  row_selection_invalid: "The selected rows are invalid.",
-  import_not_found: "The import could not be found.",
+  ambiguous_exam: "Ada lebih dari satu ujian aktif dengan nama ini. Periksa nama ujian pada daftar.",
+  ambiguous_existing_user: "Ada lebih dari satu akun yang menggunakan alamat email ini. Periksa kembali alamatnya.",
+  column_count_mismatch: "Jumlah nilai di baris ini berbeda dari jumlah kolom. Periksa isi file CSV lalu unggah kembali.",
+  csv_empty_file: "File CSV harus berisi judul kolom dan setidaknya satu baris data.",
+  csv_header_mismatch: "Nama kolom di file CSV tidak sesuai dengan templat yang dipilih. Unduh templat yang benar lalu unggah kembali.",
+  csv_invalid_utf8: "File CSV belum bisa dibaca. Simpan ulang sebagai file CSV standar lalu unggah kembali.",
+  csv_malformed: "File CSV berisi tanda kutip yang tidak sesuai. Periksa isi file lalu unggah kembali.",
+  csv_row_limit: "File CSV berisi lebih dari 500 baris data. Kurangi jumlah baris lalu unggah kembali.",
+  duplicate_email_in_file: "Alamat email ini muncul lebih dari sekali di file CSV.",
+  exam_not_found: "Tidak ada ujian aktif dengan nama ini. Periksa nama ujian pada daftar.",
+  field_contains_control_character: "Kolom berisi karakter yang tidak didukung. Hapus karakter tersebut lalu coba lagi.",
+  field_too_long: "Isi kolom terlalu panjang. Persingkat isinya lalu coba lagi.",
+  inactive_account: "Akun dengan alamat email ini tidak aktif.",
+  import_not_draft: "Draf ini tidak lagi bisa diedit.",
+  invalid_handoff_method: "Pilih cara pemberian akses yang tersedia.",
+  invalid_import_role: "Jenis akun yang dipilih tidak sesuai. Pilih kembali jenis akun dan templatnya.",
+  invalid_import_template: "Templat CSV tidak sesuai dengan jenis akun yang dipilih. Unduh templat yang benar lalu unggah kembali.",
+  invalid_import_state: "Impor ini belum siap dimulai. Segarkan halaman lalu periksa statusnya.",
+  invalid_rows_pending_skip: "Impor massal tidak dapat dilanjutkan karena ada baris yang tidak valid. Perbaiki data lalu unggah file baru. Belum ada akun yang diubah.",
+  invalid_email: "Masukkan alamat email yang valid.",
+  invalid_role: "Pilih jenis akun yang tersedia.",
+  invalid_template: "Pilih templat CSV yang tersedia.",
+  missing_required_field: "Lengkapi kolom yang wajib diisi.",
+  managed_preview_fixture: "Akun contoh untuk pratinjau admin tidak dapat diubah melalui impor.",
+  multipart_invalid: "File tidak dapat diproses. Periksa formatnya lalu unggah kembali.",
+  opposite_role: "Alamat email ini sudah digunakan untuk jenis akun lain.",
+  request_too_large: "Ukuran file melewati batas 2 MB. Pilih file yang lebih kecil.",
+  revoked_role: "Akun dengan alamat email ini sudah tidak aktif untuk jenis akun tersebut.",
+  role_conflict: "Alamat email ini tidak dapat digunakan untuk jenis akun yang dipilih.",
+  soft_deleted_user: "Akun dengan alamat email ini sudah dihapus dan tidak dapat diperbarui.",
+  rows_required: "Pilih setidaknya satu baris yang perlu ditinjau.",
+  row_selection_invalid: "Pilihan berisi baris yang tidak dapat diproses. Segarkan halaman lalu pilih ulang.",
+  import_not_found: "Impor ini sudah tidak tersedia.",
 };
 
 class EnrollmentImportPreviewError extends Error {
@@ -276,8 +276,8 @@ class EnrollmentImportCancellationError extends Error {
   constructor(
     code: EnrollmentImportCancellationError["code"],
     message = code === "import_not_found"
-      ? "The import could not be found."
-      : "Only a draft import can be cancelled.",
+      ? "Impor ini sudah tidak tersedia."
+      : "Hanya draf yang masih bisa dibatalkan.",
   ) {
     super(message);
     this.name = "EnrollmentImportCancellationError";
@@ -293,7 +293,7 @@ function errorMessage(code: string | null) {
   if (!code) {
     return null;
   }
-  const message = ERROR_MESSAGES[code as keyof typeof ERROR_MESSAGES] ?? "This row needs review.";
+  const message = ERROR_MESSAGES[code as keyof typeof ERROR_MESSAGES] ?? "Baris ini perlu ditinjau.";
   return truncateCodePoints(message, MAX_ERROR_MESSAGE_LENGTH);
 }
 

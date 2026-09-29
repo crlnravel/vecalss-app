@@ -234,10 +234,10 @@ function StudentPdfPreviewActions({
           <TooltipContent>Buka PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Download PDF" nativeButton={false} render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Download PDF" variant="brandOutline" />}>
+          <TooltipTrigger render={<Button aria-label="Unduh PDF" nativeButton={false} render={<a aria-label="Unduh PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Unduh PDF" variant="brandOutline" />}>
             <Download aria-hidden="true" className="size-5" />
           </TooltipTrigger>
-          <TooltipContent>Download PDF</TooltipContent>
+          <TooltipContent>Unduh PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="brandOutline" />}>
@@ -252,7 +252,7 @@ function StudentPdfPreviewActions({
 }
 
 function StudentPdfPreviewFooterMessage({ state }: { state: DocumentPreviewState }) {
-  return <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">{state === "ready" ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas." : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}</p>;
+  return <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">{state === "ready" ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau unduh PDF lewat tombol di atas." : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}</p>;
 }
 
 function StudentPdfPreview({

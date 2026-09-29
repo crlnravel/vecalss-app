@@ -32,7 +32,7 @@ type PrimaryNavigationEvent = {
 };
 
 const workspaceTabs: Array<{ label: string; value: TryoutWorkspaceTab }> = [
-  { label: "Subtest", value: "subtests" },
+  { label: "Subtes", value: "subtests" },
   { label: "Operasional", value: "operations" },
   { label: "Hasil", value: "participants" },
   { label: "Pengaturan", value: "settings" },

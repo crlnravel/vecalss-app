@@ -531,9 +531,9 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     ...videoValidation.errors,
   } as Partial<Record<MateriValidationField, string>>;
   if (!subject) {
-    throw new MateriValidationError("Pilih subject Materi yang tersedia.", { subjectSlug: "Pilih subject Materi yang tersedia." });
+    throw new MateriValidationError("Pilih subtes yang tersedia untuk materi ini.", { subjectSlug: "Pilih subtes yang tersedia untuk materi ini." });
   }
-  if (!title) fieldErrors.title = "Judul lesson wajib diisi.";
+  if (!title) fieldErrors.title = "Judul materi wajib diisi.";
   if (Object.keys(fieldErrors).length > 0 || !documentValidation.document) {
     throw new MateriValidationError(
       "Lengkapi judul, PDF/ebook, dan pasangan video opsional sebelum menyimpan.",
@@ -552,18 +552,18 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     // transaction is waiting for its ordering boundary.
     await lockMateriSubjectScopes(tx, materiSubjectCodes);
     let current = code ? await tx.module.findUnique({ where: { code }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
-    if (code && !current) throw new MateriValidationError("Lesson tidak ditemukan.");
+    if (code && !current) throw new MateriValidationError("Materi tidak ditemukan.");
     if (current) {
       await assertAuthoringEditLease(tx, { resourceId: current.code, resourceType: "materi" }, tutorId, input.editLease);
       await tx.$queryRaw`SELECT id FROM modules WHERE id = ${current.id}::uuid FOR UPDATE`;
       current = await tx.module.findUnique({ where: { id: current.id }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } });
-      if (!current) throw new MateriValidationError("Lesson tidak ditemukan.");
+      if (!current) throw new MateriValidationError("Materi tidak ditemukan.");
     }
     if (current?.status === ContentStatus.archived) {
       throw new MateriValidationError("Materi yang diarsipkan tidak dapat diedit. Pulihkan materi terlebih dahulu.");
     }
     const source = current ? getSubjectByCode(current.topic.subtest.code) : undefined;
-    if (current && (!source || !isCanonicalTopicForSubject(source.slug, current.topic.code))) throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.");
+    if (current && (!source || !isCanonicalTopicForSubject(source.slug, current.topic.code))) throw new MateriValidationError("Materi ini tidak lagi tersedia di katalog. Muat ulang halaman lalu coba lagi.");
     if (!code) code = createMateriCode(title);
 
     let managedAsset: {
@@ -658,7 +658,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       }
     }
     const saved = await tx.module.findUnique({ where: { code }, select: { id: true } });
-    if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
+    if (!saved) throw new Error("Materi tersimpan, tetapi belum bisa dimuat ulang.");
 
     // Resource role, rather than slot, is authoritative. Temporarily move all
     // resources to a collision-free range, then assign document/video slots
@@ -738,7 +738,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
   });
   const saved = await getMentorMateriByCode(code!);
-  if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
+  if (!saved) throw new Error("Materi tersimpan, tetapi belum bisa dimuat ulang.");
   return saved;
 }
 
@@ -777,7 +777,7 @@ async function readLockedMateriLifecycleRecord(
       },
     },
   });
-  if (!identity) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+    if (!identity) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
 
   const subject = getSubjectByCode(identity.topic.subtest.code);
   if (
@@ -785,7 +785,7 @@ async function readLockedMateriLifecycleRecord(
     || identity.topic.parentTopicId !== null
     || !isCanonicalTopicForSubject(subject.slug, identity.topic.code)
   ) {
-    throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.");
+    throw new MateriValidationError("Materi ini tidak lagi tersedia di katalog.");
   }
 
   // The identity lookup above is deliberately non-locking. Assert the full
@@ -868,7 +868,7 @@ async function readLockedMateriLifecycleRecord(
       },
     },
   });
-  if (!lesson) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+  if (!lesson) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
   const currentSubject = getSubjectByCode(lesson.topic.subtest.code);
   if (
     !currentSubject
@@ -876,7 +876,7 @@ async function readLockedMateriLifecycleRecord(
     || lesson.topic.parentTopicId !== null
     || !isCanonicalTopicForSubject(currentSubject.slug, lesson.topic.code)
   ) {
-    throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.");
+    throw new MateriValidationError("Materi ini tidak lagi tersedia di katalog.");
   }
 
   return {
@@ -933,10 +933,10 @@ function getMateriLifecycleTopicWhere(subject: (typeof materiSubjects)[number]) 
 async function publishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
     const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
-    if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+    if (!locked) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.draft) {
-      throw new MateriValidationError("Hanya lesson draf yang dapat diterbitkan.");
+      throw new MateriValidationError("Hanya materi dalam draf yang dapat diterbitkan.");
     }
     const documentWhere = getMateriDocumentLifecycleWhere(lesson);
     if (!isMateriReady(lesson.title, toMateriResourceRead(lesson.assets)) || !documentWhere) {
@@ -954,7 +954,7 @@ async function publishMateriLesson(code: string, tutorId: string, editLease?: Au
       },
       data: { publishedAt: new Date(), status: ContentStatus.published, updatedByUserId: tutorId },
     });
-    if (updated.count !== 1) throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+    if (updated.count !== 1) throw new MateriValidationError("Status materi berubah. Muat ulang halaman lalu coba lagi.");
   });
   return getMentorMateriByCode(code);
 }
@@ -962,17 +962,17 @@ async function publishMateriLesson(code: string, tutorId: string, editLease?: Au
 async function unpublishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
     const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
-    if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+    if (!locked) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.published) {
-      throw new MateriValidationError("Hanya lesson yang sudah terbit dapat dibatalkan penerbitannya.");
+      throw new MateriValidationError("Hanya materi yang sudah diterbitkan yang bisa dibatalkan penerbitannya.");
     }
 
     const updated = await tx.module.updateMany({
       where: { id: lesson.id, code, status: ContentStatus.published, topicId: lesson.topicId, topic: getMateriLifecycleTopicWhere(subject) },
       data: { status: ContentStatus.draft, updatedByUserId: tutorId },
     });
-    if (updated.count !== 1) throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+    if (updated.count !== 1) throw new MateriValidationError("Status materi berubah. Muat ulang halaman lalu coba lagi.");
   });
   return getMentorMateriByCode(code);
 }
@@ -980,15 +980,15 @@ async function unpublishMateriLesson(code: string, tutorId: string, editLease?: 
 async function archiveMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
     const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
-    if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+    if (!locked) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
-    if (lesson.status === ContentStatus.archived) throw new MateriValidationError("Lesson sudah diarsipkan.");
+    if (lesson.status === ContentStatus.archived) throw new MateriValidationError("Materi sudah diarsipkan.");
 
     const updated = await tx.module.updateMany({
       where: { id: lesson.id, code, status: { not: ContentStatus.archived }, topicId: lesson.topicId, topic: getMateriLifecycleTopicWhere(subject) },
       data: { status: ContentStatus.archived, updatedByUserId: tutorId },
     });
-    if (updated.count !== 1) throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+    if (updated.count !== 1) throw new MateriValidationError("Status materi berubah. Muat ulang halaman lalu coba lagi.");
   });
   return getMentorMateriByCode(code);
 }
@@ -996,11 +996,11 @@ async function archiveMateriLesson(code: string, tutorId: string, editLease?: Au
 function validateBulkMateriInput(input: BulkMateriLifecycleInput) {
   const subject = getSubjectBySlug(input.subjectSlug);
   if (!subject || !Array.isArray(input.codes) || input.codes.length === 0) {
-    throw new MateriValidationError("Pilih setidaknya satu lesson pada subject yang valid.");
+    throw new MateriValidationError("Pilih setidaknya satu materi pada subtes yang tersedia.");
   }
   const codes = input.codes.map((code) => typeof code === "string" ? code.trim() : "");
   if (codes.some((code) => !code) || new Set(codes).size !== codes.length) {
-    throw new MateriValidationError("Pilihan lesson tidak valid. Muat ulang halaman lalu coba lagi.");
+    throw new MateriValidationError("Pilihan materi tidak valid. Muat ulang halaman lalu coba lagi.");
   }
   return { codes, subject };
 }
@@ -1064,18 +1064,18 @@ async function bulkUpdateMateriLifecycle(
           },
         });
         if (records.length !== codes.length) {
-          throw new MateriValidationError("Sebagian lesson tidak lagi berada pada subject ini. Muat ulang halaman lalu coba lagi.");
+          throw new MateriValidationError("Beberapa materi tidak lagi termasuk dalam subtes ini. Muat ulang halaman lalu coba lagi.");
         }
         if (records.some((record) => record.status !== requiredStatus)) {
           throw new MateriValidationError(operation === "publish"
-            ? "Pilih hanya lesson draf yang siap diterbitkan."
-            : "Pilih hanya lesson yang sudah diterbitkan.");
+            ? "Pilih hanya materi dalam draf yang siap diterbitkan."
+            : "Pilih hanya materi yang sudah diterbitkan.");
         }
         if (operation === "publish" && records.some((record) => {
           const resources = toMateriResourceRead(record.assets);
           return !isMateriReady(record.title, resources);
         })) {
-          throw new MateriValidationError("Pilih hanya lesson draf yang siap diterbitkan.");
+          throw new MateriValidationError("Pilih hanya materi dalam draf yang siap diterbitkan.");
         }
 
         const updated = await tx.module.updateMany({
@@ -1091,7 +1091,7 @@ async function bulkUpdateMateriLifecycle(
           },
         });
         if (updated.count !== codes.length) {
-          throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+          throw new MateriValidationError("Status materi berubah. Muat ulang halaman lalu coba lagi.");
         }
       },
     );
@@ -1117,10 +1117,10 @@ async function bulkUnpublishMateriLessons(input: BulkMateriLifecycleInput, tutor
 async function returnMateriLessonToDraft(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
     const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
-    if (!locked) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+    if (!locked) throw new MateriValidationError("Materi tidak ditemukan.", { code: "Lesson tidak ditemukan." });
     const { lesson, subject } = locked;
     if (lesson.status !== ContentStatus.scheduled && lesson.status !== ContentStatus.archived) {
-      throw new MateriValidationError("Hanya lesson terjadwal atau diarsipkan yang dapat dikembalikan menjadi draf.");
+      throw new MateriValidationError("Hanya materi terjadwal atau yang sudah diarsipkan yang bisa dikembalikan ke draf.");
     }
 
     const updated = await tx.module.updateMany({
@@ -1133,7 +1133,7 @@ async function returnMateriLessonToDraft(code: string, tutorId: string, editLeas
       },
       data: { status: ContentStatus.draft, updatedByUserId: tutorId },
     });
-    if (updated.count !== 1) throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+    if (updated.count !== 1) throw new MateriValidationError("Status materi berubah. Muat ulang halaman lalu coba lagi.");
   });
   return getMentorMateriByCode(code);
 }

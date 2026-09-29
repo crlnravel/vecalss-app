@@ -82,9 +82,9 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="affiliator-handoff-method">Handoff kredensial</FieldLabel>
+          <FieldLabel htmlFor="affiliator-handoff-method">Cara memberikan akses</FieldLabel>
           <ReferenceSelect
-            aria-label="Handoff kredensial"
+            aria-label="Cara memberikan akses"
             aria-describedby={state.fieldErrors?.handoffMethod ? "affiliator-handoff-method-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.handoffMethod)}
             className={state.fieldErrors?.handoffMethod ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
@@ -96,8 +96,8 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
               }
             }}
             options={[
-              { label: "Password sementara", value: "temporary_password" },
-              { label: "Link undangan (24 jam)", value: "invite_link" },
+              { label: "Kata sandi sementara", value: "temporary_password" },
+              { label: "Tautan undangan (24 jam)", value: "invite_link" },
             ]}
             value={handoffMethod}
           />

@@ -82,9 +82,9 @@ async function assertStudent(tx: Prisma.TransactionClient, studentId: string) {
     },
     where: { id: studentId },
   });
-  if (!student?.studentProfile) throw new TryoutDeliveryValidationError("Peserta harus merupakan akun student dengan StudentProfile.");
+  if (!student?.studentProfile) throw new TryoutDeliveryValidationError("Pilih akun siswa yang masih aktif.");
   if (isManagedPreviewPurpose(student.previewPurpose)) {
-    throw new TryoutDeliveryValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    throw new TryoutDeliveryValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
   }
 }
 
@@ -97,7 +97,7 @@ async function assertAdmissionStudentIsNotManagedPreview(
     where: { id: admissionId },
   });
   if (isManagedPreviewPurpose(admission?.student.previewPurpose)) {
-    throw new TryoutDeliveryValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    throw new TryoutDeliveryValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
   }
 }
 

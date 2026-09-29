@@ -49,7 +49,7 @@ export default function PackageLoading() {
                       <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
                         <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden rounded-l-xl px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[12rem]">Paket Soal</TableHead>
                         <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[10rem]">Bank sumber</TableHead>
-                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[6rem]">Subtest</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[6rem]">Subtes</TableHead>
                         <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[8rem]">Status</TableHead>
                         <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[7rem]">Diperbarui</TableHead>
                       </TableRow>

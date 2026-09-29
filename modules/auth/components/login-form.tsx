@@ -49,7 +49,7 @@ function LoginForm({
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
-          placeholder="email@vecalss.id"
+          placeholder="nama@email.com"
           required
           type="email"
         />
@@ -59,13 +59,13 @@ function LoginForm({
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="login-password">Password</FieldLabel>
+        <FieldLabel htmlFor="login-password">Kata sandi</FieldLabel>
         <FieldInput
           autoComplete="current-password"
           className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] placeholder:text-secondary-400 focus-visible:bg-white"
           id="login-password"
           name="password"
-          placeholder="Masukkan password"
+          placeholder="Masukkan kata sandi"
           required
           type="password"
         />
@@ -81,13 +81,13 @@ function LoginForm({
           className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 hover:text-primary-800"
           href="/forgot-password"
         >
-          Lupa password?
+          Lupa kata sandi?
         </Link>
       </div>
 
       <SubmitButton
         className="min-h-[54px] w-full rounded-xl text-base font-semibold shadow-[0_16px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]"
-        pendingLabel="Memproses..."
+        pendingLabel="Sedang masuk..."
         size="lg"
         type="submit"
         variant="brand"
@@ -96,12 +96,12 @@ function LoginForm({
       </SubmitButton>
 
       <p className="text-center text-sm leading-6 text-secondary-600">
-        Butuh akun? Daftar{" "}
+        Belum punya akun?{" "}
         <Link
           className="font-semibold text-primary-700 hover:text-primary-800"
           href={registerUrl}
         >
-          disini
+          Buat akun
         </Link>
         .
       </p>

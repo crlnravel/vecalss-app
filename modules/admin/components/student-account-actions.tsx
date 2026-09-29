@@ -27,31 +27,31 @@ type PendingAction = "ban" | "delete" | "unban";
 
 const pendingActionCopy = {
   ban: {
-    actionLabel: "Nonaktifkan pengguna",
+    actionLabel: "Nonaktifkan akses siswa",
     confirmation: "deactivate",
-    description: "Akses siswa akan dinonaktifkan dan sesi aktifnya dicabut.",
+    description: "Akses siswa akan dinonaktifkan dan semua sesi aktifnya dicabut.",
     dialogVariant: "warning",
     formAction: deactivateStudentEnrollmentAction,
     submitVariant: "destructive",
-    title: "Nonaktifkan pengguna?",
+    title: "Nonaktifkan akses siswa?",
   },
   delete: {
-    actionLabel: "Hapus pengguna",
+    actionLabel: "Hapus akun siswa",
     confirmation: "delete",
-    description: "Siswa akan dihapus dari direktori dan akses akunnya dicabut.",
+    description: "Akun siswa akan dihapus dari daftar dan aksesnya dicabut.",
     dialogVariant: "danger",
     formAction: deleteStudentEnrollmentAction,
     submitVariant: "destructive",
-    title: "Hapus pengguna?",
+    title: "Hapus akun siswa?",
   },
   unban: {
-    actionLabel: "Pulihkan pengguna",
+    actionLabel: "Pulihkan akses siswa",
     confirmation: "reactivate",
-    description: "Akses siswa akan dipulihkan. Sesi yang sudah ada tetap dicabut.",
+    description: "Akses siswa akan dipulihkan. Sesi sebelumnya tetap dicabut.",
     dialogVariant: "info",
     formAction: reactivateStudentEnrollmentAction,
     submitVariant: "brand",
-    title: "Pulihkan pengguna?",
+    title: "Pulihkan akses siswa?",
   },
 } as const;
 
@@ -74,11 +74,11 @@ function StudentAccountActionButtons({
     <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
       {showPasswordAction ? <StudentPasswordDialog returnPath={returnPath} studentId={studentId} /> : null}
       {status === "active" ? (
-        <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("ban")} size="default" type="button" variant="dangerOutline">Nonaktifkan pengguna</Button>
+        <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("ban")} size="default" type="button" variant="dangerOutline">Nonaktifkan akses siswa</Button>
       ) : status === "disabled" ? (
-        <Button className={cn(compact ? "w-full" : "justify-start", "text-primary-700 hover:text-primary-800")} onClick={() => onSelect("unban")} size="default" type="button" variant="ghost">Pulihkan pengguna</Button>
+        <Button className={cn(compact ? "w-full" : "justify-start", "text-primary-700 hover:text-primary-800")} onClick={() => onSelect("unban")} size="default" type="button" variant="ghost">Pulihkan akses siswa</Button>
       ) : null}
-      <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("delete")} size="default" type="button" variant="dangerOutline">Hapus pengguna</Button>
+      <Button className={compact ? "w-full" : "justify-start"} onClick={() => onSelect("delete")} size="default" type="button" variant="dangerOutline">Hapus akun siswa</Button>
     </div>
   );
 }

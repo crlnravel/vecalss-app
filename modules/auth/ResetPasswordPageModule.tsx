@@ -11,38 +11,35 @@ function getResetPasswordCopy(audience: LoginAudience) {
   if (audience === "admin") {
     return {
       backHref: "/login",
-      description:
-        "Choose a new admin password to restore access. Reset links expire after 15 minutes and can only be used once.",
+      description: "Tautan ini berlaku 15 menit dan hanya bisa digunakan sekali.",
       requestNewLinkHref: "/forgot-password?audience=admin",
-      title: "Set a new admin password and return to enrollment",
+      title: "Buat kata sandi baru",
     };
   }
 
   if (audience === "tutor") {
     return {
       backHref: "/login",
-      description:
-        "Choose a new Kapten password to restore access to the content workspace.",
+      description: "Tautan ini berlaku 15 menit dan hanya bisa digunakan sekali.",
       requestNewLinkHref: "/forgot-password?audience=tutor",
-      title: "Set a new Kapten password and return to the CMS",
+      title: "Buat kata sandi baru",
     };
   }
 
   if (audience === "affiliator") {
     return {
       backHref: "/login",
-      description: "Buat password baru untuk kembali melihat dashboard affiliator.",
+      description: "Tautan ini berlaku 15 menit dan hanya bisa digunakan sekali.",
       requestNewLinkHref: "/forgot-password?audience=affiliator",
-      title: "Atur ulang password affiliator",
+      title: "Buat kata sandi baru",
     };
   }
 
   return {
     backHref: "/login",
-    description:
-      "Choose a new password to restore access. Reset links expire after 15 minutes and can only be used once.",
+    description: "Tautan ini berlaku 15 menit dan hanya bisa digunakan sekali.",
     requestNewLinkHref: "/forgot-password",
-    title: "Set a new password and return to study mode",
+    title: "Buat kata sandi baru",
   };
 }
 
@@ -60,7 +57,7 @@ function ResetPasswordPageModule({
   return (
     <AuthShell
       description={copy.description}
-      eyebrow="Password reset"
+      eyebrow="Atur ulang kata sandi"
       title={copy.title}
     >
       {isValid ? (
@@ -72,11 +69,11 @@ function ResetPasswordPageModule({
       ) : (
         <div className="space-y-5">
           <FormNotice tone="danger">
-            This reset link is invalid or has expired. Request a fresh reset link to
-            continue.
+            Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru untuk
+            mengatur ulang kata sandi.
           </FormNotice>
           <Link className={buttonVariants({ size: "lg", variant: "brand" })} href={copy.requestNewLinkHref}>
-            Request a new link
+            Minta tautan baru
           </Link>
         </div>
       )}

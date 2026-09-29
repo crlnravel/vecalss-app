@@ -129,8 +129,8 @@ function AdminStudentPreviewQuizCatalogueSurface({
       <QuizPreviewHeader banner={banner} variables={bannerVariables} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
-        <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Read-only</span>
-        <span>Kuis hanya dibaca untuk memeriksa tampilan siswa. Tidak ada percobaan, jawaban, atau nilai yang dibuat.</span>
+        <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Khusus pratinjau</span>
+        <span>Kuis ditampilkan untuk memeriksa pengalaman siswa. Pratinjau ini tidak membuat pengerjaan, jawaban, atau nilai.</span>
       </div>
 
       {subjectGroups.length > 0 ? (
@@ -139,7 +139,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
             <section aria-labelledby={`preview-quiz-group-${group.track}`} className="flex flex-col gap-4" key={group.track}>
               <div className="flex items-center gap-4 px-1">
                 <h2 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-secondary-900 md:text-xl" id={`preview-quiz-group-${group.track}`}>
-                  Subjek {group.track}
+                  Subtes {group.track}
                 </h2>
                 <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
               </div>
@@ -178,7 +178,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
         <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
-            <CardDescription>Kuis yang sudah dipublikasikan akan muncul di preview ini.</CardDescription>
+            <CardDescription>Kuis yang sudah diterbitkan akan muncul di sini.</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -206,7 +206,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
       {subject.quizzes.length > 0 ? (
         <section aria-labelledby="preview-quiz-package-title" className="flex flex-col gap-5">
           <h2 className="px-1 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl" id="preview-quiz-package-title">
-            Kuis terbit
+            Kuis untuk subtes ini
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {subject.quizzes.map((quiz) => <QuizSummaryCard key={quiz.slug} quiz={quiz} subjectSlug={subject.slug} />)}
@@ -216,7 +216,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
         <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
-            <CardDescription>Kuis untuk subjek ini belum dipublikasikan.</CardDescription>
+            <CardDescription>Belum ada kuis yang diterbitkan untuk subtes ini.</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -231,7 +231,7 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
       <div className="relative z-10 flex flex-col p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">{quiz.title}</h3>
-          <span className="shrink-0 rounded-full border border-primary-900/10 bg-white/65 px-2.5 py-1 text-xs font-extrabold tracking-[0.12em] text-primary-800 uppercase">Published</span>
+          <span className="shrink-0 rounded-full border border-primary-900/10 bg-white/65 px-2.5 py-1 text-xs font-extrabold tracking-[0.12em] text-primary-800 uppercase">Terbit</span>
         </div>
         {quiz.description ? <p className="mt-2 line-clamp-3 text-xs leading-5 text-primary-800">{quiz.description}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -260,7 +260,7 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
 function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuizDetail }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <QuizPreviewHeader description={quiz.description ?? "Kuis terbit untuk dibaca dalam pengalaman siswa."} title={quiz.title} />
+      <QuizPreviewHeader description={quiz.description ?? "Kuis yang sudah diterbitkan untuk dilihat seperti tampilan siswa."} title={quiz.title} />
       <div className="flex flex-wrap items-center gap-3">
         <AvailabilityBadge availability={quiz.availability} />
         <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50 px-3.5 py-2 text-xs font-bold text-primary-800">
@@ -272,8 +272,8 @@ function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuiz
 
       <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
-          <CardTitle className="text-lg">Tampilan read-only</CardTitle>
-          <CardDescription>Jawaban dan penilaian tidak tersedia di admin student preview. Membuka halaman ini tidak membuat state learner.</CardDescription>
+          <CardTitle className="text-lg">Hanya untuk pratinjau</CardTitle>
+          <CardDescription>Jawaban dan hasil kuis tidak tersedia di pratinjau admin. Membuka halaman ini tidak membuat pengerjaan siswa.</CardDescription>
         </CardHeader>
       </Card>
 

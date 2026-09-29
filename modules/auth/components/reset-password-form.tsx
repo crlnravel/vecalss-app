@@ -9,6 +9,7 @@ import type { LoginAudience } from "@/lib/auth/types";
 
 import { resetPasswordAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
+import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
@@ -32,27 +33,28 @@ function ResetPasswordForm({
       {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
       <Field>
-        <FieldLabel htmlFor="reset-password">New password</FieldLabel>
+        <FieldLabel htmlFor="reset-password">Kata sandi baru</FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="reset-password"
           name="password"
-          placeholder="At least 8 characters"
+          placeholder="Minimal 8 karakter"
           required
           type="password"
         />
+        <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
         {state.fieldErrors?.password ? (
           <p className="text-sm text-danger-700">{state.fieldErrors.password}</p>
         ) : null}
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="reset-password-confirmation">Confirm password</FieldLabel>
+        <FieldLabel htmlFor="reset-password-confirmation">Konfirmasi kata sandi</FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="reset-password-confirmation"
           name="confirmPassword"
-          placeholder="Repeat your new password"
+          placeholder="Ulangi kata sandi baru"
           required
           type="password"
         />
@@ -66,10 +68,10 @@ function ResetPasswordForm({
           className="inline-flex min-h-11 items-center text-sm font-medium text-primary-700 hover:text-primary-800"
           href={backHref}
         >
-          Back to login
+          Kembali ke halaman masuk
         </Link>
-        <SubmitButton pendingLabel="Updating password..." size="lg" type="submit" variant="brand">
-          Save new password
+        <SubmitButton pendingLabel="Menyimpan kata sandi..." size="lg" type="submit" variant="brand">
+          Simpan kata sandi baru
         </SubmitButton>
       </div>
     </form>

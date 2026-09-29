@@ -144,7 +144,7 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
       <ReferenceSurface as="section" aria-label="Ringkasan Paket Soal" className="p-5 sm:p-7">
         <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div><dt className="text-secondary-500">Bank sumber</dt><dd className="mt-1 truncate font-semibold text-secondary-900" title={hub.sourceBankName}>{hub.sourceBankName}</dd></div>
-          <div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.subtest}</dd></div>
+          <div><dt className="text-secondary-500">Subtes</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.subtest}</dd></div>
           {hub.activeVersionNo ? <div><dt className="text-secondary-500">Versi aktif</dt><dd className="mt-1 font-semibold text-secondary-900">{packageReleaseLabel(hub.activeVersionNo)} · {hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</dd></div> : <div><dt className="text-secondary-500">Isi draf</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.draftItemCount} soal · {packagePointsLabel(hub.draftTotalPoints)} poin</dd></div>}
         </dl>
         {hub.hasDraftChanges && hub.activeVersionNo ? (

@@ -32,6 +32,11 @@ import { importStandaloneQuizBankQuestionSnapshotsAction } from "@/modules/mento
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { PaginationControls } from "@/modules/mentor/components/kapten-ui";
 import {
+  QUESTION_BANK_PICKER_DIALOG_CLASS_NAME,
+  QUESTION_BANK_PICKER_FOOTER_CLASS_NAME,
+  QuestionBankPickerRow,
+} from "@/modules/mentor/components/question-bank-picker-layout";
+import {
   listQuestionBankSourcePageAction,
   listQuestionBankSourceQuestionsAction,
 } from "@/modules/mentor/question-bank-actions";
@@ -55,69 +60,10 @@ type QuestionBankPickerProps = {
 
 type PickerQuestion = BankQuestionDto;
 
-function questionLabel(question: PickerQuestion) {
-  return question.prompt.trim() || "Soal tanpa pertanyaan";
-}
-
 function difficultyLabel(value: PickerQuestion["difficulty"]) {
   if (value === "easy") return "Mudah";
   if (value === "hard") return "Sulit";
   return "Sedang";
-}
-
-function QuestionRow({
-  allInBank,
-  disabled,
-  onToggle,
-  question,
-  selected,
-}: {
-  allInBank: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-  question: PickerQuestion;
-  selected: boolean;
-}) {
-  const checkboxId = `quiz-bank-question-${question.id}`;
-  return (
-    <article
-      className={`min-w-0 rounded-2xl border p-3 transition-colors ${selected ? "border-primary-300 bg-primary-50/70" : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/40"}`}
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <Checkbox
-          aria-label={
-            allInBank
-              ? `Soal termasuk dalam pilihan semua soal di bank ini: ${questionLabel(question)}`
-              : selected
-                ? `Batalkan pilihan: ${questionLabel(question)}`
-                : `Pilih: ${questionLabel(question)}`
-          }
-          checked={selected}
-          disabled={disabled}
-          id={checkboxId}
-          onCheckedChange={onToggle}
-        />
-        <div className="min-w-0 flex-1">
-          <label
-            className={`block min-w-0 ${disabled ? "cursor-default" : "cursor-pointer"}`}
-            htmlFor={checkboxId}
-          >
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full border border-primary-100 bg-primary-50 px-2 py-1 font-semibold text-primary-800">
-                {question.subjectCode}
-              </span>
-              <span className="rounded-full border border-secondary-200 bg-secondary-50 px-2 py-1 font-semibold text-secondary-600">
-                {difficultyLabel(question.difficulty)}
-              </span>
-            </div>
-            <p className="mt-2 line-clamp-2 break-words text-sm leading-6 text-secondary-900">
-              {questionLabel(question)}
-            </p>
-          </label>
-        </div>
-      </div>
-    </article>
-  );
 }
 
 function BankList({
@@ -503,8 +449,8 @@ function QuestionBankPickerDialog({
       title="Kuis belum disimpan"
     />
   ) : (
-    <div className="grid min-w-0 gap-4">
-      <div className="grid gap-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+      <div className="grid shrink-0 gap-2">
         <p className="text-xs font-bold tracking-[0.12em] text-secondary-500 uppercase">
           Bank Soal Kuis
         </p>
@@ -562,7 +508,7 @@ function QuestionBankPickerDialog({
         </Popover>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid shrink-0 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="relative min-w-[min(100%,20rem)] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
@@ -635,66 +581,77 @@ function QuestionBankPickerDialog({
             </Button>
           </div>
         ) : null}
-        {loadingQuestions ? (
-          <p aria-live="polite" className="text-xs text-secondary-500">
-            Memuat soal siap…
-          </p>
-        ) : null}
-        {error || importError ? (
-          <div
-            className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
-            role="alert"
-          >
-            <p>{importError ?? error}</p>
-            <Button
-              className="mt-2"
-              disabled={loadingBanks || loadingQuestions || importing}
-              onClick={() => {
-                setImportError(null);
-                setError(null);
-                setReloadNonce((value) => value + 1);
-              }}
-              size="sm"
-              type="button"
-              variant="reference"
+      </div>
+
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="grid gap-3">
+          {loadingQuestions ? (
+            <p aria-live="polite" className="text-xs text-secondary-500">
+              Memuat soal siap…
+            </p>
+          ) : null}
+          {error || importError ? (
+            <div
+              className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
+              role="alert"
             >
-              Muat ulang daftar soal
-            </Button>
-          </div>
-        ) : null}
-        {!loadingQuestions && !error && !importError && !questions.length ? (
-          <ReferenceSurface className="px-4 py-10 text-center" variant="inset">
-            <p className="text-sm font-semibold text-secondary-900">
-              {bankId
-                ? "Tidak ada soal siap yang cocok"
-                : "Pilih Bank Soal untuk mulai memilih"}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-secondary-500">
-              Periksa pencarian atau pilih Bank Soal lain yang sesuai.
-            </p>
-          </ReferenceSurface>
-        ) : null}
-        {questions.length ? (
-          <div className="grid gap-2">
-            {questions.map((question) => (
-              <QuestionRow
-                allInBank={allInBank}
-                disabled={disabled || importing || allInBank}
-                key={question.id}
-                onToggle={() => toggleQuestion(question)}
-                question={question}
-                selected={allInBank || selectedQuestions.has(question.id)}
-              />
-            ))}
-          </div>
-        ) : null}
-        {bankId && questionTotal > 0 ? (
-          <PaginationControls
-            onPageChange={setQuestionPage}
-            page={questionPage}
-            pageCount={questionPageCount}
-          />
-        ) : null}
+              <p>{importError ?? error}</p>
+              <Button
+                className="mt-2"
+                disabled={loadingBanks || loadingQuestions || importing}
+                onClick={() => {
+                  setImportError(null);
+                  setError(null);
+                  setReloadNonce((value) => value + 1);
+                }}
+                size="sm"
+                type="button"
+                variant="reference"
+              >
+                Muat ulang daftar soal
+              </Button>
+            </div>
+          ) : null}
+          {!loadingQuestions && !error && !importError && !questions.length ? (
+            <ReferenceSurface
+              className="px-4 py-10 text-center"
+              variant="inset"
+            >
+              <p className="text-sm font-semibold text-secondary-900">
+                {bankId
+                  ? "Tidak ada soal siap yang cocok"
+                  : "Pilih Bank Soal untuk mulai memilih"}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-secondary-500">
+                Periksa pencarian atau pilih Bank Soal lain yang sesuai.
+              </p>
+            </ReferenceSurface>
+          ) : null}
+          {questions.length ? (
+            <div className="grid gap-2">
+              {questions.map((question) => (
+                <QuestionBankPickerRow
+                  allInBank={allInBank}
+                  checkboxId={`quiz-bank-question-${question.id}`}
+                  difficulty={difficultyLabel(question.difficulty)}
+                  disabled={disabled || importing || allInBank}
+                  key={question.id}
+                  onToggle={() => toggleQuestion(question)}
+                  prompt={question.prompt}
+                  selected={allInBank || selectedQuestions.has(question.id)}
+                  subjectCode={question.subjectCode}
+                />
+              ))}
+            </div>
+          ) : null}
+          {bankId && questionTotal > 0 ? (
+            <PaginationControls
+              onPageChange={setQuestionPage}
+              page={questionPage}
+              pageCount={questionPageCount}
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -709,17 +666,17 @@ function QuestionBankPickerDialog({
         open={open || importing}
       >
         <DialogContent
-          className="max-h-[calc(100svh-1rem)] max-w-5xl gap-5 p-4 sm:max-w-5xl sm:p-6"
+          className={QUESTION_BANK_PICKER_DIALOG_CLASS_NAME}
           pending={importing}
         >
           <DialogHeader>
             <DialogTitle>Tambah soal dari Bank Soal</DialogTitle>
           </DialogHeader>
           {content}
-          <DialogFooter className="sticky bottom-0 -mx-4 border-t border-primary-100 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+          <DialogFooter className={QUESTION_BANK_PICKER_FOOTER_CLASS_NAME}>
             <span
               aria-live="polite"
-              className="mr-auto text-sm font-semibold text-secondary-700"
+              className="text-sm font-semibold text-secondary-700"
             >
               {selectedCount} soal dipilih
             </span>
@@ -736,7 +693,7 @@ function QuestionBankPickerDialog({
               type="button"
               variant="brand"
             >
-              {importing ? "Menambahkan…" : `Tambahkan ${selectedCount} soal`}
+              {importing ? "Menambahkan…" : "Tambahkan"}
             </Button>
           </DialogFooter>
         </DialogContent>
