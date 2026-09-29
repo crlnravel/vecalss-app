@@ -47,8 +47,10 @@ function canonicalizeResourceKey(
   if (
     !normalizedId
     || normalizedId !== normalizedId.replace(/[\u0000-\u001f\u007f]/gu, "")
-    || normalizedId.includes(":")
     || normalizedId.includes("/")
+    // Materi codes are stable catalog keys and may include colon-delimited segments.
+    // UUID-backed resources keep the delimiter restriction so their identifiers remain canonical.
+    || (resourceType !== "materi" && normalizedId.includes(":"))
     || utf8ByteLength(normalizedId) > 128
   ) {
     throw new InvalidResourceKeyError();

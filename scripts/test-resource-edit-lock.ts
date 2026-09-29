@@ -22,10 +22,16 @@ assert.deepEqual(canonicalizeResourceKey("materi", "  MATERI-01  "), {
   resourceKey: "materi:MATERI-01",
   resourceType: "materi",
 });
+assert.deepEqual(canonicalizeResourceKey("materi", "  demo:materi:penalaran-umum:unit-1  "), {
+  resourceId: "demo:materi:penalaran-umum:unit-1",
+  resourceKey: "materi:demo:materi:penalaran-umum:unit-1",
+  resourceType: "materi",
+});
 const uuid = "7ca953d0-0f55-43a4-a644-28bb3c6f741b";
 assert.equal(canonicalizeResourceKey("quiz", ` ${uuid.toUpperCase()} `).resourceId, uuid);
 assert.throws(() => canonicalizeResourceKey("quiz", "not-a-uuid"), /proof/i);
-assert.throws(() => canonicalizeResourceKey("materi", "bad:key"), /proof/i);
+assert.throws(() => canonicalizeResourceKey("materi", "bad/key"), /proof/i);
+assert.throws(() => canonicalizeResourceKey("quiz", `${uuid}:part`), /proof/i);
 assert.throws(() => canonicalizeResourceKey("materi", "x".repeat(129)), /proof/i);
 assert.deepEqual(EDIT_LEASE_RESOURCE_TYPES, [
   "materi",
