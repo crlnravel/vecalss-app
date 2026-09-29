@@ -14,7 +14,7 @@ description: Project structure and module lookup
 | `modules/` | Feature-specific UI and logic | Route entrypoints compose modules rather than containing large UI. |
 | `components/ui/` | Reusable design-system primitives | Extend or compose these; avoid route-specific substitutes. |
 | `lib/` | Domain logic and server infrastructure | Repositories, services, auth helpers, validation, Prisma client. |
-| `docs/` | Documentation | Architecture, database environments (`database-environments.md`), agent app testing (`agent-app-testing-guide.md`). |
+| `docs/` | Documentation | Architecture, database environments (`database-environments.md`), agent app testing (`agent-app-testing-guide.md`), Obscura guide (`agent-obscura-guide.md`). |
 | `prisma/` | Database layer | Schema, migrations, seed scripts. See `docs/database-environments.md`. |
 | `design-tokens/` | Editable design-token sources | Edit `palette.mjs` here; run `pnpm tokens` to regenerate. |
 | `scripts/` | Verification and operational scripts | Test scripts (`test:*`), seed verifiers, migration guards. |
@@ -75,6 +75,7 @@ app route → authorization + data loading → domain/service logic in lib/ → 
 | `lib/media/` | Media asset services |
 | `lib/notifications/` | Notification services |
 | `lib/question-bank/` | Question bank services |
+| `lib/testing/` | Test helpers, Obscura CDP runner, seeded test login |
 
 ## Current routes
 

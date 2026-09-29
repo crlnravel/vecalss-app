@@ -62,11 +62,12 @@ Route to the minimum files needed for each task type. Read this file first to de
 ## Testing
 
 1. Read `docs/agent-app-testing-guide.md` for seeded credentials, login routes, and disposable dev data procedures
-2. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
-3. Read `_harness/workflow.md` § Verification
-4. Read the code under test in `lib/`, `modules/`, or `app/`
-5. Read `package.json` for available `test:*` scripts
-6. If testing requires a browser, all operations must use `ego-browser` as the priority choice with prior user permission
+2. Read `docs/agent-obscura-guide.md` for automated headless testing with Obscura and Playwright
+3. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
+4. Read `_harness/workflow.md` § Verification
+5. Read the code under test in `lib/`, `modules/`, or `app/`
+6. Read `package.json` for available `test:*` scripts
+7. If testing requires user interaction or live collaborative review, use `ego-browser` with prior user permission; for all automated headless testing and Playwright, use `obscura` autonomously
 
 ## Refactoring
 

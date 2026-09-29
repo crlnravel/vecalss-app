@@ -67,7 +67,7 @@ The default model for this project and all delegated workers is exact `gpt-6-lun
 - Changing established public routes or major user flows
 - Introducing an unexpected architectural layer
 - Cross-cutting refactors that substantially expand scope beyond the assigned task
-- Performing browser verification or browser testing (must state routes, role, and verification checklist before launching)
+- Performing browser verification or browser testing using ego-browser (must state routes, role, and verification checklist before launching)
 - Activating resource guard emergency mode (`--emergency` or `RESOURCE_GUARD_EMERGENCY=1`)
 
 ### What does not require confirmation
@@ -210,14 +210,16 @@ Detailed guide: [`docs/database-environments.md`](file:///Users/ravel/Work/Freel
 
 ### Browser testing, verification, and usage
 
-- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or any interaction requiring a browser **MUST be done through `ego-browser` (`ego-lite`) as the priority choice** — never Chrome, Firefox, Safari, or generic built-in browser automation tools.
-- **Always ask for explicit user permission before doing verification using a browser.** Never start browser verification autonomously.
-- When requesting permission for browser verification, the agent MUST explicitly specify:
-  1. **Route(s):** The exact route(s) or URLs to be checked (e.g., `/mentor/tryouts/new`, `/dashboard`).
-  2. **Role:** The user role or persona/session context to use (e.g., Kapten / tutor, Voyager / student, Admin, or unauthenticated).
-  3. **Verification items:** The specific checklist of UI elements, interactions, edge cases, responsive views, or user flows to verify.
-- Only proceed with browser verification after receiving explicit approval from the user.
-- **Login with seeded credentials:** When testing authenticated user flows, do not register new accounts. Always use the seeded credentials listed in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) (e.g., Admin: `admin@vecalss.local` / `Admin12345!`, Kapten: `tutor@vecalss.local` / `Tutor12345!`, Voyager: `student@vecalss.local` / `Student12345!`, Affiliator: `affiliator@vecalss.local` / `Affiliator12345!`).
+- **Dual-browser strategy (`ego-browser` vs `obscura`):**
+  - **`ego-browser` (`ego-lite`) is dedicated to tests requiring user/human interaction:** All interactive UI/UX inspection, visual audits with the user, or flows requiring manual user intervention must use `ego-browser`.
+  - **Always ask for explicit user permission before launching `ego-browser`.** Never start `ego-browser` autonomously. Specify:
+    1. **Route(s):** The exact route(s) or URLs to be checked (e.g., `/mentor/tryouts/new`, `/dashboard`).
+    2. **Role:** The user role or persona/session context to use (e.g., Kapten / tutor, Voyager / student, Admin, or unauthenticated).
+    3. **Verification items:** The specific checklist of UI elements, interactions, edge cases, responsive views, or user flows to verify.
+  - **`obscura` is dedicated to automated, headless, and Playwright tests:** Use for automated test runs, DOM assertions, smoke tests, background verifications, and Playwright suites.
+  - **Obscura chosen over Chrome for Playwright:** Choose Obscura over Chrome/Chromium for headless automation (`chromium.connectOverCDP()`). Connect via CDP on port `9222`. Obscura runs autonomously under the resource guard without requiring user confirmation.
+  - **Login with seeded credentials:** When testing authenticated user flows, do not register new accounts. Always use the seeded credentials listed in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md).
+  - Detailed guide: [`docs/agent-obscura-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-obscura-guide.md).
 
 ### Domain
 
