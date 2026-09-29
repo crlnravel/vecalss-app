@@ -295,6 +295,14 @@
       "dependencies": ["feat-035"],
       "status": "complete",
       "evidence": "4444d77; live provisional answer words resolve from a soft blur with a quiet caret; final answers and SSE behavior remain unchanged, and reduced-motion disables the animation. Automatic-context-enabled learners continue to see committed source summaries instead of manual context selection; free development keeps the manual Konteks fallback because its automatic retrieval gate is off. Guarded test:vera-auto-context-ui, focused ESLint, full ./init.sh, and git diff --check pass; browser verification was not run as requested."
+    },
+    {
+      "id": "feat-038",
+      "name": "Mentor Report and Developer Inbox",
+      "description": "Save Mentor bug reports with optional private attachments and provide a separate Developer report table and full detail view",
+      "dependencies": ["feat-001"],
+      "status": "complete",
+      "evidence": "3856e1d; explicit-local migration and Prisma generation, guarded test:mentor-report and focused ESLint pass. Approved local browser QA passed form submissions, table/detail navigation, byte-identical attachment download, role restrictions, and 390px layout. Staging migration/account provisioning and repository-wide build remain pending."
     }
   ]
 }

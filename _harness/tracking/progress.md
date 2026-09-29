@@ -1,5 +1,13 @@
 # Session Progress Log
 
+## Mentor Report and Developer inbox (2026-09-29)
+
+- [x] Added a protected Mentor Report form, database persistence, optional private attachment storage, and a separate Developer role with report table and detail pages.
+- [x] Applied migration `20260929103000_add_mentor_reports` to the explicit local `vecalss_dev` database, generated Prisma client, and created only the local Developer QA account. Staging was not migrated.
+- [x] Guarded `test:mentor-report`, focused ESLint, and `git diff --check` pass. Approved browser QA on port 5024 passed submission with and without an attachment, list/detail navigation, byte-identical attachment download, Tutor/Developer access boundaries, and 390px layout. The temporary server and worktree were removed.
+- [x] Source committed as `3856e1d` on `dev`. Full repository TypeScript still has 26 pre-existing diagnostics outside the report feature; the branch's commit hook skipped exhaustive checks.
+
+
 ## Vera AI streaming answer reveal (2026-09-25)
 
 - [x] Added a live answer treatment inspired by Beautiful UI's Streaming Text:

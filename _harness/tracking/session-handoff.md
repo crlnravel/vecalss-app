@@ -1,5 +1,15 @@
 # Session Handoff
 
+## Current handoff — Mentor Report and Developer inbox (2026-09-29)
+
+- Objective: let Mentors submit bug reports with an optional attachment and let a separate Developer role review every report in a table and detail view.
+- Completed: commit `3856e1d` on `dev` adds `/mentor/report`, `/developer/reports`, `/developer/reports/[reportId]`, Developer auth/seed integration, report persistence and private attachment download. Migration `20260929103000_add_mentor_reports` was applied only to the explicit local `vecalss_dev` database. A local Developer QA account was created without resetting shared fixtures.
+- Verification: guarded `test:mentor-report`, focused ESLint, and `git diff --check` pass. Approved ego-browser QA on temporary port 5024 confirmed required form fields, successful plain and attachment submissions, table and full detail navigation, byte-identical attachment download, role redirects and Tutor download denial, and no document overflow at 390px. The temporary server/worktree were removed.
+- Limit: full repository `tsc --noEmit` has 26 existing diagnostics outside report code. The `dev` branch commit hook skipped exhaustive checks, so a full production build remains unverified for this change. Staging has not received the new migration or Developer seed account.
+- Operational note: resource-guard status exposes process command arguments, including an unrelated Figma credential observed during QA. The credential was not repeated here; rotate it if the logs are shared, and redact command arguments in the guard output.
+- Next: before staging use, deploy the new migration and provision a Developer account there; run the repository-wide verification gate after the unrelated TypeScript errors are resolved.
+
+
 ## Current handoff — Vera AI streaming answer reveal (2026-09-25)
 
 - Objective: give Vera's live answer text a polished streaming treatment based
