@@ -31,6 +31,13 @@ services:
       timeout: 3s
       retries: 30
 
+  obscura:
+    image: h4ckf0r0day/obscura:latest
+    command: ["serve", "--host", "0.0.0.0", "--port", "9222", "--allow-private-network"]
+    ports:
+      - "127.0.0.1:9222:9222"
+    restart: unless-stopped
+
 volumes:
   vecalss-dev-postgres:
   vecalss-dev-redis:
