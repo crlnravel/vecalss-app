@@ -18,18 +18,18 @@ type AddStudentMode = "bulk" | "single";
 
 const modeTabs = [
   {
-    description: "Isi detail satu siswa",
+    description: "Isi detail satu akun siswa",
     icon: UserPlus,
     id: "single-student-import-tab",
-    label: "Import satu akun",
+    label: "Satu akun",
     panelId: "single-student-import-panel",
     value: "single",
   },
   {
-    description: "Upload beberapa siswa dengan CSV",
+    description: "Unggah file CSV berisi beberapa siswa",
     icon: Users,
     id: "bulk-student-import-tab",
-    label: "Import massal",
+    label: "Beberapa akun",
     panelId: "bulk-student-import-panel",
     value: "bulk",
   },
@@ -93,7 +93,7 @@ function AddStudentDialog({
 
           <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">
             <ModeCardTabs
-              aria-label="Student import mode"
+              aria-label="Pilih cara menambahkan siswa"
               disabled={dialogLocked}
               items={modeTabs}
               onValueChange={setMode}

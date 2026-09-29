@@ -31,10 +31,10 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
   }, [searchParams]);
 
   return (
-    <section className="grid gap-4" aria-label="Daftar attempt peserta">
+    <section className="grid gap-4" aria-label="Daftar pengerjaan peserta">
       <header className="flex justify-end">
         <TryoutRefreshToolbar
-          ariaLabel="Refresh Attempts"
+          ariaLabel="Perbarui daftar pengerjaan"
           onRefresh={retryRefresh}
           refreshState={refreshState}
           updatedLabel={updatedLabel}

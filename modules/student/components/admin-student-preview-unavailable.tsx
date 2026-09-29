@@ -9,19 +9,19 @@ const variantCopy: Record<AdminStudentPreviewUnavailableVariant, {
   title: string;
 }> = {
   context: {
-    context: "Kembali ke Admin untuk memperbaiki capability atau fixture preview yang dikelola.",
+    context: "Kembali ke halaman admin dan coba buka pratinjau lagi. Jika masih tidak tersedia, hubungi tim admin.",
     kind: "error",
-    title: "Preview siswa tidak tersedia",
+    title: "Pratinjau siswa tidak tersedia",
   },
   resource: {
-    context: "Context siswa preview tetap aman. Kembali ke katalog untuk memilih resource yang tersedia.",
+    context: "Kembali ke katalog untuk memilih konten yang tersedia.",
     kind: "unavailable",
-    title: "Konten preview tidak tersedia",
+    title: "Konten pratinjau tidak tersedia",
   },
   unsupported: {
-    context: "Context siswa preview tetap aman. Kembali ke Beranda preview untuk melanjutkan dari surface yang didukung.",
+    context: "Kembali ke beranda pratinjau untuk melanjutkan.",
     kind: "unavailable",
-    title: "Surface preview belum didukung",
+    title: "Pratinjau belum tersedia",
   },
 };
 
@@ -42,7 +42,7 @@ function AdminStudentPreviewUnavailable({
 }) {
   const copy = variantCopy[variant];
   const safeReturnHref = returnHref ?? (variant === "context" ? "/admin" : buildAdminStudentPreviewRoute("/"));
-  const safeReturnLabel = returnLabel ?? (variant === "context" ? "Kembali ke admin" : "Kembali ke Beranda preview");
+  const safeReturnLabel = returnLabel ?? (variant === "context" ? "Kembali ke admin" : "Kembali ke beranda pratinjau");
 
   return (
     <TypedRouteState

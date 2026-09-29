@@ -62,7 +62,7 @@ function StudentPdfDocument({ file, fullscreen = false, onError, onReady, title 
         error={(
           <div className="flex min-h-[22rem] flex-col items-center justify-center gap-2 px-6 text-center text-sm text-[var(--voyage-muted-ink)]">
             <p className="font-semibold text-[var(--voyage-muted-ink)]">PDF belum dapat dirender di pratinjau.</p>
-            <p>Gunakan tombol buka atau download di bawah untuk mengakses dokumen.</p>
+            <p>Gunakan tombol “Buka” atau “Unduh” di bawah untuk mengakses dokumen.</p>
           </div>
         )}
         onLoadError={() => onError?.()}

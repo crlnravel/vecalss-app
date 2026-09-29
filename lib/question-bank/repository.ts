@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import {
   ContentStatus,
   DifficultyLevel,
+  MediaAssetState,
+  MediaLibraryScope,
   Prisma,
   QuestionBankPurpose,
   QuestionRevisionProvenance,
@@ -19,7 +21,8 @@ import {
 } from "@/lib/serialization/locks";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import {
-  assertReadyKaptenImageAssets,
+  lockAndValidateKaptenBankImages,
+  ManagedImageAssetConflictError,
   ManagedImageAssetValidationError,
 } from "@/lib/question-bank/media-validator";
 import {
@@ -32,6 +35,20 @@ import {
 } from "@/lib/question-bank/materi";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
 import {
+  adoptQuestionBankMediaFolderReservation,
+  assertQuestionBankMediaFolderReservationForBank,
+  cleanupFailedManualQuestionBankMediaFolder,
+  createQuestionBankMediaFolder,
+  ensureQuestionBankMediaFolder,
+  finalizeQuestionBankMediaFolderReservation,
+  getAdoptedQuestionBankMediaFolderReservation,
+  lockQuestionBankMediaFolderForSave,
+  reserveDraftQuestionBankMediaFolder,
+  type MediaFolderIdentity,
+  type NewKaptenRootFolderIdentity,
+} from "./media-folder";
+import {
+  getQuestionBankReadinessFromDrafts,
   getQuestionBankReadinessFromRevisions,
   getQuestionReadinessFromRevision,
   type QuestionBankReadiness,
@@ -87,6 +104,7 @@ type SaveBankInput = {
   editLease?: AuthoringEditLease;
   folderId?: string | null;
   id?: string;
+  mediaFolderReservationId?: string;
   purpose: QuestionBankPurpose;
   questions: BankQuestionInput[];
   revision?: number;
@@ -413,14 +431,14 @@ function validate(input: SaveBankInput) {
   const questionIds = input.questions.flatMap((question) => question.id ? [question.id] : []);
   if (!input.title.trim()) throw new QuestionBankError("Judul Bank Soal wajib diisi.");
   if (subjectCodes.some((subject) => !SUBJECT_CODES.includes(subject as (typeof SUBJECT_CODES)[number]))) {
-    throw new QuestionBankError("Tambahkan soal dengan subject yang valid.");
+    throw new QuestionBankError("Tambahkan soal dengan subtes yang valid.");
   }
   if (new Set(questionIds).size !== questionIds.length) {
     throw new QuestionBankError("Setiap soal hanya boleh muncul satu kali.", { code: "invalid_input" });
   }
   for (const question of input.questions) {
     if (!isQuestionBankMateri(question.subjectCode, question.materi)) {
-      throw new QuestionBankError("Materi harus sesuai dengan subject soal.", { code: "invalid_input" });
+      throw new QuestionBankError("Materi harus sesuai dengan subtes soal.", { code: "invalid_input" });
     }
     if (question.choices.length < 2 || question.choices.length > 5) throw new QuestionBankError("Setiap soal harus memiliki 2 sampai 5 opsi.");
     const questionType = question.questionType ?? QuestionType.single_choice;
@@ -436,6 +454,32 @@ function validate(input: SaveBankInput) {
   return subjectCodes;
 }
 
+function assertBankQuestionsReady(questions: readonly BankQuestionInput[]) {
+  const readiness = getQuestionBankReadinessFromDrafts(
+    questions.map((question, index) => ({
+      choices: question.choices.map((choice) => ({
+        id: choice.id,
+        mediaAssetId: choice.mediaAssetId,
+        text: choice.text,
+      })),
+      correctChoiceId: question.correctChoiceId,
+      correctChoiceIds: question.correctChoiceIds,
+      explanationMediaAssetId: question.explanationMediaAssetId,
+      id: question.id ?? `question-${index + 1}`,
+      prompt: question.prompt,
+      promptMediaAssetId: question.promptMediaAssetId,
+      questionType: question.questionType,
+      subjectCode: question.subjectCode,
+    })),
+  );
+  if (readiness.incompleteCount > 0) {
+    throw new QuestionBankError(
+      "Lengkapi semua soal sebelum menyimpan Bank Soal.",
+      { code: "readiness_failed", readiness },
+    );
+  }
+}
+
 function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
   if (folderId === undefined || folderId === null) return null;
   if (
@@ -447,6 +491,14 @@ function normalizeQuestionBankFolderId(folderId: SaveBankInput["folderId"]) {
     });
   }
   return folderId;
+}
+
+function normalizeMediaFolderReservationId(reservationId: SaveBankInput["mediaFolderReservationId"]) {
+  if (reservationId === undefined) return undefined;
+  if (typeof reservationId !== "string" || !QUESTION_BANK_FOLDER_UUID_PATTERN.test(reservationId)) {
+    throw new QuestionBankError("Folder Media untuk draf tidak valid.", { code: "invalid_input" });
+  }
+  return reservationId;
 }
 
 async function getFolderRows(client: typeof prisma | Prisma.TransactionClient = prisma): Promise<FolderRow[]> {
@@ -597,12 +649,74 @@ function buildReadySourceQuestionCondition(questionAlias: string, bankAlias: str
   `;
 }
 
+/** Keep the quiz picker/count aligned with the standalone snapshot import gate. */
+function buildQuizSnapshotSourceQuestionCondition(
+  questionAlias: string,
+  bankAlias: string | null = null,
+): Prisma.Sql {
+  // react-doctor-disable-next-line raw-sql-injection-risk -- internal aliases only
+  const revisionAlias = `${questionAlias}_quiz_snapshot_revision`;
+  const optionAlias = `${questionAlias}_quiz_snapshot_option`;
+  const assetAlias = `${questionAlias}_quiz_snapshot_asset`;
+  return Prisma.sql`
+    ${Prisma.raw(`${questionAlias}.status`)} = ${ContentStatus.published}
+    AND ${buildReadySourceQuestionCondition(questionAlias, bankAlias)}
+    AND EXISTS (
+      SELECT 1
+      FROM question_revisions ${Prisma.raw(revisionAlias)}
+      WHERE ${Prisma.raw(`${revisionAlias}.id`)} = ${Prisma.raw(`${questionAlias}.current_revision_id`)}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM question_revision_options ${Prisma.raw(optionAlias)}
+          WHERE ${Prisma.raw(`${optionAlias}.question_revision_id`)} = ${Prisma.raw(`${revisionAlias}.id`)}
+            AND BTRIM(${Prisma.raw(`${optionAlias}.label`)}) = ''
+        )
+        AND (
+          ${Prisma.raw(`${revisionAlias}.prompt_asset_id`)} IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM assets ${Prisma.raw(`${assetAlias}_prompt`)}
+            WHERE ${Prisma.raw(`${assetAlias}_prompt.id`)} = ${Prisma.raw(`${revisionAlias}.prompt_asset_id`)}
+              AND ${Prisma.raw(`${assetAlias}_prompt.library_scope`)} = ${MediaLibraryScope.kapten}
+              AND ${Prisma.raw(`${assetAlias}_prompt.state`)} = ${MediaAssetState.ready}
+              AND ${Prisma.raw(`${assetAlias}_prompt.trashed_at`)} IS NULL
+          )
+        )
+        AND (
+          ${Prisma.raw(`${revisionAlias}.explanation_asset_id`)} IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM assets ${Prisma.raw(`${assetAlias}_explanation`)}
+            WHERE ${Prisma.raw(`${assetAlias}_explanation.id`)} = ${Prisma.raw(`${revisionAlias}.explanation_asset_id`)}
+              AND ${Prisma.raw(`${assetAlias}_explanation.library_scope`)} = ${MediaLibraryScope.kapten}
+              AND ${Prisma.raw(`${assetAlias}_explanation.state`)} = ${MediaAssetState.ready}
+              AND ${Prisma.raw(`${assetAlias}_explanation.trashed_at`)} IS NULL
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM question_revision_options ${Prisma.raw(`${optionAlias}_media`)}
+          WHERE ${Prisma.raw(`${optionAlias}_media.question_revision_id`)} = ${Prisma.raw(`${revisionAlias}.id`)}
+            AND ${Prisma.raw(`${optionAlias}_media.asset_id`)} IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM assets ${Prisma.raw(`${assetAlias}_option`)}
+              WHERE ${Prisma.raw(`${assetAlias}_option.id`)} = ${Prisma.raw(`${optionAlias}_media.asset_id`)}
+                AND ${Prisma.raw(`${assetAlias}_option.library_scope`)} = ${MediaLibraryScope.kapten}
+                AND ${Prisma.raw(`${assetAlias}_option.state`)} = ${MediaAssetState.ready}
+                AND ${Prisma.raw(`${assetAlias}_option.trashed_at`)} IS NULL
+            )
+        )
+    )
+  `;
+}
+
 function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma.Sql {
   const purpose = assertQuestionBankPurpose(options.purpose);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`b.purpose = ${purpose}`,
     Prisma.sql`b.status <> ${ContentStatus.archived}`,
-    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND rq.status <> ${ContentStatus.archived} AND ${buildReadySourceQuestionCondition("rq", "b")})`,
+    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.status <> ${ContentStatus.archived} AND ${options.purpose === QuestionBankPurpose.quiz ? buildQuizSnapshotSourceQuestionCondition("rq", "b") : buildReadySourceQuestionCondition("rq", "b")})`,
   ];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
   if (options.folderId !== undefined) {
@@ -621,7 +735,7 @@ function buildSourceBankWhereSql(options: ListQuestionBankSourceOptions): Prisma
       JOIN subtests ss ON ss.id = sq.subtest_id
       WHERE sq.question_bank_id = b.id
         AND sq.status <> ${ContentStatus.archived}
-        AND ${buildReadySourceQuestionCondition("sq", "b")}
+        AND ${options.purpose === QuestionBankPurpose.quiz ? buildQuizSnapshotSourceQuestionCondition("sq", "b") : buildReadySourceQuestionCondition("sq", "b")}
         AND ss.code IN (${Prisma.join(options.subjectCoverage.map((code) => Prisma.sql`${code}`))})
     )`);
   }
@@ -703,7 +817,9 @@ async function listQuestionBankSourceQuestions(bankId: string, options: ListQues
     Prisma.sql`q.question_bank_id = ${bankId}::uuid`,
     Prisma.sql`q.status <> ${ContentStatus.archived}`,
     Prisma.sql`EXISTS (SELECT 1 FROM question_banks qb WHERE qb.id = q.question_bank_id AND qb.purpose = ${purpose} AND qb.status <> ${ContentStatus.archived})`,
-    buildReadySourceQuestionCondition("q"),
+    purpose === QuestionBankPurpose.quiz
+      ? buildQuizSnapshotSourceQuestionCondition("q")
+      : buildReadySourceQuestionCondition("q"),
   ];
   if (options.subjectCode) {
     questionConditions.push(Prisma.sql`EXISTS (SELECT 1 FROM subtests qs WHERE qs.id = q.subtest_id AND qs.code = ${options.subjectCode})`);
@@ -895,6 +1011,7 @@ async function createQuestionRevision(
     questionType: QuestionAnswerMode;
   },
 ) {
+  const status = input.status ?? QuestionRevisionStatus.draft;
   const contentDigest = questionRevisionContentDigest({
     difficulty: input.difficulty,
     explanation: input.explanation,
@@ -919,7 +1036,8 @@ async function createQuestionRevision(
       questionId: input.questionId,
       questionType: input.questionType,
       revisionNo: input.revisionNo,
-      status: input.status ?? QuestionRevisionStatus.draft,
+      readyAt: status === QuestionRevisionStatus.ready ? new Date() : null,
+      status,
       stem: input.stem,
       updatedByUserId: input.actorId,
     },
@@ -930,6 +1048,21 @@ async function createQuestionRevision(
     });
   }
   return revision;
+}
+
+async function markQuestionRevisionReady(
+  tx: Prisma.TransactionClient,
+  revisionId: string,
+  actorId: string,
+) {
+  return tx.questionRevision.update({
+    where: { id: revisionId },
+    data: {
+      readyAt: new Date(),
+      status: QuestionRevisionStatus.ready,
+      updatedByUserId: actorId,
+    },
+  });
 }
 
 async function updateDraftQuestionRevision(
@@ -981,6 +1114,14 @@ async function updateDraftQuestionRevision(
 }
 
 async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionId: string, existing: Array<{ id: string; sortOrder: number }>, options: RevisionOptionWrite[]) {
+  if (!existing.length) {
+    if (options.length) {
+      await tx.questionOption.createMany({
+        data: options.map((option) => ({ ...option, questionId })),
+      });
+    }
+    return;
+  }
   const retained = new Set<string>();
   for (const [optionIndex, option] of options.entries()) {
     const old = existing.find((candidate) => candidate.sortOrder === optionIndex);
@@ -1007,7 +1148,63 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
 
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const subjectCodes = validate(input);
+  assertBankQuestionsReady(input.questions);
   const folderId = normalizeQuestionBankFolderId(input.folderId);
+  const mediaFolderReservationId = normalizeMediaFolderReservationId(input.mediaFolderReservationId);
+  let newBankId: string | undefined;
+  let newBankCode: string | undefined;
+  let newBankMediaFolder: MediaFolderIdentity | null = null;
+  let manualBankMediaFolderCleanupCandidate: NewKaptenRootFolderIdentity | null = null;
+
+  if (input.id && mediaFolderReservationId) {
+    await assertQuestionBankMediaFolderReservationForBank(
+      actorId,
+      mediaFolderReservationId,
+      input.id,
+    );
+  } else if (!input.id) {
+    if (mediaFolderReservationId) {
+      const adoptedBankId = await getAdoptedQuestionBankMediaFolderReservation(
+        actorId,
+        mediaFolderReservationId,
+      );
+      if (adoptedBankId) {
+        const savedBank = await prisma.questionBank.findUnique({
+          include: bankInclude,
+          where: { id: adoptedBankId },
+        });
+        if (!savedBank) {
+          throw new QuestionBankError("Bank Soal yang memakai folder Media ini tidak ditemukan.", {
+            code: "not_found",
+          });
+        }
+        const savedDto = toDto(savedBank, await getFolderRows());
+        try {
+          await finalizeQuestionBankMediaFolderReservation(savedBank.id, actorId);
+        } catch (error) {
+          console.error("Could not finalize the adopted Bank Media folder rename.", error);
+        }
+        return savedDto;
+      }
+
+      newBankId = randomUUID();
+      newBankCode = codeFromTitle(input.title);
+      const reservation = await reserveDraftQuestionBankMediaFolder(actorId, mediaFolderReservationId);
+      newBankMediaFolder = { id: reservation.mediaFolderId, name: reservation.provisionalName };
+    } else {
+      newBankId = randomUUID();
+      newBankCode = codeFromTitle(input.title);
+      const createdMediaFolder = await createQuestionBankMediaFolder(
+        actorId,
+        input.title,
+        newBankCode,
+        newBankId,
+      );
+      newBankMediaFolder = createdMediaFolder;
+      manualBankMediaFolderCleanupCandidate = createdMediaFolder;
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     await setTransactionLockTimeout(tx);
     if (folderId !== undefined) {
@@ -1050,17 +1247,6 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
-    try {
-      await assertReadyKaptenImageAssets(tx, questionMediaAssetIds(input.questions));
-    } catch (error) {
-      if (error instanceof ManagedImageAssetValidationError) {
-        throw new QuestionBankError(error.message, {
-          code: "invalid_input",
-          details: { assetIds: [...error.assetIds] },
-        });
-      }
-      throw error;
-    }
     if (!bankId) {
       if (folderId) {
         const folder = await tx.questionBankFolder.findUnique({
@@ -1077,11 +1263,19 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           );
         }
       }
+      if (!newBankId || !newBankCode || !newBankMediaFolder) {
+        throw new QuestionBankError("Folder Media Bank Soal belum tersedia. Coba simpan lagi.", {
+          code: "invalid_input",
+        });
+      }
+      await lockQuestionBankMediaFolderForSave(tx, newBankMediaFolder.id);
       const created = await tx.questionBank.create({
         data: {
-          code: codeFromTitle(input.title),
+          id: newBankId,
+          code: newBankCode,
           description: input.description.trim() || null,
           folderId,
+          mediaFolderId: newBankMediaFolder.id,
           name: input.title.trim(),
           purpose: input.purpose,
           createdByUserId: actorId,
@@ -1090,8 +1284,35 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         },
       });
       bankId = created.id;
+      if (mediaFolderReservationId) {
+        await adoptQuestionBankMediaFolderReservation(tx, {
+          bankId: created.id,
+          mediaFolderId: newBankMediaFolder.id,
+          ownerUserId: actorId,
+          reservationId: mediaFolderReservationId,
+        });
+      }
     }
     const persistedBankId = bankId;
+    try {
+      await lockAndValidateKaptenBankImages(tx, {
+        assetIds: questionMediaAssetIds(input.questions),
+      });
+    } catch (error) {
+      if (error instanceof ManagedImageAssetValidationError) {
+        throw new QuestionBankError(error.message, {
+          code: "invalid_input",
+          details: { assetIds: [...error.assetIds] },
+        });
+      }
+      if (error instanceof ManagedImageAssetConflictError) {
+        throw new QuestionBankError(error.message, {
+          code: "stale_revision",
+          details: { assetIds: [...error.assetIds] },
+        });
+      }
+      throw error;
+    }
     const existing = await tx.question.findMany({
       where: { questionBankId: persistedBankId },
       include: {
@@ -1125,7 +1346,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const retainedIds = new Set<string>();
     for (const [questionIndex, question] of input.questions.entries()) {
         const subtest = subtestByCode.get(question.subjectCode);
-        if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
+  if (!subtest) throw new QuestionBankError(`Subtes ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
         const isTemporary = isTemporaryQuestionId(question.id);
         const current = question.id && !isTemporary ? existingById.get(question.id) : undefined;
         if (question.id && !isTemporary && !current) {
@@ -1133,7 +1354,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         }
         if (current?.currentRevision?.status === QuestionRevisionStatus.retired) {
           throw new QuestionBankError(
-            "Soal yang sudah retired tidak dapat diaktifkan kembali.",
+            "Soal yang sudah dinonaktifkan tidak dapat diaktifkan kembali.",
             { code: "question_retired", details: { questionId: current.id } },
           );
         }
@@ -1165,7 +1386,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
               questionBankId: persistedBankId,
             },
           });
-          const revision = await createQuestionRevision(tx, {
+          await createQuestionRevision(tx, {
             actorId,
             difficulty: data.difficulty,
             explanation: data.explanation,
@@ -1176,23 +1397,34 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             promptAssetId: data.promptAssetId,
             questionId: saved.id,
             revisionNo: 1,
+            status: QuestionRevisionStatus.draft,
             stem: data.stem,
             questionType,
           });
           await syncLegacyQuestionOptions(tx, saved.id, [], options);
-          await tx.question.update({ where: { id: saved.id }, data: { currentRevisionId: revision.id, revision: revision.revisionNo } });
+          await markQuestionRevisionReady(tx, revisionId, actorId);
           retainedIds.add(saved.id);
           continue;
         }
 
         retainedIds.add(current.id);
         const currentRevision = current.currentRevision;
-        const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
-        if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
-          continue;
-        }
         if (!currentRevision) {
           throw new QuestionBankError("Revisi aktif soal tidak ditemukan.", { code: "invalid_input", details: { questionId: current.id } });
+        }
+        const incomingCanonical = canonicalQuestionFromInput(question, subtest.code);
+        if (sameCanonicalQuestionContent(canonicalQuestionFromRecord(current), incomingCanonical)) {
+          if (currentRevision.status !== QuestionRevisionStatus.ready) {
+            await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+            await markQuestionRevisionReady(tx, currentRevision.id, actorId);
+          }
+          if (current.status !== ContentStatus.published) {
+            await tx.question.update({
+              where: { id: current.id },
+              data: { status: ContentStatus.published, updatedByUserId: actorId },
+            });
+          }
+          continue;
         }
 
         const requiresNewRevision = currentRevision.status === QuestionRevisionStatus.ready;
@@ -1208,10 +1440,13 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
             promptAssetId: data.promptAssetId,
             questionId: current.id,
             revisionNo: nextRevisionNo,
+            status: QuestionRevisionStatus.draft,
             stem: data.stem,
             questionType,
           });
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: revision.id, revision: nextRevisionNo } });
+          await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+          await markQuestionRevisionReady(tx, revision.id, actorId);
         } else {
           await updateDraftQuestionRevision(tx, currentRevision, {
             actorId,
@@ -1228,8 +1463,9 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           // QuestionOption projection stable so historical source-option IDs
           // cannot silently change when a draft is edited.
           await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: currentRevision.id } });
+          await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+          await markQuestionRevisionReady(tx, currentRevision.id, actorId);
         }
-        await syncLegacyQuestionOptions(tx, current.id, current.options, options);
     }
     const removed = existing.filter((question) => !retainedIds.has(question.id));
     for (const question of removed) {
@@ -1248,12 +1484,28 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         data: { status: ContentStatus.archived, updatedByUserId: actorId },
       });
     }
-    const [saved, folderRows] = await Promise.all([
-      tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude }),
-      getFolderRows(tx),
-    ]);
+    const saved = await tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude });
+    const folderRows = await getFolderRows(tx);
     return toDto(saved, folderRows);
+  }, { maxWait: 5_000, timeout: 120_000 }).catch(async (saveError: unknown) => {
+    if (manualBankMediaFolderCleanupCandidate) {
+      try {
+        await cleanupFailedManualQuestionBankMediaFolder(manualBankMediaFolderCleanupCandidate);
+      } catch {
+        // Preserve the original Bank-save error if best-effort cleanup fails.
+      }
+    }
+    throw saveError;
   });
+  if (mediaFolderReservationId || input.id) {
+    try {
+      await finalizeQuestionBankMediaFolderReservation(result.bank.id, actorId);
+    } catch (error) {
+      // The Bank is already committed. Leave the reservation and provisional
+      // folder intact so a later save can safely retry the conditional rename.
+      console.error("Could not finalize the adopted Bank Media folder rename.", error);
+    }
+  }
   return result;
 }
 
@@ -1385,7 +1637,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
         explanationAsset: true,
         question: {
           include: {
-            questionBank: { select: { status: true } },
+            questionBank: { select: { id: true, revision: true, status: true } },
             subtest: { select: { code: true } },
           },
         },
@@ -1406,19 +1658,19 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
     const current = revision.status;
     const isCurrent = revision.question.currentRevisionId === revision.id;
     if (current === QuestionRevisionStatus.retired && target !== QuestionRevisionStatus.retired) {
-      throw new QuestionBankError("Revisi yang sudah retired tidak dapat diaktifkan kembali.", { code: "question_retired" });
+      throw new QuestionBankError("Revisi yang sudah dinonaktifkan tidak dapat diaktifkan kembali.", { code: "question_retired" });
     }
     if (current === QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.retired) {
-      throw new QuestionBankError("Revisi Ready tidak dapat diturunkan statusnya. Buat revisi baru untuk perubahan.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Revisi yang sudah siap tidak dapat dikembalikan ke draf atau peninjauan. Buat revisi baru untuk mengubah isinya.", { code: "invalid_lifecycle_transition" });
     }
     if (target === QuestionRevisionStatus.ready) {
-      if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat dipindahkan ke Ready.", { code: "invalid_lifecycle_transition" });
+      if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat ditandai siap.", { code: "invalid_lifecycle_transition" });
       if (!revision.question.questionBank) {
         // Standalone revisions predate the Bank Soal readiness contract and
         // intentionally have no Subtest requirement. Preserve that structural
         // predicate while keeping the typed failure used by the action.
         if (!isValidRevision(revision)) {
-          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", { code: "readiness_failed" });
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk ditandai siap.", { code: "readiness_failed" });
         }
       } else {
         const issues = getQuestionReadinessFromRevision({
@@ -1427,7 +1679,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
           subtestCode: revision.question.subtest?.code,
         });
         if (issues.length) {
-          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", {
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk ditandai siap.", {
             code: "readiness_failed",
             details: { questionId: revision.questionId },
             readiness: {
@@ -1441,31 +1693,57 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
       }
     }
     if (target === QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
-      throw new QuestionBankError("Hanya revisi Draft atau Review yang dapat masuk ke Draft.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Hanya revisi berstatus draf atau dalam peninjauan yang bisa dikembalikan ke draf.", { code: "invalid_lifecycle_transition" });
     }
     if (target === QuestionRevisionStatus.review && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
-      throw new QuestionBankError("Hanya revisi Draft yang dapat masuk ke Review.", { code: "invalid_lifecycle_transition" });
+      throw new QuestionBankError("Hanya revisi berstatus draf yang bisa diajukan untuk ditinjau.", { code: "invalid_lifecycle_transition" });
     }
 
     const now = new Date();
+    const readyAt = target === QuestionRevisionStatus.ready ? (revision.readyAt ?? now) : revision.readyAt;
+    const retiredAt = target === QuestionRevisionStatus.retired ? (revision.retiredAt ?? now) : null;
+    const questionStatus = target === QuestionRevisionStatus.ready
+      ? ContentStatus.published
+      : target === QuestionRevisionStatus.retired
+        ? ContentStatus.archived
+        : ContentStatus.draft;
+    const changesCurrentLifecycle = isCurrent && (
+      current !== target
+      || (revision.readyAt?.getTime() ?? null) !== (readyAt?.getTime() ?? null)
+      || (revision.retiredAt?.getTime() ?? null) !== (retiredAt?.getTime() ?? null)
+      || revision.question.status !== questionStatus
+    );
     const updated = await tx.questionRevision.update({
       where: { id: revision.id },
       data: {
-        readyAt: target === QuestionRevisionStatus.ready ? (revision.readyAt ?? now) : revision.readyAt,
-        retiredAt: target === QuestionRevisionStatus.retired ? (revision.retiredAt ?? now) : null,
+        readyAt,
+        retiredAt,
         status: target,
         updatedByUserId: actorId,
       },
     });
     if (isCurrent) {
-      const questionStatus = target === QuestionRevisionStatus.ready
-        ? ContentStatus.published
-        : target === QuestionRevisionStatus.retired
-          ? ContentStatus.archived
-          : ContentStatus.draft;
       await tx.question.update({ where: { id: revision.questionId }, data: { status: questionStatus, updatedByUserId: actorId } });
     }
-    return { id: updated.id, questionId: revision.questionId, revisionNo: updated.revisionNo, status: updated.status };
+    const questionBank = revision.question.questionBank;
+    const currentBankRevision = questionBank
+      ? questionBank.revision + (changesCurrentLifecycle ? 1 : 0)
+      : null;
+    if (questionBank && changesCurrentLifecycle) {
+      // Overwrite previews use this optimistic Bank version to detect changes
+      // to current-question lifecycle state between preview and confirmation.
+      await tx.questionBank.update({
+        where: { id: questionBank.id },
+        data: { revision: questionBank.revision + 1, updatedByUserId: actorId },
+      });
+    }
+    return {
+      id: updated.id,
+      questionId: revision.questionId,
+      revisionNo: updated.revisionNo,
+      status: updated.status,
+      ...(currentBankRevision === null ? {} : { bankRevision: currentBankRevision }),
+    };
   });
 }
 
@@ -1482,7 +1760,7 @@ async function deleteQuestionBank(
       editLease,
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, status: true, updatedByUserId: true } });
+    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, revision: true, status: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     const modifierId = actorId;
 
@@ -1515,8 +1793,18 @@ async function deleteQuestionBank(
     ]);
 
     if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount) {
-      throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan oleh Quiz, Tryout, atau sesi belajar.");
+      throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan dalam kuis, Tryout, atau sesi belajar.");
     }
+
+    const currentQuestions = await tx.question.findMany({
+      where: { questionBankId: id },
+      select: { currentRevision: { select: { status: true } }, status: true },
+    });
+    const changesCurrentBankState = bank.status !== ContentStatus.archived
+      || currentQuestions.some((question) =>
+        question.status !== ContentStatus.archived
+        || question.currentRevision.status !== QuestionRevisionStatus.retired,
+      );
 
     // Question identities and their revisions are historical authorities once
     // the physical revision boundary exists. Keep them addressable and
@@ -1527,7 +1815,14 @@ async function deleteQuestionBank(
       data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: modifierId },
     });
     await tx.question.updateMany({ where: { questionBankId: id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
-    await tx.questionBank.update({ where: { id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
+    await tx.questionBank.update({
+      where: { id },
+      data: {
+        revision: bank.revision + (changesCurrentBankState ? 1 : 0),
+        status: ContentStatus.archived,
+        updatedByUserId: modifierId,
+      },
+    });
     return { id };
   });
 }
@@ -1561,6 +1856,8 @@ export {
   setQuestionBankCategories,
   updateQuestionRevisionLifecycle,
   updateQuestionBankLifecycle,
+  ensureQuestionBankMediaFolder,
+  reserveDraftQuestionBankMediaFolder,
 };
 export type {
   ListQuestionBanksOptions,

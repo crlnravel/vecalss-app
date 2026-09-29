@@ -9,15 +9,14 @@ import {
   parseMentorTryoutContext,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
-import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Buat Tryout Kapten | Vecalss LMS" };
 
 export default async function CreateTryoutPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const [session, query] = await Promise.all([
-    requireTutorSession(),
+  const [query, session] = await Promise.all([
     searchParams,
+    requireTutorSession(),
   ]);
   const parsedQuery = parseMentorTryoutContext(query);
   if (parsedQuery.issues.length) {
@@ -39,5 +38,7 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
     workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "operations" : undefined),
   });
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule /></MentorWorkspaceShell>;
+  const queryParams = new URLSearchParams(canonicalHref.split("?")[1] ?? "");
+  queryParams.set("create", "1");
+  redirect(`/mentor/tryout?${queryParams.toString()}`);
 }

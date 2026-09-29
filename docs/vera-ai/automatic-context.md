@@ -1,9 +1,53 @@
 # Vera automatic context
 
 This document describes the feature-gated replacement for the learner-managed
-`Konteks` catalog. The default development state remains `off`, so local
-development continues to use the free/mock provider path and the legacy
-request contract.
+`Konteks` catalog. The default state remains `off`, so local development
+continues to use the free/mock provider path and the legacy request contract.
+
+## Local disposable development: Respan Span-01 Lite
+
+The only local implicit-context path is an explicit, development-only opt-in
+against the verified disposable `vecalss_dev` database on port `55432`. It
+requires `NODE_ENV=development`, `VERA_AUTOMATIC_CONTEXT_ENABLED=true`,
+`VERA_LOCAL_CONTEXT_RESPAN_ENABLED=true`, server-side `RESPAN_API_KEY`, the
+existing OpenRouter free POC opt-ins, and current zero-price evidence for both
+routes. The local gate also checks the connected database name, schema, and
+port. Leave all switches off by default; staging and production remain off.
+
+The selector sends exactly one `POST https://api.respan.ai/api/v1/scores`
+request using `model: "respan-01-free"` and `respan_params.disable_log: true`.
+Its input contains only the current question and up to twelve server-authorized
+candidate titles, topics, and short released teasers. It excludes learner and
+database identifiers, conversation history, full source bodies, hidden
+assessment answers, unreleased content, and other learners' data. If the
+selector returns a schema/model mismatch, invalid probabilities, 403, 429, 402,
+or an ambiguous timeout, the request fails closed; it is not retried and does
+not fall back to a paid selector.
+
+`disable_log` suppresses input and output from Respan logs while metrics remain
+recorded. It does not promise zero data retention, zero data storage, or no
+training. Respan may process the submitted question and candidate metadata
+through its AI service providers. Only use local data that is appropriate for
+this external transfer. Span-01 is early access: a 403 can mean the organization
+is not enabled, and the free tier has a daily cap that can produce a 429.
+
+If a source is selected, the existing `openrouter/free` POC receives one
+bounded prompt containing the same current question and only whole authorized
+evidence segments with citation frames. The prompt and exact JSON body are
+persisted and digested before dispatch. The route allows at most one selector
+send and one answer send, and never retries an ambiguous send or selects a paid
+fallback. Answers must cite committed request sources whose evidence is present
+in those transmitted bytes. No match or no evidence produces the fixed
+zero-citation limitation and releases the learner-credit reservation.
+
+Configure switches, API keys, and versioned price evidence in the local server
+environment using the names documented in `.env.example`. Never put provider
+keys in a browser-visible or `NEXT_PUBLIC_` variable. Price snapshots are
+operator-supplied provenance: Respan's versioned free-tier record must match
+the endpoint/model and be reviewed within 24 hours; the OpenRouter snapshot
+must match the observed free model/provider and be refreshed within 15 minutes.
+Missing or stale evidence keeps the gate off. Missing optional Respan token
+usage is recorded as unavailable and does not establish zero cost.
 
 ## Behavior
 
@@ -71,11 +115,12 @@ server gate is enabled, a new request cannot downgrade to legacy mode and
 submit manually selected source IDs. Existing idempotent requests remain
 replayable under their stored admission contract.
 
-The automatic gate also requires the approved paid provider, the function-tool
-capability evidence bound to the canonical tool schema and selector/final
-serializer hashes, and a non-expired two-turn canary. Development, the free
-POC, and the mock provider are always fail-closed for automatic mode. The
-current capability signature is a release-evidence reference; public-key
+The production automatic gate also requires the approved paid provider, the
+function-tool capability evidence bound to the canonical tool schema and
+selector/final serializer hashes, and a non-expired two-turn canary. That
+production contract is separate from the local Respan/free POC gate described
+above; local capability flags cannot enable Jev or production automatic mode.
+The current capability signature is a release-evidence reference; public-key
 verification remains a release-operations follow-up.
 
 The paid write-ahead record now hashes the exact UTF-8 request body handed to

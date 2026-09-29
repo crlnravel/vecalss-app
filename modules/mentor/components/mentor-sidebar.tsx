@@ -12,6 +12,7 @@ import {
   LibraryBig,
   ListChecks,
   Settings,
+  Video,
 } from "@/lib/icons";
 
 import {
@@ -40,6 +41,7 @@ type KaptenNavigationItem = {
 const kaptenMainNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/mentor/materi", icon: BookOpenText, label: "Materi" },
+  { href: "/mentor/videos", icon: Video, label: "Video" },
   { href: "/mentor/quiz", icon: ListChecks, label: "Kuis" },
   {
     href: "/mentor/quiz/question-bank?purpose=quiz",

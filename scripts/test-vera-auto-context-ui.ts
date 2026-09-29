@@ -9,6 +9,7 @@ import {
   readVeraRequestEvidenceState,
   readVeraRequestSources,
 } from "../modules/vera-ai/automatic-context";
+import { createVeraConversationResolver } from "../modules/vera-ai/conversation-session";
 
 const automaticAuthority = readVeraContextAuthority({
   contextMode: "automatic",
@@ -114,10 +115,36 @@ assert.deepEqual(
   { phase: "retrieving", progress: 100 },
 );
 
+const resolveConversationId = createVeraConversationResolver();
+let conversationCreations = 0;
+let resolveCreatedConversation: (conversationId: string | null) => void = () => undefined;
+const createConversation = () => {
+  conversationCreations += 1;
+  return new Promise<string | null>((resolve) => {
+    resolveCreatedConversation = resolve;
+  });
+};
+const firstConversationRequest = resolveConversationId(null, createConversation);
+const overlappingConversationRequest = resolveConversationId(null, createConversation);
+await Promise.resolve();
+assert.equal(conversationCreations, 1, "overlapping first sends share one session creation");
+resolveCreatedConversation("new-conversation");
+assert.deepEqual(
+  await Promise.all([firstConversationRequest, overlappingConversationRequest]),
+  ["new-conversation", "new-conversation"],
+);
+assert.equal(
+  await resolveConversationId("existing-conversation", createConversation),
+  "existing-conversation",
+  "an existing active session is reused without creating another one",
+);
+assert.equal(conversationCreations, 1);
+
 const uiSource = readFileSync(
   resolve(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"),
   "utf8",
 );
+const globalStyles = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
 assert.match(uiSource, /function buildVeraRequestPayload/);
 assert.match(uiSource, /\? \{ \.\.\.base, contextMode: "automatic"/);
 assert.match(uiSource, /: \{ \.\.\.base, sources \}/);
@@ -127,5 +154,56 @@ assert.match(uiSource, /loadConversation\(conversationId, automaticContext, fina
 assert.match(uiSource, /isCommittedVeraMessage/);
 assert.match(uiSource, /!isVeraAutomaticContextEnabled\(automaticContext\)/);
 assert.match(uiSource, /\/api\/vera-ai\/sources\?limit=50/);
+assert.match(uiSource, /function StreamingAnswerText\(\{ content \}: \{ content: string \}\)/);
+assert.match(uiSource, /<StreamingAnswerText content=\{body\} \/>/);
+assert.match(uiSource, /vera-stream-caret/);
+assert.match(globalStyles, /@keyframes vera-stream-word-arrive/);
+assert.match(globalStyles, /@keyframes vera-stream-caret-pulse/);
+assert.match(
+  globalStyles,
+  /\.vera-ai-motion \.vera-stream-word,[\s\S]*?animation: none;[\s\S]*?opacity: 1;/,
+  "the streaming reveal must remain readable when reduced motion is requested",
+);
+
+const streamRequestStart = uiSource.indexOf("async function streamRequest(");
+assert.notEqual(streamRequestStart, -1);
+const resolveSessionBeforeSend = uiSource.indexOf(
+  "conversationResolverRef.current(",
+  streamRequestStart,
+);
+const requestLockAcquire = uiSource.indexOf(
+  "requestInFlightRef.current = true",
+  streamRequestStart,
+);
+const sendRequestDispatch = uiSource.indexOf(
+  "/api/vera-ai/conversations/${conversationId}/requests",
+  streamRequestStart,
+);
+const requestLockRelease = uiSource.indexOf(
+  "requestInFlightRef.current = false",
+  sendRequestDispatch,
+);
+assert.ok(
+  requestLockAcquire >= 0 &&
+    resolveSessionBeforeSend > requestLockAcquire &&
+    sendRequestDispatch > resolveSessionBeforeSend &&
+    requestLockRelease > sendRequestDispatch,
+  "a first message should create its conversation before dispatching the request",
+);
+assert.doesNotMatch(
+  uiSource.slice(streamRequestStart, sendRequestDispatch),
+  /Buat sesi baru sebelum mengirim permintaan/,
+  "an empty conversation list must not block the learner's first message",
+);
+assert.match(
+  uiSource.slice(streamRequestStart, sendRequestDispatch),
+  /conversationResolverRef\.current\(\s*activeSession\.id\s*\|\|\s*null,\s*createBackendConversation\s*,?\s*\)/,
+  "the request path resolves the active ID or creates a session before sending",
+);
+assert.match(
+  uiSource.slice(streamRequestStart, sendRequestDispatch),
+  /requestInFlightRef\.current/,
+  "rapid duplicate submits are ignored while the first request is starting",
+);
 
 console.log("Vera automatic-context UI checks passed.");

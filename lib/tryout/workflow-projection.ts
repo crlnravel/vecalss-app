@@ -224,7 +224,7 @@ function addModeBlockers(
 ) {
   const issue = {
     code: "published_immutable",
-    message: "Area authoring hanya tersedia pada Draf perubahan baru.",
+    message: "Area penyusunan hanya tersedia pada draf perubahan baru.",
     target: "delivery" as const,
   };
   if (mode === "published") {
@@ -301,26 +301,26 @@ function recommendedAction(
   if (mode === "draft") {
     if (!readiness.overviewReady) {
       step = "overview";
-      label = "Lengkapi Overview";
+      label = "Lengkapi ringkasan";
     } else if (!readiness.configureSectionsReady) {
       step = "configure_sections";
-      label = "Konfigurasi Sections";
+      label = "Atur bagian Tryout";
     } else if (!readiness.readinessPublishReady) {
       step = "readiness_publish";
-      label = "Tinjau Readiness & Publish";
+      label = "Periksa kesiapan Tryout";
     } else {
       step = "readiness_publish";
       label = "Terbitkan Tryout";
     }
   } else if (!operationsAvailable) {
     step = "delivery";
-    label = "Buka Delivery untuk membuat sesi";
+    label = "Buka pengaturan sesi untuk membuat sesi";
   } else if (!resultsAvailable) {
     step = "operations";
-    label = liveAvailable ? "Pantau Live" : "Periksa Operations";
+    label = liveAvailable ? "Pantau sesi" : "Periksa pengelolaan sesi";
   } else {
     step = "results";
-    label = "Tinjau Results";
+    label = "Tinjau hasil";
   }
   return { href: hrefForStep(input, step, selectedSessionId), label, step };
 }
@@ -422,37 +422,37 @@ function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWork
       ? (providedBlockers.overview?.map((issue) => typeof issue === "string" ? { code: "workflow_blocked", message: issue } : { ...issue }) ?? [])
       : normalizeIssues(providedBlockers.overview, {
           code: "overview_incomplete",
-          message: "Lengkapi judul dan identitas Tryout di Overview.",
+          message: "Lengkapi judul dan identitas Tryout di bagian ringkasan.",
           target: "overview",
         });
     blockers.configure_sections = readiness.configureSectionsReady
       ? (providedBlockers.configure_sections?.map((issue) => typeof issue === "string" ? { code: "workflow_blocked", message: issue } : { ...issue }) ?? [])
       : normalizeIssues(providedBlockers.configure_sections, {
           code: "configure_sections_incomplete",
-          message: "Lengkapi sumber, durasi, dan aturan setiap Section.",
+          message: "Lengkapi sumber soal, durasi, dan aturan setiap bagian Tryout.",
           target: "configure_sections",
         });
     blockers.readiness_publish = readiness.readinessPublishReady
       ? (providedBlockers.readiness_publish?.map((issue) => typeof issue === "string" ? { code: "workflow_blocked", message: issue } : { ...issue }) ?? [])
       : normalizeIssues(providedBlockers.readiness_publish, {
           code: "readiness_incomplete",
-          message: "Periksa Readiness & Publish sebelum menerbitkan Tryout.",
+          message: "Periksa kesiapan Tryout sebelum menerbitkannya.",
           target: "readiness_publish",
         });
   } else {
     blockers.operations = operationsAvailable ? [] : normalizeIssues(providedBlockers.operations, {
       code: "operations_unavailable",
-      message: "Buat atau buka sesi terlebih dahulu untuk membuka Operations.",
+      message: "Buat atau buka sesi terlebih dahulu untuk mengelola sesi Tryout.",
       target: "delivery",
     });
     blockers.live = selectedSessionRuntimeEligible ? [] : normalizeIssues(providedBlockers.live, {
       code: "live_unavailable",
-      message: "Pilih sesi aktif yang sudah terikat AssessmentRelease untuk membuka Live.",
+      message: "Pilih sesi aktif yang sudah siap untuk mulai memantau.",
       target: "operations",
     });
     blockers.results = resultsAvailable ? [] : normalizeIssues(providedBlockers.results, {
       code: "results_unavailable",
-      message: "Results terbuka setelah sesi ditutup atau ada aktivitas attempt terminal/scored.",
+      message: "Hasil tersedia setelah sesi ditutup atau pengerjaan peserta berakhir.",
       target: operationsAvailable ? "operations" : "delivery",
     });
   }

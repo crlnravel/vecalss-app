@@ -221,9 +221,9 @@ function OnboardingForm({
               Jawab beberapa pertanyaan singkat supaya Vecalss bisa menyiapkan arah belajar yang pas buatmu.
             </p>
             <Button className="mt-9 w-full max-w-sm" onClick={() => setStep(1)} size="onboarding" type="button" variant="onboarding">
-              Mulai <ArrowRight size={19} weight="bold" />
+              Atur target belajar <ArrowRight size={19} weight="bold" />
             </Button>
-            <div className="mt-5"><SkipOnboardingButton>Lewati dulu</SkipOnboardingButton></div>
+            <div className="mt-5"><SkipOnboardingButton>Atur nanti</SkipOnboardingButton></div>
           </section>
         ) : null}
 
@@ -232,22 +232,22 @@ function OnboardingForm({
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-secondary-200 bg-voyage-surface/90 p-4 shadow-[0_12px_24px_-22px_color-mix(in_oklab,var(--voyage-deep)_60%,transparent)]">
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
               <div>
-                <h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Kamu lagi menyiapkan apa?</h1>
-                <p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Pilih salah satu target dulu. Detail lainnya bisa kamu atur nanti.</p>
+                <h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Apa target belajarmu?</h1>
+                <p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Pilih ujian atau kampus tujuan. Kamu bisa melengkapi detailnya nanti.</p>
               </div>
             </div>
             <div className="mt-10 space-y-3">
               {examEvents.slice(0, 4).map((examEvent) => (
-                <ChoiceCard description={examEvent.examDate ? `Target ujian ${examDateFormatter.format(examEvent.examDate)}` : "Target ujianmu"} icon={Target} key={examEvent.id} onClick={() => chooseExam(examEvent.id)} selected={targetKind === "exam" && examId === examEvent.id} title={examEvent.name} />
+                <ChoiceCard description={examEvent.examDate ? `Target ujian ${examDateFormatter.format(examEvent.examDate)}` : "Jadikan ujian ini target belajarmu."} icon={Target} key={examEvent.id} onClick={() => chooseExam(examEvent.id)} selected={targetKind === "exam" && examId === examEvent.id} title={examEvent.name} />
               ))}
-              <ChoiceCard description="Menyiapkan pilihan kampus dan jurusan" icon={GraduationCap} onClick={chooseCampusTarget} selected={targetKind === "campus"} title="Aku sudah punya target kampus" />
-              {examEvents.length === 0 ? <p className="rounded-2xl border border-dashed border-secondary-300 p-4 text-sm text-voyage-muted-ink">Target ujian belum tersedia. Kamu tetap bisa memilih kampus dan jurusan.</p> : null}
+              <ChoiceCard description="Atur kampus dan jurusan tujuanmu." icon={GraduationCap} onClick={chooseCampusTarget} selected={targetKind === "campus"} title="Target kampus dan jurusan" />
+              {examEvents.length === 0 ? <p className="rounded-2xl border border-dashed border-secondary-300 p-4 text-sm text-voyage-muted-ink">Pilihan ujian belum tersedia. Kamu tetap bisa mengatur target kampus dan jurusan.</p> : null}
             </div>
             <div className="mt-8 flex flex-col items-center gap-4">
               <Button className="w-full" disabled={!canAdvanceFromTargets} onClick={() => setStep(2)} size="onboarding" type="button" variant="onboarding">
                 Lanjut <ArrowRight size={18} weight="bold" />
               </Button>
-              <SkipOnboardingButton>Lewati dulu</SkipOnboardingButton>
+              <SkipOnboardingButton>Atur nanti</SkipOnboardingButton>
             </div>
           </section>
         ) : null}
@@ -256,7 +256,7 @@ function OnboardingForm({
           <section className="mx-auto w-full max-w-[33rem] vecalss-enter-fade-slide-right-300">
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-secondary-200 bg-voyage-surface/90 p-4 shadow-[0_12px_24px_-22px_color-mix(in_oklab,var(--voyage-deep)_60%,transparent)]">
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
-              <div><h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Kampus impianmu di mana?</h1><p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Tidak perlu pasti kok. Ini hanya untuk membantumu fokus.</p></div>
+              <div><h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Pilih kampus dan jurusan tujuan</h1><p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Belum yakin? Pilih nanti. Kamu bisa mengubah target ini di Profil.</p></div>
             </div>
             <label className="mt-9 block text-sm font-bold text-secondary-800" htmlFor="university">Pilih kampus</label>
             <div className="relative mt-2">
@@ -277,9 +277,9 @@ function OnboardingForm({
                 value={universityId}
               />
             </div>
-            <label className="mt-6 block text-sm font-bold text-secondary-800" htmlFor="major">Jurusan yang kamu incar</label>
+            <label className="mt-6 block text-sm font-bold text-secondary-800" htmlFor="major">Jurusan tujuan</label>
             <OnboardingSelect
-              aria-label="Jurusan yang kamu incar"
+              aria-label="Jurusan tujuan"
               className="mt-2 h-14"
               id="major"
               onValueChange={setMajorId}
@@ -296,7 +296,7 @@ function OnboardingForm({
             {chosenUniversity ? <p className="mt-3 text-sm text-voyage-muted-ink">Keren, <span className="font-bold text-secondary-800">{chosenUniversity.shortName ?? chosenUniversity.name}</span> masuk daftar tujuanmu.</p> : null}
             <div className="mt-9 flex flex-col items-center gap-4">
               <Button className="w-full" onClick={() => setStep(3)} size="onboarding" type="button" variant="onboarding">Lanjut <ArrowRight size={18} weight="bold" /></Button>
-              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 transition hover:text-secondary-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--voyage-leaf)] motion-reduce:transform-none motion-reduce:transition-none" onClick={() => setStep(3)} type="button">Lewati dulu</button>
+              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 transition hover:text-secondary-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--voyage-leaf)] motion-reduce:transform-none motion-reduce:transition-none" onClick={() => setStep(3)} type="button">Lanjut tanpa memilih</button>
             </div>
           </section>
         ) : null}
@@ -315,7 +315,7 @@ function OnboardingForm({
               <input name="targetUniversityId" type="hidden" value={universityId} />
               <input name="targetMajorId" type="hidden" value={majorId} />
               <Button className="w-full" size="onboarding" type="submit" variant="onboarding">Mulai belajar <ArrowRight size={19} weight="bold" /></Button>
-              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 hover:text-secondary-600" formAction={skipOnboardingAction} type="submit">Atur nanti aja</button>
+              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 hover:text-secondary-600" formAction={skipOnboardingAction} type="submit">Lewati target belajar</button>
             </form>
           </section>
         ) : null}

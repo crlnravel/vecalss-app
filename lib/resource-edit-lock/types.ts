@@ -19,7 +19,9 @@ type EditLeaseProof = {
 
 type EditLeaseServerStatus = {
   generation?: number;
+  holderEmail?: string;
   holderName?: string;
+  holderUserId?: string;
   remainingMs: number;
   serverNow: string;
   state: "locked" | "owned";

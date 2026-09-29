@@ -19,7 +19,7 @@ import { KaptenQuestionBankPageModule } from "@/modules/mentor/KaptenQuestionBan
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Question Bank Kapten | Vecalss LMS",
+  title: "Bank Soal Kapten | Vecalss LMS",
 };
 
 export default async function MentorQuestionBankPage({
@@ -30,6 +30,12 @@ export default async function MentorQuestionBankPage({
   const session = await requireTutorSession();
   const params = await searchParams;
   const parsedQuery = parseQuestionBankQuery(params);
+  const createValues = Array.isArray(params.create)
+    ? params.create
+    : params.create === undefined || params.create === null
+      ? []
+      : [params.create];
+  const initialCreateDialogOpen = createValues.length === 1 && createValues[0] === "1";
   if (parsedQuery.issues.length || parsedQuery.purpose === null) {
     const requestedPurpose = Array.isArray(params.purpose) ? params.purpose[0] : params.purpose;
     const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
@@ -38,13 +44,17 @@ export default async function MentorQuestionBankPage({
         <section aria-labelledby="question-bank-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="question-bank-context-unavailable">Konteks Bank Soal tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtest, folder, dan filter yang tersedia untuk melanjutkan.</p>
+          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtes, folder, dan filter yang tersedia untuk melanjutkan.</p>
         </section>
       </MentorWorkspaceShell>
     );
   }
-  if (!canonicalQueryEquals(params, buildQuestionBankHref(parsedQuery))) {
-    redirect(buildQuestionBankHref(parsedQuery));
+  const catalogueHref = buildQuestionBankHref(parsedQuery);
+  const canonicalHref = initialCreateDialogOpen
+    ? `${catalogueHref}&create=1`
+    : catalogueHref;
+  if (!canonicalQueryEquals(params, canonicalHref)) {
+    redirect(canonicalHref);
   }
   const requestedPurpose = parsedQuery.purpose;
   const requestedSubjects = parsedQuery.subtest;
@@ -64,9 +74,10 @@ export default async function MentorQuestionBankPage({
 
   return (
     <KaptenQuestionBankPageModule
-      key={JSON.stringify({ category: requestedCategories, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
+      key={JSON.stringify({ category: requestedCategories, create: initialCreateDialogOpen, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
       initialEntries={banks.items}
       initialFolderTree={folderTree}
+      initialCreateDialogOpen={initialCreateDialogOpen}
       initialPage={banks.page}
       initialPageSize={banks.pageSize}
       initialPurpose={requestedPurpose}

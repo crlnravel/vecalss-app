@@ -176,19 +176,19 @@ type ImportProcessingErrorCode =
   | "job_exhausted";
 
 const ROW_ERROR_MESSAGES: Readonly<Record<ImportProcessingErrorCode, string>> = {
-  changed_since_preview: "The account changed after preview and needs a fresh import.",
-  duplicate_email: "An account with this email already exists.",
-  handoff_method_missing: "The import handoff method is unavailable.",
-  inactive_account: "The matching account is not active.",
-  invalid_input: "The stored import row is invalid.",
-  invalid_operation: "The stored import operation is no longer valid.",
-  missing_profile: "The role profile could not be found.",
-  mutation_failed: "The account mutation could not be completed.",
-  opposite_role: "The email belongs to an account with another role.",
-  profile_field_too_long: "The imported profile field exceeds its storage limit.",
-  role_conflict: "The account role is no longer compatible with this import.",
-  worker_lease_expired: "The worker lease expired before this row completed.",
-  job_exhausted: "The import worker exhausted its retry attempts.",
+  changed_since_preview: "Akun berubah setelah pratinjau dibuat. Buat pratinjau impor baru untuk memperbarui data.",
+  duplicate_email: "Akun dengan alamat email ini sudah terdaftar.",
+  handoff_method_missing: "Cara pemberian akses belum tersedia. Segarkan halaman lalu coba lagi.",
+  inactive_account: "Akun dengan alamat email ini tidak aktif.",
+  invalid_input: "Data pada baris ini belum bisa diproses. Periksa kembali isi file.",
+  invalid_operation: "Tindakan untuk baris ini sudah tidak tersedia. Buat pratinjau impor baru.",
+  missing_profile: "Profil untuk akun ini belum tersedia. Periksa data akun sebelum mencoba lagi.",
+  mutation_failed: "Perubahan akun belum berhasil disimpan. Coba ulang baris ini.",
+  opposite_role: "Alamat email ini sudah digunakan untuk jenis akun lain.",
+  profile_field_too_long: "Salah satu bagian profil terlalu panjang. Persingkat isinya lalu unggah kembali.",
+  role_conflict: "Jenis akun ini tidak cocok dengan data yang dipilih.",
+  worker_lease_expired: "Proses untuk baris ini terhenti sementara. Coba ulang baris yang gagal.",
+  job_exhausted: "Baris ini belum berhasil diproses setelah beberapa kali mencoba. Periksa data lalu coba ulang.",
 };
 
 class ImportProcessingError extends Error {
@@ -213,16 +213,16 @@ class ImportRetryError extends Error {
   constructor(
     code: ImportRetryError["code"],
     message = code === "import_not_found"
-      ? "The import could not be found."
+      ? "Impor ini sudah tidak tersedia."
       : code === "invalid_import_state"
-        ? "This import is not eligible for retry."
+        ? "Impor ini belum dapat dicoba ulang. Segarkan halaman lalu periksa statusnya."
         : code === "no_failed_rows"
-          ? "The import has no failed rows to retry."
+          ? "Tidak ada baris gagal yang bisa dicoba ulang."
           : code === "active_claims"
-            ? "The import still has an active worker claim."
+            ? "Proses impor masih berlangsung. Tunggu sebentar lalu coba lagi."
             : code === "retry_conflict"
-              ? "This retry request conflicts with the import's current generation."
-              : "The selected rows are invalid.",
+              ? "Status impor berubah saat percobaan ulang dimulai. Segarkan halaman lalu pilih baris lagi."
+              : "Baris yang dipilih tidak dapat diproses. Segarkan halaman lalu pilih ulang.",
   ) {
     super(message);
     this.name = "ImportRetryError";

@@ -44,6 +44,7 @@ import {
   DotsThree as PhosphorMoreHorizontal,
   Download as PhosphorDownload,
   Eye as PhosphorEye,
+  EyeSlash as PhosphorEyeSlash,
   FileArrowUp as PhosphorFileUp,
   FileImage as PhosphorFileImage,
   FileMagnifyingGlass as PhosphorScanSearch,
@@ -177,6 +178,7 @@ export const Ellipsis = PhosphorMoreHorizontal;
 export const Expand = PhosphorArrowsOut;
 export const ExternalLink = PhosphorExternalLink;
 export const Eye = PhosphorEye;
+export const EyeOff = PhosphorEyeSlash;
 export const FileClock = PhosphorFileText;
 export const FileImage = PhosphorFileImage;
 export const FilePenLine = PhosphorNotebookPen;

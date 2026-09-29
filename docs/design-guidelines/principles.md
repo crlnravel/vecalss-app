@@ -17,8 +17,8 @@ Use this file before introducing a new pattern or visual exception.
   such as “Tryout Workspace.”
 - **Do** use a chevron-left back control that returns exactly one level to the
   immediate parent, with an accessible parent-specific name.
-- **Do** choose between the two tab variants by layout intent: Variant 1 for
-  compact filters and Variant 2 for full-width peer workspaces.
+- **Do** choose the shared sunken tabs layout by intent: content-sized tabs for
+  compact filters and equal-width tabs for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
   and action lists instead of reaching for browser-native dropdowns.
 - **Do** use the shared bottom-center Sonner toast for transient success and
@@ -41,8 +41,9 @@ Use this file before introducing a new pattern or visual exception.
   helper text; no asterisk communicates an optional field.
 - **Do** use the pale, green-outlined tooltip treatment for shared tooltips and
   chart hover summaries, including collapsed navigation hints.
-- **Do** give active compact filter tabs the sunken inset treatment, while
-  keeping full-width line tabs flat with a Voyage Deep underline.
+- **Do** use the shared sunken treatment for both compact filters and
+  full-width navigation, with a 1px border at rest and a full Voyage Deep border
+  around the selected tab.
 - **Do** keep button colors, borders, focus rings, and disabled states on named
   tokens or shared variants; if a new exception is needed, name it first.
 - **Do** write user-facing labels and feedback in plain Indonesian. Name the
@@ -61,8 +62,8 @@ Use this file before introducing a new pattern or visual exception.
   stack when the title alone communicates the destination.
 - **Don't** make Back jump from a child page to its grandparent, a broad
   catalogue, or an arbitrary history entry.
-- **Don't** invent a third tab style or use Variant 1 when a tab bar needs to
-  span the full available width.
+- **Don't** invent another tab style or use content-sized tabs when a tab bar
+  needs to span the full available width.
 - **Don't** use a raw `<select>` or one-off dropdown implementation when the
   shared custom dropdown primitive can express the interaction.
 - **Don't** build a page-local in-content toast for transient operation results

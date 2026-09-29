@@ -6,7 +6,7 @@ import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
 type MentorQuestionBankSubjectPageProps = { params: Promise<{ subjectSlug: string }> };
 
-export const metadata: Metadata = { title: "Subject Bank Soal Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Bank Soal Kapten per Mata Pelajaran | Vecalss LMS" };
 
 export default async function MentorQuestionBankSubjectPage({ params }: MentorQuestionBankSubjectPageProps) {
   const [{ subjectSlug }] = await Promise.all([params, requireTutorSession()]);

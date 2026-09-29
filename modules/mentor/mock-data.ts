@@ -25,6 +25,8 @@ type KaptenSubject = {
 };
 
 type KaptenQuiz = KaptenResource & {
+  isHidden?: boolean;
+  status: "published" | "archived";
   assembly?: {
     bankId: string;
     bankName: string;
@@ -190,10 +192,10 @@ const quizzes: KaptenQuiz[] = [
     resourceType: "quiz",
     sourceBank: "Bank Soal PU Inferensi",
     sourceBankId: "bank-pu-inferensi",
-    status: "draft",
+    status: "published",
     subjectCode: "PU",
     subjectName: "Penalaran Umum",
-    title: "Quiz PU: Simpulan Implisit",
+    title: "Kuis PU: Simpulan Implisit",
     updatedAt: "Diedit 1 jam lalu",
   },
   {
@@ -211,7 +213,7 @@ const quizzes: KaptenQuiz[] = [
     status: "published",
     subjectCode: "PK",
     subjectName: "Pengetahuan Kuantitatif",
-    title: "Quiz PK: Grafik dan Rasio",
+    title: "Kuis PK: Grafik dan Rasio",
     updatedAt: "Diedit kemarin",
   },
   {
@@ -227,14 +229,14 @@ const quizzes: KaptenQuiz[] = [
     status: "published",
     subjectCode: "PBM",
     subjectName: "Pemahaman Bacaan dan Menulis",
-    title: "Quiz PBM: Koherensi Paragraf",
+    title: "Kuis PBM: Koherensi Paragraf",
     updatedAt: "Diedit 4 hari lalu",
   },
 ];
 
 const questionBanks: KaptenQuestionBank[] = [
   {
-    description: "Kumpulan 15 soal inferensi untuk quiz dan tryout PU.",
+    description: "Kumpulan 15 soal inferensi untuk Kuis dan Tryout PU.",
     difficultyMix: "40% sedang, 60% sulit",
     href: "/mentor/quiz/question-bank/bank-pu-inferensi?purpose=quiz",
     id: "bank-pu-inferensi",
@@ -242,7 +244,7 @@ const questionBanks: KaptenQuestionBank[] = [
     progress: 78,
     questionCount: 15,
     resourceType: "question-bank",
-    reusableIn: ["Quiz PU", "Tryout TPS"],
+    reusableIn: ["Kuis PU", "Tryout TPS"],
     status: "draft",
     subjectCode: "PU",
     subjectName: "Penalaran Umum",
@@ -258,7 +260,7 @@ const questionBanks: KaptenQuestionBank[] = [
     progress: 100,
     questionCount: 19,
     resourceType: "question-bank",
-    reusableIn: ["Quiz PK", "Tryout Campuran"],
+    reusableIn: ["Kuis PK", "Tryout Campuran"],
     status: "published",
     subjectCode: "PK",
     subjectName: "Pengetahuan Kuantitatif",
@@ -274,7 +276,7 @@ const questionBanks: KaptenQuestionBank[] = [
     progress: 94,
     questionCount: 13,
     resourceType: "question-bank",
-    reusableIn: ["Quiz PBM", "Tryout Literasi"],
+    reusableIn: ["Kuis PBM", "Tryout Literasi"],
     status: "published",
     subjectCode: "PBM",
     subjectName: "Pemahaman Bacaan dan Menulis",
@@ -592,7 +594,7 @@ const seedQuizContent: Record<
 
 const tryouts: KaptenTryout[] = [
   {
-    description: "Paket tryout mingguan dengan komposisi subtest TPS lengkap.",
+    description: "Paket Tryout mingguan dengan komposisi subtes TPS lengkap.",
     href: "/mentor/tryout#to-17",
     id: "to-17",
     primaryMetric: "88 soal",
@@ -688,7 +690,7 @@ const kaptenNotificationItems: KaptenNotificationItem[] = [
     unread: true,
   },
   {
-    detail: "Quiz PK: Grafik dan Rasio sudah masuk antrean publikasi.",
+    detail: "Kuis PK: Grafik dan Rasio sudah masuk antrean penerbitan.",
     href: "/mentor/quiz/quiz-pk-rasio",
     icon: CalendarClock,
     time: "Kemarin",
@@ -700,7 +702,7 @@ const kaptenNotificationItems: KaptenNotificationItem[] = [
     href: "/mentor/media#thumb-pu-argumen",
     icon: ImageIcon,
     time: "2 jam lalu",
-    title: "Asset siap dipakai",
+    title: "Media siap dipakai",
     unread: false,
   },
 ];

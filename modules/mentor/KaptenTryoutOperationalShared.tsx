@@ -74,7 +74,7 @@ const assessmentReleaseDateFormatter = new Intl.DateTimeFormat("id-ID", {
 
 function AssessmentReleaseNotice({
   label = "Konten sesi",
-  missingDescription = "Buka sesi setelah tujuh Test dan kesiapan CAT tervalidasi.",
+  missingDescription = "Buka sesi setelah seluruh tes dan penyesuaian tingkat kesulitan Tryout siap.",
   release,
   state = "current",
 }: {
@@ -107,17 +107,17 @@ function AssessmentReleaseNotice({
       )}
       <div className="min-w-0">
         <p className="font-semibold">
-          {release ? `${label} ${historical ? "terakhir" : "terkunci"} · Rilis ${release.number}` : `${label} belum memiliki rilis`}
+          {release ? `${label} · Versi konten ${release.number}${historical ? " (versi sebelumnya)" : ""}` : `${label} belum tersedia`}
         </p>
         <p className="mt-0.5 text-xs leading-5 opacity-85">
           {release
             ? historical
-              ? "Draft saat ini dapat berbeda dari rilis terakhir. Publish akan membuat atau menggunakan rilis baru; sesi yang sudah terbuka tetap terikat pada rilis sebelumnya."
-              : "Peserta memakai salinan konten ini. Perubahan Tryout berikutnya tidak mengubah attempt yang sudah terikat."
+              ? "Isi Tryout saat ini mungkin berbeda dari versi ini. Sesi yang sudah dibuka tetap menggunakan versi ini; perubahan berikutnya berlaku untuk sesi baru setelah Tryout diterbitkan lagi."
+              : "Peserta yang sudah mulai mengerjakan tetap memakai salinan ini. Perubahan pada Tryout tidak mengubah soal di sesi yang sudah dibuka."
             : missingDescription}
         </p>
         {publishedAt ? (
-          <p className="mt-1 text-xs font-medium leading-5 opacity-75">Diterbitkan {publishedAt}</p>
+          <p className="mt-1 text-xs font-medium leading-5 opacity-75">Versi ini diterbitkan {publishedAt}</p>
         ) : null}
       </div>
     </div>

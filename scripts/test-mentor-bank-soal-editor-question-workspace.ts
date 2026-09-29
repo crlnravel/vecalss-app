@@ -9,6 +9,14 @@ const editRoute = fs.readFileSync(
   "app/mentor/quiz/question-bank/[bankId]/editor/page.tsx",
   "utf8",
 );
+const fileImportControl = fs.readFileSync(
+  "modules/mentor/components/question-bank-create-file-import.tsx",
+  "utf8",
+);
+const createWorkspace =
+  builder.match(
+    /function QuestionBankCreateWorkspace\([\s\S]*?\n\}\n\nfunction QuestionBankEditWorkspace/u,
+  )?.[0] ?? "";
 
 const workspace =
   builder.match(
@@ -148,7 +156,28 @@ assert.doesNotMatch(
   "non-editable banks do not render a locked-editor banner",
 );
 assert.doesNotMatch(builder, /Masalah berikutnya|soal ditampilkan/u);
-assert.match(builder, /const visibleQuestions = builderState\.questions/u);
+assert.match(
+  createWorkspace,
+  /const isChoosingSheets = sheetPickerOpen && Boolean\(actions\.xlsxDraftInfo\)/u,
+);
+assert.equal(
+  createWorkspace.match(/<QuestionBankCreateFileImportControl\b/gu)?.length,
+  1,
+  "sheet selection should keep one file control mounted",
+);
+assert.match(createWorkspace, /hidden=\{isChoosingSheets\}/u);
+assert.match(fileImportControl, /hidden\?: boolean/u);
+assert.match(
+  fileImportControl,
+  /<section[\s\S]*?hidden=\{hidden\}/u,
+);
+assert.match(fileImportControl, /className=\{hidden \? "hidden" : "grid gap-3"\}/u);
+assert.match(
+  builder,
+  /const visibleQuestions = normalizedQuery\s*\?\s*builderState\.questions\.filter/u,
+  "the inventory applies its search query before listing questions",
+);
+assert.match(builder, /aria-label="Cari soal di inventori"/u);
 assert.match(builder, /className="flex flex-col gap-1\.5"/u);
 assert.match(editRoute, /initial\.bank\.status === "archived"/u);
 assert.match(

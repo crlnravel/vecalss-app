@@ -37,7 +37,7 @@ const affiliatorNavigation: AffiliatorNavigationItem[] = [
   {
     href: "/affiliator/log-pembelian",
     icon: ChartColumnBig,
-    label: "Log pembelian",
+    label: "Riwayat pembelian",
   },
 ];
 

@@ -73,6 +73,7 @@ type DataTableSearch = {
   clearHref?: string;
   hiddenFields?: Readonly<Record<string, string | readonly string[]>>;
   label?: string;
+  onValueChange?: (value: string) => void;
   placeholder?: string;
   value?: string;
 };
@@ -711,6 +712,12 @@ function DataTable<T>({
 
   const navigateToSearch = (value: string) => {
     if (!search) {
+      return;
+    }
+
+    if (search.onValueChange) {
+      setIsSearchDebouncing(false);
+      search.onValueChange(value);
       return;
     }
 

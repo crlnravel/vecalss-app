@@ -12,10 +12,15 @@ import {
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  assertReadyKaptenImageAssets,
+  lockAndValidateKaptenBankImages,
+  ManagedImageAssetConflictError,
   ManagedImageAssetValidationError,
 } from "@/lib/question-bank/media-validator";
 import { isQuestionBankMateri, normalizeQuestionBankMateri } from "@/lib/question-bank/materi";
+import {
+  getQuestionBankReadinessFromDrafts,
+  getQuestionBankReadinessFromRevisions,
+} from "@/lib/question-bank/readiness";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import {
   assertAuthoringEditLease,
@@ -81,6 +86,38 @@ type QuestionBankCsvApplyResult = {
   revision: number;
 };
 
+type QuestionBankCsvOverwriteImpact = {
+  addedImageCount: number;
+  addedQuestionCount: number;
+  clearedImageCount: number;
+  matchedQuestionCount: number;
+  replacedImageCount: number;
+  retiredQuestionCount: number;
+  updatedQuestionCount: number;
+};
+
+type QuestionBankCsvOverwriteImpactSnapshot = QuestionBankCsvOverwriteImpact & {
+  bankRevision: number;
+};
+
+type QuestionBankCsvApplyTransactionResult = QuestionBankCsvApplyResult & {
+  overwriteImpact?: QuestionBankCsvOverwriteImpact;
+};
+
+type ApplyQuestionBankRowsTransactionOptions = {
+  /** A larger explicit bound for the XLSX transaction; CSV remains at 500. */
+  maxRows?: number;
+  /**
+   * Optional destination selected by an XLSX apply. When supplied, the Bank
+   * must still point at this folder under its aggregate lock.
+   */
+  destinationMediaFolderId?: string | null;
+  /** Pending Assets that belong to the applying XLSX attempt and may be promoted. */
+  attemptOwnedPendingAssetIds?: readonly string[];
+  /** Add Bank-specific overwrite counts to an XLSX apply result without changing CSV responses. */
+  includeOverwriteImpact?: boolean;
+};
+
 type QuestionWithCsvRelations = Prisma.QuestionGetPayload<{
   include: {
     currentRevision: { include: { options: true } };
@@ -90,7 +127,13 @@ type QuestionWithCsvRelations = Prisma.QuestionGetPayload<{
 }>;
 
 const questionCsvInclude = {
-  currentRevision: { include: { options: true } },
+  currentRevision: {
+    include: {
+      explanationAsset: { select: { state: true } },
+      options: { include: { asset: { select: { state: true } } } },
+      promptAsset: { select: { state: true } },
+    },
+  },
   options: true,
   subtest: { select: { code: true } },
 } satisfies Prisma.QuestionInclude;
@@ -173,6 +216,7 @@ async function insertNewCsvQuestions(
   bankId: string,
 ) {
   if (!planned.length) return;
+  const readyAt = new Date();
 
   // The composite current-revision FK is deferred by the schema, so the
   // question, revision, and both option projections can be inserted in four
@@ -202,7 +246,8 @@ async function insertNewCsvQuestions(
       questionId,
       questionType: data.questionType,
       revisionNo: 1,
-      status: QuestionRevisionStatus.draft,
+      readyAt,
+      status: QuestionRevisionStatus.ready,
       stem: data.stem,
       updatedByUserId: actorId,
     })),
@@ -218,6 +263,7 @@ async function insertNewCsvQuestions(
 async function insertReadyCsvRevisions(tx: Prisma.TransactionClient, changes: readonly ExistingCsvChange[], actorId: string) {
   const ready = changes.filter((change) => change.kind === "ready" && change.nextRevisionId);
   if (!ready.length) return;
+  const readyAt = new Date();
   await tx.questionRevision.createMany({
     data: ready.map(({ data, nextRevisionId, nextRevisionNo, question, row }) => ({
       contentDigest: rowDigest(row),
@@ -232,7 +278,8 @@ async function insertReadyCsvRevisions(tx: Prisma.TransactionClient, changes: re
       questionId: question.id,
       questionType: data.questionType,
       revisionNo: nextRevisionNo,
-      status: QuestionRevisionStatus.draft,
+      readyAt,
+      status: QuestionRevisionStatus.ready,
       stem: data.stem,
       updatedByUserId: actorId,
     })),
@@ -387,6 +434,130 @@ function sameQuestionContent(question: QuestionWithCsvRelations, row: QuestionBa
   );
 }
 
+function countQuestionImages(row: QuestionBankCsvRow) {
+  return [
+    row.promptMediaAssetId,
+    row.explanationMediaAssetId,
+    ...row.options.map((option) => option.assetId),
+  ].filter((assetId) => Boolean(assetId)).length;
+}
+
+function countImageChanges(
+  currentAssetId: string | null | undefined,
+  incomingAssetId: string | null | undefined,
+  counts: Pick<QuestionBankCsvOverwriteImpact, "addedImageCount" | "clearedImageCount" | "replacedImageCount">,
+) {
+  if (!currentAssetId && incomingAssetId) counts.addedImageCount += 1;
+  else if (currentAssetId && !incomingAssetId) counts.clearedImageCount += 1;
+  else if (currentAssetId && incomingAssetId && currentAssetId !== incomingAssetId) {
+    counts.replacedImageCount += 1;
+  }
+}
+
+function calculateQuestionBankOverwriteImpact(
+  existing: readonly QuestionWithCsvRelations[],
+  rows: readonly QuestionBankCsvRow[],
+): QuestionBankCsvOverwriteImpact {
+  validateCsvRows("overwrite", rows);
+  const existingById = new Map(existing.map((question) => [question.id, question]));
+  const retainedIds = new Set<string>();
+  const impact: QuestionBankCsvOverwriteImpact = {
+    addedImageCount: 0,
+    addedQuestionCount: 0,
+    clearedImageCount: 0,
+    matchedQuestionCount: 0,
+    replacedImageCount: 0,
+    retiredQuestionCount: 0,
+    updatedQuestionCount: 0,
+  };
+
+  for (const row of rows) {
+    if (!row.questionId) {
+      impact.addedQuestionCount += 1;
+      impact.addedImageCount += countQuestionImages(row);
+      continue;
+    }
+
+    const question = existingById.get(row.questionId);
+    if (!question) {
+      throw new QuestionBankCsvMutationError(
+        "question_id_not_in_bank",
+        "ID soal tidak termasuk Bank Soal ini.",
+      );
+    }
+    if (question.status === ContentStatus.archived || question.currentRevision?.status === QuestionRevisionStatus.retired) {
+      throw new QuestionBankCsvMutationError(
+        "question_retired",
+        "Soal yang sudah dinonaktifkan tidak dapat diaktifkan kembali.",
+      );
+    }
+    retainedIds.add(question.id);
+    impact.matchedQuestionCount += 1;
+    if (!sameQuestionContent(question, row)) {
+      if (!question.currentRevision) throw new QuestionBankCsvMutationError("invalid_input");
+      impact.updatedQuestionCount += 1;
+    }
+
+    const currentRevision = question.currentRevision;
+    countImageChanges(currentRevision?.promptAssetId, row.promptMediaAssetId, impact);
+    countImageChanges(currentRevision?.explanationAssetId, row.explanationMediaAssetId, impact);
+    for (const label of ["A", "B", "C", "D", "E"] as const) {
+      const currentAssetId = currentRevision?.options.find((option) => option.label === label)?.assetId;
+      const incomingAssetId = row.options.find((option) => option.label === label)?.assetId;
+      countImageChanges(currentAssetId, incomingAssetId, impact);
+    }
+  }
+
+  impact.retiredQuestionCount = existing.filter((question) =>
+    !retainedIds.has(question.id)
+    && question.status !== ContentStatus.archived
+    && question.currentRevision?.status !== QuestionRevisionStatus.retired,
+  ).length;
+  return impact;
+}
+
+async function previewQuestionBankCsvOverwriteImpact(input: {
+  actorId: string;
+  bankId: string;
+  expectedRevision: number;
+  rows: readonly QuestionBankCsvRow[];
+}): Promise<QuestionBankCsvOverwriteImpactSnapshot> {
+  if (!isUuid(input.bankId) || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
+    throw new QuestionBankCsvMutationError("invalid_input");
+  }
+  validateCsvRows("overwrite", input.rows);
+  return prisma.$transaction(async (tx) => {
+    const bank = await tx.questionBank.findFirst({
+      where: { createdByUserId: input.actorId, id: input.bankId },
+      select: { id: true, revision: true, status: true },
+    });
+    if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
+    if (bank.revision !== input.expectedRevision) {
+      throw new QuestionBankCsvMutationError(
+        "stale_revision",
+        "Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.",
+      );
+    }
+    if (bank.status === ContentStatus.archived) {
+      throw new QuestionBankCsvMutationError("archived_locked", "Bank Soal yang diarsipkan tidak dapat diubah.");
+    }
+
+    const existing = await tx.question.findMany({
+      where: { questionBankId: bank.id },
+      include: questionCsvInclude,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    return {
+      ...calculateQuestionBankOverwriteImpact(existing, input.rows),
+      bankRevision: bank.revision,
+    };
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    maxWait: 5_000,
+    timeout: 30_000,
+  });
+}
+
 async function lockBankQuestionTree(tx: Prisma.TransactionClient, bankId: string) {
   await tx.$queryRaw`SELECT id FROM "questions" WHERE "question_bank_id" = ${bankId}::uuid ORDER BY id ASC FOR UPDATE`;
   await tx.$queryRaw`SELECT revision.id FROM "question_revisions" revision JOIN "questions" question ON question.id = revision.question_id WHERE question.question_bank_id = ${bankId}::uuid ORDER BY revision.id ASC FOR UPDATE`;
@@ -394,9 +565,16 @@ async function lockBankQuestionTree(tx: Prisma.TransactionClient, bankId: string
   await tx.$queryRaw`SELECT option.id FROM "question_options" option JOIN "questions" question ON question.id = option.question_id WHERE question.question_bank_id = ${bankId}::uuid ORDER BY option.id ASC FOR UPDATE`;
 }
 
-function validateCsvRows(mode: QuestionBankCsvImportMode, rows: readonly QuestionBankCsvRow[]) {
-  if (!rows.length || rows.length > QUESTION_BANK_CSV_MAX_ROWS) {
-    throw new QuestionBankCsvMutationError("invalid_input", "Bank Soal harus memiliki 1 sampai 500 soal.");
+function validateCsvRows(
+  mode: QuestionBankCsvImportMode,
+  rows: readonly QuestionBankCsvRow[],
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
+) {
+  if (!Number.isSafeInteger(maxRows) || maxRows < 1 || !rows.length || rows.length > maxRows) {
+    throw new QuestionBankCsvMutationError(
+      "invalid_input",
+      `Bank Soal harus memiliki 1 sampai ${maxRows} soal.`,
+    );
   }
   if (mode !== "append" && mode !== "overwrite") {
     throw new QuestionBankCsvMutationError("invalid_input");
@@ -421,148 +599,265 @@ function validateCsvRows(mode: QuestionBankCsvImportMode, rows: readonly Questio
   }
 }
 
-async function applyQuestionBankCsv(input: ApplyQuestionBankCsvInput): Promise<QuestionBankCsvApplyResult> {
-  validateCsvRows(input.mode, input.rows);
+function validateQuestionBankCsvApplyInput(
+  input: ApplyQuestionBankCsvInput,
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
+) {
+  validateCsvRows(input.mode, input.rows, maxRows);
   if (!isUuid(input.bankId) || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
     throw new QuestionBankCsvMutationError("invalid_input");
   }
+}
 
-  return prisma.$transaction(async (tx) => {
-    await setTransactionLockTimeout(tx);
-    await assertAuthoringEditLease(
-      tx,
-      { resourceId: input.bankId, resourceType: "question_bank" },
-      input.actorId,
-      input.editLease,
+function assertCsvBankResultReady(
+  mode: QuestionBankCsvImportMode,
+  rows: readonly QuestionBankCsvRow[],
+  existing: readonly QuestionWithCsvRelations[],
+) {
+  const importedReadiness = getQuestionBankReadinessFromDrafts(
+    rows.map((row, index) => {
+      const correctChoiceIds = row.options
+        .filter((option) => option.isCorrect)
+        .map((option) => option.label);
+      return {
+        choices: row.options.map((option) => ({
+          id: option.label,
+          mediaAssetId: option.assetId,
+          text: option.content,
+        })),
+        correctChoiceId: correctChoiceIds[0],
+        correctChoiceIds,
+        explanationMediaAssetId: row.explanationMediaAssetId,
+        id: row.questionId ?? `csv-row-${index + 1}`,
+        prompt: row.prompt,
+        promptMediaAssetId: row.promptMediaAssetId,
+        questionType: row.questionType,
+        subjectCode: row.subjectCode,
+      };
+    }),
+  );
+  const retainedReadiness = mode === "append"
+    ? getQuestionBankReadinessFromRevisions(
+        existing
+          .filter((question) => question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired)
+          .map((question) => ({
+            questionId: question.id,
+            revision: question.currentRevision,
+            subtestCode: question.subtest?.code,
+          })),
+      )
+    : null;
+
+  if (importedReadiness.incompleteCount > 0 || retainedReadiness?.incompleteCount) {
+    throw new QuestionBankCsvMutationError(
+      "invalid_input",
+      "Lengkapi semua soal yang belum lengkap di Bank Soal sebelum menyimpan perubahan.",
     );
-    await tx.$queryRaw`SELECT id FROM "question_banks" WHERE id = ${input.bankId}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({
-      where: { id: input.bankId },
-      select: { code: true, id: true, revision: true, status: true },
-    });
-    if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
-    if (bank.revision !== input.expectedRevision) {
-      throw new QuestionBankCsvMutationError("stale_revision", "Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.");
-    }
-    if (bank.status === ContentStatus.archived) {
-      throw new QuestionBankCsvMutationError("archived_locked", "Bank Soal yang diarsipkan tidak dapat diubah.");
-    }
+  }
+}
 
-    await lockBankQuestionTree(tx, bank.id);
-    const subjectCodes = [...new Set(input.rows.map((row) => row.subjectCode))];
-    const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } }, select: { code: true, id: true } });
-    const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest.id]));
-    for (const code of subjectCodes) {
-      if (!subtestByCode.has(code)) throw new QuestionBankCsvMutationError("invalid_input");
-    }
+/** Apply normalized Bank question rows inside a caller-owned transaction. */
+async function applyQuestionBankRowsInTransaction(
+  tx: Prisma.TransactionClient,
+  input: ApplyQuestionBankCsvInput,
+  options: ApplyQuestionBankRowsTransactionOptions = {},
+): Promise<QuestionBankCsvApplyTransactionResult> {
+  validateQuestionBankCsvApplyInput(input, options.maxRows ?? QUESTION_BANK_CSV_MAX_ROWS);
+  await setTransactionLockTimeout(tx);
+  await assertAuthoringEditLease(
+    tx,
+    { resourceId: input.bankId, resourceType: "question_bank" },
+    input.actorId,
+    input.editLease,
+  );
+  await tx.$queryRaw`SELECT id FROM "question_banks" WHERE id = ${input.bankId}::uuid FOR UPDATE`;
+  const bank = await tx.questionBank.findUnique({
+    where: { id: input.bankId },
+    select: { code: true, id: true, mediaFolderId: true, revision: true, status: true },
+  });
+  if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
+  if (bank.revision !== input.expectedRevision) {
+    throw new QuestionBankCsvMutationError("stale_revision", "Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.");
+  }
+  if (bank.status === ContentStatus.archived) {
+    throw new QuestionBankCsvMutationError("archived_locked", "Bank Soal yang diarsipkan tidak dapat diubah.");
+  }
 
-    const existing = await tx.question.findMany({
-      where: { questionBankId: bank.id },
-      include: questionCsvInclude,
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    });
-    const existingById = new Map(existing.map((question) => [question.id, question]));
-    if (input.mode === "overwrite") {
-      for (const row of input.rows) {
-        if (!row.questionId) continue;
-        const question = existingById.get(row.questionId);
-        if (!question) throw new QuestionBankCsvMutationError("question_id_not_in_bank", "ID soal tidak termasuk Bank Soal ini.");
-        if (question.status === ContentStatus.archived || question.currentRevision?.status === QuestionRevisionStatus.retired) {
-          throw new QuestionBankCsvMutationError("question_retired", "Soal yang sudah retired tidak dapat diaktifkan kembali.");
-        }
+  if (
+    options.destinationMediaFolderId !== undefined
+    && bank.mediaFolderId !== options.destinationMediaFolderId
+  ) {
+    throw new QuestionBankCsvMutationError(
+      "stale_revision",
+      "Folder Media Bank Soal berubah. Muat ulang halaman lalu coba lagi.",
+    );
+  }
+
+  await lockBankQuestionTree(tx, bank.id);
+  const subjectCodes = [...new Set(input.rows.map((row) => row.subjectCode))];
+  const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } }, select: { code: true, id: true } });
+  const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest.id]));
+  for (const code of subjectCodes) {
+    if (!subtestByCode.has(code)) throw new QuestionBankCsvMutationError("invalid_input");
+  }
+
+  const existing = await tx.question.findMany({
+    where: { questionBankId: bank.id },
+    include: questionCsvInclude,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  assertCsvBankResultReady(input.mode, input.rows, existing);
+  const existingById = new Map(existing.map((question) => [question.id, question]));
+  if (input.mode === "overwrite") {
+    for (const row of input.rows) {
+      if (!row.questionId) continue;
+      const question = existingById.get(row.questionId);
+      if (!question) throw new QuestionBankCsvMutationError("question_id_not_in_bank", "ID soal tidak termasuk Bank Soal ini.");
+      if (question.status === ContentStatus.archived || question.currentRevision?.status === QuestionRevisionStatus.retired) {
+        throw new QuestionBankCsvMutationError("question_retired", "Soal yang sudah dinonaktifkan tidak dapat diaktifkan kembali.");
       }
     }
+  }
 
-    try {
-      await assertReadyKaptenImageAssets(tx, input.rows.flatMap(rowMediaAssetIds));
-    } catch (error) {
-      if (error instanceof ManagedImageAssetValidationError) {
-        throw new QuestionBankCsvMutationError("invalid_media_asset");
-      }
-      throw error;
+  try {
+    await lockAndValidateKaptenBankImages(tx, {
+      assetIds: input.rows.flatMap(rowMediaAssetIds),
+      ...(options.destinationMediaFolderId === undefined
+        ? {}
+        : { destinationFolderId: options.destinationMediaFolderId }),
+      attemptOwnedPendingAssetIds: options.attemptOwnedPendingAssetIds,
+    });
+  } catch (error) {
+    if (error instanceof ManagedImageAssetValidationError) {
+      throw new QuestionBankCsvMutationError("invalid_media_asset");
     }
+    if (error instanceof ManagedImageAssetConflictError) {
+      throw new QuestionBankCsvMutationError(
+        "stale_revision",
+        "Gambar atau folder Media berubah saat diterapkan. Muat ulang halaman lalu coba lagi.",
+      );
+    }
+    throw error;
+  }
 
-    const retainedIds = new Set<string>(input.mode === "append" ? existing.map((question) => question.id) : []);
-    const createdQuestionIds: string[] = [];
-    const preservedQuestionIds: string[] = [];
-    const newQuestions: NewCsvQuestion[] = [];
-    const existingChanges: ExistingCsvChange[] = [];
-    for (const [rowIndex, row] of input.rows.entries()) {
-      const existingQuestion = input.mode === "overwrite" && row.questionId
-        ? existingById.get(row.questionId)
-        : undefined;
-      if (!existingQuestion) {
-        const questionId = randomUUID();
-        const revisionId = randomUUID();
-        newQuestions.push({
-          code: `${bank.code}-csv-${rowIndex + 1}-${questionId.slice(0, 8)}`.slice(0, 120),
-          data: questionData(row, input.actorId, subtestByCode.get(row.subjectCode)!),
-          options: revisionOptionData(row),
-          questionId,
-          revisionId,
+  const overwriteImpact = input.mode === "overwrite" && options.includeOverwriteImpact
+    ? calculateQuestionBankOverwriteImpact(existing, input.rows)
+    : undefined;
+  const retainedIds = new Set<string>(input.mode === "append" ? existing.map((question) => question.id) : []);
+  const createdQuestionIds: string[] = [];
+  const preservedQuestionIds: string[] = [];
+  const newQuestions: NewCsvQuestion[] = [];
+  const existingChanges: ExistingCsvChange[] = [];
+  for (const [rowIndex, row] of input.rows.entries()) {
+    const existingQuestion = input.mode === "overwrite" && row.questionId
+      ? existingById.get(row.questionId)
+      : undefined;
+    if (!existingQuestion) {
+      const questionId = randomUUID();
+      const revisionId = randomUUID();
+      newQuestions.push({
+        code: `${bank.code}-csv-${rowIndex + 1}-${questionId.slice(0, 8)}`.slice(0, 120),
+        data: questionData(row, input.actorId, subtestByCode.get(row.subjectCode)!),
+        options: revisionOptionData(row),
+        questionId,
+        revisionId,
+        row,
+      });
+      createdQuestionIds.push(questionId);
+      retainedIds.add(questionId);
+    } else {
+      retainedIds.add(existingQuestion.id);
+      preservedQuestionIds.push(existingQuestion.id);
+      if (!sameQuestionContent(existingQuestion, row)) {
+        const data = questionData(row, input.actorId, subtestByCode.get(row.subjectCode)!);
+        const options = revisionOptionData(row);
+        const currentRevision = existingQuestion.currentRevision;
+        if (!currentRevision) throw new QuestionBankCsvMutationError("invalid_input");
+        const isReady = currentRevision.status === QuestionRevisionStatus.ready;
+        existingChanges.push({
+          currentRevision,
+          data,
+          kind: isReady ? "ready" : "draft",
+          nextRevisionId: isReady ? randomUUID() : null,
+          nextRevisionNo: isReady ? currentRevision.revisionNo + 1 : existingQuestion.revision,
+          options,
+          question: existingQuestion,
           row,
         });
-        createdQuestionIds.push(questionId);
-        retainedIds.add(questionId);
-      } else {
-        retainedIds.add(existingQuestion.id);
-        preservedQuestionIds.push(existingQuestion.id);
-        if (!sameQuestionContent(existingQuestion, row)) {
-          const data = questionData(row, input.actorId, subtestByCode.get(row.subjectCode)!);
-          const options = revisionOptionData(row);
-          const currentRevision = existingQuestion.currentRevision;
-          if (!currentRevision) throw new QuestionBankCsvMutationError("invalid_input");
-          const isReady = currentRevision.status === QuestionRevisionStatus.ready;
-          existingChanges.push({
-            currentRevision,
-            data,
-            kind: isReady ? "ready" : "draft",
-            nextRevisionId: isReady ? randomUUID() : null,
-            nextRevisionNo: isReady ? currentRevision.revisionNo + 1 : existingQuestion.revision,
-            options,
-            question: existingQuestion,
-            row,
-          });
-        }
       }
     }
+  }
 
-    await insertNewCsvQuestions(tx, newQuestions, input.actorId, bank.id);
-    await insertReadyCsvRevisions(tx, existingChanges, input.actorId);
-    await updateDraftCsvRevisions(tx, existingChanges, input.actorId);
-    await updateCsvQuestions(tx, existingChanges);
-    await updateCsvLegacyOptions(tx, existingChanges);
+  await insertNewCsvQuestions(tx, newQuestions, input.actorId, bank.id);
+  await insertReadyCsvRevisions(tx, existingChanges, input.actorId);
+  await updateDraftCsvRevisions(tx, existingChanges, input.actorId);
+  await updateCsvQuestions(tx, existingChanges);
+  await updateCsvLegacyOptions(tx, existingChanges);
 
-    for (const [rowIndex] of input.rows.entries()) {
-      if (input.failureAfterRow === rowIndex + 1) {
-        throw new Error("Injected late CSV failure.");
-      }
-      if (input.onRowApplied) await input.onRowApplied(rowIndex + 1);
+  for (const [rowIndex] of input.rows.entries()) {
+    if (input.failureAfterRow === rowIndex + 1) {
+      throw new Error("Injected late CSV failure.");
     }
+    if (input.onRowApplied) await input.onRowApplied(rowIndex + 1);
+  }
 
-    const omitted = input.mode === "overwrite"
-      ? existing.filter((question) => !retainedIds.has(question.id) && question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired)
-      : [];
-    const now = new Date();
-    if (omitted.length) {
-      await tx.questionRevision.updateMany({
-        where: { id: { in: omitted.flatMap((question) => question.currentRevision ? [question.currentRevision.id] : []) } },
-        data: { retiredAt: now, status: QuestionRevisionStatus.retired, updatedByUserId: input.actorId },
-      });
-      await tx.question.updateMany({ where: { id: { in: omitted.map((question) => question.id) } }, data: { status: ContentStatus.archived, updatedByUserId: input.actorId } });
-    }
-    const revision = bank.revision + 1;
-    await tx.questionBank.update({ where: { id: bank.id }, data: { revision, updatedByUserId: input.actorId } });
-    return {
-      bankId: bank.id,
-      createdQuestionIds,
-      importedCount: input.rows.length,
-      mode: input.mode,
-      preservedQuestionIds,
-      retiredCount: omitted.length,
-      revision,
-    } satisfies QuestionBankCsvApplyResult;
-  }, { maxWait: 5_000, timeout: 30_000 });
+  const omitted = input.mode === "overwrite"
+    ? existing.filter((question) => !retainedIds.has(question.id) && question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired)
+    : [];
+  const now = new Date();
+  if (omitted.length) {
+    await tx.questionRevision.updateMany({
+      where: { id: { in: omitted.flatMap((question) => question.currentRevision ? [question.currentRevision.id] : []) } },
+      data: { retiredAt: now, status: QuestionRevisionStatus.retired, updatedByUserId: input.actorId },
+    });
+    await tx.question.updateMany({ where: { id: { in: omitted.map((question) => question.id) } }, data: { status: ContentStatus.archived, updatedByUserId: input.actorId } });
+  }
+  await tx.$executeRaw`
+    UPDATE question_revisions revision
+       SET status = 'ready',
+           ready_at = COALESCE(revision.ready_at, CURRENT_TIMESTAMP),
+           updated_by_user_id = ${input.actorId}::uuid,
+           updated_at = CURRENT_TIMESTAMP
+      FROM questions question
+     WHERE question.question_bank_id = ${bank.id}::uuid
+       AND question.current_revision_id = revision.id
+       AND question.status <> 'archived'
+       AND revision.status IN ('draft', 'review')
+  `;
+  await tx.$executeRaw`
+    UPDATE questions question
+       SET status = 'published',
+           updated_by_user_id = ${input.actorId}::uuid,
+           updated_at = CURRENT_TIMESTAMP
+     WHERE question.question_bank_id = ${bank.id}::uuid
+       AND question.status <> 'archived'
+       AND EXISTS (
+         SELECT 1
+           FROM question_revisions revision
+          WHERE revision.id = question.current_revision_id
+            AND revision.status = 'ready'
+       )
+  `;
+  const revision = bank.revision + 1;
+  await tx.questionBank.update({ where: { id: bank.id }, data: { revision, updatedByUserId: input.actorId } });
+  return {
+    bankId: bank.id,
+    createdQuestionIds,
+    importedCount: input.rows.length,
+    mode: input.mode,
+    preservedQuestionIds,
+    retiredCount: omitted.length,
+    revision,
+    ...(options.includeOverwriteImpact && overwriteImpact ? { overwriteImpact } : {}),
+  } satisfies QuestionBankCsvApplyResult;
+}
+
+async function applyQuestionBankCsv(input: ApplyQuestionBankCsvInput): Promise<QuestionBankCsvApplyResult> {
+  validateQuestionBankCsvApplyInput(input);
+  return prisma.$transaction(
+    (tx) => applyQuestionBankRowsInTransaction(tx, input),
+    { maxWait: 5_000, timeout: 30_000 },
+  );
 }
 
 function appendQuestionBankCsv(input: Omit<ApplyQuestionBankCsvInput, "mode">) {
@@ -639,15 +934,20 @@ async function exportQuestionBankCsv(actorId: string, bankId: string) {
 export {
   QuestionBankCsvMutationError,
   applyQuestionBankCsv,
+  applyQuestionBankRowsInTransaction,
   appendQuestionBankCsv,
   exportQuestionBankCsv,
   overwriteQuestionBankCsv,
+  previewQuestionBankCsvOverwriteImpact,
   safeQuestionBankCsvFilename,
 };
 
 export type {
+  ApplyQuestionBankRowsTransactionOptions,
   ApplyQuestionBankCsvInput,
   QuestionBankCsvApplyResult,
   QuestionBankCsvImportMode,
   QuestionBankCsvMutationCode,
+  QuestionBankCsvOverwriteImpact,
+  QuestionBankCsvOverwriteImpactSnapshot,
 };

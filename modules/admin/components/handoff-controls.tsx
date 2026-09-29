@@ -14,7 +14,7 @@ import { reissueEnrollmentHandoffAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
 function formatMethod(method: EnrollmentHandoffMethod) {
-  return method === "invite_link" ? "Link undangan" : "Password sementara";
+  return method === "invite_link" ? "Tautan undangan" : "Kata sandi sementara";
 }
 
 function formatStatus(status: EnrollmentHandoffStatus) {
@@ -24,7 +24,7 @@ function formatStatus(status: EnrollmentHandoffStatus) {
     revoked: "Dicabut",
     released: "Dirilis",
     completed: "Selesai",
-  }[status] ?? status.replaceAll("_", " ");
+  }[status] ?? "Status akses belum tersedia";
 }
 
 function statusTone(status: EnrollmentHandoffStatus) {
@@ -86,16 +86,16 @@ function HandoffControls({
       {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
         <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
-           Reissue dijeda untuk handoff dari import sampai workflow pemulihan file handoff terautentikasi tersedia. Ini melindungi satu-satunya kredensial yang sudah disegel.
+           Informasi akses dari impor belum bisa dibuat ulang di sini. Nilai akses yang dibuat saat impor hanya ditampilkan sekali.
         </p>
       ) : state.status !== "success" || !state.handoffId ? (
         <form action={formAction} className="space-y-3">
           <input name="handoffId" type="hidden" value={handoffId} />
           <label className="flex items-start gap-3 text-xs leading-5 text-secondary-600">
             <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reissue" />
-             <span>Saya memahami bahwa tindakan ini mencabut handoff saat ini dan membuat penggantinya.<FieldRequiredMark /></span>
+            <span>Saya memahami bahwa tindakan ini akan membatalkan akses saat ini dan membuat akses baru.<FieldRequiredMark /></span>
           </label>
-           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Membuat ulang…" : "Buat ulang handoff"}</Button>
+           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Menyiapkan akses baru…" : "Buat ulang akses"}</Button>
         </form>
       ) : null}
     </div>

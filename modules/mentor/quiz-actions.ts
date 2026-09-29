@@ -6,15 +6,15 @@ import { requireTutorSession } from "@/lib/auth/access";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   acceptStandaloneQuizQuestionUpdate,
-  bulkPublishStandaloneQuizzes,
-  bulkUnpublishStandaloneQuizzes,
   getMentorStandaloneQuiz,
-  importStandaloneQuizBankQuestions,
+  importStandaloneQuizBankQuestionSnapshots,
   QuizValidationError,
   saveStandaloneQuiz,
+  setStandaloneQuizHidden,
   transitionStandaloneQuizSourceMode,
   updateStandaloneQuizLifecycle,
   type AcceptStandaloneQuizQuestionUpdateInput,
+  type ImportStandaloneQuizBankQuestionSnapshotsInput,
   type TransitionStandaloneQuizSourceModeInput,
   type SaveStandaloneQuizInput,
 } from "@/lib/quiz/repository";
@@ -63,18 +63,24 @@ async function acceptStandaloneQuizQuestionUpdateAction(input: AcceptStandaloneQ
   }
 }
 
-async function importStandaloneQuizBankQuestionsAction(input: Omit<TransitionStandaloneQuizSourceModeInput, "mode">) {
+async function importStandaloneQuizBankQuestionSnapshotsAction(
+  input: ImportStandaloneQuizBankQuestionSnapshotsInput,
+) {
   const session = await requireTutorSession();
   try {
-    const result = await importStandaloneQuizBankQuestions(input, session.user.id);
-    revalidateQuizPaths();
-    revalidatePath(`/mentor/quiz/${input.quizId}`);
-    revalidatePath(`/mentor/quiz/${input.quizId}/editor`);
+    const result = await importStandaloneQuizBankQuestionSnapshots(
+      input,
+      session.user.id,
+    );
     return { ok: true as const, ...result };
   } catch (error) {
-    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz bank import failed", error);
-    return { message: "Soal dari Bank Soal Kuis tidak dapat diimpor saat ini.", ok: false as const };
+    if (error instanceof QuizValidationError)
+      return { message: error.message, ok: false as const };
+    console.error("Standalone quiz bank snapshot import failed", error);
+    return {
+      message: "Soal dari Bank Soal Kuis tidak dapat disiapkan saat ini. Coba lagi.",
+      ok: false as const,
+    };
   }
 }
 
@@ -93,56 +99,55 @@ async function transitionStandaloneQuizSourceModeAction(input: TransitionStandal
   }
 }
 
-async function bulkPublishStandaloneQuizzesAction(ids: string[]) {
-  const session = await requireTutorSession();
-  try {
-    const result = await bulkPublishStandaloneQuizzes(ids, session.user.id);
-    revalidateQuizPaths();
-    return { affectedIds: result.ids, message: `${result.ids.length} quiz telah diterbitkan.`, ok: true as const, status: result.status };
-  } catch (error) {
-    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz bulk publish failed", error);
-    return { message: "Quiz tidak dapat diterbitkan saat ini. Coba lagi.", ok: false as const };
-  }
-}
-
-async function bulkUnpublishStandaloneQuizzesAction(ids: string[]) {
-  const session = await requireTutorSession();
-  try {
-    const result = await bulkUnpublishStandaloneQuizzes(ids, session.user.id);
-    revalidateQuizPaths();
-    return { affectedIds: result.ids, message: `${result.ids.length} quiz kembali menjadi draf.`, ok: true as const, status: result.status };
-  } catch (error) {
-    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz bulk unpublish failed", error);
-    return { message: "Status quiz tidak dapat diubah saat ini. Coba lagi.", ok: false as const };
-  }
-}
-
 async function updateStandaloneQuizLifecycleAction(
   id: string,
-  operation: "archive" | "restore",
   editLease?: AuthoringEditLease,
 ) {
   const session = await requireTutorSession();
   try {
-    const quiz = await updateStandaloneQuizLifecycle(id, session.user.id, operation, editLease);
+    const quiz = await updateStandaloneQuizLifecycle(id, session.user.id, editLease);
     revalidateQuizPaths();
     revalidatePath(`/mentor/quiz/${quiz.id}`);
     return { ok: true as const, quiz };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
     console.error("Standalone quiz lifecycle mutation failed", error);
-    return { message: "Status Quiz tidak dapat diubah saat ini. Coba lagi.", ok: false as const };
+    return { message: "Kuis tidak dapat diarsipkan saat ini. Coba lagi.", ok: false as const };
+  }
+}
+
+async function setStandaloneQuizHiddenAction(
+  id: string,
+  isHidden: boolean,
+  editLease?: AuthoringEditLease,
+) {
+  const session = await requireTutorSession();
+  try {
+    const quiz = await setStandaloneQuizHidden(
+      id,
+      isHidden,
+      session.user.id,
+      editLease,
+    );
+    revalidateQuizPaths();
+    revalidatePath(`/mentor/quiz/${quiz.id}`);
+    return { ok: true as const, quiz };
+  } catch (error) {
+    if (error instanceof QuizValidationError)
+      return { message: error.message, ok: false as const };
+    console.error("Standalone quiz visibility mutation failed", error);
+    return {
+      message: "Kuis belum dapat disembunyikan atau ditampilkan lagi saat ini. Coba lagi.",
+      ok: false as const,
+    };
   }
 }
 
 export {
   acceptStandaloneQuizQuestionUpdateAction,
-  bulkPublishStandaloneQuizzesAction,
-  bulkUnpublishStandaloneQuizzesAction,
-  importStandaloneQuizBankQuestionsAction,
+  importStandaloneQuizBankQuestionSnapshotsAction,
   saveStandaloneQuizAction,
+  setStandaloneQuizHiddenAction,
   transitionStandaloneQuizSourceModeAction,
   updateStandaloneQuizLifecycleAction,
 };

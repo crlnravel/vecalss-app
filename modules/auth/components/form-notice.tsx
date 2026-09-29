@@ -3,7 +3,7 @@ import { AlertTriangle, CircleCheckBig, Info } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 function formNoticeLabel(tone: "danger" | "neutral" | "success", label?: string) {
-  return label ?? (tone === "danger" ? "We're sorry" : tone === "success" ? "Saved" : "Note");
+  return label ?? (tone === "danger" ? "Perlu perhatian" : tone === "success" ? "Berhasil" : "Informasi");
 }
 
 function FormNoticeIcon({ tone }: { tone: "danger" | "neutral" | "success" }) {

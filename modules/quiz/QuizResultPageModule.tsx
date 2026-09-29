@@ -88,6 +88,25 @@ function optionSummary(options: QuizResultQuestion["options"]) {
     : "Tidak dijawab";
 }
 
+function correctAnswerSummary(
+  result: QuizResult,
+  correctOptions: QuizResultQuestion["options"],
+) {
+  if (!result.reviewAvailable) {
+    if (result.policy.reviewTiming === "after_close") {
+      return "Dibuka setelah kuis ditutup";
+    }
+
+    return result.policy.reviewTiming === "never"
+      ? "Tidak tersedia"
+      : "Hasil sedang disiapkan";
+  }
+
+  return result.policy.correctAnswerVisibility === "show"
+    ? optionSummary(correctOptions)
+    : "Tidak ditampilkan";
+}
+
 function buildQuizResultMarkers(result: QuizResult, currentQuestion: number) {
   return result.questions.map((reviewQuestion, index) => {
     const selectedOptionIds = selectedOptionIdsForQuestion(reviewQuestion);
@@ -124,10 +143,10 @@ function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
   return (
     <main className="mx-auto max-w-3xl px-5 py-14">
       <h1 className="text-3xl font-semibold text-secondary-900">
-        Kuis belum dikirim
+        Kuis belum dikumpulkan
       </h1>
       <p className="mt-3 text-secondary-600">
-        Kembali ke kuis untuk menyelesaikan dan mengirim jawabanmu.
+        Kembali ke kuis untuk menyelesaikan dan mengumpulkan jawabanmu.
       </p>
       <BackButton
         className="mt-6"
@@ -250,10 +269,7 @@ function QuizResultExplanation({
         <div>
           <p className="font-semibold text-secondary-500">Jawaban benar</p>
           <p className="mt-1 font-semibold text-secondary-900">
-            {result.reviewAvailable &&
-            result.policy.correctAnswerVisibility === "show"
-              ? optionSummary(correctOptions)
-              : "Belum dibuka"}
+            {correctAnswerSummary(result, correctOptions)}
           </p>
         </div>
       </div>
@@ -303,7 +319,7 @@ function QuizResultQuestionCard({
     ? isCorrect
       ? "Benar"
       : selectedOptions.length
-        ? "Salah"
+        ? "Belum tepat"
         : "Tidak dijawab"
     : selectedOptions.length
       ? "Jawaban tersimpan"
@@ -393,7 +409,7 @@ function QuizResultPageModule({
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<string | null>(null);
   const isAttemptLimitReached =
-    restartMessage?.startsWith("Batas percobaan quiz ini sudah tercapai") ??
+    restartMessage?.startsWith("Batas percobaan Kuis ini sudah tercapai") ??
     false;
   const resultStatLabelClassName = "font-bold tracking-[0.14em] uppercase";
   const readingTextClass = "text-lg leading-[1.85]";
@@ -417,7 +433,7 @@ function QuizResultPageModule({
       restartRequestIdRef.current = requestId;
       const response = await startQuizAction(subjectTitle, quizSlug, requestId);
       if (!response.ok) {
-        if (response.message.startsWith("Batas percobaan quiz ini sudah tercapai")) {
+        if (response.message.startsWith("Batas percobaan Kuis ini sudah tercapai")) {
           setRestartMessage(response.message);
         } else {
           showToast(response.message, { variant: "error" });
@@ -428,11 +444,9 @@ function QuizResultPageModule({
       router.replace(
         `/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`,
       );
-    } catch (error) {
+    } catch {
       showToast(
-        error instanceof Error
-          ? error.message
-          : "Kuis belum dapat dimulai kembali.",
+        "Kuis belum berhasil dimulai kembali. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {

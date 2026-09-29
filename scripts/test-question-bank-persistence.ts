@@ -103,13 +103,13 @@ assert.match(assessmentRelease, /purpose: "tryout",[\s\S]*?status: \{ not: Conte
 
 assert.match(catalogue, /function questionBankCreateHref\(/u);
 const createLinkCalls = [...catalogue.matchAll(/href=\{questionBankCreateHref\(\{[\s\S]*?\}\)\}/gu)].map(([source]) => source);
-assert.equal(createLinkCalls.length, 2, "the catalogue must keep both folder-aware Bank Soal create links");
-for (const createLinkCall of createLinkCalls) {
-  assert.match(createLinkCall, /folder: selectedFolder/u);
-  assert.match(createLinkCall, /purpose: initialPurpose/u);
-}
+assert.equal(createLinkCalls.length, 2, "legacy folder-aware create links stay documented in the catalogue empty-state contract");
+assert.match(catalogue, /router\.push\(questionBankCreateHref\(\{[\s\S]*?folder: selectedFolder[\s\S]*?purpose: initialPurpose/u);
+assert.match(catalogue, /presentation="modal"/u);
+assert.doesNotMatch(catalogue, /QuestionBankCreateMethodDialog/u);
 assert.match(createRoute, /readQueryValues\(query, "folder"\)/u);
-assert.match(createRoute, /initialFolderId/u);
+assert.match(createRoute, /if \(requestedFolder\) params\.set\("folder", requestedFolder\)/u);
+assert.match(createRoute, /params\.set\("create", "1"\)/u);
 assert.match(builder, /folderId: mode === "create" \? builderState\.folderId : undefined/u);
 
 assert.doesNotMatch(organization, /assertBankMutationSupported/u);

@@ -105,7 +105,7 @@ function NavigationDots({
     <div className="flex items-center gap-3 text-ui-xs">
       {Array.from({ length: count }).map((_, index) => (
         <button
-          aria-label={`Go to testimonial ${index + 1}`}
+              aria-label={`Lihat testimoni ${index + 1}`}
           key={index}
           className={cn(
             "cursor-pointer transition-colors duration-200",

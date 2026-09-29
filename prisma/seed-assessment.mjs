@@ -61,6 +61,7 @@ const SUBJECTS = [
   { code: "LBE", slug: "literasi-bahasa-inggris", label: "Literasi Bahasa Inggris" },
   { code: "PM", slug: "penalaran-matematika", label: "Penalaran Matematika" },
 ];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const QUESTIONS = [
   {
@@ -253,6 +254,13 @@ const TRYOUT = {
   idempotencyKey: "seed:assessment:tryout:evaluasi-program:v1",
   title: "Simulasi UTBK SNBT — Evaluasi Tengah Program",
   description: "Simulasi tujuh subtes untuk menilai kemajuan belajar dan menentukan prioritas pembahasan berikutnya.",
+};
+
+const DRAFT_TRYOUT = {
+  code: "seed:assessment:tryout:draf-latihan-lengkap:v1",
+  idempotencyKey: "seed:assessment:tryout:draf-latihan-lengkap:v1",
+  title: "Draf Tryout UTBK — Latihan Lengkap",
+  description: "Draf Tryout dengan tujuh subtes dan soal lengkap untuk meninjau kesiapan sebelum diterbitkan.",
 };
 
 const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
@@ -818,6 +826,77 @@ async function lockSeedTryoutSessions(client, tryoutId) {
   }
 }
 
+async function materializeTryoutSnapshot(client, { itemKeyPrefix, tryoutId, subtestIds, versionIds }) {
+  for (const [subjectIndex, subject] of SUBJECTS.entries()) {
+    // Tryouts use direct fixed-point snapshots so each question remains fully
+    // answerable even when its source bank question is edited later.
+    const sectionResult = await client.query(
+      `INSERT INTO tryout_sections (
+         tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count,
+         package_version_id, instructions, test_type, scoring_config, shuffle_items
+       ) VALUES ($1, $2, $3, $4, $5, 3, $6, $7, $8::tryout_test_type, $9::jsonb, FALSE)
+       RETURNING id`,
+      [
+        tryoutId,
+        subtestIds.get(subject.code),
+        subject.label,
+        subjectIndex + 1,
+        720,
+        null,
+        `Baca setiap pertanyaan dengan cermat. Pilih satu jawaban yang paling tepat untuk bagian ${subject.label}.`,
+        "cbt",
+        JSON.stringify({ correctAnswerPoints: 1, method: "fixed_points", unansweredPoints: 0, wrongAnswerPoints: 0 }),
+      ],
+    );
+    const versionItems = await client.query(
+      `SELECT items.id, items.source_question_id, items.sort_order, items.point_value,
+              items.source_question_revision_id, items.source_content_digest,
+              items.source_revision_provenance, items.prompt, items.explanation,
+              items.difficulty, items.subtest_id, items.prompt_asset_id,
+              items.explanation_asset_id
+         FROM reusable_question_package_version_items items
+        WHERE items.package_version_id = $1
+        ORDER BY items.sort_order`,
+      [versionIds.get(subject.code)],
+    );
+    if (versionItems.rowCount !== 3) {
+      throw new Error(`The assessment seed requires three complete questions for ${subject.label}.`);
+    }
+    for (const versionItem of versionItems.rows) {
+      const itemResult = await client.query(
+        `INSERT INTO tryout_items (
+           tryout_id, tryout_section_id, snapshot_id, source_question_id, source_question_revision_id,
+           source_content_digest, source_revision_provenance, sort_order, points,
+           prompt, explanation, difficulty, subtest_id, package_code,
+           prompt_asset_id, explanation_asset_id, idempotency_key, package_version_id
+         ) VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULL)
+         RETURNING id`,
+        [tryoutId, sectionResult.rows[0].id, randomUUID(), versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, "direct", versionItem.prompt_asset_id, versionItem.explanation_asset_id, `${itemKeyPrefix}:${subject.code.toLowerCase()}:${versionItem.sort_order}`],
+      );
+      const versionOptions = await client.query(
+        `SELECT choice_key, content, is_correct, sort_order, source_question_option_id,
+                source_question_revision_option_id, asset_id
+           FROM reusable_question_package_version_item_options
+          WHERE package_version_item_id = $1
+          ORDER BY sort_order`,
+        [versionItem.id],
+      );
+      if (versionOptions.rowCount !== 4 || versionOptions.rows.filter((option) => option.is_correct).length !== 1) {
+        throw new Error(`The assessment seed requires four options and one correct answer for ${subject.label} question ${versionItem.sort_order}.`);
+      }
+      for (const option of versionOptions.rows) {
+        await client.query(
+          `INSERT INTO tryout_item_options (
+             tryout_item_id, choice_key, content, is_correct, sort_order,
+             snapshot_option_id, source_question_option_id, source_question_revision_option_id, asset_id
+           ) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, $7)`,
+          [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, randomUUID(), option.asset_id],
+        );
+      }
+    }
+  }
+}
+
 async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }) {
   const existingTryout = await client.query("SELECT id FROM tryout_packages WHERE code = $1", [TRYOUT.code]);
   let tryoutResult;
@@ -917,69 +996,73 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
   if (Number(rebuildState.rows[0].attempt_count) === 0) {
     await client.query("DELETE FROM tryout_items WHERE tryout_id = $1", [tryoutId]);
     await client.query("DELETE FROM tryout_sections WHERE tryout_id = $1", [tryoutId]);
-    for (const [subjectIndex, subject] of SUBJECTS.entries()) {
-      // The canonical demonstration is CBT-only. Keep reusable package
-      // fixtures available for the package catalogue, but materialize the
-      // Tryout as direct fixed-point snapshots for every subtest.
-      const sectionResult = await client.query(
-        `INSERT INTO tryout_sections (
-           tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count,
-           package_version_id, instructions, test_type, scoring_config, shuffle_items
-         ) VALUES ($1, $2, $3, $4, $5, 3, $6, $7, $8::tryout_test_type, $9::jsonb, FALSE)
-         RETURNING id`,
-        [
-          tryoutId,
-          subtestIds.get(subject.code),
-          subject.label,
-          subjectIndex + 1,
-          720,
-          null,
-          `Baca setiap pertanyaan dengan cermat. Pilih satu jawaban yang paling tepat untuk bagian ${subject.label}.`,
-          "cbt",
-          JSON.stringify({ correctAnswerPoints: 1, method: "fixed_points", unansweredPoints: 0, wrongAnswerPoints: 0 }),
-        ],
-      );
-      const versionItems = await client.query(
-        `SELECT items.id, items.source_question_id, items.sort_order, items.point_value,
-                items.source_question_revision_id, items.source_content_digest,
-                items.source_revision_provenance, items.prompt, items.explanation,
-                items.difficulty, items.subtest_id, items.prompt_asset_id,
-                items.explanation_asset_id
-           FROM reusable_question_package_version_items items
-          WHERE items.package_version_id = $1
-          ORDER BY items.sort_order`,
-        [versionIds.get(subject.code)],
-      );
-      for (const versionItem of versionItems.rows) {
-        const itemResult = await client.query(
-          `INSERT INTO tryout_items (
-             tryout_id, tryout_section_id, source_question_id, source_question_revision_id,
-             source_content_digest, source_revision_provenance, sort_order, points,
-             prompt, explanation, difficulty, subtest_id, package_code,
-             prompt_asset_id, explanation_asset_id, idempotency_key, package_version_id
-           ) VALUES ($1, $2, $3, $4, $5, $6::question_revision_provenance, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-           RETURNING id`,
-          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, "direct", versionItem.prompt_asset_id, versionItem.explanation_asset_id, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, null],
-        );
-        const versionOptions = await client.query(
-          `SELECT choice_key, content, is_correct, sort_order, source_question_option_id,
-                  source_question_revision_option_id, asset_id
-             FROM reusable_question_package_version_item_options
-            WHERE package_version_item_id = $1
-            ORDER BY sort_order`,
-          [versionItem.id],
-        );
-        for (const option of versionOptions.rows) {
-          await client.query(
-            `INSERT INTO tryout_item_options (
-               tryout_item_id, choice_key, content, is_correct, sort_order,
-               source_question_option_id, source_question_revision_option_id, asset_id
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, option.source_question_option_id, option.source_question_revision_option_id, option.asset_id],
-          );
-        }
-      }
-    }
+    await materializeTryoutSnapshot(client, {
+      itemKeyPrefix: "seed:demo:tryout-item",
+      tryoutId,
+      subtestIds,
+      versionIds,
+    });
+  }
+  return tryoutId;
+}
+
+async function seedDraftTryout(client, { examEventId, subtestIds, tutorId, versionIds }) {
+  const insertResult = await client.query(
+    `INSERT INTO tryout_packages (
+       exam_event_id, code, title, description, assessment_type, status, published_at,
+       revision, idempotency_key, admission_mode, default_result_release_policy, created_by_user_id
+     )
+     VALUES ($1, $2, $3, $4, 'tryout', 'draft', NULL, 1, $5, 'open', 'automatic_at_end', $6)
+     ON CONFLICT (code) DO NOTHING
+     RETURNING id`,
+    [examEventId, DRAFT_TRYOUT.code, DRAFT_TRYOUT.title, DRAFT_TRYOUT.description, DRAFT_TRYOUT.idempotencyKey, tutorId],
+  );
+  let tryoutId = insertResult.rows[0]?.id;
+  if (!tryoutId) {
+    const existingTryout = await client.query("SELECT id FROM tryout_packages WHERE code = $1", [DRAFT_TRYOUT.code]);
+    if (!existingTryout.rowCount) throw new Error("The assessment seed could not resolve its draft Tryout after a concurrent code write.");
+    tryoutId = existingTryout.rows[0].id;
+    await lockSeedTryoutSessions(client, tryoutId);
+  }
+  await client.query("SELECT id FROM tryout_packages WHERE id = $1 FOR UPDATE", [tryoutId]);
+  const rebuildState = await client.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM tryout_attempts WHERE tryout_id = $1) AS attempt_count,
+       (SELECT COUNT(*)::int FROM assessment_releases WHERE tryout_id = $1) AS assessment_release_count,
+       (SELECT COUNT(*)::int
+          FROM tryout_delivery_sessions
+         WHERE tryout_id = $1
+           AND assessment_release_id IS NOT NULL) AS release_bound_session_count`,
+    [tryoutId],
+  );
+  assertSeedTryoutRebuildAllowed({
+    assessmentReleaseCount: rebuildState.rows[0].assessment_release_count,
+    attemptCount: rebuildState.rows[0].attempt_count,
+    releaseBoundSessionCount: rebuildState.rows[0].release_bound_session_count,
+  }, "draft Tryout");
+  await client.query(
+    `UPDATE tryout_packages
+        SET exam_event_id = $1,
+            title = $2,
+            description = $3,
+            status = 'draft',
+            published_at = NULL,
+            idempotency_key = $4,
+            admission_mode = 'open',
+            default_result_release_policy = 'automatic_at_end',
+            updated_at = NOW()
+      WHERE id = $5`,
+    [examEventId, DRAFT_TRYOUT.title, DRAFT_TRYOUT.description, DRAFT_TRYOUT.idempotencyKey, tryoutId],
+  );
+  if (Number(rebuildState.rows[0].attempt_count) === 0) {
+    await client.query("DELETE FROM tryout_items WHERE tryout_id = $1", [tryoutId]);
+    await client.query("DELETE FROM tryout_sections WHERE tryout_id = $1", [tryoutId]);
+    await materializeTryoutSnapshot(client, {
+      itemKeyPrefix: "seed:assessment:draft-tryout-item",
+      tryoutId,
+      subtestIds,
+      versionIds,
+    });
   }
   return tryoutId;
 }
@@ -1010,7 +1093,7 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
   const sections = [];
   for (const section of sectionResult.rows) {
     const itemResult = await client.query(
-      `SELECT id, difficulty, explanation, explanation_asset_id, package_code,
+      `SELECT id, snapshot_id, difficulty, explanation, explanation_asset_id, package_code,
               points::text, prompt, prompt_asset_id, sort_order,
               source_content_digest, source_question_id,
               source_question_revision_id, source_revision_provenance,
@@ -1023,7 +1106,7 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
     const items = [];
     for (const item of itemResult.rows) {
       const optionResult = await client.query(
-        `SELECT asset_id, choice_key, content, id, is_correct, sort_order,
+        `SELECT asset_id, choice_key, content, id, snapshot_option_id, is_correct, sort_order,
                 source_question_option_id, source_question_revision_option_id
            FROM tryout_item_options
           WHERE tryout_item_id = $1
@@ -1035,11 +1118,13 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
         explanation: item.explanation,
         explanationAssetId: item.explanation_asset_id,
         id: item.id,
+        snapshotId: item.snapshot_id,
         options: optionResult.rows.map((option) => ({
           assetId: option.asset_id,
           choiceKey: option.choice_key,
           content: option.content,
           id: option.id,
+          snapshotOptionId: option.snapshot_option_id,
           isCorrect: option.is_correct,
           sortOrder: option.sort_order,
           sourceQuestionOptionId: option.source_question_option_id,
@@ -1195,7 +1280,7 @@ async function sectionSnapshots(client, tryoutId) {
   const snapshots = [];
   for (const section of sections.rows) {
     const items = await client.query(
-    `SELECT id, prompt, explanation, explanation_asset_id, prompt_asset_id, points::text, sort_order, difficulty,
+    `SELECT id, snapshot_id, prompt, explanation, explanation_asset_id, prompt_asset_id, points::text, sort_order, difficulty,
             package_version_id,
             package_code,
             source_content_digest, source_question_id, source_question_revision_id,
@@ -1208,7 +1293,7 @@ async function sectionSnapshots(client, tryoutId) {
     const snapshotItems = [];
     for (const item of items.rows) {
       const options = await client.query(
-        `SELECT asset_id, id, choice_key, content, is_correct, sort_order,
+        `SELECT asset_id, id, snapshot_option_id, choice_key, content, is_correct, sort_order,
                 source_question_option_id, source_question_revision_option_id
            FROM tryout_item_options
           WHERE tryout_item_id = $1
@@ -1220,7 +1305,8 @@ async function sectionSnapshots(client, tryoutId) {
         explanation: item.explanation,
         explanationAssetId: item.explanation_asset_id,
         id: item.id,
-        options: options.rows.map((option) => ({ assetId: option.asset_id, choiceKey: option.choice_key, content: option.content, id: option.id, isCorrect: option.is_correct, sortOrder: option.sort_order, sourceQuestionOptionId: option.source_question_option_id, sourceQuestionRevisionOptionId: option.source_question_revision_option_id })),
+        snapshotId: item.snapshot_id,
+        options: options.rows.map((option) => ({ assetId: option.asset_id, choiceKey: option.choice_key, content: option.content, id: option.id, snapshotOptionId: option.snapshot_option_id, isCorrect: option.is_correct, sortOrder: option.sort_order, sourceQuestionOptionId: option.source_question_option_id, sourceQuestionRevisionOptionId: option.source_question_revision_option_id })),
         packageVersionId: item.package_version_id,
         packageCode: item.package_code,
         points: item.points,
@@ -1341,6 +1427,19 @@ function assertSeedDirectSnapshotMarker(item, label) {
   if (item?.packageVersionId === null && item.packageCode !== "direct") {
     throw new Error(`${label} is an unbound Tryout snapshot without the direct package marker.`);
   }
+  if (item?.packageVersionId === null && item.packageCode === "direct") {
+    if (!UUID_PATTERN.test(item.snapshotId ?? "")
+      || item.sourceQuestionId != null
+      || item.sourceQuestionRevisionId != null
+      || item.sourceContentDigest != null
+      || item.sourceRevisionProvenance != null
+      || !Array.isArray(item.options)
+      || item.options.some((option) => !UUID_PATTERN.test(option?.snapshotOptionId ?? "")
+        || option.sourceQuestionOptionId != null
+        || option.sourceQuestionRevisionOptionId != null)) {
+      throw new Error(`${label} is missing stable snapshot identities or still carries source lineage.`);
+    }
+  }
 }
 
 function assertSeedTryoutRebuildAllowed({ attemptCount, assessmentReleaseCount, releaseBoundSessionCount }, label = "canonical Tryout") {
@@ -1456,6 +1555,16 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
   if (!isRecord(releaseItem) || !isRecord(snapshotItem) || releaseItem.physicalId !== snapshotItem.id) {
     throw new Error(`The assessment seed could not prove the immutable item bridge for ${label}.`);
   }
+  const isDetachedSnapshot = typeof snapshotItem.snapshotId === "string";
+  if (isDetachedSnapshot
+    && (releaseItem.id !== snapshotItem.snapshotId
+      || releaseItem.snapshotId !== snapshotItem.snapshotId
+      || snapshotItem.sourceQuestionId != null
+      || snapshotItem.sourceQuestionRevisionId != null
+      || snapshotItem.sourceContentDigest != null
+      || snapshotItem.sourceRevisionProvenance != null)) {
+    throw new Error(`The assessment seed could not prove the stable snapshot identity for ${label}.`);
+  }
   for (const field of [
     "difficulty",
     "explanation",
@@ -1487,15 +1596,22 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
     || releaseItem.sortOrder !== snapshotItem.sortOrder) {
     throw new Error(`The assessment seed found frozen item content drift for ${label}.`);
   }
-  for (const field of [
-    "sourceContentDigest",
-    "sourceQuestionId",
-    "sourceQuestionRevisionId",
-    "sourceRevisionProvenance",
-    "subtestId",
-  ]) {
+  for (const field of ["subtestId"]) {
     if (releaseItem[field] !== snapshotItem[field]) {
-      throw new Error(`The assessment seed found mutable source drift in the item bridge for ${label}.`);
+      throw new Error(`The assessment seed found item metadata drift in the item bridge for ${label}.`);
+    }
+  }
+  if (isDetachedSnapshot) {
+    for (const field of ["sourceContentDigest", "sourceQuestionId", "sourceQuestionRevisionId", "sourceRevisionProvenance"]) {
+      if (Object.prototype.hasOwnProperty.call(releaseItem, field)) {
+        throw new Error(`The assessment seed found source lineage in the detached release item for ${label}.`);
+      }
+    }
+  } else {
+    for (const field of ["sourceContentDigest", "sourceQuestionId", "sourceQuestionRevisionId", "sourceRevisionProvenance"]) {
+      if (!Object.prototype.hasOwnProperty.call(snapshotItem, field) || releaseItem[field] !== snapshotItem[field]) {
+        throw new Error(`The assessment seed found mutable source drift in the item bridge for ${label}.`);
+      }
     }
   }
   const releaseOptions = Array.isArray(releaseItem.options) ? releaseItem.options : null;
@@ -1529,6 +1645,10 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
     }
     const releaseOption = releaseOptionById.get(snapshotOption.id);
     if (!releaseOption
+      || (isDetachedSnapshot && (releaseOption.id !== snapshotOption.snapshotOptionId
+        || releaseOption.snapshotOptionId !== snapshotOption.snapshotOptionId
+        || snapshotOption.sourceQuestionOptionId != null
+        || snapshotOption.sourceQuestionRevisionOptionId != null))
       || releaseOption.assetId !== snapshotOption.assetId
       || releaseOption.choiceKey !== snapshotOption.choiceKey
       || releaseOption.content !== snapshotOption.content
@@ -1537,7 +1657,11 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
       throw new Error(`The assessment seed could not prove the immutable option bridge for ${label}.`);
     }
     for (const field of ["sourceQuestionOptionId", "sourceQuestionRevisionOptionId"]) {
-      if (!Object.prototype.hasOwnProperty.call(snapshotOption, field)
+      if (isDetachedSnapshot) {
+        if (Object.prototype.hasOwnProperty.call(releaseOption, field)) {
+          throw new Error(`The assessment seed found source lineage in the detached release choice for ${label}.`);
+        }
+      } else if (!Object.prototype.hasOwnProperty.call(snapshotOption, field)
         || releaseOption[field] !== snapshotOption[field]) {
         throw new Error(`The assessment seed found mutable source drift in the option bridge for ${label}.`);
       }
@@ -2029,9 +2153,10 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
     seedQuizzes(client, { bankId: quizBankId, questions: quizQuestions, studentIds, subtestIds, tutorId }),
     seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
   ]);
+  const draftTryoutId = await seedDraftTryout(client, { examEventId, subtestIds, tutorId, versionIds });
   const assessmentRelease = await upsertAssessmentRelease(client, { tryoutId, tutorId });
   const sessions = await seedTryoutOperations(client, { assessmentRelease, studentIds, tryoutId, tutorId });
-  return { bankIds: { quiz: quizBankId, tryout: tryoutBankId }, questionCount: quizQuestions.length + tryoutQuestions.length, quizQuestionCount: quizQuestions.length, tryoutQuestionCount: tryoutQuestions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
+  return { bankIds: { quiz: quizBankId, tryout: tryoutBankId }, draftTryoutId, questionCount: quizQuestions.length + tryoutQuestions.length, quizQuestionCount: quizQuestions.length, tryoutQuestionCount: tryoutQuestions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
 }
 
 async function main() {
@@ -2052,7 +2177,7 @@ async function main() {
       tutorId,
     });
     await client.query("COMMIT");
-    console.log(`Assessment demonstration data completed: ${summary.questionCount} questions, ${summary.versionCount} package versions, ${summary.quizCount} quizzes, and one seven-test tryout.`);
+    console.log(`Assessment demonstration data completed: ${summary.questionCount} questions, ${summary.versionCount} package versions, ${summary.quizCount} quizzes, one published seven-test Tryout, and one complete draft Tryout.`);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

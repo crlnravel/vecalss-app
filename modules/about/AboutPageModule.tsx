@@ -1,7 +1,6 @@
 import Image from "next/image";
 import {
   BrainCircuit,
-  ChartColumnBig,
   NotebookPen,
   TimerReset,
 } from "@/lib/icons";
@@ -13,68 +12,68 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 const proofPoints = [
   {
-    value: "24/7",
-    label: "Vera AI study support",
+    value: "01",
+    label: "Pelajari konsep lewat materi.",
   },
   {
-    value: "Weekly",
-    label: "tryout and review rhythm",
+    value: "02",
+    label: "Latih pemahaman lewat kuis.",
   },
   {
-    value: "Topic",
-    label: "level performance signals",
+    value: "03",
+    label: "Uji kesiapan lewat Tryout.",
   },
 ];
 
 const principles = [
   {
-    title: "Sequence before speed",
+    title: "Pahami konsep, lalu berlatih",
     description:
-      "Students move through concepts, drills, timed work, and review in a deliberate order instead of chasing disconnected material.",
+      "Pelajari konsep lewat Materi, lalu lanjutkan dengan Kuis atau Tryout sesuai kebutuhanmu.",
     icon: NotebookPen,
   },
   {
-    title: "Support at the exact stuck point",
+    title: "Minta bantuan saat kamu perlu",
     description:
-      "Vera AI keeps study sessions from stalling by helping students unpack concepts, question types, and next steps in the moment.",
+      "Tanyakan hal yang belum kamu pahami kepada Vera AI untuk mendapat bantuan belajar.",
     icon: BrainCircuit,
   },
   {
-    title: "Signals over guesswork",
+    title: "Pelajari hasil latihanmu",
     description:
-      "Analytics show whether the real bottleneck is accuracy, pacing, topic mastery, or consistency, so revision has a clear target.",
-    icon: ChartColumnBig,
+      "Gunakan skor dan pembahasan yang tersedia untuk mengenali jawaban yang perlu kamu pelajari lagi.",
+    icon: NotebookPen,
   },
 ];
 
 const methodSteps = [
   {
     number: "01",
-    label: "Baseline",
-    title: "Map the starting point",
+    label: "Tujuan",
+    title: "Kenali tujuan belajarmu",
     description:
-      "Students begin with their current level, target campus, and highest-friction subjects, giving the platform a useful first map.",
+      "Lengkapi profil dengan kelas, kampus tujuan, dan jurusan yang kamu minati.",
   },
   {
     number: "02",
-    label: "Cadence",
-    title: "Build a weekly study rhythm",
+    label: "Belajar",
+    title: "Pilih materi dan latihan",
     description:
-      "Modules, drills, and tryouts are arranged around repeatable habits, not last-minute bursts that are hard to sustain.",
+      "Pelajari konsep lewat Materi, lalu kerjakan Kuis atau Tryout saat kamu siap.",
   },
   {
     number: "03",
-    label: "Review",
-    title: "Read the performance pattern",
+    label: "Tinjau",
+    title: "Periksa hasil latihan",
     description:
-      "Topic-level analytics and timing data reveal where confidence is real and where a student is still relying on luck.",
+      "Setelah hasil tersedia, lihat skor dan pembahasan untuk memahami jawabanmu.",
   },
   {
     number: "04",
-    label: "Adjust",
-    title: "Return to the right material",
+    label: "Lanjutkan",
+    title: "Tentukan langkah berikutnya",
     description:
-      "Weak areas become the next learning path, with Vera AI available when a concept needs another explanation or a faster reset.",
+      "Pilih Materi yang ingin kamu pelajari lagi. Kamu juga bisa bertanya kepada Vera AI jika butuh penjelasan tambahan.",
   },
 ];
 
@@ -89,23 +88,22 @@ export default function AboutPageModule() {
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.72fr)] md:items-center md:gap-14 md:py-[72px]">
               <div>
                 <Badge size="card" variant="accent">
-                  About Vecalss
+                  Tentang Vecalss
                 </Badge>
 
                 <h1 className="mt-7 max-w-[850px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
-                  Vecalss makes university prep feel less scattered.
+                  Persiapan masuk PTN terasa lebih terarah bersama Vecalss.
                 </h1>
 
                 <p className="mt-6 max-w-[670px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
-                  Students get a clean path from concepts to timed practice, with
-                  analytics and Vera AI support keeping each week focused on the
-                  work that actually moves the score.
+                  Belajar dari Materi, berlatih lewat Kuis dan Tryout, lalu tinjau
+                  hasilnya untuk menentukan langkah berikutnya.
                 </p>
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                  <ActionButtonLink href="/#contact">Talk with the team</ActionButtonLink>
+                  <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
                   <ActionButtonLink href="/faq" variant="marketingOutline">
-                    Explore the FAQ
+                    Baca FAQ
                   </ActionButtonLink>
                 </div>
               </div>
@@ -116,16 +114,16 @@ export default function AboutPageModule() {
                 <div className="relative flex items-start justify-between gap-8">
                   <div>
                     <p className="text-sm font-medium tracking-[0.16em] text-accent-300 uppercase">
-                      Learning system
+                      Cara belajar
                     </p>
                     <h2 className="mt-4 max-w-[330px] text-4xl leading-[1.08] font-medium md:text-5xl">
-                      One route from preparation noise to focused progress.
+                      Belajar selangkah demi selangkah.
                     </h2>
                   </div>
 
                   <div className="relative hidden h-[118px] w-[118px] shrink-0 rounded-5xl border border-white/12 bg-[var(--warning-50)] shadow-[0_22px_58px_-38px_color-mix(in_oklab,var(--secondary-900)_48%,transparent)] md:block">
                     <Image
-                      alt="Vecalss learning support illustration"
+                      alt="Ilustrasi pendamping belajar Vecalss"
                       fill
                       className="object-contain p-4"
                       sizes="118px"
@@ -153,8 +151,8 @@ export default function AboutPageModule() {
                     <TimerReset className="size-5" />
                   </span>
                   <p className="text-base leading-6 text-white/78">
-                    Designed for students who need structure, honest feedback, and fast
-                    recovery when a study session gets stuck.
+                    Susunan belajar yang membantu kamu memahami materi, berlatih,
+                    dan meninjau hasil.
                   </p>
                 </div>
               </div>
@@ -166,14 +164,14 @@ export default function AboutPageModule() {
           <div className="grid gap-10 md:grid-cols-[0.36fr_0.64fr] md:items-start md:gap-14">
             <div className="md:sticky md:top-8">
               <Badge size="section" variant="mint">
-                Why it works
+                Kenapa Vecalss?
               </Badge>
               <h2 className="mt-6 max-w-[390px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
-                A calmer system for high-stakes learning.
+                Persiapan ujian terasa lebih terarah.
               </h2>
               <p className="mt-5 max-w-[420px] text-lg leading-7 text-secondary-900/72">
-                The platform is built around one practical question: what should a
-                student do next to improve with less wasted effort?
+                Vecalss menyediakan Materi, Kuis, Tryout, dan Vera AI untuk
+                mendukung proses belajarmu.
               </p>
             </div>
 
@@ -209,12 +207,12 @@ export default function AboutPageModule() {
             <div className="grid gap-5 py-8 md:grid-cols-[0.36fr_0.64fr] md:gap-14 md:py-11">
               <div>
                 <Badge size="section" variant="accent">
-                  Our method
+                  Cara belajar
                 </Badge>
               </div>
               <div>
                 <h2 className="max-w-[760px] text-4xl leading-[1.1] font-medium text-black md:text-6xl">
-                  Preparation becomes easier to trust when every step has a job.
+                  Mulai dari tujuan, lanjutkan dengan belajar dan latihan.
                 </h2>
               </div>
             </div>
@@ -247,15 +245,15 @@ export default function AboutPageModule() {
           <div className="grid overflow-hidden rounded-5xl border border-primary-700/10 bg-[var(--voyage-sea-glass-wash)] shadow-[0_26px_72px_-46px_color-mix(in_oklab,var(--voyage-ink)_20%,transparent)] md:grid-cols-[minmax(0,1fr)_360px]">
             <div className="p-7 md:p-12">
               <h2 className="max-w-[690px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
-                Ready for a prep routine that feels focused and human?
+                Siap belajar lebih terarah?
               </h2>
               <p className="mt-5 max-w-[610px] text-lg leading-7 text-secondary-900/74 md:text-lg">
-                Share your goal, current level, and hardest subjects. The Vecalss
-                team can help you find the right starting point.
+                Lihat pilihan kontak Vecalss jika kamu ingin bertanya tentang
+                program atau cara mulai belajar.
               </p>
               <div className="mt-8">
                 <ActionButtonLink className="w-full md:w-fit" href="/#contact">
-                  Start the conversation
+                  Lihat pilihan kontak
                 </ActionButtonLink>
               </div>
             </div>
@@ -275,7 +273,7 @@ export default function AboutPageModule() {
                 <div className="flex h-[220px] w-[220px] items-center justify-center rounded-full bg-[var(--warning-50)] shadow-[0_28px_74px_-42px_color-mix(in_oklab,var(--secondary-900)_52%,transparent)] md:h-[310px] md:w-[310px]">
                   <div className="relative h-[168px] w-[168px] md:h-[230px] md:w-[230px]">
                     <Image
-                      alt="Vera AI learning support illustration"
+                  alt="Ilustrasi Vera AI sebagai teman belajar"
                       fill
                       unoptimized
                       className="object-contain drop-shadow-[0_16px_28px_color-mix(in_oklab,var(--voyage-ink)_10%,transparent)]"

@@ -26,7 +26,6 @@ function NotificationsPageModule({
     >
       <div className="space-y-8">
         <ReferencePageHeader
-          description="Kirim notifikasi ke kelas aktif."
           title="Kirim Notifikasi"
         />
 

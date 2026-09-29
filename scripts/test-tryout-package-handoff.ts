@@ -19,7 +19,7 @@ assert.match(repository, /packageVersionId: null/u, "new Tryout sections and ite
 assert.match(repository, /function hasArchivedPackageBinding/u, "legacy package-bound Tryouts must be identified before direct-only hydration");
 assert.match(repository, /records\.flatMap\(\(record\) => hasArchivedPackageBinding\(record\) \? \[\] : \[toTryoutDto\(record\)\]\)/u, "legacy package-bound Tryouts must be explicitly omitted from the active authoring catalogue");
 assert.match(repository, /record && !hasArchivedPackageBinding\(record\) \? toTryoutDto\(record\) : null/u, "legacy package-bound Tryout edit routes must fail closed instead of hydrating empty Sections");
-assert.match(repository, /if \(hasArchivedPackageBinding\(current\)\) throw new TryoutValidationError\("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah/u, "direct-only save and metadata paths must reject legacy package-bound Tryouts");
+assert.match(repository, /if \(hasArchivedPackageBinding\(current\)\) throw new TryoutValidationError\("Paket Soal yang digunakan sudah diarsipkan\. Buat Tryout baru/u, "direct-only save and metadata paths must reject legacy package-bound Tryouts");
 assert.match(actions, /Paket Soal sedang diarsipkan/u, "legacy package mutation actions must fail closed");
 assert.match(assessmentRelease, /hasArchivedPackageBinding/u, "new AssessmentRelease creation must detect archived package-bound Tryouts");
 assert.match(assessmentRelease, /Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuat rilis baru/u, "archived package-bound Tryouts must not create new releases");

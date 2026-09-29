@@ -29,34 +29,30 @@ function ForgotPasswordForm({
       <input name="audience" type="hidden" value={audience} />
 
       {state.message && keepMessageInline ? (
-        <FormNotice tone={state.status === "success" ? "success" : "danger"}>
+        <FormNotice
+          tone={state.status === "error" ? "danger" : state.resetUrl ? "success" : "neutral"}
+        >
           {state.message}
         </FormNotice>
       ) : null}
 
       {state.resetUrl ? (
         <FormNotice tone="neutral">
-          <p className="font-medium">Development reset link</p>
-          <p className="mt-1 break-all text-sm">{state.resetUrl}</p>
+          <p className="font-medium">Tautan pengaturan ulang kata sandi</p>
+          <a className="mt-1 inline-flex min-h-11 items-center break-all text-sm font-semibold text-primary-700 underline underline-offset-4" href={state.resetUrl}>
+            Buka tautan pengaturan ulang
+          </a>
         </FormNotice>
       ) : null}
 
       <Field>
-        <FieldLabel htmlFor="forgot-email">Account email</FieldLabel>
+        <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
         <FieldInput
           autoComplete="email"
           defaultValue={state.fields?.email ?? defaultEmail ?? ""}
           id="forgot-email"
           name="email"
-          placeholder={
-            audience === "admin"
-              ? "admin@vecalss.id"
-              : audience === "tutor"
-                ? "kapten@vecalss.id"
-                : audience === "affiliator"
-                  ? "affiliator@vecalss.id"
-                : "student@vecalss.id"
-          }
+          placeholder="nama@email.com"
           required
           type="email"
         />
@@ -70,10 +66,10 @@ function ForgotPasswordForm({
           className="inline-flex min-h-11 items-center text-sm font-medium text-primary-700 hover:text-primary-800"
           href={backHref}
         >
-          Back to login
+          Kembali ke halaman masuk
         </Link>
-        <SubmitButton pendingLabel="Preparing link..." size="lg" type="submit" variant="brand">
-          Send reset instructions
+        <SubmitButton pendingLabel="Menyiapkan tautan..." size="lg" type="submit" variant="brand">
+          Minta tautan pengaturan ulang
         </SubmitButton>
       </div>
     </form>

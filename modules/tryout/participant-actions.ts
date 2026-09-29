@@ -20,9 +20,13 @@ import { registerForTryout, TryoutDeliveryValidationError } from "@/lib/tryout/d
 import { participantTryoutResult, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 
 function message(error: unknown) {
-  return error instanceof TryoutAttemptValidationError || error instanceof TryoutDeliveryValidationError || error instanceof TryoutCapabilityError || error instanceof TryoutResultValidationError
+  const message = error instanceof TryoutAttemptValidationError || error instanceof TryoutDeliveryValidationError || error instanceof TryoutCapabilityError || error instanceof TryoutResultValidationError
     ? error.message
-    : "Tryout tidak dapat diproses saat ini. Silakan coba lagi.";
+    : null;
+  if (!message || /AssessmentRelease|Test run|\bbridge\b|\bsnapshot\b|\battempt\b|\bfixture\b|\bscope\b|admin preview/i.test(message)) {
+    return "Tryout belum bisa diproses. Muat ulang halaman. Jika masalah berlanjut, hubungi tim Vecalss.";
+  }
+  return message;
 }
 
 async function participantSession() {

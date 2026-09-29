@@ -9,6 +9,7 @@ import {
   isValidHostedPdfUrl,
   type MateriDocument,
 } from "@/lib/materi/contract";
+import { withMateriDocumentDeliveryMode } from "@/lib/materi/document-preview";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,11 +52,6 @@ async function toggleDocumentFullscreen(preview: HTMLDivElement | null, fullscre
   }
 }
 
-function withDeliveryMode(value: string, mode: "download" | "pdf") {
-  const separator = value.includes("?") ? "&" : "?";
-  return `${value}${separator}${mode}=${mode === "download" ? "1" : "pdf"}`;
-}
-
 function getDocumentPreviewState({
   failedKey,
   isHosted,
@@ -96,10 +92,10 @@ function getStudentPdfPreviewModel({
     ? "Dokumen PDF managed belum dapat dibuka. Coba muat ulang halaman atau gunakan jalur kembali ke Materi."
     : "Dokumen PDF belum tersedia untuk dibaca. Kembali ke Materi untuk memilih unit lain.";
   const requestKey = `${documentDeliveryUrl ?? ""}:${hostedUrl}:${document?.managedAssetId ?? ""}:${requestVersion}`;
-  const previewUrl = shouldResolveDelivery && documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "pdf") : hostedUrl;
+  const previewUrl = shouldResolveDelivery && documentDeliveryUrl ? withMateriDocumentDeliveryMode(documentDeliveryUrl, "pdf") : hostedUrl;
   const state = getDocumentPreviewState({ failedKey, isHosted, requestKey, resolvedKey: shouldResolveDelivery ? requestKey : null, resolvedUrl: previewUrl, shouldResolveDelivery });
   const downloadUrl = shouldResolveDelivery
-    ? documentDeliveryUrl ? withDeliveryMode(documentDeliveryUrl, "download") : null
+    ? documentDeliveryUrl ? withMateriDocumentDeliveryMode(documentDeliveryUrl, "download") : null
     : getDownloadUrl(hostedUrl);
 
   return {
@@ -238,10 +234,10 @@ function StudentPdfPreviewActions({
           <TooltipContent>Buka PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Download PDF" nativeButton={false} render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Download PDF" variant="brandOutline" />}>
+          <TooltipTrigger render={<Button aria-label="Unduh PDF" nativeButton={false} render={<a aria-label="Unduh PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Unduh PDF" variant="brandOutline" />}>
             <Download aria-hidden="true" className="size-5" />
           </TooltipTrigger>
-          <TooltipContent>Download PDF</TooltipContent>
+          <TooltipContent>Unduh PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="brandOutline" />}>
@@ -256,7 +252,7 @@ function StudentPdfPreviewActions({
 }
 
 function StudentPdfPreviewFooterMessage({ state }: { state: DocumentPreviewState }) {
-  return <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">{state === "ready" ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas." : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}</p>;
+  return <p className="text-left text-xs leading-5 text-[var(--voyage-muted-ink)]">{state === "ready" ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau unduh PDF lewat tombol di atas." : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}</p>;
 }
 
 function StudentPdfPreview({

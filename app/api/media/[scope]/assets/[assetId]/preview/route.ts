@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { assetId, scope: rawScope } = await context.params;
     const scope = parseMediaScope(rawScope);
-    if (!scope) return Response.json({ error: "Library media tidak valid." }, { status: 404 });
+    if (!scope) return Response.json({ error: "Pustaka media tidak valid." }, { status: 404 });
     await requireMediaSession(scope);
     return Response.json(await getMediaAssetPreview(scope, assetId));
   } catch (error) {
@@ -22,6 +22,6 @@ export async function GET(
       return Response.json({ error: error.message }, { status: error.status });
     }
     console.error("Unexpected media preview error", error);
-    return Response.json({ error: "Preview gambar belum tersedia." }, { status: 500 });
+    return Response.json({ error: "Pratinjau gambar belum tersedia." }, { status: 500 });
   }
 }

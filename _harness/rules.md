@@ -96,11 +96,12 @@ The project is currently in an **active pre-release phase**. Agents must apply t
    - Preserving legacy tables, obsolete schemas, deprecated columns, or historical backward-compatibility shims is **not important or required** at this stage.
    - Do not spend effort writing complex data quarantine rules, historical compatibility adapters, or fallback columns for legacy systems that are no longer part of the target product.
    - Move forward with clean, simplified schema models.
-3. **No database backup requirement:**
-   - Creating manual database snapshots, dump files (e.g. `/tmp/*.dump`), or point-in-time backup archives before running migrations or resets is **not required**.
+3. **No database backup requirement & disposable dev data:**
+   - Creating manual database snapshots, dump files (e.g. `/tmp/*.dump`), or point-in-time backup archives before running migrations, tests, or resets is **not required**.
    - Data in local and development environments is treated as disposable fixture data that can be re-created via `pnpm db:seed`.
+   - Agents are explicitly permitted to remove, truncate, delete, or reset existing data in the development database whenever they want or need to for test preparation or clean slates.
 4. **Resets and reseeds are standard:**
-   - When schema changes or migrations cause local state conflicts, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
+   - When schema changes or migrations cause local state conflicts, or when tests require a pristine fixture slate, running `./_harness/resource-guard.sh run -- rtk pnpm db:reset` and `./_harness/resource-guard.sh run -- rtk pnpm db:seed` is a routine, accepted workflow.
 
 ### Environment & database topology
 
@@ -207,22 +208,23 @@ Detailed guide: [`docs/database-environments.md`](file:///Users/ravel/Work/Freel
 - Non-heavy commands (e.g. `rtk git status`, `rtk git diff`, `rtk grep`, `rtk find`) do not start Node or heavy background workers and can be run with `rtk` directly without the guard.
 - **Escape hatch:** Use `rtk proxy <cmd>` when raw, uncompressed output is strictly necessary for low-level debugging or troubleshooting.
 
-### Browser testing and verification
+### Browser testing, verification, and usage
 
-- Use **ego-browser** for all browser testing — not Chrome, Firefox, or Safari
+- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or any interaction requiring a browser **MUST be done through `ego-browser` (`ego-lite`) as the priority choice** — never Chrome, Firefox, Safari, or generic built-in browser automation tools.
 - **Always ask for explicit user permission before doing verification using a browser.** Never start browser verification autonomously.
 - When requesting permission for browser verification, the agent MUST explicitly specify:
   1. **Route(s):** The exact route(s) or URLs to be checked (e.g., `/mentor/tryouts/new`, `/dashboard`).
   2. **Role:** The user role or persona/session context to use (e.g., Kapten / tutor, Voyager / student, Admin, or unauthenticated).
   3. **Verification items:** The specific checklist of UI elements, interactions, edge cases, responsive views, or user flows to verify.
 - Only proceed with browser verification after receiving explicit approval from the user.
+- **Login with seeded credentials:** When testing authenticated user flows, do not register new accounts. Always use the seeded credentials listed in [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) (e.g., Admin: `admin@vecalss.local` / `Admin12345!`, Kapten: `tutor@vecalss.local` / `Tutor12345!`, Voyager: `student@vecalss.local` / `Student12345!`, Affiliator: `affiliator@vecalss.local` / `Affiliator12345!`).
 
 ### Domain
 
 - Preserve the shared topic taxonomy across learning modules, quizzes, tryouts, analytics, and AI features
 - Product-facing "Kapten" maps to the tutor role and `/mentor` routes — do not rename without an explicit migration plan
 - Student-facing copy should use natural Bahasa Indonesia. Preserve established admin and technical terminology unless feature requirements say otherwise
-- For all copywriting, marketing text, UI copy, and Indonesian content editing, agents must apply the `tutur-humanizer` skill (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` to keep copy human, natural, and free from AI clichés
+- For all copywriting, marketing text, UI copy, and Indonesian content editing, agents must apply the `tutur-humanizer` skill (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` to keep copy human, natural, and free from AI clichés
 
 ## Code quality policy
 

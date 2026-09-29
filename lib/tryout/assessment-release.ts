@@ -26,15 +26,16 @@ import {
   TRYOUT_CBT_SCORING_VERSION,
   TRYOUT_SCORE_AGGREGATION_VERSION,
 } from "@/lib/tryout/scoring";
-import { canonicalizeCbtScoringConfig } from "@/lib/tryout/cbt-scoring-policy";
+import { canonicalizeCbtScoringConfig, CBT_IRT_CALIBRATION_REQUIRED_MESSAGE } from "@/lib/tryout/cbt-scoring-policy";
 import { validateAnswerKey, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
+import { lockAndValidateKaptenBankImages } from "@/lib/question-bank/media-validator";
 import {
   acquireTryoutIdentityMutex,
   assertTryoutIdentityStable,
   lockTryoutAggregate,
 } from "@/lib/tryout/locks";
 
-const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v1";
+const ASSESSMENT_RELEASE_SCHEMA_VERSION = "assessment-release-v2";
 const LOGICAL_ASSESSMENT_REVISION_VERSION = 1;
 const releaseTryoutInclude = {
   assessmentReleases: {
@@ -306,6 +307,7 @@ function buildAssessmentReleasePayload(
         prompt: item.prompt,
         promptAssetId: item.promptAssetId,
         questionType: item.questionType,
+        snapshotId: item.snapshotId,
         sortOrder: item.sortOrder,
         sourceContentDigest: item.sourceContentDigest,
         sourceQuestionId: item.sourceQuestionId,
@@ -348,6 +350,99 @@ function resolutionError(
 
 function readyAsset(asset: { state: string } | null | undefined, assetId: string | null | undefined) {
   return !assetId || asset?.state === "ready";
+}
+
+const SNAPSHOT_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SNAPSHOT_DIFFICULTIES = new Set(["easy", "medium", "hard", "adaptive"]);
+
+async function assertDirectSnapshotReadiness(
+  tx: Prisma.TransactionClient,
+  sections: readonly {
+    packageVersionId: string | null;
+    subtestId: string;
+    items: readonly {
+      difficulty: string;
+      explanationAssetId: string | null;
+      packageVersionId: string | null;
+      prompt: string;
+      promptAssetId: string | null;
+      questionType: QuestionType | string;
+      snapshotId: string | null;
+      sourceContentDigest: string | null;
+      sourceQuestionId: string | null;
+      sourceQuestionRevisionId: string | null;
+      sourceRevisionProvenance: QuestionRevisionProvenance | null;
+      subtestId: string;
+      options: readonly {
+        assetId: string | null;
+        choiceKey: string;
+        content: string;
+        isCorrect: boolean;
+        snapshotOptionId: string | null;
+        sortOrder: number;
+        sourceQuestionOptionId: string | null;
+        sourceQuestionRevisionOptionId: string | null;
+      }[];
+    }[];
+  }[],
+) {
+  const snapshotIds = new Set<string>();
+  const mediaAssetIds: Array<string | null> = [];
+  for (const section of sections) {
+    if (section.packageVersionId !== null) continue;
+    for (const item of section.items) {
+      if (item.snapshotId === null) continue;
+      if (!SNAPSHOT_UUID_PATTERN.test(item.snapshotId)
+        || snapshotIds.has(item.snapshotId)
+        || item.packageVersionId !== null
+        || item.subtestId !== section.subtestId
+        || !item.prompt.trim()
+        || !SNAPSHOT_DIFFICULTIES.has(item.difficulty)
+        || (item.questionType !== QuestionType.single_choice && item.questionType !== QuestionType.multiple_choice)
+        || item.sourceQuestionId !== null
+        || item.sourceQuestionRevisionId !== null
+        || item.sourceContentDigest !== null
+        || item.sourceRevisionProvenance !== null
+        || item.options.length < 2
+        || item.options.length > 5) {
+        throw new Error("Tryout belum siap dibuka: pertanyaan salinan belum lengkap atau tidak sesuai dengan subject.");
+      }
+      snapshotIds.add(item.snapshotId);
+      const optionIds = new Set<string>();
+      const optionKeys = new Set<string>();
+      const optionOrders = new Set<number>();
+      for (const option of item.options) {
+        if (!option.snapshotOptionId
+          || !SNAPSHOT_UUID_PATTERN.test(option.snapshotOptionId)
+          || optionIds.has(option.snapshotOptionId)
+          || !option.choiceKey.trim()
+          || option.choiceKey.length > 64
+          || optionKeys.has(option.choiceKey)
+          || !option.content.trim()
+          || !Number.isInteger(option.sortOrder)
+          || option.sortOrder < 0
+          || optionOrders.has(option.sortOrder)
+          || option.sourceQuestionOptionId !== null
+          || option.sourceQuestionRevisionOptionId !== null) {
+          throw new Error("Tryout belum siap dibuka: pilihan pada pertanyaan salinan tidak valid.");
+        }
+        optionIds.add(option.snapshotOptionId);
+        optionKeys.add(option.choiceKey);
+        optionOrders.add(option.sortOrder);
+        mediaAssetIds.push(option.assetId);
+      }
+      if (item.options.some((option, index) => !optionOrders.has(index))
+        || !validateAnswerKey(item.questionType as QuestionAnswerMode, item.options.map((option) => ({ id: option.choiceKey, isCorrect: option.isCorrect }))).ok) {
+        throw new Error("Tryout belum siap dibuka: kunci atau urutan pilihan pertanyaan salinan tidak valid.");
+      }
+      mediaAssetIds.push(item.promptAssetId, item.explanationAssetId);
+    }
+  }
+  try {
+    await lockAndValidateKaptenBankImages(tx, { assetIds: mediaAssetIds });
+  } catch {
+    throw new Error("Tryout belum siap dibuka: media pertanyaan salinan harus tersedia di Media Kapten.");
+  }
 }
 
 function sourceReadinessIssues(
@@ -1088,16 +1183,35 @@ async function assertTryoutReleaseEligibility(
       },
       sections: {
         include: {
-          items: {
-            select: {
-              packageVersionId: true,
-              questionType: true,
-              sourceContentDigest: true,
-              sourceQuestionId: true,
-              sourceQuestionRevisionId: true,
-              sourceRevisionProvenance: true,
-              subtestId: true,
+        items: {
+          select: {
+            difficulty: true,
+            explanationAssetId: true,
+            id: true,
+            options: {
+              select: {
+                assetId: true,
+                choiceKey: true,
+                content: true,
+                isCorrect: true,
+                snapshotOptionId: true,
+                sortOrder: true,
+                sourceQuestionOptionId: true,
+                sourceQuestionRevisionOptionId: true,
+              },
+              orderBy: { sortOrder: "asc" },
             },
+            packageVersionId: true,
+            prompt: true,
+            promptAssetId: true,
+            questionType: true,
+            snapshotId: true,
+            sourceContentDigest: true,
+            sourceQuestionId: true,
+            sourceQuestionRevisionId: true,
+            sourceRevisionProvenance: true,
+            subtestId: true,
+          },
           },
           packageVersion: {
             select: {
@@ -1183,6 +1297,7 @@ async function assertTryoutReleaseEligibility(
     if (latestArchivedReleasePayload?.tryout?.revision === tryout.revision) return tryout;
     throw new Error("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuka rilis baru.");
   }
+  await assertDirectSnapshotReadiness(tx, tryout.sections);
   if (tryout.sections.length !== 7 || tryout.sections.some((section) => {
     if (section.packageVersionId) {
       const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
@@ -1206,14 +1321,23 @@ async function assertTryoutReleaseEligibility(
     return section.items.length === 0 || section.items.some((item) =>
       item.packageVersionId !== null
       || item.subtestId !== section.subtestId
-      || !item.sourceQuestionId
-      || !item.sourceQuestionRevisionId
-      || !item.sourceContentDigest
-      || item.sourceRevisionProvenance === null
-      || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown,
+      || (item.snapshotId === null && (
+        !item.sourceQuestionId
+        || !item.sourceQuestionRevisionId
+        || !item.sourceContentDigest
+        || item.sourceRevisionProvenance === null
+        || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown
+      )),
     );
   })) {
     throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
+  }
+  for (const section of tryout.sections) {
+    if (section.packageVersionId !== null) continue;
+    const scoringPolicy = canonicalizeCbtScoringConfig(section.scoringConfig);
+    if (scoringPolicy.method === "irt_2pl") {
+      throw new Error(CBT_IRT_CALIBRATION_REQUIRED_MESSAGE);
+    }
   }
   return tryout;
 }
@@ -1276,6 +1400,7 @@ async function createOrReuseAssessmentRelease(
 
   const resolved = await resolveAndMaterializeAssemblies(tx, tryout, publicationIntentKey);
   const resolvedTryout = resolved.tryout;
+  await assertDirectSnapshotReadiness(tx, resolvedTryout.sections);
   if (
     resolvedTryout.sections.length !== 7 ||
     resolvedTryout.sections.some((section) => {
@@ -1289,7 +1414,14 @@ async function createOrReuseAssessmentRelease(
   }
   for (const section of resolvedTryout.sections) {
     try {
-      canonicalizeCbtScoringConfig(section.scoringConfig, section.items.map((item) => item.sourceQuestionId ?? item.id));
+      const policy = canonicalizeCbtScoringConfig(section.scoringConfig);
+      if (!section.packageVersionId && policy.method === "irt_2pl") {
+        throw new Error(CBT_IRT_CALIBRATION_REQUIRED_MESSAGE);
+      }
+      const itemIds = section.items.map((item) => section.packageVersionId
+        ? item.sourceQuestionId ?? item.id
+        : item.snapshotId ?? item.sourceQuestionId ?? item.id);
+      canonicalizeCbtScoringConfig(section.scoringConfig, itemIds);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "Metode penilaian CBT belum siap untuk dirilis.");
     }

@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronLeft,
   Clipboard,
   LockKeyhole,
   MessageCircle,
@@ -13,7 +12,6 @@ import {
 } from "@/lib/icons";
 import { useState } from "react";
 
-import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
@@ -106,7 +104,7 @@ function CourseLessonPlayerModule({
       });
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => null) as { error?: unknown } | null;
-        throw new Error(typeof errorPayload?.error === "string" ? errorPayload.error : "Progress belum tersimpan. Coba lagi.");
+        throw new Error("Status materi belum dapat diperbarui.");
       }
       const payload = await response.json().catch(() => null) as {
         error?: unknown;
@@ -116,7 +114,7 @@ function CourseLessonPlayerModule({
         !payload?.snapshot
         || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
       ) {
-        throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");
+        throw new Error("Status materi belum dapat diperbarui.");
       }
 
       const nextAfterCompletion = getNextAvailableLesson(course, payload.snapshot);
@@ -124,15 +122,15 @@ function CourseLessonPlayerModule({
       setFeedback({
         tone: "success",
         text: nextAfterCompletion
-          ? `Progress tersimpan. Selanjutnya: ${nextAfterCompletion.title}.`
+          ? `Progres tersimpan. Materi berikutnya: ${nextAfterCompletion.title}.`
           : updatedState.completionPercentage === 100
-            ? "Progress tersimpan. Semua bacaan di jalur ini sudah selesai."
-            : "Progress tersimpan. Bacaan berikutnya belum tersedia.",
+            ? "Progres tersimpan. Semua materi di jalur ini sudah selesai."
+            : "Progres tersimpan. Materi berikutnya belum tersedia.",
       });
-    } catch (error) {
+    } catch {
       setFeedback({
         tone: "error",
-        text: error instanceof Error ? error.message : "Progress belum tersimpan. Coba lagi.",
+        text: "Status materi belum dapat diperbarui. Muat ulang halaman untuk memeriksa, lalu coba lagi jika belum berubah.",
       });
     } finally {
       setIsPending(false);
@@ -145,7 +143,7 @@ function CourseLessonPlayerModule({
       breadcrumbLabel={`${course.title} · ${lesson.title}`}
       mainClassName="max-w-[112rem] gap-0 px-4 py-7 md:px-8 lg:px-10 lg:py-9"
       notificationFeed={notificationFeed}
-      searchPlaceholder="Cari bacaan di materi ini..."
+      searchPlaceholder="Cari materi..."
       session={session}
     >
       {!lessonStatus || lessonStatus === "locked" ? (
@@ -190,13 +188,6 @@ function LessonPlayer({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <BackButton
-        href={`/courses/${course.slug}`}
-        label={`Kembali ke ${course.description} (${course.title})`}
-      >
-        <ChevronLeft />
-      </BackButton>
-
       <MateriLessonPresentation
         action={(
           <Tooltip>
@@ -254,7 +245,7 @@ function LessonPlayer({
           size="learning"
           variant="learning"
         >
-          Lanjut ke bacaan berikutnya
+          Buka materi berikutnya
           <ArrowLeft className="size-4 rotate-180" />
         </Button>
       ) : null}
@@ -311,16 +302,7 @@ function LockedLessonState({
           Lanjut ke Bagian yang tersedia
           <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
         </Button>
-      ) : (
-        <BackButton
-          className="mt-7"
-          href={`/courses/${course.slug}`}
-          label="Kembali ke Materi"
-          variant="brand"
-        >
-          <ChevronLeft />
-        </BackButton>
-      )}
+      ) : null}
     </section>
   );
 }

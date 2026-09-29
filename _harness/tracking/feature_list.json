@@ -279,6 +279,22 @@
       "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "5d8270a; upstream OpenRouter SSE parsing and incremental message.delta forwarding, final usage/model/provider evidence, bounded malformed and partial-failure handling, and inert provisional Prisma deltas. Guarded test:vera-openrouter-poc, test:vera-openrouter-free-provider, test:vera-sprint2, focused ESLint, git diff --check, and full pnpm verify pass. Real-provider and browser smoke checks remain explicitly gated."
+    },
+    {
+      "id": "feat-036",
+      "name": "Vera AI First-Message Session Creation",
+      "description": "Create a backend chat session automatically when a learner sends their first message without an active session",
+      "dependencies": ["feat-022"],
+      "status": "complete",
+      "evidence": "5fd4071; first message dispatches to the newly created conversation; the new-session button and first-send path share single-flight creation, with duplicate-submit protection. Guarded test:vera-auto-context-ui, test:vera-auto-context-operations, test:vera-auto-context-orchestrator, test:vera-paid-provider, focused ESLint, TypeScript, and git diff --check pass; browser checks were not run as requested."
+    },
+    {
+      "id": "feat-037",
+      "name": "Vera AI Streaming Answer Reveal",
+      "description": "Polish live Vera answer streaming with a reduced-motion-aware word reveal while preserving server-owned context gating",
+      "dependencies": ["feat-035"],
+      "status": "complete",
+      "evidence": "4444d77; live provisional answer words resolve from a soft blur with a quiet caret; final answers and SSE behavior remain unchanged, and reduced-motion disables the animation. Automatic-context-enabled learners continue to see committed source summaries instead of manual context selection; free development keeps the manual Konteks fallback because its automatic retrieval gate is off. Guarded test:vera-auto-context-ui, focused ESLint, full ./init.sh, and git diff --check pass; browser verification was not run as requested."
     }
   ]
 }

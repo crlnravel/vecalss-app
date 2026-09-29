@@ -24,6 +24,7 @@ export type QuizQuestionSnapshot = {
   correctChoiceId: string;
   /** Canonical answer-key set. Legacy readers continue using correctChoiceId. */
   correctChoiceIds?: string[];
+  difficulty?: "easy" | "medium" | "hard" | "adaptive";
   explanation: string;
   explanationMediaAssetId?: string;
   id: string;

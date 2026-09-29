@@ -238,15 +238,15 @@ const draft = version("draft-2", "draft", null, {
 const activeOnly = projectKuisEditor({ quiz, activeVersion: active, versions: [superseded, active] });
 assert.equal(activeOnly.activeVersion?.label, "Versi 2 aktif");
 assert.equal(activeOnly.hasUnpublishedChanges, false);
-assert.equal(activeOnly.actions.publish.visible, false);
+assert.equal(activeOnly.actions.archive.visible, true);
 assert.equal(activeOnly.actions.history.visible, true);
 assert.equal(activeOnly.versionHistory[1]?.publicationDate, null, "legacy history must not invent a date");
 
 const withDraft = projectKuisEditor({ draft, quiz, activeVersion: active, versions: [superseded, active] });
 assert.equal(withDraft.hasUnpublishedChanges, true);
 assert.equal(withDraft.draftRevision?.label, "Ada perubahan belum diterbitkan");
-assert.equal(withDraft.actions.publish.label, "Terbitkan perubahan");
-assert.equal(withDraft.actions.publish.enabled, true);
+assert.equal(withDraft.actions.archive.label, "Arsipkan Kuis");
+assert.equal(withDraft.actions.archive.enabled, true);
 assert.equal(withDraft.actions.discard.visible, true);
 assert.equal(withDraft.editable?.source, "working_draft");
 assert.equal(withDraft.editable?.title, "Kuis Dasar revisi");
@@ -254,22 +254,22 @@ assert.equal(withDraft.activeVersion?.title, "Kuis Dasar");
 
 const initial = projectKuisEditor({
   draft: version("draft-1", "draft", null),
-  quiz: { ...quiz, status: "draft" },
+  quiz,
 });
 assert.equal(initial.activeVersion, null);
-assert.equal(initial.actions.publish.label, "Terbitkan Kuis");
-assert.equal(initial.actions.publish.enabled, true);
+assert.equal(initial.actions.archive.label, "Arsipkan Kuis");
+assert.equal(initial.actions.archive.enabled, true);
 assert.equal(initial.draftRevision?.isInitial, true);
 assert.equal(initial.hasUnpublishedChanges, false);
 const unlimitedInitial = projectKuisEditor({
   initialDraft: { ...definition, attemptsAllowed: null },
-  quiz: { ...quiz, status: "draft" },
+  quiz,
 });
 assert.equal(unlimitedInitial.editable?.attemptsAllowed, null, "initial draft projection must preserve unlimited attempts");
 
-const hidden = projectKuisEditor({ quiz: { ...quiz, status: "hidden" }, activeVersion: active });
-assert.equal(hidden.activeVersion?.label, "Versi 2 aktif", "hidden operational state keeps the active version summary");
-assert.equal(hidden.stable.status, "hidden");
+const archived = projectKuisEditor({ quiz: { ...quiz, status: "archived" }, activeVersion: active });
+assert.equal(archived.activeVersion?.label, "Versi 2 aktif", "archived quizzes keep the active version summary");
+assert.equal(archived.stable.status, "archived");
 
 const catalogue = projectKuisCatalogueRow({
   draft,
@@ -281,7 +281,7 @@ assert.equal(catalogue.title, "Kuis Dasar revisi");
 assert.equal(catalogue.learnerTitle, "Kuis Dasar");
 assert.equal(catalogue.activeVersionLabel, "Versi 2 aktif");
 assert.equal(catalogue.availability, "available");
-assert.equal(catalogue.publishEligible, true);
+assert.equal(catalogue.archiveEligible, true);
 
 const opportunity = projectKuisStudentOpportunity({
   activeVersion: active,

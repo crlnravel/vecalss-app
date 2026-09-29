@@ -116,7 +116,7 @@ export default async function NotFound() {
 
             <div className="flex flex-col justify-center px-1 py-2 sm:px-4 lg:px-0 lg:py-12">
               <h1 className="mt-5 max-w-[9ch] font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.9] font-extrabold tracking-[-0.065em] text-[#173C2D] sm:mt-7">
-                Maaf, sepertinya kamu salah kapal.
+                Maaf, halaman ini tidak ditemukan.
               </h1>
 
               <ActionButtonLink className="mt-8" href={actionHref}>

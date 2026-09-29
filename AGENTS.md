@@ -100,29 +100,96 @@ the configured project copy is `_harness/resource-guard.sh`.
 
 ### Copywriting and Indonesian content policy
 
-- **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
+- **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
 - Student-facing and marketing copy in Vecalss must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
 - User-facing copy must be written for nontechnical readers. Do not expose implementation labels or version markers such as `v1`, `version`, `revision`, `UUID`, `UTF-8`, `API`, MIME types, raw field names, or backend error codes. Translate them into clear, actionable Indonesian; keep technical identifiers in code, tests, and internal contracts only.
 
-### Browser verification policy
+### Browser usage and verification policy
 
-- **Always ask for explicit user permission before performing any verification using a browser (`ego-browser`).**
-- When requesting permission, the agent must specify:
+- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or anything that uses a web browser **must be done through `ego-browser` (`ego-lite`) as the priority choice**. Do not use built-in browsers, external browser extensions, or ad hoc headless automation.
+- **Always ask for explicit user permission before performing any verification or action using a browser:**
+  When requesting permission, the agent must specify:
   1. **Route(s):** The exact route(s) or URLs to check.
   2. **Role:** The user role or session state (e.g. Kapten, Voyager, Admin).
   3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.
 - Do not proceed with browser verification without explicit user approval.
 
+### Testing and seeded credentials policy
+
+- **Login with seeded credentials:** When testing the application (browser verification, end-to-end user flows, API testing), agents should not register new accounts. Login with the pre-seeded credentials at `/login` (e.g. Admin: `admin@vecalss.local` / `Admin12345!`, Kapten/Tutor: `tutor@vecalss.local` / `Tutor12345!`, Voyager/Student: `student@vecalss.local` / `Student12345!`, Affiliator: `affiliator@vecalss.local` / `Affiliator12345!`).
+- **Disposable dev database:** Data in the local development database (`vecalss_dev`) is 100% ephemeral and disposable. Agents are explicitly permitted to remove, delete, truncate, reset (`pnpm db:reset`), or reseed (`pnpm db:seed`) existing data in the development database whenever needed. No backups or snapshot archives are required.
+- Read [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) for the complete reference and credentials table.
+
+### Skill hierarchy and execution policy (Matt Pocock priority)
+
+To prevent cognitive overload, conflicting guidance, and prompt bloat, agent skills are strictly tiered. **Matt Pocock's Software Engineering Suite is the primary operational framework** for all engineering, architectural, planning, and debugging tasks.
+
+1. **Tier 1 — Core Operating Engine (Matt Pocock Suite - Mandatory Priority):**
+   - **Router:** Always start with `ask-matt` (`.agents/skills-library/matt-pocock/ask-matt/SKILL.md`) when selecting a path or workflow.
+   - **Ideation & Alignment:** Use `/grill-with-docs` (`.agents/skills-library/matt-pocock/grill-with-docs/SKILL.md`) in-repo to eliminate ambiguities and capture decisions in `CONTEXT.md` / ADRs. Use `/grill-me` for stateless sessions.
+   - **Large / Foggy Efforts:** Use `/wayfinder` (`.agents/skills-library/matt-pocock/wayfinder/SKILL.md`) to build a map of decision tickets before coding.
+   - **External Blocker Clarification:** Use `/to-questionnaire` (`.agents/skills-library/matt-pocock/to-questionnaire/SKILL.md`) when blocked by external stakeholders.
+   - **Specification & Decomposition:** Use `/to-spec` (`.agents/skills-library/matt-pocock/to-spec/SKILL.md`) to synthesize discussions into specs; use `/to-tickets` (`.agents/skills-library/matt-pocock/to-tickets/SKILL.md`) to decompose specs into tracer-bullet tickets with explicit blocking edges.
+   - **Build & Quality:** Run `/implement` (`.agents/skills-library/matt-pocock/implement/SKILL.md`), which drives `/tdd` (`.agents/skills-library/matt-pocock/tdd/SKILL.md`) for test-first development and closes with `/code-review` (`.agents/skills-library/matt-pocock/code-review/SKILL.md`) (Standards + Spec fidelity).
+   - **Bug Diagnosis:** Use `/diagnosing-bugs` (`.agents/skills-library/matt-pocock/diagnosing-bugs/SKILL.md`) to lock down a tight, repeatable reproduction before modifying code.
+   - **Backlog & PR Triage:** Use `/triage` (`.agents/skills-library/matt-pocock/triage/SKILL.md`) for unvetted bug reports or external PRs.
+   - **Architecture & Domain Upkeep:** Use `/improve-codebase-architecture` and `/codebase-design` for deep module design; use `/domain-modeling` to preserve ubiquitous language.
+   - **Session Hygiene & Coordination:** Use `/handoff` across phase/agent boundaries, `/resolving-merge-conflicts` for intent-based git resolution, `/shared-worktree-housekeeping` for safe dirty tree checks, and `/wizard` for human-only secrets/dashboards.
+
+2. **Tier 2 — Domain Specialist Skills (Strictly Scoped):**
+   - **UI / Frontend:** Must strictly obey `DESIGN.md`. Use `impeccable` (`.agents/skills/impeccable/SKILL.md`) for token alignment and polish, `ui-typography` (`.agents/skills-library/domain/ui-typography/SKILL.md`) for screen typography rules, and `design-audit` (`.agents/skills-library/domain/design-audit/SKILL.md`) for visual audits.
+   - **Copywriting:** Apply `tutur-humanizer` (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md` for student/user-facing Indonesian copy.
+   - **Cloud & DB:** Use `neon` / `neon-postgres` for database branching/pooling, and `deploy-to-vercel` / `vercel-cli-with-tokens` / `vercel-optimize` for Vercel deployment and cost audit.
+   - **Host Protection & Harness:** Enforce `agent-resource-guard` (`_harness/resource-guard.sh`) for CPU gating and `harness` (`_harness/skills/harness/SKILL.md`) for harness auditing.
+
+3. **Tier 3 — Archived (Physically removed from runtime injection):**
+   - The following skills have been moved to `.agents/skills-archive/` and are no longer injected into the agent context. They can be restored on explicit user request.
+   - **Aesthetics** (`.agents/skills-archive/tier-3-aesthetics/`): `bencium-controlled-ux-designer`, `bencium-impact-designer`, `bencium-innovative-ux-designer`, `gpt-taste`, `minimalist-ui`, `high-end-visual-design`, `redesign-existing-projects`, `renaissance-architecture`.
+   - **Niche theory** (`.agents/skills-archive/niche-theory/`): `agentic-ux-design-relationship-centric-interfaces`, `information-architecture`.
+   - **Unused tech** (`.agents/skills-archive/unused-tech/`): `prisma-composer-core-concepts`.
+   - **Setup scripts** (`.agents/skills-archive/setup-scripts/`): `setup-matt-pocock-skills`.
+
 ### Routing
 
 - Project overview → `_harness/readme.md`
 - Task-to-file routing → `_harness/routing.md`
+- Skill knowledge graph & decision tree → `_harness/skill-map.md`
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
+- App testing & seeded login → `docs/agent-app-testing-guide.md`
 - Database & environments guide → `docs/database-environments.md`
-- Copywriting & Indonesian content → `.agents/skills/tutur-humanizer/SKILL.md` and `_harness/routing.md`
+- Copywriting & Indonesian content → `.agents/skills-library/domain/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`
+
+#### Skill routing quick reference
+
+| Need / Task | Primary skill / flow | Path |
+|---|---|---|
+| Selecting a flow / routing | `ask-matt` | `.agents/skills-library/matt-pocock/ask-matt/SKILL.md` |
+| Sharpening ideas / scoping feature | `grill-with-docs` | `.agents/skills-library/matt-pocock/grill-with-docs/SKILL.md` |
+| Planning large foggy initiatives | `wayfinder` | `.agents/skills-library/matt-pocock/wayfinder/SKILL.md` |
+| Formulating questions for stakeholders | `to-questionnaire` | `.agents/skills-library/matt-pocock/to-questionnaire/SKILL.md` |
+| Synthesizing spec from discussion | `to-spec` | `.agents/skills-library/matt-pocock/to-spec/SKILL.md` |
+| Decomposing spec into tickets | `to-tickets` | `.agents/skills-library/matt-pocock/to-tickets/SKILL.md` |
+| Implementing tickets test-first | `implement` (drives `tdd`) | `.agents/skills-library/matt-pocock/implement/SKILL.md` |
+| Reviewing diffs (Standards + Spec) | `code-review` | `.agents/skills-library/matt-pocock/code-review/SKILL.md` |
+| Investigating difficult bugs / flakes | `diagnosing-bugs` | `.agents/skills-library/matt-pocock/diagnosing-bugs/SKILL.md` |
+| Triaging incoming bugs & PRs | `triage` | `.agents/skills-library/matt-pocock/triage/SKILL.md` |
+| Deep-module architecture review | `improve-codebase-architecture` | `.agents/skills-library/matt-pocock/improve-codebase-architecture/SKILL.md` |
+| Domain dictionary & ADR discipline | `domain-modeling` | `.agents/skills-library/matt-pocock/domain-modeling/SKILL.md` |
+| Session boundary / context handoff | `handoff` | `.agents/skills-library/matt-pocock/handoff/SKILL.md` |
+| Resolving merge conflicts | `resolving-merge-conflicts` | `.agents/skills-library/matt-pocock/resolving-merge-conflicts/SKILL.md` |
+| Human-only steps (secrets, cloud UI) | `wizard` | `.agents/skills-library/matt-pocock/wizard/SKILL.md` |
+| UI implementation & polish | `impeccable` (governed by `DESIGN.md`) | `.agents/skills/impeccable/SKILL.md` |
+| Screen typography rules | `ui-typography` | `.agents/skills-library/domain/ui-typography/SKILL.md` |
+| UI/UX visual audit | `design-audit` | `.agents/skills-library/domain/design-audit/SKILL.md` |
+| Indonesian copywriting / tone | `tutur-humanizer` | `.agents/skills-library/domain/tutur-humanizer/SKILL.md` |
+| Neon PostgreSQL operations | `neon` / `neon-postgres` | `.agents/skills-library/domain/neon/SKILL.md` |
+| Vercel deployment & optimization | `deploy-to-vercel` / `vercel-optimize` | `.agents/skills-library/domain/deploy-to-vercel/SKILL.md` |
+| Shared CPU & process budgeting | `agent-resource-guard` | `_harness/resource-guard.sh` |
+| Harness self-audit & token check | `harness` | `_harness/skills/harness/SKILL.md` |
+
 
 ### Loading Principles
 

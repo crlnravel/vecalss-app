@@ -5,7 +5,6 @@ import { requireTutorSession } from "@/lib/auth/access";
 import {
   buildMentorTryoutHref,
   buildMentorTryoutOperationsHref,
-  canonicalContextMessage,
   getSafeRedirectUrl,
   parseMentorTryoutAttemptContext,
   type CanonicalContextIssue,
@@ -16,7 +15,7 @@ import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryo
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Detail Attempt Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Detail Pengerjaan Tryout | Vecalss LMS" };
 
 export default async function TryoutAttemptDetailPage({
   params,
@@ -33,10 +32,10 @@ export default async function TryoutAttemptDetailPage({
   const parsedQuery = parseMentorTryoutAttemptContext(query);
   if (parsedQuery.issues.length) {
     return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail Attempt" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <section aria-labelledby="tryout-attempt-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
-          <h1 className="text-lg font-semibold" id="tryout-attempt-context-unavailable">Konteks attempt tidak tersedia</h1>
-          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
+          <h1 className="text-lg font-semibold" id="tryout-attempt-context-unavailable">Detail pengerjaan tidak tersedia</h1>
+          <p className="mt-2 text-sm leading-6">Tautan ini tidak sesuai dengan detail Tryout. Kembali ke sesi Tryout, lalu buka lagi pengerjaan peserta.</p>
         </section>
       </MentorWorkspaceShell>
     );
@@ -51,14 +50,14 @@ export default async function TryoutAttemptDetailPage({
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();
   const issues: CanonicalContextIssue[] = [];
-  if (parsedQuery.session && parsedQuery.session !== delivery.id) issues.push({ code: "unsupported" as const, field: "session" as const, message: "Sesi attempt tidak cocok dengan detail yang dipilih.", value: parsedQuery.session });
-  if (parsedQuery.participant && parsedQuery.participant !== attempt.admissionId) issues.push({ code: "unsupported" as const, field: "participant" as const, message: "Peserta attempt tidak cocok dengan detail yang dipilih.", value: parsedQuery.participant });
+  if (parsedQuery.session && parsedQuery.session !== delivery.id) issues.push({ code: "unsupported" as const, field: "session" as const, message: "Sesi Tryout tidak sesuai dengan detail yang dipilih.", value: parsedQuery.session });
+  if (parsedQuery.participant && parsedQuery.participant !== attempt.admissionId) issues.push({ code: "unsupported" as const, field: "participant" as const, message: "Peserta tidak sesuai dengan detail yang dipilih.", value: parsedQuery.participant });
   if (issues.length) {
     return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail Attempt" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <section aria-labelledby="tryout-attempt-mismatch" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
-          <h1 className="text-lg font-semibold" id="tryout-attempt-mismatch">Konteks attempt tidak cocok</h1>
-          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
+          <h1 className="text-lg font-semibold" id="tryout-attempt-mismatch">Detail pengerjaan tidak cocok</h1>
+          <p className="mt-2 text-sm leading-6">Sesi atau peserta di tautan ini berbeda dari detail yang dipilih. Kembali ke sesi Tryout, lalu buka lagi pengerjaan peserta.</p>
         </section>
       </MentorWorkspaceShell>
     );
@@ -68,7 +67,7 @@ export default async function TryoutAttemptDetailPage({
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
-      breadcrumbLabel="Detail"
+      breadcrumbLabel="Pengerjaan"
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."

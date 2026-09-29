@@ -8,8 +8,8 @@ function BannerDestinationQueryError({ mode = "invalid" }: { mode?: "invalid" | 
         : "Pilih salah satu tujuan banner yang didukung, lalu buka kembali editor tanpa mengubah draf yang tersimpan."}
       kind="error"
       returnHref="/admin/student-banners"
-      returnLabel="Kembali ke Banner maker"
-      title={mode === "safe-fallback" ? "Banner maker sedang dalam mode aman" : "Tujuan banner tidak dikenali"}
+      returnLabel="Kembali ke editor banner"
+      title={mode === "safe-fallback" ? "Editor banner sedang dalam mode aman" : "Tujuan banner tidak dikenali"}
     />
   );
 }

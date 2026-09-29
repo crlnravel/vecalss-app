@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   BookOpen,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   FileText,
@@ -17,8 +16,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
-  getStudentBannerDescription,
-  getStudentBannerHeading,
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
 } from "@/lib/student/banner-presentation";
@@ -42,6 +39,7 @@ import type {
 } from "@/lib/admin/student-preview-tryout-reads";
 import { MateriLessonPresentation } from "@/modules/courses/MateriLessonPresentation";
 import { AdminStudentPreviewTryoutRestart } from "@/modules/student/components/admin-student-preview-tryout-restart";
+import { AdminStudentPreviewBannerHeader } from "@/modules/student/components/admin-student-preview-banner-header";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
 function PreviewSurfaceHeader({
@@ -55,46 +53,20 @@ function PreviewSurfaceHeader({
   title?: string;
   variables?: StudentBannerVariables;
 }) {
-  if (banner && isStudentBannerDraftUnavailable(banner)) {
-    return (
-      <header className="relative isolate overflow-hidden rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg px-6 py-7 text-student-status-danger-fg shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-10 md:py-9">
-        <div className="relative max-w-2xl">
-          <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">Draf banner tidak tersedia</h1>
-          <p className="mt-3 max-w-xl text-sm leading-7 md:text-base">{banner.message}</p>
-        </div>
-      </header>
-    );
-  }
-
-  const resolvedTitle = banner
-    ? getStudentBannerHeading(banner, variables)
-    : title ?? "Student preview";
-  const resolvedDescription = banner
-    ? getStudentBannerDescription(banner, variables)
-    : description ?? "";
-
   return (
-    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
-      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={variables} /> : null}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
-      />
-      <div className="relative max-w-2xl">
-        <h1 className={banner?.design ? "sr-only" : "text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl"}>
-          {resolvedTitle}
-        </h1>
-        <p className={banner?.design ? "sr-only" : "mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base"}>
-          {resolvedDescription}
-        </p>
-      </div>
-    </header>
+    <AdminStudentPreviewBannerHeader
+      banner={banner}
+      description={description}
+      fallbackTitle="Pratinjau siswa"
+      title={title}
+      variables={variables}
+    />
   );
 }
 
 function PreviewNavigation({ activeLabel = "Beranda" }: { activeLabel?: "Beranda" | "Kuis" | "Materi" | "Tryout" } = {}) {
   return (
-    <nav aria-label="Navigasi preview siswa" className="flex flex-wrap gap-2">
+    <nav aria-label="Navigasi pratinjau siswa" className="flex flex-wrap gap-2">
       {[
         ["Beranda", buildAdminStudentPreviewRoute("/")],
         ["Materi", buildAdminStudentPreviewRoute("/courses")],
@@ -170,7 +142,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
               {daysLeft === null ? "Pasang target" : daysLeft === 0 ? "Hari H UTBK" : `H-${daysLeft} UTBK`}
             </span>
             <span className="inline-flex min-h-10 items-center rounded-full bg-primary-700 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_58%,transparent)]">
-              Preview read-only
+              Pratinjau siswa
             </span>
           </div>
         </CardHeader>
@@ -180,14 +152,14 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
         <CardHeader className="px-5 pt-5">
           <CardTitle className="text-lg">Akses cepat</CardTitle>
           <CardDescription>
-            Link belajar tetap berada di namespace admin preview. State siswa tidak dibaca atau diubah.
+            Tautan berikut menampilkan Materi, Kuis, dan Tryout seperti yang dilihat siswa. Pratinjau ini tidak mengubah progres belajar.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 px-5 pb-5 sm:grid-cols-3">
           {[
-            ["Materi", "Baca katalog dan lesson yang sudah terbit.", "/courses"],
-            ["Kuis", "Baca kuis terbit tanpa membuat percobaan.", "/quiz"],
-            ["Tryout", "Cabang preview berikutnya.", "/tryout"],
+            ["Materi", "Lihat materi yang sudah diterbitkan.", "/courses"],
+            ["Kuis", "Lihat Kuis yang sudah diterbitkan tanpa memulai pengerjaan.", "/quiz"],
+            ["Tryout", "Lihat Tryout yang tersedia untuk siswa.", "/tryout"],
           ].map(([label, description, path]) => (
             <Link
               className="group rounded-2xl border border-secondary-300 bg-white p-4 transition-colors hover:border-primary-300 hover:bg-primary-50/35"
@@ -204,8 +176,8 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
 
       <Card className="rounded-[2rem] border border-secondary-300 bg-white py-0 shadow-none">
         <CardHeader className="px-5 pt-5">
-          <CardTitle className="text-lg">Ringkasan profil preview</CardTitle>
-          <CardDescription>Nilai ini berasal dari fixture siswa tetap dan hanya dibaca.</CardDescription>
+          <CardTitle className="text-lg">Ringkasan profil siswa</CardTitle>
+          <CardDescription>Informasi ini ditampilkan untuk keperluan pratinjau dan tidak mengubah data siswa.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 px-5 pb-5 sm:grid-cols-3">
           <SummaryItem label="Siswa" value={data.profile.displayName} />
@@ -267,7 +239,7 @@ function AdminStudentPreviewMateriCatalogueSurface({
                   <h2 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance md:text-2xl">{course.name}</h2>
                   <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[var(--voyage-muted-ink)] sm:text-sm">
                     <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> {course.lessons.length} unit</span>
-                    <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" /> Published</span>
+                    <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" /> Terbit</span>
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-end border-t border-[var(--secondary-200)] pt-4 md:mt-0 md:border-t-0 md:pt-0">
@@ -281,8 +253,8 @@ function AdminStudentPreviewMateriCatalogueSurface({
         </section>
       ) : (
         <div className="rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)]">
-          <p className="text-base font-extrabold text-[var(--voyage-ink)]">Belum ada bacaan terbit</p>
-          <p className="mt-2 text-sm text-[var(--voyage-muted-ink)]">Bacaan yang tersedia akan muncul di sini.</p>
+          <p className="text-base font-extrabold text-[var(--voyage-ink)]">Belum ada Materi yang diterbitkan</p>
+          <p className="mt-2 text-sm text-[var(--voyage-muted-ink)]">Materi yang tersedia akan muncul di sini.</p>
         </div>
       )}
       <PreviewNavigation activeLabel="Materi" />
@@ -293,18 +265,8 @@ function AdminStudentPreviewMateriCatalogueSurface({
 function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPreviewMateriCourse }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-6">
-      <Button
-        aria-label="Kembali ke katalog Materi"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewRoute("/courses")} />}
-        size="icon"
-        title="Kembali ke katalog Materi"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
       <PreviewSurfaceHeader
-        description="Jalur ini hanya menampilkan lesson yang berstatus published. Progress, lock, dan skip siswa tidak digunakan dalam preview."
+        description="Daftar ini hanya menampilkan Materi yang sudah diterbitkan. Progres, penguncian, dan materi yang dilewati siswa tidak digunakan dalam pratinjau."
         title={`${course.name} (${course.code})`}
       />
       <div className="grid gap-3">
@@ -321,7 +283,7 @@ function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPrevi
               <p className="text-xs font-bold tracking-[0.14em] text-[var(--voyage-muted-ink)] uppercase">Bagian {lesson.position + 1}</p>
               <h2 className="mt-1 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[var(--voyage-ink)]">{lesson.title}</h2>
               {lesson.summary ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--voyage-muted-ink)]">{lesson.summary}</p> : null}
-              <p className="mt-2 text-xs font-semibold text-[var(--voyage-muted-ink)]">PDF published · read-only</p>
+              <p className="mt-2 text-xs font-semibold text-[var(--voyage-muted-ink)]">PDF tersedia untuk pratinjau</p>
             </div>
             <ChevronRight className="size-5 shrink-0 text-[var(--voyage-forest)]" />
           </StudentCatalogueCard>
@@ -329,7 +291,7 @@ function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPrevi
       </div>
       {course.lessons.length === 0 ? (
         <div className="rounded-[2rem] border border-dashed border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center">
-          <p className="font-semibold text-[var(--voyage-ink)]">Belum ada lesson published</p>
+          <p className="font-semibold text-[var(--voyage-ink)]">Belum ada Materi yang diterbitkan</p>
         </div>
       ) : null}
     </section>
@@ -351,16 +313,6 @@ function AdminStudentPreviewMateriLessonSurface({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <Button
-        aria-label={`Kembali ke ${course.name}`}
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewMateriRoute(course.slug)} />}
-        size="icon"
-        title={`Kembali ke ${course.name}`}
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
       <MateriLessonPresentation
         document={lesson.document}
         documentDeliveryUrl={documentUrl}
@@ -372,7 +324,7 @@ function AdminStudentPreviewMateriLessonSurface({
       />
       <PreviewContentBlocks content={lesson.content} summary={lesson.summary} />
       <div className="mt-6 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
-        Preview hanya membaca konten terbit. Tombol selesai, skip, progress, dan aksi learner sengaja tidak tersedia.
+        Pratinjau ini hanya menampilkan Materi yang sudah diterbitkan. Fitur menandai Materi selesai dan memperbarui progres tidak tersedia.
       </div>
     </article>
   );
@@ -419,9 +371,16 @@ const tryoutDateFormatter = new Intl.DateTimeFormat("id-ID", {
 
 const tryoutScheduleLabels: Record<AdminPreviewTryoutSchedule["scheduleStatus"], string> = {
   active: "Aktif",
-  archived: "Arsip",
-  closed: "Closed",
+  archived: "Diarsipkan",
+  closed: "Ditutup",
   future: "Akan datang",
+};
+
+const tryoutAdmissionLabels: Record<NonNullable<AdminPreviewTryout["admission"]["status"]>, string> = {
+  active: "Aktif",
+  pending: "Menunggu persetujuan",
+  rejected: "Ditolak",
+  revoked: "Dicabut",
 };
 
 function formatTryoutDate(value: string) {
@@ -473,14 +432,14 @@ function AdminStudentPreviewTryoutCatalogueSurface({
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <ShieldCheck className="size-5 shrink-0 text-[var(--voyage-warm-sun-ink)]" />
-        <span>Tryout hanya dibaca melalui data published. Preview tidak membuat attempt, jawaban, nilai, atau progress siswa.</span>
+        <span>Tryout di halaman ini hanya untuk dilihat. Pratinjau tidak membuat pengerjaan, menyimpan jawaban, memberi nilai, atau mengubah progres siswa.</span>
       </div>
 
       {tryouts.length > 0 ? (
         <section aria-labelledby="preview-tryout-list-title" className="flex flex-col gap-5">
           <div className="flex items-center gap-4 px-1">
             <h2 className="shrink-0 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl" id="preview-tryout-list-title">
-              Tryout terbit
+              Tryout diterbitkan
             </h2>
             <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
           </div>
@@ -502,14 +461,14 @@ function AdminStudentPreviewTryoutCatalogueSurface({
                       {currentSession ? <TryoutScheduleBadge status={currentSession.scheduleStatus} /> : null}
                     </div>
                     <div className="relative mt-8">
-                      <p className="text-xs font-extrabold tracking-[0.14em] text-primary-700 uppercase">Published tryout</p>
+                      <p className="text-xs font-extrabold tracking-[0.14em] text-primary-700 uppercase">Tryout diterbitkan</p>
                       <h3 className="mt-2 text-3xl leading-[0.98] font-extrabold tracking-[-0.04em] text-balance text-secondary-900 md:text-4xl">{tryout.title}</h3>
                       {tryout.description ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-secondary-600">{tryout.description}</p> : null}
                     </div>
                     <div className="relative mt-auto flex flex-wrap items-end justify-between gap-4 pt-8">
                       <span className="inline-flex items-center gap-1.5 text-sm font-bold text-secondary-700">
                         <Timer className="size-4" />
-                        {tryout.sections.length} bagian · {activeOrClosedSessions.length} sesi aman
+                        {tryout.sections.length} bagian · {activeOrClosedSessions.length} sesi dapat dipilih
                       </span>
                       <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
                         <ChevronRight className="size-5" strokeWidth={2.6} />
@@ -524,8 +483,8 @@ function AdminStudentPreviewTryoutCatalogueSurface({
       ) : (
         <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
-            <CardTitle>Belum ada Tryout terbit</CardTitle>
-            <CardDescription>Tryout yang sudah dipublikasikan akan muncul di preview ini.</CardDescription>
+            <CardTitle>Belum ada Tryout yang diterbitkan</CardTitle>
+            <CardDescription>Tryout yang sudah diterbitkan akan muncul di sini.</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -538,20 +497,8 @@ function AdminStudentPreviewTryoutCatalogueSurface({
 function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPreviewTryout }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <Button
-        aria-label="Kembali ke katalog Tryout"
-        className="self-start"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewTryoutRoute()} />}
-        size="icon"
-        title="Kembali ke katalog Tryout"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-
       <PreviewSurfaceHeader
-        description={tryout.description ?? "Tryout terbit untuk dibaca dalam pengalaman siswa."}
+        description={tryout.description ?? "Tryout yang sudah diterbitkan untuk dilihat seperti tampilan siswa."}
         title={tryout.title}
       />
 
@@ -566,14 +513,14 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         </span>
         <span className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-4 py-2.5">
           <ShieldCheck className="size-4" />
-          Published
+          Terbit
         </span>
       </div>
 
       <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
-          <CardTitle className="text-lg">Tampilan read-only</CardTitle>
-          <CardDescription>Halaman ini memeriksa surface siswa tanpa memuat attempt atau jawaban. Restart preview hanya tersedia sebagai aksi eksplisit admin.</CardDescription>
+          <CardTitle className="text-lg">Pratinjau tampilan siswa</CardTitle>
+          <CardDescription>Halaman ini tidak membuka pengerjaan atau jawaban siswa. Gunakan tombol mulai ulang di bawah jika kamu perlu membuat sesi Tryout baru untuk pratinjau.</CardDescription>
         </CardHeader>
       </Card>
 
@@ -581,24 +528,24 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         <Card className="rounded-[2rem] border border-secondary-200 bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-xl">Jadwal sesi</CardTitle>
-            <CardDescription>Sumber restart yang aman hanya sesi aktif atau closed.</CardDescription>
+            <CardDescription>Pilih sesi aktif atau yang sudah ditutup sebagai sumber pengerjaan ulang.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {tryout.schedule.length > 0 ? tryout.schedule.map((session) => <TryoutScheduleLine key={session.id} session={session} />) : (
-              <p className="rounded-2xl border border-dashed border-secondary-200 px-4 py-6 text-center text-sm text-secondary-600">Belum ada sesi published.</p>
+              <p className="rounded-2xl border border-dashed border-secondary-200 px-4 py-6 text-center text-sm text-secondary-600">Belum ada sesi yang diterbitkan.</p>
             )}
           </CardContent>
         </Card>
 
         <Card className="rounded-[2rem] border border-secondary-200 bg-white shadow-none">
           <CardHeader>
-            <CardTitle className="text-xl">Admission preview</CardTitle>
-            <CardDescription>Status admission dan assignment dipisahkan dari status publication Tryout.</CardDescription>
+            <CardTitle className="text-xl">Pendaftaran dan penugasan</CardTitle>
+            <CardDescription>Status pendaftaran dan penugasan ditampilkan terpisah dari status penerbitan Tryout.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <SummaryItem label="Admission" value={tryout.admission.status ?? "Belum ada admission"} />
-            <SummaryItem label="Assignment current" value={tryout.assignments.current ? "Aktif" : "Belum ada"} />
-            <SummaryItem label="Riwayat superseded" value={`${tryout.assignments.history.length} assignment`} />
+            <SummaryItem label="Pendaftaran Tryout" value={tryout.admission.status ? tryoutAdmissionLabels[tryout.admission.status] : "Belum ada pendaftaran"} />
+            <SummaryItem label="Penugasan saat ini" value={tryout.assignments.current ? "Aktif" : "Belum ada"} />
+            <SummaryItem label="Riwayat penugasan" value={`${tryout.assignments.history.length} penugasan`} />
           </CardContent>
         </Card>
       </div>
@@ -606,7 +553,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
       <section aria-labelledby="preview-tryout-sections-title" className="grid gap-5">
         <div>
           <h2 className="text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl" id="preview-tryout-sections-title">Struktur tryout</h2>
-          <p className="mt-2 text-sm leading-6 text-secondary-600">Metadata bagian terbit ditampilkan untuk memeriksa urutan dan beban waktu.</p>
+          <p className="mt-2 text-sm leading-6 text-secondary-600">Informasi bagian Tryout ditampilkan untuk memeriksa urutan dan lama pengerjaan.</p>
         </div>
         {tryout.sections.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">

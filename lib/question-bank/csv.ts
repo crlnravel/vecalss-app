@@ -362,7 +362,11 @@ function normalizeOptionalMediaId(value: string, row: number, column: string, er
   return normalized.toLowerCase();
 }
 
-function validateRow(values: readonly string[], rowNumber: number): { errors: QuestionBankCsvIssue[]; row: QuestionBankCsvRow | null } {
+function validateRow(
+  values: readonly string[],
+  rowNumber: number,
+  decodeCsvSpreadsheetEscapes = true,
+): { errors: QuestionBankCsvIssue[]; row: QuestionBankCsvRow | null } {
   const errors: QuestionBankCsvIssue[] = [];
   const raw = Object.fromEntries(QUESTION_BANK_CSV_HEADER.map((header, index) => [header, values[index] ?? ""]));
   for (const column of QUESTION_BANK_CSV_HEADER) {
@@ -374,7 +378,10 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
   if (questionId && !isUuid(questionId)) errors.push(issue("row", "invalid_question_id", rowNumber, "question_id"));
   const subjectCode = raw.subject_code!.trim();
   if (!(SUBJECT_CODES as readonly string[]).includes(subjectCode)) errors.push(issue("row", "invalid_subject_code", rowNumber, "subject_code"));
-  const materi = decodeSpreadsheetFormula(raw.materi!).trim() || null;
+  const decodeValue = (value: string) => decodeCsvSpreadsheetEscapes
+    ? decodeSpreadsheetFormula(value)
+    : normalizeNewlines(value);
+  const materi = decodeValue(raw.materi!).trim() || null;
   if (materi && codePointLength(materi) > 200) errors.push(issue("row", "field_too_long", rowNumber, "materi"));
   if (subjectCode && !(SUBJECT_CODES as readonly string[]).includes(subjectCode)) {
     // The subject error above is the stable public result; taxonomy validation
@@ -388,16 +395,16 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
   const questionType = raw.question_type!.trim();
   if (!(QUESTION_TYPES as readonly string[]).includes(questionType)) errors.push(issue("row", "invalid_question_type", rowNumber, "question_type"));
 
-  const prompt = decodeSpreadsheetFormula(raw.prompt!);
+  const prompt = decodeValue(raw.prompt!);
   if (!prompt.trim()) errors.push(issue("row", "required_field", rowNumber, "prompt"));
   if (codePointLength(prompt) > 20_000) errors.push(issue("row", "field_too_long", rowNumber, "prompt"));
 
   const optionsRaw = [
-    ["A", decodeSpreadsheetFormula(raw.option_a!), raw.option_a_media_asset_id!] as const,
-    ["B", decodeSpreadsheetFormula(raw.option_b!), raw.option_b_media_asset_id!] as const,
-    ["C", decodeSpreadsheetFormula(raw.option_c!), raw.option_c_media_asset_id!] as const,
-    ["D", decodeSpreadsheetFormula(raw.option_d!), raw.option_d_media_asset_id!] as const,
-    ["E", decodeSpreadsheetFormula(raw.option_e!), raw.option_e_media_asset_id!] as const,
+    ["A", decodeValue(raw.option_a!), raw.option_a_media_asset_id!] as const,
+    ["B", decodeValue(raw.option_b!), raw.option_b_media_asset_id!] as const,
+    ["C", decodeValue(raw.option_c!), raw.option_c_media_asset_id!] as const,
+    ["D", decodeValue(raw.option_d!), raw.option_d_media_asset_id!] as const,
+    ["E", decodeValue(raw.option_e!), raw.option_e_media_asset_id!] as const,
   ];
   const firstEmptyOption = optionsRaw.findIndex(([, content]) => !content.trim());
   if (firstEmptyOption >= 0 && firstEmptyOption < 2) {
@@ -420,7 +427,7 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
     errors.push(issue("row", "invalid_correct_options", rowNumber, "correct_options"));
   }
 
-  const explanation = decodeSpreadsheetFormula(raw.explanation!);
+  const explanation = decodeValue(raw.explanation!);
   if (codePointLength(explanation) > 20_000) errors.push(issue("row", "field_too_long", rowNumber, "explanation"));
 
   const media = {
@@ -467,17 +474,15 @@ function validateRow(values: readonly string[], rowNumber: number): { errors: Qu
   return { errors, row };
 }
 
-function parseQuestionBankCsv(input: Uint8Array | ArrayBuffer | string): QuestionBankCsvParseResult {
-  const decoded = decodeCsvInput(input);
-  const structuralErrors: QuestionBankCsvIssue[] = [];
+function validateQuestionBankCsvRecords(
+  records: readonly (readonly string[])[],
+  byteLength = 0,
+  initialStructuralErrors: readonly QuestionBankCsvIssue[] = [],
+  decodeCsvSpreadsheetEscapes = true,
+  maxRows = QUESTION_BANK_CSV_MAX_ROWS,
+): QuestionBankCsvParseResult {
+  const structuralErrors = [...initialStructuralErrors];
   const rowErrors: QuestionBankCsvIssue[] = [];
-  const byteLength = decoded.bytes.byteLength;
-  if (byteLength > QUESTION_BANK_CSV_MAX_BYTES) {
-    structuralErrors.push(issue("structural", "csv_too_large"));
-  }
-  if (decoded.text === null) {
-    structuralErrors.push(issue("structural", "invalid_utf8"));
-  }
   if (structuralErrors.length) {
     return {
       byteLength,
@@ -487,27 +492,16 @@ function parseQuestionBankCsv(input: Uint8Array | ArrayBuffer | string): Questio
       summary: { acceptedRows: 0, dataRowCount: 0, rejectedRows: 0, rowErrorCount: 0, structuralErrorCount: structuralErrors.length },
     };
   }
-
-  const parsed = parseCsvRecords(decoded.text!);
-  structuralErrors.push(...parsed.structuralErrors);
-  if (structuralErrors.length) {
-    return {
-      byteLength,
-      normalizedRows: [],
-      rowErrors,
-      structuralErrors,
-      summary: { acceptedRows: 0, dataRowCount: 0, rejectedRows: 0, rowErrorCount: 0, structuralErrorCount: structuralErrors.length },
-    };
-  }
-  if (!parsed.records.length) {
+  if (!records.length) {
     structuralErrors.push(issue("structural", "empty_file"));
   } else {
-    const headerError = validateHeader(parsed.records[0]!);
+    const headerError = validateHeader(records[0]!);
     if (headerError) structuralErrors.push(headerError);
   }
-  const dataRecords = parsed.records.slice(1);
+
+  const dataRecords = records.slice(1);
   if (!dataRecords.length && !structuralErrors.length) structuralErrors.push(issue("structural", "header_only", 1));
-  if (dataRecords.length > QUESTION_BANK_CSV_MAX_ROWS) structuralErrors.push(issue("structural", "row_limit_exceeded", QUESTION_BANK_CSV_MAX_ROWS + 2));
+  if (dataRecords.length > maxRows) structuralErrors.push(issue("structural", "row_limit_exceeded", maxRows + 2));
   if (structuralErrors.length) {
     return {
       byteLength,
@@ -525,7 +519,7 @@ function parseQuestionBankCsv(input: Uint8Array | ArrayBuffer | string): Questio
       structuralErrors.push(issue("structural", "row_width_invalid", rowNumber));
       continue;
     }
-    const result = validateRow(values, rowNumber);
+    const result = validateRow(values, rowNumber, decodeCsvSpreadsheetEscapes);
     rowErrors.push(...result.errors);
     if (result.row) normalizedRows.push(result.row);
   }
@@ -542,6 +536,20 @@ function parseQuestionBankCsv(input: Uint8Array | ArrayBuffer | string): Questio
       structuralErrorCount: structuralErrors.length,
     },
   };
+}
+
+function parseQuestionBankCsv(input: Uint8Array | ArrayBuffer | string): QuestionBankCsvParseResult {
+  const decoded = decodeCsvInput(input);
+  const byteLength = decoded.bytes.byteLength;
+  const structuralErrors: QuestionBankCsvIssue[] = [];
+  if (byteLength > QUESTION_BANK_CSV_MAX_BYTES) structuralErrors.push(issue("structural", "csv_too_large"));
+  if (decoded.text === null) structuralErrors.push(issue("structural", "invalid_utf8"));
+  if (structuralErrors.length) {
+    return validateQuestionBankCsvRecords([], byteLength, structuralErrors);
+  }
+
+  const parsed = parseCsvRecords(decoded.text!);
+  return validateQuestionBankCsvRecords(parsed.records, byteLength, parsed.structuralErrors);
 }
 
 function csvCell(value: string | null | undefined, formulaSafe = false) {
@@ -660,6 +668,7 @@ export {
   serializeQuestionBankCsv,
   serializeQuestionBankCsvBytes,
   toQuestionBankCsvDraftPayload,
+  validateQuestionBankCsvRecords,
 };
 
 export type {

@@ -14,15 +14,19 @@ description: Project structure and module lookup
 | `modules/` | Feature-specific UI and logic | Route entrypoints compose modules rather than containing large UI. |
 | `components/ui/` | Reusable design-system primitives | Extend or compose these; avoid route-specific substitutes. |
 | `lib/` | Domain logic and server infrastructure | Repositories, services, auth helpers, validation, Prisma client. |
+| `docs/` | Documentation | Architecture, database environments (`database-environments.md`), agent app testing (`agent-app-testing-guide.md`). |
 | `prisma/` | Database layer | Schema, migrations, seed scripts. See `docs/database-environments.md`. |
 | `design-tokens/` | Editable design-token sources | Edit `palette.mjs` here; run `pnpm tokens` to regenerate. |
 | `scripts/` | Verification and operational scripts | Test scripts (`test:*`), seed verifiers, migration guards. |
 | `workers/` | Background worker processes | e.g., admin import worker. |
 | `public/` | Static assets | Brand assets, landing assets, images. |
 | `content/` | Repository-managed content | MDX and similar content files. |
-| `.agents/skills/` | Reusable agent skills | Cross-project capabilities, including `agent-resource-guard`, `tutur-humanizer`, and Vercel skills (`deploy-to-vercel`, `vercel-cli-with-tokens`, `vercel-optimize`). |
+| `.agents/skills/` | Eagerly loaded runtime skills | Minimal hook/setup-dependent capabilities: `agent-resource-guard` and `impeccable`. |
+| `.agents/skills-library/` | Lazy-loaded skill library | Organized by tier: `matt-pocock/` (core lifecycle) and `domain/` (specialists), routed on demand. |
+| `.agents/skills-archive/` | Archived skills | Preserved but inactive capabilities (aesthetics, niche theory, unused tech). |
 | `.agents/rules/` | Workspace agent rules | Agent rules discovered hierarchically (e.g., RTK CLI proxy, copywriting policy). |
 | `_harness/` | Agent harness | Routing, rules, workflow, catalog, memory, tracking, GC. |
+| `_harness/skill-map.md` | Skill knowledge graph | Compact decision tree and lifecycle map for lazy skill routing. |
 | `_harness/tracking/` | Session and feature tracking | `feature_list.json`, `progress.md`, `session-handoff.md`. |
 | `_harness/memory/` | Agent memory | `project.md` (durable), `agents/*.local.md` (ephemeral). |
 

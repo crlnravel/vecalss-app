@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
-  ChevronLeft,
   Eye,
   FilePenLine,
   FileText,
@@ -12,7 +11,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useReducer } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn } from "@/components/ui/data-table";
@@ -34,11 +33,11 @@ import {
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import {
-  buildMentorMateriCreateHref as buildCanonicalMateriCreateHref,
   buildMentorMateriDetailHref as buildCanonicalMateriDetailHref,
   buildMentorMateriSubjectHref as buildCanonicalMateriSubjectHref,
   type MateriSubjectQuery,
 } from "@/lib/navigation/canonical-context";
+import { MentorMateriCreateDialog } from "@/modules/mentor/KaptenMateriBuilderPageModule";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
@@ -68,10 +67,6 @@ type MateriCatalogueQuery = {
   sort?: MateriSortKey;
   status?: MateriStatusFilter;
 };
-
-function buildCreateHref(subjectSlug?: string, returnTo?: string) {
-  return buildCanonicalMateriCreateHref(subjectSlug, returnTo);
-}
 
 function buildEditorHref(
   lesson: KaptenMateriView,
@@ -187,13 +182,35 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
 }
 
 function KaptenMateriPageModule({
+  initialCreateDialogOpen = false,
+  initialReturnTo,
+  initialSubjectSlug,
   session,
   subjects,
 }: {
   catalogue: KaptenMateriView[];
+  initialCreateDialogOpen?: boolean;
+  initialReturnTo?: string;
+  initialSubjectSlug?: string;
   session: SessionContext;
   subjects: KaptenMateriSubjectView[];
 }) {
+  const router = useRouter();
+  const [createDialogOpen, setCreateDialogOpen] = useState(
+    initialCreateDialogOpen,
+  );
+
+  useEffect(() => {
+    setCreateDialogOpen(initialCreateDialogOpen);
+  }, [initialCreateDialogOpen]);
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    setCreateDialogOpen(open);
+    if (!open && initialCreateDialogOpen) {
+      router.replace("/mentor/materi", { scroll: false });
+    }
+  }
+
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
@@ -204,13 +221,26 @@ function KaptenMateriPageModule({
     >
       <div className="space-y-8">
         <ReferencePageHeader
+          actions={
+            subjects.length ? (
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                size="default"
+                type="button"
+                variant="brand"
+              >
+                <Plus />
+                Buat Materi
+              </Button>
+            ) : undefined
+          }
           title="Materi"
           titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
         />
 
         {subjects.length ? (
           <section
-            aria-label="Daftar subject Materi"
+      aria-label="Daftar subtes Materi"
             className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
           >
             {subjects.map((subject) => (
@@ -220,13 +250,21 @@ function KaptenMateriPageModule({
         ) : (
           <ReferenceSurface className="min-h-56" variant="inset">
             <ReferenceEmptyState
-              description="Belum ada subject untuk menampung bacaan dan video pendamping."
+              description="Belum ada subtes untuk menampung bacaan dan video pendamping."
               icon={FileText}
-              title="Belum ada subject Materi"
+              title="Belum ada subtes Materi"
             />
           </ReferenceSurface>
         )}
       </div>
+      <MentorMateriCreateDialog
+        initialSubjectSlug={initialSubjectSlug}
+        onOpenChange={handleCreateDialogOpenChange}
+        open={createDialogOpen}
+        returnTo={initialReturnTo}
+        session={session}
+        subjects={subjects}
+      />
     </MentorWorkspaceShell>
   );
 }
@@ -239,6 +277,7 @@ function KaptenMateriSubjectPageModule({
   initialSortDirection = "asc",
   initialStatusFilter = "",
   session,
+  subjects,
   subject,
 }: {
   catalogue: KaptenMateriView[];
@@ -248,6 +287,7 @@ function KaptenMateriSubjectPageModule({
   initialSortDirection?: MateriSortDirection;
   initialStatusFilter?: MateriStatusFilter;
   session: SessionContext;
+  subjects: KaptenMateriSubjectView[];
   subject: KaptenMateriSubjectView;
 }) {
   const router = useRouter();
@@ -377,11 +417,9 @@ function KaptenMateriSubjectPageModule({
       }
       dispatch({ type: "tableVersionChanged" });
       router.refresh();
-    } catch (error) {
+    } catch {
       showToast(
-        error instanceof Error
-          ? error.message
-          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
+        "Status materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {
@@ -406,6 +444,7 @@ function KaptenMateriSubjectPageModule({
       returnTo={returnTo}
       session={session}
       state={state}
+      subjects={subjects}
       subject={subject}
     />
   );
@@ -486,12 +525,12 @@ function MateriSubjectCatalogueEmptyState({
     <div className="flex flex-col items-center px-5 py-8 text-center sm:px-8 sm:py-10">
       <FileText aria-hidden="true" className="size-7 text-primary-300" />
       <h2 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-secondary-900">
-        {hasActiveFilters ? "Tidak ada lesson yang cocok" : "Belum ada lesson"}
+        {hasActiveFilters ? "Tidak ada materi yang cocok" : "Belum ada materi"}
       </h2>
       <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
         {hasActiveFilters
-          ? "Coba ubah kata kunci atau filter untuk menemukan lesson lain."
-          : "Buat materi baru untuk mulai mengisi subject ini."}
+          ? "Coba ubah kata kunci atau filter untuk menemukan materi lain."
+          : "Buat materi baru untuk mulai mengisi subtes ini."}
       </p>
       {hasActiveFilters ? (
         <Button
@@ -507,12 +546,53 @@ function MateriSubjectCatalogueEmptyState({
   );
 }
 
+function MateriCreateDialogTrigger({
+  ariaLabel,
+  children,
+  initialSubjectSlug,
+  returnTo,
+  session,
+  subjects,
+}: {
+  ariaLabel?: string;
+  children: ReactNode;
+  initialSubjectSlug?: string;
+  returnTo?: string;
+  session: SessionContext;
+  subjects: KaptenMateriSubjectView[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        aria-label={ariaLabel}
+        onClick={() => setOpen(true)}
+        size="default"
+        type="button"
+        variant="brand"
+      >
+        {children}
+      </Button>
+      <MentorMateriCreateDialog
+        initialSubjectSlug={initialSubjectSlug}
+        onOpenChange={setOpen}
+        open={open}
+        returnTo={returnTo}
+        session={session}
+        subjects={subjects}
+      />
+    </>
+  );
+}
+
 function MateriSubjectCatalogueScreen({
   actions,
   data,
   returnTo,
   session,
   state,
+  subjects,
   subject,
 }: {
   actions: MateriSubjectCatalogueActions;
@@ -520,6 +600,7 @@ function MateriSubjectCatalogueScreen({
   returnTo: string;
   session: SessionContext;
   state: MateriCatalogueState;
+  subjects: KaptenMateriSubjectView[];
   subject: KaptenMateriSubjectView;
 }) {
   const router = useRouter();
@@ -585,7 +666,7 @@ function MateriSubjectCatalogueScreen({
           onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}
         >
           <Eye />
-          Preview
+          Pratinjau
         </ContextMenuItem>
         {lesson.status === "draft" ? (
           <ContextMenuItem
@@ -637,41 +718,26 @@ function MateriSubjectCatalogueScreen({
     <MentorWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={subject.code}
-      searchPlaceholder="Cari lesson..."
+      searchPlaceholder="Cari materi..."
       session={session}
       sidebarAppearance="reference"
     >
       <div className="space-y-8">
-        <div className="flex min-w-0 items-start gap-3">
-          <Button
-            aria-label="Kembali ke semua materi"
-            className="mt-1 shrink-0"
-            nativeButton={false}
-            render={<Link href="/mentor/materi" />}
-            size="icon"
-            title="Kembali ke semua materi"
-            variant="ghost"
-          >
-            <ChevronLeft aria-hidden="true" className="size-5" />
-          </Button>
-          <ReferencePageHeader
-            actions={
-              <Button
-                aria-label="Buat materi baru"
-                nativeButton={false}
-                render={<Link href={buildCreateHref(subject.slug, returnTo)} />}
-                size="default"
-                variant="brand"
-              >
-                <Plus />
-                Buat Materi
-              </Button>
-            }
-            className="min-w-0 flex-1"
-            description={subject.name}
-            title={subject.code}
-          />
-        </div>
+        <ReferencePageHeader
+          actions={
+            <MateriCreateDialogTrigger
+              ariaLabel="Buat materi baru"
+              initialSubjectSlug={subject.slug}
+              returnTo={returnTo}
+              session={session}
+              subjects={subjects}
+            >
+              <Plus />
+              Buat Materi
+            </MateriCreateDialogTrigger>
+          }
+          title={subject.code}
+        />
 
         <section className="min-w-0 space-y-3">
           <MentorCatalogueTable

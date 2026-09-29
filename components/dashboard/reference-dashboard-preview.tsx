@@ -42,7 +42,7 @@ const previewActivities = [
     description: "Satu materi menunggu peninjauan sebelum diterbitkan.",
     icon: BookOpenText,
     id: "activity-1",
-    label: "Review konten",
+    label: "Tinjau konten",
     timestamp: "5 menit lalu",
     title: "Materi baru siap ditinjau",
     tone: "info" as const,
@@ -67,14 +67,11 @@ function ReferenceDashboardComponentPreview() {
       mobilePrimaryNavigation={previewNavigation[0].items}
       navigation={previewNavigation}
     >
-      <ReferencePageHeader
-        description="Kumpulan komponen terambil dari referensi dashboard, diterjemahkan ke token Vecalss."
-        title="Dashboard components"
-      />
+      <ReferencePageHeader title="Komponen dashboard" />
 
-      <section aria-label="Stat blocks" className="space-y-4">
+      <section aria-label="Kartu statistik" className="space-y-4">
         <ReferenceSectionHeading
-          title="Stat blocks"
+          title="Kartu statistik"
           description="Nilai tetap berada di dalam kartu yang dapat dipindai dan disentuh."
         />
         <ReferenceStatGrid>
@@ -91,9 +88,9 @@ function ReferenceDashboardComponentPreview() {
           title="Aktivitas terbaru"
         />
 
-        <section aria-label="Progress rows" className="space-y-4">
+        <section aria-label="Baris progres" className="space-y-4">
           <ReferenceSectionHeading
-            title="Progress rows"
+            title="Baris progres"
             description="Ring progres menjaga konteks tanpa mengambil alih isi."
           />
           <div className="space-y-3">
@@ -113,9 +110,9 @@ function ReferenceDashboardComponentPreview() {
         </section>
       </div>
 
-      <section aria-label="Task cards" className="space-y-4">
+      <section aria-label="Kartu tugas" className="space-y-4">
         <ReferenceSectionHeading
-          title="Task cards"
+          title="Kartu tugas"
           description="Metadata tetap opsional dan memakai ikon yang sudah dikenal."
         />
         <div className="grid gap-4 md:grid-cols-2">
@@ -126,7 +123,7 @@ function ReferenceDashboardComponentPreview() {
             description="Pastikan penjelasan jawaban sudah konsisten dengan subtes."
             estimatedTime="45 menit"
             status="in_progress"
-            title="Review pembahasan soal"
+            title="Tinjau pembahasan soal"
           />
           <ReferenceTaskCard
             deadline="Jumat"

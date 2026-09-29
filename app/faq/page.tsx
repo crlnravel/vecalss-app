@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import FaqPageModule from "@/modules/faq/FaqPageModule";
 
 export const metadata: Metadata = {
-  title: "FAQ | Vecalss LMS",
+  title: "FAQ Vecalss | Pertanyaan Umum",
   description:
-    "Answers to common questions about Vecalss programs, Vera AI support, tryouts, analytics, and how to get started.",
+    "Temukan informasi tentang program Vecalss, Vera AI, Tryout, dan cara mulai belajar.",
 };
 
 export default function FaqPage() {

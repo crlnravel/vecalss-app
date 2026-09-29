@@ -65,6 +65,7 @@ function versionedDefinitionInput(input: {
       choices: question.choices,
       correctChoiceId: question.correctChoiceId,
       correctChoiceIds: question.correctChoiceIds,
+      difficulty: question.difficulty,
       explanation: question.explanation,
       explanationMediaAssetId: question.explanationMediaAssetId,
       id: question.id,

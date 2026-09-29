@@ -72,21 +72,21 @@ async function saveOnboardingAction(
 
   if (targetExamEventId && !examEvent) {
     return {
-      message: "We're sorry, that exam option is no longer available. Please choose another one.",
+      message: "Pilihan ujian target sudah tidak tersedia. Pilih opsi lain.",
       status: "error",
     };
   }
 
   if (targetUniversityId && !university) {
     return {
-      message: "We're sorry, that university is no longer available. Please choose another one.",
+      message: "Kampus yang kamu pilih sudah tidak tersedia. Pilih kampus lain.",
       status: "error",
     };
   }
 
   if (targetMajorId && !major) {
     return {
-      message: "We're sorry, that major is no longer available. Please choose another one.",
+      message: "Jurusan yang kamu pilih sudah tidak tersedia. Pilih jurusan lain.",
       status: "error",
     };
   }
@@ -97,7 +97,7 @@ async function saveOnboardingAction(
 
   if (major && targetUniversityId && major.universityId !== targetUniversityId) {
     return {
-      message: "Please choose a major that matches the selected university.",
+      message: "Pilih jurusan yang sesuai dengan kampus pilihanmu.",
       status: "error",
     };
   }

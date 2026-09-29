@@ -155,7 +155,7 @@ assert.match(routeSource, /getAdminPreviewTryoutDetail/u);
 assert.match(routeSource, /kind: "tryout-catalogue"/u);
 assert.match(routeSource, /kind: "tryout-detail"/u);
 assert.match(assignmentSource, /isManagedPreviewPurpose/u);
-assert.match(assignmentSource, /Akun preview admin hanya dapat diakses melalui restart Tryout preview/u);
+assert.match(assignmentSource, /Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa\. Buat sesi baru dari halaman admin\./u);
 assert.match(participantSource, /status: TryoutAssignmentStatus\.active/u);
 assert.match(attemptSource, /status: TryoutAssignmentStatus\.active/u);
 assert.match(operationsSource, /status: assignment\.status/u);

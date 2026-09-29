@@ -137,7 +137,7 @@ function ContactForm() {
                         setSubmissionState("idle");
                         field.handleChange(event.target.value);
                       }}
-                      placeholder="name@email.com"
+                      placeholder="nama@email.com"
                       type="email"
                       value={field.state.value}
                     />
@@ -206,8 +206,9 @@ function ContactForm() {
               aria-live="polite"
               className="rounded-2xl border border-[var(--voyage-deep)]/12 bg-white px-4 py-3 text-sm leading-6 text-[var(--voyage-deep)]/72"
             >
-              Formulir sudah lengkap. Detail ini siap diteruskan setelah endpoint
-              kontak Vecalss dihubungkan.
+              Isianmu sudah lengkap, tetapi pesan belum dikirim. Formulir ini
+              belum bisa mengirim pesan. Hubungi Vecalss melalui media sosial
+              resmi di bagian bawah halaman.
             </p>
           ) : null}
 
@@ -222,7 +223,7 @@ function ContactForm() {
                 type="submit"
                 variant="marketing"
               >
-                {isSubmitting ? "Memeriksa..." : "Kirim Pesan"}
+                {isSubmitting ? "Memeriksa isian…" : "Periksa isian"}
               </Button>
             )}
           </form.Subscribe>

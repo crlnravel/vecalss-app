@@ -8,7 +8,6 @@ import {
 } from "@/lib/icons";
 
 import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
-import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
@@ -57,12 +56,6 @@ function QuizSubjectDetailPageModule({
           <div className="relative z-10 grid gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="max-w-[42rem]">
               <div className="flex items-center gap-2">
-                <BackButton
-                  className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
-                  href="/quiz"
-                  label="Kembali ke subjek kuis"
-                  variant="ghost"
-                />
                 <StudentBadge
                   className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]`}
                   size="sm"

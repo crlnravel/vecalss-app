@@ -9,7 +9,7 @@ import { getTryoutForEdit } from "@/lib/tryout/repository";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Edit Soal Tryout Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Detail Subtes Tryout Kapten | Vecalss LMS" };
 
 const tryoutSubtests = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 type TryoutSubtest = (typeof tryoutSubtests)[number];

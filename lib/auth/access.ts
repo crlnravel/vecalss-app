@@ -60,7 +60,7 @@ function assertAdminStudentPreviewEnabled() {
   if (!isAdminStudentPreviewEnabled()) {
     throw new AdminStudentPreviewUnavailableError(
       "feature_disabled",
-      "Student preview is currently unavailable.",
+      "Pratinjau siswa sedang tidak tersedia.",
     );
   }
 }

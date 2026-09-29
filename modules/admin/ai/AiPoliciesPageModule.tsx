@@ -14,6 +14,7 @@ import {
 import { ReferenceStatusBadge } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 import type { SessionContext } from "@/lib/auth/types";
@@ -673,11 +674,11 @@ export function AiPoliciesPageModule({
     setError(null);
     try {
       const res = await fetch("/api/admin/ai-policy", { cache: "no-store" });
-      if (!res.ok) throw new Error("Gagal memuat metadata kebijakan Vera AI.");
+      if (!res.ok) throw new Error("Data kebijakan Vera AI belum berhasil dimuat.");
       const json = await res.json();
       setMetadata(json.metadata ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan sistem.");
+    } catch {
+      setError("Data kebijakan Vera AI belum berhasil dimuat. Segarkan halaman untuk mencoba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -772,57 +773,45 @@ export function AiPoliciesPageModule({
 
         {/* Sub Navigation */}
         <div aria-label="Tampilan kebijakan" className="flex min-w-0 flex-wrap items-center gap-2 border-b border-primary-100 pb-3 text-sm" role="tablist">
-          <button
+          <SunkenTabButton
             aria-controls="policy-panel-active"
             aria-selected={activeTab === "active"}
             id="policy-tab-active"
+            layout="content"
             onClick={() => dispatch({ type: "SET_TAB", tab: "active" })}
             role="tab"
+            selected={activeTab === "active"}
             type="button"
-            className={cn(
-              "inline-flex min-h-[44px] max-w-full items-center rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-              activeTab === "active"
-                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
-                : "text-secondary-600 hover:bg-primary-50",
-            )}
           >
             Kebijakan Aktif
-          </button>
-          <button
+          </SunkenTabButton>
+          <SunkenTabButton
             aria-controls="policy-panel-editor"
             aria-selected={activeTab === "editor"}
             id="policy-tab-editor"
+            layout="content"
             onClick={() => dispatch({ type: "SET_TAB", tab: "editor" })}
             role="tab"
+            selected={activeTab === "editor"}
             type="button"
-            className={cn(
-              "inline-flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-              activeTab === "editor"
-                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
-                : "text-secondary-600 hover:bg-primary-50",
-            )}
           >
             <span>Review Usulan & Diff</span>
             {revisionState === "pending_approval" && (
               <span className="size-2 rounded-full bg-warning-400 animate-pulse" />
             )}
-          </button>
-          <button
+          </SunkenTabButton>
+          <SunkenTabButton
             aria-controls="policy-panel-history"
             aria-selected={activeTab === "history"}
             id="policy-tab-history"
+            layout="content"
             onClick={() => dispatch({ type: "SET_TAB", tab: "history" })}
             role="tab"
+            selected={activeTab === "history"}
             type="button"
-            className={cn(
-              "inline-flex min-h-[44px] max-w-full items-center rounded-xl px-4 py-2 text-left font-bold transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-              activeTab === "history"
-                ? "bg-voyage-deep text-white shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)]"
-                : "text-secondary-600 hover:bg-primary-50",
-            )}
           >
             Riwayat Versi & Korelasi Metrik
-          </button>
+          </SunkenTabButton>
         </div>
 
         {/* Views */}

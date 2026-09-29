@@ -36,7 +36,7 @@ export function MediaPickerDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl" variant="info">
-        <DialogHeader><DialogTitle>{pickerTitle}</DialogTitle><DialogDescription>Pilih dari library Kapten atau upload {isPdfPicker ? "PDF baru" : "gambar baru"}. Jika library kosong atau storage belum tersedia, alasan dan langkah pemulihan akan ditampilkan.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{pickerTitle}</DialogTitle><DialogDescription>Pilih dari pustaka media Kapten atau unggah {isPdfPicker ? "PDF baru" : "gambar baru"}. Jika belum ada media atau penyimpanan belum siap, kamu akan melihat langkah selanjutnya.</DialogDescription></DialogHeader>
         <MediaLibrary allowedMimeTypes={allowedMimeTypes} onSelect={handleSelect} scope="kapten" selectedAssetId={selectedAssetId} variant="picker" />
       </DialogContent>
     </Dialog>

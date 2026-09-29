@@ -7,10 +7,13 @@ import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootK
 import { VeraPrismaAdmissionService } from "./admission-service";
 import { createPrismaVeraContextResolver } from "./prisma-context-resolver";
 import { createPrismaContextRegistry } from "./context-query-registry";
+import { createPrismaLocalContextRegistry } from "./local-context-registry";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "./prisma-chat-orchestrator";
 import { createDefaultProviderAdapter, MockProviderAdapter } from "./provider";
 import { createVeraOpenRouterFreePocProviderAdapter } from "./openrouter-free-poc-provider";
 import { evaluateVeraOpenRouterFreePocGate } from "./openrouter-free-poc";
+import { Span01LocalSelector } from "./local-respan-selector";
+import { canonicalJson, sha256Hex } from "./contracts";
 import type { VeraProviderAdapter } from "./provider";
 import { IORedisVeraLeaseStore } from "./redis-lease";
 import type { VeraRequestStatusDto } from "./admission";
@@ -144,16 +147,170 @@ export function veraAutomaticContextGateForStudent(
   });
 }
 
+type LocalFreePriceSnapshot = {
+  routeModel: "openrouter/free";
+  resolvedModel: string;
+  provider: string;
+  promptPriceUsdPerM: "0";
+  completionPriceUsdPerM: "0";
+  observedAt: string;
+  source: "openrouter-models-v1";
+};
+
+export type LocalRespanFreePriceSnapshot = {
+  version: "respan-published-free-tier-v1";
+  endpoint: "https://api.respan.ai/api/v1/scores";
+  model: "respan-01-free";
+  inputPriceUsdPerM: "0";
+  outputPriceUsdPerM: "0";
+  sourceUrl: "https://www.respan.ai/docs/documentation/span-01/concept";
+  verifiedAt: string;
+};
+
+function readLocalRespanFreePriceSnapshot(env: NodeJS.ProcessEnv, now: Date): LocalRespanFreePriceSnapshot | null {
+  const raw = env.VERA_LOCAL_CONTEXT_RESPAN_PRICE_EVIDENCE_JSON?.trim();
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    if (Object.keys(value).sort().join(",") !== "endpoint,inputPriceUsdPerM,model,outputPriceUsdPerM,sourceUrl,verifiedAt,version"
+      || value.version !== "respan-published-free-tier-v1"
+      || value.endpoint !== "https://api.respan.ai/api/v1/scores"
+      || value.model !== "respan-01-free"
+      || value.inputPriceUsdPerM !== "0"
+      || value.outputPriceUsdPerM !== "0"
+      || value.sourceUrl !== "https://www.respan.ai/docs/documentation/span-01/concept"
+      || typeof value.verifiedAt !== "string") return null;
+    const verifiedAt = Date.parse(value.verifiedAt);
+    if (!Number.isFinite(verifiedAt) || verifiedAt > now.getTime() + 30_000 || now.getTime() - verifiedAt > 24 * 60 * 60_000) return null;
+    return value as LocalRespanFreePriceSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+export function readVeraLocalFreePriceSnapshot(
+  env: NodeJS.ProcessEnv = process.env,
+  now = new Date(),
+): LocalFreePriceSnapshot | null {
+  const provider = env.VERA_LOCAL_CONTEXT_FREE_PROVIDER?.trim();
+  const raw = env.VERA_LOCAL_CONTEXT_FREE_PRICE_SNAPSHOT_JSON?.trim();
+  if (!provider || !raw) return null;
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    const keys = Object.keys(value).sort().join(",");
+    if (keys !== "completionPriceUsdPerM,observedAt,promptPriceUsdPerM,provider,resolvedModel,routeModel,source"
+      || value.routeModel !== "openrouter/free"
+      || typeof value.resolvedModel !== "string" || !value.resolvedModel.trim() || value.resolvedModel.length > 120
+      || value.provider !== provider
+      || value.promptPriceUsdPerM !== "0"
+      || value.completionPriceUsdPerM !== "0"
+      || value.source !== "openrouter-models-v1"
+      || typeof value.observedAt !== "string") return null;
+    const observedAt = Date.parse(value.observedAt);
+    if (!Number.isFinite(observedAt) || observedAt > now.getTime() + 30_000 || now.getTime() - observedAt > 15 * 60_000) return null;
+    return value as LocalFreePriceSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function localDatabaseUrlMatches(env: NodeJS.ProcessEnv): boolean {
+  try {
+    const value = new URL(env.DATABASE_URL ?? "");
+    const database = decodeURIComponent(value.pathname.replace(/^\//u, ""));
+    return ["localhost", "127.0.0.1", "::1"].includes(value.hostname)
+      && value.port === "55432"
+      && database === "vecalss_dev"
+      && (value.searchParams.get("schema") ?? "public") === "public";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Disposable local mode is a separate authority from the live function-tool
+ * rollout. It requires a verified local DB connection, explicit opt-in, the
+ * free POC route, a fresh zero-price snapshot, and no unresolved nonzero or
+ * ambiguous local answer settlement.
+ */
+export async function veraLocalAutomaticContextGateForStudent(
+  studentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+  now = new Date(),
+): Promise<VeraAutomaticContextGate> {
+  const disabled = (reason: VeraAutomaticContextGate["reason"] = "disabled"): VeraAutomaticContextGate => ({
+    enabled: false,
+    state: "off",
+    policyVersion: "local-respan-span01-free-v1",
+    reason,
+    cohortBasisPoints: null,
+  });
+  if (!studentId.trim() || env.NODE_ENV?.toLowerCase() !== "development") return disabled("development");
+  if (env.VERA_AUTOMATIC_CONTEXT_ENABLED !== "true"
+    || env.VERA_LOCAL_CONTEXT_RESPAN_ENABLED !== "true"
+    || !env.RESPAN_API_KEY?.trim()
+    || env.VERA_LIVE_PROVIDER_ENABLED === "true") return disabled("disabled");
+  if (!localDatabaseUrlMatches(env)) return disabled("development");
+  if (!evaluateVeraOpenRouterFreePocGate(env).enabled) return disabled("provider_capability_unready");
+  const priceSnapshot = readVeraLocalFreePriceSnapshot(env, now);
+  const selectorPriceSnapshot = readLocalRespanFreePriceSnapshot(env, now);
+  if (!priceSnapshot || !selectorPriceSnapshot) return disabled("provider_capability_unready");
+  try {
+    const topology = await prisma.$queryRaw<Array<{ database_name: string; schema_name: string; server_port: number }>>`
+      SELECT current_database() AS database_name, current_schema() AS schema_name, inet_server_port() AS server_port
+    `;
+    const actual = topology[0];
+    if (actual?.database_name !== "vecalss_dev" || actual.schema_name !== "public" || Number(actual.server_port) !== 55432) {
+      return disabled("development");
+    }
+    const blocked = await prisma.$queryRaw<Array<{ blocked: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM ai_request_attempts attempt
+        JOIN ai_requests request ON request.id = attempt.request_id
+        WHERE request.automatic_context_gate_snapshot->>'protocol' = 'local_respan_free'
+          AND (
+            attempt.state IN ('unknown'::ai_attempt_state, 'ambiguous'::ai_attempt_state, 'overrun'::ai_attempt_state)
+            OR (attempt.state IN ('known'::ai_attempt_state, 'completed'::ai_attempt_state)
+              AND attempt.charged_provider_cost_usd_micros IS DISTINCT FROM 0::bigint)
+          )
+      ) AS blocked
+    `;
+    if (blocked[0]?.blocked) return disabled("provider_capability_unready");
+    const freeProvider = createVeraOpenRouterFreePocProviderAdapter({ env });
+    if (!freeProvider.enabled) return disabled("provider_capability_unready");
+    const priceDigest = sha256Hex(canonicalJson(priceSnapshot));
+    return {
+      enabled: true,
+      state: "internal",
+      policyVersion: "local-respan-span01-free-v1",
+      reason: "internal_allowlist",
+      cohortBasisPoints: null,
+      protocol: "local_respan_free",
+      expectedFreeModel: priceSnapshot.resolvedModel,
+      expectedFreeProvider: priceSnapshot.provider,
+      freePriceSnapshotDigest: priceDigest,
+      freePriceSnapshot: priceSnapshot,
+      selectorPriceSnapshotDigest: sha256Hex(canonicalJson(selectorPriceSnapshot)),
+      selectorPriceSnapshot,
+    };
+  } catch {
+    return disabled("development");
+  }
+}
+
 /**
  * Production admission authority. Promotion evidence is read from the
  * approved policy bundle rather than from a learner request or a mutable
- * process flag. Development remains on the synchronous, fail-closed helper.
+ * process flag. Development uses its separate asynchronous disposable-DB
+ * authority so routes and learner DTOs observe the same gate.
  */
 export async function veraAutomaticContextGateForStudentFromPolicy(
   studentId: string,
   env: NodeJS.ProcessEnv = process.env,
   now = new Date(),
 ): Promise<VeraAutomaticContextGate> {
+  if (env.NODE_ENV?.toLowerCase() === "development") return veraLocalAutomaticContextGateForStudent(studentId, env, now);
   if (env.NODE_ENV?.toLowerCase() !== "production") return veraAutomaticContextGateForStudent(studentId, env, now);
   const disabled = (reason: VeraAutomaticContextGate["reason"], policyVersion = "vera-auto-context-off"): VeraAutomaticContextGate => ({
     enabled: false,
@@ -215,9 +372,9 @@ export async function veraAutomaticContextAuthorityForStudent(studentId: string,
   } as const;
 }
 
-/** One server-owned rollout decision shared by admission and learner DTOs.
- * Client `contextMode` is only an intent; development and the free POC never
- * make this effective gate true. */
+/** Synchronous production compatibility gate. Development local Respan uses
+ * the separate async verified-database gate shared by admission, routes, and
+ * learner DTOs. Client `contextMode` is only an intent. */
 export function veraAutomaticContextEnabledForServer(env: NodeJS.ProcessEnv = process.env): boolean {
   return veraAutomaticContextGateForStudent("__server_probe__", env).enabled;
 }
@@ -289,6 +446,8 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
     automaticContextGateForStudent: (studentId, now) => veraAutomaticContextGateForStudent(studentId, process.env, now),
     automaticContextGateForStudentAsync: (studentId, now) => veraAutomaticContextGateForStudentFromPolicy(studentId, process.env, now),
     automaticRegistry: createPrismaContextRegistry(prisma),
+    localAutomaticRegistry: createPrismaLocalContextRegistry(prisma),
+    localContextSelector: new Span01LocalSelector({ env: { RESPAN_API_KEY: process.env.RESPAN_API_KEY } }),
     assertConversationOwner: async (studentId, conversationId) => {
       const conversation = await prisma.aiConversation.findFirst({ where: { id: conversationId, studentId, deletionState: "active", archivedAt: null }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });

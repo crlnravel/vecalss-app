@@ -78,7 +78,7 @@ function CourseLearningPathPageModule({
       });
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => null) as { error?: unknown } | null;
-        throw new Error(typeof errorPayload?.error === "string" ? errorPayload.error : "Progress belum tersimpan. Coba lagi.");
+        throw new Error(typeof errorPayload?.error === "string" ? errorPayload.error : "Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.");
       }
       const payload = await response.json().catch(() => null) as {
         error?: unknown;
@@ -88,10 +88,10 @@ function CourseLearningPathPageModule({
         !payload?.snapshot
         || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
       ) {
-        throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");
+        throw new Error(typeof payload?.error === "string" ? payload.error : "Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.");
       }
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Progress belum tersimpan. Coba lagi.");
+    } catch {
+      setFeedback("Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.");
     } finally {
       setPendingLessonId(null);
     }

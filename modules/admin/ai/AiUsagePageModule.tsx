@@ -95,12 +95,12 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         timezone: range.timezone,
       });
       const res = await fetch(`/api/admin/ai/usage?${params.toString()}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Gagal memuat data penggunaan Vera AI.");
+      if (!res.ok) throw new Error("Data penggunaan Vera AI belum berhasil dimuat.");
       const json = (await res.json()) as VeraAiUsageBreakdownDto;
       setData(json);
       setLastRefreshedAt(new Date());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan sistem.");
+    } catch {
+      setError("Data penggunaan Vera AI belum berhasil dimuat. Segarkan halaman untuk mencoba lagi.");
     } finally {
       setIsLoading(false);
     }

@@ -29,6 +29,18 @@ enum RoleName {
   @@map("role_name")
 }
 
+enum KaptenVideoSubtest {
+  PU
+  PPU
+  PBM
+  PK
+  LBI
+  LBE
+  PM
+
+  @@map("kapten_video_subtest")
+}
+
 enum SessionStatus {
   active
   revoked
@@ -104,6 +116,32 @@ enum MediaAssetState {
   failed
 
   @@map("media_asset_state")
+}
+
+enum QuestionBankXlsxImportAttemptState {
+  upload_pending
+  multipart_creating
+  multipart_uploading
+  multipart_completing
+  upload_complete
+  previewing
+  previewed
+  applying
+  completed
+  failed
+  cleanup_pending
+  discarded
+
+  @@map("question_bank_xlsx_import_attempt_state")
+}
+
+enum QuestionBankXlsxImportAssetState {
+  pending
+  ready
+  cleanup_pending
+  cleaned
+
+  @@map("question_bank_xlsx_import_asset_state")
 }
 
 enum ModuleAssetType {
@@ -621,6 +659,17 @@ enum AiContextToolInvocationState {
   unavailable
 
   @@map("ai_context_tool_invocation_state")
+}
+
+enum AiContextDecisionState {
+  shortlisted
+  dispatching
+  decided
+  frozen
+  failed
+  unavailable
+
+  @@map("ai_context_decision_state")
 }
 
 enum AiPurgeState {
@@ -1260,11 +1309,14 @@ model User {
   studentProfile                         StudentProfile?                  @relation("StudentProfileAccount")
   enrolledStudents                       StudentProfile[]                 @relation("EnrolledBy")
   tutorProfile                           TutorProfile?
+  kaptenVideos                           KaptenVideo[]                    @relation("KaptenVideoAuthor")
   createdModules                         Module[]                         @relation("ModuleCreatedBy")
   updatedModules                         Module[]                         @relation("ModuleUpdatedBy")
   moduleProgressions                     ModuleProgress[]
   createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
   updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
+  questionBankMediaFolderReservations    QuestionBankMediaFolderReservation[] @relation("QuestionBankMediaFolderReservationOwner")
+  questionBankXlsxImportAttempts          QuestionBankXlsxImportAttempt[]       @relation("QuestionBankXlsxImportAttemptOwner")
   createdQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
   updatedQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
   createdQuestionBankCategories          QuestionBankCategory[]           @relation("QuestionBankCategoryCreatedBy")
@@ -1611,6 +1663,24 @@ model TutorProfile {
   @@map("tutor_profiles")
 }
 
+model KaptenVideo {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdByUserId      String             @map("created_by_user_id") @db.Uuid
+  title                String             @db.VarChar(160)
+  description          String?            @db.Text
+  youtubeUrl           String             @map("youtube_url") @db.Text
+  subtest              KaptenVideoSubtest
+  archivedAt           DateTime?          @map("archived_at") @db.Timestamptz
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdBy User @relation("KaptenVideoAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([createdByUserId, updatedAt])
+  @@index([createdByUserId, archivedAt, updatedAt])
+  @@map("kapten_videos")
+}
+
 // ─────────────────────────────────────────────
 // EXAM PROGRAMS & REFERENCES
 // ─────────────────────────────────────────────
@@ -1873,6 +1943,7 @@ model QuestionBank {
   name            String        @db.VarChar(200)
   description     String?       @db.Text
   folderId        String?       @map("folder_id") @db.Uuid
+  mediaFolderId   String?       @unique @map("media_folder_id") @db.Uuid
   purpose         QuestionBankPurpose
   status          ContentStatus @default(published)
   revision        Int           @default(1)
@@ -1884,6 +1955,8 @@ model QuestionBank {
   createdBy                                User                                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                                User                                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
   folder                                   QuestionBankFolder?                       @relation(fields: [folderId, purpose], references: [id, purpose], onDelete: Restrict)
+  mediaFolder                              MediaFolder?                              @relation("QuestionBankMediaFolder", fields: [mediaFolderId], references: [id], onDelete: Restrict)
+  mediaFolderReservation                  QuestionBankMediaFolderReservation?       @relation("QuestionBankMediaFolderReservationBank")
   categories                               QuestionBankCategoryAssignment[]
   questions                                Question[]
   sourceQuizzes                            StandaloneQuiz[]
@@ -1897,6 +1970,86 @@ model QuestionBank {
   @@index([folderId, purpose])
   @@index([purpose, status])
   @@map("question_banks")
+}
+
+model QuestionBankMediaFolderReservation {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId     String   @map("owner_user_id") @db.Uuid
+  mediaFolderId   String   @unique @map("media_folder_id") @db.Uuid
+  provisionalName String   @map("provisional_name") @db.VarChar(160)
+  adoptedBankId   String?  @unique @map("adopted_bank_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner       User          @relation("QuestionBankMediaFolderReservationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  mediaFolder MediaFolder   @relation("QuestionBankMediaFolderReservationFolder", fields: [mediaFolderId], references: [id], onDelete: Restrict)
+  adoptedBank QuestionBank? @relation("QuestionBankMediaFolderReservationBank", fields: [adoptedBankId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId, adoptedBankId])
+  @@map("question_bank_media_folder_reservations")
+}
+
+model QuestionBankXlsxImportAttempt {
+  id                       String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId              String                              @map("owner_user_id") @db.Uuid
+  state                    QuestionBankXlsxImportAttemptState  @default(upload_pending)
+  originalFileName         String                              @map("original_file_name") @db.VarChar(255)
+  uploadObjectKey          String                              @unique @map("upload_object_key") @db.VarChar(512)
+  stagingPrefix            String                              @map("staging_prefix") @db.VarChar(512)
+  multipartUploadId        String?                             @map("multipart_upload_id") @db.VarChar(1024)
+  expectedWorkbookSizeBytes Int?                                @map("expected_workbook_size_bytes")
+  expectedMultipartPartCount Int?                               @map("expected_multipart_part_count")
+  cancelRequestedAt        DateTime?                           @map("cancel_requested_at") @db.Timestamptz
+  operationLeaseExpiresAt  DateTime?                           @map("operation_lease_expires_at") @db.Timestamptz
+  manifestObjectKey        String?                             @unique @map("manifest_object_key") @db.VarChar(512)
+  stagedObjectKeys         Json                                @default("[]") @map("staged_object_keys") @db.JsonB
+  previewImageIndex        Json                                @default("[]") @map("preview_image_index") @db.JsonB
+  workbookSha256            String?                             @map("workbook_sha256") @db.VarChar(64)
+  workbookSizeBytes         Int?                                @map("workbook_size_bytes")
+  manifestSha256            String?                             @map("manifest_sha256") @db.VarChar(64)
+  questionCount             Int                                 @default(0) @map("question_count")
+  imageCount                Int                                 @default(0) @map("image_count")
+  targetBankId              String?                             @map("target_bank_id") @db.Uuid
+  targetMode                String?                             @map("target_mode") @db.VarChar(16)
+  mediaFolderReservationId String?                             @map("media_folder_reservation_id") @db.Uuid
+  result                    Json?                               @db.JsonB
+  lastErrorCode             String?                             @map("last_error_code") @db.VarChar(80)
+  uploadExpiresAt           DateTime                            @map("upload_expires_at") @db.Timestamptz
+  previewExpiresAt          DateTime?                           @map("preview_expires_at") @db.Timestamptz
+  expiresAt                 DateTime                            @map("expires_at") @db.Timestamptz
+  completedAt               DateTime?                           @map("completed_at") @db.Timestamptz
+  createdAt                 DateTime                            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner User                                      @relation("QuestionBankXlsxImportAttemptOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  assets QuestionBankXlsxImportAttemptAsset[]
+
+  @@index([ownerUserId, expiresAt])
+  @@index([state, expiresAt])
+  @@index([targetBankId])
+  @@map("question_bank_xlsx_import_attempts")
+}
+
+model QuestionBankXlsxImportAttemptAsset {
+  id                String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId         String                              @map("attempt_id") @db.Uuid
+  assetId           String                              @unique @map("asset_id") @db.Uuid
+  contentSha256     String                              @map("content_sha256") @db.VarChar(64)
+  objectKey         String                              @unique @map("object_key") @db.VarChar(512)
+  mimeType          String                              @map("mime_type") @db.VarChar(120)
+  sizeBytes         Int                                 @map("size_bytes")
+  width             Int
+  height            Int
+  state             QuestionBankXlsxImportAssetState     @default(pending)
+  createdAt         DateTime                            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  attempt QuestionBankXlsxImportAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  asset   Asset                         @relation("QuestionBankXlsxImportAttemptAsset", fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, contentSha256])
+  @@index([attemptId, state])
+  @@map("question_bank_xlsx_import_attempt_assets")
 }
 
 model Question {
@@ -2111,7 +2264,8 @@ model StandaloneQuiz {
   description              String?                               @db.Text
   subtestId                String                                @map("subtest_id") @db.Uuid
   sourceBankId             String?                               @map("source_bank_id") @db.Uuid
-  status                   ContentStatus                         @default(draft)
+  status                   ContentStatus                         @default(published)
+  isHidden                 Boolean                               @default(false) @map("is_hidden")
   opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
   closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
   durationSeconds          Int?                                  @map("duration_seconds")
@@ -2622,6 +2776,7 @@ model TryoutPackage {
   bannerMediaId              String?                   @map("banner_media_id") @db.Uuid
   assessmentType             TryoutPackageType         @default(tryout) @map("assessment_type")
   status                     ContentStatus             @default(draft)
+  isHidden                   Boolean                   @default(false) @map("is_hidden")
   publishedAt                DateTime?                 @map("published_at") @db.Timestamptz
   revision                   Int                       @default(1)
   idempotencyKey             String?                   @unique @map("idempotency_key") @db.VarChar(120)
@@ -2858,6 +3013,7 @@ model TryoutItem {
   id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tryoutId                 String                      @map("tryout_id") @db.Uuid
   tryoutSectionId          String                      @map("tryout_section_id") @db.Uuid
+  snapshotId               String?                     @map("snapshot_id") @db.Uuid
   sourceQuestionId         String?                     @map("source_question_id") @db.Uuid
   sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
   sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
@@ -2888,6 +3044,7 @@ model TryoutItem {
 
   @@unique([tryoutSectionId, sortOrder])
   @@unique([tryoutId, sourceQuestionId])
+  @@unique([tryoutId, snapshotId])
   @@unique([tryoutId, idempotencyKey])
   @@unique([id, tryoutId])
   @@map("tryout_items")
@@ -2900,6 +3057,7 @@ model TryoutItemOption {
   content                        String                  @db.Text
   isCorrect                      Boolean                 @default(false) @map("is_correct")
   sortOrder                      Int                     @map("sort_order")
+  snapshotOptionId               String?                 @map("snapshot_option_id") @db.Uuid
   sourceQuestionOptionId         String?                 @map("source_question_option_id") @db.Uuid
   sourceQuestionRevisionOptionId String?                 @map("source_question_revision_option_id") @db.Uuid
   assetId                        String?                 @map("asset_id") @db.Uuid
@@ -2911,6 +3069,7 @@ model TryoutItemOption {
 
   @@unique([tryoutItemId, choiceKey])
   @@unique([tryoutItemId, sortOrder])
+  @@unique([tryoutItemId, snapshotOptionId])
   @@unique([id, tryoutItemId])
   @@map("tryout_item_options")
 }
@@ -3462,6 +3621,7 @@ model AiRequest {
   resultStage      AiRequestResultStage?
   contextPack      AiContextPack?
   contextToolInvocation AiContextToolInvocation?
+  contextDecision       AiContextDecision?
   sources          AiRequestSource[]     @relation("AiRequestSources")
   artifacts        AiArtifact[]
 
@@ -4367,6 +4527,43 @@ model AiContextToolInvocation {
   @@map("ai_context_tool_invocations")
 }
 
+/// Versioned, encrypted local selector trace. A real Respan selector is a
+/// network attempt; deterministic fixtures never enter runtime admission.
+model AiContextDecision {
+  requestId                  String                 @id @map("request_id") @db.Uuid
+  protocolVersion            String                 @map("protocol_version") @db.VarChar(80)
+  selectorKind               String                 @default("respan_span01_lite") @map("selector_kind") @db.VarChar(40)
+  state                      AiContextDecisionState @default(shortlisted)
+  candidateMapCiphertext     Json                   @map("candidate_map_ciphertext") @db.JsonB
+  candidateMapDigest         String                 @map("candidate_map_digest") @db.VarChar(128)
+  selectorRequestCiphertext  Json?                  @map("selector_request_ciphertext") @db.JsonB
+  selectorRequestDigest      String?                @map("selector_request_digest") @db.VarChar(128)
+  selectorResponseCiphertext Json?                  @map("selector_response_ciphertext") @db.JsonB
+  selectorResponseDigest     String?                @map("selector_response_digest") @db.VarChar(128)
+  selectorResponseModel      String?                @map("selector_response_model") @db.VarChar(120)
+  selectorLogId              String?                @map("selector_log_id") @db.VarChar(160)
+  selectorInputTokens        Int?                   @map("selector_input_tokens")
+  selectorPriceSnapshotDigest String?               @map("selector_price_snapshot_digest") @db.VarChar(128)
+  selectorDispatchStartedAt  DateTime?              @map("selector_dispatch_started_at") @db.Timestamptz
+  typedDecisionCiphertext    Json?                  @map("typed_decision_ciphertext") @db.JsonB
+  typedDecisionDigest        String?                @map("typed_decision_digest") @db.VarChar(128)
+  selectedCandidateCount     Int                    @default(0) @map("selected_candidate_count")
+  selectorCostUsdMicros      BigInt?                @map("selector_cost_usd_micros")
+  selectorCostProvenance     String?                @map("selector_cost_provenance") @db.VarChar(40)
+  networkDispatchCount       Int                    @default(0) @map("network_dispatch_count")
+  frozenEvidenceDigest       String?                @map("frozen_evidence_digest") @db.VarChar(128)
+  createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  decidedAt                  DateTime?              @map("decided_at") @db.Timestamptz
+  frozenAt                   DateTime?              @map("frozen_at") @db.Timestamptz
+  failedAt                   DateTime?              @map("failed_at") @db.Timestamptz
+  errorCode                  String?                @map("error_code") @db.VarChar(100)
+
+  request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([state, createdAt])
+  @@map("ai_context_decisions")
+}
+
 model AiRequestSource {
   id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   contextPackId             String                 @map("context_pack_id") @db.Uuid
@@ -4439,6 +4636,7 @@ model AiRequestAttempt {
   overrunUsdMicros             BigInt              @default(0) @map("overrun_usd_micros")
   priceSnapshot                Json?               @map("price_snapshot") @db.JsonB
   finalPayloadHash             String?             @map("final_payload_hash") @db.VarChar(128)
+  outboundPayloadCiphertext    Json?               @map("outbound_payload_ciphertext") @db.JsonB
   sendStartedAt                DateTime?           @map("send_started_at") @db.Timestamptz
   dispatchDeadlineAt           DateTime?           @map("dispatch_deadline_at") @db.Timestamptz
   certifierId                  String?             @map("certifier_id") @db.VarChar(160)
@@ -4763,6 +4961,7 @@ model Asset {
   questionRevisionPromptAssets                QuestionRevision[]                         @relation("QuestionRevisionPromptAsset")
   questionRevisionExplanationAssets           QuestionRevision[]                         @relation("QuestionRevisionExplanationAsset")
   questionRevisionOptionAssets                QuestionRevisionOption[]                   @relation("QuestionRevisionOptionAsset")
+  questionBankXlsxImportAttemptAssets         QuestionBankXlsxImportAttemptAsset[]       @relation("QuestionBankXlsxImportAttemptAsset")
   standaloneQuizItemPromptAssets              StandaloneQuizItem[]                       @relation("StandaloneQuizItemPromptAsset")
   standaloneQuizItemExplanationAssets         StandaloneQuizItem[]                       @relation("StandaloneQuizItemExplanationAsset")
   standaloneQuizItemOptionAssets              StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionAsset")
@@ -4794,6 +4993,8 @@ model MediaFolder {
   parent    MediaFolder?  @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
   children  MediaFolder[] @relation("MediaFolderTree")
   assets    Asset[]
+  questionBank                          QuestionBank?                         @relation("QuestionBankMediaFolder")
+  questionBankMediaFolderReservation    QuestionBankMediaFolderReservation? @relation("QuestionBankMediaFolderReservationFolder")
   createdBy User?         @relation("MediaFolderCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([libraryScope, parentId, trashedAt])

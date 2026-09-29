@@ -128,7 +128,7 @@ function ConversionLogPagination({
       <p className="text-xs text-secondary-600">
         Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}
       </p>
-      <nav aria-label="Halaman log pembelian" className="flex items-center gap-2">
+      <nav aria-label="Halaman riwayat pembelian" className="flex items-center gap-2">
         {page > 1 ? (
           <Link
             className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })}
@@ -165,12 +165,12 @@ function AffiliatorPurchaseLogPageModule({
 }) {
   return (
     <AffiliatorWorkspaceShell
-      activeLabel="Log pembelian"
-      breadcrumbLabel="Log pembelian"
+      activeLabel="Riwayat pembelian"
+      breadcrumbLabel="Riwayat pembelian"
       mainClassName="gap-8 lg:gap-10"
       session={session}
     >
-      <ReferencePageHeader title="Log pembelian" />
+      <ReferencePageHeader title="Riwayat pembelian" />
 
       <section aria-label="Daftar pembelian" className="min-w-0 space-y-4">
         <ReferenceSurface className="overflow-hidden p-0">

@@ -257,6 +257,7 @@ async function prismaTryoutFindMany(tryoutId: string | undefined, previewStudent
     orderBy: { updatedAt: "desc" },
     where: {
       ...(tryoutId ? { id: tryoutId } : {}),
+      isHidden: false,
       status: ContentStatus.published,
     },
   });

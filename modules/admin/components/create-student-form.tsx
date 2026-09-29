@@ -117,12 +117,12 @@ function CreateStudentFormFields({
         />
         <StudentDropdownField
           error={state.fieldErrors?.handoffMethod}
-          help="Pilih cara siswa menerima kredensial login pertamanya."
+          help="Pilih cara memberikan akses login pertama kepada siswa."
           id="student-handoff-method"
-          label="Handoff kredensial"
+          label="Cara memberikan akses"
           name="handoffMethod"
           onValueChange={onHandoffMethodChange}
-          options={[{ label: "Password sementara", value: "temporary_password" }, { label: "Link undangan (24 jam)", value: "invite_link" }]}
+          options={[{ label: "Kata sandi sementara", value: "temporary_password" }, { label: "Tautan undangan (24 jam)", value: "invite_link" }]}
           value={handoffMethod}
         />
       </div>

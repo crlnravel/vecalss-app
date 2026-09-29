@@ -10,21 +10,11 @@ import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { StudentBadge } from "@/components/ui/student-badge";
@@ -33,9 +23,6 @@ import { ChevronRight, UserRound, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
 import { buildDirectoryQuery, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/directory-query";
 import { cn } from "@/lib/utils";
-import { bulkUpdateStudentEnrollmentStatusAction } from "@/modules/admin/actions";
-import { SubmitButton } from "@/modules/auth/components/submit-button";
-
 import { CopyValueButton } from "./copy-value-button";
 import { StudentAccountActions } from "./student-account-actions";
 import { formatStudentStatus, type StudentStatusTone } from "../student-status";
@@ -292,86 +279,6 @@ function StudentPreviewPanel({
         </header>
       </div>
     </SheetContent>
-  );
-}
-
-type BulkStudentStatusAction = "deactivate" | "reactivate";
-
-function BulkStudentActions({
-  dataQuery,
-  selectedStudents,
-}: {
-  dataQuery: string;
-  selectedStudents: readonly StudentDirectoryItem[];
-}) {
-  const [pendingAction, setPendingAction] = useState<BulkStudentStatusAction | null>(null);
-  const activeCount = selectedStudents.filter((student) => student.status === "active").length;
-  const disabledCount = selectedStudents.filter((student) => student.status === "disabled").length;
-  const isDeactivation = pendingAction === "deactivate";
-  const eligibleCount = isDeactivation ? activeCount : disabledCount;
-  const skippedCount = selectedStudents.length - eligibleCount;
-
-  return (
-    <>
-      <DropdownMenuItem
-        disabled={activeCount === 0}
-        onClick={() => setPendingAction("deactivate")}
-        variant="destructive"
-      >
-         Nonaktifkan akses{activeCount ? ` (${activeCount})` : ""}
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        disabled={disabledCount === 0}
-        onClick={() => setPendingAction("reactivate")}
-      >
-         Pulihkan akses{disabledCount ? ` (${disabledCount})` : ""}
-      </DropdownMenuItem>
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingAction(null);
-          }
-        }}
-        open={pendingAction !== null}
-      >
-        <AlertDialogContent size="sm" variant={isDeactivation ? "warning" : "info"}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {isDeactivation ? "Nonaktifkan siswa yang dipilih?" : "Pulihkan siswa yang dipilih?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isDeactivation
-                 ? `Akses untuk ${eligibleCount} siswa aktif akan dinonaktifkan, termasuk pencabutan sesi aktif dan handoff terbuka.`
-                 : `Akses untuk ${eligibleCount} siswa yang dinonaktifkan akan dipulihkan. Sesi dan handoff lama tidak akan dipulihkan.`}
-              {skippedCount > 0
-                 ? ` ${skippedCount} akun yang dipilih tidak akan diubah.`
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <form action={bulkUpdateStudentEnrollmentStatusAction}>
-            <input name="confirmation" type="hidden" value={isDeactivation ? "deactivate" : "reactivate"} />
-            <input name="directoryQuery" type="hidden" value={dataQuery} />
-            <input name="nextStatus" type="hidden" value={isDeactivation ? "disabled" : "active"} />
-            {selectedStudents.map((student) => (
-              <input key={student.id} name="studentIds" type="hidden" value={student.id} />
-            ))}
-            <AlertDialogFooter>
-              <AlertDialogCancel size="sm" type="button">Cancel</AlertDialogCancel>
-              <SubmitButton
-                pendingLabel={isDeactivation ? "Menonaktifkan…" : "Memulihkan…"}
-                size="sm"
-                type="submit"
-                variant={isDeactivation ? "destructive" : "brand"}
-              >
-                {isDeactivation ? "Nonaktifkan akses" : "Pulihkan akses"}
-              </SubmitButton>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
   );
 }
 
@@ -803,10 +710,6 @@ function StudentDirectoryTable({
           },
           key: sort,
         }}
-        selection={!demo}
-        selectionActions={({ rows }) => (
-          <BulkStudentActions dataQuery={dataQuery} selectedStudents={rows} />
-        )}
         tableClassName="min-w-[760px]"
       />
       <Sheet onOpenChange={(open) => { if (!open) setPreviewStudent(null); }} open={Boolean(previewStudent)}>

@@ -103,19 +103,19 @@ function AdminStudentPreviewShell({
           <ScrollArea className="h-[calc(100svh-4rem)]">
             <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
               <aside
-                aria-label="Admin student preview"
+                aria-label="Pratinjau tampilan siswa untuk admin"
                 className="flex flex-col gap-4 rounded-3xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-5 py-4 shadow-[0_18px_38px_-28px_color-mix(in_oklab,var(--warning-700)_45%,transparent)] md:flex-row md:items-center md:justify-between"
               >
                 <div>
-                  <p className="text-xs font-bold tracking-[0.16em] text-[var(--voyage-warm-sun-ink)] uppercase">Student preview</p>
+                  <p className="text-xs font-bold tracking-[0.16em] text-[var(--voyage-warm-sun-ink)] uppercase">Pratinjau siswa</p>
                   <p className="mt-1 text-sm font-semibold text-secondary-900">
                     Menampilkan pengalaman siswa untuk {context.student.displayName}
                   </p>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
-                    Sesi admin kamu tetap aktif. Jelajah di ruang ini tidak mengubah progres siswa.
+                    Kamu tetap masuk sebagai admin. Membuka pratinjau ini tidak mengubah progres siswa.
                   </p>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-700">
-                    Satu-satunya write scope konten di Preview adalah perubahan banner siswa. Restart Tryout adalah aksi operasional terpisah untuk assignment/session dengan konfirmasi sendiri; progress dan account tetap tidak berubah.
+                    Kamu dapat mengubah banner siswa dari pratinjau ini. Mulai ulang Tryout membuat penugasan baru untuk pratinjau; pengerjaan, jawaban, notifikasi, dan progres siswa tetap tidak berubah.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -125,7 +125,7 @@ function AdminStudentPreviewShell({
                     render={<Link href={bannerEditorHref} />}
                     variant="ghost"
                   >
-                    Edit banners
+                    Ubah banner siswa
                   </Button>
                   <Button
                     nativeButton={false}

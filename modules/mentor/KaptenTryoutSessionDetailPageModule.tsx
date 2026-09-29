@@ -8,7 +8,7 @@ import {
   ReferencePageHeader,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput } from "@/components/ui/field";
 import {
   Table,
@@ -34,7 +33,6 @@ import {
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
 import { ChevronLeft } from "@/lib/icons";
-import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
 import { HelpFieldLabel, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
@@ -62,7 +60,6 @@ function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolea
       <ReferencePageHeader
         actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="brand">Buka sesi</Button> : null}</div>}
         className="min-w-0 flex-1"
-        description={initial.title}
         title={delivery.name}
       />
     </div>
@@ -91,30 +88,36 @@ function SessionScheduleCard({
   title?: string;
 }) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "mt-5 ring-0")}>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+    <section
+      aria-labelledby="session-schedule-title"
+      className="mt-6 border-t border-primary-100 pt-6"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h3
+          className="text-lg font-semibold text-secondary-900"
+          id="session-schedule-title"
+        >
+          {title}
+        </h3>
         {onOpen ? (
-          <CardAction>
-            <Button disabled={openBusy} onClick={onOpen} variant="brand">
-              Buka sesi
-            </Button>
-          </CardAction>
+          <Button disabled={openBusy} onClick={onOpen} variant="brand">
+            Buka sesi
+          </Button>
         ) : null}
-      </CardHeader>
-      <CardContent className="grid gap-6">
+      </header>
+      <div className="mt-6 grid gap-6">
         <div className="grid gap-5 text-sm md:grid-cols-2">
           <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
           <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." /><FieldInput aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
         </div>
-        <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-sm">
             {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p> : null}
           </div>
           <Button disabled={scheduleLocked || scheduleBusy || !scheduleChanged} onClick={onSave} variant="reference">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 

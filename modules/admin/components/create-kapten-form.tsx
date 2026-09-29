@@ -30,7 +30,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
       <div>
          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Buat akun Kapten</h2>
         <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-600">
-           Tambahkan profil tutor aktif. Kelas dan spesialisasi mata pelajaran diatur secara terpisah.
+           Tambahkan profil Kapten aktif. Kelas dan spesialisasi mata pelajaran diatur secara terpisah.
         </p>
       </div>
 
@@ -73,14 +73,14 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="kapten-headline">Headline</FieldLabel>
+          <FieldLabel htmlFor="kapten-headline">Judul singkat</FieldLabel>
           <FieldInput defaultValue={state.fields?.headline ?? ""} id="kapten-headline" name="headline" />
         </Field>
 
         <Field>
-           <FieldLabel htmlFor="kapten-handoff-method">Handoff kredensial</FieldLabel>
+          <FieldLabel htmlFor="kapten-handoff-method">Cara memberikan akses</FieldLabel>
           <ReferenceSelect
-            aria-label="Handoff kredensial"
+            aria-label="Cara memberikan akses"
             aria-describedby={state.fieldErrors?.handoffMethod ? "kapten-handoff-method-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.handoffMethod)}
             className={state.fieldErrors?.handoffMethod ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
@@ -92,8 +92,8 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
               }
             }}
             options={[
-              { label: "Password sementara", value: "temporary_password" },
-              { label: "Link undangan (24 jam)", value: "invite_link" },
+              { label: "Kata sandi sementara", value: "temporary_password" },
+              { label: "Tautan undangan (24 jam)", value: "invite_link" },
             ]}
             value={handoffMethod}
           />

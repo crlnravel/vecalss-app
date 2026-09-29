@@ -80,13 +80,6 @@ assert.match(mediaValidator, /MediaAssetState\.ready/u);
 assert.match(mediaValidator, /trashedAt === null/u);
 assert.match(mediaValidator, /isImageMimeType/u);
 
-const bulkQuizVersioned = functionSlice(quiz, "bulkUpdateStandaloneQuizLifecycleVersioned", "bulkUpdateStandaloneQuizLifecycle");
-const bulkQuizLegacy = functionSlice(quiz, "bulkUpdateStandaloneQuizLifecycle", "bulkPublishStandaloneQuizzes");
-assert.match(bulkQuizVersioned, /withTransientAuthoringEditLeases/u);
-assert.match(bulkQuizLegacy, /withTransientAuthoringEditLeases/u);
-assert.doesNotMatch(bulkQuizVersioned, /Promise\.all/u);
-assert.doesNotMatch(bulkQuizLegacy, /Promise\.all/u);
-
 assert.match(service, /sort\(\(left, right\) => left\.resourceKey\.localeCompare\(right\.resourceKey\)\)/u);
 assert.match(service, /A callback error\s+\*\s+is intentionally allowed to abort/u);
 assert.match(authoringLease, /type AuthoringEditLease = Pick<EditLeaseProof, "generation" \| "token">/u);

@@ -39,7 +39,6 @@ function AffiliatorPageModule({
       <div className="space-y-8">
         <ReferencePageHeader
           actions={<AddAffiliatorDialog />}
-          description="Setiap affiliator memiliki satu kode referral aktif untuk melacak pembelian siswa yang berhasil."
           title="Affiliator"
         />
 

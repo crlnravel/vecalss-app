@@ -33,32 +33,32 @@ const alumniNames = [
 
 const targetUniversities = [
   {
-    logoAlt: "Universitas Indonesia mark",
+    logoAlt: "Logo Universitas Indonesia",
     logoSrc: "/brand/campuses/ui.png",
     name: "Universitas Indonesia",
   },
   {
-    logoAlt: "Universitas Gadjah Mada mark",
+    logoAlt: "Logo Universitas Gadjah Mada",
     logoSrc: "/brand/campuses/ugm.png",
     name: "Universitas Gadjah Mada",
   },
   {
-    logoAlt: "Institut Teknologi Bandung mark",
+    logoAlt: "Logo Institut Teknologi Bandung",
     logoSrc: "/brand/campuses/itb.svg",
     name: "Institut Teknologi Bandung",
   },
   {
-    logoAlt: "Universitas Airlangga mark",
+    logoAlt: "Logo Universitas Airlangga",
     logoSrc: "/brand/campuses/unair.png",
     name: "Universitas Airlangga",
   },
   {
-    logoAlt: "Universitas Padjadjaran mark",
+    logoAlt: "Logo Universitas Padjadjaran",
     logoSrc: "/brand/campuses/unpad.png",
     name: "Universitas Padjadjaran",
   },
   {
-    logoAlt: "UPN Veteran Jakarta mark",
+    logoAlt: "Logo UPN Veteran Jakarta",
     logoSrc: "/brand/campuses/upn.png",
     name: "UPN Veteran Jakarta",
   },
@@ -89,7 +89,7 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-2",
-    logoAlt: "Universitas Padjadjaran mark",
+    logoAlt: "Logo Universitas Padjadjaran",
     logoSrc: "/brand/campuses/unpad.png",
     name: "Ayesha Zahra Khairunnisa",
     photoSrc: "/landing-assets/top-6/Ayesha.jpg",
@@ -107,7 +107,7 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-4",
-    logoAlt: "Universitas Indonesia mark",
+    logoAlt: "Logo Universitas Indonesia",
     logoSrc: "/brand/campuses/ui.png",
     name: "Sheren Amalia",
     photoSrc: "/landing-assets/top-6/Sheren.jpg",
@@ -116,7 +116,7 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-5",
-    logoAlt: "Institut Teknologi Bandung mark",
+    logoAlt: "Logo Institut Teknologi Bandung",
     logoSrc: "/brand/campuses/itb.svg",
     name: "Sabrina Dewi Anggraeni",
     photoSrc: "/landing-assets/top-6/Bina.jpg",
@@ -125,7 +125,7 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-6",
-    logoAlt: "Universitas Padjadjaran mark",
+    logoAlt: "Logo Universitas Padjadjaran",
     logoSrc: "/brand/campuses/unpad.png",
     name: "Audrey Cynthia Bukit",
     photoSrc: "/landing-assets/top-6/Audrey.jpg",
@@ -137,7 +137,7 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
 const homepagePlaceholderTopAlumni: TopAlumni[] = [
   {
     id: "featured-top-alumni-7",
-    logoAlt: "Universitas Indonesia mark",
+    logoAlt: "Logo Universitas Indonesia",
     logoSrc: "/brand/campuses/ui.png",
     name: "Lintang",
     photoSrc: "/landing-assets/top-20-extra/Lintang.jpg",
@@ -155,7 +155,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-9",
-    logoAlt: "Universitas Airlangga mark",
+    logoAlt: "Logo Universitas Airlangga",
     logoSrc: "/brand/campuses/unair.png",
     name: "Nurzaki Arfiansyah",
     photoSrc: "/landing-assets/top-20-extra/Nurzaki.jpg",
@@ -164,7 +164,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-10",
-    logoAlt: "Universitas Pendidikan Indonesia mark",
+    logoAlt: "Logo Universitas Pendidikan Indonesia",
     logoSrc: "/brand/campuses/upi.svg",
     name: "Raihania Ruchlianti",
     photoSrc: "/landing-assets/top-20-extra/Raihania.jpg",
@@ -173,7 +173,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-11",
-    logoAlt: "Universitas Pendidikan Indonesia mark",
+    logoAlt: "Logo Universitas Pendidikan Indonesia",
     logoSrc: "/brand/campuses/upi.svg",
     name: "Suci Oktavia",
     photoSrc: "/landing-assets/top-20-extra/Suci.jpg",
@@ -182,7 +182,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-12",
-    logoAlt: "Universitas Jambi mark",
+    logoAlt: "Logo Universitas Jambi",
     logoSrc: "/brand/campuses/unja.png",
     name: "Muhammad Zahran Nasir",
     photoSrc: "/landing-assets/top-20-extra/Zahran.jpg",
@@ -191,7 +191,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-13",
-    logoAlt: "Institut Pertanian Bogor mark",
+    logoAlt: "Logo Institut Pertanian Bogor",
     logoSrc: "/brand/campuses/ipb.png",
     name: "Asyraf Arrahman",
     photoSrc: "/landing-assets/top-20-extra/asyraf.jpg",
@@ -200,7 +200,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-14",
-    logoAlt: "Universitas Airlangga mark",
+    logoAlt: "Logo Universitas Airlangga",
     logoSrc: "/brand/campuses/unair.png",
     name: "Ficky Rizki Wahyudi",
     photoSrc: "/landing-assets/top-20-extra/ficky.jpg",
@@ -209,7 +209,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-15",
-    logoAlt: "Universitas Airlangga mark",
+    logoAlt: "Logo Universitas Airlangga",
     logoSrc: "/brand/campuses/unair.png",
     name: "Naila Wulidatul Afid",
     photoSrc: "/landing-assets/top-20-extra/naila.jpg",
@@ -218,7 +218,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-16",
-    logoAlt: "Universitas Brawijaya mark",
+    logoAlt: "Logo Universitas Brawijaya",
     logoSrc: "/brand/campuses/ub.webp",
     name: "Rayva Angeline Blissfully Tambunan",
     photoSrc: "/landing-assets/top-20-extra/rayva.jpg",
@@ -227,7 +227,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-17",
-    logoAlt: "Universitas Brawijaya mark",
+    logoAlt: "Logo Universitas Brawijaya",
     logoSrc: "/brand/campuses/ub.webp",
     name: "Syafa Elisa",
     photoSrc: "/landing-assets/top-20-extra/syafa.jpg",
@@ -236,7 +236,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-18",
-    logoAlt: "Universitas Negeri Surabaya mark",
+    logoAlt: "Logo Universitas Negeri Surabaya",
     logoSrc: "/brand/campuses/unesa.svg",
     name: "May Alifia Santoso",
     photoSrc: "/landing-assets/top-20-extra/may.jpg",
@@ -245,7 +245,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-19",
-    logoAlt: "Universitas Andalas mark",
+    logoAlt: "Logo Universitas Andalas",
     logoSrc: "/brand/campuses/unand.webp",
     name: "Tiara Denisa Putri",
     photoSrc: "/landing-assets/top-20-extra/tiara.jpg",
@@ -254,7 +254,7 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-20",
-    logoAlt: "Universitas Indonesia mark",
+    logoAlt: "Logo Universitas Indonesia",
     logoSrc: "/brand/campuses/ui.png",
     name: "Adam Housen Arpando",
     photoSrc: "/landing-assets/top-20-extra/ocen.jpg",

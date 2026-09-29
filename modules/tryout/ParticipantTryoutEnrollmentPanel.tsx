@@ -360,9 +360,7 @@ function ParticipantTryoutEnrollmentPanel({
     } catch (registerError) {
       unstable_rethrow(registerError);
       showToast(
-        registerError instanceof Error
-          ? registerError.message
-          : "Pendaftaran tryout belum dapat diproses.",
+        "Pendaftaran Tryout belum berhasil. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {

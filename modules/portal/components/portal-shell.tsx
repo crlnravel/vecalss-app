@@ -25,14 +25,14 @@ import { AdminPortalNav } from "./admin-portal-nav";
 const adminSectionLabels = {
   ai: "Vera AI",
   "ai-policy": "Policy Vera AI",
-  "audit-logs": "Log audit",
+  "audit-logs": "Riwayat audit",
   affiliators: "Affiliator",
   "ai-usage": "Pemakaian AI",
   docs: "Dokumentasi",
   kapten: "Kapten",
   notifications: "Notifikasi",
   overview: "Dashboard",
-  "student-banners": "Banner maker",
+  "student-banners": "Editor banner",
   students: "Siswa",
 } as const;
 

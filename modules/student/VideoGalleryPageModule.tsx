@@ -18,30 +18,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StudentBadge } from "@/components/ui/student-badge";
+import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
-
-type VideoFilter = "Semua" | "PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM";
-type VideoCategory = "TPS" | "TPA";
-type VideoSubtest = Exclude<VideoFilter, "Semua">;
-
-type VideoGalleryItem = {
-  category: VideoCategory;
-  description: string;
-  duration: string;
-  id: string;
-  isNew?: boolean;
-  subtest: VideoSubtest;
-  subject: string;
-  tags: string[];
-  thumbnailEyebrow: string;
-  thumbnailTitle: string;
-  thumbnailTone: keyof typeof thumbnailToneClasses;
-  title: string;
-  youtubeUrl: string;
-};
+import {
+  videoFilters,
+  type VideoGalleryItem,
+} from "@/modules/video/video-gallery-data";
 
 const thumbnailToneClasses = {
   forest: "bg-voyage-forest",
@@ -49,129 +34,7 @@ const thumbnailToneClasses = {
   leaf: "bg-voyage-leaf",
 } as const;
 
-function youtubeSearchUrl(title: string) {
-  // Prototype links keep the UI honest until Kapten video URLs are persisted.
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`Vecalss ${title}`)}`;
-}
-
-const videoItems = [
-  {
-    category: "TPS",
-    description: "Pembahasan langkah demi langkah untuk soal-soal kuantitatif yang sering muncul.",
-    duration: "30:00",
-    id: "tps-pk-2026",
-    isNew: true,
-    subtest: "PK",
-    subject: "Pengetahuan Kuantitatif",
-    tags: ["TPS", "PK", "SNBT 2026"],
-    thumbnailEyebrow: "PEMBAHASAN",
-    thumbnailTitle: "TPS PK\nSNBT 2026",
-    thumbnailTone: "deep",
-    title: "Pembahasan TPS PK — SNBT 2026",
-    youtubeUrl: youtubeSearchUrl("Pembahasan TPS PK SNBT 2026"),
-  },
-  {
-    category: "TPS",
-    description: "Kenali pola soal dan strategi cepat untuk menaklukkan penalaran kuantitatif.",
-    duration: "21:47",
-    id: "prediksi-kuantitatif",
-    subtest: "PK",
-    subject: "Pengetahuan Kuantitatif",
-    tags: ["Prediksi", "Kuantitatif", "UTBK"],
-    thumbnailEyebrow: "STRATEGI CEPAT",
-    thumbnailTitle: "PREDIKSI\nKUANTITATIF",
-    thumbnailTone: "forest",
-    title: "Prediksi Soal Kuantitatif UTBK 2026",
-    youtubeUrl: youtubeSearchUrl("Prediksi Soal Kuantitatif UTBK 2026"),
-  },
-  {
-    category: "TPS",
-    description: "Cara ringkas membaca persentase, diskon, dan perubahan nilai tanpa berlama-lama.",
-    duration: "17:45",
-    id: "diskon-persen",
-    subtest: "PK",
-    subject: "Pengetahuan Kuantitatif",
-    tags: ["Persen", "Diskon", "Trik"],
-    thumbnailEyebrow: "CARA CEPAT",
-    thumbnailTitle: "DISKON\n& PERSEN",
-    thumbnailTone: "leaf",
-    title: "Cara Cepat Jawab Diskon dan Persen",
-    youtubeUrl: youtubeSearchUrl("Cara Cepat Jawab Diskon dan Persen"),
-  },
-  {
-    category: "TPS",
-    description: "Pahami peluang lewat contoh sederhana dan pola hitung yang mudah diingat.",
-    duration: "12:20",
-    id: "peluang-pk",
-    subtest: "PK",
-    subject: "Pengetahuan Kuantitatif",
-    tags: ["Peluang", "PK", "Latihan"],
-    thumbnailEyebrow: "FONDASI",
-    thumbnailTitle: "PELUANG\nDASAR",
-    thumbnailTone: "deep",
-    title: "Cara Cepat Jawab Soal Peluang PK",
-    youtubeUrl: youtubeSearchUrl("Cara Cepat Jawab Soal Peluang PK"),
-  },
-  {
-    category: "TPS",
-    description: "Latihan bertahap untuk menemukan pola bilangan dan menyusun langkah paling efisien.",
-    duration: "15:15",
-    id: "pola-bilangan",
-    subtest: "PU",
-    subject: "Penalaran Umum",
-    tags: ["Pola Bilangan", "PU", "Latihan"],
-    thumbnailEyebrow: "BEDAH SOAL",
-    thumbnailTitle: "POLA\nBILANGAN",
-    thumbnailTone: "forest",
-    title: "Cara Cepat Soal Pola Bilangan UTBK",
-    youtubeUrl: youtubeSearchUrl("Cara Cepat Soal Pola Bilangan UTBK"),
-  },
-  {
-    category: "TPA",
-    description: "Bawa strategi membaca cepat ke sesi latihan dengan contoh bacaan yang relevan.",
-    duration: "20:19",
-    id: "literasi-bacaan",
-    isNew: true,
-    subtest: "LBI",
-    subject: "Literasi Bahasa Indonesia",
-    tags: ["LBI", "Literasi", "Strategi"],
-    thumbnailEyebrow: "BEDAH BACAAN",
-    thumbnailTitle: "LITERASI\nINDONESIA",
-    thumbnailTone: "leaf",
-    title: "Strategi Menjawab Soal Literasi Bahasa Indonesia",
-    youtubeUrl: youtubeSearchUrl("Strategi Menjawab Soal Literasi Bahasa Indonesia"),
-  },
-  {
-    category: "TPA",
-    description: "Temukan cara menyusun fokus sebelum mulai membaca teks berbahasa Inggris.",
-    duration: "18:42",
-    id: "reading-comprehension",
-    subtest: "LBE",
-    subject: "Literasi Bahasa Inggris",
-    tags: ["LBE", "Reading", "SNBT"],
-    thumbnailEyebrow: "READING HACK",
-    thumbnailTitle: "READING\nCOMPREHENSION",
-    thumbnailTone: "deep",
-    title: "Reading Comprehension: Temukan Ide Utama",
-    youtubeUrl: youtubeSearchUrl("Reading Comprehension Temukan Ide Utama SNBT"),
-  },
-  {
-    category: "TPA",
-    description: "Latihan penalaran umum dengan pendekatan visual agar pola jawabannya lebih mudah terlihat.",
-    duration: "14:08",
-    id: "penalaran-umum",
-    subtest: "PU",
-    subject: "Penalaran Umum",
-    tags: ["PU", "Penalaran", "Latihan"],
-    thumbnailEyebrow: "KUPAS TUNTAS",
-    thumbnailTitle: "PENALARAN\nUMUM",
-    thumbnailTone: "forest",
-    title: "Kupas Tuntas Penalaran Umum untuk SNBT",
-    youtubeUrl: youtubeSearchUrl("Kupas Tuntas Penalaran Umum untuk SNBT"),
-  },
-] satisfies readonly VideoGalleryItem[];
-
-const videoFilters: readonly VideoFilter[] = ["Semua", "PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"];
+type VideoFilter = (typeof videoFilters)[number];
 
 function VideoThumbnail({ video }: { video: VideoGalleryItem }) {
   return (
@@ -191,9 +54,11 @@ function VideoThumbnail({ video }: { video: VideoGalleryItem }) {
             <Video aria-hidden="true" className="size-3.5" />
             {video.category} · {video.subject.split(" ")[0]}
           </span>
-          <span className="rounded-lg bg-secondary-950/80 px-2.5 py-1.5 text-xs font-bold tabular-nums text-white">
-            {video.duration}
-          </span>
+          {video.duration ? (
+            <span className="rounded-lg bg-secondary-950/80 px-2.5 py-1.5 text-xs font-bold tabular-nums text-white">
+              {video.duration}
+            </span>
+          ) : null}
         </div>
 
         <div className="relative z-10">
@@ -262,11 +127,15 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
             <UserRound aria-hidden="true" className="size-3.5 text-primary-700" />
             Kapten Vecalss
           </span>
-          <span aria-hidden="true" className="text-secondary-300">·</span>
-          <span className="inline-flex items-center gap-1.5 tabular-nums">
-            <Clock3 aria-hidden="true" className="size-3.5 text-primary-700" />
-            {video.duration}
-          </span>
+          {video.duration ? (
+            <>
+              <span aria-hidden="true" className="text-secondary-300">·</span>
+              <span className="inline-flex items-center gap-1.5 tabular-nums">
+                <Clock3 aria-hidden="true" className="size-3.5 text-primary-700" />
+                {video.duration}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
     </a>
@@ -276,9 +145,11 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
 function VideoGalleryPageModule({
   notificationFeed,
   session,
+  videos,
 }: {
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
+  videos: VideoGalleryItem[];
 }) {
   const [activeFilter, setActiveFilter] = useState<VideoFilter>("Semua");
   const [searchQuery, setSearchQuery] = useState("");
@@ -286,7 +157,7 @@ function VideoGalleryPageModule({
   const filteredVideos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("id-ID");
 
-    return videoItems.filter((video) => {
+    return videos.filter((video) => {
       const matchesFilter = activeFilter === "Semua" || video.subtest === activeFilter;
       if (!matchesFilter) return false;
       if (!normalizedQuery) return true;
@@ -296,7 +167,7 @@ function VideoGalleryPageModule({
         .toLocaleLowerCase("id-ID")
         .includes(normalizedQuery);
     });
-  }, [activeFilter, searchQuery]);
+  }, [activeFilter, searchQuery, videos]);
 
   return (
     <StudentWorkspaceShell
@@ -332,22 +203,17 @@ function VideoGalleryPageModule({
                   const isActive = activeFilter === filter;
 
                   return (
-                    <button
+                    <SunkenTabButton
                       aria-selected={isActive}
-                      className={cn(
-                        "min-h-11 shrink-0 rounded-full border px-4 text-sm font-bold transition-[background-color,border-color,color,transform] duration-200 motion-reduce:transition-none",
-                        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
-                        isActive
-                          ? "border-voyage-deep bg-voyage-deep text-white shadow-[0_8px_18px_-14px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]"
-                          : "border-primary-100 bg-white text-secondary-600 hover:border-primary-200 hover:bg-primary-50 hover:text-secondary-900",
-                      )}
                       key={filter}
+                      layout="content"
                       onClick={() => setActiveFilter(filter)}
                       role="tab"
+                      selected={isActive}
                       type="button"
                     >
                       {filter}
-                    </button>
+                    </SunkenTabButton>
                   );
                 })}
               </div>
@@ -360,15 +226,17 @@ function VideoGalleryPageModule({
             </div>
           ) : (
             <ReferenceEmptyState
-              action={
+              action={videos.length > 0 ? (
                 <Button onClick={() => { setActiveFilter("Semua"); setSearchQuery(""); }} size="sm" variant="brandOutline">
                   Lihat semua video
                 </Button>
-              }
+              ) : undefined}
               className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "border-learning-card-border")}
-              description="Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+              description={videos.length > 0
+                ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
+                : "Video belajar belum tersedia."}
               icon={Video}
-              title="Video tidak ditemukan"
+              title={videos.length > 0 ? "Video tidak ditemukan" : "Belum ada video belajar"}
             />
           )}
         </section>

@@ -429,7 +429,6 @@ function KaptenTryoutParticipantDetailPageModule({
         <ReferencePageHeader
           actions={<StatusBadge status={admission.status} />}
           className="min-w-0 flex-1"
-          description={initial.title}
           title={admission.student}
         />
       </div>}

@@ -57,9 +57,10 @@ type ItemSnapshot = {
   explanation?: string | null;
   explanationAssetId?: string | null;
   id: string;
+  snapshotId?: string | null;
   promptAssetId?: string | null;
   releaseItemId?: string;
-  options: Array<{ assetId?: string | null; choiceKey: string; content: string; id: string; isCorrect: boolean; releaseOptionId?: string; sortOrder: number }>;
+  options: Array<{ assetId?: string | null; choiceKey: string; content: string; id: string; isCorrect: boolean; releaseOptionId?: string; snapshotOptionId?: string | null; sortOrder: number }>;
   points: string;
   prompt: string;
   questionType?: QuestionAnswerMode | string | null;
@@ -230,10 +231,14 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
       .filter((answer): answer is typeof answer & { isCorrect: boolean } => answer.isCorrect !== null)
       .map((answer) => {
         const item = itemById.get(answer.itemId);
-        return item?.sourceQuestionId ? { isCorrect: answer.isCorrect, itemId: item.sourceQuestionId } : null;
+        const itemId = item?.snapshotId ?? item?.sourceQuestionId;
+        return itemId ? { isCorrect: answer.isCorrect, itemId } : null;
       })
       .filter((response): response is { isCorrect: boolean; itemId: string } => Boolean(response));
-    if (scoringPolicy.itemParameters.length !== items.length || items.some((item) => !item.sourceQuestionId || !scoringPolicy.itemParameters.some((parameter) => parameter.itemId === item.sourceQuestionId))) {
+    if (scoringPolicy.itemParameters.length !== items.length || items.some((item) => {
+      const itemId = item.snapshotId ?? item.sourceQuestionId;
+      return !itemId || !scoringPolicy.itemParameters.some((parameter) => parameter.itemId === itemId);
+    })) {
       const failed = await tx.tryoutAttemptTestRun.update({
         where: { id: run.id },
         data: {
@@ -671,7 +676,7 @@ async function startTryoutDisconnect(
     }
     const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
     }
     await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
@@ -700,7 +705,7 @@ async function startTryoutDisconnect(
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
     }
     if (attempt.admission.status !== "active" || assignment.status !== TryoutAssignmentStatus.active) {
       throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai dari admission dan penugasan sesi yang aktif.");
@@ -776,7 +781,7 @@ async function reconcileTryoutDisconnect(
     }
     const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
     }
     await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
@@ -802,7 +807,7 @@ async function reconcileTryoutDisconnect(
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
     }
     if (attempt.admission.status !== "active" || assignment?.status !== TryoutAssignmentStatus.active) throw new TryoutAttemptValidationError("Reconcile disconnect memerlukan admission dan penugasan aktif.");
     if (attempt.status !== AttemptStatus.in_progress || attempt.attemptState !== AssessmentAttemptState.in_progress || run.status !== TryoutAttemptTestRunStatus.active) {
@@ -835,11 +840,29 @@ async function reconcileTryoutDisconnect(
   });
 }
 
-function snapshotSection(section: { id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; sequenceNo: number; subtestId: string; testType: string; title: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; questionType?: QuestionAnswerMode | string | null; releaseItemId?: string; prompt: string; promptAssetId?: string | null; points: Prisma.Decimal | number | string; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ assetId?: string | null; id: string; choiceKey: string; content: string; isCorrect: boolean; releaseOptionId?: string; sortOrder: number }> }> }) {
+function snapshotSection(section: { id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; sequenceNo: number; subtestId: string; testType: string; title: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; questionType?: QuestionAnswerMode | string | null; releaseItemId?: string; snapshotId?: string | null; prompt: string; promptAssetId?: string | null; points: Prisma.Decimal | number | string; sortOrder: number; sourceContentDigest?: string | null; sourceQuestionId?: string | null; sourceQuestionRevisionId?: string | null; sourceRevisionProvenance?: string | null; options: Array<{ assetId?: string | null; id: string; choiceKey: string; content: string; isCorrect: boolean; releaseOptionId?: string; snapshotOptionId?: string | null; sortOrder: number }> }> }) {
   return {
     durationSeconds: section.durationSeconds,
     instructions: section.instructions,
-    items: section.items.map((item) => ({ difficulty: item.difficulty, explanation: item.explanation, explanationAssetId: item.explanationAssetId, id: item.id, options: item.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, releaseOptionId: option.releaseOptionId, sortOrder: option.sortOrder })), points: item.points.toString(), prompt: item.prompt, promptAssetId: item.promptAssetId, questionType: item.questionType ?? "single_choice", releaseItemId: item.releaseItemId, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId, sourceRevisionProvenance: item.sourceRevisionProvenance })),
+    items: section.items.map((item) => ({
+      difficulty: item.difficulty,
+      explanation: item.explanation,
+      explanationAssetId: item.explanationAssetId,
+      id: item.id,
+      options: item.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, releaseOptionId: option.releaseOptionId, snapshotOptionId: option.snapshotOptionId, sortOrder: option.sortOrder })),
+      points: item.points.toString(),
+      prompt: item.prompt,
+      promptAssetId: item.promptAssetId,
+      questionType: item.questionType ?? "single_choice",
+      releaseItemId: item.releaseItemId,
+      ...(item.snapshotId ? { snapshotId: item.snapshotId } : {
+        sourceContentDigest: item.sourceContentDigest ?? null,
+        sourceQuestionId: item.sourceQuestionId ?? null,
+        sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? null,
+        sourceRevisionProvenance: item.sourceRevisionProvenance ?? null,
+      }),
+      sortOrder: item.sortOrder,
+    })),
     scoringConfig: section.scoringConfig,
     sectionId: section.id,
     sequenceNo: section.sequenceNo,
@@ -858,7 +881,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       where: { id: studentId },
     });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Akun preview admin tidak dapat memulai attempt learner.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dimulai lewat halaman siswa. Buat sesi baru dari halaman admin.");
     }
     const identity = await acquireTryoutIdentityMutex(tx, { id: deliverySessionId, kind: "session" });
     if (!identity) throw new TryoutAttemptValidationError("Sesi Tryout tidak ditemukan.");
@@ -905,8 +928,8 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
 
     // This is the single content-lock transition: same aggregate lock as
     // authoring writes. The row was already acquired before session locks.
-    const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { status: true } });
-    if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai attempt baru.");
+    const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { isHidden: true, status: true } });
+    if (!tryout || tryout.status !== ContentStatus.published || tryout.isHidden) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai pengerjaan baru.");
     const lockedTryout = await tx.tryoutPackage.findUniqueOrThrow({
       where: { id: session.tryoutId },
       include: {
@@ -922,6 +945,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       },
     });
     const releasePayload = release.payload as unknown as {
+      schemaVersion?: string;
       sections?: Array<{
         assembly?: { packageVersionId: string | null };
         durationSeconds: number;
@@ -935,16 +959,17 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
           id: string;
           questionType?: QuestionAnswerMode | string | null;
           physicalId?: string;
-          options: Array<{ choiceKey: string; content: string; id: string; isCorrect: boolean; sortOrder: number; sourceQuestionOptionId: string | null; sourceQuestionRevisionOptionId: string | null }>;
+          options: Array<{ choiceKey: string; content: string; id: string; isCorrect: boolean; snapshotOptionId?: string | null; sortOrder: number; sourceQuestionOptionId?: string | null; sourceQuestionRevisionOptionId?: string | null }>;
           packageCode: string;
           points: string;
           prompt: string;
           promptAssetId: string | null;
+          snapshotId?: string | null;
           sortOrder: number;
-          sourceContentDigest: string | null;
-          sourceQuestionId: string | null;
-          sourceQuestionRevisionId: string | null;
-          sourceRevisionProvenance: string | null;
+          sourceContentDigest?: string | null;
+          sourceQuestionId?: string | null;
+          sourceQuestionRevisionId?: string | null;
+          sourceRevisionProvenance?: string | null;
           subtestId: string;
         }>;
         randomization?: { shuffleItems: boolean };
@@ -961,9 +986,13 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     if (lockedTryout.sections.length !== 7 || releaseSections.some((section) => {
       const currentSection = currentSectionBySequence.get(section.sequenceNo);
       return !currentSection || currentSection.subtestId !== section.subtestId;
-    })) throw new TryoutAttemptValidationError("Tryout saat ini tidak memiliki tujuh Test bridge dengan subject/urutan yang sama seperti AssessmentRelease.");
+    })) throw new TryoutAttemptValidationError("Tryout belum siap dikerjakan. Hubungi Kapten untuk mendapatkan bantuan.");
     const usedCurrentItemIds = new Set<string>();
     const projectReleaseItem = (item: (typeof releaseSections)[number]["items"][number], currentSection: (typeof lockedTryout.sections)[number]) => {
+      const hasSnapshotIdentity = typeof item.snapshotId === "string" && item.snapshotId.length > 0;
+      const snapshotMatches = hasSnapshotIdentity
+        ? currentSection.items.filter((candidate) => candidate.snapshotId === item.snapshotId)
+        : [];
       const sourceMatches = item.sourceQuestionId
         ? currentSection.items.filter((candidate) => candidate.sourceQuestionId === item.sourceQuestionId
           && candidate.sourceQuestionRevisionId === item.sourceQuestionRevisionId
@@ -972,14 +1001,15 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       const physicalMatch = item.physicalId
         ? currentSection.items.find((candidate) => candidate.id === item.physicalId)
         : undefined;
-      // A release may bridge to a recreated current row only through the
-      // immutable source identity captured in the payload. Physical IDs are
-      // accepted only for source-less legacy items, and positional guesses are
-      // intentionally forbidden: R1 content must never point at an unrelated
-      // R2 row merely because it occupies the same slot.
-      const currentItem = item.sourceQuestionId
-        ? sourceMatches.length === 1 ? sourceMatches[0] : undefined
-        : physicalMatch;
+      // Detached v2 rows bridge only through their stable local identity;
+      // frozen v1 source-less payloads retain their physical-ID bridge.
+      const currentItem = hasSnapshotIdentity
+        ? snapshotMatches.length === 1 ? snapshotMatches[0] : undefined
+        : item.sourceQuestionId
+          ? sourceMatches.length === 1 ? sourceMatches[0] : undefined
+          : releasePayload.schemaVersion === "assessment-release-v2"
+            ? undefined
+            : physicalMatch;
       if (!currentItem) throw new TryoutAttemptValidationError("AssessmentRelease tidak lagi memiliki baris soal sumber yang dapat dijawab.");
       if (usedCurrentItemIds.has(currentItem.id)) throw new TryoutAttemptValidationError("Tryout saat ini tidak menyediakan bridge unik untuk seluruh item AssessmentRelease.");
       usedCurrentItemIds.add(currentItem.id);
@@ -988,6 +1018,14 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       // schema while R1 content remains independent from mutable R2 text.
       const currentOptionById = new Map(currentItem.options.map((option) => [option.id, option]));
       const projectedOptions = item.options.map((option) => {
+        if (hasSnapshotIdentity) {
+          const snapshotOptionMatches = option.snapshotOptionId
+            ? currentItem.options.filter((candidate) => candidate.snapshotOptionId === option.snapshotOptionId)
+            : [];
+          const currentOption = snapshotOptionMatches.length === 1 ? snapshotOptionMatches[0] : undefined;
+          if (!currentOption) throw new TryoutAttemptValidationError("AssessmentRelease tidak lagi memiliki bridge pilihan jawaban salinan yang unik.");
+          return { ...option, id: currentOption.id, releaseOptionId: option.id };
+        }
         const sourceOptionMatches = option.sourceQuestionRevisionOptionId
           ? currentItem.options.filter((candidate) => candidate.sourceQuestionRevisionOptionId === option.sourceQuestionRevisionOptionId
             && (!option.sourceQuestionOptionId || candidate.sourceQuestionOptionId === option.sourceQuestionOptionId))
@@ -996,7 +1034,9 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
             : [];
         const currentOption = option.sourceQuestionOptionId || option.sourceQuestionRevisionOptionId
           ? sourceOptionMatches.length === 1 ? sourceOptionMatches[0] : undefined
-          : currentOptionById.get((option as { physicalId?: string }).physicalId ?? option.id);
+          : releasePayload.schemaVersion === "assessment-release-v2"
+            ? undefined
+            : currentOptionById.get((option as { physicalId?: string }).physicalId ?? option.id);
         if (!currentOption) throw new TryoutAttemptValidationError("AssessmentRelease tidak lagi memiliki pilihan jawaban sumber yang dapat dijawab.");
         return { ...option, id: currentOption.id, releaseOptionId: option.id };
       });

@@ -25,6 +25,7 @@ class TryoutResultValidationError extends Error {}
 
 type ReleasePolicy = "immediate" | "manual" | "automatic_at_end" | "scheduled";
 const json = (value: unknown) => value as Prisma.InputJsonValue;
+const TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS = 15_000;
 
 function assertResultReleaseBinding(
   expected: {
@@ -378,7 +379,73 @@ function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentRes
 }
 
 async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.TransactionClient, deliverySessionId: string, now: Date) {
-    const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, tryout: { select: { id: true, defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } } } } } });
+    const session = await tx.tryoutDeliverySession.findUnique({
+      where: { id: deliverySessionId },
+      select: {
+        availableUntil: true,
+        id: true,
+        releaseReason: true,
+        releaseState: true,
+        releasedAt: true,
+        resultReleasePolicy: true,
+        scheduledReleaseAt: true,
+        tryoutId: true,
+        assessmentRelease: {
+          select: { contentDigest: true, id: true, releaseNumber: true },
+        },
+        tryout: {
+          select: {
+            id: true,
+            defaultResultReleasePolicy: true,
+            sections: {
+              select: { id: true, sequenceNo: true, subtestId: true },
+              orderBy: { sequenceNo: "asc" },
+            },
+          },
+        },
+        attempts: {
+          select: {
+            assessmentReleaseDigest: true,
+            assessmentReleaseId: true,
+            assessmentReleaseNumber: true,
+            attemptState: true,
+            id: true,
+            releaseAt: true,
+            releaseState: true,
+            score: true,
+            scoringState: true,
+            status: true,
+            runs: {
+              select: {
+                assessmentReleaseDigest: true,
+                assessmentReleaseId: true,
+                assessmentReleaseNumber: true,
+                calculationReleaseable: true,
+                contentSnapshot: true,
+                normalizedScore: true,
+                scoringState: true,
+                sequenceNo: true,
+                status: true,
+                tryoutSectionId: true,
+                section: {
+                  select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true },
+                },
+              },
+            },
+            scoreBreakdowns: {
+              select: {
+                normalizedScore: true,
+                rawScore: true,
+                scaledScore: true,
+                scoringProvenance: true,
+                scoringVersion: true,
+                subtestId: true,
+              },
+            },
+          },
+        },
+      },
+    });
     if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
     if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
     const policy = effectivePolicy(session);
@@ -419,8 +486,16 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
     if (releaseState !== session.releaseState || releaseAt?.getTime() !== session.releasedAt?.getTime()) {
       await tx.tryoutDeliverySession.update({ where: { id: session.id }, data: { releaseState, releasedAt: releaseAt ?? undefined, releaseReason: session.releaseReason ?? (releaseState === AssessmentResultReleaseState.released ? "Rilis otomatis setelah seluruh bundle valid." : undefined) } });
     }
-    if ((releaseState === AssessmentResultReleaseState.released || releaseState === AssessmentResultReleaseState.scheduled) && releaseableAttemptIds.length > 0) {
-      await tx.tryoutAttempt.updateMany({ where: { id: { in: releaseableAttemptIds } }, data: { releaseAt, releaseState } });
+    if (releaseState === AssessmentResultReleaseState.released || releaseState === AssessmentResultReleaseState.scheduled) {
+      const releaseableIds = new Set(releaseableAttemptIds);
+      const attemptIdsNeedingUpdate = session.attempts
+        .filter((attempt) => releaseableIds.has(attempt.id))
+        .filter((attempt) => attempt.releaseState !== releaseState
+          || (attempt.releaseAt?.getTime() ?? null) !== (releaseAt?.getTime() ?? null))
+        .map((attempt) => attempt.id);
+      if (attemptIdsNeedingUpdate.length > 0) {
+        await tx.tryoutAttempt.updateMany({ where: { id: { in: attemptIdsNeedingUpdate } }, data: { releaseAt, releaseState } });
+      }
     }
     return { deliverySessionId: session.id, releaseAt, releaseState, ready };
 }
@@ -430,7 +505,7 @@ async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, n
     await prepareTryoutTransaction(tx);
     await lockTryoutResultScope(tx, { id: deliverySessionId, kind: "session" });
     return synchronizeTryoutSessionReleaseStateInTransaction(tx, deliverySessionId, now);
-  });
+  }, { timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
 }
 
 async function synchronizeAttemptReleaseState(attemptId: string, studentId: string, now: Date) {

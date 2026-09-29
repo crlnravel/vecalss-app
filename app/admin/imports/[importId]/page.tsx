@@ -10,7 +10,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Review import | Vecalss LMS",
+  title: "Tinjau impor | Vecalss LMS",
 };
 
 export default async function AdminImportDetailPage({
@@ -42,9 +42,9 @@ export default async function AdminImportDetailPage({
     <PortalShell
       activeAdminSection="students"
       audience="admin"
-      description="Review rows and release the next handoff."
+      description="Periksa data akun sebelum memulai proses impor."
       session={session}
-      title="Import review"
+      title="Tinjau impor"
     >
       <ImportDetailModule initialImport={importStatus} />
     </PortalShell>

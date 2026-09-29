@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 
-const KUIS_ASSESSMENT_DEFINITION_DIGEST_VERSION = "kuis-assessment-definition-v1" as const;
+const KUIS_ASSESSMENT_DEFINITION_DIGEST_VERSION = "kuis-assessment-definition-v2" as const;
 
 type KuisScorePolicy = "highest" | "latest" | "first" | "average";
 type KuisFormBehavior = "same" | "fresh_randomized";
 type KuisReviewTiming = "immediate" | "after_close" | "never";
 type KuisCorrectAnswerVisibility = "show" | "hide";
 type KuisQuestionOrigin = "bank" | "local";
+type KuisDifficultyLevel = "adaptive" | "easy" | "medium" | "hard";
 type KuisSourceRevisionProvenance = "authored" | "legacy_provable" | "legacy_synthetic" | "legacy_unknown";
 type KuisAssemblyMode = "fixed_set" | "random_pool" | "blueprint";
 
@@ -22,6 +23,7 @@ type KuisDefinitionQuestion = {
   choices: readonly KuisDefinitionChoice[];
   correctChoiceId: string;
   correctChoiceIds?: readonly string[];
+  difficulty?: KuisDifficultyLevel | null;
   explanation: string;
   explanationAssetId?: string | null;
   explanationMediaAssetId?: string | null;
@@ -139,6 +141,7 @@ function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput)
       })),
       correctChoiceId: question.correctChoiceId,
       correctChoiceIds: question.correctChoiceIds?.length ? [...question.correctChoiceIds] : undefined,
+      difficulty: question.difficulty ?? "medium",
       explanation: question.explanation,
       explanationMediaAssetId: nullableText(question.explanationMediaAssetId ?? question.explanationAssetId),
       id: question.id,
@@ -209,6 +212,7 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
             .filter(({ choice }) => correctChoiceIds.includes(choice.id))
             .map(({ index }) => index)
           : undefined,
+        difficulty: question.difficulty ?? "medium",
         explanation: question.explanation,
         explanationMediaAssetId: question.explanationMediaAssetId ?? null,
         origin: question.origin,

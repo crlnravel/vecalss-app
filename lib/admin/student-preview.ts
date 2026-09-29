@@ -35,7 +35,7 @@ function assertAdminStudentPreviewEnabled() {
   if (!isAdminStudentPreviewEnabled()) {
     throw new AdminStudentPreviewUnavailableError(
       "feature_disabled",
-      "Student preview is currently unavailable.",
+      "Pratinjau siswa sedang tidak tersedia.",
     );
   }
 }
@@ -121,14 +121,14 @@ async function requireAdminStudentPreviewSubject() {
   if (fixtures.length === 0) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_missing",
-      "Fixture siswa preview terkelola belum dikonfigurasi. Minta pemilik operasi menyiapkan fixture sebelum membuka Preview.",
+      "Pratinjau siswa belum disiapkan. Hubungi tim teknis untuk mendapatkan bantuan.",
     );
   }
 
   if (fixtures.length !== 1) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_ambiguous",
-      "Fixture siswa preview terkelola berjumlah lebih dari satu, sehingga Preview dinonaktifkan sampai sumbernya diperbaiki.",
+      "Pratinjau siswa belum bisa dibuka karena ada masalah pada pengaturannya. Hubungi tim teknis.",
     );
   }
 
@@ -136,7 +136,7 @@ async function requireAdminStudentPreviewSubject() {
   if (!subject) {
     throw new AdminStudentPreviewUnavailableError(
       "fixture_invalid",
-      "Fixture siswa preview terkelola tidak aktif atau tidak memiliki role/profile siswa yang diperlukan.",
+      "Pratinjau siswa belum bisa dibuka karena data pengaturannya belum lengkap. Hubungi tim teknis.",
     );
   }
 

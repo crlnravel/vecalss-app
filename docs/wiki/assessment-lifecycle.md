@@ -9,8 +9,7 @@
 ```mermaid
 flowchart LR
     KuisAuthor[Kapten Kuis authoring] --> KuisDraft[StandaloneQuizVersion draft]
-    KuisDraft --> KuisPublish[Digest + idempotent publication]
-    KuisPublish --> KuisActive[Active version]
+    KuisDraft --> KuisActive[First valid save or lazy activation]
     KuisActive --> KuisLearner[Version-scoped participation / attempt / result]
 
     TryoutAuthor[Kapten Tryout builder] --> Assembly[Ready assembly validation]
@@ -26,8 +25,10 @@ flowchart LR
 
 There are two assessment branches. Kuis is the standalone practice flow and
 now uses persisted, version-scoped runtime records by default. `StandaloneQuiz`
-remains the stable catalogue/ownership identity while
-`StandaloneQuizVersion` carries the draft or published assessment snapshot.
+remains the stable catalogue/ownership identity with only `published` and
+`archived` lifecycle states. New quizzes are published by default;
+`StandaloneQuizVersion` carries internal draft and active assessment snapshots.
+Archiving is the only lifecycle action and cannot be reversed.
 Tryout is the released, operational assessment flow: mutable authoring data is
 resolved into an immutable release before delivery. The admin preview branch
 may enter delivery only through an explicit restart; a preview read never
@@ -37,8 +38,8 @@ enters the runtime.
 
 | Stage | Canonical route / UI | Server boundary | Durable identity | Guardrail |
 | --- | --- | --- | --- | --- |
-| Define Kuis | `/mentor/quiz/[quizId]`, `/mentor/quiz/[quizId]/editor` | `modules/mentor/KaptenQuizDetailPageModule.tsx`, `KaptenQuizEditorPageModule.tsx`, `modules/mentor/quiz-actions.ts`, `lib/quiz/repository.ts` | `StandaloneQuiz` stable catalogue plus a draft `StandaloneQuizVersion`; version-scoped items/options and durable assembly binding when used | Tutor session gate; edits stay behind server actions, ownership checks, and draft-revision validation. |
-| Publish Kuis version | Kuis editor publish action | `lib/quiz/repository.ts`, `lib/quiz/versioning-runtime.ts`, `versioning-digest.ts`, `versioning-lifecycle.ts` | `StandaloneQuizVersion` with semantic definition digest, `versionNo`, publication identity, and `draft → active → superseded` state | A transaction locks the stable quiz, compares `draftRevision`, reuses `publishRequestId` on retry, and supersedes the previous active version. `KUIS_VERSIONING_CUTOVER=disabled` is an explicit operator rollback switch. |
+| Define Kuis | `/mentor/quiz/[quizId]`, `/mentor/quiz/[quizId]/editor` | `modules/mentor/KaptenQuizDetailPageModule.tsx`, `KaptenQuizEditorPageModule.tsx`, `modules/mentor/quiz-actions.ts`, `lib/quiz/repository.ts` | `StandaloneQuiz` stable catalogue plus an internal draft `StandaloneQuizVersion`; version-scoped items/options and durable assembly binding when used | Tutor session gate; edits stay behind server actions, ownership checks, and draft-revision validation. Learner access requires an active, complete version. |
+| Activate Kuis version | First complete author save or next student start after edits | `lib/quiz/repository.ts`, `lib/quiz/versioning-runtime.ts`, `versioning-digest.ts`, `versioning-lifecycle.ts` | `StandaloneQuizVersion` with semantic definition digest, `versionNo`, publication identity, and `draft → active → superseded` state | A transaction locks the stable quiz, compares `draftRevision`, reuses the activation request ID on retry, and supersedes the previous active version. Changed definitions activate lazily at the next student start. `KUIS_VERSIONING_CUTOVER=disabled` is an explicit operator rollback switch. |
 | Run Kuis | `/quiz/[slug]/[quizSlug]`, `/quiz/[slug]/[quizSlug]/result` | `modules/quiz/actions.ts`, `modules/quiz/server-data.ts`, `lib/quiz/repository.ts` (`start`, answer, submit, attempt, result operations) | `StandaloneQuizParticipation` is unique per `(quizVersionId, studentId)`; attempts, answers, scoring, and release state retain the version identity | Runtime resolves the active version by default, checks availability and attempt state server-side, and preserves prior version history rather than rewriting it. |
 | Author Tryout and assembly | `/mentor/tryout`, `/mentor/tryout/[tryoutId]`, nested operations | `modules/mentor/KaptenTryoutBuilderPageModule.tsx`, `modules/mentor/tryout-actions.ts`, `modules/mentor/assembly-actions.ts`, `lib/tryout/repository.ts`, `assembly-repository.ts`, `assembly-validation.ts` | `TryoutPackage`, sections/items/options, reusable package/version and source revision identity | Only validated Ready assembly versions can feed a release; package modes and source/media/scope rules are resolved before runtime. |
 | Publish to release | Kapten Tryout publish action | `lib/tryout/assessment-release.ts` (`createOrReuseAssessmentRelease`) | Immutable `AssessmentRelease` with content, source IDs/digests, scoring/media, assembly provenance, and publication identity | Tryout must be published; the canonical seven sections must resolve; release creation is deterministic and reuses the same publication identity instead of creating a competing release. |
@@ -54,15 +55,19 @@ workspace plus its nested assembly operations.
 ## Kuis version boundary
 
 The Kuis cutover is default-on in `lib/quiz/versioning-runtime.ts`. A save
-creates or updates a draft version, materializes its version-scoped items, and
-computes both a full definition digest and the assessment digest used to decide
-whether a student snapshot changed. Editorial title/description changes do not
-activate a new student snapshot; question, answer, assembly, and assessment
-policy changes do.
+creates or updates an internal draft version, materializes its version-scoped
+items, and computes both a full definition digest and the assessment digest
+used to decide whether a student snapshot changed. The stable quiz is always
+published unless archived. The first complete quiz save activates its version;
+incomplete initial work stays in an internal draft and is unavailable to
+learners. After an active version exists, saves create or update a draft, and a
+changed definition activates at the next student start. Editorial
+title/description changes do not activate a new student snapshot; question,
+answer, assembly, and assessment policy changes do.
 
-Publication is transactional and retry-safe: `FOR UPDATE` protects the stable
-quiz row, `expectedDraftRevision` prevents lost edits, and `publishRequestId`
-replays the same publication instead of creating a duplicate active version.
+Activation is transactional and retry-safe: `FOR UPDATE` protects the stable
+quiz row, `expectedDraftRevision` prevents lost edits, and the request identity
+replays the same activation instead of creating a duplicate active version.
 At start time, the repository resolves the active version, creates or reuses a
 version-scoped participation, and pins `quizVersionId` through attempt,
 answer, scoring, and result projections. Legacy unversioned rows remain

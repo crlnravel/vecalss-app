@@ -51,7 +51,7 @@ async function attachReadyAssemblyAction(input: { target: AssemblyAttachmentTarg
   await assemblyManagementSession();
   try {
     if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim() || input.targetTestType !== "cbt") {
-      throw new AssemblyValidationError("invalid_mode", "Attachment assembly hanya tersedia untuk Tryout dengan Subtest yang valid.");
+      throw new AssemblyValidationError("invalid_mode", "Penyusunan paket soal hanya tersedia untuk Tryout dengan subtes yang valid.");
     }
     return { ok: true as const, result: await getReadyAssemblyAttachment(input.versionId, input.target, input.targetSubtestCode, input.targetTestType) };
   } catch (error) {

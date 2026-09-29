@@ -88,7 +88,7 @@ function LogoutDialogFooter() {
     <AlertDialogFooter>
       <AlertDialogCancel disabled={pending} type="button">Batal</AlertDialogCancel>
       <AlertDialogAction disabled={pending} type="submit" variant="destructive">
-        {pending ? "Keluar…" : "Ya, keluar"}
+        {pending ? "Keluar dari akun…" : "Keluar dari akun"}
       </AlertDialogAction>
     </AlertDialogFooter>
   );
@@ -99,15 +99,15 @@ function DebugAccountOptionContent({ account, isCurrent }: { account: DebugAccou
 }
 
 function DebugAccountSelection({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccount, selectedAccountId, sessionUserId, setSelectedAccountId, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccount: DebugAccount | null; selectedAccountId: string; sessionUserId: string; setSelectedAccountId: (id: string) => void; switchingAccountId: string | null }) {
-  if (isLoadingDebugAccounts) return <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600"><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memuat akun…</div>;
+  if (isLoadingDebugAccounts) return <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600"><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memuat daftar akun…</div>;
   if (debugAccountsError) return <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{debugAccountsError}</p>;
-  if (!debugAccounts?.length) return <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">Belum ada akun aktif yang bisa dipilih.</p>;
-  return <DropdownMenu><DropdownMenuTrigger aria-label="Pilih Akun" disabled={switchingAccountId !== null} id="debug-account-select" render={<Button className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}>{selectedAccount ? <DebugAccountOptionContent account={selectedAccount} isCurrent={selectedAccount.id === sessionUserId} /> : <span className="text-secondary-500">Pilih akun…</span>}<ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width) min-w-[280px] p-1.5"><DropdownMenuRadioGroup onValueChange={setSelectedAccountId} value={selectedAccountId}>{debugAccounts.map((account) => <DropdownMenuRadioItem className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl py-2.5 pr-8 pl-3" closeOnClick key={account.id} value={account.id}><DebugAccountOptionContent account={account} isCurrent={account.id === sessionUserId} /></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
+  if (!debugAccounts?.length) return <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">Belum ada akun yang bisa dipilih.</p>;
+  return <DropdownMenu><DropdownMenuTrigger aria-label="Pilih akun" disabled={switchingAccountId !== null} id="debug-account-select" render={<Button className="h-auto min-h-14 w-full justify-between gap-3 rounded-2xl border-secondary-900/14 bg-white px-4 py-3 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}>{selectedAccount ? <DebugAccountOptionContent account={selectedAccount} isCurrent={selectedAccount.id === sessionUserId} /> : <span className="text-secondary-500">Pilih akun…</span>}<ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width) min-w-[280px] p-1.5"><DropdownMenuRadioGroup onValueChange={setSelectedAccountId} value={selectedAccountId}>{debugAccounts.map((account) => <DropdownMenuRadioItem className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl py-2.5 pr-8 pl-3" closeOnClick key={account.id} value={account.id}><DebugAccountOptionContent account={account} isCurrent={account.id === sessionUserId} /></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
 }
 
 function DebugAccountSwitchButton({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccountId, sessionUserId, switchAccount, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccountId: string; sessionUserId: string; switchAccount: (id: string) => Promise<void>; switchingAccountId: string | null }) {
   const disabled = !selectedAccountId || selectedAccountId === sessionUserId || switchingAccountId !== null || isLoadingDebugAccounts || Boolean(debugAccountsError) || !debugAccounts?.length;
-  return <Button className="w-full sm:w-auto" disabled={disabled} onClick={() => { if (!disabled) void switchAccount(selectedAccountId); }} type="button" variant="brand">{switchingAccountId !== null ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memproses…</> : "Ganti akun"}</Button>;
+  return <Button className="w-full sm:w-auto" disabled={disabled} onClick={() => { if (!disabled) void switchAccount(selectedAccountId); }} type="button" variant="brand">{switchingAccountId !== null ? <><LoaderCircle className="animate-spin motion-reduce:animate-none" />Mengganti akun…</> : "Ganti akun"}</Button>;
 }
 
 function DebugAccountSwitcherDialog({
@@ -150,7 +150,7 @@ function DebugAccountSwitcherDialog({
         variant="info"
       >
         <DialogHeader>
-          <DialogTitle>Ganti Akun</DialogTitle>
+          <DialogTitle>Ganti akun</DialogTitle>
         </DialogHeader>
 
         <div aria-live="polite" className="min-h-24"><DebugAccountSelection debugAccounts={debugAccounts} debugAccountsError={debugAccountsError} isLoadingDebugAccounts={isLoadingDebugAccounts} selectedAccount={selectedAccount} selectedAccountId={selectedAccountId} sessionUserId={sessionUserId} setSelectedAccountId={setSelectedAccountId} switchingAccountId={switchingAccountId} /></div>
@@ -165,17 +165,11 @@ function DebugAccountSwitcherDialog({
 
 function AccountLogoutDialog({
   audience,
-  isAdmin,
-  isAffiliator,
   isLogoutDialogOpen,
-  isTutor,
   setIsLogoutDialogOpen,
 }: {
   audience: AccountMenuAudience;
-  isAffiliator: boolean;
-  isAdmin: boolean;
   isLogoutDialogOpen: boolean;
-  isTutor: boolean;
   setIsLogoutDialogOpen: (open: boolean) => void;
 }) {
   return (
@@ -185,7 +179,7 @@ function AccountLogoutDialog({
           <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
           <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
           <AlertDialogDescription>
-            Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : isAffiliator ? "melihat konversi" : "belajar"} di dashboard.
+            Kamu perlu masuk kembali untuk melanjutkan.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={logoutAction}>
@@ -241,17 +235,15 @@ function StudentAccountMenu({
       const payload = (await response.json()) as DebugAccountsResponse;
 
       if (!response.ok || !Array.isArray(payload.accounts)) {
-        throw new Error(payload.error ?? "Daftar akun debug belum dapat dimuat.");
+        throw new Error("Daftar akun belum dapat dimuat.");
       }
 
       setDebugAccounts(payload.accounts);
       const currentInList = payload.accounts.find((a) => a.id === session.user.id);
       setSelectedAccountId(currentInList ? currentInList.id : (payload.accounts[0]?.id ?? ""));
-    } catch (error) {
+    } catch {
       setDebugAccountsError(
-        error instanceof Error
-          ? error.message
-          : "Daftar akun debug belum dapat dimuat.",
+        "Daftar akun belum dapat dimuat. Coba lagi.",
       );
     } finally {
       setIsLoadingDebugAccounts(false);
@@ -286,13 +278,13 @@ function StudentAccountMenu({
       const payload = (await response.json()) as DebugSwitchAccountResponse;
 
       if (!response.ok || !payload.destination) {
-        throw new Error(payload.error ?? "Akun belum dapat diganti.");
+        throw new Error("Akun belum dapat diganti.");
       }
 
       window.location.assign(payload.destination);
-    } catch (error) {
+    } catch {
       setDebugAccountsError(
-        error instanceof Error ? error.message : "Akun belum dapat diganti.",
+        "Akun belum dapat diganti. Coba lagi.",
       );
       setSwitchingAccountId(null);
     }
@@ -380,7 +372,7 @@ function StudentAccountMenu({
                 onClick={openDebugSwitcher}
               >
                 <Users />
-                Ganti akun (debug)
+                Ganti akun
               </DropdownMenuItem>
             </>
           ) : null}
@@ -412,10 +404,7 @@ function StudentAccountMenu({
 
       <AccountLogoutDialog
         audience={audience}
-        isAffiliator={isAffiliator}
-        isAdmin={isAdmin}
         isLogoutDialogOpen={isLogoutDialogOpen}
-        isTutor={isTutor}
         setIsLogoutDialogOpen={setIsLogoutDialogOpen}
       />
     </>

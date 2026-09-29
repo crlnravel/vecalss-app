@@ -10,11 +10,9 @@ import {
   WifiHigh,
 } from "@/lib/icons";
 import Link from "next/link";
-import { ChevronLeft } from "@/lib/icons";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import { showToast } from "@/components/ui/toast";
@@ -29,16 +27,16 @@ import { startTryoutAttemptAction } from "@/modules/tryout/participant-actions";
 import { formatSchedule } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
 
 const rules = [
-  { description: "Gunakan koneksi yang stabil. Jawaban tersimpan otomatis dan status penyimpanan akan terlihat selama ujian.", icon: WifiHigh, title: "Koneksi stabil" },
-  { description: "Timer server terus berjalan saat halaman dimuat ulang, ditutup, atau perangkat berpindah aplikasi.", icon: RefreshCw, title: "Waktu terus berjalan" },
-  { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama dan meninjau jawaban sebelum mengumpulkan.", icon: Compass, title: "Ikuti format soal" },
-  { description: "Perpindahan tab, hilang fokus, dan keluar dari layar penuh dicatat sebagai peringatan tanpa penalti skor otomatis.", icon: Eye, title: "Aktivitas layar dicatat" },
+  { description: "Jawabanmu tersimpan otomatis. Status penyimpanan terlihat selama ujian.", icon: WifiHigh, title: "Koneksi stabil" },
+  { description: "Waktu terus berjalan saat kamu memuat ulang atau menutup halaman, atau berpindah aplikasi.", icon: RefreshCw, title: "Waktu terus berjalan" },
+  { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama. Pada CAT, soal yang sudah dilewati tidak bisa dibuka lagi.", icon: Compass, title: "Ikuti format soal" },
+  { description: "Saat kamu berpindah tab, meninggalkan halaman, atau keluar dari layar penuh, sistem mencatat peringatan. Skor tidak otomatis dikurangi.", icon: Eye, title: "Aktivitas layar dicatat" },
 ];
 
 function waitingBlockedReason(assignment: ParticipantTryoutAssignment, beforeWindow: boolean, afterWindow: boolean) {
-  if (assignment.status !== "active") return "Sesi ini tidak lagi tersedia. Kembali ke katalog tryout untuk melihat pilihan lain.";
+  if (assignment.status !== "active") return "Sesi ini tidak lagi tersedia. Kembali ke katalog Tryout untuk melihat pilihan lain.";
   if (beforeWindow) return "Tombol akan aktif saat " + formatSchedule(assignment.availableFrom) + ".";
-  if (afterWindow) return "Sesi ini sudah berakhir. Kembali ke katalog tryout untuk melihat pilihan lain.";
+  if (afterWindow) return "Sesi ini sudah berakhir. Kembali ke katalog Tryout untuk melihat pilihan lain.";
   return null;
 }
 
@@ -46,12 +44,23 @@ function WaitingRoomAttemptState({ assignment, notificationFeed, returnToHref, s
   const attempt = assignment.attempt;
   if (!attempt) return null;
   const resultReady = attempt.status !== "in_progress";
+  const resultReleased = attempt.resultAvailability === "released";
+  const resultMessage = resultReleased
+    ? "Hasilmu sudah tersedia."
+    : attempt.resultAvailability === "processing"
+      ? "Hasil sedang disiapkan. Kamu bisa memeriksa lagi nanti."
+      : assignment.effectiveResultReleasePolicy === "manual"
+        ? "Hasil belum dibuka oleh Kapten. Kamu bisa memeriksa statusnya lagi nanti."
+        : "Hasil belum dibuka. Kamu bisa memeriksa statusnya lagi nanti.";
   const href = buildStudentAttemptHref(attempt.id, resultReady ? { result: true, returnTo: returnToHref, session: assignment.id } : { returnTo: returnToHref, session: assignment.id });
-  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}><BackButton href={returnToHref ?? "/tryout"} label="Kembali ke katalog tryout"><ChevronLeft aria-hidden="true" className="size-5" /></BackButton><div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12"><CheckCircle2 aria-hidden="true" className="mx-auto text-5xl text-primary-700" /><h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1><p className="text-secondary-600">{resultReady ? "Hasilmu siap diperiksa saat kebijakan rilis mengizinkan." : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p><Button className="mx-auto" nativeButton={false} render={<Link href={href} />} variant="brand">{resultReady ? "Lihat hasil" : "Lanjutkan ujian"} <ArrowRight /></Button></div></CourseWorkspaceShell>;
+  const actionLabel = resultReady
+    ? resultReleased ? "Lihat hasil" : "Periksa status hasil"
+    : "Lanjutkan ujian";
+  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}><div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12"><CheckCircle2 aria-hidden="true" className="mx-auto text-5xl text-primary-700" /><h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1><p className="text-secondary-600">{resultReady ? resultMessage : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p><Button className="mx-auto" nativeButton={false} render={<Link href={href} />} variant="brand">{actionLabel} <ArrowRight /></Button></div></CourseWorkspaceShell>;
 }
 
-function WaitingRoomGuide({ assignment, blockedReason, busy, canStart, onStart, tryout }: { assignment: ParticipantTryoutAssignment; blockedReason: string | null; busy: boolean; canStart: boolean; onStart: () => void; tryout: ParticipantTryout; }) {
-  return <><section aria-labelledby="waiting-room-title"><h1 className="max-w-2xl text-balance font-heading text-2xl font-semibold tracking-[-0.035em] sm:text-3xl" id="waiting-room-title">{tryout.title}</h1><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2 sm:gap-8"><div><dt className="text-secondary-500">Mulai</dt><dd className="mt-1 font-semibold text-secondary-900"><time dateTime={new Date(assignment.availableFrom).toISOString()}>{formatSchedule(assignment.availableFrom)}</time></dd></div><div><dt className="text-secondary-500">Batas akhir</dt><dd className="mt-1 font-semibold text-secondary-900"><time dateTime={new Date(assignment.availableUntil).toISOString()}>{formatSchedule(assignment.availableUntil)}</time></dd></div></dl></section><section aria-labelledby="tryout-guide-title"><h2 className="font-heading text-xl font-semibold tracking-[-0.025em]" id="tryout-guide-title">Panduan tryout</h2><ul className="mt-5 divide-y divide-primary-100">{rules.map((rule) => { const Icon = rule.icon; return <li className="flex gap-3 py-4 first:pt-0 last:pb-0" key={rule.title}><Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" /><div><h3 className="font-semibold text-secondary-900">{rule.title}</h3><p className="mt-1 text-sm leading-6 text-secondary-600">{rule.description}</p></div></li>; })}</ul><div className="mt-8 grid gap-3">{blockedReason ? <p className="text-sm leading-6 text-secondary-600" id="start-tryout-help" role="status">{blockedReason}</p> : null}<Button aria-busy={busy} aria-describedby={blockedReason ? "start-tryout-help" : undefined} className="w-full" disabled={!canStart || busy} onClick={onStart} size="lg" variant="brand">{busy ? <><LoaderCircle className="animate-spin" />Menyiapkan…</> : "Mulai"}</Button></div></section></>;
+function WaitingRoomGuide({ assignment, blockedReason, busy, canStart, onStart, showCatalogueLink, tryout }: { assignment: ParticipantTryoutAssignment; blockedReason: string | null; busy: boolean; canStart: boolean; onStart: () => void; showCatalogueLink: boolean; tryout: ParticipantTryout; }) {
+  return <><section aria-labelledby="waiting-room-title"><h1 className="max-w-2xl text-balance font-heading text-2xl font-semibold tracking-[-0.035em] sm:text-3xl" id="waiting-room-title">{tryout.title}</h1><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2 sm:gap-8"><div><dt className="text-secondary-500">Mulai</dt><dd className="mt-1 font-semibold text-secondary-900"><time dateTime={new Date(assignment.availableFrom).toISOString()}>{formatSchedule(assignment.availableFrom)}</time></dd></div><div><dt className="text-secondary-500">Batas akhir</dt><dd className="mt-1 font-semibold text-secondary-900"><time dateTime={new Date(assignment.availableUntil).toISOString()}>{formatSchedule(assignment.availableUntil)}</time></dd></div></dl></section><section aria-labelledby="tryout-guide-title"><h2 className="font-heading text-xl font-semibold tracking-[-0.025em]" id="tryout-guide-title">Panduan tryout</h2><ul className="mt-5 divide-y divide-primary-100">{rules.map((rule) => { const Icon = rule.icon; return <li className="flex gap-3 py-4 first:pt-0 last:pb-0" key={rule.title}><Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" /><div><h3 className="font-semibold text-secondary-900">{rule.title}</h3><p className="mt-1 text-sm leading-6 text-secondary-600">{rule.description}</p></div></li>; })}</ul><div className="mt-8 grid gap-3">{blockedReason ? <p className="text-sm leading-6 text-secondary-600" id="start-tryout-help" role="status">{blockedReason}</p> : null}<Button aria-busy={busy} aria-describedby={blockedReason ? "start-tryout-help" : undefined} className="w-full" disabled={!canStart || busy} onClick={onStart} size="lg" variant="brand">{busy ? <><LoaderCircle className="animate-spin" />Menyiapkan…</> : "Mulai Tryout"}</Button>{showCatalogueLink ? <Button className="w-full" nativeButton={false} render={<Link href="/tryout" />} variant="brandOutline">Kembali ke daftar Tryout <ArrowRight aria-hidden="true" /></Button> : null}</div></section></>;
 }
 
 function ParticipantWaitingRoomModule({
@@ -95,7 +104,7 @@ function ParticipantWaitingRoomModule({
     } catch (startError) {
       unstable_rethrow(startError);
       showToast(
-        startError instanceof Error ? startError.message : "Tryout belum dapat dimulai.",
+        "Tryout belum berhasil dimulai. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
     } finally {
@@ -107,14 +116,7 @@ function ParticipantWaitingRoomModule({
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
-      <BackButton
-        href={returnToHref ?? "/tryout"}
-        label="Kembali ke katalog tryout"
-      >
-        <ChevronLeft aria-hidden="true" className="size-5" />
-      </BackButton>
-
-      <div className="mx-auto grid w-full max-w-3xl gap-8"><WaitingRoomGuide assignment={assignment} blockedReason={blockedReason} busy={busy} canStart={canStart} onStart={() => void handleStart()} tryout={tryout} /></div>
+      <div className="mx-auto grid w-full max-w-3xl gap-8"><WaitingRoomGuide assignment={assignment} blockedReason={blockedReason} busy={busy} canStart={canStart} onStart={() => void handleStart()} showCatalogueLink={assignment.status !== "active" || afterWindow} tryout={tryout} /></div>
     </CourseWorkspaceShell>
   );
 }

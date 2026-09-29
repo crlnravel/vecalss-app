@@ -7,6 +7,8 @@ import {
   AssessmentScoringState,
   ContentStatus,
   DifficultyLevel,
+  MediaAssetState,
+  MediaLibraryScope,
   Prisma,
   QuestionBankPurpose,
   QuestionRevisionProvenance,
@@ -117,7 +119,6 @@ type SaveStandaloneQuizInput = {
   /** The source mode is a command discriminator. Lineage is always read from the database. */
   sourceMode?: "local" | "bank";
   sourceBankId?: string | null;
-  status: "draft" | "published";
   subjectCode: string;
   title: string;
 };
@@ -466,7 +467,7 @@ function assertReadyBankSources(
     })
   ) {
     throw new QuizValidationError(
-      "Quiz hanya dapat memakai soal siap dari satu Bank yang aktif, dengan media siap dan Subtest yang sama.",
+      "Kuis hanya dapat menggunakan soal siap dari satu Bank aktif, dengan media dan subtes yang sama.",
     );
   }
 }
@@ -483,6 +484,7 @@ function toSnapshot(
     })),
     correctChoiceId: correctChoiceIds[0] ?? "",
     correctChoiceIds,
+    difficulty: item.difficulty,
     explanation: item.explanation ?? "",
     explanationMediaAssetId: item.explanationAssetId ?? undefined,
     id: item.id,
@@ -504,6 +506,31 @@ type QuizBankImportSelection = {
   revisionId?: string | null;
 };
 
+type StandaloneQuizBankSnapshotExpectedRevision = {
+  contentDigest?: string | null;
+  questionId: string;
+  revisionId: string;
+};
+
+type StandaloneQuizBankSnapshotImportBase = {
+  bankId: string;
+  editLease: AuthoringEditLease;
+  expectedDraftRevision: number;
+  quizId: string;
+};
+
+type ImportStandaloneQuizBankQuestionSnapshotsInput =
+  | (StandaloneQuizBankSnapshotImportBase & {
+      allInBank: true;
+      expectedSourceRevisions?: never;
+      questionIds?: never;
+    })
+  | (StandaloneQuizBankSnapshotImportBase & {
+      allInBank?: false;
+      expectedSourceRevisions: readonly StandaloneQuizBankSnapshotExpectedRevision[];
+      questionIds: readonly string[];
+    });
+
 type QuizBankSourceRecord = Prisma.QuestionGetPayload<{
   include: typeof quizSourceInclude;
 }>;
@@ -513,7 +540,7 @@ function materializedQuizQuestion(source: QuizBankSourceRecord) {
   if (!revision)
     throw new QuizValidationError("Soal Bank tidak memiliki revisi aktif.");
   if (!source.subtestId)
-    throw new QuizValidationError("Soal Bank tidak memiliki Subtest.");
+    throw new QuizValidationError("Soal Bank tidak memiliki subtes.");
   return {
     difficulty: revision.difficulty,
     explanation: revision.explanation,
@@ -730,18 +757,116 @@ async function readReadyQuizBankSources(
   });
 }
 
+function isAvailableQuizBankSnapshotAsset(
+  assetId: string | null,
+  asset: {
+    libraryScope: MediaLibraryScope;
+    state: MediaAssetState;
+    trashedAt: Date | null;
+  } | null,
+) {
+  return (
+    !assetId ||
+    (asset?.libraryScope === MediaLibraryScope.kapten &&
+      asset.state === MediaAssetState.ready &&
+      asset.trashedAt === null)
+  );
+}
+
+function isEligibleQuizBankSnapshotSource(
+  source: QuizBankSourceRecord,
+  bankId: string,
+  subtestCode: string,
+) {
+  const revision = source.currentRevision;
+  const questionBank = source.questionBank;
+  if (!revision || !questionBank) return false;
+  const options = revision.options;
+  const answerMode = answerModeForQuestionType(revision.questionType);
+  const answerKey = answerMode
+    ? validateAnswerKey(
+        answerMode,
+        options.map((option) => ({
+          id: option.label,
+          isCorrect: option.isCorrect,
+        })),
+      )
+    : null;
+
+  return (
+    source.questionBankId === bankId &&
+    questionBank.purpose === QuestionBankPurpose.quiz &&
+    questionBank.status !== ContentStatus.archived &&
+    source.status === ContentStatus.published &&
+    revision.status === QuestionRevisionStatus.ready &&
+    source.subtest?.code === subtestCode &&
+    revision.stem.trim().length > 0 &&
+    options.length >= 2 &&
+    options.length <= 5 &&
+    answerKey?.ok === true &&
+    isAvailableQuizBankSnapshotAsset(
+      revision.promptAssetId,
+      revision.promptAsset,
+    ) &&
+    isAvailableQuizBankSnapshotAsset(
+      revision.explanationAssetId,
+      revision.explanationAsset,
+    ) &&
+    options.every(
+      (option) =>
+        option.content.trim().length > 0 &&
+        isAvailableQuizBankSnapshotAsset(option.assetId, option.asset),
+    )
+  );
+}
+
+function detachedQuizBankQuestionSnapshot(
+  source: QuizBankSourceRecord,
+): QuizQuestionSnapshot {
+  const revision = source.currentRevision;
+  if (!revision)
+    throw new QuizValidationError("Soal Bank Soal tidak lagi tersedia.");
+
+  const choices = revision.options.map((option) => ({
+    id: crypto.randomUUID(),
+    mediaAssetId: option.assetId ?? undefined,
+    text: option.content,
+  }));
+  const correctChoiceIds = choices.flatMap((choice, index) =>
+    revision.options[index]?.isCorrect ? [choice.id] : [],
+  );
+  const answerMode = answerModeForQuestionType(revision.questionType);
+  if (!answerMode || !correctChoiceIds.length)
+    throw new QuizValidationError("Kunci jawaban soal Bank Soal tidak valid.");
+
+  return {
+    choices,
+    correctChoiceId: correctChoiceIds[0] ?? "",
+    correctChoiceIds,
+    difficulty: revision.difficulty,
+    explanation: revision.explanation ?? "",
+    explanationMediaAssetId: revision.explanationAssetId ?? undefined,
+    id: crypto.randomUUID(),
+    origin: "local",
+    prompt: revision.stem,
+    promptMediaAssetId: revision.promptAssetId ?? undefined,
+    questionType: answerMode,
+  };
+}
+
 function snapshotsFromAssembly(
   materialization: KuisAssemblyMaterialization,
 ): QuizQuestionSnapshot[] {
   return materialization.items.map((item, index) => ({
     choices: item.options.map((option) => ({
-      assetId: option.assetId ?? undefined,
       id: option.choiceKey,
+      mediaAssetId: option.assetId ?? undefined,
       text: option.content,
     })),
     correctChoiceId:
       item.options.find((option) => option.isCorrect)?.choiceKey ?? "",
     correctChoiceIds: correctChoiceIdsFromOptions(item.options),
+    difficulty: item.difficulty,
     explanation: item.explanation ?? "",
     explanationMediaAssetId: item.explanationAssetId ?? undefined,
     id: `assembly-${materialization.assemblyPackageVersionId}-${index + 1}`,
@@ -872,6 +997,7 @@ function toKaptenQuiz(
     formBehavior: record.formBehavior,
     href: `/mentor/quiz/${record.id}`,
     id: record.id,
+    isHidden: record.isHidden,
     opensAt: record.opensAt?.toISOString().slice(0, 16),
     primaryMetric: `${record.items.length} soal`,
     progress: record.items.length ? 100 : 0,
@@ -886,11 +1012,9 @@ function toKaptenQuiz(
     sourceBankId: relationRecord.sourceBankId ?? undefined,
     sourceMode: sourceModeForQuiz(record),
     status:
-      record.status === ContentStatus.published
-        ? "published"
-        : record.status === ContentStatus.archived
-          ? "archived"
-          : "draft",
+      record.status === ContentStatus.archived
+        ? "archived"
+        : "published",
     subjectCode: record.subtest.code,
     subjectName: subject?.name ?? record.subtest.code,
     title: record.title,
@@ -939,9 +1063,7 @@ async function findStandaloneQuizForRuntime(
   const version = preferredVersionId
     ? record.versions.find((candidate) => candidate.id === preferredVersionId)
     : activeVersionFor(record);
-  return version
-    ? projectStandaloneQuizVersion(record, version)
-    : (record as unknown as StableQuizRecord);
+  return version ? projectStandaloneQuizVersion(record, version) : null;
 }
 
 async function findManyStandaloneQuizzesForRuntime(
@@ -963,25 +1085,25 @@ async function findManyStandaloneQuizzesForRuntime(
     include: versionedQuizInclude,
     orderBy,
   });
-  return records.map((record) => {
+  return records.flatMap((record) => {
     const active = activeVersionFor(record);
-    return active
-      ? projectStandaloneQuizVersion(record, active)
-      : (record as unknown as StableQuizRecord);
+    return active ? [projectStandaloneQuizVersion(record, active)] : [];
   });
 }
 
 function validateForPublication(
-  input: SaveStandaloneQuizInput,
+  input: Pick<SaveStandaloneQuizInput, "questions" | "reviewTiming" | "title"> & {
+    assemblyVersionId?: string | null;
+  },
   opensAt: Date | null,
   closesAt: Date | null,
   options: { materializedAssembly?: boolean } = {},
 ) {
   if (!input.title.trim())
-    throw new QuizValidationError("Isi judul quiz sebelum menerbitkan.");
+    throw new QuizValidationError("Isi judul Kuis sebelum menyimpan versi aktif.");
   if (!input.questions.length && !input.assemblyVersionId)
     throw new QuizValidationError(
-      "Tambahkan minimal satu soal sebelum menerbitkan.",
+      "Tambahkan minimal satu soal agar siswa bisa mulai mengerjakan.",
     );
   if (
     input.assemblyVersionId &&
@@ -1015,13 +1137,27 @@ function validateForPublication(
       );
     })
   )
-    throw new QuizValidationError("Lengkapi semua soal sebelum menerbitkan.");
+    throw new QuizValidationError("Lengkapi semua soal agar Kuis bisa dikerjakan.");
+  validateQuizSchedule(input.reviewTiming, opensAt, closesAt);
+}
+
+function validateQuizSchedule(
+  reviewTiming: QuizReviewTiming | undefined,
+  opensAt: Date | null,
+  closesAt: Date | null,
+) {
   if (opensAt && closesAt && closesAt <= opensAt)
     throw new QuizValidationError("Waktu tutup harus setelah waktu buka.");
-  if (input.reviewTiming === "after_close" && !closesAt)
+  if (reviewTiming === "after_close" && !closesAt)
     throw new QuizValidationError(
       "Review setelah quiz ditutup memerlukan waktu tutup.",
     );
+}
+
+function assertStandaloneQuizNotArchived(quiz: { status: ContentStatus }) {
+  if (quiz.status === ContentStatus.archived) {
+    throw new QuizValidationError("Kuis yang diarsipkan tidak dapat diubah.");
+  }
 }
 
 function sourceModeForQuiz(record: {
@@ -1035,6 +1171,7 @@ function sourceModeForQuiz(record: {
 function hasSubmittedSourceFields(question: QuizQuestionSnapshot) {
   return (
     question.origin === "bank" ||
+    Boolean(question.sourceUpdate) ||
     Boolean(
       question.sourceContentDigest ||
       question.sourceQuestionId ||
@@ -1066,6 +1203,68 @@ function answerModeForSnapshot(question: QuizQuestionSnapshot) {
   return answerModeForQuestionType(question.questionType) ?? "single_choice";
 }
 
+function difficultyForSnapshot(question: QuizQuestionSnapshot) {
+  const difficulty = question.difficulty ?? DifficultyLevel.medium;
+  if (Object.values(DifficultyLevel).includes(difficulty as DifficultyLevel)) {
+    return difficulty as DifficultyLevel;
+  }
+  throw new QuizValidationError("Pilih tingkat kesulitan untuk setiap soal.");
+}
+
+function quizQuestionMediaAssetIds(
+  questions: readonly QuizQuestionSnapshot[],
+) {
+  return [
+    ...new Set(
+      questions
+        .flatMap((question) => [
+          question.promptMediaAssetId,
+          question.explanationMediaAssetId,
+          ...question.choices.map((choice) => choice.mediaAssetId),
+        ])
+        .filter((assetId): assetId is string => Boolean(assetId)),
+    ),
+  ].sort();
+}
+
+async function lockAndValidateQuizQuestionMedia(
+  tx: Prisma.TransactionClient,
+  questions: readonly QuizQuestionSnapshot[],
+) {
+  const assetIds = quizQuestionMediaAssetIds(questions);
+  if (!assetIds.length) return;
+  if (assetIds.some((assetId) => !isUuid(assetId))) {
+    throw new QuizValidationError(
+      "Ada gambar yang tidak lagi tersedia. Ganti atau lepaskan gambar tersebut, lalu simpan lagi.",
+    );
+  }
+
+  // Media trash takes FOR UPDATE on these same rows. Taking shared locks in
+  // stable order serializes save/publish against trash through transaction end.
+  await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM assets
+    WHERE id = ANY(${assetIds}::uuid[])
+      AND library_scope = ${MediaLibraryScope.kapten}
+    ORDER BY id
+    FOR SHARE
+  `;
+  const readyAssets = await tx.asset.findMany({
+    where: {
+      id: { in: assetIds },
+      libraryScope: MediaLibraryScope.kapten,
+      state: MediaAssetState.ready,
+      trashedAt: null,
+    },
+    select: { id: true },
+  });
+  if (readyAssets.length !== assetIds.length) {
+    throw new QuizValidationError(
+      "Ada gambar yang sudah tidak tersedia. Ganti atau lepaskan gambar tersebut, lalu simpan lagi.",
+    );
+  }
+}
+
 function snapshotMatchesStoredBankItem(
   submitted: QuizQuestionSnapshot,
   persisted: Prisma.StandaloneQuizItemGetPayload<{
@@ -1081,6 +1280,8 @@ function snapshotMatchesStoredBankItem(
     submitted.explanation === persistedSnapshot.explanation &&
     submitted.explanationMediaAssetId ===
       persistedSnapshot.explanationMediaAssetId &&
+    (submitted.difficulty === undefined ||
+      difficultyForSnapshot(submitted) === persistedSnapshot.difficulty) &&
     answerModeForSnapshot(submitted) ===
       answerModeForSnapshot(persistedSnapshot) &&
     submitted.choices.length === persistedSnapshot.choices.length &&
@@ -1184,7 +1385,7 @@ async function writeStandaloneQuizItems(
           );
         const item = await tx.standaloneQuizItem.create({
           data: {
-            difficulty: DifficultyLevel.medium,
+            difficulty: difficultyForSnapshot(submitted),
             explanation: submitted.explanation || null,
             explanationAssetId: submitted.explanationMediaAssetId || null,
             prompt: submitted.prompt,
@@ -1252,7 +1453,7 @@ async function writeStandaloneQuizItems(
     }
     if (existing.subtestId !== input.requestedSubtestId)
       throw new QuizValidationError(
-        "Semua soal Bank dalam Kuis harus memakai Subtest yang sama.",
+        "Semua soal Bank dalam Kuis harus memakai subtes yang sama.",
       );
     if (!snapshotMatchesStoredBankItem(submitted, existing))
       throw new QuizValidationError(
@@ -1365,7 +1566,7 @@ async function writeStandaloneQuizVersionItems(
           );
         const item = await tx.standaloneQuizItem.create({
           data: {
-            difficulty: DifficultyLevel.medium,
+            difficulty: difficultyForSnapshot(submitted),
             explanation: submitted.explanation || null,
             explanationAssetId: submitted.explanationMediaAssetId || null,
             prompt: submitted.prompt,
@@ -1430,7 +1631,7 @@ async function writeStandaloneQuizVersionItems(
       }
       if (existing.subtestId !== input.requestedSubtestId)
         throw new QuizValidationError(
-          "Semua soal Bank dalam Kuis harus memakai Subtest yang sama.",
+          "Semua soal Bank dalam Kuis harus memakai subtes yang sama.",
         );
       if (!snapshotMatchesStoredBankItem(submitted, existing))
         throw new QuizValidationError(
@@ -1729,6 +1930,7 @@ function localSnapshotsFromVersion(
     ...question,
     id: question.id,
     origin: "local" as const,
+    sourceUpdate: undefined,
     sourceContentDigest: undefined,
     sourceQuestionId: undefined,
     sourceQuestionRevisionId: undefined,
@@ -1796,7 +1998,7 @@ function versionedQuizPolicyData(
     retryDelaySeconds: policy.retryDelaySeconds ?? null,
     reviewTiming: policy.reviewTiming ?? "immediate",
     scorePolicy: policy.scorePolicy ?? "latest",
-    title: input.title.trim() || "Draft Quiz Baru",
+    title: input.title.trim() || "Kuis Baru",
   } as const;
 }
 
@@ -1807,12 +2009,13 @@ async function saveStandaloneQuizVersioned(
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka");
   const closesAt = parseOptionalDate(input.closesAt, "Waktu tutup");
   const policy = normalizeQuizPolicy(input);
+  validateQuizSchedule(policy.reviewTiming, opensAt, closesAt);
   if (
     input.publishRequestId !== undefined &&
     input.publishRequestId !== null &&
     !isUuid(input.publishRequestId)
   ) {
-    throw new QuizValidationError("Permintaan terbit Kuis tidak valid.");
+    throw new QuizValidationError("Kuis belum dapat diaktifkan. Muat ulang halaman lalu coba lagi.");
   }
   return prisma.$transaction(async (tx) => {
     let record: VersionedQuizRecord | null = null;
@@ -1838,13 +2041,14 @@ async function saveStandaloneQuizVersioned(
         throw new QuizValidationError(
           "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
         );
+      assertStandaloneQuizNotArchived(record);
     }
 
     const requestedSubtest = await tx.subtest.findUnique({
       where: { code: input.subjectCode },
     });
     if (!requestedSubtest)
-      throw new QuizValidationError("Subject quiz tidak valid.");
+      throw new QuizValidationError("Subtes Kuis tidak valid.");
     if (input.assemblyVersionId)
       throw new QuizValidationError(
         "Gunakan perintah attachment khusus untuk mengikat assembly Kuis.",
@@ -1857,11 +2061,11 @@ async function saveStandaloneQuizVersioned(
       throw new QuizValidationError("Mode sumber Kuis tidak valid.");
     const active = record ? activeVersionFor(record) : null;
     const draft = record ? draftVersionFor(record) : null;
-    // A first publication still needs the existing validation gate. Once an
-    // active snapshot exists, a normal mentor save only updates the mutable
-    // draft; the next student start lazily activates it if the assessment
-    // definition actually changed.
-    const shouldPublishImmediately = input.status === "published" && !active;
+    // The stable quiz is always published. An initial assessment becomes
+    // student-ready once it has a complete version; incomplete work remains
+    // in an internal version draft. After the first active version, edits are
+    // automatically versioned and become active at the next student start.
+    let shouldPublishImmediately = false;
     const currentVersion = draft ?? active;
     const currentMode = sourceModeForQuiz(currentVersion ?? record ?? {});
     if (record) {
@@ -1888,7 +2092,7 @@ async function saveStandaloneQuizVersioned(
         );
       if (requestedMode === "bank" && record.subtestId !== requestedSubtest.id)
         throw new QuizValidationError(
-          "Subtest Kuis Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
+          "Subtes Kuis pada Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
         );
     } else if (requestedMode === "bank" || input.sourceBankId) {
       throw new QuizValidationError(
@@ -1903,12 +2107,18 @@ async function saveStandaloneQuizVersioned(
           record?.sourceBankId ??
           null)
         : null;
-    if (shouldPublishImmediately) {
-      validateForPublication(
-        { ...input, assemblyVersionId: undefined, questions: input.questions },
-        opensAt,
-        closesAt,
-      );
+    await lockAndValidateQuizQuestionMedia(tx, input.questions);
+    if (!active && input.questions.length > 0) {
+      try {
+        validateForPublication(
+          { ...input, assemblyVersionId: undefined, questions: input.questions },
+          opensAt,
+          closesAt,
+        );
+        shouldPublishImmediately = true;
+      } catch (error) {
+        if (!(error instanceof QuizValidationError)) throw error;
+      }
     }
 
     const durationSeconds =
@@ -1936,10 +2146,7 @@ async function saveStandaloneQuizVersioned(
           opensAt,
           slug: `${slugify(metadata.title)}-${crypto.randomUUID().slice(0, 8)}`,
           sourceBankId: null,
-          status:
-            input.status === "published"
-              ? ContentStatus.published
-              : ContentStatus.draft,
+          status: ContentStatus.published,
           subtestId: requestedSubtest.id,
           title: metadata.title,
         },
@@ -1957,7 +2164,7 @@ async function saveStandaloneQuizVersioned(
       )
     ) {
       throw new QuizValidationError(
-        "Draf Kuis telah berubah di tab lain. Muat ulang sebelum menyimpan.",
+        "Versi Kuis telah berubah di tab lain. Muat ulang sebelum menyimpan.",
       );
     }
     const shouldPublish = shouldPublishImmediately;
@@ -2110,10 +2317,7 @@ async function saveStandaloneQuizVersioned(
           opensAt,
           revision: { increment: 1 },
           sourceBankId,
-          status:
-            input.status === "published"
-              ? ContentStatus.published
-              : ContentStatus.draft,
+          status: ContentStatus.published,
           subtestId: requestedSubtest.id,
           title: metadata.title,
         },
@@ -2142,6 +2346,7 @@ async function saveStandaloneQuiz(
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka");
   const closesAt = parseOptionalDate(input.closesAt, "Waktu tutup");
   const policy = normalizeQuizPolicy(input);
+  validateQuizSchedule(policy.reviewTiming, opensAt, closesAt);
   return prisma.$transaction(async (tx) => {
     let id = input.id;
     let current: Prisma.StandaloneQuizGetPayload<{
@@ -2177,6 +2382,7 @@ async function saveStandaloneQuiz(
         throw new QuizValidationError(
           "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
         );
+      assertStandaloneQuizNotArchived(current);
       if (current.participations.length)
         throw new QuizValidationError(
           "Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.",
@@ -2187,7 +2393,7 @@ async function saveStandaloneQuiz(
       where: { code: input.subjectCode },
     });
     if (!requestedSubtest)
-      throw new QuizValidationError("Subject quiz tidak valid.");
+      throw new QuizValidationError("Subtes Kuis tidak valid.");
     const requestedMode =
       input.sourceMode ??
       (input.sourceBankId ? "bank" : sourceModeForQuiz(current ?? {}));
@@ -2221,14 +2427,15 @@ async function saveStandaloneQuiz(
         );
       if (requestedMode === "bank" && current.subtestId !== requestedSubtest.id)
         throw new QuizValidationError(
-          "Subtest Kuis Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
+          "Subtes Kuis pada Bank Soal tidak dapat diubah tanpa mengimpor ulang soal.",
         );
     } else if (requestedMode === "bank" || input.sourceBankId) {
       throw new QuizValidationError(
         "Buat Kuis terlebih dahulu, lalu impor soal dari Bank Soal Kuis.",
       );
     }
-    if (input.status === "published") {
+    await lockAndValidateQuizQuestionMedia(tx, input.questions);
+    if (input.questions.length > 0) {
       validateForPublication(
         { ...input, assemblyVersionId: undefined, questions: input.questions },
         opensAt,
@@ -2256,12 +2463,9 @@ async function saveStandaloneQuiz(
           opensAt,
           slug: `${slugify(input.title)}-${crypto.randomUUID().slice(0, 8)}`,
           sourceBankId: null,
-          status:
-            input.status === "published"
-              ? ContentStatus.published
-              : ContentStatus.draft,
+          status: ContentStatus.published,
           subtestId: requestedSubtest.id,
-          title: input.title.trim() || "Draft Quiz Baru",
+          title: input.title.trim() || "Kuis Baru",
         },
       });
       id = created.id;
@@ -2275,12 +2479,9 @@ async function saveStandaloneQuiz(
           durationSeconds,
           opensAt,
           sourceBankId: current?.sourceBankId ?? null,
-          status:
-            input.status === "published"
-              ? ContentStatus.published
-              : ContentStatus.draft,
+          status: ContentStatus.published,
           subtestId: requestedSubtest.id,
-          title: input.title.trim() || "Draft Quiz Baru",
+          title: input.title.trim() || "Kuis Baru",
           revision: { increment: 1 },
         },
       });
@@ -2332,6 +2533,7 @@ async function transitionStandaloneQuizSourceModeVersioned(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
 
     const active = activeVersionFor(record);
     const current = draftVersionFor(record) ?? active;
@@ -2346,7 +2548,7 @@ async function transitionStandaloneQuizSourceModeVersioned(
       !draftRevisionMatches(input.expectedDraftRevision, draft.draftRevision)
     ) {
       throw new QuizValidationError(
-        "Draf Kuis telah berubah di tab lain. Muat ulang sebelum mengganti sumber.",
+        "Versi Kuis telah berubah di tab lain. Muat ulang sebelum mengganti sumber.",
       );
     }
     const requestedSubtest = input.subtestCode ?? record.subtest.code;
@@ -2458,6 +2660,7 @@ async function transitionStandaloneQuizSourceMode(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     if (record.participations.length)
       throw new QuizValidationError(
         "Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.",
@@ -2571,6 +2774,233 @@ async function importStandaloneQuizBankQuestions(
   );
 }
 
+/** Read and detach source content without persisting quiz or bank changes. */
+async function importStandaloneQuizBankQuestionSnapshots(
+  input: ImportStandaloneQuizBankQuestionSnapshotsInput,
+  tutorId: string,
+) {
+  if (
+    !input ||
+    typeof input !== "object" ||
+    !isUuid(input.quizId) ||
+    !isUuid(input.bankId) ||
+    !Number.isSafeInteger(input.expectedDraftRevision) ||
+    input.expectedDraftRevision < 0
+  ) {
+    throw new QuizValidationError("Permintaan impor soal tidak valid.");
+  }
+  if (!isStandaloneQuizVersioningCutoverEnabled()) {
+    throw new QuizValidationError(
+      "Impor soal belum tersedia untuk Kuis ini. Muat ulang halaman lalu coba lagi.",
+    );
+  }
+
+  let questionIds: string[] | null = null;
+  const expectedSourceRevisions = new Map<
+    string,
+    StandaloneQuizBankSnapshotExpectedRevision
+  >();
+
+  if (input.allInBank === true) {
+    if (
+      input.questionIds !== undefined ||
+      input.expectedSourceRevisions !== undefined
+    ) {
+      throw new QuizValidationError("Permintaan impor soal tidak valid.");
+    }
+  } else {
+    if (
+      input.allInBank !== undefined &&
+      input.allInBank !== false
+    ) {
+      throw new QuizValidationError("Permintaan impor soal tidak valid.");
+    }
+    if (
+      !Array.isArray(input.questionIds) ||
+      !Array.isArray(input.expectedSourceRevisions) ||
+      input.questionIds.length === 0 ||
+      input.questionIds.some((questionId) => !isUuid(questionId)) ||
+      new Set(input.questionIds).size !== input.questionIds.length
+    ) {
+      throw new QuizValidationError("Pilih soal yang akan ditambahkan.");
+    }
+
+    questionIds = [...input.questionIds];
+    for (const expected of input.expectedSourceRevisions) {
+      if (
+        !expected ||
+        typeof expected !== "object" ||
+        !isUuid(expected.questionId) ||
+        !isUuid(expected.revisionId) ||
+        (expected.contentDigest !== undefined &&
+          expected.contentDigest !== null &&
+          (typeof expected.contentDigest !== "string" ||
+            !expected.contentDigest.trim())) ||
+        expectedSourceRevisions.has(expected.questionId)
+      ) {
+        throw new QuizValidationError(
+          "Daftar soal yang dipilih tidak valid. Muat ulang Bank Soal lalu coba lagi.",
+        );
+      }
+      expectedSourceRevisions.set(expected.questionId, expected);
+    }
+    if (
+      expectedSourceRevisions.size !== questionIds.length ||
+      questionIds.some((questionId) => !expectedSourceRevisions.has(questionId))
+    ) {
+      throw new QuizValidationError(
+        "Daftar soal yang dipilih tidak lengkap. Muat ulang Bank Soal lalu coba lagi.",
+      );
+    }
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      // The quiz draft, bank eligibility, question membership, revisions,
+      // options, and media below all share this transaction snapshot.
+      await assertAuthoringEditLease(
+        tx,
+        { resourceId: input.quizId, resourceType: "quiz" },
+        tutorId,
+        input.editLease,
+      );
+
+      const quiz = await tx.standaloneQuiz.findFirst({
+        where: { id: input.quizId, createdByUserId: tutorId },
+        select: {
+          assemblyPackageVersionId: true,
+          status: true,
+          subtest: { select: { code: true } },
+          versions: {
+            select: {
+              assemblyPackageVersionId: true,
+              draftRevision: true,
+              state: true,
+            },
+          },
+        },
+      });
+      if (!quiz)
+        throw new QuizValidationError(
+          "Kuis tidak ditemukan atau Anda tidak memiliki akses.",
+        );
+      if (quiz.status === ContentStatus.archived)
+        throw new QuizValidationError("Kuis yang diarsipkan tidak dapat diubah.");
+
+      const draftVersion = quiz.versions.find(
+        (version) => version.state === StandaloneQuizVersionState.draft,
+      );
+      const activeVersion = quiz.versions.find(
+        (version) => version.state === StandaloneQuizVersionState.active,
+      );
+      if (
+        !draftVersion ||
+        draftVersion.draftRevision === null ||
+        draftVersion.draftRevision !== input.expectedDraftRevision
+      ) {
+        throw new QuizValidationError(
+          "Versi Kuis sudah berubah. Muat ulang Kuis sebelum mengimpor soal.",
+        );
+      }
+      if (
+        quiz.assemblyPackageVersionId ||
+        draftVersion.assemblyPackageVersionId ||
+        activeVersion?.assemblyPackageVersionId
+      ) {
+        throw new QuizValidationError(
+          "Kuis yang terikat paket soal tidak dapat menerima impor langsung.",
+        );
+      }
+
+      const bank = await tx.questionBank.findUnique({
+        where: { id: input.bankId },
+        select: { purpose: true, status: true },
+      });
+      if (
+        !bank ||
+        bank.purpose !== QuestionBankPurpose.quiz ||
+        bank.status === ContentStatus.archived
+      ) {
+        throw new QuizValidationError(
+          "Bank Soal Kuis tidak tersedia. Pilih Bank Soal yang masih aktif.",
+        );
+      }
+
+      const sources = await tx.question.findMany({
+        where: {
+          questionBankId: input.bankId,
+          ...(questionIds ? { id: { in: questionIds } } : {}),
+          subtest: { code: quiz.subtest.code },
+        },
+        include: quizSourceInclude,
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+
+      let eligibleSources: QuizBankSourceRecord[];
+      if (questionIds) {
+        if (sources.length !== questionIds.length) {
+          throw new QuizValidationError(
+            "Sebagian soal tidak lagi tersedia atau tidak cocok dengan Kuis.",
+          );
+        }
+
+        const sourceById = new Map(
+          sources.map((source) => [source.id, source]),
+        );
+        for (const questionId of questionIds) {
+          const expected = expectedSourceRevisions.get(questionId);
+          const source = sourceById.get(questionId);
+          if (
+            !expected ||
+            !source?.currentRevision ||
+            expected.revisionId !== source.currentRevision.id ||
+            (expected.contentDigest != null &&
+              expected.contentDigest !== source.currentRevision.contentDigest)
+          ) {
+            throw new QuizValidationError(
+              "Bank Soal sudah berubah. Muat ulang daftar soal sebelum mengimpornya.",
+            );
+          }
+        }
+
+        if (
+          sources.some(
+            (source) =>
+              !isEligibleQuizBankSnapshotSource(
+                source,
+                input.bankId,
+                quiz.subtest.code,
+              ),
+          )
+        ) {
+          throw new QuizValidationError(
+            "Sebagian soal tidak lagi tersedia atau belum siap.",
+          );
+        }
+        eligibleSources = sources;
+      } else {
+        eligibleSources = sources.filter((source) =>
+          isEligibleQuizBankSnapshotSource(
+            source,
+            input.bankId,
+            quiz.subtest.code,
+          ),
+        );
+      }
+
+      const snapshots = eligibleSources.map(
+        detachedQuizBankQuestionSnapshot,
+      );
+      return { importedCount: snapshots.length, snapshots };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      maxWait: 5_000,
+      timeout: 30_000,
+    },
+  );
+}
+
 type AcceptStandaloneQuizQuestionUpdateInput = {
   editLease?: AuthoringEditLease;
   expectedCurrentContentDigest: string;
@@ -2612,6 +3042,7 @@ async function acceptStandaloneQuizQuestionUpdateVersioned(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     // Revisions are written to the mutable draft. An active version remains
     // immutable and is only replaced by lazy activation at the next student
     // start, so a published quiz can be edited without duplicating it.
@@ -2748,7 +3179,7 @@ async function acceptStandaloneQuizQuestionUpdateVersioned(
     });
     const savedDraft = draftVersionFor(saved);
     if (!savedDraft)
-      throw new QuizValidationError("Draf Kuis tidak dapat dimuat ulang.");
+      throw new QuizValidationError("Versi Kuis tidak dapat dimuat ulang.");
     return {
       quiz: toKaptenQuizVersion(saved, savedDraft),
       questions: savedDraft.items.map(toSnapshot),
@@ -2794,11 +3225,7 @@ async function acceptStandaloneQuizQuestionUpdate(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
-    if (record.status !== ContentStatus.draft) {
-      throw new QuizValidationError(
-        "Jadikan Kuis draf sebelum menerima revisi Bank Soal agar rilis yang sudah terbit tetap tidak berubah.",
-      );
-    }
+    assertStandaloneQuizNotArchived(record);
     if (record.participations.length)
       throw new QuizValidationError(
         "Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.",
@@ -2985,6 +3412,7 @@ async function attachStandaloneQuizAssemblyVersioned(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     const materialization = await resolveReadyAssemblyForKuis(
       tx,
       versionId,
@@ -3096,6 +3524,7 @@ async function attachStandaloneQuizAssembly(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     if (record.participations.length)
       throw new QuizValidationError(
         "Quiz yang sudah dimulai siswa tidak dapat diubah. Gunakan Duplicate.",
@@ -3177,6 +3606,7 @@ async function detachStandaloneQuizAssemblyVersioned(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     const active = activeVersionFor(record);
     const draft = await ensureStandaloneQuizDraftItems(
       tx,
@@ -3279,6 +3709,7 @@ async function detachStandaloneQuizAssembly(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
+    assertStandaloneQuizNotArchived(record);
     const participationCount = await tx.standaloneQuizParticipation.count({
       where: { quizId },
     });
@@ -3532,232 +3963,9 @@ async function getMentorStandaloneQuizSubmission(
   };
 }
 
-async function bulkUpdateStandaloneQuizLifecycleVersioned(
-  ids: string[],
-  tutorId: string,
-  operation: "publish" | "unpublish",
-) {
-  return prisma.$transaction(async (tx) => {
-    const uniqueIds = [...new Set(ids)];
-    const sortedIds = [...uniqueIds].sort();
-    return withTransientAuthoringEditLeases(
-      tx,
-      sortedIds.map((resourceId) => ({ resourceId, resourceType: "quiz" as const })),
-      tutorId,
-      async () => {
-        for (const id of sortedIds) {
-          await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
-        }
-        const records = await tx.standaloneQuiz.findMany({
-          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-          include: versionedQuizInclude,
-        });
-        if (records.length !== uniqueIds.length)
-          throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
-
-    if (operation === "publish") {
-      for (const record of records) {
-        const active = activeVersionFor(record);
-        // Existing quizzes are already serving an immutable version. A bulk
-        // "publish" only makes the stable quiz available; any accumulated
-        // assessment edits still wait for the next student start to become a
-        // new snapshot.
-        if (active) continue;
-        const draft = draftVersionFor(record);
-        const version =
-          draft ?? active ?? (await ensureStandaloneQuizDraft(tx, record));
-        let publicationQuestions = version.items.map(toSnapshot);
-        if (version.assemblyPackageVersionId) {
-          try {
-            const materialization = await resolveReadyAssemblyForKuis(
-              tx,
-              version.assemblyPackageVersionId,
-              record.subtestId,
-              {
-                expectedDefinitionDigest: version.assemblyDefinitionDigest,
-                expectedMode: version.assemblyMode as
-                  | "fixed_set"
-                  | "random_pool"
-                  | "blueprint"
-                  | null,
-                seed: version.assemblySeed,
-              },
-            );
-            assertAssemblyItemsMatch(version.items, materialization);
-            publicationQuestions = snapshotsFromAssembly(materialization);
-          } catch (error) {
-            if (error instanceof AssemblyValidationError)
-              throw new QuizValidationError(error.message);
-            throw error;
-          }
-        }
-        validateForPublication(
-          {
-            assemblyVersionId: version.assemblyPackageVersionId ?? undefined,
-            closesAt: version.closesAt?.toISOString() ?? "",
-            description: version.description ?? "",
-            id: record.id,
-            opensAt: version.opensAt?.toISOString() ?? "",
-            questions: publicationQuestions,
-            sourceBankId: version.sourceBankId ?? undefined,
-            status: "published",
-            subjectCode: record.subtest.code,
-            title: version.title,
-          },
-          version.opensAt,
-          version.closesAt,
-          { materializedAssembly: Boolean(version.assemblyPackageVersionId) },
-        );
-
-        if (version.state === StandaloneQuizVersionState.draft) {
-          await tx.standaloneQuizVersion.update({
-            where: { id: version.id },
-            data: {
-              baseVersionId: version.baseVersionId,
-              draftRevision: null,
-              publishedAt: new Date(),
-              publishedByUserId: tutorId,
-              publishRequestId: crypto.randomUUID(),
-              state: StandaloneQuizVersionState.active,
-              versionNo:
-                version.versionNo ??
-                nextStandaloneQuizVersionNo(
-                  record.versions.map((candidate) => candidate.versionNo),
-                ),
-            },
-          });
-        }
-        await tx.standaloneQuiz.update({
-          where: { id: record.id },
-          data: {
-            ...versionFieldsFrom(version),
-            revision: { increment: 1 },
-            status: ContentStatus.published,
-          },
-        });
-      }
-      const alreadyVersionedIds = records
-        .filter((record) => activeVersionFor(record))
-        .map((record) => record.id);
-      if (alreadyVersionedIds.length) {
-        await tx.standaloneQuiz.updateMany({
-          where: { id: { in: alreadyVersionedIds }, createdByUserId: tutorId },
-          data: { revision: { increment: 1 }, status: ContentStatus.published },
-        });
-      }
-    } else {
-      await tx.standaloneQuiz.updateMany({
-        where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-        data: { revision: { increment: 1 }, status: ContentStatus.draft },
-      });
-    }
-        return {
-          ids,
-          status:
-            operation === "publish" ? ("published" as const) : ("draft" as const),
-        };
-      },
-    );
-  });
-}
-
-async function bulkUpdateStandaloneQuizLifecycle(
-  ids: string[],
-  tutorId: string,
-  operation: "publish" | "unpublish",
-) {
-  if (isStandaloneQuizVersioningCutoverEnabled())
-    return bulkUpdateStandaloneQuizLifecycleVersioned(ids, tutorId, operation);
-  return prisma.$transaction(async (tx) => {
-    const uniqueIds = [...new Set(ids)];
-    const sortedIds = [...uniqueIds].sort();
-    return withTransientAuthoringEditLeases(
-      tx,
-      sortedIds.map((resourceId) => ({ resourceId, resourceType: "quiz" as const })),
-      tutorId,
-      async () => {
-        for (const id of sortedIds) {
-          await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
-        }
-        const records = await tx.standaloneQuiz.findMany({
-          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-          include: quizInclude,
-        });
-        if (records.length !== uniqueIds.length)
-          throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
-        if (operation === "publish") {
-          for (const record of records) {
-          let publicationQuestions = record.items.map(toSnapshot);
-          if (record.assemblyPackageVersionId) {
-            try {
-              const materialization = await resolveReadyAssemblyForKuis(
-                tx,
-                record.assemblyPackageVersionId,
-                record.subtestId,
-                {
-                  expectedDefinitionDigest: record.assemblyDefinitionDigest,
-                  expectedMode: record.assemblyMode as
-                    | "fixed_set"
-                    | "random_pool"
-                    | "blueprint"
-                    | null,
-                  seed: record.assemblySeed,
-                },
-              );
-              assertAssemblyItemsMatch(record.items, materialization);
-              publicationQuestions = snapshotsFromAssembly(materialization);
-            } catch (error) {
-              if (error instanceof AssemblyValidationError)
-                throw new QuizValidationError(error.message);
-              throw error;
-            }
-          }
-          validateForPublication(
-            {
-              assemblyVersionId: record.assemblyPackageVersionId ?? undefined,
-              closesAt: record.closesAt?.toISOString() ?? "",
-              description: record.description ?? "",
-              id: record.id,
-              opensAt: record.opensAt?.toISOString() ?? "",
-              questions: publicationQuestions,
-              sourceBankId: record.sourceBankId ?? undefined,
-              status: "published",
-              subjectCode: record.subtest.code,
-              title: record.title,
-            },
-            record.opensAt,
-            record.closesAt,
-            { materializedAssembly: Boolean(record.assemblyPackageVersionId) },
-          );
-          }
-        }
-        const status =
-          operation === "publish" ? ContentStatus.published : ContentStatus.draft;
-        await tx.standaloneQuiz.updateMany({
-          where: { id: { in: uniqueIds }, createdByUserId: tutorId },
-          data: { status },
-        });
-        return {
-          ids,
-          status:
-            status === ContentStatus.published
-              ? ("published" as const)
-              : ("draft" as const),
-        };
-      },
-    );
-  });
-}
-async function bulkPublishStandaloneQuizzes(ids: string[], tutorId: string) {
-  return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "publish");
-}
-async function bulkUnpublishStandaloneQuizzes(ids: string[], tutorId: string) {
-  return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "unpublish");
-}
 async function updateStandaloneQuizLifecycle(
   id: string,
   tutorId: string,
-  operation: "archive" | "restore",
   editLease?: AuthoringEditLease,
 ) {
   return prisma.$transaction(async (tx) => {
@@ -3776,17 +3984,14 @@ async function updateStandaloneQuizLifecycle(
       throw new QuizValidationError(
         "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
       );
-    if (operation === "archive" && record.status === ContentStatus.archived)
-      throw new QuizValidationError("Quiz sudah diarsipkan.");
-    if (operation === "restore" && record.status !== ContentStatus.archived)
+    if (record.status !== ContentStatus.published)
       throw new QuizValidationError(
-        "Hanya Quiz yang diarsipkan dapat dipulihkan.",
+        "Hanya Kuis yang diterbitkan yang dapat diarsipkan.",
       );
     const saved = await tx.standaloneQuiz.update({
       where: { id },
       data: {
-        status:
-          operation === "archive" ? ContentStatus.archived : ContentStatus.draft,
+        status: ContentStatus.archived,
         revision: { increment: 1 },
       },
       include: quizInclude,
@@ -3794,8 +3999,45 @@ async function updateStandaloneQuizLifecycle(
     return toKaptenQuiz(saved);
   });
 }
+async function setStandaloneQuizHidden(
+  id: string,
+  isHidden: boolean,
+  tutorId: string,
+  editLease?: AuthoringEditLease,
+) {
+  return prisma.$transaction(async (tx) => {
+    await assertAuthoringEditLease(
+      tx,
+      { resourceId: id, resourceType: "quiz" },
+      tutorId,
+      editLease,
+    );
+    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
+    const record = await tx.standaloneQuiz.findFirst({
+      where: { id, createdByUserId: tutorId },
+      include: quizInclude,
+    });
+    if (!record)
+      throw new QuizValidationError(
+        "Quiz tidak ditemukan atau Anda tidak memiliki akses.",
+      );
+    if (record.status !== ContentStatus.published)
+      throw new QuizValidationError(
+        "Kuis harus diterbitkan sebelum dapat disembunyikan atau ditampilkan kembali.",
+      );
+    if (record.isHidden === isHidden) return toKaptenQuiz(record);
+
+    const updated = await tx.standaloneQuiz.update({
+      where: { id },
+      data: { isHidden },
+      include: quizInclude,
+    });
+    return toKaptenQuiz(updated);
+  });
+}
 function studentAvailabilityWhere(now = new Date()) {
   return {
+    isHidden: false,
     status: ContentStatus.published,
     AND: [
       { OR: [{ opensAt: null }, { opensAt: { lte: now } }] },
@@ -3818,11 +4060,12 @@ async function getAvailableStandaloneQuiz(
   slug: string,
   now = new Date(),
 ) {
-  return findStandaloneQuizForRuntime(prisma, {
+  const quiz = await findStandaloneQuizForRuntime(prisma, {
     ...studentAvailabilityWhere(now),
     slug,
     subtest: { code: subjectCode },
   });
+  return quiz?.questionCount ? quiz : null;
 }
 class QuizAttemptValidationError extends Error {}
 
@@ -4252,17 +4495,12 @@ async function activateStandaloneQuizDraftAtStart(
       publicationQuestions = snapshotsFromAssembly(materialization);
     }
 
+    await lockAndValidateQuizQuestionMedia(tx, publicationQuestions);
     validateForPublication(
       {
         assemblyVersionId: draft.assemblyPackageVersionId ?? undefined,
-        closesAt: record.closesAt?.toISOString() ?? "",
-        description: draft.description ?? record.description ?? "",
-        id: record.id,
-        opensAt: record.opensAt?.toISOString() ?? "",
         questions: publicationQuestions,
-        sourceBankId: draft.sourceBankId ?? undefined,
-        status: "published",
-        subjectCode: record.subtest.code,
+        reviewTiming: draft.reviewTiming,
         title: draft.title,
       },
       record.opensAt,
@@ -4546,6 +4784,11 @@ async function startStandaloneQuiz(
         "Quiz belum tersedia atau sudah ditutup.",
       );
     }
+    if (loadedQuizRecord.isHidden) {
+      throw new QuizAttemptValidationError(
+        "Kuis ini disembunyikan dan tidak menerima pengerjaan baru.",
+      );
+    }
     if (versionedQuizRecord) {
       versionedQuizRecord = (
         await activateStandaloneQuizDraftAtStart(tx, versionedQuizRecord)
@@ -4559,7 +4802,7 @@ async function startStandaloneQuiz(
       { id: identity.id },
       activeVersion?.id,
     );
-    if (!quiz || !isStandaloneQuizAvailableAt(quiz, checkNow))
+    if (!quiz || quiz.isHidden || !isStandaloneQuizAvailableAt(quiz, checkNow))
       throw new QuizAttemptValidationError(
         "Quiz belum tersedia atau sudah ditutup.",
       );
@@ -4691,7 +4934,7 @@ async function startStandaloneQuiz(
       terminalAttempts.length >= participationPolicy.attemptsAllowed
     ) {
       throw new QuizAttemptValidationError(
-        "Batas percobaan quiz ini sudah tercapai.",
+        "Batas percobaan Kuis ini sudah tercapai.",
       );
     }
     const previous = terminalAttempts[0];
@@ -5338,7 +5581,14 @@ async function getStandaloneQuizAttemptStatuses(
     select: {
       attempts: {
         orderBy: { attemptNo: "desc" },
-        select: { attemptNo: true, id: true, status: true, submittedAt: true },
+        select: {
+          attemptNo: true,
+          createdAt: true,
+          id: true,
+          status: true,
+          submittedAt: true,
+          updatedAt: true,
+        },
       },
       policySnapshot: true,
       quizId: true,
@@ -5347,18 +5597,17 @@ async function getStandaloneQuizAttemptStatuses(
   });
 }
 async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
-  return findManyStandaloneQuizzesForRuntime(
+  const quizzes = await findManyStandaloneQuizzesForRuntime(
     prisma,
     studentAvailabilityWhere(now),
     { updatedAt: "desc" },
   );
+  return quizzes.filter((quiz) => quiz.questionCount > 0);
 }
 
 export {
   acceptStandaloneQuizQuestionUpdate,
   attachStandaloneQuizAssembly,
-  bulkPublishStandaloneQuizzes,
-  bulkUnpublishStandaloneQuizzes,
   detachStandaloneQuizAssembly,
   getAvailableStandaloneQuiz,
   getAvailableStandaloneQuizCatalogue,
@@ -5374,10 +5623,12 @@ export {
   getSubjectMetadata,
   getSubjectMetadataBySlug,
   importStandaloneQuizBankQuestions,
+  importStandaloneQuizBankQuestionSnapshots,
   isReviewableStandaloneQuizAttemptStatus,
   isTerminalStandaloneQuizAttemptStatus,
   saveStandaloneQuiz,
   saveStandaloneQuizAnswer,
+  setStandaloneQuizHidden,
   startStandaloneQuiz,
   studentAvailabilityWhere,
   submitStandaloneQuiz,
@@ -5389,6 +5640,7 @@ export {
 };
 export type {
   AcceptStandaloneQuizQuestionUpdateInput,
+  ImportStandaloneQuizBankQuestionSnapshotsInput,
   SaveStandaloneQuizInput,
   StandaloneQuizAssemblySummary,
   TransitionStandaloneQuizSourceModeInput,

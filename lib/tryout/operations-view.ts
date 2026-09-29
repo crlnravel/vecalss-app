@@ -4,7 +4,10 @@ import {
   findAssessmentReleaseSectionForRun,
 } from "@/lib/tryout/assessment-release";
 import { synchronizeTryoutOperations } from "@/lib/tryout/attempt-repository";
-import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
+import {
+  getOwnedTryoutDeliverySessionIdsWithAttempts,
+  getTryoutDeliveryOperations,
+} from "@/lib/tryout/delivery-repository";
 import {
   deriveTryoutLiveProjection,
   deriveTryoutResultProjection,
@@ -458,20 +461,17 @@ async function getOwnedTryoutOperationsView(
   // authoritative.
   const synchronized = await synchronizeTryoutOperations(tryoutId, actorId);
   if (!synchronized) return null;
-  let operations = await getTryoutDeliveryOperations(tryoutId, actorId);
-  if (!operations) return null;
-  const sessionsWithAttempts = operations.deliverySessions.filter((session) => session.attempts.length > 0);
-  for (const session of sessionsWithAttempts) {
+  const sessionIds = await getOwnedTryoutDeliverySessionIdsWithAttempts(tryoutId, actorId);
+  if (!sessionIds) return null;
+  for (const sessionId of sessionIds) {
     try {
-      await synchronizeTryoutSessionReleaseState(session.id, new Date());
+      await synchronizeTryoutSessionReleaseState(sessionId, new Date());
     } catch (error) {
       if (!(error instanceof TryoutResultValidationError)) throw error;
     }
   }
-  if (sessionsWithAttempts.length > 0) {
-    operations = await getTryoutDeliveryOperations(tryoutId, actorId);
-    if (!operations) return null;
-  }
+  const operations = await getTryoutDeliveryOperations(tryoutId, actorId);
+  if (!operations) return null;
   return serializeTryoutOperations(operations);
 }
 

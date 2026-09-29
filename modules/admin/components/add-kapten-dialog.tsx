@@ -15,18 +15,18 @@ type AddKaptenMode = "bulk" | "single";
 
 const modeTabs = [
   {
-    description: "Isi detail satu Kapten",
+    description: "Isi detail satu akun Kapten",
     icon: UserPlus,
     id: "single-kapten-import-tab",
-    label: "Import satu akun",
+    label: "Satu akun",
     panelId: "single-kapten-import-panel",
     value: "single",
   },
   {
-    description: "Upload beberapa akun Kapten dengan CSV",
+    description: "Unggah file CSV berisi beberapa akun Kapten",
     icon: Users,
     id: "bulk-kapten-import-tab",
-    label: "Import massal",
+    label: "Beberapa akun",
     panelId: "bulk-kapten-import-panel",
     value: "bulk",
   },
@@ -77,7 +77,7 @@ function AddKaptenDialog() {
 
           <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">
             <ModeCardTabs
-              aria-label="Kapten import mode"
+              aria-label="Pilih cara menambahkan Kapten"
               disabled={dialogLocked}
               items={modeTabs}
               onValueChange={setMode}

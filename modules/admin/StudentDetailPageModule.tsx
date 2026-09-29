@@ -46,19 +46,20 @@ type StudentDetail = Pick<
 };
 
 const noticeMessages: Record<string, string> = {
-  "student-deactivated": "Akses siswa dinonaktifkan dan sesi aktif telah dicabut.",
-  "student-deleted": "Akun siswa dihapus.",
-  "student-password-updated": "Password siswa diperbarui.",
-  "student-reactivated": "Akses siswa dipulihkan.",
-  "student-updated": "Detail siswa diperbarui.",
+  "student-deactivated": "Akses siswa dinonaktifkan. Semua sesi aktif dicabut.",
+  "student-deleted": "Akun siswa berhasil dihapus.",
+  "student-password-updated": "Kata sandi siswa berhasil diperbarui.",
+  "student-reactivated": "Akses siswa dipulihkan. Sesi sebelumnya tetap dicabut.",
+  "student-updated": "Perubahan pada akun siswa berhasil disimpan.",
 };
 
 const errorMessages: Record<string, string> = {
-  "duplicate-email": "Email tersebut sudah digunakan oleh akun siswa lain.",
-  "delete-confirmation": "Konfirmasi bahwa Anda ingin menghapus akun siswa ini.",
-  "delete-failed": "Akun siswa tidak dapat dihapus. Silakan coba lagi.",
-  "missing-fields": "Tambahkan nama depan dan email siswa sebelum memperbarui.",
-  "update-failed": "Akun siswa tidak dapat diperbarui. Silakan coba lagi.",
+  "invalid-user": "Akun siswa tidak tersedia. Kembali ke daftar siswa lalu pilih akun lagi.",
+  "duplicate-email": "Alamat email ini sudah digunakan oleh akun siswa lain.",
+  "delete-confirmation": "Konfirmasi penghapusan akun siswa ini.",
+  "delete-failed": "Akun siswa belum berhasil dihapus. Segarkan halaman lalu coba lagi.",
+  "missing-fields": "Isi nama depan dan alamat email siswa sebelum menyimpan.",
+  "update-failed": "Perubahan pada akun siswa belum berhasil disimpan. Segarkan halaman lalu coba lagi.",
 };
 
 const detailFieldClassName = REFERENCE_CONTROL_CLASS_NAMES.input;
@@ -142,10 +143,10 @@ function StudentAccountSummary({ student }: { student: StudentDetail }) {
           <div className={`${detailFieldClassName} flex min-h-[52px] items-center text-secondary-800`}>{formatDate(student.createdAt)}</div>
         </div>
         <div className="min-w-0 space-y-2 text-sm">
-          <span className="font-medium text-secondary-900">Password</span>
+          <span className="font-medium text-secondary-900">Kata sandi</span>
           <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
-            <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
-            <CopyValueButton ariaLabel="Password tersamarkan, tidak dapat disalin" iconOnly value={maskedPassword} />
+            <span aria-label="Kata sandi disamarkan" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
+            <CopyValueButton ariaLabel="Kata sandi disamarkan, tidak dapat disalin" iconOnly value={maskedPassword} />
           </div>
         </div>
         <div className="min-w-0 space-y-2 text-sm">
@@ -164,7 +165,7 @@ function StudentPersonalFields({ firstName, lastName, student }: { firstName: st
         <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama depan<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" /></label>
         <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama belakang</span><input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" /></label>
         <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Alamat email<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" /></label>
-        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Nomor telepon</span><input aria-readonly="true" className={`${detailFieldClassName} text-secondary-700`} defaultValue={student.phone ?? "Not provided"} readOnly type="text" /></label>
+        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Nomor telepon</span><input aria-readonly="true" className={`${detailFieldClassName} text-secondary-700`} defaultValue={student.phone ?? "Belum diisi"} readOnly type="text" /></label>
       </div>
     </DetailSection>
   );
@@ -190,7 +191,7 @@ function StudentEnrollmentProfile({
   targetUniversity: string;
 }) {
   return (
-    <DetailSection title="Profil enrollment">
+    <DetailSection title="Profil pendaftaran">
       <div className="grid gap-5 md:grid-cols-2">
         <Field className="min-w-0 gap-2 text-sm md:col-span-2">
           <FieldLabel className="text-sm font-medium leading-5 text-secondary-900" htmlFor="student-target-exam">Target ujian</FieldLabel>
@@ -217,11 +218,11 @@ function StudentDetailNotices({ error, notice }: { error?: string | null; notice
 
   return (
     <>
-      {notice ? <ToastOnMount message={noticeMessages[notice] ?? notice} variant="success" /> : null}
+      {notice ? <ToastOnMount message={noticeMessages[notice] ?? "Informasi akun siswa berhasil diperbarui."} variant="success" /> : null}
       {error && shouldToastError ? (
         <ToastOnMount message={errorMessages[error]} variant="error" />
       ) : null}
-      {error && !shouldToastError ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
+      {error && !shouldToastError ? <FormNotice tone="danger">{errorMessages[error] ?? "Perubahan pada akun siswa belum berhasil. Segarkan halaman lalu coba lagi."}</FormNotice> : null}
     </>
   );
 }
@@ -353,7 +354,6 @@ function StudentDetailPageModule({
               </div>
             )}
             className="min-w-0 flex-1"
-            description={<span className="block break-all">{student.email}</span>}
             title={student.fullName}
           />
         </div>

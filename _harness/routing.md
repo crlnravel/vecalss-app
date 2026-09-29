@@ -61,10 +61,12 @@ Route to the minimum files needed for each task type. Read this file first to de
 
 ## Testing
 
-1. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
-2. Read `_harness/workflow.md` § Verification
-3. Read the code under test in `lib/`, `modules/`, or `app/`
-4. Read `package.json` for available `test:*` scripts
+1. Read `docs/agent-app-testing-guide.md` for seeded credentials, login routes, and disposable dev data procedures
+2. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
+3. Read `_harness/workflow.md` § Verification
+4. Read the code under test in `lib/`, `modules/`, or `app/`
+5. Read `package.json` for available `test:*` scripts
+6. If testing requires a browser, all operations must use `ego-browser` as the priority choice with prior user permission
 
 ## Refactoring
 
@@ -87,16 +89,28 @@ Route to the minimum files needed for each task type. Read this file first to de
 
 ## Copywriting & Indonesian content
 
-1. Read `.agents/skills/tutur-humanizer/SKILL.md`
+1. Read `.agents/skills-library/domain/tutur-humanizer/SKILL.md`
 2. Read `.agents/rules/copywriting.md`
-3. Read `.agents/skills/tutur-humanizer/references/register-map.md` for register decisions
-4. Audit text against `.agents/skills/tutur-humanizer/references/pattern-bank.md` to remove AI clichés and tells
+3. Read `.agents/skills-library/domain/tutur-humanizer/references/register-map.md` for register decisions
+4. Audit text against `.agents/skills-library/domain/tutur-humanizer/references/pattern-bank.md` to remove AI clichés and tells
 
 ## Vercel deployment & project management
 
-1. Read `.agents/skills/deploy-to-vercel/SKILL.md` for deployment workflows, team selection, and preview vs. production flows
-2. Read `.agents/skills/vercel-cli-with-tokens/SKILL.md` for token authentication (`VERCEL_TOKEN`), environment variables, inspecting deployment/runtime logs, and custom domains
-3. Read `.agents/skills/vercel-optimize/SKILL.md` for cost, performance, function invocations, and caching audit
+1. Read `.agents/skills-library/domain/deploy-to-vercel/SKILL.md` for deployment workflows, team selection, and preview vs. production flows
+2. Read `.agents/skills-library/domain/vercel-cli-with-tokens/SKILL.md` for token authentication (`VERCEL_TOKEN`), environment variables, inspecting deployment/runtime logs, and custom domains
+3. Read `.agents/skills-library/domain/vercel-optimize/SKILL.md` for cost, performance, function invocations, and caching audit
+
+## Engineering lifecycle & skills (Matt Pocock Priority)
+
+Default operational lifecycle for all software engineering work:
+
+1. **Routing:** Start with `ask-matt` (`.agents/skills-library/matt-pocock/ask-matt/SKILL.md`) to choose the path.
+2. **Sharpening:** Run `/grill-with-docs` (`.agents/skills-library/matt-pocock/grill-with-docs/SKILL.md`) to test ideas, resolve ambiguity, and log ADRs.
+3. **Specifying:** Run `/to-spec` (`.agents/skills-library/matt-pocock/to-spec/SKILL.md`) to synthesize discussions into an issue spec.
+4. **Ticket decomposition:** Run `/to-tickets` (`.agents/skills-library/matt-pocock/to-tickets/SKILL.md`) to split into tracer-bullet tickets with blocking edges.
+5. **Building:** Run `/implement` (`.agents/skills-library/matt-pocock/implement/SKILL.md`), which drives `/tdd` (`.agents/skills-library/matt-pocock/tdd/SKILL.md`) (red-green-refactor) and concludes with `/code-review` (`.agents/skills-library/matt-pocock/code-review/SKILL.md`).
+6. **Bug diagnosis:** Run `/diagnosing-bugs` (`.agents/skills-library/matt-pocock/diagnosing-bugs/SKILL.md`) before fixing difficult regressions.
+7. **Incoming issues:** Run `/triage` (`.agents/skills-library/matt-pocock/triage/SKILL.md`) on unvetted bug reports or external PRs.
 
 ## Task-to-directory quick reference
 
@@ -116,8 +130,9 @@ Route to the minimum files needed for each task type. Read this file first to de
 | Vera AI | `modules/vera-ai/`, `app/vera-ai/` |
 | Design tokens & styling | `design-tokens/`, `DESIGN.md`, `app/globals.css` |
 | Database schema & environments | `docs/database-environments.md`, `prisma/schema.prisma`, `docker-compose.dev.yml` |
+| App testing & seeded credentials | `docs/agent-app-testing-guide.md`, `prisma/seed.mjs` |
 | Seeds & fixtures | `prisma/seed.mjs`, `prisma/seed-assessment.mjs`, `prisma/materi-seed.mjs` |
 | Background workers | `workers/` |
 | Shared UI primitives | `components/ui/` |
-| Copywriting & text content | `content/`, `modules/home/`, `.agents/skills/tutur-humanizer/` |
-| Vercel deployment & ops | `.agents/skills/deploy-to-vercel/`, `.agents/skills/vercel-cli-with-tokens/`, `.agents/skills/vercel-optimize/` |
+| Copywriting & text content | `content/`, `modules/home/`, `.agents/skills-library/domain/tutur-humanizer/` |
+| Vercel deployment & ops | `.agents/skills-library/domain/deploy-to-vercel/`, `.agents/skills-library/domain/vercel-cli-with-tokens/`, `.agents/skills-library/domain/vercel-optimize/` |

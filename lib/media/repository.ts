@@ -16,6 +16,7 @@ import {
   BannerReferenceSafetyUnknownError,
 } from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
+import { findQuestionBankImageReferences } from "@/lib/question-bank/media-validator";
 import { setTransactionLockTimeout } from "@/lib/serialization/locks";
 import {
   assertAuthoringEditLease,
@@ -67,6 +68,73 @@ function rethrowBannerSafetyError(error: unknown): void {
   }
 }
 
+async function assertKaptenBankImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const referencedAssetIds = await findQuestionBankImageReferences(tx, assetIds);
+  if (!referencedAssetIds.length) return;
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Bank Soal, jadi tidak bisa dihapus."
+    : "Folder ini masih berisi gambar yang dipakai oleh soal di Bank Soal, jadi tidak bisa dihapus.";
+  throw new MediaServiceError(message, 409, "in_use");
+}
+
+async function assertQuizImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const uniqueIds = [...new Set(assetIds)];
+  if (!uniqueIds.length) return;
+
+  // Legacy items and every versioned Kuis draft/active snapshot share this
+  // table. Their option media lives on the related option rows.
+  const referencedItem = await tx.standaloneQuizItem.findFirst({
+    where: {
+      OR: [
+        { promptAssetId: { in: uniqueIds } },
+        { explanationAssetId: { in: uniqueIds } },
+        { options: { some: { assetId: { in: uniqueIds } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!referencedItem) return;
+
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Kuis, jadi tidak bisa dipindahkan ke sampah."
+    : "Folder ini berisi gambar yang masih dipakai oleh Kuis, jadi tidak bisa dipindahkan ke sampah.";
+  throw new MediaServiceError(message, 409, "in_use");
+}
+
+async function assertTryoutImagesMayBeTrashed(
+  tx: Prisma.TransactionClient,
+  assetIds: readonly string[],
+  target: "asset" | "folder",
+) {
+  const uniqueIds = [...new Set(assetIds)];
+  if (!uniqueIds.length) return;
+
+  const referencedItem = await tx.tryoutItem.findFirst({
+    where: {
+      OR: [
+        { promptAssetId: { in: uniqueIds } },
+        { explanationAssetId: { in: uniqueIds } },
+        { options: { some: { assetId: { in: uniqueIds } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!referencedItem) return;
+
+  const message = target === "asset"
+    ? "Gambar ini masih dipakai oleh soal di Tryout, jadi tidak bisa dipindahkan ke sampah."
+    : "Folder ini berisi gambar yang masih dipakai Tryout, jadi tidak bisa dipindahkan ke sampah.";
+  throw new MediaServiceError(message, 409, "in_use");
+}
+
 const scopeToDatabase = (scope: MediaScope) =>
   scope === "kapten" ? MediaLibraryScope.kapten : MediaLibraryScope.admin;
 
@@ -80,7 +148,7 @@ const requireMediaSession = async (scope: MediaScope) => {
   const requiredRole = scope === "kapten" ? RoleName.tutor : RoleName.admin;
 
   if (!hasRole(session, requiredRole)) {
-    throw new MediaServiceError("Anda tidak memiliki akses ke library media ini.", 403);
+    throw new MediaServiceError("Kamu tidak memiliki akses ke pustaka media ini.", 403);
   }
 
   return session;
@@ -629,6 +697,119 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string, db: MediaD
   return ids;
 };
 
+/**
+ * Completes the system-managed rename of a draft Bank folder. The exact
+ * expected name check happens under the normal Media mutation lock so a
+ * Kapten rename that wins the race is preserved. Active Media edit leases
+ * defer the rename; a later Bank save can retry it.
+ */
+const renameQuestionBankMediaFolderIfUnchanged = async ({
+  candidateNames,
+  bankCode,
+  bankId,
+  bankName,
+  expectedName,
+  folderId,
+}: {
+  candidateNames: readonly string[];
+  bankCode: string;
+  bankId: string;
+  bankName: string;
+  expectedName: string;
+  folderId: string;
+}) => {
+  const safeExpectedName = validateFolderName(expectedName);
+  const safeCandidates = [...new Set(candidateNames.map(validateFolderName))];
+
+  return prisma.$transaction(async (tx) => {
+    await setTransactionLockTimeout(tx);
+    await acquireBannerMediaMutationLock(tx);
+    await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
+    const bank = await tx.questionBank.findUnique({
+      select: { code: true, mediaFolderId: true, name: true },
+      where: { id: bankId },
+    });
+    if (
+      !bank
+      || bank.mediaFolderId !== folderId
+      || bank.name !== bankName
+      || bank.code !== bankCode
+    ) {
+      return { renamed: false };
+    }
+
+    const current = await tx.mediaFolder.findFirst({
+      where: {
+        id: folderId,
+        libraryScope: MediaLibraryScope.kapten,
+        trashedAt: null,
+      },
+    });
+    if (!current || current.name !== safeExpectedName) return { renamed: false };
+
+    const subtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
+    await lockMediaFolderRows(tx, "kapten", subtreeIds);
+    const rereadSubtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
+    if (
+      rereadSubtreeIds.length !== subtreeIds.length
+      || rereadSubtreeIds.some((id) => !subtreeIds.includes(id))
+    ) {
+      return { renamed: false };
+    }
+
+    const affectedAssets = await tx.asset.findMany({
+      select: { id: true },
+      where: {
+        folderId: { in: subtreeIds },
+        libraryScope: MediaLibraryScope.kapten,
+      },
+      orderBy: { id: "asc" },
+    });
+    const leaseRows = await lockMediaLeaseRows(
+      tx,
+      subtreeIds,
+      affectedAssets.map(({ id }) => id),
+    );
+    const now = await databaseMediaNow(tx);
+    if (leaseRows.some((lease) =>
+      lease.releasedAt === null && lease.expiresAt.getTime() > now.getTime()
+    )) {
+      return { renamed: false };
+    }
+
+    const lockedCurrent = await tx.mediaFolder.findFirst({
+      where: {
+        id: folderId,
+        libraryScope: MediaLibraryScope.kapten,
+        trashedAt: null,
+      },
+    });
+    if (!lockedCurrent || lockedCurrent.name !== safeExpectedName) return { renamed: false };
+
+    for (const candidate of safeCandidates) {
+      const duplicate = await tx.mediaFolder.findFirst({
+        select: { id: true },
+        where: {
+          id: { not: folderId },
+          libraryScope: MediaLibraryScope.kapten,
+          name: { equals: candidate, mode: "insensitive" },
+          parentId: lockedCurrent.parentId,
+          trashedAt: null,
+        },
+      });
+      if (duplicate) continue;
+
+      await tx.mediaFolder.update({
+        data: { name: candidate },
+        where: { id: folderId },
+      });
+      return { renamed: true };
+    }
+
+    return { renamed: false };
+  });
+};
+
 const trashMediaFolder = async (
   scope: MediaScope,
   folderId: string,
@@ -644,7 +825,23 @@ const trashMediaFolder = async (
       await lockMediaAssetRows(tx, scope, ids);
       if (scope === "admin") {
         await assertBannerAssetsMayBeTrashed(tx, affectedAssets.map(({ id }) => id));
+      } else {
+        await assertKaptenBankImagesMayBeTrashed(
+          tx,
+          affectedAssets.map(({ id }) => id),
+          "folder",
+        );
       }
+      await assertQuizImagesMayBeTrashed(
+        tx,
+        affectedAssets.map(({ id }) => id),
+        "folder",
+      );
+      await assertTryoutImagesMayBeTrashed(
+        tx,
+        affectedAssets.map(({ id }) => id),
+        "folder",
+      );
 
       const trashedAt = new Date();
       await tx.asset.updateMany({
@@ -789,7 +986,11 @@ const trashMediaAsset = async (
       if (current.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
       if (scope === "admin") {
         await assertBannerAssetsMayBeTrashed(tx, [current.id]);
+      } else {
+        await assertKaptenBankImagesMayBeTrashed(tx, [current.id], "asset");
       }
+      await assertQuizImagesMayBeTrashed(tx, [current.id], "asset");
+      await assertTryoutImagesMayBeTrashed(tx, [current.id], "asset");
       const updated = await tx.asset.updateMany({
         data: { state: MediaAssetState.trashed, trashedAt: new Date() },
         where: {
@@ -823,14 +1024,14 @@ const requestMediaUpload = async ({
   uploadedByUserId: string;
 }): Promise<MediaUploadTicket> => {
   if (typeof fileName !== "string" || typeof mimeType !== "string" || typeof sizeBytes !== "number") {
-    throw new MediaServiceError("Data upload tidak valid.");
+    throw new MediaServiceError("Data unggahan tidak valid.");
   }
   const validation = validateMediaUpload({ fileName, mimeType, sizeBytes });
   if (!validation.isValid) throw new MediaServiceError(validation.error);
   const normalizedMimeType = mimeType.trim().toLowerCase();
   if (!isSupportedMediaMimeType(normalizedMimeType)) throw new MediaServiceError("Format media tidak didukung.");
   if (scope === "admin" && isPdfMimeType(normalizedMimeType)) {
-    throw new MediaServiceError("Dokumen PDF hanya dapat diupload ke Media Kapten.", 403);
+    throw new MediaServiceError("Dokumen PDF hanya dapat diunggah ke Media Kapten.", 403);
   }
 
   const safeFolderId = normalizeNullableId(folderId);
@@ -842,7 +1043,7 @@ const requestMediaUpload = async ({
     signedUpload = await createMediaUploadUrl(objectKey, normalizedMimeType);
   } catch (error) {
     if (error instanceof R2ConfigurationError) {
-      throw new MediaServiceError(error.message, 503);
+      throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     }
     throw error;
   }
@@ -890,8 +1091,8 @@ const finalizeMediaUpload = async ({
         state: { in: [MediaAssetState.pending, MediaAssetState.ready] },
       },
     });
-    if (!asset) throw new MediaServiceError("Upload tidak tersedia atau sudah tidak dapat diubah.", 409);
-    if (!asset.objectKey) throw new MediaServiceError("Object key gambar tidak tersedia.", 409);
+    if (!asset) throw new MediaServiceError("Unggahan ini sudah tidak bisa diubah. Coba unggah file lagi.", 409);
+    if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 409);
     const folderAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
     return { asset, folderAncestry };
   });
@@ -908,8 +1109,8 @@ const finalizeMediaUpload = async ({
     // storage/network operation may run while the shared mutation lock is held.
     head = await headMediaObject(verifiedObjectKey);
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
-    throw new MediaServiceError("Upload belum dapat diverifikasi. Coba lagi.", 502);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
+    throw new MediaServiceError("Unggahan belum berhasil diverifikasi. Periksa koneksi lalu coba lagi.", 502);
   }
 
   const verifiedChecksum = head.ETag?.replaceAll('"', "") ?? null;
@@ -937,7 +1138,7 @@ const finalizeMediaUpload = async ({
         },
       });
     });
-    throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan upload.", 409);
+    throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan unggah.", 409);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -945,7 +1146,7 @@ const finalizeMediaUpload = async ({
     await acquireBannerMediaMutationLock(tx);
     const current = await tx.asset.findUnique({ where: { id: asset.id } });
     if (!current || current.libraryScope !== scopeToDatabase(scope)) {
-      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+      throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
     }
 
     const currentAncestry = await readActiveFolderAncestry(scope, current.folderId, tx).catch(() => null);
@@ -975,7 +1176,7 @@ const finalizeMediaUpload = async ({
       || current.folderId !== asset.folderId
       || !sameAncestry
     ) {
-      throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+      throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
     }
 
     const updated = await tx.asset.updateMany({
@@ -996,7 +1197,7 @@ const finalizeMediaUpload = async ({
         trashedAt: null,
       },
     });
-    if (updated.count !== 1) throw new MediaServiceError("Upload berubah saat diproses. Coba lagi.", 409);
+    if (updated.count !== 1) throw new MediaServiceError("Unggahan berubah saat diproses. Coba lagi.", 409);
   });
 };
 
@@ -1013,7 +1214,7 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
   try {
     return { mimeType: asset.mimeType, originalName: asset.originalName, previewUrl: await createMediaPreviewUrl(asset.objectKey) };
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     throw error;
   }
 };
@@ -1021,7 +1222,7 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
 const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
   const asset = await assertAsset(scope, assetId, [MediaAssetState.ready, MediaAssetState.trashed]);
   if (!isImageMimeType(asset.mimeType)) {
-    throw new MediaServiceError("Thumbnail hanya tersedia untuk gambar.", 415);
+    throw new MediaServiceError("Pratinjau hanya tersedia untuk gambar.", 415);
   }
   if (asset.url) return { body: null, contentType: asset.mimeType, fallbackUrl: asset.url };
   if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 404);
@@ -1034,7 +1235,7 @@ const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
       .toBuffer();
     return { body, contentType: "image/webp", fallbackUrl: null };
   } catch (error) {
-    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError("Penyimpanan media belum siap. Coba lagi nanti atau hubungi admin.", 503);
     throw error;
   }
 };
@@ -1050,6 +1251,7 @@ export {
   moveMediaFolder,
   renameMediaAsset,
   renameMediaFolder,
+  renameQuestionBankMediaFolderIfUnchanged,
   requestMediaUpload,
   requireMediaSession,
   trashMediaAsset,

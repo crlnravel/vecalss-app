@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 
 import { FormNotice } from "./form-notice";
-
-const INVALID_INVITE_MESSAGE = "This invite link is invalid or has already expired.";
+import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
+import { INVALID_INVITE_MESSAGE } from "../invite-copy";
 
 function InvitePasswordSetupForm({ token }: { token: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -19,12 +19,12 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
     event.preventDefault();
 
     if (!password || !confirmPassword) {
-      setMessage("Enter and confirm your new password.");
+      setMessage("Isi kata sandi baru dan ulangi untuk konfirmasi.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setMessage("The confirmation does not match your new password.");
+      setMessage("Kata sandi yang kamu masukkan belum sama. Periksa kembali.");
       return;
     }
 
@@ -42,13 +42,13 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
       });
 
       if (!response.ok) {
-        setMessage(INVALID_INVITE_MESSAGE);
+        setMessage("Undangan belum berhasil diproses. Coba lagi atau hubungi admin jika masalah berlanjut.");
         return;
       }
 
       window.location.assign("/login?notice=invite-completed");
     } catch {
-      setMessage(INVALID_INVITE_MESSAGE);
+      setMessage("Koneksi bermasalah. Periksa koneksi lalu coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -59,25 +59,26 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
       {message ? <FormNotice tone="danger">{message}</FormNotice> : null}
 
       <Field>
-        <FieldLabel htmlFor="invite-password">New password</FieldLabel>
+        <FieldLabel htmlFor="invite-password">Kata sandi baru</FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="invite-password"
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="At least 8 characters"
+          placeholder="Minimal 8 karakter"
           required
           type="password"
           value={password}
         />
+        <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="invite-password-confirmation">Confirm password</FieldLabel>
+        <FieldLabel htmlFor="invite-password-confirmation">Konfirmasi kata sandi</FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="invite-password-confirmation"
           onChange={(event) => setConfirmPassword(event.target.value)}
-          placeholder="Repeat your new password"
+          placeholder="Ulangi kata sandi baru"
           required
           type="password"
           value={confirmPassword}
@@ -91,7 +92,7 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
         type="submit"
         variant="brand"
       >
-        {submitting ? "Activating account..." : "Set password and activate"}
+        {submitting ? "Mengaktifkan akun..." : "Simpan kata sandi dan aktifkan akun"}
       </Button>
     </form>
   );

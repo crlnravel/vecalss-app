@@ -11,6 +11,7 @@ import {
   Minus,
   PenTool,
   Plus,
+  X,
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
@@ -208,7 +209,7 @@ function QuizOngoingPageModule({
 
   async function submitQuiz() {
     if (savingQuestions.length) {
-      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim kuis.");
+      setMessage("Tunggu sampai jawaban tersimpan sebelum mengumpulkan kuis.");
       return;
     }
     setIsSubmitting(true);
@@ -224,11 +225,7 @@ function QuizOngoingPageModule({
       );
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage(
-        submitError instanceof Error
-          ? submitError.message
-          : "Kuis belum dapat dikirim.",
-      );
+      setMessage("Kuis belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -453,16 +450,16 @@ function QuizOngoingScreen({
                 <AlertDialogMedia variant="danger">
                   <AlertTriangle />
                 </AlertDialogMedia>
-                <AlertDialogTitle>Keluar dari Latihan?</AlertDialogTitle>
+                <AlertDialogTitle>Keluar dari kuis?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar
-                  sekarang dan kembali melanjutkan sesi ini nanti.
+                  sekarang dan kembali melanjutkan kuis ini nanti.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Kembali</AlertDialogCancel>
                 <AlertDialogAction onClick={onExit} variant="destructive">
-                  Ya, Keluar
+                  Keluar dari kuis
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -482,7 +479,7 @@ function QuizOngoingScreen({
                 <AlertDialogTitle>
                   {unansweredCount
                     ? "Masih ada soal yang belum terjawab"
-                    : "Selesaikan kuis ini?"}
+                    : "Kumpulkan kuis?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {unansweredCount ? (
@@ -491,10 +488,10 @@ function QuizOngoingScreen({
                       <strong className="text-secondary-900">
                         {unansweredCount} soal belum terjawab
                       </strong>
-                      . Periksa kembali sebelum mengirim kuis.
+                      . Periksa kembali sebelum mengumpulkan kuis.
                     </>
                   ) : (
-                    "Setelah dikirim, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
+                    "Setelah dikumpulkan, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
                   )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -510,7 +507,7 @@ function QuizOngoingScreen({
                   onClick={onSubmitQuiz}
                   variant="destructive"
                 >
-                  {viewState.submitting ? "Mengirim…" : "Kirim"}
+                  {viewState.submitting ? "Mengumpulkan…" : "Kumpulkan kuis"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -519,13 +516,13 @@ function QuizOngoingScreen({
       }
       exitControl={
         <Button
-          aria-label="Keluar dari latihan"
+          aria-label="Keluar dari kuis"
           onClick={() => onExitDialogChange(true)}
           size="icon-sm"
-          title="Keluar dari latihan"
+          title="Keluar dari kuis"
           variant="ghost"
         >
-          <ChevronLeft />
+          <X />
         </Button>
       }
       footer={
@@ -554,14 +551,14 @@ function QuizOngoingScreen({
           </button>
           {currentQuestion === quiz.questionCount ? (
             <Button
-              aria-label="Selesai"
+              aria-label="Kumpulkan kuis"
               className="h-12 w-full justify-center"
               disabled={viewState.submitting || savingQuestionSet.size > 0}
               onClick={() => onSubmitDialogChange(true)}
               size="lg"
               variant="brand"
             >
-              Selesai
+              Kumpulkan kuis
             </Button>
           ) : (
             <Button

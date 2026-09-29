@@ -63,6 +63,7 @@ type RawLeaseRow = {
   expiresAt: Date;
   generation: number;
   heartbeatAt: Date;
+  holderEmail: string;
   holderName: string;
   holderUserId: string;
   releasedAt: Date | null;
@@ -344,7 +345,8 @@ async function readLease(db: EditLeaseDatabaseClient, resource: CanonicalResourc
       lease."heartbeat_at" AS "heartbeatAt",
       lease."expires_at" AS "expiresAt",
       lease."released_at" AS "releasedAt",
-      holder."full_name" AS "holderName"
+      holder."full_name" AS "holderName",
+      holder."email" AS "holderEmail"
     FROM "edit_leases" AS lease
     JOIN "users" AS holder ON holder."id" = lease."holder_user_id"
     WHERE lease."resource_type" = ${resource.resourceType}::edit_lease_resource_type
@@ -368,7 +370,9 @@ function ownedStatus(lease: RawLeaseRow, serverNow: Date): EditLeaseServerStatus
 
 function lockedStatus(lease: RawLeaseRow, serverNow: Date): EditLeaseServerStatus {
   return {
+    holderEmail: lease.holderEmail,
     holderName: lease.holderName,
+    holderUserId: lease.holderUserId,
     remainingMs: remainingMs(lease.expiresAt, serverNow),
     serverNow: serverNow.toISOString(),
     state: "locked",

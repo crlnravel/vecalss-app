@@ -11,7 +11,7 @@ import {
 function message(error: unknown) {
   return error instanceof QuizAttemptValidationError
     ? error.message
-    : "Quiz tidak dapat diproses saat ini. Silakan coba lagi.";
+    : "Kuis belum dapat diproses saat ini. Coba lagi beberapa saat lagi.";
 }
 
 async function saveQuizAnswerAction(
@@ -39,7 +39,7 @@ async function startQuizAction(subjectCode: string, quizSlug: string, startReque
   const session = await requireStudentSession();
   try {
     const started = await startStandaloneQuiz(subjectCode, quizSlug, session.user.id, undefined, startRequestId);
-    if (!started) return { ok: false as const, message: "Quiz tidak ditemukan." };
+    if (!started) return { ok: false as const, message: "Kuis ini tidak tersedia. Kembali ke daftar kuis untuk memilih kuis lain." };
     return {
       ok: true as const,
       result: {

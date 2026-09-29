@@ -21,9 +21,27 @@ type AssessmentQuestionMarkerState =
 
 type AssessmentQuestionMarker = {
   id?: string;
+  isCurrent?: boolean;
   number: number;
   state: AssessmentQuestionMarkerState;
 };
+
+function isAssessmentQuestionCurrent(marker: AssessmentQuestionMarker) {
+  return marker.isCurrent ?? marker.state === "active";
+}
+
+function getAssessmentQuestionMarkerLabel(marker: AssessmentQuestionMarker) {
+  const status =
+    marker.state === "answered"
+      ? " (sudah dijawab)"
+      : marker.state === "flagged"
+        ? " (ditandai)"
+        : marker.state === "locked"
+          ? " (terkunci)"
+          : "";
+
+  return `Soal ${marker.number}${status}`;
+}
 
 type AssessmentResultMarkerState = "correct" | "current" | "incorrect" | "neutral" | "unanswered";
 type AssessmentResultMarkerOutcome = "correct" | "incorrect" | "unanswered";
@@ -110,7 +128,7 @@ function AssessmentQuestionNavigation({
   const scrollRef = useRef<HTMLDivElement>(null);
   const pickerButtonRef = useRef<HTMLButtonElement>(null);
   const pickerDialogRef = useRef<HTMLDialogElement>(null);
-  const activeNumber = items.find((marker) => marker.state === "active")?.number;
+  const activeNumber = items.find(isAssessmentQuestionCurrent)?.number;
 
   useEffect(() => {
     if (activeNumber === undefined) return;
@@ -217,21 +235,22 @@ function AssessmentQuestionMarker({
   marker: AssessmentQuestionMarker;
   onClick: () => void;
 }) {
+  const isCurrent = isAssessmentQuestionCurrent(marker);
   const icon = marker.state === "locked" ? <Lock className="size-4" /> : marker.number;
 
   return (
     <button
-      aria-current={marker.state === "active" ? "step" : undefined}
-      aria-label={`Soal ${marker.number}${marker.state === "answered" ? " (sudah dijawab)" : marker.state === "flagged" ? " (ditandai)" : marker.state === "locked" ? " (terkunci)" : ""}`}
+      aria-current={isCurrent ? "step" : undefined}
+      aria-label={getAssessmentQuestionMarkerLabel(marker)}
       className={cn(
         "flex size-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
-        marker.state === "active" &&
-          "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)] ring-2 ring-primary-200 ring-offset-2",
-        marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
-        marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
-        marker.state === "locked" && "border-secondary-200 bg-secondary-100 text-secondary-400",
-        marker.state === "empty" &&
+        !isCurrent && marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
+        !isCurrent && marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
+        !isCurrent && marker.state === "locked" && "border-secondary-200 bg-secondary-100 text-secondary-400",
+        !isCurrent && marker.state === "empty" &&
           "border-secondary-200 bg-white text-secondary-500 hover:border-primary-300 hover:bg-primary-50/60",
+        isCurrent &&
+          "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)] ring-2 ring-primary-200 ring-offset-2",
       )}
       disabled={marker.state === "locked"}
       data-marker-number={marker.number}
@@ -250,17 +269,19 @@ function AssessmentQuestionPickerMarker({
   marker: AssessmentQuestionMarker;
   onClick: () => void;
 }) {
+  const isCurrent = isAssessmentQuestionCurrent(marker);
+
   return (
     <button
-      aria-current={marker.state === "active" ? "step" : undefined}
-      aria-label={`Soal ${marker.number}${marker.state === "answered" ? " (sudah dijawab)" : marker.state === "flagged" ? " (ditandai)" : marker.state === "locked" ? " (terkunci)" : ""}`}
+      aria-current={isCurrent ? "step" : undefined}
+      aria-label={getAssessmentQuestionMarkerLabel(marker)}
       className={cn(
         "flex aspect-square min-h-11 min-w-11 items-center justify-center rounded-xl border-2 text-base font-semibold transition-all duration-200 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-lg",
-        marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]",
-        marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
-        marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
-        marker.state === "locked" && "border-secondary-700 bg-secondary-800 text-secondary-400",
-        marker.state === "empty" && "border-secondary-700 bg-secondary-800 text-secondary-200 hover:border-primary-300 hover:bg-secondary-700",
+        !isCurrent && marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
+        !isCurrent && marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
+        !isCurrent && marker.state === "locked" && "border-secondary-700 bg-secondary-800 text-secondary-400",
+        !isCurrent && marker.state === "empty" && "border-secondary-700 bg-secondary-800 text-secondary-200 hover:border-primary-300 hover:bg-secondary-700",
+        isCurrent && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]",
       )}
       disabled={marker.state === "locked"}
       onClick={onClick}

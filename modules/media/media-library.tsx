@@ -31,6 +31,7 @@ import { MediaLibraryScreen } from "./components/MediaLibraryScreen";
 import { MediaPickerDialog } from "./components/MediaPickerDialog";
 import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
 import {
+  getMediaErrorMessage,
   postMediaAction,
   putFile,
   readImageDimensions,
@@ -115,7 +116,12 @@ function useMediaLibraryUploads({
           width: dimensions.width,
         });
       } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : `Upload ${mediaLabel} gagal.`);
+        setError(
+          getMediaErrorMessage(
+            uploadError,
+            `${mediaLabel[0]?.toUpperCase() ?? "M"}${mediaLabel.slice(1)} belum berhasil diunggah. Periksa koneksi lalu coba lagi.`,
+          ),
+        );
         setUploadStatus(null);
         return false;
       }
@@ -128,8 +134,8 @@ function useMediaLibraryUploads({
     if (fileInputRef.current) fileInputRef.current.value = "";
     showToast(
       files.length === 1
-        ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.`
-        : `${files.length} ${mediaLabel} berhasil diupload.`,
+        ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diunggah.`
+        : `${files.length} ${mediaLabel} berhasil diunggah.`,
       { variant: "success" },
     );
     refreshLibrary();
@@ -205,7 +211,7 @@ function createMediaLibraryMutationHandlers({
         setNewFolderName("");
       }
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "Folder belum dapat dibuat.");
+      setError(getMediaErrorMessage(mutationError, "Folder belum berhasil dibuat. Periksa koneksi lalu coba lagi."));
     }
   };
 
@@ -222,7 +228,7 @@ function createMediaLibraryMutationHandlers({
         "Nama diperbarui.",
       )) setEditingItem(null);
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "Nama belum dapat diperbarui.");
+      setError(getMediaErrorMessage(mutationError, "Nama belum berhasil diperbarui. Periksa koneksi lalu coba lagi."));
     }
   };
 
@@ -239,7 +245,7 @@ function createMediaLibraryMutationHandlers({
         "Item dipindahkan.",
       )) setMoveRequest(null);
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dipindahkan.");
+      setError(getMediaErrorMessage(mutationError, "Item belum berhasil dipindahkan. Periksa koneksi lalu coba lagi."));
     }
   };
 
@@ -255,7 +261,7 @@ function createMediaLibraryMutationHandlers({
         "Item dimasukkan ke Sampah.",
       )) setTrashRequest(null);
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dimasukkan ke Sampah.");
+      setError(getMediaErrorMessage(mutationError, "Item belum berhasil dimasukkan ke Sampah. Periksa koneksi lalu coba lagi."));
     }
   };
 
@@ -266,7 +272,7 @@ function createMediaLibraryMutationHandlers({
       const payload = await readJson<{ previewUrl: string }>(response);
       setPreviewAsset((current) => current?.id === asset.id ? { ...asset, previewUrl: payload.previewUrl } : current);
     } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : "Preview gambar belum tersedia.");
+      setError(getMediaErrorMessage(previewError, "Pratinjau media belum berhasil dibuka. Periksa koneksi lalu coba lagi."));
     }
   };
 
@@ -352,7 +358,7 @@ function useMediaLibraryData({
       setSnapshot(await readJson<MediaLibrarySnapshot>(response));
     } catch (loadError) {
       if (loadError instanceof DOMException && loadError.name === "AbortError") return;
-      setError(loadError instanceof Error ? loadError.message : "Library media belum dapat dibuka.");
+      setError(getMediaErrorMessage(loadError, "Daftar media belum berhasil dimuat. Periksa koneksi lalu coba lagi."));
     } finally {
       setLoadingRequestId((current) => current === requestId ? null : current);
     }

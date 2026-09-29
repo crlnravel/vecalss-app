@@ -37,22 +37,22 @@ const templateForRole: Record<ImportRole, { fileName: string; label: string; ver
 
 const previewErrorMessages: Record<string, string> = {
   csv_empty_file: "File harus memiliki judul kolom dan setidaknya satu baris data.",
-  csv_header_mismatch: "Susunan kolom tidak sesuai dengan templat yang dipilih.",
+  csv_header_mismatch: "Nama kolom file tidak cocok dengan templat yang dipilih. Unduh templat yang benar lalu coba lagi.",
   csv_invalid_utf8: "File tidak bisa dibaca. Simpan ulang file lalu coba lagi.",
-  csv_malformed: "Ada bagian file yang belum lengkap.",
+  csv_malformed: "File CSV berisi tanda kutip yang tidak sesuai. Periksa isi file lalu unggah kembali.",
   csv_row_limit: "File berisi lebih dari 500 baris.",
-  invalid_origin: "Upload ini sudah kedaluwarsa. Segarkan halaman lalu coba lagi.",
-  invalid_role: "Pilih Siswa atau Kapten sebelum mengunggah.",
-  invalid_template: "Pilih templat yang sesuai untuk peran ini.",
-  multipart_invalid: "Unggahan tidak dapat dibaca. Pilih satu file daftar lalu coba lagi.",
-  preview_unavailable: "Pemeriksaan tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.",
-  request_too_large: "File terlalu besar (maksimal 2 MB).",
+  invalid_origin: "Sesi tindakan sudah berakhir. Segarkan halaman lalu coba lagi.",
+  invalid_role: "Pilih jenis akun Siswa atau Kapten sebelum mengunggah.",
+  invalid_template: "Pilih templat yang sesuai dengan jenis akun yang dipilih.",
+  multipart_invalid: "File tidak dapat diproses. Pilih satu file CSV lalu coba lagi.",
+  preview_unavailable: "Pratinjau belum berhasil dibuat. Belum ada akun yang diubah; coba lagi.",
+  request_too_large: "Ukuran file melebihi batas 2 MB. Pilih file yang lebih kecil.",
 };
 
 function readPreviewError(code: unknown) {
   return typeof code === "string" && previewErrorMessages[code]
     ? previewErrorMessages[code]
-     : "Pemeriksaan tidak dapat dibuat. Tidak ada akun yang berubah; coba lagi.";
+     : "Pratinjau belum berhasil dibuat. Belum ada akun yang diubah; coba lagi.";
 }
 
 function responseErrorCode(payload: unknown) {
@@ -134,7 +134,7 @@ async function submitImportPreview({
     });
     if (initialRecovery) {
       setSessionIssue(initialRecovery);
-      setFeedback({ message: initialRecovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan penambahan daftar ini." : "Akun Anda tidak lagi memiliki izin untuk menambahkan daftar.", tone: "error" });
+      setFeedback({ message: initialRecovery === "expired" ? "Sesi admin sudah berakhir. Masuk lagi untuk melanjutkan penambahan daftar." : "Akun ini tidak memiliki izin untuk menambahkan daftar.", tone: "error" });
       return;
     }
     if (!response.ok) {
@@ -147,7 +147,7 @@ async function submitImportPreview({
       });
       if (recovery) {
         setSessionIssue(recovery);
-        setFeedback({ message: recovery === "expired" ? "Sesi admin Anda kedaluwarsa. Masuk lagi untuk melanjutkan penambahan daftar ini." : "Akun Anda tidak lagi memiliki izin untuk menambahkan daftar.", tone: "error" });
+        setFeedback({ message: recovery === "expired" ? "Sesi admin sudah berakhir. Masuk lagi untuk melanjutkan penambahan daftar." : "Akun ini tidak memiliki izin untuk menambahkan daftar.", tone: "error" });
         return;
       }
       setFeedback({ message: readPreviewError(errorCode), tone: "error" });
@@ -160,7 +160,7 @@ async function submitImportPreview({
       ? (payload as { draft?: { importId?: unknown } }).draft
       : null;
     if (!draft || typeof draft.importId !== "string") {
-      setFeedback({ message: "Sistem mengembalikan pemeriksaan yang tidak lengkap. Coba lagi.", tone: "error" });
+      setFeedback({ message: "Pratinjau belum berhasil dimuat. Segarkan halaman lalu coba lagi.", tone: "error" });
       return;
     }
 
@@ -168,7 +168,7 @@ async function submitImportPreview({
     routerPush("/admin/imports/" + encodeURIComponent(draft.importId));
   } catch {
     setSessionIssue(null);
-    setFeedback({ message: "File tidak dapat diproses. Tidak ada akun yang berubah.", tone: "error" });
+    setFeedback({ message: "File belum berhasil diproses. Belum ada akun yang diubah; periksa koneksi lalu coba lagi.", tone: "error" });
   } finally {
     setBusy(false);
     onBusyChange?.(false);
@@ -180,8 +180,8 @@ function ImportIntakeHeader({ embedded }: { embedded: boolean }) {
 
   return (
     <div className="border-b border-primary-100/80 px-5 py-6 sm:px-7 sm:py-7">
-      <h2 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Tambah Siswa</h2>
-      <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500">Unggah daftar, periksa isinya, lalu konfirmasi setelah siap.</p>
+      <h2 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Tambah akun dari CSV</h2>
+      <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500">Unduh templat, isi daftar akun, unggah file, lalu periksa hasilnya sebelum memulai impor.</p>
     </div>
   );
 }
@@ -190,17 +190,17 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
   return (
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
       <div className="flex items-center gap-1.5">
-        <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih peran<FieldRequiredMark /></label>
+        <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih jenis akun<FieldRequiredMark /></label>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Panduan peran" size="icon-xs" type="button" variant="ghost" />}>
+          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-xs" type="button" variant="ghost" />}>
             <CircleHelp aria-hidden="true" size={15} />
           </TooltipTrigger>
-          <TooltipContent>Setiap file hanya boleh berisi satu peran.</TooltipContent>
+          <TooltipContent>Satu file hanya boleh berisi data untuk satu jenis akun.</TooltipContent>
         </Tooltip>
       </div>
       <div className="mt-3">
         <ReferenceSelect
-          aria-label="Peran"
+          aria-label="Jenis akun"
           disabled={busy}
           id="import-role"
           onValueChange={(value) => onRoleChange(value as ImportRole)}
@@ -258,7 +258,7 @@ function ImportFileUpload({
           uploading={busy}
         />
       </div>
-      <p className="sr-only" id="roster-upload-help">Letakkan file di sini atau telusuri file. Pemeriksaan akan menjelaskan isi file sebelum konfirmasi.</p>
+      <p className="sr-only" id="roster-upload-help">Pilih file atau letakkan file di sini. Isinya akan diperiksa sebelum impor dimulai.</p>
       <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
         <FileUp aria-hidden="true" size={17} />
         {busy ? "Mengunggah…" : "Unggah"}
@@ -275,12 +275,12 @@ function ImportSessionIssueNotice({ sessionIssue }: { sessionIssue: "expired" | 
   return (
     <ReferenceSurface as="div" className={cn("flex flex-col gap-3 p-4 text-xs leading-5", ADMIN_STATUS_CLASS_NAMES.danger)} role="alert" variant="inset">
       <div>
-        <p className="font-semibold">{expired ? "Sesi admin kedaluwarsa" : "Izin admin diperlukan"}</p>
-      <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke halaman penambahan daftar." : "Gunakan akun admin aktif atau kembali ke halaman utama admin."}</p>
+        <p className="font-semibold">{expired ? "Sesi admin sudah berakhir" : "Izin admin diperlukan"}</p>
+      <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke halaman penambahan akun." : "Masuk dengan akun admin yang aktif atau kembali ke beranda admin."}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="dangerOutline">
-          {expired ? "Masuk lagi" : "Kembali ke halaman utama admin"}
+          {expired ? "Masuk lagi" : "Kembali ke beranda admin"}
         </Button>
         <Button onClick={() => window.location.reload()} size="default" variant="dangerOutline">Segarkan halaman</Button>
       </div>
@@ -308,7 +308,7 @@ function ImportsIntakeModule({
     if (nextRole === role) return;
     setRole(nextRole);
     resetFile();
-    setFeedback({ message: "Peran diubah menjadi " + templateForRole[nextRole].label + ". Pilih file baru untuk templat ini.", tone: "info" });
+    setFeedback({ message: "Jenis akun diubah menjadi " + templateForRole[nextRole].label + ". Pilih file baru yang sesuai dengan templat ini.", tone: "info" });
   };
   const handleFileSelection = (nextFile: File | null) => {
     if (!nextFile) {

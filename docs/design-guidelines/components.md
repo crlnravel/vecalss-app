@@ -65,28 +65,24 @@ the user's job; it is not chosen ad hoc by route.
 
 ## Tabs
 
-Vecalss has exactly two visual tab variants. The number of tabs in a group can
-vary, but every tab group must choose one of these two patterns rather than
-introducing a third treatment.
+Vecalss has two tab layouts and one shared sunken treatment, implemented by
+`SunkenTabsList`, `SunkenTabsTrigger`, `SunkenTabButton`, `SunkenTabLink`, and
+`SunkenTabNavigation` in `components/ui/sunken-tabs.tsx`.
 
-- **Variant 1 — compact filter tabs:** Use a fit-content, horizontal row of
-  pill-shaped triggers for filters or categories within one collection, as on
-  `/tryout` (“Semua”, “Tryout saya”, “Selesai”, “Latihan”). The active trigger
-  uses Voyage Deep with white text and the shared sunken inset effect; inactive
-  triggers use the quiet context treatment. The recessed depth is reserved for
-  the active compact filter state. Let the row scroll horizontally on narrow
-  screens instead of forcing each filter to equal width.
-- **Variant 2 — full-width line tabs:** Prefer this variant whenever the tab
-  bar should span the available width or switch between peer workspace areas,
-  as on `/vera-ai` (“Percakapan”, “Konteks”, “Studio”). Use equal-width
-  triggers, a transparent background, muted inactive text, and a visible
-  Voyage Deep underline for the active tab; keep this variant flat rather than
-  applying the compact tab's sunken inset. Icons are allowed when they help
-  distinguish workspace areas, but they must remain secondary to the label.
-- **Shared behavior:** Use semantic tabs with one clearly selected state,
-  visible keyboard focus, readable labels, and a minimum 44px touch target.
-  Variant 2 is the preferred default for full-width layouts; Variant 1 is for
-  compact, content-sized filtering.
+- **Compact filters:** Use content-sized triggers for filters or categories
+  within one collection, as on `/tryout` (“Semua”, “Tryout saya”, “Selesai”,
+  “Latihan”). Let the row scroll horizontally on narrow screens.
+- **Full-width navigation:** Use equal-width triggers when switching between
+  peer workspace areas, as on `/vera-ai` (“Percakapan”, “Konteks”, “Studio”).
+- **Shared treatment:** Use 12px corners, an 8px gap, a 44px minimum target,
+  and a 1px Soft Border at rest. The selected tab has a Voyage Deep border on
+  all four sides, Sea-Glass Wash fill, Voyage Deep text, and the shared inset
+  depth. Keep the selected border visible instead of adding an underline.
+- **Shared behavior:** Preserve semantic tabs, one clearly selected state,
+  visible keyboard focus, readable labels, reduced-motion support, and disabled
+  treatment. Use `SunkenTabButton` for native button groups and
+  `SunkenTabNavigation` with `SunkenTabLink` for route navigation, keeping their
+  existing semantics while sharing the same appearance.
 
 ## Tooltips
 

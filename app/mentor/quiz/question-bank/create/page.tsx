@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
@@ -10,11 +11,10 @@ import {
   type QuestionBankPurpose,
 } from "@/lib/navigation/canonical-context";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
-import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Buat Question Bank Kapten | Vecalss LMS",
+  title: "Buat Bank Soal Kapten | Vecalss LMS",
 };
 
 const QUESTION_BANK_FOLDER_UUID_PATTERN =
@@ -49,7 +49,8 @@ export default async function CreateMentorQuestionBankPage({ searchParams }: { s
     );
   }
   const purpose = (requestedPurpose as QuestionBankPurpose | undefined) ?? "quiz";
-  const initialFolderId = requestedFolder && requestedFolder !== "root" && requestedFolder !== "unfiled" ? requestedFolder : null;
-
-  return <KaptenQuestionBankBuilderPageModule initialFolderId={initialFolderId} mode="create" purpose={purpose} session={session} />;
+  const params = new URLSearchParams({ purpose });
+  if (requestedFolder) params.set("folder", requestedFolder);
+  params.set("create", "1");
+  redirect(`/mentor/quiz/question-bank?${params.toString()}`);
 }

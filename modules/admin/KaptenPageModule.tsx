@@ -132,7 +132,6 @@ function KaptenPageModule({
 
         <ReferencePageHeader
           actions={<AddKaptenDialog />}
-           description="Kelola akun Kapten dan handoff enrollment."
           id="kapten-heading"
           title="Kapten"
         />

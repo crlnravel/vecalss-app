@@ -13,8 +13,8 @@ import {
   type KuisVersionSummary,
 } from "@/lib/quiz/versioning-lifecycle";
 
-type KuisOperationalStatus = "archived" | "draft" | "hidden" | "published";
-type KuisScheduleAvailability = "archived" | "available" | "closed" | "draft" | "hidden" | "scheduled";
+type KuisOperationalStatus = "archived" | "published";
+type KuisScheduleAvailability = "archived" | "available" | "closed" | "scheduled";
 
 type KuisVersionProjectionRecord = KuisVersionSummary & KuisAssessmentDefinition & {
   baseVersionId?: string | null;
@@ -60,6 +60,11 @@ type KuisDraftRevision = {
 };
 
 type KuisEditorActionProjection = {
+  archive: {
+    enabled: boolean;
+    label: "Arsipkan Kuis";
+    visible: boolean;
+  };
   discard: {
     enabled: boolean;
     label: "Buang perubahan";
@@ -67,11 +72,6 @@ type KuisEditorActionProjection = {
   };
   history: {
     label: "Riwayat versi";
-    visible: boolean;
-  };
-  publish: {
-    enabled: boolean;
-    label: "Terbitkan Kuis" | "Terbitkan perubahan";
     visible: boolean;
   };
 };
@@ -104,7 +104,7 @@ type KuisCatalogueProjection = {
   id: string;
   learnerTitle: string;
   questionCount: number;
-  publishEligible: boolean;
+  archiveEligible: boolean;
   slug: string;
   subjectCode: string;
   title: string;
@@ -129,7 +129,7 @@ type KuisStudentOpportunityProjection = {
   history: KuisStudentParticipationProjection[];
   quizId: string;
   state: KuisStudentOpportunityState;
-  unavailableReason: "archived" | "attempts_exhausted" | "closed" | "draft" | "hidden" | "not_published" | "scheduled" | null;
+  unavailableReason: "archived" | "attempts_exhausted" | "closed" | "not_ready" | "scheduled" | null;
 };
 
 type KuisStudentOpportunityInput = {
@@ -303,6 +303,11 @@ function projectKuisEditor(input: KuisEditorProjectionInput): KuisEditorProjecti
   const hasPublishedVersion = Boolean(activeSummary);
   return {
     actions: {
+      archive: {
+        enabled: input.quiz.status === "published",
+        label: "Arsipkan Kuis",
+        visible: input.quiz.status === "published",
+      },
       discard: {
         enabled: changed,
         label: "Buang perubahan",
@@ -311,11 +316,6 @@ function projectKuisEditor(input: KuisEditorProjectionInput): KuisEditorProjecti
       history: {
         label: "Riwayat versi",
         visible: labels.length > 0,
-      },
-      publish: {
-        enabled: Boolean(draft && (!active || changed)),
-        label: hasPublishedVersion ? "Terbitkan perubahan" : "Terbitkan Kuis",
-        visible: Boolean(draft),
       },
     },
     activeVersion: activeSummary,
@@ -338,8 +338,6 @@ function projectKuisEditor(input: KuisEditorProjectionInput): KuisEditorProjecti
 
 function catalogueAvailability(input: KuisStableProjection, now: Date): KuisScheduleAvailability {
   if (input.status === "archived") return "archived";
-  if (input.status === "hidden") return "hidden";
-  if (input.status === "draft") return "draft";
   if (isScheduleBeforeOpen(input.opensAt, now)) return "scheduled";
   if (isScheduleClosed(input.closesAt, now)) return "closed";
   return "available";
@@ -359,7 +357,7 @@ function projectKuisCatalogueRow(input: KuisEditorProjectionInput & { now: strin
     hasUnpublishedChanges: editor.hasUnpublishedChanges,
     id: input.quiz.id,
     learnerTitle: active?.title ?? editable?.title ?? "",
-    publishEligible: editor.actions.publish.enabled,
+    archiveEligible: editor.actions.archive.enabled,
     questionCount: editable?.questions.length ?? active?.questionCount ?? 0,
     slug: input.quiz.slug,
     subjectCode: input.quiz.subjectCode,
@@ -376,14 +374,10 @@ function projectKuisStudentOpportunity(input: KuisStudentOpportunityInput): Kuis
   const hasPriorCompletion = Boolean(active && history.some((participation) => participation.versionId !== active.id && participation.completed));
   let state: KuisStudentOpportunityState = "unavailable";
   let unavailableReason: KuisStudentOpportunityProjection["unavailableReason"] = null;
-  if (!active) {
-    unavailableReason = "not_published";
-  } else if (input.quiz.status === "archived") {
+  if (input.quiz.status === "archived") {
     unavailableReason = "archived";
-  } else if (input.quiz.status === "hidden") {
-    unavailableReason = "hidden";
-  } else if (input.quiz.status !== "published") {
-    unavailableReason = "draft";
+  } else if (!active) {
+    unavailableReason = "not_ready";
   } else if (isScheduleBeforeOpen(input.quiz.opensAt, now)) {
     unavailableReason = "scheduled";
   } else if (isScheduleClosed(input.quiz.closesAt, now)) {

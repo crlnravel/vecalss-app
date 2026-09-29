@@ -69,10 +69,56 @@ function questionBankActionFailure(error: unknown, fallback: string): QuestionBa
   };
 }
 
+function questionBankSaveErrorDetails(error: unknown) {
+  let cause = error;
+  for (let depth = 0; depth < 4 && cause && typeof cause === "object"; depth += 1) {
+    const current = cause as { cause?: unknown; meta?: { cause?: unknown } };
+    const nestedCause = current.cause ?? current.meta?.cause;
+    if (!nestedCause || typeof nestedCause !== "object") break;
+    cause = nestedCause;
+  }
+
+  const driverError = cause && typeof cause === "object"
+    ? cause as { code?: unknown; constraint?: unknown; kind?: unknown; originalCode?: unknown }
+    : {};
+  const constraint = driverError.constraint && typeof driverError.constraint === "object"
+    ? driverError.constraint as { fields?: unknown; index?: unknown }
+    : null;
+  const code = typeof driverError.originalCode === "string"
+    ? driverError.originalCode
+    : typeof driverError.code === "string"
+      ? driverError.code
+      : null;
+
+  return {
+    code,
+    ...(typeof driverError.kind === "string" ? { driverKind: driverError.kind } : {}),
+    ...(typeof driverError.constraint === "string" ? { constraint: driverError.constraint } : {}),
+    ...(typeof constraint?.index === "string" ? { constraintIndex: constraint.index } : {}),
+    ...(Array.isArray(constraint?.fields) && constraint.fields.every((field) => typeof field === "string")
+      ? { constraintFields: constraint.fields }
+      : {}),
+  };
+}
+
 async function saveQuestionBankAction(input: SaveBankInput) {
   const session = await requireTutorSession();
-  try { const result = await saveQuestionBank(input, session.user.id); refresh(); return { ok: true as const, result }; }
-  catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini."); }
+  const startedAt = Date.now();
+  try {
+    const result = await saveQuestionBank(input, session.user.id);
+    refresh();
+    return { ok: true as const, result };
+  } catch (error) {
+    if (!(error instanceof QuestionBankError)) {
+      console.error("Question Bank save failed", {
+        durationMs: Date.now() - startedAt,
+        errorName: error instanceof Error ? error.name : typeof error,
+        questionCount: input.questions.length,
+        ...questionBankSaveErrorDetails(error),
+      });
+    }
+    return questionBankActionFailure(error, "Bank Soal tidak dapat disimpan saat ini.");
+  }
 }
 
 async function getQuestionBankForEditAction(id: string) {
@@ -100,7 +146,7 @@ async function updateQuestionRevisionLifecycleAction(id: string, status: Questio
 async function deleteQuestionBankAction(id: string, editLease?: AuthoringEditLease) {
   const session = await requireTutorSession();
   try { const result = await deleteQuestionBank(id, session.user.id, editLease); refresh(); return { ok: true as const, result }; }
-  catch (error) { return questionBankActionFailure(error, "Bank Soal tidak dapat dihapus saat ini."); }
+  catch (error) { return questionBankActionFailure(error, "Bank Soal belum berhasil dihapus. Coba lagi."); }
 }
 
 type ExpectedUpdatedAtInput = { expectedUpdatedAt?: string };

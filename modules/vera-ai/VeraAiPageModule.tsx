@@ -15,17 +15,14 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import {
   ArrowUpRight,
   Archive,
-  BookOpen,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
   Check,
-  ChevronLeft,
   ChevronRight,
   FileQuestion,
   FileText,
   Gauge,
   House,
-  LibraryBig,
   ListChecks,
   LoaderCircle,
   Maximize2,
@@ -36,7 +33,6 @@ import {
   Pencil,
   Plus,
   RotateCcw,
-  Search,
   SendHorizontal,
   Sparkles,
   Trash2,
@@ -45,7 +41,6 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { StudentBadge } from "@/components/ui/student-badge";
@@ -62,20 +57,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
 import {
   Popover,
   PopoverContent,
@@ -98,18 +85,7 @@ import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
 
-import {
-  veraContextSources,
-  veraMaterialHistory,
-  veraPracticeHistory,
-  veraStudioTools,
-  type VeraContextSource as VeraContextSourceSeed,
-  type VeraContextTypeId,
-  type VeraMaterialHistory,
-  type VeraPracticeHistory,
-  type VeraStudioTool,
-  type VeraToolId,
-} from "./data";
+import { veraStudioTools, type VeraStudioTool, type VeraToolId } from "./data";
 import {
   isVeraAutomaticContextEnabled,
   readVeraAutomaticContextProgress,
@@ -121,14 +97,10 @@ import {
   type VeraAutomaticContextProgress,
   type VeraRequestSourceSummary,
 } from "./automatic-context";
+import { createVeraConversationResolver } from "./conversation-session";
 
-type WorkspaceTab = "chat" | "context" | "studio";
+type WorkspaceTab = "chat" | "studio";
 type VeraDataState = "loading" | "live" | "unavailable";
-
-type VeraContextSource = VeraContextSourceSeed & {
-  releasedAt?: string;
-  subtitle?: string;
-};
 
 type VeraBackendConversation = {
   id: string;
@@ -136,7 +108,6 @@ type VeraBackendConversation = {
   title: string | null;
   archivedAt: string | null;
   version: number;
-  contextVersion: number;
   createdAt: string;
   updatedAt: string;
   messagePreview: {
@@ -182,31 +153,6 @@ type VeraBackendMessage = {
       sources?: unknown[];
     } | null;
   } | null;
-};
-
-type VeraBackendContextSource = {
-  sourceType: "material" | "practice";
-  sourceId: string;
-  title: string | null;
-  displayOrder: number;
-  releasedAt?: string;
-  subtitle?: string;
-};
-
-type VeraBackendContext = {
-  contextVersion: number;
-  selectionDigest?: string;
-  sources: VeraBackendContextSource[];
-  maxSources: number;
-  documentPhase?: "disabled";
-};
-
-type VeraBackendSource = {
-  sourceType: "material" | "practice";
-  sourceId: string;
-  title: string;
-  subtitle: string;
-  releasedAt: string;
 };
 
 type VeraBackendArtifactSummary = {
@@ -377,7 +323,9 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const errorPayload = (await response.json().catch(() => ({ error: "invalid_response" }))) as { error?: string };
+    const errorPayload = (await response
+      .json()
+      .catch(() => ({ error: "invalid_response" }))) as { error?: string };
     throw new VeraRequestError(
       errorPayload.error ?? "request_failed",
       errorPayload as Record<string, unknown>,
@@ -429,8 +377,10 @@ const veraErrorLabels: Record<string, string> = {
     "Layanan Vera belum siap menerima permintaan aman. Coba lagi nanti.",
   idempotency_conflict: "Permintaan ini sudah dipakai untuk aksi lain.",
   idempotency_key_expired: "Permintaan Vera sudah kedaluwarsa. Coba lagi.",
-  invalid_request: "Permintaan Vera belum lengkap. Periksa kembali lalu coba lagi.",
-  malformed_output: "Vera menghasilkan jawaban yang belum dapat dipakai. Coba lagi.",
+  invalid_request:
+    "Permintaan Vera belum lengkap. Periksa kembali lalu coba lagi.",
+  malformed_output:
+    "Vera menghasilkan jawaban yang belum dapat dipakai. Coba lagi.",
   provider_unavailable: "Penyedia AI sedang tidak tersedia. Coba lagi nanti.",
   provider_prepare_unavailable:
     "Vera belum dapat menyiapkan penyedia AI. Coba lagi nanti.",
@@ -447,7 +397,6 @@ const veraErrorLabels: Record<string, string> = {
     "Data tujuan berubah di perangkat lain. Muat ulang lalu coba lagi.",
   unauthenticated: "Sesi login berakhir. Silakan masuk kembali.",
   usage_unavailable: "Penggunaan Vera belum dapat dimuat.",
-  sources_unavailable: "Daftar sumber belajar Vera belum dapat dimuat.",
   vera_unavailable: "Vera sedang tidak tersedia. Coba lagi sebentar.",
 };
 
@@ -467,28 +416,29 @@ function veraErrorMessage(error: unknown) {
   return veraErrorLabels[code] ?? veraErrorLabels.vera_unavailable;
 }
 
-function mapBackendConversation(conversation: VeraBackendConversation): StudySession {
+function mapBackendConversation(
+  conversation: VeraBackendConversation,
+): StudySession {
   return {
     id: conversation.id,
     title: conversation.title ?? "Sesi baru",
     archivedAt: conversation.archivedAt ?? null,
     updatedAt: relativeTime(conversation.updatedAt),
-    sourceIds: [],
     generatedTools: [],
     messages: [],
     version: conversation.version,
-    contextVersion: conversation.contextVersion,
   };
 }
 
 function mapBackendMessage(message: VeraBackendMessage): VeraMessage {
   const request = message.request;
   const requestResult = request?.result;
-  const requestSources = [
-    readVeraRequestSources(request),
-    readVeraRequestSources(requestResult),
-    readVeraRequestSources(message),
-  ].find((sources) => sources.length > 0) ?? [];
+  const requestSources =
+    [
+      readVeraRequestSources(request),
+      readVeraRequestSources(requestResult),
+      readVeraRequestSources(message),
+    ].find((sources) => sources.length > 0) ?? [];
   const evidenceState =
     readVeraRequestEvidenceState(request) ??
     readVeraRequestEvidenceState(requestResult) ??
@@ -521,16 +471,6 @@ function mapBackendMessage(message: VeraBackendMessage): VeraMessage {
   };
 }
 
-function mapBackendSource(source: VeraBackendSource): VeraContextSource {
-  return {
-    id: source.sourceId,
-    releasedAt: source.releasedAt,
-    subtitle: source.subtitle,
-    title: source.title,
-    type: source.sourceType,
-  };
-}
-
 function isTerminalRequestState(state: string) {
   return ["succeeded", "fallback", "failed", "rejected", "expired"].includes(
     state,
@@ -542,7 +482,6 @@ function buildVeraRequestPayload({
   clientRequestId,
   kind,
   retryOfRequestId,
-  sources,
   text,
   toolId,
 }: {
@@ -550,7 +489,6 @@ function buildVeraRequestPayload({
   clientRequestId: string;
   kind: "chat" | "studio";
   retryOfRequestId: string | null;
-  sources: Array<{ sourceType: "material" | "practice"; sourceId: string }>;
   text: string;
   toolId: VeraToolId | null;
 }) {
@@ -567,7 +505,7 @@ function buildVeraRequestPayload({
 
   return automatic
     ? { ...base, contextMode: "automatic" as const }
-    : { ...base, sources };
+    : { ...base, contextMode: "legacy" as const };
 }
 
 function automaticProgressFromEvent(
@@ -578,10 +516,16 @@ function automaticProgressFromEvent(
   if (parsed) return parsed;
 
   const normalizedEvent = event?.toLowerCase() ?? "";
-  if (normalizedEvent.includes("selector") || normalizedEvent.includes("selection")) {
+  if (
+    normalizedEvent.includes("selector") ||
+    normalizedEvent.includes("selection")
+  ) {
     return { phase: "selecting", progress: null };
   }
-  if (normalizedEvent.includes("retriev") || normalizedEvent.includes("registry")) {
+  if (
+    normalizedEvent.includes("retriev") ||
+    normalizedEvent.includes("registry")
+  ) {
     return { phase: "retrieving", progress: null };
   }
   if (
@@ -623,7 +567,9 @@ function automaticTerminalProgress(
       ? (value as Record<string, unknown>)
       : null;
   const result =
-    status?.result && typeof status.result === "object" && !Array.isArray(status.result)
+    status?.result &&
+    typeof status.result === "object" &&
+    !Array.isArray(status.result)
       ? status.result
       : null;
 
@@ -648,17 +594,17 @@ function automaticTerminalProgress(
 
   const parsed = readVeraAutomaticContextProgress(value);
   if (parsed) return parsed;
-  if (status?.state === "failed" || status?.state === "rejected" || status?.state === "expired") {
+  if (
+    status?.state === "failed" ||
+    status?.state === "rejected" ||
+    status?.state === "expired"
+  ) {
     return { phase: "unavailable", progress: 100 };
   }
   if (status?.state === "succeeded" || status?.state === "fallback") {
     return { phase: "complete", progress: 100 };
   }
   return null;
-}
-
-function sourceForTitle(title: string) {
-  return veraContextSources.find((source) => source.title === title);
 }
 
 type VeraMessage = {
@@ -681,21 +627,12 @@ type StudySession = {
   title: string;
   archivedAt: string | null;
   updatedAt: string;
-  sourceIds: string[];
   generatedTools: VeraToolId[];
   messages: VeraMessage[];
   version?: number;
-  contextVersion?: number;
 };
 
-const studioToolIds: VeraToolId[] = [
-  "analysis",
-  "route",
-  "review",
-];
-
-const MAX_CONTEXTS_PER_SESSION = 4;
-const CONTEXT_PAGE_SIZE = 3;
+const studioToolIds: VeraToolId[] = ["analysis", "route", "review"];
 
 const toolIcons: Record<VeraToolId, AppIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
@@ -703,17 +640,11 @@ const toolIcons: Record<VeraToolId, AppIcon> = {
   review: FileQuestion,
 };
 
-const contextTypeIcons: Record<VeraContextTypeId, AppIcon> = {
-  practice: ChartNoAxesColumnIncreasing,
-  material: BookOpen,
-};
-
 const emptyStudySession: StudySession = {
   id: "",
   title: "Sesi baru",
   archivedAt: null,
   updatedAt: "",
-  sourceIds: [],
   generatedTools: [],
   messages: [],
 };
@@ -786,10 +717,7 @@ function formatVeraState(value: string | null | undefined) {
 }
 
 function isToolId(value: string | null): value is VeraToolId {
-  return Boolean(
-    value &&
-      ["analysis", "route", "review"].includes(value),
-  );
+  return Boolean(value && ["analysis", "route", "review"].includes(value));
 }
 
 type VeraAiWorkspaceProps = {
@@ -799,8 +727,6 @@ type VeraAiWorkspaceProps = {
   automaticContext: VeraAutomaticContextAuthority;
   automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
-  contextDialogOpen: boolean;
-  contextSources: VeraContextSource[];
   draft: string;
   fullscreenArtifact: VeraStudioTool | null;
   fullscreenArtifactDetail: VeraBackendArtifactDetail | null;
@@ -818,26 +744,20 @@ type VeraAiWorkspaceProps = {
   onExpandArtifact: (toolId: VeraToolId) => void;
   onGenerateTool: (toolId: VeraToolId) => void;
   onNewSession: () => void;
-  onOpenAddContext: () => void;
-  onContextDialogOpenChange: (open: boolean) => void;
   onOpenArtifact: (toolId: VeraToolId) => void;
   onRetry: () => void;
-  onRemoveContexts: (sourceIds: string[]) => void;
   onArchiveSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onRenameSession: (sessionId: string, title: string) => void;
   onRestoreSession: (sessionId: string) => void;
-  onSaveContext: (nextSourceIds: string[], addedSources?: VeraContextSource[]) => void;
   onSend: () => void;
   onSelectSession: (sessionId: string) => void;
   onSessionSidebarCollapsedChange: (collapsed: boolean) => void;
   onSetWorkspaceTab: (tab: WorkspaceTab) => void;
-  onToggleContext: (sourceId: string, active: boolean) => void;
   session: SessionContext;
   sessionSidebarCollapsed: boolean;
   sessions: StudySession[];
   usage: VeraBackendUsage | null;
-  backendMode: boolean;
   dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
   returnToHref: string;
@@ -849,10 +769,7 @@ function VeraAiWorkspace({
   activeSession,
   automaticContext,
   automaticProgress,
-  backendMode,
   busy,
-  contextDialogOpen,
-  contextSources,
   draft,
   error,
   fullscreenArtifact,
@@ -868,21 +785,16 @@ function VeraAiWorkspace({
   onExpandArtifact,
   onGenerateTool,
   onNewSession,
-  onOpenAddContext,
-  onContextDialogOpenChange,
   onOpenArtifact,
   onRetry,
-  onRemoveContexts,
   onArchiveSession,
   onDeleteSession,
   onRenameSession,
   onRestoreSession,
-  onSaveContext,
   onSend,
   onSelectSession,
   onSessionSidebarCollapsedChange,
   onSetWorkspaceTab,
-  onToggleContext,
   progress,
   provisionalText,
   session,
@@ -905,9 +817,7 @@ function VeraAiWorkspace({
           session={session}
           usage={usage}
         />
-        <h1 className="sr-only">
-          Vera AI Workspace: {activeSession.title}
-        </h1>
+        <h1 className="sr-only">Vera AI Workspace: {activeSession.title}</h1>
 
         <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
           {dataState === "live" ? (
@@ -932,8 +842,10 @@ function VeraAiWorkspace({
                 />
               </aside>
               <Tabs
-                className="min-h-0 min-w-0 flex-1 gap-0"
-                onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
+                className="min-h-0 min-w-0 flex-1 gap-3"
+                onValueChange={(value) =>
+                  onSetWorkspaceTab(value as WorkspaceTab)
+                }
                 value={workspaceTab}
               >
                 <VeraStatusBanner
@@ -945,52 +857,42 @@ function VeraAiWorkspace({
                   onRetry={onRetry}
                   progress={progress}
                 />
-                <WorkspacePanel className="flex flex-1">
-                  <WorkspaceTabs
-                    automaticContextEnabled={isVeraAutomaticContextEnabled(automaticContext)}
-                    onChange={onSetWorkspaceTab}
+                <WorkspaceTabs onChange={onSetWorkspaceTab} />
+                <TabsContent
+                  className="min-h-0 min-w-0 flex-1 overflow-hidden"
+                  value="chat"
+                >
+                  <ChatWorkspace
+                    activeSession={activeSession}
+                    automaticProgress={automaticProgress}
+                    automaticContextEnabled={isVeraAutomaticContextEnabled(
+                      automaticContext,
+                    )}
+                    busy={busy}
+                    className="flex h-full"
+                    draft={draft}
+                    onDraftChange={onDraftChange}
+                    onCancel={onCancelRequest}
+                    onSend={onSend}
+                    provisionalText={provisionalText}
                   />
-                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="chat">
-                    <ChatWorkspace
-                      activeSession={activeSession}
-                      automaticProgress={automaticProgress}
-                      automaticContextEnabled={isVeraAutomaticContextEnabled(automaticContext)}
-                      busy={busy}
-                      className="flex h-full rounded-none border-0 shadow-none"
-                      draft={draft}
-                      onDraftChange={onDraftChange}
-                      onCancel={onCancelRequest}
-                      onSend={onSend}
-                      provisionalText={provisionalText}
-                    />
-                  </TabsContent>
-                  {!isVeraAutomaticContextEnabled(automaticContext) ? (
-                    <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="context">
-                      <ContextWorkspace
-                        activeSourceIds={activeSession.sourceIds}
-                        className="flex h-full rounded-none border-0 shadow-none"
-                        key={`${activeSession.id}-${workspaceTab}`}
-                        onOpenAddContext={onOpenAddContext}
-                        onRemoveContexts={onRemoveContexts}
-                        onToggleContext={onToggleContext}
-                        sources={contextSources}
-                      />
-                    </TabsContent>
-                  ) : null}
-                  <TabsContent className="min-h-0 min-w-0 flex-1 overflow-hidden" value="studio">
-                    <StudioPanel
-                      activeArtifact={activeArtifact}
-                      activeArtifactDetail={activeArtifactDetail}
-                      className="flex h-full rounded-none border-0 shadow-none"
-                      generatedArtifacts={generatedArtifacts}
-                      generatedArtifactSummaries={generatedArtifactSummaries}
-                      onCloseArtifact={onCloseArtifact}
-                      onExpandArtifact={onExpandArtifact}
-                      onGenerateTool={onGenerateTool}
-                      onOpenArtifact={onOpenArtifact}
-                    />
-                  </TabsContent>
-                </WorkspacePanel>
+                </TabsContent>
+                <TabsContent
+                  className="min-h-0 min-w-0 flex-1 overflow-hidden"
+                  value="studio"
+                >
+                  <StudioPanel
+                    activeArtifact={activeArtifact}
+                    activeArtifactDetail={activeArtifactDetail}
+                    className="flex h-full"
+                    generatedArtifacts={generatedArtifacts}
+                    generatedArtifactSummaries={generatedArtifactSummaries}
+                    onCloseArtifact={onCloseArtifact}
+                    onExpandArtifact={onExpandArtifact}
+                    onGenerateTool={onGenerateTool}
+                    onOpenArtifact={onOpenArtifact}
+                  />
+                </TabsContent>
               </Tabs>
             </div>
           ) : (
@@ -1000,7 +902,6 @@ function VeraAiWorkspace({
               onRetry={onRetry}
             />
           )}
-
         </main>
       </div>
 
@@ -1035,18 +936,6 @@ function VeraAiWorkspace({
         </Dialog>
       ) : null}
 
-      {contextDialogOpen &&
-      dataState === "live" &&
-      !isVeraAutomaticContextEnabled(automaticContext) ? (
-        <AddContextDialog
-          onOpenChange={onContextDialogOpenChange}
-          onSave={onSaveContext}
-          open
-          availableSources={contextSources}
-          backendMode={backendMode}
-          selectedSourceIds={activeSession.sourceIds}
-        />
-      ) : null}
       <FullscreenArtifactDialog
         onOpenChange={(open) => {
           if (!open) {
@@ -1061,7 +950,15 @@ function VeraAiWorkspace({
   );
 }
 
-function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }): ComponentProps<typeof VeraAiWorkspace> {
+function useVeraAiModuleState({
+  notificationFeed,
+  returnToHref,
+  session,
+}: {
+  notificationFeed: StudentNotificationFeed;
+  returnToHref?: string;
+  session: SessionContext;
+}): ComponentProps<typeof VeraAiWorkspace> {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
@@ -1075,21 +972,16 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
     requestedTool,
   );
-  const [contextSources, setContextSources] = useState<VeraContextSource[]>([]);
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
-  const [contextDialogOpen, setContextDialogOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
-  const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
-    useState(true);
+  const [sessionSidebarCollapsed, setSessionSidebarCollapsed] = useState(true);
   const [automaticContext, setAutomaticContext] =
     useState<VeraAutomaticContextAuthority>(legacyVeraContextAuthority);
   const [backendMode, setBackendMode] = useState(false);
   const [dataState, setDataState] = useState<VeraDataState>("loading");
   const [backendError, setBackendError] = useState<string | null>(null);
-  const [backendContext, setBackendContext] =
-    useState<VeraBackendContext | null>(null);
   const [backendArtifacts, setBackendArtifacts] = useState<
     VeraBackendArtifactSummary[]
   >([]);
@@ -1103,10 +995,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
-  const [lastFailed, setLastFailed] = useState<VeraRequestAttempt | null>(
-    null,
-  );
+  const [lastFailed, setLastFailed] = useState<VeraRequestAttempt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const requestInFlightRef = useRef(false);
+  const conversationResolverRef = useRef(createVeraConversationResolver());
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ??
@@ -1128,103 +1020,80 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       ? activeArtifactDetail
       : null;
 
-  const loadConversation = useCallback(async (
-    conversationId: string,
-    authority: VeraAutomaticContextAuthority,
-    committedStatus: VeraRequestStatus | null = null,
-  ) => {
-    const [detail, messagePage, artifactPage] = await Promise.all([
-      requestJson<{ conversation: VeraBackendConversation }>(
-        `/api/vera-ai/conversations/${conversationId}`,
-      ),
-      requestJson<{ messages: VeraBackendMessage[] }>(
-        `/api/vera-ai/conversations/${conversationId}/messages?limit=50`,
-      ),
-      requestJson<{ artifacts: VeraBackendArtifactSummary[] }>(
-        `/api/vera-ai/conversations/${conversationId}/artifacts?limit=50`,
-      ),
-    ]);
-    const contextDto = isVeraAutomaticContextEnabled(authority)
-      ? null
-      : await requestJson<VeraBackendContext>(
-          `/api/vera-ai/conversations/${conversationId}/context`,
-        );
-    const generatedTools = artifactPage.artifacts.reduce<VeraToolId[]>((acc, artifact) => {
-      if (isToolId(artifact.artifactType)) acc.push(artifact.artifactType);
-      return acc;
-    }, []);
-
-    setBackendContext(contextDto);
-    setBackendArtifacts(artifactPage.artifacts);
-    if (contextDto) {
-      setContextSources((current) => {
-        const merged = new Map(current.map((source) => [source.id, source]));
-
-        contextDto.sources.forEach((source) => {
-          if (!merged.has(source.sourceId)) {
-            merged.set(source.sourceId, {
-              id: source.sourceId,
-              title: source.title ?? "Sumber belajar",
-              type: source.sourceType,
-            });
-          }
-        });
-
-        return [...merged.values()];
-      });
-    } else {
-      setContextSources([]);
-    }
-    const mappedMessages = messagePage.messages.map(mapBackendMessage);
-    if (
-      committedStatus &&
-      isTerminalRequestState(committedStatus.state)
-    ) {
-      const statusSources = [
-        readVeraRequestSources(committedStatus),
-        readVeraRequestSources(committedStatus.result),
-      ].find((sources) => sources.length > 0) ?? [];
-      const statusEvidence =
-        readVeraRequestEvidenceState(committedStatus) ??
-        readVeraRequestEvidenceState(committedStatus.result);
-      const statusContextMode =
-        committedStatus.contextMode ?? committedStatus.result?.contextMode;
-      const messageIndex = mappedMessages.findIndex(
-        (message) => message.requestId === committedStatus.requestId,
+  const loadConversation = useCallback(
+    async (
+      conversationId: string,
+      committedStatus: VeraRequestStatus | null = null,
+    ) => {
+      const [detail, messagePage, artifactPage] = await Promise.all([
+        requestJson<{ conversation: VeraBackendConversation }>(
+          `/api/vera-ai/conversations/${conversationId}`,
+        ),
+        requestJson<{ messages: VeraBackendMessage[] }>(
+          `/api/vera-ai/conversations/${conversationId}/messages?limit=50`,
+        ),
+        requestJson<{ artifacts: VeraBackendArtifactSummary[] }>(
+          `/api/vera-ai/conversations/${conversationId}/artifacts?limit=50`,
+        ),
+      ]);
+      const generatedTools = artifactPage.artifacts.reduce<VeraToolId[]>(
+        (acc, artifact) => {
+          if (isToolId(artifact.artifactType)) acc.push(artifact.artifactType);
+          return acc;
+        },
+        [],
       );
 
-      if (messageIndex >= 0) {
-        mappedMessages[messageIndex] = {
-          ...mappedMessages[messageIndex],
-          requestContextMode:
-            statusContextMode === "automatic"
-              ? "automatic"
-              : statusContextMode === "legacy"
-                ? "legacy"
-                : mappedMessages[messageIndex].requestContextMode,
-          requestEvidenceState:
-            statusEvidence ?? mappedMessages[messageIndex].requestEvidenceState,
-          requestSources:
-            statusSources.length > 0
-              ? statusSources
-              : mappedMessages[messageIndex].requestSources,
-        };
-      }
-    }
+      const mappedMessages = messagePage.messages.map(mapBackendMessage);
+      if (committedStatus && isTerminalRequestState(committedStatus.state)) {
+        const statusSources =
+          [
+            readVeraRequestSources(committedStatus),
+            readVeraRequestSources(committedStatus.result),
+          ].find((sources) => sources.length > 0) ?? [];
+        const statusEvidence =
+          readVeraRequestEvidenceState(committedStatus) ??
+          readVeraRequestEvidenceState(committedStatus.result);
+        const statusContextMode =
+          committedStatus.contextMode ?? committedStatus.result?.contextMode;
+        const messageIndex = mappedMessages.findIndex(
+          (message) => message.requestId === committedStatus.requestId,
+        );
 
-    setSessions((current) =>
-      current.map((item) =>
-        item.id === conversationId
-          ? {
-              ...mapBackendConversation(detail.conversation),
-              sourceIds: contextDto?.sources.map((source) => source.sourceId) ?? [],
-              generatedTools,
-              messages: mappedMessages,
-            }
-          : item,
-      ),
-    );
-  }, []);
+        if (messageIndex >= 0) {
+          mappedMessages[messageIndex] = {
+            ...mappedMessages[messageIndex],
+            requestContextMode:
+              statusContextMode === "automatic"
+                ? "automatic"
+                : statusContextMode === "legacy"
+                  ? "legacy"
+                  : mappedMessages[messageIndex].requestContextMode,
+            requestEvidenceState:
+              statusEvidence ??
+              mappedMessages[messageIndex].requestEvidenceState,
+            requestSources:
+              statusSources.length > 0
+                ? statusSources
+                : mappedMessages[messageIndex].requestSources,
+          };
+        }
+      }
+
+      setSessions((current) =>
+        current.map((item) =>
+          item.id === conversationId
+            ? {
+                ...mapBackendConversation(detail.conversation),
+                generatedTools,
+                messages: mappedMessages,
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   const hydrate = useCallback(async () => {
     try {
@@ -1234,28 +1103,14 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         "/api/vera-ai/conversations?limit=50&includeArchived=true",
       );
       const authority = readVeraContextAuthority(conversationPage);
-      const automaticEnabled = isVeraAutomaticContextEnabled(authority);
-      const [sourceResult, usageResult] = await Promise.allSettled([
-        automaticEnabled
-          ? Promise.resolve({ sources: [] as VeraBackendSource[] })
-          : requestJson<{ sources: VeraBackendSource[] }>(
-              "/api/vera-ai/sources?limit=50",
-            ),
+      const [usageResult] = await Promise.allSettled([
         requestJson<VeraBackendUsage>("/api/vera-ai/usage"),
       ]);
-      if (sourceResult.status === "rejected" && !automaticEnabled) {
-        throw new VeraRequestError("sources_unavailable", {
-          cause: sourceResult.reason,
-        });
-      }
       if (usageResult.status === "rejected") {
         throw new VeraRequestError("usage_unavailable", {
           cause: usageResult.reason,
         });
       }
-      const sourcePage = sourceResult.status === "fulfilled"
-        ? sourceResult.value
-        : { sources: [] as VeraBackendSource[] };
       const usageDto = usageResult.value;
       const mappedSessions = conversationPage.conversations.map(
         mapBackendConversation,
@@ -1267,18 +1122,14 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
       setSessions(mappedSessions);
       setAutomaticContext(authority);
-      if (automaticEnabled) {
-        setWorkspaceTab("chat");
-      }
-      setContextSources(sourcePage.sources.map(mapBackendSource));
+      setWorkspaceTab("chat");
       setUsage(usageDto);
       setActiveSessionId(defaultConversationId);
       setAutomaticProgress(null);
 
       if (defaultConversationId) {
-        await loadConversation(defaultConversationId, authority);
+        await loadConversation(defaultConversationId);
       } else {
-        setBackendContext(null);
         setBackendArtifacts([]);
       }
       setBackendMode(true);
@@ -1288,11 +1139,9 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setBackendMode(false);
       setDataState("unavailable");
       setSessions([]);
-      setContextSources([]);
       setActiveSessionId("");
       setActiveArtifactId(null);
       setActiveArtifactDetail(null);
-      setBackendContext(null);
       setBackendArtifacts([]);
       setAutomaticProgress(null);
       setUsage(null);
@@ -1326,11 +1175,10 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
   function updateActiveSession(
     update: (current: StudySession) => StudySession,
+    sessionId = activeSession.id,
   ) {
     setSessions((current) =>
-      current.map((item) =>
-        item.id === activeSession.id ? update(item) : item,
-      ),
+      current.map((item) => (item.id === sessionId ? update(item) : item)),
     );
   }
 
@@ -1347,32 +1195,28 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     setWorkspaceTab("chat");
 
     setLastFailed(null);
-    setBackendContext(null);
     setError(null);
     setNotice(null);
-    void loadConversation(nextSessionId, automaticContext).catch((caught) => {
+    void loadConversation(nextSessionId).catch((caught) => {
       setError(veraErrorMessage(caught));
     });
   }
 
   function handleSetWorkspaceTab(nextTab: WorkspaceTab) {
-    if (
-      nextTab === "context" &&
-      isVeraAutomaticContextEnabled(automaticContext)
-    ) {
-      setWorkspaceTab("chat");
-      return;
-    }
-
     setWorkspaceTab(nextTab);
   }
 
   function handleNewSession() {
-    if (busy || dataState !== "live" || !backendMode) {
+    if (
+      busy ||
+      requestInFlightRef.current ||
+      dataState !== "live" ||
+      !backendMode
+    ) {
       return;
     }
 
-    void createBackendConversation();
+    void conversationResolverRef.current(null, createBackendConversation);
   }
 
   function handleRenameSession(sessionId: string, nextTitle: string) {
@@ -1393,70 +1237,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     }
 
     void renameBackendConversationForSession(sessionToRename, title);
-  }
-
-  function handleSaveContext(
-    nextSourceIds: string[],
-  ) {
-    if (isVeraAutomaticContextEnabled(automaticContext)) {
-      return;
-    }
-
-    const limitedSourceIds = nextSourceIds.slice(
-      0,
-      MAX_CONTEXTS_PER_SESSION,
-    );
-
-    if (dataState !== "live" || !backendMode) {
-      return;
-    }
-
-    setContextDialogOpen(false);
-    void replaceBackendContext(limitedSourceIds);
-  }
-
-  function handleRemoveContexts(sourceIds: string[]) {
-    if (
-      isVeraAutomaticContextEnabled(automaticContext) ||
-      dataState !== "live" ||
-      !backendMode
-    ) {
-      return;
-    }
-
-    const removedSourceIds = new Set(sourceIds);
-
-    void replaceBackendContext(
-      activeSession.sourceIds.filter((sourceId) => !removedSourceIds.has(sourceId)),
-    );
-  }
-
-  function handleToggleContext(sourceId: string, active: boolean) {
-    if (
-      isVeraAutomaticContextEnabled(automaticContext) ||
-      dataState !== "live" ||
-      !backendMode
-    ) {
-      return;
-    }
-
-    if (active === activeSession.sourceIds.includes(sourceId)) {
-      return;
-    }
-
-    const nextSourceIds = active
-      ? [...activeSession.sourceIds, sourceId]
-      : activeSession.sourceIds.filter((id) => id !== sourceId);
-
-    if (
-      active &&
-      activeSession.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
-    ) {
-      setError(veraErrorLabels.context_limit_reached);
-      return;
-    }
-
-    void replaceBackendContext(nextSourceIds);
   }
 
   function handleSend() {
@@ -1497,7 +1277,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     }
   }
 
-  async function createBackendConversation() {
+  async function createBackendConversation(): Promise<string | null> {
     try {
       setBusy(true);
       setError(null);
@@ -1518,18 +1298,26 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setActiveSessionId(result.conversation.id);
       setActiveArtifactId(null);
       setActiveArtifactDetail(null);
-      setBackendContext(null);
       setBackendArtifacts([]);
       setWorkspaceTab("chat");
-      await loadConversation(result.conversation.id, automaticContext);
+      try {
+        await loadConversation(result.conversation.id);
+      } catch (caught) {
+        setError(veraErrorMessage(caught));
+      }
+      return result.conversation.id;
     } catch (caught) {
       setError(veraErrorMessage(caught));
+      return null;
     } finally {
       setBusy(false);
     }
   }
 
-  async function renameBackendConversationForSession(sessionToRename: StudySession, title: string) {
+  async function renameBackendConversationForSession(
+    sessionToRename: StudySession,
+    title: string,
+  ) {
     try {
       setError(null);
       const updated = await requestJson<VeraBackendConversation>(
@@ -1547,7 +1335,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
           item.id === updated.id
             ? {
                 ...mapBackendConversation(updated),
-                sourceIds: item.sourceIds,
                 generatedTools: item.generatedTools,
                 messages: item.messages,
               }
@@ -1568,7 +1355,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
             item.id === authoritative.id
               ? {
                   ...mapBackendConversation(authoritative),
-                  sourceIds: item.sourceIds,
                   generatedTools: item.generatedTools,
                   messages: item.messages,
                 }
@@ -1593,7 +1379,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     setActiveSessionId("");
     setActiveArtifactId(null);
     setActiveArtifactDetail(null);
-    setBackendContext(null);
     setBackendArtifacts([]);
     setDraft("");
     setLastFailed(null);
@@ -1631,7 +1416,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
         item.id === updated.id
           ? {
               ...mapBackendConversation(updated),
-              sourceIds: item.sourceIds,
               generatedTools: item.generatedTools,
               messages: item.messages,
             }
@@ -1661,16 +1445,17 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
           }),
         },
       );
-      setSessions((current) => current.map((item) =>
-        item.id === updated.id
-          ? {
-              ...mapBackendConversation(updated),
-              sourceIds: item.sourceIds,
-              generatedTools: item.generatedTools,
-              messages: item.messages,
-            }
-          : item,
-      ));
+      setSessions((current) =>
+        current.map((item) =>
+          item.id === updated.id
+            ? {
+                ...mapBackendConversation(updated),
+                generatedTools: item.generatedTools,
+                messages: item.messages,
+              }
+            : item,
+        ),
+      );
       setNotice("Sesi dipulihkan.");
     } catch (caught) {
       setError(veraErrorMessage(caught));
@@ -1701,98 +1486,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     }
   }
 
-  async function replaceBackendContext(nextSourceIds: string[]) {
-    if (
-      isVeraAutomaticContextEnabled(automaticContext) ||
-      !activeSession.id ||
-      !backendContext
-    ) {
-      return;
-    }
-
-    const contextById = new Map(
-      backendContext.sources.map((source) => [source.sourceId, source]),
-    );
-    const catalogById = new Map(
-      contextSources.map((source) => [source.id, source]),
-    );
-    const sources = nextSourceIds
-      .map((sourceId) => {
-        const contextSource = contextById.get(sourceId);
-        const catalogSource = catalogById.get(sourceId);
-        const sourceType = contextSource?.sourceType ?? catalogSource?.type;
-
-        return sourceType === "material" || sourceType === "practice"
-          ? { sourceType, sourceId }
-          : null;
-      })
-      .filter(
-        (
-          source,
-        ): source is { sourceType: "material" | "practice"; sourceId: string } =>
-          source !== null,
-      )
-      .slice(0, MAX_CONTEXTS_PER_SESSION);
-
-    try {
-      setError(null);
-      const result = await requestJson<VeraBackendContext>(
-        `/api/vera-ai/conversations/${activeSession.id}/context`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            expectedContextVersion: backendContext.contextVersion,
-            sources,
-          }),
-        },
-      );
-      setBackendContext(result);
-      setSessions((current) =>
-        current.map((item) =>
-          item.id === activeSession.id
-            ? {
-                ...item,
-                sourceIds: result.sources.map((source) => source.sourceId),
-                contextVersion: result.contextVersion,
-                updatedAt: "Baru saja",
-              }
-            : item,
-        ),
-      );
-      await loadConversation(activeSession.id, automaticContext);
-    } catch (caught) {
-      const authoritative =
-        caught instanceof VeraRequestError &&
-        caught.details.context &&
-        typeof caught.details.context === "object"
-          ? (caught.details.context as VeraBackendContext)
-          : null;
-
-      if (authoritative) {
-        setBackendContext(authoritative);
-        setSessions((current) =>
-          current.map((item) =>
-            item.id === activeSession.id
-              ? {
-                  ...item,
-                  sourceIds: authoritative.sources.map(
-                    (source) => source.sourceId,
-                  ),
-                  contextVersion: authoritative.contextVersion,
-                }
-              : item,
-          ),
-        );
-        setNotice(
-          "Konteks berubah di perangkat lain. Pilihan terbaru sudah dimuat.",
-        );
-        await loadConversation(activeSession.id, automaticContext).catch(() => undefined);
-      }
-
-      setError(veraErrorMessage(caught));
-    }
-  }
-
   async function openBackendArtifact(artifactId: string) {
     try {
       setError(null);
@@ -1818,10 +1511,25 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       return;
     }
 
-    const conversationId = activeSession.id;
+    if (requestInFlightRef.current) {
+      return;
+    }
+
+    requestInFlightRef.current = true;
+    let conversationId: string | null;
+    try {
+      conversationId = await conversationResolverRef.current(
+        activeSession.id || null,
+        createBackendConversation,
+      );
+    } catch (caught) {
+      requestInFlightRef.current = false;
+      setError(veraErrorMessage(caught));
+      return;
+    }
 
     if (!conversationId) {
-      setError("Buat sesi baru sebelum mengirim permintaan.");
+      requestInFlightRef.current = false;
       return;
     }
 
@@ -1835,9 +1543,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       clientRequestId,
       artifactId: null,
     };
-    const sources = (backendContext?.sources ?? [])
-      .map(({ sourceType, sourceId }) => ({ sourceType, sourceId }))
-      .slice(0, MAX_CONTEXTS_PER_SESSION);
     const automaticEnabled = isVeraAutomaticContextEnabled(automaticContext);
 
     abortRef.current = controller;
@@ -1850,19 +1555,22 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     setAutomaticProgress(
       automaticEnabled ? { phase: "selecting", progress: 0 } : null,
     );
-    updateActiveSession((current) => ({
-      ...current,
-      updatedAt: "Baru saja",
-      messages: [
-        ...current.messages,
-        {
-          id: `pending-${clientRequestId}`,
-          role: "student",
-          body: text,
-          createdAt: "Sekarang",
-        },
-      ],
-    }));
+    updateActiveSession(
+      (current) => ({
+        ...current,
+        updatedAt: "Baru saja",
+        messages: [
+          ...current.messages,
+          {
+            id: `pending-${clientRequestId}`,
+            role: "student",
+            body: text,
+            createdAt: "Sekarang",
+          },
+        ],
+      }),
+      conversationId,
+    );
 
     let terminalSeen = false;
     let finalStatus: VeraRequestStatus | null = null;
@@ -1879,7 +1587,6 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
               clientRequestId,
               kind,
               retryOfRequestId,
-              sources,
               text,
               toolId,
             }),
@@ -1974,10 +1681,16 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
               );
               if (automaticProgressEvent) {
                 setAutomaticProgress(automaticProgressEvent);
-              } else if (event === "progress.updated" && typeof data.progress === "number") {
+              } else if (
+                event === "progress.updated" &&
+                typeof data.progress === "number"
+              ) {
                 setAutomaticProgress((current) => ({
                   phase: current?.phase ?? "answering",
-                  progress: Math.max(0, Math.min(100, Math.round(data.progress ?? 0))),
+                  progress: Math.max(
+                    0,
+                    Math.min(100, Math.round(data.progress ?? 0)),
+                  ),
                 }));
               }
             }
@@ -1985,10 +1698,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
             if (event === "request.started" && data.requestId) {
               attempt.requestId = data.requestId;
             }
-            if (
-              event === "message.delta" &&
-              typeof data.text === "string"
-            ) {
+            if (event === "message.delta" && typeof data.text === "string") {
               setProvisionalText((current) => `${current ?? ""}${data.text}`);
             }
             if (
@@ -2100,7 +1810,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
 
       setDraft("");
       await Promise.all([
-        loadConversation(conversationId, automaticContext, finalStatus),
+        loadConversation(conversationId, finalStatus),
         requestJson<VeraBackendUsage>("/api/vera-ai/usage").then(setUsage),
       ]);
 
@@ -2122,6 +1832,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setProgress(null);
       setAutomaticProgress(null);
       setProvisionalText(null);
+      requestInFlightRef.current = false;
     }
   }
 
@@ -2156,10 +1867,7 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
     activeSession,
     automaticContext,
     automaticProgress,
-    backendMode,
     busy,
-    contextDialogOpen,
-    contextSources,
     draft,
     error: backendError ?? error,
     fullscreenArtifact,
@@ -2174,25 +1882,20 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
       setActiveArtifactDetail(null);
     },
     onCloseFullscreen: () => setFullscreenArtifactId(null),
-    onContextDialogOpenChange: setContextDialogOpen,
     onDraftChange: setDraft,
     onExpandArtifact: setFullscreenArtifactId,
     onGenerateTool: handleToolRequest,
     onNewSession: handleNewSession,
-    onOpenAddContext: () => setContextDialogOpen(true),
     onOpenArtifact: handleOpenArtifact,
     onArchiveSession: archiveBackendConversation,
     onDeleteSession: deleteBackendConversation,
-    onRemoveContexts: handleRemoveContexts,
     onRenameSession: handleRenameSession,
     onRestoreSession: restoreBackendConversation,
     onRetry: handleRetry,
-    onSaveContext: handleSaveContext,
     onSelectSession: handleSelectSession,
     onSend: handleSend,
     onSessionSidebarCollapsedChange: setSessionSidebarCollapsed,
     onSetWorkspaceTab: handleSetWorkspaceTab,
-    onToggleContext: handleToggleContext,
     progress,
     provisionalText,
     session,
@@ -2205,8 +1908,20 @@ function useVeraAiModuleState({ notificationFeed, returnToHref, session }: { not
   };
 }
 
-function VeraAiPageModule({ notificationFeed, returnToHref, session }: { notificationFeed: StudentNotificationFeed; returnToHref?: string; session: SessionContext }) {
-  const workspaceProps = useVeraAiModuleState({ notificationFeed, returnToHref, session });
+function VeraAiPageModule({
+  notificationFeed,
+  returnToHref,
+  session,
+}: {
+  notificationFeed: StudentNotificationFeed;
+  returnToHref?: string;
+  session: SessionContext;
+}) {
+  const workspaceProps = useVeraAiModuleState({
+    notificationFeed,
+    returnToHref,
+    session,
+  });
   return <VeraAiWorkspace {...workspaceProps} />;
 }
 
@@ -2248,9 +1963,13 @@ function VeraStatusBanner({
       }[automaticProgress.phase]
     : null;
   const automaticPercent = automaticProgress?.progress;
-  const statusText = error ?? notice ?? automaticStatusText ?? (progress !== null
-    ? `Vera sedang menyusun hasil… ${progress}%`
-    : "Vera sedang menyusun jawaban…");
+  const statusText =
+    error ??
+    notice ??
+    automaticStatusText ??
+    (progress !== null
+      ? `Vera sedang menyusun hasil… ${progress}%`
+      : "Vera sedang menyusun jawaban…");
 
   return (
     <div
@@ -2327,7 +2046,11 @@ function VeraDataStatePanel({
       role={loading ? "status" : "alert"}
     >
       <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
-        {loading ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <Gauge className="size-5" />}
+        {loading ? (
+          <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" />
+        ) : (
+          <Gauge className="size-5" />
+        )}
       </span>
       <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-secondary-950">
         {loading ? "Memuat ruang kerja Vera…" : "Data Vera belum tersedia"}
@@ -2335,7 +2058,8 @@ function VeraDataStatePanel({
       <p className="mt-2 max-w-md text-sm leading-6 text-secondary-600">
         {loading
           ? "Sesi, sumber belajar, dan penggunaan sedang dimuat dari server."
-          : error ?? "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server."}
+          : (error ??
+            "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server.")}
       </p>
       {!loading ? (
         <Button className="mt-6 rounded-full" onClick={onRetry} variant="brand">
@@ -2409,7 +2133,10 @@ function VeraTopBar({
         </Button>
         <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 text-primary-900 shadow-sm">
           <VeraUsagePopover usage={usage} />
-          <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
+          <StudentNotificationPopover
+            items={notificationFeed.items}
+            unreadCount={notificationFeed.unreadCount}
+          />
           <StudentAccountMenu extraItem="notifications" session={session} />
         </div>
       </div>
@@ -2418,26 +2145,33 @@ function VeraTopBar({
 }
 
 function getVeraUsageSummary(usage: VeraBackendUsage | null) {
-  const consumedCredits = usage?.consumedCredits ?? usage?.usedQuotaUnits ?? null;
-  const reservedCredits = usage?.reservedCredits ?? usage?.reservedQuotaUnits ?? 0;
+  const consumedCredits =
+    usage?.consumedCredits ?? usage?.usedQuotaUnits ?? null;
+  const reservedCredits =
+    usage?.reservedCredits ?? usage?.reservedQuotaUnits ?? 0;
   const creditLimit = usage?.creditLimit ?? usage?.quotaLimitUnits ?? null;
-  const remainingCredits = usage?.remainingCredits ?? (
-    creditLimit !== null && consumedCredits !== null
+  const remainingCredits =
+    usage?.remainingCredits ??
+    (creditLimit !== null && consumedCredits !== null
       ? Math.max(0, creditLimit - consumedCredits - reservedCredits)
-      : null
-  );
-  const committedCredits = consumedCredits === null
-    ? null
-    : consumedCredits + reservedCredits;
-  const usagePercent = committedCredits !== null && creditLimit && creditLimit > 0
-    ? Math.min(100, Math.round((committedCredits / creditLimit) * 100))
-    : null;
+      : null);
+  const committedCredits =
+    consumedCredits === null ? null : consumedCredits + reservedCredits;
+  const usagePercent =
+    committedCredits !== null && creditLimit && creditLimit > 0
+      ? Math.min(100, Math.round((committedCredits / creditLimit) * 100))
+      : null;
   let usageState = "Data penggunaan belum tersedia dari server.";
 
   if (usage) {
-    if (!usage.redisAvailable) usageState = "Pembatas permintaan tidak tersedia";
-    else if (!usage.providerAvailable) usageState = "Penyedia AI tidak tersedia";
-    else if (usage.monetaryDebtState === "debt" || (usage.quotaDebtUnits ?? 0) > 0) {
+    if (!usage.redisAvailable)
+      usageState = "Pembatas permintaan tidak tersedia";
+    else if (!usage.providerAvailable)
+      usageState = "Penyedia AI tidak tersedia";
+    else if (
+      usage.monetaryDebtState === "debt" ||
+      (usage.quotaDebtUnits ?? 0) > 0
+    ) {
       usageState = "Batas biaya bulanan tercapai";
     } else if (remainingCredits === 0) {
       usageState = "Kredit habis";
@@ -2445,8 +2179,7 @@ function getVeraUsageSummary(usage: VeraBackendUsage | null) {
       usageState = `${reservedCredits} kredit sedang diproses`;
     } else if (usage.rawTokenUsageState === "unknown") {
       usageState = "Penggunaan provider belum diketahui";
-    }
-    else usageState = "Tersedia";
+    } else usageState = "Tersedia";
   }
 
   return {
@@ -2460,11 +2193,12 @@ function getVeraUsageSummary(usage: VeraBackendUsage | null) {
   };
 }
 
-const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> = {
-  day: "Hari ini",
-  iso_week: "Minggu ini",
-  month: "Bulan ini",
-};
+const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> =
+  {
+    day: "Hari ini",
+    iso_week: "Minggu ini",
+    month: "Bulan ini",
+  };
 
 function formatVeraUsdMicros(value: string | undefined) {
   if (!value || !/^\d+$/.test(value)) return "—";
@@ -2477,7 +2211,10 @@ function formatVeraUsdMicros(value: string | undefined) {
   }).format(amount);
 }
 
-function formatVeraResetAt(value: string | undefined, timeZone: string | undefined) {
+function formatVeraResetAt(
+  value: string | undefined,
+  timeZone: string | undefined,
+) {
   if (!value) return "reset belum tersedia";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "reset belum tersedia";
@@ -2508,9 +2245,11 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
       <PopoverTrigger
         render={
           <Button
-            aria-label={usagePercent === null
-              ? "Penggunaan Vera belum tersedia"
-              : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`}
+            aria-label={
+              usagePercent === null
+                ? "Penggunaan Vera belum tersedia"
+                : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`
+            }
             className="rounded-full px-2.5"
             size="default"
             variant="ghost"
@@ -2525,20 +2264,27 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
       <PopoverContent align="end" className="w-80" sideOffset={10}>
         <PopoverHeader>
           <PopoverTitle>Penggunaan Vera</PopoverTitle>
-          <PopoverDescription>
-            {usageState}
-          </PopoverDescription>
+          <PopoverDescription>{usageState}</PopoverDescription>
         </PopoverHeader>
 
-        {usage && usagePercent !== null && consumedCredits !== null && creditLimit !== null ? (
+        {usage &&
+        usagePercent !== null &&
+        consumedCredits !== null &&
+        creditLimit !== null ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="font-semibold text-secondary-800">Kredit bulan ini</span>
+              <span className="font-semibold text-secondary-800">
+                Kredit bulan ini
+              </span>
               <span className="tabular-nums text-secondary-500">
-                {committedCredits?.toLocaleString("id-ID")} / {creditLimit.toLocaleString("id-ID")}
+                {committedCredits?.toLocaleString("id-ID")} /{" "}
+                {creditLimit.toLocaleString("id-ID")}
               </span>
             </div>
-            <Progress aria-label="Penggunaan kredit Vera" value={usagePercent} />
+            <Progress
+              aria-label="Penggunaan kredit Vera"
+              value={usagePercent}
+            />
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <p className="text-secondary-400">Terpakai</p>
@@ -2562,14 +2308,19 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
             {windows.length > 0 ? (
               <div className="flex flex-col gap-2 border-t border-primary-100 pt-3">
                 {windows.map((window) => (
-                  <div className="flex items-center justify-between gap-3 text-xs" key={window.periodKind}>
+                  <div
+                    className="flex items-center justify-between gap-3 text-xs"
+                    key={window.periodKind}
+                  >
                     <span className="text-secondary-600">
                       {VERA_USAGE_WINDOW_LABELS[window.periodKind]}
                     </span>
                     <span className="text-right tabular-nums text-secondary-500">
-                      {window.consumedCredits + window.reservedCredits} / {window.creditLimit}
-                      <span className="block text-[0.7rem] text-secondary-400">
-                        reset {formatVeraResetAt(window.resetAt, usage.quotaTimezone)}
+                      {window.consumedCredits + window.reservedCredits} /{" "}
+                      {window.creditLimit}
+                      <span className="block text-xs text-secondary-400">
+                        reset{" "}
+                        {formatVeraResetAt(window.resetAt, usage.quotaTimezone)}
                       </span>
                     </span>
                   </div>
@@ -2581,59 +2332,49 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-secondary-600">Biaya provider</span>
                   <span className="tabular-nums text-secondary-500">
-                    {formatVeraUsdMicros(usage.providerSpend.exposureUsdMicros)} / {formatVeraUsdMicros(usage.providerSpend.costLimitUsdMicros)}
+                    {formatVeraUsdMicros(usage.providerSpend.exposureUsdMicros)}{" "}
+                    /{" "}
+                    {formatVeraUsdMicros(
+                      usage.providerSpend.costLimitUsdMicros,
+                    )}
                   </span>
                 </div>
                 {usage.providerSpend.unknownUsdMicros !== "0" ? (
                   <p className="mt-1 text-secondary-400">
-                    {formatVeraUsdMicros(usage.providerSpend.unknownUsdMicros)} masih menunggu rekonsiliasi.
+                    {formatVeraUsdMicros(usage.providerSpend.unknownUsdMicros)}{" "}
+                    masih menunggu rekonsiliasi.
                   </p>
                 ) : null}
               </div>
             ) : null}
             <p className="text-xs leading-5 text-secondary-500">
-              Zona {usage.quotaTimezone ?? "belum tersedia"}. Kredit analisis dan rute memakai 2 kredit; chat dan review 1 kredit.
+              Zona {usage.quotaTimezone ?? "belum tersedia"}. Kredit analisis
+              dan rute memakai 2 kredit; chat dan review 1 kredit.
             </p>
           </div>
         ) : (
           <p className="text-sm leading-6 text-secondary-600">
-            Angka kuota dan waktu reset tidak ditampilkan sampai sumber akun berhasil dibaca.
+            Angka kuota dan waktu reset tidak ditampilkan sampai sumber akun
+            berhasil dibaca.
           </p>
         )}
-
       </PopoverContent>
     </Popover>
   );
 }
 
 function WorkspaceTabs({
-  automaticContextEnabled,
   onChange,
 }: {
-  automaticContextEnabled: boolean;
   onChange: (value: WorkspaceTab) => void;
 }) {
   return (
-    <div className="shrink-0 border-b border-learning-card-border">
-      <FullWidthLineTabsList
-        aria-label="Area kerja Vera"
-      >
-        <FullWidthLineTabsTrigger
-          onClick={() => onChange("chat")}
-          value="chat"
-        >
+    <div className="shrink-0">
+      <FullWidthLineTabsList aria-label="Area kerja Vera">
+        <FullWidthLineTabsTrigger onClick={() => onChange("chat")} value="chat">
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
         </FullWidthLineTabsTrigger>
-        {!automaticContextEnabled ? (
-          <FullWidthLineTabsTrigger
-            onClick={() => onChange("context")}
-            value="context"
-          >
-            <LibraryBig data-icon="inline-start" />
-            Konteks
-          </FullWidthLineTabsTrigger>
-        ) : null}
         <FullWidthLineTabsTrigger
           onClick={() => onChange("studio")}
           value="studio"
@@ -2779,7 +2520,9 @@ function SessionPanel({
           action={
             <div className="flex items-center gap-1">
               <Button
-                aria-label={showArchived ? "Tampilkan sesi aktif" : "Buka arsip sesi"}
+                aria-label={
+                  showArchived ? "Tampilkan sesi aktif" : "Buka arsip sesi"
+                }
                 className={cn("rounded-full", showArchived && "bg-primary-50")}
                 onClick={() => {
                   setShowArchived((current) => !current);
@@ -2827,109 +2570,118 @@ function SessionPanel({
                   ? "Belum ada sesi yang diarsipkan."
                   : "Belum ada sesi. Buat sesi baru untuk mulai berbicara dengan Vera."}
               </div>
-            ) : visibleSessions.map((item) => {
-              const active = item.id === activeSessionId;
-              const editing = editingSessionId === item.id;
+            ) : (
+              visibleSessions.map((item) => {
+                const active = item.id === activeSessionId;
+                const editing = editingSessionId === item.id;
 
-              return (
-                <div
-                  className={cn(
-                    "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
-                    active
-                      ? "border-primary-200 bg-primary-50 text-primary-950"
-                      : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
-                    item.archivedAt !== null && "opacity-75",
-                  )}
-                  key={item.id}
-                >
-                  {editing ? (
-                    <Input
-                      aria-label={`Judul sesi ${item.title}`}
-                      autoFocus
-                      className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
-                      onBlur={() => finishRename(item)}
-                      onChange={(event) => setDraftTitle(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          finishRename(item);
-                        }
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          setEditingSessionId(null);
-                        }
-                      }}
-                      value={draftTitle}
-                    />
-                  ) : (
-                    <button
-                      aria-current={active ? "page" : undefined}
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
-                      disabled={item.archivedAt !== null}
-                      onClick={() => onSelectSession(item.id)}
-                      type="button"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {item.title}
+                return (
+                  <div
+                    className={cn(
+                      "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
+                      active
+                        ? "border-primary-200 bg-primary-50 text-primary-950"
+                        : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
+                      item.archivedAt !== null && "opacity-75",
+                    )}
+                    key={item.id}
+                  >
+                    {editing ? (
+                      <Input
+                        aria-label={`Judul sesi ${item.title}`}
+                        autoFocus
+                        className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
+                        onBlur={() => finishRename(item)}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            finishRename(item);
+                          }
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            setEditingSessionId(null);
+                          }
+                        }}
+                        value={draftTitle}
+                      />
+                    ) : (
+                      <button
+                        aria-current={active ? "page" : undefined}
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+                        disabled={item.archivedAt !== null}
+                        onClick={() => onSelectSession(item.id)}
+                        type="button"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">
+                            {item.title}
+                          </span>
                         </span>
-                      </span>
-                      <span className="shrink-0 text-xs text-secondary-400">
-                        {item.updatedAt}
-                      </span>
-                    </button>
-                  )}
+                        <span className="shrink-0 text-xs text-secondary-400">
+                          {item.updatedAt}
+                        </span>
+                      </button>
+                    )}
 
-                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    {!showArchived ? (
-                      <>
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      {!showArchived ? (
+                        <>
+                          <Button
+                            aria-label={`Ubah judul sesi ${item.title}`}
+                            className="rounded-full"
+                            onClick={() => beginRename(item)}
+                            size="icon"
+                            title="Ubah judul"
+                            variant="ghost"
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            aria-label={`Arsipkan ${item.title}`}
+                            className="rounded-full"
+                            onClick={() =>
+                              setPendingAction({
+                                kind: "archive",
+                                session: item,
+                              })
+                            }
+                            size="icon"
+                            title="Arsipkan sesi"
+                            variant="ghost"
+                          >
+                            <Archive />
+                          </Button>
+                        </>
+                      ) : (
                         <Button
-                          aria-label={`Ubah judul sesi ${item.title}`}
+                          aria-label={`Pulihkan ${item.title}`}
                           className="rounded-full"
-                          onClick={() => beginRename(item)}
+                          onClick={() => onRestoreSession(item.id)}
                           size="icon"
-                          title="Ubah judul"
-                          variant="ghost"
-                        >
-                          <Pencil />
-                        </Button>
-                        <Button
-                          aria-label={`Arsipkan ${item.title}`}
-                          className="rounded-full"
-                          onClick={() => setPendingAction({ kind: "archive", session: item })}
-                          size="icon"
-                          title="Arsipkan sesi"
+                          title="Pulihkan sesi"
                           variant="ghost"
                         >
                           <Archive />
                         </Button>
-                      </>
-                    ) : (
+                      )}
                       <Button
-                        aria-label={`Pulihkan ${item.title}`}
-                        className="rounded-full"
-                        onClick={() => onRestoreSession(item.id)}
+                        aria-label={`Hapus ${item.title}`}
+                        className="rounded-full text-secondary-400 hover:text-destructive"
+                        onClick={() =>
+                          setPendingAction({ kind: "delete", session: item })
+                        }
                         size="icon"
-                        title="Pulihkan sesi"
+                        title="Hapus sesi"
                         variant="ghost"
                       >
-                        <Archive />
+                        <Trash2 />
                       </Button>
-                    )}
-                    <Button
-                      aria-label={`Hapus ${item.title}`}
-                      className="rounded-full text-secondary-400 hover:text-destructive"
-                      onClick={() => setPendingAction({ kind: "delete", session: item })}
-                      size="icon"
-                      title="Hapus sesi"
-                      variant="ghost"
-                    >
-                      <Trash2 />
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </WorkspacePanel>
@@ -2940,13 +2692,20 @@ function SessionPanel({
         }}
         open={pendingAction !== null}
       >
-        <AlertDialogContent size="sm" variant={pendingAction?.kind === "delete" ? "danger" : "default"}>
+        <AlertDialogContent
+          size="sm"
+          variant={pendingAction?.kind === "delete" ? "danger" : "default"}
+        >
           <AlertDialogHeader>
-            <AlertDialogMedia variant={pendingAction?.kind === "delete" ? "danger" : "default"}>
+            <AlertDialogMedia
+              variant={pendingAction?.kind === "delete" ? "danger" : "default"}
+            >
               {pendingAction?.kind === "delete" ? <Trash2 /> : <Archive />}
             </AlertDialogMedia>
             <AlertDialogTitle>
-              {pendingAction?.kind === "delete" ? "Hapus sesi ini?" : "Arsipkan sesi ini?"}
+              {pendingAction?.kind === "delete"
+                ? "Hapus sesi ini?"
+                : "Arsipkan sesi ini?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction?.kind === "delete"
@@ -2963,13 +2722,22 @@ function SessionPanel({
                 const action = pendingAction;
                 setPendingAction(null);
                 if (!action) return;
-                if (action.kind === "delete") onDeleteSession(action.session.id);
+                if (action.kind === "delete")
+                  onDeleteSession(action.session.id);
                 else onArchiveSession(action.session.id);
               }}
-              variant={pendingAction?.kind === "delete" ? "destructive" : "default"}
+              variant={
+                pendingAction?.kind === "delete" ? "destructive" : "default"
+              }
             >
-              {pendingAction?.kind === "delete" ? <Trash2 data-icon="inline-start" /> : <Archive data-icon="inline-start" />}
-              {pendingAction?.kind === "delete" ? "Hapus sesi" : "Arsipkan sesi"}
+              {pendingAction?.kind === "delete" ? (
+                <Trash2 data-icon="inline-start" />
+              ) : (
+                <Archive data-icon="inline-start" />
+              )}
+              {pendingAction?.kind === "delete"
+                ? "Hapus sesi"
+                : "Arsipkan sesi"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3006,10 +2774,7 @@ function ChatWorkspace({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full flex-col gap-7 px-4 py-7 md:px-5 md:py-8">
           {activeSession.messages.map((message) => (
-            <MessageCard
-              key={message.id}
-              message={message}
-            />
+            <MessageCard key={message.id} message={message} />
           ))}
           {provisionalText !== null ||
           (automaticContextEnabled && busy && automaticProgress !== null) ? (
@@ -3029,409 +2794,6 @@ function ChatWorkspace({
         onSend={onSend}
       />
     </WorkspacePanel>
-  );
-}
-
-const contextTypeLabels: Record<VeraContextTypeId, string> = {
-  practice: "Hasil latihan",
-  material: "Materi",
-};
-
-function contextMetadataForSource(source: VeraContextSource) {
-  const backendMetadata = [
-    source.subtitle,
-    source.releasedAt
-      ? `Dirilis ${DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}`
-      : null,
-  ].filter(Boolean);
-
-  if (backendMetadata.length > 0) {
-    return backendMetadata.join(" • ");
-  }
-
-  if (source.type === "practice") {
-    const practice = veraPracticeHistory.find(
-      (item) => item.title === source.title,
-    );
-
-    return practice
-      ? `${practice.meta.replace(/^Selesai\s*/, "")} • ${practice.result}`
-      : "Riwayat latihan";
-  }
-
-  if (source.type === "material") {
-    const material = veraMaterialHistory.find(
-      (item) => item.title === source.title,
-    );
-
-    return material
-      ? `${material.topic} • ${material.lastAccessed}`
-      : "Materi belajar";
-  }
-
-  return "Materi belajar";
-}
-
-function ContextWorkspace({
-  activeSourceIds,
-  className,
-  onOpenAddContext,
-  onRemoveContexts,
-  onToggleContext,
-  sources,
-}: {
-  activeSourceIds: string[];
-  className?: string;
-  onOpenAddContext: () => void;
-  onRemoveContexts: (sourceIds: string[]) => void;
-  onToggleContext: (sourceId: string, active: boolean) => void;
-  sources: VeraContextSource[];
-}) {
-  const [query, setQuery] = useState("");
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [pendingRemovalIds, setPendingRemovalIds] = useState<string[]>([]);
-  const [initialActiveSourceIdSet] = useState(
-    () => new Set(activeSourceIds),
-  );
-  const activeSourceIdSet = useMemo(
-    () => new Set(activeSourceIds),
-    [activeSourceIds],
-  );
-  const orderedSources = useMemo(
-    () =>
-      [...sources].sort(
-        (first, second) =>
-          Number(initialActiveSourceIdSet.has(second.id)) -
-          Number(initialActiveSourceIdSet.has(first.id)),
-      ),
-    [initialActiveSourceIdSet, sources],
-  );
-  const filteredSources = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return orderedSources;
-    }
-
-    return orderedSources
-      .filter((source) =>
-        [
-          source.title,
-          contextTypeLabels[source.type],
-          contextMetadataForSource(source),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery),
-      )
-  }, [orderedSources, query]);
-  const activeCount = activeSourceIds.length;
-  const limitReached = activeCount >= MAX_CONTEXTS_PER_SESSION;
-  const selectedCount = selectedSourceIds.size;
-  const visibleSourceIds = filteredSources.map((source) => source.id);
-  const allVisibleSelected =
-    visibleSourceIds.length > 0 &&
-    visibleSourceIds.every((sourceId) => selectedSourceIds.has(sourceId));
-  const someVisibleSelected = visibleSourceIds.some((sourceId) =>
-    selectedSourceIds.has(sourceId),
-  );
-
-  function toggleSelection(sourceId: string, checked: boolean) {
-    setSelectedSourceIds((current) => {
-      const next = new Set(current);
-
-      if (checked) {
-        next.add(sourceId);
-      } else {
-        next.delete(sourceId);
-      }
-
-      return next;
-    });
-  }
-
-  function toggleVisibleSelection(checked: boolean) {
-    setSelectedSourceIds((current) => {
-      const next = new Set(current);
-
-      visibleSourceIds.forEach((sourceId) => {
-        if (checked) {
-          next.add(sourceId);
-        } else {
-          next.delete(sourceId);
-        }
-      });
-
-      return next;
-    });
-  }
-
-  function requestRemoval(sourceIds: string[]) {
-    if (sourceIds.length > 0) {
-      setPendingRemovalIds(sourceIds);
-    }
-  }
-
-  function confirmRemoval() {
-    onRemoveContexts(pendingRemovalIds);
-    setSelectedSourceIds((current) => {
-      const next = new Set(current);
-      pendingRemovalIds.forEach((sourceId) => next.delete(sourceId));
-      return next;
-    });
-    setPendingRemovalIds([]);
-  }
-
-  return (
-    <>
-      <WorkspacePanel className={className}>
-        <PanelHeader
-          action={
-            <div className="flex items-center gap-2">
-              <Button
-                aria-label={
-                  selectionMode
-                    ? "Batal memilih konteks"
-                    : "Pilih konteks untuk dihapus"
-                }
-                className="rounded-full"
-                onClick={() => {
-                  setSelectionMode((current) => !current);
-                  setSelectedSourceIds(new Set());
-                }}
-                size="default"
-                variant="brandOutline"
-              >
-                {selectionMode ? <X data-icon="inline-start" /> : <ListChecks data-icon="inline-start" />}
-                <span className="hidden sm:inline">
-                  {selectionMode ? "Batal" : "Pilih"}
-                </span>
-              </Button>
-              <Button
-                aria-label="Tambah konteks"
-                className="rounded-full"
-                onClick={onOpenAddContext}
-                size="default"
-                variant="brand"
-              >
-                <Plus data-icon="inline-start" />
-                <span className="hidden sm:inline">Tambah konteks</span>
-              </Button>
-            </div>
-          }
-          title="Konteks"
-        />
-
-        <div className="min-h-0 flex-1 overflow-y-auto bg-primary-50/25">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:gap-6 md:p-6 lg:p-8">
-            <div className="relative">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400"
-              />
-              <Input
-                aria-label="Cari konteks belajar"
-                className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari judul, tipe, atau topik konteks…"
-                value={query}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-secondary-500">Maks. 4 konteks</p>
-              {limitReached ? (
-                <p className="text-xs font-medium text-primary-700">
-                  Batas aktif tercapai. Nonaktifkan satu untuk mengganti.
-                </p>
-              ) : null}
-            </div>
-
-            {selectionMode ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-2.5">
-                <Checkbox
-                  aria-label="Pilih semua konteks yang terlihat"
-                  checked={allVisibleSelected}
-                  indeterminate={someVisibleSelected && !allVisibleSelected}
-                  onCheckedChange={(checked) =>
-                    toggleVisibleSelection(checked === true)
-                  }
-                />
-                <span className="text-sm font-semibold text-secondary-800">
-                  Semua yang terlihat
-                </span>
-                <span
-                  aria-live="polite"
-                  className="text-xs font-medium text-secondary-500"
-                >
-                  {selectedCount} dipilih
-                </span>
-                <Button
-                  className="ml-auto rounded-full"
-                  disabled={selectedCount === 0}
-                  onClick={() => requestRemoval([...selectedSourceIds])}
-                  size="default"
-                  variant="destructive"
-                >
-                  <Trash2 data-icon="inline-start" />
-                  Hapus dipilih
-                </Button>
-              </div>
-            ) : null}
-
-            {filteredSources.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {filteredSources.map((source) => {
-                  const active = activeSourceIdSet.has(source.id);
-
-                  return (
-                    <ContextCard
-                      active={active}
-                      activationDisabled={limitReached && !active}
-                      key={source.id}
-                      onRemove={() => requestRemoval([source.id])}
-                      onSelect={(checked) => toggleSelection(source.id, checked)}
-                      onToggle={(nextActive) =>
-                        onToggleContext(source.id, nextActive)
-                      }
-                      selectable={selectionMode}
-                      selected={selectedSourceIds.has(source.id)}
-                      source={source}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex min-h-56 flex-col items-center justify-center rounded-3xl border border-dashed border-primary-200 bg-white px-6 py-10 text-center">
-                <span className="flex size-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
-                  <Search className="size-5" aria-hidden="true" />
-                </span>
-                <p className="mt-3 text-sm font-semibold text-secondary-900">
-                  Konteks tidak ditemukan
-                </p>
-                <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
-                  Coba kata kunci lain atau pilih sumber belajar yang tersedia.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </WorkspacePanel>
-
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingRemovalIds([]);
-          }
-        }}
-        open={pendingRemovalIds.length > 0}
-      >
-        <AlertDialogContent size="sm" variant="danger">
-          <AlertDialogHeader>
-            <AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia>
-            <AlertDialogTitle>
-              {pendingRemovalIds.length === 1
-                ? "Hapus konteks ini?"
-                : `Hapus ${pendingRemovalIds.length} konteks?`}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Konteks akan dihapus dari perpustakaan dan dilepas dari sesi belajar
-              yang menggunakannya.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setPendingRemovalIds([])}
-            >
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoval} variant="destructive">
-              <Trash2 data-icon="inline-start" />
-              Hapus konteks
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
-function ContextCard({
-  active,
-  activationDisabled,
-  onRemove,
-  onSelect,
-  onToggle,
-  selectable,
-  selected,
-  source,
-}: {
-  active: boolean;
-  activationDisabled: boolean;
-  onRemove: () => void;
-  onSelect: (checked: boolean) => void;
-  onToggle: (active: boolean) => void;
-  selectable: boolean;
-  selected: boolean;
-  source: VeraContextSource;
-}) {
-  const Icon = contextTypeIcons[source.type];
-
-  return (
-    <article
-      className={cn(
-        "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none md:gap-3",
-        active
-          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
-          : "border-primary-100 hover:border-primary-200 hover:bg-primary-50/20",
-        activationDisabled && "opacity-65",
-      )}
-    >
-      {selectable ? (
-        <Checkbox
-          aria-label={`Pilih ${source.title} untuk dihapus`}
-          checked={selected}
-          onCheckedChange={(checked) => onSelect(checked === true)}
-        />
-      ) : null}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-10">
-        <Icon className="size-4" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-semibold text-secondary-950 md:text-base">
-            {source.title}
-          </span>
-          <StudentBadge size="xs" tone="category">
-            {contextTypeLabels[source.type]}
-          </StudentBadge>
-        </span>
-        <span className="mt-1 block truncate text-xs text-secondary-500">
-          {contextMetadataForSource(source)}
-        </span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1">
-        <Button
-          aria-label={`Hapus ${source.title}`}
-          className="text-secondary-400 hover:text-destructive"
-          onClick={onRemove}
-          size="icon"
-          title={`Hapus ${source.title}`}
-          variant="ghost"
-        >
-          <Trash2 />
-        </Button>
-        <Switch
-          aria-label={`${active ? "Nonaktifkan" : "Aktifkan"} ${source.title}`}
-          checked={active}
-          disabled={activationDisabled}
-          onCheckedChange={onToggle}
-        />
-      </span>
-    </article>
   );
 }
 
@@ -3477,11 +2839,32 @@ function automaticSourceReleaseLabel(releasedAt: string | null) {
   return `Dirilis ${DATA_TIMESTAMP_FORMATTER.format(date)}`;
 }
 
-function MessageCard({
-  message,
-}: {
-  message: VeraMessage;
-}) {
+function StreamingAnswerText({ content }: { content: string }) {
+  return (
+    <span className="vera-streaming-text">
+      {content
+        .split(/(\s+)/u)
+        .filter(Boolean)
+        .map((part, index) => {
+          if (/^\s+$/u.test(part)) {
+            return <span key={`space-${index}`}>{part}</span>;
+          }
+
+          return (
+            <span
+              className="vera-stream-word motion-reduce:animate-none"
+              key={`word-${index}`}
+            >
+              {part}
+            </span>
+          );
+        })}
+      <span aria-hidden="true" className="vera-stream-caret" />
+    </span>
+  );
+}
+
+function MessageCard({ message }: { message: VeraMessage }) {
   const isStudent = message.role === "student";
   const committedAutomaticRequest =
     !isStudent &&
@@ -3500,14 +2883,13 @@ function MessageCard({
     message.requestErrorCode
       ? `Keterangan: ${formatVeraRequestErrorCode(message.requestErrorCode)}`
       : null,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   if (isStudent) {
     return (
-      <Bubble
-        align="end"
-        className="max-w-[84%]"
-      >
+      <Bubble align="end" className="max-w-[84%]">
         <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
           <p>{message.body}</p>
           {stateNotice ? (
@@ -3522,9 +2904,7 @@ function MessageCard({
   }
 
   return (
-    <article
-      className="flex items-start gap-3.5"
-    >
+    <article className="flex items-start gap-3.5">
       <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
         <Image
           alt=""
@@ -3559,13 +2939,23 @@ function MessageCard({
             {message.requestSources && message.requestSources.length > 0 ? (
               <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
                 {message.requestSources.map((source) => {
-                  const releaseLabel = automaticSourceReleaseLabel(source.releasedAt);
+                  const releaseLabel = automaticSourceReleaseLabel(
+                    source.releasedAt,
+                  );
 
                   return (
-                    <li className="flex items-start gap-2 text-sm text-secondary-700" key={source.citationKey}>
-                      <FileText className="mt-0.5 size-3.5 shrink-0 text-primary-700" aria-hidden="true" />
+                    <li
+                      className="flex items-start gap-2 text-sm text-secondary-700"
+                      key={source.citationKey}
+                    >
+                      <FileText
+                        className="mt-0.5 size-3.5 shrink-0 text-primary-700"
+                        aria-hidden="true"
+                      />
                       <span className="min-w-0">
-                        <span className="block font-medium text-secondary-900">{source.title}</span>
+                        <span className="block font-medium text-secondary-900">
+                          {source.title}
+                        </span>
                         <span className="mt-0.5 block text-xs text-secondary-500">
                           {[automaticSourceKindLabel(source.kind), releaseLabel]
                             .filter(Boolean)
@@ -3649,7 +3039,11 @@ function ProvisionalMessageCard({
           aria-live="polite"
           className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
         >
-          {body || progressLabel || "Vera sedang menyusun jawaban…"}
+          {body ? (
+            <StreamingAnswerText content={body} />
+          ) : (
+            progressLabel || "Vera sedang menyusun jawaban…"
+          )}
         </BubbleContent>
       </Bubble>
     </article>
@@ -3751,7 +3145,7 @@ function StudioPanel({
               <Maximize2 />
             </Button>
           }
-          backAction={onCloseArtifact}
+          closeAction={onCloseArtifact}
           title="Vera Studio"
         />
         <div className="min-h-0 flex-1 overflow-y-auto bg-white p-3">
@@ -3818,7 +3212,8 @@ function StudioPanel({
                   Belum ada hasil
                 </p>
                 <p className="mt-1 text-xs leading-5 text-secondary-400">
-                  Pilih alat belajar di atas. Hasilnya akan tersimpan di sesi ini.
+                  Pilih alat belajar di atas. Hasilnya akan tersimpan di sesi
+                  ini.
                 </p>
               </div>
             )}
@@ -3924,9 +3319,7 @@ function StudioArtifactDocument({
     <article
       className={cn(
         "vera-studio-document mx-auto min-h-full bg-white",
-        compact
-          ? "p-4"
-          : "max-w-4xl py-2 md:py-4",
+        compact ? "p-4" : "max-w-4xl py-2 md:py-4",
       )}
     >
       <div className="flex items-start justify-between gap-4">
@@ -3939,15 +3332,21 @@ function StudioArtifactDocument({
         <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
           <div>
             <dt className="font-semibold text-secondary-500">Siklus</dt>
-            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.lifecycle.state)}</dd>
+            <dd className="mt-1 text-secondary-800">
+              {formatVeraState(backendArtifact.lifecycle.state)}
+            </dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Hasil</dt>
-            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.resultState)}</dd>
+            <dd className="mt-1 text-secondary-800">
+              {formatVeraState(backendArtifact.resultState)}
+            </dd>
           </div>
           <div>
             <dt className="font-semibold text-secondary-500">Konteks</dt>
-            <dd className="mt-1 text-secondary-800">{formatVeraState(backendArtifact.contextState)}</dd>
+            <dd className="mt-1 text-secondary-800">
+              {formatVeraState(backendArtifact.contextState)}
+            </dd>
           </div>
         </dl>
       ) : null}
@@ -4019,9 +3418,7 @@ function StudioArtifactMarkdown({
     ),
   };
 
-  return (
-    <ReactMarkdown components={components}>{content}</ReactMarkdown>
-  );
+  return <ReactMarkdown components={components}>{content}</ReactMarkdown>;
 }
 
 function FullscreenArtifactDialog({
@@ -4083,748 +3480,6 @@ function FullscreenArtifactDialog({
   );
 }
 
-function AddContextDialog({
-  availableSources,
-  backendMode,
-  onOpenChange,
-  onSave,
-  open,
-  selectedSourceIds,
-}: {
-  availableSources: VeraContextSource[];
-  backendMode: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (
-    sourceIds: string[],
-    addedSources?: VeraContextSource[],
-  ) => void;
-  open: boolean;
-  selectedSourceIds: string[];
-}) {
-  const [draftSourceIds, setDraftSourceIds] = useState(selectedSourceIds);
-  const [pendingAddedSourceIds, setPendingAddedSourceIds] = useState<
-    Set<string>
-  >(() => new Set());
-  const [activeTab, setActiveTab] =
-    useState<VeraContextTypeId>("practice");
-  const [materialQuery, setMaterialQuery] = useState("");
-  const [practicePage, setPracticePage] = useState(1);
-  const [materialPage, setMaterialPage] = useState(1);
-  const availableSourceIdSet = useMemo(
-    () => new Set(availableSources.map((source) => source.id)),
-    [availableSources],
-  );
-  const backendCatalogSources = useMemo(
-    () =>
-      backendMode
-        ? availableSources.filter(
-            (source) => source.type === "practice" || source.type === "material",
-          )
-        : [],
-    [availableSources, backendMode],
-  );
-  const backendMaterialSources = useMemo(() => {
-    const query = materialQuery.trim().toLowerCase();
-
-    return backendCatalogSources.filter(
-      (source) =>
-        source.type === "material" &&
-        (!query || source.title.toLowerCase().includes(query)),
-    );
-  }, [backendCatalogSources, materialQuery]);
-  const availablePracticeItems = useMemo(
-    () =>
-      veraPracticeHistory.filter((item) => {
-        const source = sourceForTitle(item.title);
-        return source && !availableSourceIdSet.has(source.id);
-      }),
-    [availableSourceIdSet],
-  );
-
-  const filteredMaterials = useMemo(() => {
-    const query = materialQuery.trim().toLowerCase();
-    const availableMaterials = veraMaterialHistory.filter((item) => {
-      const source = sourceForTitle(item.title);
-      return source && !availableSourceIdSet.has(source.id);
-    });
-
-    if (!query) {
-      return availableMaterials;
-    }
-
-    return availableMaterials.filter((material) =>
-      [material.title, material.kind, material.topic]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [availableSourceIdSet, materialQuery]);
-
-  const practicePageCount = Math.max(
-    1,
-    Math.ceil(availablePracticeItems.length / CONTEXT_PAGE_SIZE),
-  );
-  const materialPageCount = Math.max(
-    1,
-    Math.ceil(filteredMaterials.length / CONTEXT_PAGE_SIZE),
-  );
-  const visiblePracticeItems = availablePracticeItems.slice(
-    (practicePage - 1) * CONTEXT_PAGE_SIZE,
-    practicePage * CONTEXT_PAGE_SIZE,
-  );
-  const visibleMaterialItems = filteredMaterials.slice(
-    (materialPage - 1) * CONTEXT_PAGE_SIZE,
-    materialPage * CONTEXT_PAGE_SIZE,
-  );
-  const limitReached = draftSourceIds.length >= MAX_CONTEXTS_PER_SESSION;
-  const draftSourceIdSet = useMemo(
-    () => new Set(draftSourceIds),
-    [draftSourceIds],
-  );
-  const pendingAddedSourceIdSet = useMemo(
-    () => new Set(pendingAddedSourceIds),
-    [pendingAddedSourceIds],
-  );
-  const pendingInactiveCount = [...pendingAddedSourceIdSet].filter(
-    (sourceId) => !draftSourceIdSet.has(sourceId),
-  ).length;
-
-  function toggleSource(sourceId: string) {
-    const isAlreadyActive = draftSourceIdSet.has(sourceId);
-    const isPendingAddition = pendingAddedSourceIdSet.has(sourceId);
-
-    if (isAlreadyActive || isPendingAddition) {
-      setPendingAddedSourceIds((current) => {
-        const next = new Set(current);
-        next.delete(sourceId);
-        return next;
-      });
-      setDraftSourceIds((current) => {
-        const next = current.filter((id) => id !== sourceId);
-        const nextIdSet = new Set(next);
-        const replacement = [...pendingAddedSourceIdSet].find(
-          (id) => id !== sourceId && !nextIdSet.has(id),
-        );
-
-        return replacement && next.length < MAX_CONTEXTS_PER_SESSION
-          ? [...next, replacement]
-          : next;
-      });
-      return;
-    }
-
-    setPendingAddedSourceIds((current) => {
-      const next = new Set(current);
-      next.add(sourceId);
-      return next;
-    });
-    setDraftSourceIds((current) =>
-      current.length < MAX_CONTEXTS_PER_SESSION
-        ? [...current, sourceId]
-        : current,
-    );
-  }
-
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_color-mix(in_oklab,var(--voyage-deep)_50%,transparent)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
-        showCloseButton={false}
-        variant="default"
-      >
-        <div className="flex min-h-24 shrink-0 items-center bg-background px-5 py-5 pr-16 md:min-h-28 md:px-8 md:py-6">
-          <DialogHeader className="gap-1.5">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-secondary-950 md:text-2xl">
-              Tambahkan konteks
-            </DialogTitle>
-            <DialogDescription className="max-w-2xl text-xs leading-5 text-secondary-500 md:text-sm">
-              Pilih sumber belajar yang ingin Vera gunakan untuk membantumu.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogClose
-            render={
-              <Button
-                aria-label="Tutup dialog tambah konteks"
-                className="absolute right-5 top-5 rounded-full shadow-sm md:right-6 md:top-6"
-                size="icon"
-                variant="outline"
-              />
-            }
-          >
-            <X />
-            <span className="sr-only">Tutup</span>
-          </DialogClose>
-        </div>
-
-        <AddContextTabs
-          activeTab={activeTab}
-          draftSourceIds={draftSourceIds}
-          filteredMaterials={filteredMaterials}
-          materialPage={materialPage}
-          materialPageCount={materialPageCount}
-          materialQuery={materialQuery}
-          onActiveTabChange={(value) => setActiveTab(value)}
-          onMaterialPageChange={setMaterialPage}
-          onMaterialQueryChange={(value) => {
-            setMaterialQuery(value);
-            setMaterialPage(1);
-          }}
-          onPracticePageChange={setPracticePage}
-          onToggleSource={toggleSource}
-          practicePage={practicePage}
-          practicePageCount={practicePageCount}
-          pendingAddedSourceIdSet={pendingAddedSourceIdSet}
-          backendMode={backendMode}
-          backendCatalogSources={backendCatalogSources}
-          backendMaterialSources={backendMaterialSources}
-          visibleMaterialItems={visibleMaterialItems}
-          visiblePracticeItems={visiblePracticeItems}
-        />
-
-        <div className="flex shrink-0 flex-col gap-3 border-t border-primary-100 bg-background px-5 py-3 sm:flex-row sm:items-center sm:justify-between md:min-h-20 md:px-8 md:py-4">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <p
-              className={cn(
-                "text-xs tabular-nums text-secondary-500",
-                limitReached && "font-medium",
-              )}
-            >
-              <span className="font-semibold text-primary-700">
-                {draftSourceIds.length} / {MAX_CONTEXTS_PER_SESSION}
-              </span>{" "}
-              konteks dipakai di sesi
-            </p>
-            {pendingInactiveCount > 0 ? (
-              <p className="text-xs text-secondary-400">
-                {pendingInactiveCount} konteks baru akan ditambahkan ke
-                perpustakaan. Kamu bisa memakainya nanti dari tab Konteks.
-              </p>
-            ) : limitReached ? (
-              <p className="text-xs text-secondary-400">
-                Batas 4 yang dipakai tercapai. Konteks tambahan tetap bisa
-                ditambahkan.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 gap-2 sm:gap-3">
-            <Button
-              className="flex-1 rounded-full sm:min-w-28 sm:flex-none"
-              onClick={() => onOpenChange(false)}
-              size="default"
-              variant="outline"
-            >
-              Batal
-            </Button>
-            <Button
-              className="flex-1 rounded-full sm:min-w-42 sm:flex-none"
-              onClick={() => {
-                const catalogSources = [
-                  ...veraPracticeHistory,
-                  ...veraMaterialHistory,
-                ]
-                  .map((item) => sourceForTitle(item.title))
-                  .filter(
-                    (source): source is VeraContextSource => Boolean(source),
-                  );
-                const addedSources = catalogSources.filter(
-                  (source, index, sources) =>
-                    pendingAddedSourceIdSet.has(source.id) &&
-                    !availableSourceIdSet.has(source.id) &&
-                    sources.findIndex((item) => item.id === source.id) === index,
-                );
-
-                onSave(draftSourceIds, backendMode ? [] : addedSources);
-              }}
-              size="default"
-              variant="brand"
-            >
-              {pendingAddedSourceIdSet.size > 0
-                ? `Tambahkan (${pendingAddedSourceIdSet.size})`
-                : "Simpan"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AddContextPracticeTab({
-  backendCatalogSources,
-  backendMode,
-  draftSourceIds,
-  onPracticePageChange,
-  onToggleSource,
-  pendingAddedSourceIdSet,
-  practicePage,
-  practicePageCount,
-  visiblePracticeItems,
-}: {
-  backendCatalogSources: VeraContextSource[];
-  backendMode: boolean;
-  draftSourceIds: string[];
-  onPracticePageChange: (page: number) => void;
-  onToggleSource: (sourceId: string) => void;
-  pendingAddedSourceIdSet: Set<string>;
-  practicePage: number;
-  practicePageCount: number;
-  visiblePracticeItems: VeraPracticeHistory[];
-}) {
-  const practiceSources = backendMode
-    ? backendCatalogSources.filter((source) => source.type === "practice")
-    : [];
-  const draftSourceIdSet = new Set(draftSourceIds);
-
-  return (
-    <TabsContent className="min-h-0 overflow-hidden" value="practice">
-      <ScrollArea className="h-full">
-        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-          <div className="flex flex-col gap-3">
-            {backendMode ? (
-              practiceSources.length > 0 ? (
-                practiceSources.map((source) => (
-                  <BackendContextOption
-                    key={source.id}
-                    onToggle={() => onToggleSource(source.id)}
-                    selected={draftSourceIdSet.has(source.id)}
-                    source={source}
-                  />
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                  Belum ada hasil latihan yang tersedia.
-                </div>
-              )
-            ) : visiblePracticeItems.length > 0 ? (
-              visiblePracticeItems.map((item) => {
-                const source = sourceForTitle(item.title);
-                const selected = Boolean(
-                  source && pendingAddedSourceIdSet.has(source.id),
-                );
-
-                return (
-                  <PracticeContextOption
-                    item={item}
-                    key={item.id}
-                    onToggle={() => source && onToggleSource(source.id)}
-                    selected={selected}
-                  />
-                );
-              })
-            ) : (
-              <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                Semua hasil latihan sudah ditambahkan.
-              </div>
-            )}
-          </div>
-          {!backendMode ? (
-            <ContextPagination
-              className="mt-auto"
-              onPageChange={onPracticePageChange}
-              page={practicePage}
-              pageCount={practicePageCount}
-            />
-          ) : null}
-        </div>
-      </ScrollArea>
-    </TabsContent>
-  );
-}
-
-function AddContextMaterialTab({
-  backendMaterialSources,
-  backendMode,
-  draftSourceIds,
-  filteredMaterials,
-  materialPage,
-  materialPageCount,
-  materialQuery,
-  onMaterialPageChange,
-  onMaterialQueryChange,
-  onToggleSource,
-  pendingAddedSourceIdSet,
-  visibleMaterialItems,
-}: {
-  backendMaterialSources: VeraContextSource[];
-  backendMode: boolean;
-  draftSourceIds: string[];
-  filteredMaterials: VeraMaterialHistory[];
-  materialPage: number;
-  materialPageCount: number;
-  materialQuery: string;
-  onMaterialPageChange: (page: number) => void;
-  onMaterialQueryChange: (query: string) => void;
-  onToggleSource: (sourceId: string) => void;
-  pendingAddedSourceIdSet: Set<string>;
-  visibleMaterialItems: VeraMaterialHistory[];
-}) {
-  const draftSourceIdSet = new Set(draftSourceIds);
-
-  return (
-    <TabsContent className="min-h-0 overflow-hidden" value="material">
-      <ScrollArea className="h-full">
-        <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-            <Input
-              aria-label="Cari materi Vecalss"
-              className="h-11 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
-              onChange={(event) => {
-                onMaterialQueryChange(event.target.value);
-                onMaterialPageChange(1);
-              }}
-              placeholder="Cari materi Vecalss…"
-              value={materialQuery}
-            />
-          </div>
-          <div className="mt-3 flex flex-col gap-3">
-            {backendMode ? (
-              backendMaterialSources.length > 0 ? (
-                backendMaterialSources.map((source) => (
-                  <BackendContextOption
-                    key={source.id}
-                    onToggle={() => onToggleSource(source.id)}
-                    selected={draftSourceIdSet.has(source.id)}
-                    source={source}
-                  />
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                  {materialQuery.trim()
-                    ? "Materi tidak ditemukan."
-                    : "Belum ada materi yang tersedia."}
-                </div>
-              )
-            ) : filteredMaterials.length > 0 ? (
-              visibleMaterialItems.map((item) => {
-                const source = sourceForTitle(item.title);
-                const selected = Boolean(
-                  source && pendingAddedSourceIdSet.has(source.id),
-                );
-
-                return (
-                  <MaterialContextOption
-                    item={item}
-                    key={item.id}
-                    onToggle={() => source && onToggleSource(source.id)}
-                    selected={selected}
-                  />
-                );
-              })
-            ) : (
-              <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                {materialQuery.trim()
-                  ? "Materi tidak ditemukan."
-                  : "Semua materi sudah ditambahkan."}
-              </div>
-            )}
-          </div>
-          {!backendMode && filteredMaterials.length > 0 ? (
-            <ContextPagination
-              className="mt-auto"
-              onPageChange={onMaterialPageChange}
-              page={materialPage}
-              pageCount={materialPageCount}
-            />
-          ) : null}
-        </div>
-      </ScrollArea>
-    </TabsContent>
-  );
-}
-
-function AddContextTabs({
-  activeTab,
-  backendCatalogSources,
-  backendMaterialSources,
-  backendMode,
-  draftSourceIds,
-  filteredMaterials,
-  materialPage,
-  materialPageCount,
-  materialQuery,
-  onActiveTabChange,
-  onMaterialPageChange,
-  onMaterialQueryChange,
-  onPracticePageChange,
-  onToggleSource,
-  practicePage,
-  practicePageCount,
-  pendingAddedSourceIdSet,
-  visibleMaterialItems,
-  visiblePracticeItems,
-}: {
-  activeTab: VeraContextTypeId;
-  backendCatalogSources: VeraContextSource[];
-  backendMaterialSources: VeraContextSource[];
-  backendMode: boolean;
-  draftSourceIds: string[];
-  filteredMaterials: VeraMaterialHistory[];
-  materialPage: number;
-  materialPageCount: number;
-  materialQuery: string;
-  onActiveTabChange: (value: VeraContextTypeId) => void;
-  onMaterialPageChange: (page: number) => void;
-  onMaterialQueryChange: (query: string) => void;
-  onPracticePageChange: (page: number) => void;
-  onToggleSource: (sourceId: string) => void;
-  practicePage: number;
-  practicePageCount: number;
-  pendingAddedSourceIdSet: Set<string>;
-  visibleMaterialItems: VeraMaterialHistory[];
-  visiblePracticeItems: VeraPracticeHistory[];
-}) {
-  return (
-    <Tabs
-      className="min-h-0 flex-1 gap-0"
-      onValueChange={(value) =>
-        onActiveTabChange(value as VeraContextTypeId)
-      }
-      value={activeTab}
-    >
-      <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
-        <FullWidthLineTabsList className="md:!h-12">
-          <FullWidthLineTabsTrigger
-            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
-            value="practice"
-          >
-            <ListChecks data-icon="inline-start" />
-            Hasil Latihan
-          </FullWidthLineTabsTrigger>
-          <FullWidthLineTabsTrigger
-            className="px-2 py-1.5 text-xs md:px-4 md:text-sm"
-            value="material"
-          >
-            <BookOpen data-icon="inline-start" />
-            Materi
-          </FullWidthLineTabsTrigger>
-        </FullWidthLineTabsList>
-      </div>
-
-      <AddContextPracticeTab
-        backendCatalogSources={backendCatalogSources}
-        backendMode={backendMode}
-        draftSourceIds={draftSourceIds}
-        onPracticePageChange={onPracticePageChange}
-        onToggleSource={onToggleSource}
-        pendingAddedSourceIdSet={pendingAddedSourceIdSet}
-        practicePage={practicePage}
-        practicePageCount={practicePageCount}
-        visiblePracticeItems={visiblePracticeItems}
-      />
-
-      <AddContextMaterialTab
-        backendMaterialSources={backendMaterialSources}
-        backendMode={backendMode}
-        draftSourceIds={draftSourceIds}
-        filteredMaterials={filteredMaterials}
-        materialPage={materialPage}
-        materialPageCount={materialPageCount}
-        materialQuery={materialQuery}
-        onMaterialPageChange={onMaterialPageChange}
-        onMaterialQueryChange={onMaterialQueryChange}
-        onToggleSource={onToggleSource}
-        pendingAddedSourceIdSet={pendingAddedSourceIdSet}
-        visibleMaterialItems={visibleMaterialItems}
-      />
-
-    </Tabs>
-  );
-}
-
-function BackendContextOption({
-  onToggle,
-  selected,
-  source,
-}: {
-  onToggle: () => void;
-  selected: boolean;
-  source: VeraContextSource;
-}) {
-  const Icon = contextTypeIcons[source.type];
-
-  return (
-    <button
-      aria-pressed={selected}
-      className={cn(
-        "flex min-h-18 w-full items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
-        selected
-          ? "border-primary-300 bg-primary-50 shadow-[0_14px_30px_-28px_color-mix(in_oklab,var(--voyage-deep)_75%,transparent)]"
-          : "border-primary-100 bg-background hover:border-primary-200 hover:bg-primary-50/40",
-      )}
-      onClick={onToggle}
-      type="button"
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-10">
-        <Icon className="size-4" aria-hidden="true" />
-      </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-secondary-950 md:text-base">
-            {source.title}
-          </span>
-          <span className="block truncate text-xs text-secondary-500">
-            {source.subtitle ?? contextTypeLabels[source.type]}
-          </span>
-          {source.releasedAt ? (
-            <span className="block truncate text-xs text-secondary-400">
-              Dirilis {DATA_TIMESTAMP_FORMATTER.format(new Date(source.releasedAt))}
-            </span>
-          ) : null}
-        </span>
-      {selected ? <Check className="shrink-0 text-primary-700" /> : null}
-    </button>
-  );
-}
-
-
-function ContextPagination({
-  className,
-  onPageChange,
-  page,
-  pageCount,
-}: {
-  className?: string;
-  onPageChange: (page: number) => void;
-  page: number;
-  pageCount: number;
-}) {
-  if (pageCount <= 1) {
-    return null;
-  }
-
-  return (
-    <Pagination className={cn("pt-4 md:pt-5", className)}>
-      <PaginationContent className="gap-2">
-        <PaginationItem>
-          <PaginationPrevious
-            className="size-11 rounded-full border-0 bg-background p-0 shadow-sm hover:bg-primary-50"
-            disabled={page === 1}
-            onClick={() => onPageChange(Math.max(1, page - 1))}
-            text=""
-          />
-        </PaginationItem>
-        <PaginationItem>
-          <span className="flex h-9 min-w-16 items-center justify-center rounded-full bg-primary-50 px-3 text-xs font-medium tabular-nums text-secondary-800">
-            {page} / {pageCount}
-          </span>
-        </PaginationItem>
-        <PaginationItem>
-          <PaginationNext
-            className="size-11 rounded-full border border-primary-100 bg-background p-0 shadow-sm hover:bg-primary-50"
-            disabled={page === pageCount}
-            onClick={() => onPageChange(Math.min(pageCount, page + 1))}
-            text=""
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  );
-}
-
-function PracticeContextOption({
-  item,
-  onToggle,
-  selected,
-}: {
-  item: VeraPracticeHistory;
-  onToggle: () => void;
-  selected: boolean;
-}) {
-  return (
-    <ContextOption
-      icon={ChartNoAxesColumnIncreasing}
-      meta={`${item.meta.replace(/^Selesai\s*/, "")} • ${item.result}`}
-      metaIcon={CalendarDays}
-      onToggle={onToggle}
-      selected={selected}
-      tag={item.kind}
-      title={item.title}
-    />
-  );
-}
-
-function MaterialContextOption({
-  item,
-  onToggle,
-  selected,
-}: {
-  item: VeraMaterialHistory;
-  onToggle: () => void;
-  selected: boolean;
-}) {
-  return (
-    <ContextOption
-      icon={NotebookPen}
-      meta={item.lastAccessed}
-      onToggle={onToggle}
-      selected={selected}
-      tag={item.kind}
-      title={item.title}
-    />
-  );
-}
-
-function ContextOption({
-  disabled,
-  icon: Icon,
-  meta,
-  metaIcon: MetaIcon,
-  onToggle,
-  selected,
-  tag,
-  title,
-}: {
-  disabled?: boolean;
-  icon: AppIcon;
-  meta: string;
-  metaIcon?: AppIcon;
-  onToggle: () => void;
-  selected: boolean;
-  tag: string;
-  title: string;
-}) {
-  return (
-    <Button
-      aria-pressed={selected}
-      className={cn(
-        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_color-mix(in_oklab,var(--voyage-deep)_40%,transparent)] md:min-h-24 md:gap-4 md:px-5",
-        disabled && "cursor-not-allowed opacity-45",
-      )}
-      disabled={disabled}
-      onClick={onToggle}
-      variant={selected ? "contextSelected" : "context"}
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-12">
-        <Icon />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-secondary-950 md:text-base">
-            {title}
-          </span>
-          <StudentBadge tone="category">
-            {tag}
-          </StudentBadge>
-        </span>
-        <span className="mt-1 flex items-center gap-1.5 text-xs font-normal leading-5 text-secondary-500">
-          {MetaIcon ? <MetaIcon aria-hidden /> : null}
-          <span>{meta}</span>
-        </span>
-      </span>
-      <span
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none",
-          selected
-            ? "border-primary-700 bg-primary-700 text-white"
-            : "border-primary-200 bg-white text-transparent group-hover:border-primary-400",
-        )}
-      >
-        <Check />
-      </span>
-    </Button>
-  );
-}
-
 function WorkspacePanel({
   children,
   className,
@@ -4846,25 +3501,26 @@ function WorkspacePanel({
 
 function PanelHeader({
   action,
-  backAction,
+  closeAction,
   title,
 }: {
   action?: React.ReactNode;
-  backAction?: () => void;
+  closeAction?: () => void;
   title: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-17 items-center justify-between gap-3 border-b border-learning-card-border bg-voyage-sea-glass-wash/55 px-4 py-3">
       <div className="flex min-w-0 items-center gap-2">
-        {backAction ? (
+        {closeAction ? (
           <Button
-            aria-label="Kembali ke daftar hasil"
+            aria-label="Tutup dokumen"
             className="-ml-1 rounded-full border-0"
-            onClick={backAction}
+            onClick={closeAction}
             size="icon"
+            title="Tutup dokumen"
             variant="ghost"
           >
-            <ChevronLeft />
+            <X />
           </Button>
         ) : null}
         <h2 className="truncate text-sm font-semibold text-secondary-950">

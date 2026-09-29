@@ -40,7 +40,7 @@ function useTryoutOperationsRefresh(initial: TryoutOperationsView) {
         automaticFailureCount.current += 1;
         setRefreshState("error");
         setRefreshMessage(automaticFailureCount.current >= MAX_AUTO_REFRESH_FAILURES
-          ? "Refresh otomatis dihentikan setelah beberapa kegagalan. Coba lagi secara manual."
+          ? "Pembaruan otomatis Tryout dihentikan setelah beberapa kali gagal. Coba lagi secara manual."
           : result.message);
         return;
       }
@@ -49,12 +49,12 @@ function useTryoutOperationsRefresh(initial: TryoutOperationsView) {
       setLastUpdatedAt(result.serverUpdatedAt);
       setRefreshState("idle");
       setRefreshMessage(null);
-    } catch (error) {
+    } catch {
       automaticFailureCount.current += 1;
       setRefreshState("error");
       setRefreshMessage(automaticFailureCount.current >= MAX_AUTO_REFRESH_FAILURES
-        ? "Refresh otomatis dihentikan setelah beberapa kegagalan. Coba lagi secara manual."
-        : error instanceof Error ? error.message : "Refresh operasional gagal. Coba lagi.");
+        ? "Pembaruan otomatis Tryout dihentikan setelah beberapa kali gagal. Coba lagi secara manual."
+        : "Data operasional Tryout belum berhasil diperbarui. Coba lagi.");
     } finally {
       refreshInFlight.current = false;
     }
@@ -113,10 +113,10 @@ function TryoutRefreshToolbar({
         variant="brandOutline"
       >
         <RefreshCw className={refreshState === "refreshing" ? "animate-spin" : undefined} data-icon="inline-start" />
-        Refresh
+        Perbarui data
       </Button>
       <div className="text-right text-xs text-secondary-500" aria-live="polite">
-        {refreshState === "refreshing" ? "Memperbarui dari server…" : updatedLabel ? `Diperbarui ${updatedLabel}` : "Menunggu refresh server"}
+        {refreshState === "refreshing" ? "Memperbarui data Tryout…" : updatedLabel ? `Data diperbarui ${updatedLabel}` : "Menunggu pembaruan data"}
       </div>
     </div>
   );

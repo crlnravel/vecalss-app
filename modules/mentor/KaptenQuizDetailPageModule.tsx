@@ -3,16 +3,26 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   Check,
-  ChevronLeft,
   FilePenLine,
   ListChecks,
   Pencil,
-  SendHorizontal,
   X,
 } from "@/lib/icons";
 import { useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ReferenceEmptyState,
   ReferenceSurface,
@@ -37,16 +47,26 @@ import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
-import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
+import {
+  saveStandaloneQuizAction,
+  setStandaloneQuizHiddenAction,
+  updateStandaloneQuizLifecycleAction,
+} from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { DropdownField } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MediaAssetPreview } from "@/modules/media/media-library";
+import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
+import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
 import {
   KaptenQuizResultsContent,
   type KaptenQuizResultsData,
 } from "@/modules/mentor/KaptenQuizResultsPageModule";
+import {
+  ResourceEditLockProvider,
+  useResourceEditLock,
+} from "@/modules/mentor/resource-edit-lock-provider";
 
 type QuizDetailTab = "preview" | "hasil" | "pengaturan";
 
@@ -110,6 +130,29 @@ function QuizPreview({
 }) {
   return (
     <section aria-label="Preview Soal" className="space-y-6">
+      <div
+        className="flex flex-wrap items-center justify-between gap-4"
+        data-quiz-preview-header="true"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
+            Daftar Soal
+          </h2>
+          <MentorBadge className="font-bold" size="xs" tone="category">
+            {questions.length} Soal
+          </MentorBadge>
+        </div>
+        <Button
+          className="shrink-0"
+          nativeButton={false}
+          render={<Link href={`/mentor/quiz/${quizId}/editor`} />}
+          type="button"
+          variant="brand"
+        >
+          <FilePenLine />
+          Edit soal
+        </Button>
+      </div>
       {questions.length === 0 ? (
         <ReferenceSurface className="min-h-56" variant="inset">
           <ReferenceEmptyState
@@ -584,18 +627,23 @@ function QuizMetadataCard({
 function QuizSettings({
   disabled,
   form,
+  isHidden,
   isSaving,
-  onMakeDraft,
+  onArchive,
   onChange,
   onSave,
+  onSetHidden,
 }: {
   disabled: boolean;
   form: SettingsForm;
+  isHidden: boolean;
   isSaving: boolean;
-  onMakeDraft?: () => void;
+  onArchive?: () => Promise<boolean>;
   onChange: (patch: Partial<SettingsForm>) => void;
   onSave: () => void;
+  onSetHidden?: (isHidden: boolean) => Promise<boolean>;
 }) {
+  const [archiveConfirmationOpen, setArchiveConfirmationOpen] = useState(false);
   const scheduleError =
     form.opensAt &&
     form.closesAt &&
@@ -731,51 +779,111 @@ function QuizSettings({
             {scheduleError ?? durationError}
           </p>
         ) : null}
+        <Button
+          aria-busy={isSaving}
+          className="mt-5 w-full"
+          data-quiz-settings-save="primary"
+          disabled={
+            disabled || isSaving || Boolean(scheduleError || durationError)
+          }
+          onClick={onSave}
+          type="button"
+          variant="brand"
+        >
+          {isSaving ? "Menyimpan…" : "Simpan"}
+        </Button>
       </ReferenceSurface>
 
-      {onMakeDraft ? (
+      {onArchive || onSetHidden ? (
         <ReferenceSurface
           as="section"
           className="max-w-6xl p-5 md:p-7"
           data-quiz-settings-card="lifecycle"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-secondary-900">
+              Administrasi
+            </h2>
+            {onSetHidden ? (
+              <AdministrationActionRow
+                action={isHidden ? "Tampilkan Kuis" : "Sembunyikan Kuis"}
+                description={
+                  isHidden
+                    ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat memulai pengerjaan baru."
+                    : "Kuis tidak muncul di katalog siswa dan tidak menerima pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."
+                }
+              >
+                <Button
+                  aria-busy={isSaving}
+                  disabled={disabled || isSaving}
+                  onClick={() => void onSetHidden(!isHidden)}
+                  type="button"
+                  variant="brandOutline"
+                >
+                  {isHidden ? "Tampilkan lagi" : "Sembunyikan"}
+                </Button>
+              </AdministrationActionRow>
+            ) : null}
             <div>
-              <h2 className="text-lg font-semibold text-secondary-900">
-                Administrasi
-              </h2>
+              {onArchive ? (
+                <AdministrationActionRow
+                  action="Arsipkan Kuis"
+                  description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa."
+                >
+                  <Button
+                    aria-busy={isSaving}
+                    disabled={disabled || isSaving}
+                    onClick={() => setArchiveConfirmationOpen(true)}
+                    type="button"
+                    variant="dangerOutline"
+                  >
+                    <Archive />
+                    Arsipkan{" "}
+                  </Button>
+                </AdministrationActionRow>
+              ) : null}
             </div>
-            <Button
-              aria-busy={isSaving}
-              disabled={disabled || isSaving}
-              onClick={onMakeDraft}
-              type="button"
-              variant="reference"
-            >
-              <FilePenLine />
-              Jadikan draf
-            </Button>
           </div>
         </ReferenceSurface>
       ) : null}
 
-      <Button
-        aria-busy={isSaving}
-        className="w-full"
-        disabled={
-          disabled || isSaving || Boolean(scheduleError || durationError)
-        }
-        onClick={onSave}
-        type="button"
-        variant="brand"
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!isSaving) setArchiveConfirmationOpen(open);
+        }}
+        open={archiveConfirmationOpen}
       >
-        {isSaving ? "Menyimpan…" : "Simpan"}
-      </Button>
+        <AlertDialogContent pending={isSaving} variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger">
+              <Archive />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Arsipkan Kuis?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan
+              tetap tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              onClick={async (event) => {
+                event.preventDefault();
+                if (await onArchive?.()) setArchiveConfirmationOpen(false);
+              }}
+              variant="destructive"
+            >
+              {isSaving ? "Mengarsipkan…" : "Arsipkan Kuis"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function KaptenQuizDetailPageModule({
+function KaptenQuizDetailPageContent({
   initialQuestions,
   initialQuiz,
   initialResults,
@@ -789,6 +897,7 @@ function KaptenQuizDetailPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
+  const resourceLock = useResourceEditLock();
   const [quiz, setQuiz] = useState(initialQuiz);
   const [activeTab, setActiveTab] = useState<QuizDetailTab>(initialTab);
   const [questions, setQuestions] = useState(() =>
@@ -799,6 +908,9 @@ function KaptenQuizDetailPageModule({
   );
   const [settings, setSettings] = useState(() => settingsFromQuiz(initialQuiz));
   const [isSaving, setIsSaving] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isVisibilitySaving, setIsVisibilitySaving] = useState(false);
+  const editorDisabled = quiz.status === "archived" || !resourceLock.canEdit;
 
   function changeTab(value: string) {
     if (value !== "preview" && value !== "hasil" && value !== "pengaturan")
@@ -808,12 +920,16 @@ function KaptenQuizDetailPageModule({
     router.push(`/mentor/quiz/${quiz.id}?tab=${next}`, { scroll: false });
   }
 
-  async function saveSettings(
-    status: "draft" | "published" = quiz.status === "published"
-      ? "published"
-      : "draft",
-  ) {
-    if (isSaving || quiz.status === "archived") return;
+  async function saveSettings() {
+    if (
+      !resourceLock.canEdit ||
+      isSaving ||
+      isArchiving ||
+      isVisibilitySaving ||
+      quiz.status === "archived"
+    ) {
+      return;
+    }
     setIsSaving(true);
     try {
       const result = await saveStandaloneQuizAction({
@@ -827,6 +943,7 @@ function KaptenQuizDetailPageModule({
             : settings.durationMinutes * 60,
         formBehavior: settings.formBehavior,
         id: quiz.id,
+        editLease: resourceLock.proof ?? undefined,
         opensAt: settings.opensAt,
         questions: cloneForSave(questions),
         retryDelaySeconds: settings.retryDelaySeconds,
@@ -834,7 +951,6 @@ function KaptenQuizDetailPageModule({
         scorePolicy: settings.scorePolicy,
         sourceBankId: quiz.sourceBankId ?? null,
         sourceMode: quiz.sourceMode === "bank" ? "bank" : "local",
-        status,
         subjectCode: settings.subjectCode,
         title: settings.title,
       });
@@ -845,12 +961,7 @@ function KaptenQuizDetailPageModule({
       setQuiz(result.quiz);
       setSettings(settingsFromQuiz(result.quiz));
       setQuestions(cloneForSave(result.questions));
-      showToast(
-        status === "published"
-          ? "Perubahan terpublikasikan!"
-          : "Perubahan Kuis tersimpan!",
-        { variant: "success" },
-      );
+      showToast("Perubahan Kuis tersimpan.", { variant: "success" });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Kuis belum dapat disimpan.";
@@ -860,13 +971,83 @@ function KaptenQuizDetailPageModule({
     }
   }
 
+  async function archiveQuiz() {
+    if (
+      !resourceLock.canEdit ||
+      isSaving ||
+      isArchiving ||
+      isVisibilitySaving ||
+      quiz.status !== "published"
+    ) {
+      return false;
+    }
+    setIsArchiving(true);
+    try {
+      const result = await updateStandaloneQuizLifecycleAction(
+        quiz.id,
+        resourceLock.proof ?? undefined,
+      );
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return false;
+      }
+      setQuiz(result.quiz);
+      showToast("Kuis diarsipkan.", { variant: "success" });
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Kuis belum dapat diarsipkan.";
+      showToast(message, { variant: "error" });
+      return false;
+    } finally {
+      setIsArchiving(false);
+    }
+  }
+
+  async function setQuizHidden(isHidden: boolean) {
+    if (
+      !resourceLock.canEdit ||
+      isSaving ||
+      isArchiving ||
+      isVisibilitySaving ||
+      quiz.status !== "published"
+    ) {
+      return false;
+    }
+    setIsVisibilitySaving(true);
+    try {
+      const result = await setStandaloneQuizHiddenAction(
+        quiz.id,
+        isHidden,
+        resourceLock.proof ?? undefined,
+      );
+      if (!result.ok) {
+        showToast(result.message, { variant: "error" });
+        return false;
+      }
+      setQuiz(result.quiz);
+      showToast(
+        isHidden ? "Kuis disembunyikan." : "Kuis ditampilkan kembali.",
+        { variant: "success" },
+      );
+      return true;
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Visibilitas Kuis belum dapat diubah. Coba lagi.",
+        { variant: "error" },
+      );
+      return false;
+    } finally {
+      setIsVisibilitySaving(false);
+    }
+  }
+
   const subject = kaptenSubjects.find((item) => item.code === quiz.subjectCode);
   const subjectHref = subject
     ? `/mentor/quiz/subject/${subject.slug}`
     : "/mentor/quiz";
-  const backLabel = subject
-    ? `Kembali ke Kuis ${subject.code}`
-    : "Kembali ke daftar Kuis";
 
   return (
     <MentorWorkspaceShell
@@ -882,36 +1063,13 @@ function KaptenQuizDetailPageModule({
       sidebarAppearance="reference"
     >
       <div className="space-y-8">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <Button
-            aria-label={backLabel}
-            className="mt-1 shrink-0"
-            nativeButton={false}
-            render={<Link href={subjectHref} />}
-            size="icon"
-            title={backLabel}
-            type="button"
-            variant="ghost"
-          >
-            <ChevronLeft />
-          </Button>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            {quiz.status === "draft" ? (
-              <Button
-                aria-busy={isSaving}
-                disabled={isSaving}
-                onClick={() => void saveSettings("published")}
-                type="button"
-                variant="brandOutline"
-              >
-                <SendHorizontal />
-                Terbitkan
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <ResourceAuthoringLockBanner
+          onRetry={resourceLock.retry}
+          resourceLabel="Kuis"
+          state={resourceLock.state}
+        />
         <QuizMetadataCard
-          disabled={quiz.status === "archived"}
+          disabled={editorDisabled || isArchiving || isVisibilitySaving}
           form={settings}
           isSaving={isSaving}
           onChange={(patch) =>
@@ -945,17 +1103,6 @@ function KaptenQuizDetailPageModule({
             </FullWidthLineTabsTrigger>
           </FullWidthLineTabsList>
           <TabsContent className="m-0 space-y-4" value="preview">
-            <div className="flex justify-end">
-              <Button
-                nativeButton={false}
-                render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />}
-                type="button"
-                variant="brand"
-              >
-                <FilePenLine />
-                Edit soal
-              </Button>
-            </div>
             <QuizPreview
               quizId={quiz.id}
               questions={questions}
@@ -967,23 +1114,40 @@ function KaptenQuizDetailPageModule({
           </TabsContent>
           <TabsContent className="m-0" value="pengaturan">
             <QuizSettings
-              disabled={quiz.status === "archived"}
+              disabled={editorDisabled || isArchiving || isVisibilitySaving}
               form={settings}
-              isSaving={isSaving}
+              isHidden={quiz.isHidden === true}
+              isSaving={isSaving || isArchiving || isVisibilitySaving}
               onChange={(patch) =>
                 setSettings((current) => ({ ...current, ...patch }))
               }
-              onMakeDraft={
-                quiz.status === "published"
-                  ? () => void saveSettings("draft")
-                  : undefined
-              }
+              onArchive={quiz.status === "published" ? archiveQuiz : undefined}
               onSave={() => void saveSettings()}
+              onSetHidden={
+                quiz.status === "published" ? setQuizHidden : undefined
+              }
             />
           </TabsContent>
         </Tabs>
       </div>
     </MentorWorkspaceShell>
+  );
+}
+
+function KaptenQuizDetailPageModule(props: {
+  initialQuestions: QuizQuestionSnapshot[];
+  initialQuiz: KaptenQuiz;
+  initialResults: KaptenQuizResultsData;
+  initialTab?: QuizDetailTab;
+  session: SessionContext;
+}) {
+  return (
+    <ResourceEditLockProvider
+      resourceId={props.initialQuiz.id}
+      resourceType="quiz"
+    >
+      <KaptenQuizDetailPageContent {...props} />
+    </ResourceEditLockProvider>
   );
 }
 

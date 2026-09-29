@@ -27,6 +27,7 @@ import {
   type StudentBannerPresentation,
 } from "@/lib/student/banner-presentation";
 import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
+import { canRequestNewTryoutAdmission } from "@/lib/tryout/registration-availability";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
@@ -215,27 +216,51 @@ function ParticipantTryoutWorkspace({
                 (sum, section) => sum + section.durationSeconds,
                 0,
               );
-              const primarySession =
-                tryout.assignments[0] ?? tryout.sessions[0];
+              const primarySession = tryout.assignments[0] ??
+                tryout.sessions.find((item) => item.isDefaultOpenRegistration) ??
+                tryout.sessions[0];
               const assignment = tryout.assignments[0];
               const hasEnrolledAssignment =
                 tryout.admissionStatus === "active" && Boolean(assignment);
               const canEnterWaiting = canEnterParticipantWaitingRoom(tryout);
+              const hasDefaultAdmissionSession = tryout.sessions.some(
+                (item) => item.isDefaultOpenRegistration,
+              );
+              const registrationSessionId =
+                tryout.admissionStatus === null &&
+                tryout.admissionMode === "approval_required" &&
+                !hasDefaultAdmissionSession
+                  ? undefined
+                  : primarySession?.id;
+              const canRequestAdmission = canRequestNewTryoutAdmission(
+                tryout.admissionMode,
+                tryout.sessions,
+                new Date(referenceTime),
+                registrationSessionId,
+              );
+              const registrationUnavailable =
+                tryout.admissionStatus === null &&
+                tryout.admissionMode !== "invitation_only" &&
+                !canRequestAdmission;
               const attempt = assignment?.attempt;
               const href = canEnterWaiting
                 ? buildStudentTryoutSubrouteHref(tryout.id, "waiting", { session: primarySession?.id })
-                : buildStudentTryoutHref(tryout.id, { session: primarySession?.id });
+                : buildStudentTryoutHref(tryout.id, { session: registrationSessionId });
               const actionLabel = attempt?.status === "in_progress"
                 ? "Lanjutkan"
                 : attempt
-                  ? "Lihat hasil"
+                  ? attempt.resultAvailability === "released"
+                    ? "Lihat hasil"
+                    : "Periksa status hasil"
                   : canEnterWaiting
                     ? "Mulai"
                     : hasEnrolledAssignment
                       ? "Selesai"
                       : tryout.admissionStatus === "active"
                         ? "Menunggu"
-                        : "Daftar";
+                        : registrationUnavailable
+                          ? "Lihat detail"
+                          : "Daftar";
 
               return (
                 <StudentCatalogueCardFrame key={tryout.id} variant="tryout">

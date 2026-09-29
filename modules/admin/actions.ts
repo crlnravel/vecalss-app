@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { EnrollmentHandoffMethod, UserStatus } from "@/generated/prisma/client";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import { requireAdminSession } from "@/lib/auth/access";
 import { ADMIN_STUDENT_DIRECTORY_CACHE_TAG } from "@/lib/admin/operations/directory-cache";
 import {
@@ -17,6 +18,7 @@ import {
   sendKelasNotification,
 } from "@/lib/notifications/service";
 import {
+  EnrollmentServiceError,
   createAffiliatorEnrollment,
   changeStudentEnrollmentPassword,
   createKaptenEnrollment,
@@ -116,17 +118,40 @@ function handoffErrorMessage(error: unknown) {
   if (error instanceof EnrollmentHandoffStateError) {
     switch (error.code) {
       case "handoff_import_recovery_required":
-        return "Import-sourced handoffs must be released through the authenticated handoff-file workflow before they can be replaced.";
+        return "Informasi akses dari impor perlu dibagikan melalui halaman detail impor.";
       case "handoff_account_inactive":
-        return "The account is inactive, so this handoff cannot be changed.";
+        return "Akun ini tidak aktif, jadi informasi aksesnya belum bisa diubah.";
       case "handoff_not_found":
-        return "The enrollment handoff could not be found.";
+        return "Informasi akses tidak ditemukan. Segarkan halaman lalu coba lagi.";
       default:
-        return error.message;
+        return "Informasi akses belum berhasil dibuat ulang. Periksa status akun lalu coba lagi.";
     }
   }
 
-  return "The handoff could not be changed. Refresh the directory and try again.";
+  return "Informasi akses belum berhasil dibuat ulang. Periksa status akun lalu coba lagi.";
+}
+
+function enrollmentCreationErrorMessage(error: unknown, role: string) {
+  if (error instanceof EnrollmentServiceError) {
+    switch (error.code) {
+      case "duplicate_email":
+        return "Alamat email ini sudah digunakan. Gunakan alamat email lain.";
+      case "invalid_email":
+        return "Masukkan alamat email yang valid.";
+      case "invalid_field":
+        return "Ada data yang perlu diperbaiki. Periksa kembali isian formulir.";
+      case "invalid_handoff_method":
+        return "Pilih cara pemberian akses yang tersedia.";
+      case "not_found":
+        return "Data yang dipilih sudah tidak tersedia. Segarkan halaman lalu coba lagi.";
+      case "role_conflict":
+        return "Alamat email ini sudah digunakan untuk jenis akun lain.";
+      default:
+        break;
+    }
+  }
+
+  return `Akun ${role} belum berhasil dibuat. Coba lagi.`;
 }
 
 function buildDirectoryRedirect(
@@ -213,8 +238,8 @@ async function createStudentEnrollmentAction(
   if (!fullName || !email) {
     return {
       fieldErrors: {
-        ...(fullName ? {} : { fullName: "Student name is required." }),
-        ...(email ? {} : { email: "Student email is required." }),
+        ...(fullName ? {} : { fullName: "Nama siswa wajib diisi." }),
+        ...(email ? {} : { email: "Alamat email siswa wajib diisi." }),
       },
       fields: {
         email,
@@ -222,21 +247,21 @@ async function createStudentEnrollmentAction(
         handoffMethod: selectedHandoffMethod,
         targetExamEventId: targetExamEventId ?? "",
       },
-      message: "Please fill in the student's name and email before creating the account.",
+      message: "Isi nama dan alamat email siswa sebelum membuat akun.",
       status: "error",
     };
   }
 
   if (!handoffMethod) {
     return {
-      fieldErrors: { handoffMethod: "Choose a valid credential handoff method." },
+      fieldErrors: { handoffMethod: "Pilih cara pemberian akses yang tersedia." },
       fields: {
         email,
         fullName,
         handoffMethod: selectedHandoffMethod,
         targetExamEventId: targetExamEventId ?? "",
       },
-      message: "Choose a valid credential handoff method before creating the student account.",
+      message: "Pilih cara pemberian akses sebelum membuat akun siswa.",
       status: "error",
     };
   }
@@ -265,8 +290,8 @@ async function createStudentEnrollmentAction(
       handoffMethod: result.method,
       inviteUrl: result.inviteUrl ?? undefined,
       message: result.method === EnrollmentHandoffMethod.invite_link
-        ? "Student account created. Share this invite link promptly; it expires after 24 hours and can be used once."
-        : "Student account created. Share the temporary password securely because it will not be shown again.",
+        ? "Akun siswa berhasil dibuat. Bagikan tautan undangan sekarang; tautan berlaku 24 jam dan hanya bisa digunakan sekali."
+        : "Akun siswa berhasil dibuat. Bagikan kata sandi sementara melalui kanal yang aman; kata sandi hanya ditampilkan sekali.",
       status: "success",
       temporaryPassword: result.temporaryPassword ?? undefined,
       userId: result.userId,
@@ -279,10 +304,7 @@ async function createStudentEnrollmentAction(
         handoffMethod,
         targetExamEventId: targetExamEventId ?? "",
       },
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, we couldn't create the student account. Please try again.",
+      message: enrollmentCreationErrorMessage(error, "siswa"),
       status: "error",
     };
   }
@@ -304,20 +326,20 @@ async function createKaptenEnrollmentAction(
   if (!fullName || !email) {
     return {
       fieldErrors: {
-        ...(fullName ? {} : { fullName: "Kapten name is required." }),
-        ...(email ? {} : { email: "Kapten email is required." }),
+        ...(fullName ? {} : { fullName: "Nama Kapten wajib diisi." }),
+        ...(email ? {} : { email: "Alamat email Kapten wajib diisi." }),
       },
       fields: { bio: bio ?? "", email, fullName, handoffMethod: selectedHandoffMethod, headline: headline ?? "", phone: phone ?? "" },
-      message: "Please fill in the Kapten's name and email before creating the account.",
+      message: "Isi nama dan alamat email Kapten sebelum membuat akun.",
       status: "error",
     };
   }
 
   if (!handoffMethod) {
     return {
-      fieldErrors: { handoffMethod: "Choose a valid credential handoff method." },
+      fieldErrors: { handoffMethod: "Pilih cara pemberian akses yang tersedia." },
       fields: { bio: bio ?? "", email, fullName, handoffMethod: selectedHandoffMethod, headline: headline ?? "", phone: phone ?? "" },
-      message: "Choose a valid credential handoff method before creating the Kapten account.",
+      message: "Pilih cara pemberian akses sebelum membuat akun Kapten.",
       status: "error",
     };
   }
@@ -342,8 +364,8 @@ async function createKaptenEnrollmentAction(
       handoffMethod: result.method,
       inviteUrl: result.inviteUrl ?? undefined,
       message: result.method === EnrollmentHandoffMethod.invite_link
-        ? "Kapten account created. Share this invite link promptly; it expires after 24 hours and can be used once."
-        : "Kapten account created. Share the temporary password securely because it will not be shown again.",
+        ? "Akun Kapten berhasil dibuat. Bagikan tautan undangan sekarang; tautan berlaku 24 jam dan hanya bisa digunakan sekali."
+        : "Akun Kapten berhasil dibuat. Bagikan kata sandi sementara melalui kanal yang aman; kata sandi hanya ditampilkan sekali.",
       status: "success",
       temporaryPassword: result.temporaryPassword ?? undefined,
       userId: result.userId,
@@ -351,10 +373,7 @@ async function createKaptenEnrollmentAction(
   } catch (error) {
     return {
       fields: { bio: bio ?? "", email, fullName, handoffMethod, headline: headline ?? "", phone: phone ?? "" },
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, we couldn't create the Kapten account. Please try again.",
+      message: enrollmentCreationErrorMessage(error, "Kapten"),
       status: "error",
     };
   }
@@ -380,21 +399,21 @@ async function createAffiliatorEnrollmentAction(
   if (!fullName || !email || !referralCode) {
     return {
       fieldErrors: {
-        ...(fullName ? {} : { fullName: "Affiliator name is required." }),
-        ...(email ? {} : { email: "Affiliator email is required." }),
-        ...(referralCode ? {} : { referralCode: "Referral code is required." }),
+        ...(fullName ? {} : { fullName: "Nama Affiliator wajib diisi." }),
+        ...(email ? {} : { email: "Alamat email Affiliator wajib diisi." }),
+        ...(referralCode ? {} : { referralCode: "Kode referral wajib diisi." }),
       },
       fields,
-      message: "Please fill in the affiliator's name, email, and referral code before creating the account.",
+      message: "Isi nama, alamat email, dan kode referral Affiliator sebelum membuat akun.",
       status: "error",
     };
   }
 
   if (!handoffMethod) {
     return {
-      fieldErrors: { handoffMethod: "Choose a valid credential handoff method." },
+      fieldErrors: { handoffMethod: "Pilih cara pemberian akses yang tersedia." },
       fields,
-      message: "Choose a valid credential handoff method before creating the affiliator account.",
+      message: "Pilih cara pemberian akses sebelum membuat akun Affiliator.",
       status: "error",
     };
   }
@@ -417,8 +436,8 @@ async function createAffiliatorEnrollmentAction(
       handoffMethod: result.method,
       inviteUrl: result.inviteUrl ?? undefined,
       message: result.method === EnrollmentHandoffMethod.invite_link
-        ? "Affiliator account created. Share this invite link promptly; it expires after 24 hours and can be used once."
-        : "Affiliator account created. Share the temporary password securely because it will not be shown again.",
+        ? "Akun Affiliator berhasil dibuat. Bagikan tautan undangan sekarang; tautan berlaku 24 jam dan hanya bisa digunakan sekali."
+        : "Akun Affiliator berhasil dibuat. Bagikan kata sandi sementara melalui kanal yang aman; kata sandi hanya ditampilkan sekali.",
       status: "success",
       temporaryPassword: result.temporaryPassword ?? undefined,
       userId: result.userId,
@@ -426,10 +445,7 @@ async function createAffiliatorEnrollmentAction(
   } catch (error) {
     return {
       fields,
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, we couldn't create the affiliator account. Please try again.",
+      message: enrollmentCreationErrorMessage(error, "Affiliator"),
       status: "error",
     };
   }
@@ -586,10 +602,10 @@ async function changeStudentEnrollmentPasswordAction(
   if (!password || !confirmPassword) {
     return withFieldError(
       {},
-      "Enter and confirm the new password.",
+      "Isi dan ulangi kata sandi baru.",
       {
-        ...(password ? {} : { password: "New password is required." }),
-        ...(confirmPassword ? {} : { confirmPassword: "Confirm password is required." }),
+        ...(password ? {} : { password: "Kata sandi baru wajib diisi." }),
+        ...(confirmPassword ? {} : { confirmPassword: "Ulangi kata sandi baru." }),
       },
     );
   }
@@ -597,8 +613,8 @@ async function changeStudentEnrollmentPasswordAction(
   if (password !== confirmPassword) {
     return withFieldError(
       {},
-      "The passwords do not match.",
-      { confirmPassword: "Passwords do not match." },
+      "Kata sandi belum sama.",
+      { confirmPassword: "Kata sandi belum sama." },
     );
   }
 
@@ -609,11 +625,16 @@ async function changeStudentEnrollmentPasswordAction(
       userId,
     });
   } catch (error) {
+    const message = error instanceof EnrollmentServiceError
+      ? error.code === "invalid_field"
+        ? `Kata sandi harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter dan memuat huruf besar, huruf kecil, serta angka.`
+        : error.code === "not_found"
+          ? "Akun siswa tidak ditemukan. Segarkan halaman lalu coba lagi."
+          : "Kata sandi siswa belum berhasil diperbarui. Coba lagi."
+      : "Kata sandi siswa belum berhasil diperbarui. Periksa koneksi lalu coba lagi.";
+
     return {
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, we couldn't update the student password. Please try again.",
+      message,
       status: "error",
     };
   }
@@ -869,11 +890,11 @@ async function acknowledgeEnrollmentHandoffAction(
   const handoffId = readUuidField(formData, "handoffId");
 
   if (!handoffId) {
-    return { message: "The enrollment handoff could not be found.", status: "error" };
+    return { message: "Informasi akses tidak ditemukan. Segarkan halaman lalu coba lagi.", status: "error" };
   }
 
   if (!isHandoffConfirmed(formData, "acknowledge")) {
-    return { handoffId, message: "Confirm that this handoff was delivered before acknowledging it.", status: "error" };
+    return { handoffId, message: "Konfirmasi bahwa informasi akses sudah diberikan kepada penerima.", status: "error" };
   }
 
   try {
@@ -888,13 +909,13 @@ async function acknowledgeEnrollmentHandoffAction(
     revalidatePath("/admin/kapten");
     return {
       handoffId,
-      message: "Handoff acknowledgement recorded.",
+      message: "Konfirmasi bahwa informasi akses sudah dibagikan berhasil dicatat.",
       status: "success",
     };
   } catch {
     return {
       handoffId,
-      message: "This handoff is no longer awaiting acknowledgement.",
+      message: "Informasi akses ini tidak lagi menunggu konfirmasi. Segarkan halaman untuk melihat status terbaru.",
       status: "error",
     };
   }
@@ -908,11 +929,11 @@ async function reissueEnrollmentHandoffAction(
   const handoffId = readUuidField(formData, "handoffId");
 
   if (!handoffId) {
-    return { message: "The enrollment handoff could not be found.", status: "error" };
+    return { message: "Informasi akses tidak ditemukan. Segarkan halaman lalu coba lagi.", status: "error" };
   }
 
   if (!isHandoffConfirmed(formData, "reissue")) {
-    return { handoffId, message: "Confirm that the current handoff should be revoked before reissuing it.", status: "error" };
+    return { handoffId, message: "Konfirmasi bahwa akses saat ini akan dicabut sebelum membuat akses baru.", status: "error" };
   }
 
   try {
@@ -931,10 +952,10 @@ async function reissueEnrollmentHandoffAction(
       handoffMethod: result.method,
       inviteUrl: result.inviteUrl ?? undefined,
       message: result.recoverableByImportFile
-        ? "A replacement handoff is ready for one-time bulk download. The previous handoff is revoked."
+        ? "Informasi akses pengganti siap diunduh sekali. Akses sebelumnya sudah dicabut."
         : result.method === EnrollmentHandoffMethod.invite_link
-          ? "A replacement invite link was generated. The previous handoff is revoked."
-          : "A replacement temporary password was generated. The previous password is revoked.",
+          ? "Tautan undangan baru berhasil dibuat. Tautan sebelumnya sudah tidak berlaku."
+          : "Kata sandi sementara baru berhasil dibuat. Kata sandi sebelumnya sudah tidak berlaku.",
       status: "success",
       temporaryPassword: result.method === EnrollmentHandoffMethod.temporary_password
         ? result.secret ?? undefined

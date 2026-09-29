@@ -478,8 +478,8 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
       ];
       const withDrilldown = allIncidents.find((i) => i.affectedFeatures?.length);
       if (withDrilldown) setSelectedIncident(withDrilldown);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan sistem.");
+    } catch {
+      setError("Data keandalan Vera AI belum berhasil dimuat. Segarkan halaman untuk mencoba lagi.");
     } finally {
       setIsLoading(false);
     }

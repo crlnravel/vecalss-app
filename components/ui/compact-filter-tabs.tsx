@@ -1,8 +1,12 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { TabsList, TabsTrigger } from "./tabs";
+import type { TabsList, TabsTrigger } from "./tabs";
+import {
+  SunkenTabButton,
+  SunkenTabsList,
+  SunkenTabsTrigger,
+} from "./sunken-tabs";
 import { cn } from "@/lib/utils";
-import { Button } from "./button";
 
 type CompactFilterTabItem<TValue extends string> = {
   label: ReactNode;
@@ -22,12 +26,9 @@ type CompactTabsTriggerProps = ComponentProps<typeof TabsTrigger>;
 
 function CompactTabsList({ className, ...props }: CompactTabsListProps) {
   return (
-    <TabsList
-      className={cn(
-        "!flex !h-[44px] !w-fit !max-w-full !justify-start !gap-1 !overflow-x-auto !rounded-2xl !bg-transparent !p-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-        className,
-      )}
-      variant="default"
+    <SunkenTabsList
+      className={className}
+      layout="content"
       {...props}
     />
   );
@@ -35,11 +36,9 @@ function CompactTabsList({ className, ...props }: CompactTabsListProps) {
 
 function CompactTabsTrigger({ className, ...props }: CompactTabsTriggerProps) {
   return (
-    <TabsTrigger
-      className={cn(
-        "!h-[44px] !min-h-[44px] !min-w-[44px] !flex-none rounded-full bg-secondary-100 px-4 text-xs font-medium text-secondary-600 transition-[background-color,color,box-shadow] motion-reduce:transition-none data-active:bg-voyage-deep data-active:text-white data-active:shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_18%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-deep-hover)_70%,transparent)] focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/45",
-        className,
-      )}
+    <SunkenTabsTrigger
+      className={className}
+      layout="content"
       {...props}
     />
   );
@@ -65,17 +64,16 @@ function CompactFilterTabs<TValue extends string>({
         const selected = value === item.value;
 
         return (
-          <Button
+          <SunkenTabButton
             aria-pressed={selected}
-            className="min-h-[44px] min-w-[44px] rounded-full"
             key={item.value}
+            layout="content"
             onClick={() => onValueChange(item.value)}
-            size="default"
+            selected={selected}
             type="button"
-            variant={selected ? "filterActive" : "context"}
           >
             {item.label}
-          </Button>
+          </SunkenTabButton>
         );
       })}
     </div>

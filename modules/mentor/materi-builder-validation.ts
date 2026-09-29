@@ -74,10 +74,10 @@ function validateMateriBuilderState(
   const errors: MateriBuilderErrors = {};
 
   if (!subjects.some((subject) => subject.slug === state.subjectSlug)) {
-    errors.subjectSlug = "Pilih subject Materi yang tersedia.";
+    errors.subjectSlug = "Pilih subtes yang tersedia untuk materi ini.";
   }
   if (!state.title.trim()) {
-    errors.title = "Judul lesson wajib diisi.";
+    errors.title = "Judul materi wajib diisi.";
   }
 
   const documentValidation = normalizeMateriDocumentInput(toDocumentInput(state));

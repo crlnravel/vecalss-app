@@ -1,8 +1,7 @@
 import { FormNotice } from "./components/form-notice";
 import { AuthShell } from "./components/auth-shell";
 import { InvitePasswordSetupForm } from "./components/invite-password-setup-form";
-
-const INVALID_INVITE_MESSAGE = "This invite link is invalid or has already expired.";
+import { INVALID_INVITE_MESSAGE } from "./invite-copy";
 
 function InvitePasswordSetupPageModule({
   isValid,
@@ -13,9 +12,9 @@ function InvitePasswordSetupPageModule({
 }) {
   return (
     <AuthShell
-      description="Set a password to activate your Vecalss account. This invite expires after 24 hours and can only be used once."
-      eyebrow="Account invite"
-      title="Set your password"
+      description="Buat kata sandi untuk mengaktifkan akun Vecalss. Tautan ini berlaku 24 jam dan hanya bisa digunakan sekali."
+      eyebrow="Undangan akun"
+      title="Atur kata sandi"
     >
       {isValid ? (
         <InvitePasswordSetupForm token={token} />
@@ -26,4 +25,4 @@ function InvitePasswordSetupPageModule({
   );
 }
 
-export { INVALID_INVITE_MESSAGE, InvitePasswordSetupPageModule };
+export { InvitePasswordSetupPageModule };

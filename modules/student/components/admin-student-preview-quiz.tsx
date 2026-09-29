@@ -4,7 +4,6 @@ import NextImage from "next/image";
 import {
   ArrowUpRight,
   BookOpenCheck,
-  ChevronLeft,
   ChevronRight,
   Clock3,
   ListChecks,
@@ -17,14 +16,9 @@ import {
   buildAdminStudentPreviewQuizRoute,
   buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
-import {
-  getStudentBannerDescription,
-  getStudentBannerHeading,
-  isStudentBannerDraftUnavailable,
-  type AdminStudentBannerRead,
-} from "@/lib/student/banner-presentation";
+import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 import type { StudentBannerVariables } from "@/lib/student/banner-content";
-import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
+import { AdminStudentPreviewBannerHeader } from "@/modules/student/components/admin-student-preview-banner-header";
 import type {
   AdminPreviewQuizAvailability,
   AdminPreviewQuizDetail,
@@ -44,32 +38,14 @@ function QuizPreviewHeader({
   title?: string;
   variables?: StudentBannerVariables;
 }) {
-  if (banner && isStudentBannerDraftUnavailable(banner)) {
-    return (
-      <header className="relative isolate overflow-hidden rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg px-6 py-7 text-student-status-danger-fg shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-10 md:py-9">
-        <div className="relative max-w-2xl">
-          <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">Draf banner tidak tersedia</h1>
-          <p className="mt-3 max-w-xl text-sm leading-7 md:text-base">{banner.message}</p>
-        </div>
-      </header>
-    );
-  }
-
-  const resolvedTitle = banner ? getStudentBannerHeading(banner, variables) : title ?? "Kuis";
-  const resolvedDescription = banner ? getStudentBannerDescription(banner, variables) : description ?? "";
-
   return (
-    <header className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_58%,var(--voyage-leaf)_100%)] px-6 py-7 text-white shadow-[0_28px_60px_-38px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)] md:px-10 md:py-9">
-      {banner?.design ? <StudentBannerArtwork banner={banner} className="absolute inset-0 size-full rounded-none" variables={variables} /> : null}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[var(--voyage-sea-glass)]/15 sm:size-72"
-      />
-      <div className="relative max-w-2xl">
-        <h1 className={banner?.design ? "sr-only" : "text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl"}>{resolvedTitle}</h1>
-        <p className={banner?.design ? "sr-only" : "mt-3 max-w-xl text-sm leading-7 text-[var(--primary-50)] md:text-base"}>{resolvedDescription}</p>
-      </div>
-    </header>
+    <AdminStudentPreviewBannerHeader
+      banner={banner}
+      description={description}
+      fallbackTitle="Kuis"
+      title={title}
+      variables={variables}
+    />
   );
 }
 
@@ -153,8 +129,8 @@ function AdminStudentPreviewQuizCatalogueSurface({
       <QuizPreviewHeader banner={banner} variables={bannerVariables} />
 
       <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
-        <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Read-only</span>
-        <span>Kuis hanya dibaca untuk memeriksa tampilan siswa. Tidak ada percobaan, jawaban, atau nilai yang dibuat.</span>
+        <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Khusus pratinjau</span>
+        <span>Kuis ditampilkan untuk memeriksa pengalaman siswa. Pratinjau ini tidak membuat pengerjaan, jawaban, atau nilai.</span>
       </div>
 
       {subjectGroups.length > 0 ? (
@@ -163,7 +139,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
             <section aria-labelledby={`preview-quiz-group-${group.track}`} className="flex flex-col gap-4" key={group.track}>
               <div className="flex items-center gap-4 px-1">
                 <h2 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-secondary-900 md:text-xl" id={`preview-quiz-group-${group.track}`}>
-                  Subjek {group.track}
+                  Subtes {group.track}
                 </h2>
                 <span aria-hidden="true" className="h-px flex-1 bg-[var(--voyage-soft-border)]" />
               </div>
@@ -202,7 +178,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
         <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
-            <CardDescription>Kuis yang sudah dipublikasikan akan muncul di preview ini.</CardDescription>
+            <CardDescription>Kuis yang sudah diterbitkan akan muncul di sini.</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -215,18 +191,6 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
 
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <Button
-        aria-label="Kembali ke katalog Kuis"
-        className="self-start"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewRoute("/quiz")} />}
-        size="icon"
-        title="Kembali ke katalog Kuis"
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-
       <QuizPreviewHeader description={subject.description} title={subject.name} />
       <div className="flex flex-wrap gap-3 text-sm font-bold text-primary-800">
         <span className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-4 py-2.5">
@@ -242,7 +206,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
       {subject.quizzes.length > 0 ? (
         <section aria-labelledby="preview-quiz-package-title" className="flex flex-col gap-5">
           <h2 className="px-1 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl" id="preview-quiz-package-title">
-            Kuis terbit
+            Kuis untuk subtes ini
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {subject.quizzes.map((quiz) => <QuizSummaryCard key={quiz.slug} quiz={quiz} subjectSlug={subject.slug} />)}
@@ -252,7 +216,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
         <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
-            <CardDescription>Kuis untuk subjek ini belum dipublikasikan.</CardDescription>
+            <CardDescription>Belum ada kuis yang diterbitkan untuk subtes ini.</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -267,7 +231,7 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
       <div className="relative z-10 flex flex-col p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">{quiz.title}</h3>
-          <span className="shrink-0 rounded-full border border-primary-900/10 bg-white/65 px-2.5 py-1 text-xs font-extrabold tracking-[0.12em] text-primary-800 uppercase">Published</span>
+          <span className="shrink-0 rounded-full border border-primary-900/10 bg-white/65 px-2.5 py-1 text-xs font-extrabold tracking-[0.12em] text-primary-800 uppercase">Terbit</span>
         </div>
         {quiz.description ? <p className="mt-2 line-clamp-3 text-xs leading-5 text-primary-800">{quiz.description}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -296,19 +260,7 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
 function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuizDetail }) {
   return (
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-      <Button
-        aria-label={`Kembali ke ${quiz.subject.name}`}
-        className="self-start"
-        nativeButton={false}
-        render={<Link href={buildAdminStudentPreviewQuizRoute(quiz.subject.slug)} />}
-        size="icon"
-        title={`Kembali ke ${quiz.subject.name}`}
-        variant="ghost"
-      >
-        <ChevronLeft />
-      </Button>
-
-      <QuizPreviewHeader description={quiz.description ?? "Kuis terbit untuk dibaca dalam pengalaman siswa."} title={quiz.title} />
+      <QuizPreviewHeader description={quiz.description ?? "Kuis yang sudah diterbitkan untuk dilihat seperti tampilan siswa."} title={quiz.title} />
       <div className="flex flex-wrap items-center gap-3">
         <AvailabilityBadge availability={quiz.availability} />
         <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50 px-3.5 py-2 text-xs font-bold text-primary-800">
@@ -320,8 +272,8 @@ function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuiz
 
       <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
-          <CardTitle className="text-lg">Tampilan read-only</CardTitle>
-          <CardDescription>Jawaban dan penilaian tidak tersedia di admin student preview. Membuka halaman ini tidak membuat state learner.</CardDescription>
+          <CardTitle className="text-lg">Hanya untuk pratinjau</CardTitle>
+          <CardDescription>Jawaban dan hasil kuis tidak tersedia di pratinjau admin. Membuka halaman ini tidak membuat pengerjaan siswa.</CardDescription>
         </CardHeader>
       </Card>
 

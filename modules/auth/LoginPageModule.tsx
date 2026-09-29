@@ -5,10 +5,10 @@ import { LoginForm } from "./components/login-form";
 
 const noticeCopy: Record<string, { compact?: boolean; text: string }> = {
   "password-reset": {
-    text: "Password kamu sudah diperbarui. Silakan masuk dengan kredensial baru.",
+    text: "Kata sandi berhasil diperbarui. Masuk kembali untuk melanjutkan.",
   },
   "invite-completed": {
-    text: "Your account is active. Sign in with the password you just created.",
+    text: "Akunmu sudah aktif. Masuk dengan kata sandi yang baru kamu buat.",
   },
   "signed-out": {
     text: "Kamu sudah keluar dari akun.",
@@ -24,7 +24,7 @@ function LoginPageModule({
 }) {
   return (
     <AuthShell
-      description="Masuk untuk melanjutkan ke workspace Vecalss."
+      description="Masuk ke akun Vecalss untuk melanjutkan."
       title="Masuk ke Vecalss"
     >
       <LoginForm
