@@ -13,7 +13,7 @@ function DeveloperReportsPageModule({
   session: SessionContext;
 }) {
   return (
-    <DeveloperWorkspaceShell userName={session.user.fullName}>
+    <DeveloperWorkspaceShell accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
       <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-reports-title">
         <ReferencePageHeader title={<span id="developer-reports-title">Laporan</span>} />
 

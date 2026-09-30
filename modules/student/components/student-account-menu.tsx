@@ -51,7 +51,8 @@ import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar-utils";
 
 type StudentAccountMenuItem = "notifications";
-type AccountMenuAudience = "admin" | "student" | "tutor" | "affiliator";
+type AccountMenuAudience = "admin" | "student" | "tutor" | "affiliator" | "developer";
+type AccountMenuUser = Pick<SessionContext["user"], "id" | "email" | "fullName">;
 type DebugAccount = {
   email: string;
   fullName: string;
@@ -74,6 +75,7 @@ type DebugSwitchAccountResponse = {
 const debugRoleLabels: Record<string, string> = {
   affiliator: "Affiliator",
   admin: "Admin",
+  developer: "Developer",
   student: "Siswa",
   tutor: "Kapten",
 };
@@ -200,7 +202,7 @@ function StudentAccountMenu({
   audience?: AccountMenuAudience;
   disableDebugAccountSwitcher?: boolean;
   extraItem?: StudentAccountMenuItem;
-  session: SessionContext;
+  session: { user: AccountMenuUser };
 }) {
   const initials = getInitials(session.user.fullName);
   const debugAccountSwitcherAvailable = useDebugAccountSwitcher();
@@ -215,6 +217,7 @@ function StudentAccountMenu({
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
   const isAffiliator = audience === "affiliator";
+  const isDeveloper = audience === "developer";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
   const settingsHref = "/mentor/settings";
   const selectedAccount = debugAccounts?.find((account) => account.id === selectedAccountId) ?? null;
@@ -337,7 +340,7 @@ function StudentAccountMenu({
                 Dashboard
               </DropdownMenuItem>
             ) : null}
-            {!isAdmin && !isTutor && !isAffiliator ? (
+            {!isAdmin && !isTutor && !isAffiliator && !isDeveloper ? (
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}
                 render={<Link href={profileHref} />}
@@ -412,4 +415,4 @@ function StudentAccountMenu({
 }
 
 export { StudentAccountMenu };
-export type { AccountMenuAudience, StudentAccountMenuItem };
+export type { AccountMenuAudience, AccountMenuUser, StudentAccountMenuItem };

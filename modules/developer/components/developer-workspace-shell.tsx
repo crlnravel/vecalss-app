@@ -1,26 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
-import { useFormStatus } from "react-dom";
+import { type ReactNode } from "react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,7 +11,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -46,10 +27,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ClipboardList, LoaderCircle, LogOut } from "@/lib/icons";
-import { logoutAction } from "@/modules/auth/actions";
+import { ClipboardList } from "@/lib/icons";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
-import { getInitials } from "@/modules/student/components/student-sidebar-utils";
+import { StudentAccountMenu, type AccountMenuUser } from "@/modules/student/components/student-account-menu";
 
 function DeveloperNavigation({ isDetailPage }: { isDetailPage: boolean }) {
   const { isMobile, setOpenMobile, state } = useSidebar();
@@ -109,72 +89,14 @@ function DeveloperNavigation({ isDetailPage }: { isDetailPage: boolean }) {
   );
 }
 
-function DeveloperLogoutDialogFooter() {
-  const { pending } = useFormStatus();
-
-  return (
-    <AlertDialogFooter>
-      <AlertDialogCancel disabled={pending} type="button">Batal</AlertDialogCancel>
-      <AlertDialogAction disabled={pending} type="submit" variant="destructive">
-        {pending ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
-        {pending ? "Keluar dari akun…" : "Keluar dari akun"}
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  );
-}
-
-function DeveloperAccountMenu({ userName }: { userName: string }) {
-  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label="Menu akun"
-          render={<Button className="size-11 rounded-full bg-primary-100 p-0 text-xs font-semibold text-primary-900 hover:bg-primary-200" variant="ghost" />}
-        >
-          {getInitials(userName)}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
-          <div className="flex flex-col gap-1 px-2 py-1.5">
-            <span className="truncate text-sm font-semibold text-secondary-900">{userName}</span>
-            <span className="text-xs text-secondary-500">Developer</span>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50"
-            onClick={() => setIsLogoutDialogOpen(true)}
-          >
-            <LogOut aria-hidden="true" />
-            Keluar
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <AlertDialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
-        <AlertDialogContent variant="warning">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
-            <AlertDialogDescription>Kamu perlu masuk kembali untuk melanjutkan.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <form action={logoutAction}>
-            <input name="audience" type="hidden" value="developer" />
-            <DeveloperLogoutDialogFooter />
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
 function DeveloperWorkspaceShell({
   children,
   isDetailPage = false,
-  userName,
+  accountUser,
 }: {
   children: ReactNode;
   isDetailPage?: boolean;
-  userName: string;
+  accountUser: AccountMenuUser;
 }) {
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
@@ -201,7 +123,7 @@ function DeveloperWorkspaceShell({
               </Breadcrumb>
 
               <div className="ml-auto" />
-              <DeveloperAccountMenu userName={userName} />
+              <StudentAccountMenu audience="developer" session={{ user: accountUser }} />
             </div>
           </header>
 

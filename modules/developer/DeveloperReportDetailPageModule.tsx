@@ -83,7 +83,7 @@ function DeveloperReportDetailPageModule({
   const reportUrl = getSafeReportUrl(report.url);
 
   return (
-    <DeveloperWorkspaceShell isDetailPage userName={session.user.fullName}>
+    <DeveloperWorkspaceShell isDetailPage accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
       <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-report-title">
         <header className="flex items-start gap-4">
           <Tooltip>
