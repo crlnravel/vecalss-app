@@ -530,6 +530,7 @@ async function updateTryoutDeliverySessionSchedule(
       },
       select: { id: true },
     });
+    // react-doctor-disable-next-line server-sequential-independent-await -- both overlap sets are read after the same session lock in one transaction.
     const newOverlaps = await tx.tryoutDeliverySession.findMany({
       where: {
         OR: [
@@ -952,6 +953,7 @@ async function inviteTryoutParticipant(
         },
       },
     });
+    // react-doctor-disable-next-line server-sequential-independent-await -- re-read admission and tryout identity within the same transaction.
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } });
     let admission = initialAdmission;
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
@@ -1042,6 +1044,7 @@ async function assignTryoutDeliverySession(input: AssignmentInput, actorId: stri
     if (!candidate) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
     await lockTryoutParticipantIdentityScope(tx, { id: input.admissionId, kind: "admission" }, candidate.studentId);
     const sessionCandidate = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId }, select: { availableFrom: true, availableUntil: true, tryoutId: true } });
+    // react-doctor-disable-next-line server-sequential-independent-await -- re-read both participants of the assignment after the same identity lock.
     const lockedCandidate = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true, tryoutId: true } });
     if (!lockedCandidate || !sessionCandidate || lockedCandidate.tryoutId !== sessionCandidate.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
     const assignmentCandidate = await tx.tryoutDeliveryAssignment.findUnique({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, select: { id: true } });

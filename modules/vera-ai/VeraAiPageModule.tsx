@@ -998,7 +998,9 @@ function useVeraAiModuleState({
   const [lastFailed, setLastFailed] = useState<VeraRequestAttempt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestInFlightRef = useRef(false);
-  const conversationResolverRef = useRef(createVeraConversationResolver());
+  const [conversationResolver] = useState(() =>
+    createVeraConversationResolver(),
+  );
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ??
@@ -1216,7 +1218,7 @@ function useVeraAiModuleState({
       return;
     }
 
-    void conversationResolverRef.current(null, createBackendConversation);
+    void conversationResolver(null, createBackendConversation);
   }
 
   function handleRenameSession(sessionId: string, nextTitle: string) {
@@ -1518,7 +1520,7 @@ function useVeraAiModuleState({
     requestInFlightRef.current = true;
     let conversationId: string | null;
     try {
-      conversationId = await conversationResolverRef.current(
+      conversationId = await conversationResolver(
         activeSession.id || null,
         createBackendConversation,
       );
@@ -1942,35 +1944,83 @@ function VeraStatusBanner({
   onRetry: () => void;
   progress: number | null;
 }) {
-  if (
+  const hidden =
     !busy &&
     !error &&
     !notice &&
-    (!automaticProgress || automaticProgress.phase === "complete")
-  ) {
-    return null;
-  }
+    (!automaticProgress || automaticProgress.phase === "complete");
+  if (hidden) return null;
 
-  const automaticStatusText = automaticProgress
-    ? {
-        selecting: "Mencari sumber belajar…",
-        retrieving: "Mencari sumber belajar…",
-        answering: "Menyusun jawaban…",
-        complete: "Jawaban sudah tersimpan.",
-        no_match: "Tidak ada sumber belajar yang cocok.",
-        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
-        unavailable: "Sumber belajar belum tersedia.",
-      }[automaticProgress.phase]
-    : null;
-  const automaticPercent = automaticProgress?.progress;
-  const statusText =
+  const automaticStatusText = getVeraAutomaticStatusText(automaticProgress);
+  const statusText = getVeraStatusText({
+    automaticStatusText,
+    error,
+    notice,
+    progress,
+  });
+  return (
+    <VeraStatusBannerContent
+      automaticPercent={automaticProgress?.progress}
+      busy={busy}
+      error={error}
+      onCancel={onCancel}
+      onRetry={onRetry}
+      statusText={statusText}
+    />
+  );
+}
+
+function getVeraAutomaticStatusText(
+  progress: VeraAutomaticContextProgress | null,
+) {
+  if (!progress) return null;
+  return {
+    selecting: "Mencari sumber belajar…",
+    retrieving: "Mencari sumber belajar…",
+    answering: "Menyusun jawaban…",
+    complete: "Jawaban sudah tersimpan.",
+    no_match: "Tidak ada sumber belajar yang cocok.",
+    evidence_limited: "Sumber belajar yang ditemukan terbatas.",
+    unavailable: "Sumber belajar belum tersedia.",
+  }[progress.phase];
+}
+
+function getVeraStatusText({
+  automaticStatusText,
+  error,
+  notice,
+  progress,
+}: {
+  automaticStatusText: string | null;
+  error: string | null;
+  notice: string | null;
+  progress: number | null;
+}) {
+  return (
     error ??
     notice ??
     automaticStatusText ??
     (progress !== null
       ? `Vera sedang menyusun hasil… ${progress}%`
-      : "Vera sedang menyusun jawaban…");
+      : "Vera sedang menyusun jawaban…")
+  );
+}
 
+function VeraStatusBannerContent({
+  automaticPercent,
+  busy,
+  error,
+  onCancel,
+  onRetry,
+  statusText,
+}: {
+  automaticPercent: number | null | undefined;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onRetry: () => void;
+  statusText: string;
+}) {
   return (
     <div
       aria-live={error ? "assertive" : "polite"}
@@ -1997,28 +2047,51 @@ function VeraStatusBanner({
           />
         ) : null}
       </div>
-      {busy ? (
-        <Button
-          className="shrink-0 rounded-full"
-          onClick={onCancel}
-          size="default"
-          variant="outline"
-        >
-          <X data-icon="inline-start" />
-          Batalkan
-        </Button>
-      ) : error ? (
-        <Button
-          className="shrink-0 rounded-full"
-          onClick={onRetry}
-          size="default"
-          variant="outline"
-        >
-          <RotateCcw data-icon="inline-start" />
-          Coba lagi
-        </Button>
-      ) : null}
+      <VeraStatusBannerAction
+        busy={busy}
+        error={Boolean(error)}
+        onCancel={onCancel}
+        onRetry={onRetry}
+      />
     </div>
+  );
+}
+
+function VeraStatusBannerAction({
+  busy,
+  error,
+  onCancel,
+  onRetry,
+}: {
+  busy: boolean;
+  error: boolean;
+  onCancel: () => void;
+  onRetry: () => void;
+}) {
+  if (busy) {
+    return (
+      <Button
+        className="shrink-0 rounded-full"
+        onClick={onCancel}
+        size="default"
+        variant="outline"
+      >
+        <X data-icon="inline-start" />
+        Batalkan
+      </Button>
+    );
+  }
+  if (!error) return null;
+  return (
+    <Button
+      className="shrink-0 rounded-full"
+      onClick={onRetry}
+      size="default"
+      variant="outline"
+    >
+      <RotateCcw data-icon="inline-start" />
+      Coba lagi
+    </Button>
   );
 }
 
@@ -2200,15 +2273,17 @@ const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> =
     month: "Bulan ini",
   };
 
+const VERA_USD_FORMATTER = new Intl.NumberFormat("en-US", {
+  currency: "USD",
+  maximumFractionDigits: 4,
+  style: "currency",
+});
+
 function formatVeraUsdMicros(value: string | undefined) {
   if (!value || !/^\d+$/.test(value)) return "—";
   const amount = Number(value) / 1_000_000;
   if (!Number.isFinite(amount)) return "—";
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    maximumFractionDigits: 4,
-    style: "currency",
-  }).format(amount);
+  return VERA_USD_FORMATTER.format(amount);
 }
 
 function formatVeraResetAt(
@@ -2468,6 +2543,11 @@ function SessionSidebar({
   );
 }
 
+type SessionPendingAction = {
+  kind: "archive" | "delete";
+  session: StudySession;
+} | null;
+
 function SessionPanel({
   activeSessionId,
   className,
@@ -2494,10 +2574,7 @@ function SessionPanel({
   const [showArchived, setShowArchived] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const [pendingAction, setPendingAction] = useState<{
-    kind: "archive" | "delete";
-    session: StudySession;
-  } | null>(null);
+  const [pendingAction, setPendingAction] = useState<SessionPendingAction>(null);
   const visibleSessions = sessions.filter((item) =>
     showArchived ? item.archivedAt !== null : item.archivedAt === null,
   );
@@ -2571,178 +2648,250 @@ function SessionPanel({
                   : "Belum ada sesi. Buat sesi baru untuk mulai berbicara dengan Vera."}
               </div>
             ) : (
-              visibleSessions.map((item) => {
-                const active = item.id === activeSessionId;
-                const editing = editingSessionId === item.id;
-
-                return (
-                  <div
-                    className={cn(
-                      "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
-                      active
-                        ? "border-primary-200 bg-primary-50 text-primary-950"
-                        : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
-                      item.archivedAt !== null && "opacity-75",
-                    )}
-                    key={item.id}
-                  >
-                    {editing ? (
-                      <Input
-                        aria-label={`Judul sesi ${item.title}`}
-                        autoFocus
-                        className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
-                        onBlur={() => finishRename(item)}
-                        onChange={(event) => setDraftTitle(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            finishRename(item);
-                          }
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            setEditingSessionId(null);
-                          }
-                        }}
-                        value={draftTitle}
-                      />
-                    ) : (
-                      <button
-                        aria-current={active ? "page" : undefined}
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
-                        disabled={item.archivedAt !== null}
-                        onClick={() => onSelectSession(item.id)}
-                        type="button"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">
-                            {item.title}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-xs text-secondary-400">
-                          {item.updatedAt}
-                        </span>
-                      </button>
-                    )}
-
-                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                      {!showArchived ? (
-                        <>
-                          <Button
-                            aria-label={`Ubah judul sesi ${item.title}`}
-                            className="rounded-full"
-                            onClick={() => beginRename(item)}
-                            size="icon"
-                            title="Ubah judul"
-                            variant="ghost"
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            aria-label={`Arsipkan ${item.title}`}
-                            className="rounded-full"
-                            onClick={() =>
-                              setPendingAction({
-                                kind: "archive",
-                                session: item,
-                              })
-                            }
-                            size="icon"
-                            title="Arsipkan sesi"
-                            variant="ghost"
-                          >
-                            <Archive />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          aria-label={`Pulihkan ${item.title}`}
-                          className="rounded-full"
-                          onClick={() => onRestoreSession(item.id)}
-                          size="icon"
-                          title="Pulihkan sesi"
-                          variant="ghost"
-                        >
-                          <Archive />
-                        </Button>
-                      )}
-                      <Button
-                        aria-label={`Hapus ${item.title}`}
-                        className="rounded-full text-secondary-400 hover:text-destructive"
-                        onClick={() =>
-                          setPendingAction({ kind: "delete", session: item })
-                        }
-                        size="icon"
-                        title="Hapus sesi"
-                        variant="ghost"
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
+              visibleSessions.map((item) => (
+                <SessionListItem
+                  active={item.id === activeSessionId}
+                  draftTitle={draftTitle}
+                  editing={editingSessionId === item.id}
+                  item={item}
+                  key={item.id}
+                  onArchive={() => setPendingAction({ kind: "archive", session: item })}
+                  onBeginRename={() => beginRename(item)}
+                  onDelete={() => setPendingAction({ kind: "delete", session: item })}
+                  onDraftTitleChange={setDraftTitle}
+                  onFinishRename={() => finishRename(item)}
+                  onRestore={() => onRestoreSession(item.id)}
+                  onSelect={() => onSelectSession(item.id)}
+                  onStopRename={() => setEditingSessionId(null)}
+                  showArchived={showArchived}
+                />
+              ))
             )}
           </div>
         </div>
       </WorkspacePanel>
 
-      <AlertDialog
+      <SessionActionDialog
+        onArchive={onArchiveSession}
+        onDelete={onDeleteSession}
         onOpenChange={(open) => {
           if (!open) setPendingAction(null);
         }}
-        open={pendingAction !== null}
-      >
-        <AlertDialogContent
-          size="sm"
-          variant={pendingAction?.kind === "delete" ? "danger" : "default"}
-        >
-          <AlertDialogHeader>
-            <AlertDialogMedia
-              variant={pendingAction?.kind === "delete" ? "danger" : "default"}
-            >
-              {pendingAction?.kind === "delete" ? <Trash2 /> : <Archive />}
-            </AlertDialogMedia>
-            <AlertDialogTitle>
-              {pendingAction?.kind === "delete"
-                ? "Hapus sesi ini?"
-                : "Arsipkan sesi ini?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingAction?.kind === "delete"
-                ? "Sesi akan dihapus dan tidak dapat dipulihkan setelah proses penghapusan selesai."
-                : "Sesi akan dipindahkan ke arsip. Kamu dapat memulihkannya kapan saja."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingAction(null)}>
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const action = pendingAction;
-                setPendingAction(null);
-                if (!action) return;
-                if (action.kind === "delete")
-                  onDeleteSession(action.session.id);
-                else onArchiveSession(action.session.id);
-              }}
-              variant={
-                pendingAction?.kind === "delete" ? "destructive" : "default"
-              }
-            >
-              {pendingAction?.kind === "delete" ? (
-                <Trash2 data-icon="inline-start" />
-              ) : (
-                <Archive data-icon="inline-start" />
-              )}
-              {pendingAction?.kind === "delete"
-                ? "Hapus sesi"
-                : "Arsipkan sesi"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onPendingActionChange={setPendingAction}
+        pendingAction={pendingAction}
+      />
     </>
+  );
+}
+
+function SessionListItem({
+  active,
+  draftTitle,
+  editing,
+  item,
+  onArchive,
+  onBeginRename,
+  onDelete,
+  onDraftTitleChange,
+  onFinishRename,
+  onRestore,
+  onSelect,
+  onStopRename,
+  showArchived,
+}: {
+  active: boolean;
+  draftTitle: string;
+  editing: boolean;
+  item: StudySession;
+  onArchive: () => void;
+  onBeginRename: () => void;
+  onDelete: () => void;
+  onDraftTitleChange: (title: string) => void;
+  onFinishRename: () => void;
+  onRestore: () => void;
+  onSelect: () => void;
+  onStopRename: () => void;
+  showArchived: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
+        active
+          ? "border-primary-200 bg-primary-50 text-primary-950"
+          : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
+        item.archivedAt !== null && "opacity-75",
+      )}
+    >
+      {editing ? (
+        <Input
+          aria-label={`Judul sesi ${item.title}`}
+          autoFocus
+          className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
+          onBlur={onFinishRename}
+          onChange={(event) => onDraftTitleChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onFinishRename();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onStopRename();
+            }
+          }}
+          value={draftTitle}
+        />
+      ) : (
+        <button
+          aria-current={active ? "page" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+          disabled={item.archivedAt !== null}
+          onClick={onSelect}
+          type="button"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">
+              {item.title}
+            </span>
+          </span>
+          <span className="shrink-0 text-xs text-secondary-400">
+            {item.updatedAt}
+          </span>
+        </button>
+      )}
+      <SessionListItemActions
+        item={item}
+        onArchive={onArchive}
+        onBeginRename={onBeginRename}
+        onDelete={onDelete}
+        onRestore={onRestore}
+        showArchived={showArchived}
+      />
+    </div>
+  );
+}
+
+function SessionListItemActions({
+  item,
+  onArchive,
+  onBeginRename,
+  onDelete,
+  onRestore,
+  showArchived,
+}: {
+  item: StudySession;
+  onArchive: () => void;
+  onBeginRename: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
+  showArchived: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      {showArchived ? (
+        <Button
+          aria-label={`Pulihkan ${item.title}`}
+          className="rounded-full"
+          onClick={onRestore}
+          size="icon"
+          title="Pulihkan sesi"
+          variant="ghost"
+        >
+          <Archive />
+        </Button>
+      ) : (
+        <>
+          <Button
+            aria-label={`Ubah judul sesi ${item.title}`}
+            className="rounded-full"
+            onClick={onBeginRename}
+            size="icon"
+            title="Ubah judul"
+            variant="ghost"
+          >
+            <Pencil />
+          </Button>
+          <Button
+            aria-label={`Arsipkan ${item.title}`}
+            className="rounded-full"
+            onClick={onArchive}
+            size="icon"
+            title="Arsipkan sesi"
+            variant="ghost"
+          >
+            <Archive />
+          </Button>
+        </>
+      )}
+      <Button
+        aria-label={`Hapus ${item.title}`}
+        className="rounded-full text-secondary-400 hover:text-destructive"
+        onClick={onDelete}
+        size="icon"
+        title="Hapus sesi"
+        variant="ghost"
+      >
+        <Trash2 />
+      </Button>
+    </div>
+  );
+}
+
+function SessionActionDialog({
+  onArchive,
+  onDelete,
+  onOpenChange,
+  onPendingActionChange,
+  pendingAction,
+}: {
+  onArchive: (sessionId: string) => void;
+  onDelete: (sessionId: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onPendingActionChange: (action: SessionPendingAction) => void;
+  pendingAction: SessionPendingAction;
+}) {
+  const isDelete = pendingAction?.kind === "delete";
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={pendingAction !== null}>
+      <AlertDialogContent size="sm" variant={isDelete ? "danger" : "default"}>
+        <AlertDialogHeader>
+          <AlertDialogMedia variant={isDelete ? "danger" : "default"}>
+            {isDelete ? <Trash2 /> : <Archive />}
+          </AlertDialogMedia>
+          <AlertDialogTitle>
+            {isDelete ? "Hapus sesi ini?" : "Arsipkan sesi ini?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {isDelete
+              ? "Sesi akan dihapus dan tidak dapat dipulihkan setelah proses penghapusan selesai."
+              : "Sesi akan dipindahkan ke arsip. Kamu dapat memulihkannya kapan saja."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onPendingActionChange(null)}>
+            Batal
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const action = pendingAction;
+              onPendingActionChange(null);
+              if (!action) return;
+              if (action.kind === "delete") onDelete(action.session.id);
+              else onArchive(action.session.id);
+            }}
+            variant={isDelete ? "destructive" : "default"}
+          >
+            {isDelete ? (
+              <Trash2 data-icon="inline-start" />
+            ) : (
+              <Archive data-icon="inline-start" />
+            )}
+            {isDelete ? "Hapus sesi" : "Arsipkan sesi"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -2840,22 +2989,23 @@ function automaticSourceReleaseLabel(releasedAt: string | null) {
 }
 
 function StreamingAnswerText({ content }: { content: string }) {
+  const tokens = Array.from(content.matchAll(/\s+|\S+/gu), (match) => ({
+    start: match.index ?? 0,
+    text: match[0],
+  }));
   return (
     <span className="vera-streaming-text">
-      {content
-        .split(/(\s+)/u)
-        .filter(Boolean)
-        .map((part, index) => {
-          if (/^\s+$/u.test(part)) {
-            return <span key={`space-${index}`}>{part}</span>;
+      {tokens.map(({ start, text }) => {
+          if (/^\s+$/u.test(text)) {
+            return <span key={`space-${start}`}>{text}</span>;
           }
 
           return (
             <span
               className="vera-stream-word motion-reduce:animate-none"
-              key={`word-${index}`}
+              key={`word-${start}`}
             >
-              {part}
+              {text}
             </span>
           );
         })}
@@ -2873,7 +3023,24 @@ function MessageCard({ message }: { message: VeraMessage }) {
   const evidenceLabel = committedAutomaticRequest
     ? automaticEvidenceLabel(message.requestEvidenceState)
     : null;
-  const stateNotice = [
+  const stateNotice = getVeraMessageStateNotice(message);
+
+  if (isStudent) {
+    return <VeraStudentMessage message={message} stateNotice={stateNotice} />;
+  }
+
+  return (
+    <VeraAssistantMessage
+      committedAutomaticRequest={committedAutomaticRequest}
+      evidenceLabel={evidenceLabel}
+      message={message}
+      stateNotice={stateNotice}
+    />
+  );
+}
+
+function getVeraMessageStateNotice(message: VeraMessage) {
+  return [
     message.contentState && message.contentState !== "encrypted"
       ? `Konten: ${formatVeraState(message.contentState)}`
       : null,
@@ -2886,35 +3053,44 @@ function MessageCard({ message }: { message: VeraMessage }) {
   ]
     .filter(Boolean)
     .join(" · ");
+}
 
-  if (isStudent) {
-    return (
-      <Bubble align="end" className="max-w-[84%]">
-        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
-          <p>{message.body}</p>
-          {stateNotice ? (
-            <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
-          ) : null}
-          <p className="mt-1.5 text-right text-xs text-white/60">
-            {message.createdAt}
-          </p>
-        </BubbleContent>
-      </Bubble>
-    );
-  }
+function VeraStudentMessage({
+  message,
+  stateNotice,
+}: {
+  message: VeraMessage;
+  stateNotice: string;
+}) {
+  return (
+    <Bubble align="end" className="max-w-[84%]">
+      <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
+        <p>{message.body}</p>
+        {stateNotice ? (
+          <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
+        ) : null}
+        <p className="mt-1.5 text-right text-xs text-white/60">
+          {message.createdAt}
+        </p>
+      </BubbleContent>
+    </Bubble>
+  );
+}
 
+function VeraAssistantMessage({
+  committedAutomaticRequest,
+  evidenceLabel,
+  message,
+  stateNotice,
+}: {
+  committedAutomaticRequest: boolean;
+  evidenceLabel: string | null;
+  message: VeraMessage;
+  stateNotice: string;
+}) {
   return (
     <article className="flex items-start gap-3.5">
-      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
-        <Image
-          alt=""
-          aria-hidden="true"
-          className="size-10 object-contain"
-          height={40}
-          src="/brand/mascot-vecalss.png"
-          width={40}
-        />
-      </span>
+      <VeraMascotAvatar />
       <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
@@ -2926,76 +3102,132 @@ function MessageCard({ message }: { message: VeraMessage }) {
         <BubbleContent className="mt-2 max-w-[68ch] text-base leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
-        {evidenceLabel ? (
-          <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
-            {evidenceLabel}
-          </p>
-        ) : null}
-        {committedAutomaticRequest ? (
-          <details className="mt-3 max-w-[68ch] rounded-2xl border border-primary-100 bg-primary-50/35 px-3 py-2">
-            <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
-              Sumber yang dipakai
-            </summary>
-            {message.requestSources && message.requestSources.length > 0 ? (
-              <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
-                {message.requestSources.map((source) => {
-                  const releaseLabel = automaticSourceReleaseLabel(
-                    source.releasedAt,
-                  );
-
-                  return (
-                    <li
-                      className="flex items-start gap-2 text-sm text-secondary-700"
-                      key={source.citationKey}
-                    >
-                      <FileText
-                        className="mt-0.5 size-3.5 shrink-0 text-primary-700"
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0">
-                        <span className="block font-medium text-secondary-900">
-                          {source.title}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-secondary-500">
-                          {[automaticSourceKindLabel(source.kind), releaseLabel]
-                            .filter(Boolean)
-                            .join(" • ")}
-                        </span>
-                        {source.limitations.length > 0 ? (
-                          <span className="mt-0.5 block text-xs text-primary-800">
-                            Terbatas: {source.limitations.join(", ")}
-                          </span>
-                        ) : null}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="mt-2 border-t border-primary-100 pt-2 text-xs leading-5 text-secondary-600">
-                Ringkasan sumber belum tersedia untuk permintaan ini.
-              </p>
-            )}
-          </details>
-        ) : null}
-        {message.requestContextMode !== "automatic" &&
-        (!message.requestSources || message.requestSources.length === 0) &&
-        message.citations &&
-        message.citations.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {message.citations.map((citation) => (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/70 px-2.5 py-1 text-xs font-medium text-primary-800"
-                key={citation}
-              >
-                <FileText className="size-3" aria-hidden="true" />
-                {citation}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <VeraAutomaticMessageEvidence
+          enabled={committedAutomaticRequest}
+          evidenceLabel={evidenceLabel}
+          sources={message.requestSources}
+        />
+        <VeraManualCitations
+          citations={message.citations}
+          requestContextMode={message.requestContextMode}
+          requestSources={message.requestSources}
+        />
       </Bubble>
     </article>
+  );
+}
+
+function VeraMascotAvatar() {
+  return (
+    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
+      <Image
+        alt=""
+        aria-hidden="true"
+        className="size-10 object-contain"
+        height={40}
+        src="/brand/mascot-vecalss.png"
+        width={40}
+      />
+    </span>
+  );
+}
+
+function VeraAutomaticMessageEvidence({
+  enabled,
+  evidenceLabel,
+  sources,
+}: {
+  enabled: boolean;
+  evidenceLabel: string | null;
+  sources: VeraMessage["requestSources"];
+}) {
+  if (!enabled) return null;
+  return (
+    <>
+      {evidenceLabel ? (
+        <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
+          {evidenceLabel}
+        </p>
+      ) : null}
+      <details className="mt-3 max-w-[68ch] rounded-2xl border border-primary-100 bg-primary-50/35 px-3 py-2">
+        <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
+          Sumber yang dipakai
+        </summary>
+        {sources && sources.length > 0 ? (
+          <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
+            {sources.map((source) => (
+              <VeraMessageSource key={source.citationKey} source={source} />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 border-t border-primary-100 pt-2 text-xs leading-5 text-secondary-600">
+            Ringkasan sumber belum tersedia untuk permintaan ini.
+          </p>
+        )}
+      </details>
+    </>
+  );
+}
+
+function VeraMessageSource({
+  source,
+}: {
+  source: NonNullable<VeraMessage["requestSources"]>[number];
+}) {
+  const releaseLabel = automaticSourceReleaseLabel(source.releasedAt);
+  return (
+    <li className="flex items-start gap-2 text-sm text-secondary-700">
+      <FileText
+        className="mt-0.5 size-3.5 shrink-0 text-primary-700"
+        aria-hidden="true"
+      />
+      <span className="min-w-0">
+        <span className="block font-medium text-secondary-900">
+          {source.title}
+        </span>
+        <span className="mt-0.5 block text-xs text-secondary-500">
+          {[automaticSourceKindLabel(source.kind), releaseLabel]
+            .filter(Boolean)
+            .join(" • ")}
+        </span>
+        {source.limitations.length > 0 ? (
+          <span className="mt-0.5 block text-xs text-primary-800">
+            Terbatas: {source.limitations.join(", ")}
+          </span>
+        ) : null}
+      </span>
+    </li>
+  );
+}
+
+function VeraManualCitations({
+  citations,
+  requestContextMode,
+  requestSources,
+}: {
+  citations: VeraMessage["citations"];
+  requestContextMode: VeraMessage["requestContextMode"];
+  requestSources: VeraMessage["requestSources"];
+}) {
+  if (
+    requestContextMode === "automatic" ||
+    requestSources?.length ||
+    !citations?.length
+  ) {
+    return null;
+  }
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {citations.map((citation) => (
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/70 px-2.5 py-1 text-xs font-medium text-primary-800"
+          key={citation}
+        >
+          <FileText className="size-3" aria-hidden="true" />
+          {citation}
+        </span>
+      ))}
+    </div>
   );
 }
 

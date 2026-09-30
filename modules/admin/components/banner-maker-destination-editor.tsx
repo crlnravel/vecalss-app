@@ -140,6 +140,7 @@ function StarterCorrectionPanel({
           <textarea
             aria-describedby="banner-starter-description-help"
             aria-invalid={descriptionError}
+            aria-label="Deskripsi"
             className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 resize-y py-3`}
             id="banner-starter-description"
             onChange={(event) => onChangeDescription(event.target.value)}
@@ -283,7 +284,7 @@ function DestinationEditorHeader({
   const label = getBannerDestinationLabel(destination);
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <a aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /></a>
+      <Link aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /></Link>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Editor banner</p>
         <h1 className="truncate text-base font-semibold">{label}</h1>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Menu } from "@/lib/icons";
-import { buttonVariants } from "@/components/ui/button-variants";
 
 import { marketingNavItems } from "../data";
 
@@ -106,24 +105,17 @@ function MarketingHeader({
   layout = "default",
   tone = "light",
 }: MarketingHeaderProps) {
-  const showLandingCta = layout === "landing";
-  const isDark = tone === "dark";
-  const navItems = showLandingCta
-    ? marketingNavItems.filter((item) => item.href !== "/login")
-    : marketingNavItems;
-  const loginItem = marketingNavItems.find((item) => item.href === "/login");
+  if (layout === "landing") return <LandingHeader />;
 
-  if (showLandingCta) {
-    return <LandingHeader />;
-  }
+  const isDark = tone === "dark";
 
   return (
     <header
-      className={`sticky top-0 z-40 w-screen ${showLandingCta ? "backdrop-blur-xl" : "backdrop-blur"} ${isDark ? "bg-voyage-deep/92" : "bg-white/94"}`}
+      className={`sticky top-0 z-40 w-screen backdrop-blur ${isDark ? "bg-voyage-deep/92" : "bg-white/94"}`}
       style={{ marginLeft: "calc(50% - 50vw)" }}
     >
       <div
-        className={`mx-auto flex w-full max-w-[1440px] items-center justify-between border-b px-4 md:px-8 lg:px-10 ${showLandingCta ? "py-3 md:py-3.5" : "py-4"} ${isDark ? "border-white/12" : "border-[var(--voyage-deep)]/10"}`}
+        className={`mx-auto flex w-full max-w-[1440px] items-center justify-between border-b px-4 py-4 md:px-8 lg:px-10 lg:py-4 ${isDark ? "border-white/12" : "border-[var(--voyage-deep)]/10"}`}
       >
         <Link
           aria-label="Beranda Vecalss"
@@ -150,14 +142,14 @@ function MarketingHeader({
 
         <div className="hidden items-center gap-7 lg:flex">
           <nav className="flex items-center gap-7">
-            {navItems.map((item) => {
+            {marketingNavItems.map((item) => {
               const isActive = item.href === currentPath;
 
               return (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${isDark ? (isActive ? "text-white" : "text-white/68 hover:text-white") : isActive ? "text-[var(--voyage-deep)]" : "text-[var(--voyage-deep)]/62 hover:text-[var(--voyage-deep)]"}`}
+                  className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${getDesktopNavItemClass(isDark, isActive)}`}
                 >
                   {item.label}
                 </Link>
@@ -165,19 +157,6 @@ function MarketingHeader({
             })}
           </nav>
 
-          {showLandingCta && loginItem ? (
-            <span className="inline-flex gap-7">
-              <Link
-                className={buttonVariants({
-                  size: "marketingCompact",
-                  variant: isDark ? "inverseOutline" : "marketing",
-                })}
-                href={loginItem.href}
-              >
-                {loginItem.label}
-              </Link>
-            </span>
-          ) : null}
         </div>
 
         <details className="relative lg:hidden">
@@ -191,32 +170,32 @@ function MarketingHeader({
             className={`absolute right-0 top-full mt-3 w-[18rem] rounded-2xl border p-4 shadow-[0_24px_64px_-44px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] ${isDark ? "border-white/12 bg-voyage-deep" : "border-[var(--voyage-deep)]/10 bg-white"}`}
           >
             <nav className="flex flex-col gap-4">
-              {navItems.map((item) => (
+              {marketingNavItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold transition-colors ${isDark ? "text-white/72 hover:bg-white/10 hover:text-white" : "text-[var(--voyage-deep)]/70 hover:bg-[var(--voyage-deep)]/5 hover:text-[var(--voyage-deep)]"}`}
+                  className={`inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold transition-colors ${getMobileNavItemClass(isDark)}`}
                 >
                   {item.label}
                 </Link>
               ))}
-              {showLandingCta && loginItem ? (
-                <Link
-                  className={buttonVariants({
-                    size: "marketingCompact",
-                    variant: isDark ? "inverseOutline" : "marketing",
-                  })}
-                  href={loginItem.href}
-                >
-                  {loginItem.label}
-                </Link>
-              ) : null}
             </nav>
           </div>
         </details>
       </div>
     </header>
   );
+}
+
+function getDesktopNavItemClass(isDark: boolean, isActive: boolean) {
+  if (isDark) return isActive ? "text-white" : "text-white/68 hover:text-white";
+  return isActive ? "text-[var(--voyage-deep)]" : "text-[var(--voyage-deep)]/62 hover:text-[var(--voyage-deep)]";
+}
+
+function getMobileNavItemClass(isDark: boolean) {
+  return isDark
+    ? "text-white/72 hover:bg-white/10 hover:text-white"
+    : "text-[var(--voyage-deep)]/70 hover:bg-[var(--voyage-deep)]/5 hover:text-[var(--voyage-deep)]";
 }
 
 export { MarketingHeader };

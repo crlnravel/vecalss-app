@@ -223,6 +223,7 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   }
   for (const run of attempt.runs) {
     const frozen = frozenRunFields(run, isReleaseBoundRun(run));
+    // react-doctor-disable-next-line async-await-in-loop -- update the seven ordered run breakdowns inside the result transaction.
     await upsertTryoutBreakdown(tx, attemptId, { ...run, section: { subtestId: frozen.subtestId ?? run.section.subtestId } });
   }
   const correctCount = attempt.runs.reduce((sum, run) => sum + (run.correctCount ?? 0), 0);

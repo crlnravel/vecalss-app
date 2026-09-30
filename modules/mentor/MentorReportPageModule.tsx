@@ -98,18 +98,6 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
           as="section"
           className="grid min-w-0 gap-6 p-5 sm:p-7"
         >
-          <div className="space-y-2">
-            <h2
-              className="font-heading text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900"
-              id="mentor-report-form-title"
-            >
-              Detail laporan
-            </h2>
-            <p className="max-w-[58ch] text-sm leading-6 text-secondary-500">
-              Isi form ini untuk melaporkan masalah atau mengusulkan perbaikan.
-            </p>
-          </div>
-
           <div className="grid min-w-0 gap-5 sm:grid-cols-2">
             <Field>
               <FieldLabel
@@ -218,7 +206,9 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
                   name="attachment"
                   disabled={isSubmitting}
                   onChange={(event) => {
-                    setAttachmentName(event.currentTarget.files?.[0]?.name ?? null);
+                    setAttachmentName(
+                      event.currentTarget.files?.[0]?.name ?? null,
+                    );
                   }}
                   ref={attachmentInputRef}
                   type="file"
@@ -232,7 +222,10 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
                   )}
                   htmlFor="mentor-report-attachment"
                 >
-                  <Upload aria-hidden="true" className="size-4 text-primary-800" />
+                  <Upload
+                    aria-hidden="true"
+                    className="size-4 text-primary-800"
+                  />
                   <span>Pilih file</span>
                 </label>
                 <p
@@ -263,7 +256,7 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
             </Field>
           </div>
 
-          <div className="flex justify-end border-t border-primary-100 pt-5">
+          <div className="flex justify-end pt-5">
             <Button
               className="min-h-11 w-full sm:w-auto"
               disabled={isSubmitting}

@@ -1,5 +1,32 @@
 # Session Progress Log
 
+## React Doctor cleanup (2026-09-30)
+
+- [x] Reduced the initial React Doctor baseline from 220 findings across 940
+  files (score 64) to 18, then addressed the remaining component-size,
+  complexity, ref-render, collection-lookup, and effect lifecycle findings
+  through component extraction, `Set` lookups, a lazy resolver initializer,
+  cleanup, and narrowly explained rule suppressions where the effect is
+  intentional.
+- [x] Fixed the final XLSX flow findings by splitting upload progress logic,
+  using regular callbacks for UI events, and making effect dependencies
+  explicit. Kept the preview/revision keyed impact request effect, which aborts
+  obsolete requests, with a focused explanation for its intentional fetch.
+- [x] Final React Doctor 0.9.14 scan covered 945 files and reported 0 errors,
+  0 warnings, and 0 diagnostics. `git diff --check` passes.
+- [x] After the user explicitly authorized bypassing the blocked resource guard,
+  ran the cached React Doctor CLI directly. No tests, builds, or browser checks
+  were run at that stage.
+- [x] Checked 46 focused scripts after the user requested tests: 24 passed and
+  22 failed. The sandbox initially blocked `tsx` local IPC sockets with EPERM;
+  rerunning outside the sandbox allowed the scripts to execute. No build or
+  browser checks were run.
+- [ ] Review the 19 source-contract failures against the extracted component
+  and helper structure. Also investigate `test:banner-media-safety`'s ordering
+  assertion, update the stale fixture in `test:tryout-seed-release-guards`,
+  and rerun `test:mentor-report` after confirming the local test database has
+  the `mentor_reports` table.
+
 ## Mentor Report and Developer inbox (2026-09-29)
 
 - [x] Added a protected Mentor Report form, database persistence, optional private attachment storage, and a separate Developer role with report table and detail pages.

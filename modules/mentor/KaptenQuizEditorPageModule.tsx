@@ -62,12 +62,14 @@ import { validateAnswerKey } from "@/lib/question-bank/answer-contract";
 import { cn } from "@/lib/utils";
 import {
   QuestionContentEditor as QuizQuestionEditor,
-  type EditorQuestion as QuizEditorQuestion,
-  type QuestionMediaTarget as QuizQuestionMediaTarget,
+} from "@/modules/mentor/components/question-content-editor";
+import {
   correctChoiceIdsFor,
   questionTypeFor,
   setQuestionMediaAsset,
-} from "@/modules/mentor/components/question-content-editor";
+  type EditorQuestion as QuizEditorQuestion,
+  type QuestionMediaTarget as QuizQuestionMediaTarget,
+} from "@/modules/mentor/components/question-content-editor-helpers";
 import {
   EditorMobileInventory,
   EditorQuestionInventory,
@@ -176,11 +178,12 @@ function questionIssues(question: QuizQuestionSnapshot) {
   if (question.choices.some((choice) => !choice.text.trim()))
     issues.push("teks opsi");
   const correctChoiceIds = correctChoiceIdsFor(question);
+  const correctChoiceIdSet = new Set(correctChoiceIds);
   const answerKey = validateAnswerKey(
     questionTypeFor(question),
     question.choices.map((choice) => ({
       id: choice.id,
-      isCorrect: correctChoiceIds.includes(choice.id),
+      isCorrect: correctChoiceIdSet.has(choice.id),
     })),
   );
   if (!answerKey.ok) issues.push("jawaban benar");
@@ -211,6 +214,7 @@ function hasQuizDraftContent(
 
 function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
   const correctChoiceIds = correctChoiceIdsFor(question);
+  const correctChoiceIdSet = new Set(correctChoiceIds);
   return (
     <ReferenceSurface as="section" className="min-w-0 p-5 md:p-7">
       <h3 className="text-xl leading-8 font-semibold text-secondary-900">
@@ -236,7 +240,7 @@ function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
                   questionTypeFor(question) === "multiple_choice"
                     ? "rounded-md"
                     : "rounded-full",
-                  correctChoiceIds.includes(choice.id)
+                  correctChoiceIdSet.has(choice.id)
                     ? "border-primary-700 bg-primary-700 text-white"
                     : "border-primary-200 bg-primary-50 text-primary-800",
                 )}
@@ -753,6 +757,7 @@ function useQuizEditorState({
     if (!pending?.sourceUpdate) return;
     const key = `${pending.id}:${pending.sourceUpdate.sourceQuestionRevisionId}:${pending.sourceUpdate.sourceContentDigest}`;
     autoAppliedUpdateKeysRef.current.add(key);
+    // react-doctor-disable-next-line no-pass-live-state-to-parent -- this effect automatically persists a pending source revision for assembly-backed quizzes and reconciles the editor's saved state.
     void acceptSourceUpdate(pending);
   }, [
     acceptingUpdateQuestionId,
@@ -899,91 +904,8 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
   const selectQuestion = (id: string) => {
     state.setActiveQuestionId(id);
   };
-  const hasQuestions = state.form.questions.length > 0;
   const bankPickerDisabled = isQuizBankPickerDisabled(state);
-  const showAddFromBank = state.savedQuiz?.sourceMode !== "assembly";
-  const assemblyBank =
-    state.savedQuiz?.sourceMode === "assembly"
-      ? state.savedQuiz.assembly
-      : undefined;
-  const assemblySourceBankId =
-    state.savedQuiz?.sourceMode === "assembly"
-      ? state.savedQuiz.sourceBankId
-      : undefined;
-  const sourceBankHref = assemblySourceBankId
-    ? `/mentor/quiz/question-bank/${assemblySourceBankId}?purpose=quiz`
-    : undefined;
-  const sourceBankTitle =
-    assemblyBank &&
-    assemblySourceBankId &&
-    assemblyBank.bankId === assemblySourceBankId
-      ? assemblyBank.bankName || undefined
-      : undefined;
-  const questionEditor = state.activeQuestion ? (
-    <div
-      className="flex min-w-0 flex-col gap-4"
-      data-quiz-question-content-editor={
-        state.activeQuestion.origin === "local" ? "enabled" : "disabled"
-      }
-    >
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-secondary-900">
-          {state.activeQuestion.origin === "local"
-            ? "Edit soal"
-            : "Pratinjau soal"}
-        </h2>
-      </div>
-      {state.activeQuestion.origin === "local" ? (
-        <QuizQuestionEditor
-          disabled={state.editorDisabled}
-          onOpenMedia={state.setMediaPickerTarget}
-          question={state.activeQuestion}
-          updateQuestion={state.updateQuestion}
-        />
-      ) : (
-        <QuestionPreview question={state.activeQuestion} />
-      )}
-    </div>
-  ) : (
-    <ReferenceSurface
-      className="grid min-h-72 place-items-center p-8 text-center"
-      data-quiz-question-empty={hasQuestions ? undefined : "true"}
-      variant="inset"
-    >
-      <ReferenceEmptyState
-        action={
-          !hasQuestions && !bankPickerDisabled ? (
-            <Button
-              aria-label="Tambah soal dari Bank Soal"
-              id="quiz-empty-state-add-bank-question"
-              onClick={() => state.setQuestionBankPickerOpen(true)}
-              size="sm"
-              type="button"
-              variant="brand"
-            >
-              <Plus />
-              Tambah dari Bank Soal
-            </Button>
-          ) : undefined
-        }
-        description={
-          hasQuestions
-            ? "Pilih soal dari daftar untuk meninjau isinya."
-            : state.savedQuiz?.sourceMode === "assembly"
-              ? "Kuis ini disusun dari Bank Soal yang terhubung. Gunakan tautan Bank Soal untuk mengelola soal sumber."
-              : state.savedQuiz
-                ? "Pilih soal dari Bank Soal untuk mulai menyusun Kuis."
-                : "Simpan Kuis terlebih dahulu untuk menambahkan soal dari Bank Soal."
-        }
-        icon={hasQuestions ? CircleHelp : LibraryBig}
-        title={
-          hasQuestions
-            ? "Pilih soal untuk ditinjau"
-            : "Belum ada soal di Kuis ini"
-        }
-      />
-    </ReferenceSurface>
-  );
+  const { showAddFromBank, sourceBankHref, sourceBankTitle } = getQuizQuestionBankContext(state.savedQuiz);
 
   const inventoryProps = {
     activeQuestionId: state.activeQuestionId,
@@ -1012,8 +934,61 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
       mainId="quiz-question-editor-main"
       mobileInventory={<EditorMobileInventory {...inventoryProps} />}
     >
-      {questionEditor}
+      <QuizQuestionAreaMain bankPickerDisabled={bankPickerDisabled} state={state} />
     </QuestionEditorWorkspace>
+  );
+}
+
+function getQuizQuestionBankContext(savedQuiz: QuizEditorState["savedQuiz"]) {
+  const assemblyBank = savedQuiz?.sourceMode === "assembly" ? savedQuiz.assembly : undefined;
+  const assemblySourceBankId = savedQuiz?.sourceMode === "assembly" ? savedQuiz.sourceBankId : undefined;
+  return {
+    showAddFromBank: savedQuiz?.sourceMode !== "assembly",
+    sourceBankHref: assemblySourceBankId ? `/mentor/quiz/question-bank/${assemblySourceBankId}?purpose=quiz` : undefined,
+    sourceBankTitle: assemblyBank && assemblySourceBankId && assemblyBank.bankId === assemblySourceBankId ? assemblyBank.bankName || undefined : undefined,
+  };
+}
+
+function getQuizEmptyStateContent(state: QuizEditorState, hasQuestions: boolean) {
+  if (hasQuestions) {
+    return { description: "Pilih soal dari daftar untuk meninjau isinya.", icon: CircleHelp, title: "Pilih soal untuk ditinjau" };
+  }
+  if (state.savedQuiz?.sourceMode === "assembly") {
+    return {
+      description: "Kuis ini disusun dari Bank Soal yang terhubung. Gunakan tautan Bank Soal untuk mengelola soal sumber.",
+      icon: LibraryBig,
+      title: "Belum ada soal di Kuis ini",
+    };
+  }
+  return {
+    description: state.savedQuiz ? "Pilih soal dari Bank Soal untuk mulai menyusun Kuis." : "Simpan Kuis terlebih dahulu untuk menambahkan soal dari Bank Soal.",
+    icon: LibraryBig,
+    title: "Belum ada soal di Kuis ini",
+  };
+}
+
+function QuizQuestionAreaMain({ bankPickerDisabled, state }: { bankPickerDisabled: boolean; state: QuizEditorState }) {
+  const question = state.activeQuestion;
+  if (!question) {
+    const hasQuestions = state.form.questions.length > 0;
+    const content = getQuizEmptyStateContent(state, hasQuestions);
+    return (
+      <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" data-quiz-question-empty={hasQuestions ? undefined : "true"} variant="inset">
+        <ReferenceEmptyState
+          action={!hasQuestions && !bankPickerDisabled ? <Button aria-label="Tambah soal dari Bank Soal" id="quiz-empty-state-add-bank-question" onClick={() => state.setQuestionBankPickerOpen(true)} size="sm" type="button" variant="brand"><Plus />Tambah dari Bank Soal</Button> : undefined}
+          description={content.description}
+          icon={content.icon}
+          title={content.title}
+        />
+      </ReferenceSurface>
+    );
+  }
+  const isLocal = question.origin === "local";
+  return (
+    <div className="flex min-w-0 flex-col gap-4" data-quiz-question-content-editor={isLocal ? "enabled" : "disabled"}>
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold text-secondary-900">{isLocal ? "Edit soal" : "Pratinjau soal"}</h2></div>
+      {isLocal ? <QuizQuestionEditor disabled={state.editorDisabled} onOpenMedia={state.setMediaPickerTarget} question={question} updateQuestion={state.updateQuestion} /> : <QuestionPreview question={question} />}
+    </div>
   );
 }
 function focusFirstAvailableQuizEditorControl(ids: readonly string[]) {

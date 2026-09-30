@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -175,10 +176,19 @@ function useResourceEditLockContext(): ResourceEditLockContextValue {
 
 function ResourceEditLockProvider({
   children,
-  enabled = true,
+  enabled,
   resourceId,
   resourceType,
 }: ProviderProps) {
+  const value = useResourceEditLockController({ enabled, resourceId, resourceType });
+  return <ResourceEditLockContext.Provider value={value}>{children}</ResourceEditLockContext.Provider>;
+}
+
+function useResourceEditLockController({
+  enabled = true,
+  resourceId,
+  resourceType,
+}: Pick<ProviderProps, "enabled" | "resourceId" | "resourceType">): ResourceEditLockContextValue {
   const canonicalResource = useMemo(() => {
     try {
       return canonicalizeResourceKey(resourceType, resourceId);
@@ -407,11 +417,18 @@ function ResourceEditLockProvider({
     }
   }, [canonicalResource, markLost, resourceType]);
 
+  const beginAcquireFromLifecycle = useEffectEvent(beginAcquire);
+  const markLostFromLifecycle = useEffectEvent(markLost);
+  const recoverFromLifecycle = useEffectEvent(recover);
+  const renewFromLifecycle = useEffectEvent(renewCurrent);
+
+  // This browser-only effect owns lock acquisition and releases the lock on page hide.
+  // react-doctor-disable-next-line no-fetch-in-effect -- network work is part of the resource-lock lifecycle, not cached page data.
   useEffect(() => {
     mountedRef.current = true;
     lifecycleAtRef.current = performance.now();
     if (!enabled || !canonicalResource) {
-      const invalidResourceTimer = setTimeout(() => markLost("invalid_proof"), 0);
+      const invalidResourceTimer = setTimeout(() => markLostFromLifecycle("invalid_proof"), 0);
       return () => {
         mountedRef.current = false;
         clearTimeout(invalidResourceTimer);
@@ -452,7 +469,7 @@ function ResourceEditLockProvider({
 
     handshakeTimer = setTimeout(() => {
       const previous = duplicateDetected ? null : loadStoredProof(canonicalResource.resourceKey);
-      beginAcquire(previous);
+      beginAcquireFromLifecycle(previous);
     }, HANDSHAKE_WAIT_MS);
 
     const onLifecycle = () => {
@@ -468,8 +485,8 @@ function ResourceEditLockProvider({
       ) {
         return;
       }
-      if (currentState !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recover();
-      else renewCurrent();
+      if (currentState !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recoverFromLifecycle();
+      else renewFromLifecycle();
     };
     const onPageHide = () => {
       const current = proofRef.current;
@@ -516,18 +533,23 @@ function ResourceEditLockProvider({
       proofRef.current = null;
       setProof(null);
     };
-  }, [beginAcquire, canonicalResource, enabled, markLost, recover, renewCurrent, resourceType]);
+  }, [canonicalResource, enabled, resourceType]);
 
+  // Keep an active lease alive while its editor is open.
+  // react-doctor-disable-next-line no-fetch-in-effect, effect-needs-cleanup -- the distributed lease needs periodic renewal, and this effect's cleanup clears both timers.
   useEffect(() => {
     if (state !== "owned" || !proof || !canonicalResource || !enabled) return;
+    let active = true;
     let expiredTimer: ReturnType<typeof setTimeout> | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
     const scheduleExpiry = () => {
+      if (!active) return;
       if (expiredTimer) clearTimeout(expiredTimer);
       const wait = Math.max(0, deadlineRef.current - performance.now());
       expiredTimer = setTimeout(() => {
-        if (performance.now() >= deadlineRef.current) markLost("lease_expired");
+        if (!active) return;
+        if (performance.now() >= deadlineRef.current) markLostFromLifecycle("lease_expired");
         else scheduleExpiry();
       }, wait);
     };
@@ -541,27 +563,30 @@ function ResourceEditLockProvider({
         resourceType,
         token: current.token,
       }).then((result) => {
-        if (!mountedRef.current || serial !== commandSerialRef.current || proofRef.current?.token !== current.token) return;
+        if (!active || !mountedRef.current || serial !== commandSerialRef.current || proofRef.current?.token !== current.token) return;
         if (isOwnedStatus(result) && performance.now() < deadlineRef.current) {
           setOwned(current, result);
           scheduleExpiry();
         } else {
-          markLost("lease_expired");
+          markLostFromLifecycle("lease_expired");
         }
       }).catch((error: LeaseCommandError) => {
-        if (serial !== commandSerialRef.current) return;
-        markLost(error.code ?? "resource_busy_retry");
+        if (!active || serial !== commandSerialRef.current) return;
+        markLostFromLifecycle(error.code ?? "resource_busy_retry");
       });
     };
 
     scheduleExpiry();
     heartbeatTimer = setInterval(heartbeat, EDIT_LEASE_HEARTBEAT_MS);
     return () => {
+      active = false;
       if (expiredTimer) clearTimeout(expiredTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
     };
-  }, [canonicalResource, enabled, markLost, proof, resourceType, setOwned, state]);
+  }, [canonicalResource, enabled, proof, resourceType, setOwned, state]);
 
+  // Poll for an externally released lock while the editor remains in the locked state.
+  // react-doctor-disable-next-line no-fetch-in-effect -- the server is the authority for lock ownership.
   useEffect(() => {
     if (state !== "locked" || !canonicalResource || !enabled) return;
     let active = true;
@@ -668,7 +693,7 @@ function ResourceEditLockProvider({
     state,
   }), [holderEmail, holderName, holderUserId, lastError, proof, release, remainingMs, retry, serverNow, state]);
 
-  return <ResourceEditLockContext.Provider value={context}>{children}</ResourceEditLockContext.Provider>;
+  return context;
 }
 
 const EditLeaseProvider = ResourceEditLockProvider;

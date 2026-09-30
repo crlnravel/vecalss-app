@@ -1548,6 +1548,7 @@ function QuestionBankPreview({
 }) {
   const multipleAnswer = questionTypeFor(questionDraft) === "multiple_choice";
   const correctChoiceIds = correctChoiceIdsFor(questionDraft);
+  const previewChoiceIdSet = new Set(previewChoiceIds);
   const answerComparison = compareSelectedOptionSets(
     previewChoiceIds,
     correctChoiceIds,
@@ -1581,7 +1582,7 @@ function QuestionBankPreview({
               >
                 <input
                   aria-label={`Pilih opsi ${choiceLabel}`}
-                  checked={previewChoiceIds.includes(choice.id)}
+                  checked={previewChoiceIdSet.has(choice.id)}
                   className="size-4 accent-primary-700"
                   id={choiceId}
                   onChange={() => onChoiceChange(choice.id)}
@@ -2641,64 +2642,218 @@ function QuestionBankEditQuestionWorkspace({
   );
 }
 
-function QuestionBankCreateWorkspace({
-  actions,
+function QuestionBankCreateSheetSelection({
+  allSheetsSelected,
   builderState,
-  presentation,
-  session,
-  state,
+  completedSheetKeySet,
+  draft,
+  isSaving,
+  onClose,
+  onCreate,
+  onSelectAll,
+  onToggleSheet,
+  pendingSheetKeys,
+  selectedPendingCount,
+  selectedSheetCount,
+  selectedSheetKeySet,
+  someSheetsSelected,
 }: {
-  actions: QuestionBankBuilderActions;
+  allSheetsSelected: boolean;
   builderState: QuestionBankBuilderFormState;
-  presentation: "page" | "modal";
-  session: SessionContext;
-  state: QuestionBankBuilderViewState;
+  completedSheetKeySet: Set<string>;
+  draft: QuestionBankXlsxDraftApplied;
+  isSaving: boolean;
+  onClose: () => void;
+  onCreate: () => void;
+  onSelectAll: (checked: boolean, pendingKeys: string[]) => void;
+  onToggleSheet: (sheetKey: string, checked: boolean) => void;
+  pendingSheetKeys: string[];
+  selectedPendingCount: number;
+  selectedSheetCount: number;
+  selectedSheetKeySet: Set<string>;
+  someSheetsSelected: boolean;
 }) {
-  const navigationLabel = questionBankNavigationLabel(builderState.purpose);
-  const [fileImportState, setFileImportState] = useState<QuestionBankCreateFileImportState>("idle");
-  const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
-  const [selectedSheetKeys, setSelectedSheetKeys] = useState<string[]>([]);
-  const [completedSheetKeys, setCompletedSheetKeys] = useState<string[]>([]);
-  const completedSheetKeySet = new Set(completedSheetKeys);
-  const isChoosingSheets = sheetPickerOpen && Boolean(actions.xlsxDraftInfo);
-  const sheets = actions.xlsxDraftInfo?.sheets ?? [];
-  const pendingSheetKeys = sheets
-    .filter((sheet) => !completedSheetKeySet.has(sheet.key))
-    .map((sheet) => sheet.key);
-  const selectedPendingCount = pendingSheetKeys.filter((key) =>
-    selectedSheetKeys.includes(key),
-  ).length;
-  const selectedSheetCount = sheets.length - pendingSheetKeys.length + selectedPendingCount;
-  const allSheetsSelected = sheets.length > 0 && selectedSheetCount === sheets.length;
-  const someSheetsSelected = selectedSheetCount > 0 && !allSheetsSelected;
+  return (
+    <section className="grid gap-4" data-question-bank-xlsx-sheet-selection="true">
+      <div className="flex items-center justify-between gap-3">
+        <label className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-secondary-800">
+          <input
+            aria-label="Pilih semua"
+            checked={allSheetsSelected}
+            className="size-3.5 shrink-0 accent-primary-700"
+            disabled={isSaving || pendingSheetKeys.length === 0}
+            onChange={(event) => onSelectAll(event.target.checked, pendingSheetKeys)}
+            ref={(element) => {
+              if (element) element.indeterminate = someSheetsSelected;
+            }}
+            type="checkbox"
+          />
+          Pilih semua
+        </label>
+        <span className="text-sm text-secondary-600">
+          {selectedSheetCount} dari {draft.sheets.length} dipilih
+        </span>
+      </div>
+      <ul className="max-h-[min(42vh,360px)] divide-y divide-primary-100 overflow-y-auto">
+        {draft.sheets.map((sheet) => {
+          const completed = completedSheetKeySet.has(sheet.key);
+          const selected = selectedSheetKeySet.has(sheet.key);
+          const generatedTitle = [builderState.title.trim(), sheet.title]
+            .filter(Boolean)
+            .join(" - ");
+          return (
+            <li className="flex min-w-0 items-start gap-3 py-3" key={sheet.key}>
+              <input
+                aria-label={`Buat Bank Soal ${generatedTitle}`}
+                checked={completed || selected}
+                className="mt-1 size-4 shrink-0 accent-primary-700"
+                disabled={isSaving || completed}
+                onChange={(event) => onToggleSheet(sheet.key, event.target.checked)}
+                type="checkbox"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block break-words text-sm font-medium text-secondary-900">
+                  {generatedTitle}
+                </span>
+                <span className="mt-1 block text-xs text-secondary-600">
+                  {sheet.questions.length.toLocaleString("id-ID")} soal
+                </span>
+              </span>
+              {completed ? (
+                <MentorBadge size="xs" tone="success">Sudah dibuat</MentorBadge>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex w-full gap-2">
+        <Button
+          className="min-w-0 flex-1"
+          disabled={isSaving}
+          onClick={onClose}
+          type="button"
+          variant="brandOutline"
+        >
+          Kembali
+        </Button>
+        <Button
+          className="min-w-0 flex-1"
+          disabled={isSaving || selectedPendingCount === 0}
+          onClick={onCreate}
+          type="button"
+          variant="brand"
+        >
+          {isSaving ? "Membuat…" : "Buat"}
+        </Button>
+      </div>
+    </section>
+  );
+}
 
-  function requestCreate() {
-    if (actions.xlsxDraftInfo) {
-      setSheetPickerOpen(true);
-      return;
-    }
-    actions.saveDraft();
+function handleQuestionBankCreateRequest({
+  hasXlsxDraft,
+  onOpenSheetPicker,
+  onSaveDraft,
+}: {
+  hasXlsxDraft: boolean;
+  onOpenSheetPicker: () => void;
+  onSaveDraft: () => void;
+}) {
+  if (hasXlsxDraft) onOpenSheetPicker();
+  else onSaveDraft();
+}
+
+async function createSelectedQuestionBankSheets({
+  completedSheetKeySet,
+  createXlsxBanks,
+  draft,
+  isSaving,
+  onSheetCreated,
+  selectedSheetKeySet,
+}: {
+  completedSheetKeySet: Set<string>;
+  createXlsxBanks: QuestionBankBuilderActions["createXlsxBanks"];
+  draft: QuestionBankXlsxDraftApplied | null;
+  isSaving: boolean;
+  onSheetCreated: (sheetKey: string) => void;
+  selectedSheetKeySet: Set<string>;
+}) {
+  if (!draft || isSaving) return false;
+  const sheets = draft.sheets.filter(
+    (sheet) => selectedSheetKeySet.has(sheet.key) && !completedSheetKeySet.has(sheet.key),
+  );
+  if (!sheets.length) {
+    showToast("Pilih setidaknya satu judul lembar yang belum dibuat.", { variant: "error" });
+    return false;
   }
+  return createXlsxBanks(sheets, onSheetCreated);
+}
 
-  async function createSelectedSheets() {
-    const draft = actions.xlsxDraftInfo;
-    if (!draft || state.isSaving) return;
-    const completed = new Set(completedSheetKeys);
-    const sheets = draft.sheets.filter(
-      (sheet) => selectedSheetKeys.includes(sheet.key) && !completed.has(sheet.key),
-    );
-    if (!sheets.length) {
-      showToast("Pilih setidaknya satu judul lembar yang belum dibuat.", { variant: "error" });
-      return;
-    }
+function updateQuestionBankSheetSelection(
+  current: string[],
+  sheetKey: string,
+  selected: boolean,
+) {
+  const next = new Set(current);
+  if (selected) next.add(sheetKey);
+  else next.delete(sheetKey);
+  return [...next];
+}
 
-    const saved = await actions.createXlsxBanks(sheets, (sheetKey) => {
-      setCompletedSheetKeys((current) => current.includes(sheetKey) ? current : [...current, sheetKey]);
-    });
-    if (saved) setSheetPickerOpen(false);
-  }
+function addCompletedQuestionBankSheet(current: string[], sheetKey: string) {
+  const next = new Set(current);
+  next.add(sheetKey);
+  return [...next];
+}
 
-  const createContent = (
+type QuestionBankCreateWorkspaceContentProps = {
+  actions: QuestionBankBuilderActions;
+  allSheetsSelected: boolean;
+  builderState: QuestionBankBuilderFormState;
+  completedSheetKeySet: Set<string>;
+  fileImportState: QuestionBankCreateFileImportState;
+  isChoosingSheets: boolean;
+  onCloseSheetPicker: () => void;
+  onCreateRequest: () => void;
+  onCreateSelectedSheets: () => void;
+  onFileImportStateChange: (state: QuestionBankCreateFileImportState) => void;
+  onSelectAllSheets: (checked: boolean, pendingKeys: string[]) => void;
+  onToggleSheet: (sheetKey: string, checked: boolean) => void;
+  onXlsxDraftApplied: (draft: QuestionBankXlsxDraftApplied) => void;
+  pendingSheetKeys: string[];
+  presentation: "page" | "modal";
+  selectedPendingCount: number;
+  selectedSheetCount: number;
+  selectedSheetKeySet: Set<string>;
+  someSheetsSelected: boolean;
+  state: QuestionBankBuilderViewState;
+};
+
+function QuestionBankCreateWorkspaceContent({
+  actions,
+  allSheetsSelected,
+  builderState,
+  completedSheetKeySet,
+  fileImportState,
+  isChoosingSheets,
+  onCloseSheetPicker,
+  onCreateRequest,
+  onCreateSelectedSheets,
+  onFileImportStateChange,
+  onSelectAllSheets,
+  onToggleSheet,
+  onXlsxDraftApplied,
+  pendingSheetKeys,
+  presentation,
+  selectedPendingCount,
+  selectedSheetCount,
+  selectedSheetKeySet,
+  someSheetsSelected,
+  state,
+}: QuestionBankCreateWorkspaceContentProps) {
+  const draft = actions.xlsxDraftInfo;
+
+  return (
     <>
       {presentation === "modal" ? (
         <DialogHeader className="pr-8">
@@ -2719,94 +2874,30 @@ function QuestionBankCreateWorkspace({
       <p aria-live="polite" className="sr-only" role="status">
         {state.readinessAnnouncement}
       </p>
-      {isChoosingSheets && actions.xlsxDraftInfo ? (
-        <section
-          className="grid gap-4"
-          data-question-bank-xlsx-sheet-selection="true"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <label className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-secondary-800">
-              <input
-                aria-label="Pilih semua"
-                checked={allSheetsSelected}
-                className="size-3.5 shrink-0 accent-primary-700"
-                disabled={state.isSaving || pendingSheetKeys.length === 0}
-                onChange={(event) => {
-                  setSelectedSheetKeys(event.target.checked ? pendingSheetKeys : []);
-                }}
-                ref={(element) => {
-                  if (element) element.indeterminate = someSheetsSelected;
-                }}
-                type="checkbox"
-              />
-              Pilih semua
-            </label>
-            <span className="text-sm text-secondary-600">
-              {selectedSheetCount} dari {sheets.length} dipilih
-            </span>
-          </div>
-          <ul className="max-h-[min(42vh,360px)] divide-y divide-primary-100 overflow-y-auto">
-            {actions.xlsxDraftInfo.sheets.map((sheet) => {
-              const completed = completedSheetKeySet.has(sheet.key);
-              const selected = selectedSheetKeys.includes(sheet.key);
-              const generatedTitle = [builderState.title.trim(), sheet.title].filter(Boolean).join(" - ");
-              return (
-                <li className="flex min-w-0 items-start gap-3 py-3" key={sheet.key}>
-                  <input
-                    aria-label={`Buat Bank Soal ${generatedTitle}`}
-                    checked={completed || selected}
-                    className="mt-1 size-4 shrink-0 accent-primary-700"
-                    disabled={state.isSaving || completed}
-                    onChange={(event) => {
-                      setSelectedSheetKeys((current) => event.target.checked
-                        ? current.includes(sheet.key) ? current : [...current, sheet.key]
-                        : current.filter((key) => key !== sheet.key));
-                    }}
-                    type="checkbox"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block break-words text-sm font-medium text-secondary-900">
-                      {generatedTitle}
-                    </span>
-                    <span className="mt-1 block text-xs text-secondary-600">
-                      {sheet.questions.length.toLocaleString("id-ID")} soal
-                    </span>
-                  </span>
-                  {completed ? (
-                    <MentorBadge size="xs" tone="success">Sudah dibuat</MentorBadge>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="flex w-full gap-2">
-            <Button
-              className="min-w-0 flex-1"
-              disabled={state.isSaving}
-              onClick={() => setSheetPickerOpen(false)}
-              type="button"
-              variant="brandOutline"
-            >
-              Kembali
-            </Button>
-            <Button
-              className="min-w-0 flex-1"
-              disabled={state.isSaving || selectedPendingCount === 0}
-              onClick={() => void createSelectedSheets()}
-              type="button"
-              variant="brand"
-            >
-              {state.isSaving ? "Membuat…" : "Buat"}
-            </Button>
-          </div>
-        </section>
+      {isChoosingSheets && draft ? (
+        <QuestionBankCreateSheetSelection
+          allSheetsSelected={allSheetsSelected}
+          builderState={builderState}
+          completedSheetKeySet={completedSheetKeySet}
+          draft={draft}
+          isSaving={state.isSaving}
+          onClose={onCloseSheetPicker}
+          onCreate={onCreateSelectedSheets}
+          onSelectAll={onSelectAllSheets}
+          onToggleSheet={onToggleSheet}
+          pendingSheetKeys={pendingSheetKeys}
+          selectedPendingCount={selectedPendingCount}
+          selectedSheetCount={selectedSheetCount}
+          selectedSheetKeySet={selectedSheetKeySet}
+          someSheetsSelected={someSheetsSelected}
+        />
       ) : (
         <QuestionBankMetadataForm
           actions={actions}
           builderState={builderState}
           fileImportBlocked={fileImportState === "processing" || fileImportState === "invalid"}
           presentation={presentation}
-          onCreateRequest={requestCreate}
+          onCreateRequest={onCreateRequest}
           showSaveAction={false}
           state={state}
         />
@@ -2817,12 +2908,8 @@ function QuestionBankCreateWorkspace({
         onCsvDraftApplied={actions.replaceCsvDraft}
         onRemoveCsvDraft={actions.removeCsvDraft}
         onRemoveXlsxDraft={actions.removeXlsxDraft}
-        onStateChange={setFileImportState}
-        onXlsxDraftApplied={(draft) => {
-          setSelectedSheetKeys(draft.sheets.map((sheet) => sheet.key));
-          setCompletedSheetKeys([]);
-          actions.replaceXlsxDraft(draft);
-        }}
+        onStateChange={onFileImportStateChange}
+        onXlsxDraftApplied={onXlsxDraftApplied}
       />
       {!isChoosingSheets ? (
         <QuestionBankSaveAction
@@ -2831,7 +2918,7 @@ function QuestionBankCreateWorkspace({
           disabledOverride={fileImportState === "processing" || fileImportState === "invalid"}
           className="w-full"
           mode="create"
-          onCreateRequest={requestCreate}
+          onCreateRequest={onCreateRequest}
           size="default"
           state={state}
         />
@@ -2843,6 +2930,104 @@ function QuestionBankCreateWorkspace({
         selectedMediaAssetId={state.selectedMediaAssetId}
       />
     </>
+  );
+}
+
+function QuestionBankCreateWorkspace({
+  actions,
+  builderState,
+  presentation,
+  session,
+  state,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  presentation: "page" | "modal";
+  session: SessionContext;
+  state: QuestionBankBuilderViewState;
+}) {
+  const navigationLabel = questionBankNavigationLabel(builderState.purpose);
+  const [fileImportState, setFileImportState] = useState<QuestionBankCreateFileImportState>("idle");
+  const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
+  const [selectedSheetKeys, setSelectedSheetKeys] = useState<string[]>([]);
+  const selectedSheetKeySet = new Set(selectedSheetKeys);
+  const [completedSheetKeys, setCompletedSheetKeys] = useState<string[]>([]);
+  const completedSheetKeySet = new Set(completedSheetKeys);
+  const isChoosingSheets = sheetPickerOpen && Boolean(actions.xlsxDraftInfo);
+  const sheets = actions.xlsxDraftInfo?.sheets ?? [];
+  const pendingSheetKeys = sheets
+    .filter((sheet) => !completedSheetKeySet.has(sheet.key))
+    .map((sheet) => sheet.key);
+  const selectedPendingCount = pendingSheetKeys.filter((key) =>
+    selectedSheetKeySet.has(key),
+  ).length;
+  const selectedSheetCount = sheets.length - pendingSheetKeys.length + selectedPendingCount;
+  const allSheetsSelected = sheets.length > 0 && selectedSheetCount === sheets.length;
+  const someSheetsSelected = selectedSheetCount > 0 && !allSheetsSelected;
+
+  function requestCreate() {
+    handleQuestionBankCreateRequest({
+      hasXlsxDraft: Boolean(actions.xlsxDraftInfo),
+      onOpenSheetPicker: () => setSheetPickerOpen(true),
+      onSaveDraft: actions.saveDraft,
+    });
+  }
+
+  function handleSelectAllSheets(checked: boolean, pendingKeys: string[]) {
+    setSelectedSheetKeys(checked ? pendingKeys : []);
+  }
+
+  function handleToggleSheet(sheetKey: string, checked: boolean) {
+    setSelectedSheetKeys((current) =>
+      updateQuestionBankSheetSelection(current, sheetKey, checked),
+    );
+  }
+
+  function handleXlsxDraftApplied(draft: QuestionBankXlsxDraftApplied) {
+    setSelectedSheetKeys(draft.sheets.map((sheet) => sheet.key));
+    setCompletedSheetKeys([]);
+    actions.replaceXlsxDraft(draft);
+  }
+
+  async function createSelectedSheets() {
+    const saved = await createSelectedQuestionBankSheets({
+      completedSheetKeySet,
+      createXlsxBanks: actions.createXlsxBanks,
+      draft: actions.xlsxDraftInfo,
+      isSaving: state.isSaving,
+      onSheetCreated: (sheetKey) => {
+        setCompletedSheetKeys((current) =>
+          addCompletedQuestionBankSheet(current, sheetKey),
+        );
+      },
+      selectedSheetKeySet,
+    });
+    if (saved) setSheetPickerOpen(false);
+  }
+
+  const createContent = (
+    <QuestionBankCreateWorkspaceContent
+      actions={actions}
+      allSheetsSelected={allSheetsSelected}
+      builderState={builderState}
+      completedSheetKeySet={completedSheetKeySet}
+      fileImportState={fileImportState}
+      isChoosingSheets={isChoosingSheets}
+      onCloseSheetPicker={() => setSheetPickerOpen(false)}
+      onCreateRequest={requestCreate}
+      onCreateSelectedSheets={() => void createSelectedSheets()}
+      onFileImportStateChange={setFileImportState}
+      onSelectAllSheets={handleSelectAllSheets}
+      onToggleSheet={handleToggleSheet}
+      onXlsxDraftApplied={handleXlsxDraftApplied}
+      pendingSheetKeys={pendingSheetKeys}
+      presentation={presentation}
+      selectedPendingCount={selectedPendingCount}
+      selectedSheetCount={selectedSheetCount}
+      selectedSheetKeySet={selectedSheetKeySet}
+      someSheetsSelected={someSheetsSelected}
+      state={state}
+    />
   );
 
   if (presentation === "modal") {

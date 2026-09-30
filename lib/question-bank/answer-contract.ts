@@ -169,6 +169,7 @@ function evaluateExactAnswer(input: {
   selectedOptionIds: readonly string[];
 }): ExactAnswerEvaluation {
   const availableOptions = new Set(input.availableOptionIds);
+  const correctOptions = new Set(input.correctOptionIds);
   const availableIdErrors = validateOptionIds(input.availableOptionIds.map((id) => ({ id, isCorrect: false })));
   const foreignCorrectIds = input.correctOptionIds.filter((id) => !availableOptions.has(id));
   const inputErrors = [
@@ -177,7 +178,7 @@ function evaluateExactAnswer(input: {
   ];
   const key = validateAnswerKey(
     input.mode,
-    input.availableOptionIds.map((id) => ({ id, isCorrect: input.correctOptionIds.includes(id) })),
+    input.availableOptionIds.map((id) => ({ id, isCorrect: correctOptions.has(id) })),
   );
   const selection = validateSelectedOptionIds(input.mode, input.selectedOptionIds, [...availableOptions]);
   const errors = [...inputErrors, ...(key.ok ? [] : key.errors), ...(selection.ok ? [] : selection.errors)];

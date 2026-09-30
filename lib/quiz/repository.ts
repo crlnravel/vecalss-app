@@ -597,11 +597,12 @@ function latestReadySourceUpdate(
   const correctChoiceIds = choices
     .filter((_, index) => revision.options[index]?.isCorrect)
     .map((choice) => choice.id);
+  const correctChoiceIdSet = new Set(correctChoiceIds);
   const answerKey = validateAnswerKey(
     answerMode,
     choices.map((choice) => ({
       id: choice.id,
-      isCorrect: correctChoiceIds.includes(choice.id),
+      isCorrect: correctChoiceIdSet.has(choice.id),
     })),
   );
   if (!answerKey.ok) return null;
@@ -1119,12 +1120,13 @@ function validateForPublication(
       const correctChoiceIds =
         question.correctChoiceIds ??
         (question.correctChoiceId ? [question.correctChoiceId] : []);
+      const correctChoiceIdSet = new Set(correctChoiceIds);
       const answerKey = answerMode
         ? validateAnswerKey(
             answerMode,
             question.choices.map((choice) => ({
               id: choice.id,
-              isCorrect: correctChoiceIds.includes(choice.id),
+              isCorrect: correctChoiceIdSet.has(choice.id),
             })),
           )
         : null;
@@ -1274,6 +1276,7 @@ function snapshotMatchesStoredBankItem(
   const persistedSnapshot = toSnapshot(persisted);
   const submittedCorrectIds = correctChoiceIdsForSnapshot(submitted);
   const persistedCorrectIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+  const persistedCorrectIdSet = new Set(persistedCorrectIds);
   return (
     submitted.prompt === persistedSnapshot.prompt &&
     submitted.promptMediaAssetId === persistedSnapshot.promptMediaAssetId &&
@@ -1295,9 +1298,7 @@ function snapshotMatchesStoredBankItem(
       );
     }) &&
     submittedCorrectIds.length === persistedCorrectIds.length &&
-    submittedCorrectIds.every((choiceId) =>
-      persistedCorrectIds.includes(choiceId),
-    )
+    submittedCorrectIds.every((choiceId) => persistedCorrectIdSet.has(choiceId))
   );
 }
 
@@ -1371,18 +1372,20 @@ async function writeStandaloneQuizItems(
           ...submitted,
           choices,
         });
+        const correctChoiceIdSet = new Set(correctChoiceIds);
         const answerMode = answerModeForSnapshot(submitted);
         const answerKey = validateAnswerKey(
           answerMode,
           choices.map((choice) => ({
             id: choice.id,
-            isCorrect: correctChoiceIds.includes(choice.id),
+            isCorrect: correctChoiceIdSet.has(choice.id),
           })),
         );
         if (!answerKey.ok)
           throw new QuizValidationError(
             "Kunci jawaban Kuis lokal tidak valid.",
           );
+        // react-doctor-disable-next-line async-await-in-loop -- persist the submitted questions in their displayed order within one transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: difficultyForSnapshot(submitted),
@@ -1470,6 +1473,7 @@ async function writeStandaloneQuizItems(
   for (const [index, { existing }] of selectedItems.entries()) {
       const persistedSnapshot = toSnapshot(existing);
       const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+      // react-doctor-disable-next-line async-await-in-loop -- stable sortOrder and source lineage are written in one transaction.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: existing.difficulty,
@@ -1552,18 +1556,20 @@ async function writeStandaloneQuizVersionItems(
           ...submitted,
           choices,
         });
+        const correctChoiceIdSet = new Set(correctChoiceIds);
         const answerMode = answerModeForSnapshot(submitted);
         const answerKey = validateAnswerKey(
           answerMode,
           choices.map((choice) => ({
             id: choice.id,
-            isCorrect: correctChoiceIds.includes(choice.id),
+            isCorrect: correctChoiceIdSet.has(choice.id),
           })),
         );
         if (!answerKey.ok)
           throw new QuizValidationError(
             "Kunci jawaban Kuis lokal tidak valid.",
           );
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the submitted order when rebuilding the local question set.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: difficultyForSnapshot(submitted),
@@ -1647,6 +1653,7 @@ async function writeStandaloneQuizVersionItems(
     for (const [index, { existing }] of selectedItems.entries()) {
         const persistedSnapshot = toSnapshot(existing);
         const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the source question order in the transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: existing.difficulty,
@@ -1739,6 +1746,7 @@ async function writeStandaloneQuizVersionMaterializedItems(
     where: { quizVersionId: input.quizVersionId },
   });
   for (const [index, question] of input.questions.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- materialized questions are persisted in their versioned order.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: question.difficulty,
@@ -1832,6 +1840,7 @@ async function cloneStandaloneQuizVersionItems(
     where: { quizVersionId: input.quizVersionId },
   });
   for (const [index, source] of input.sourceItems.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- copied questions and options retain their source order.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: source.difficulty,
@@ -2674,6 +2683,7 @@ async function transitionStandaloneQuizSourceMode(
       // This is the only command allowed to clear lineage. The copied prompt,
       // options, order, and media remain exactly where the author placed them.
       for (const item of record.items) {
+        // react-doctor-disable-next-line async-await-in-loop -- update the parent item before clearing lineage on its options.
         await tx.standaloneQuizItem.update({
           where: { id: item.id },
           data: {
@@ -2684,6 +2694,7 @@ async function transitionStandaloneQuizSourceMode(
           },
         });
         for (const option of item.options) {
+          // react-doctor-disable-next-line async-await-in-loop -- update each option after its parent, preserving transaction order.
           await tx.standaloneQuizItemOption.update({
             where: { id: option.id },
             data: {
@@ -2715,6 +2726,7 @@ async function transitionStandaloneQuizSourceMode(
     });
     await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
     for (const [index, question] of materialized.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- preserve stable assessment item ordering during transactional writes.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,
@@ -3536,6 +3548,7 @@ async function attachStandaloneQuizAssembly(
     );
     await tx.standaloneQuizItem.deleteMany({ where: { quizId } });
     for (const [index, question] of materialization.items.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the assembly's canonical question order in the transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,

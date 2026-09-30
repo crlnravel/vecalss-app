@@ -126,6 +126,7 @@ function SubmissionQuestion({
     : question.selectedOptionId
       ? [question.selectedOptionId]
       : [];
+  const selectedOptionIdSet = new Set(selectedOptionIds);
   return (
     <li className="rounded-3xl border border-primary-100/80 bg-secondary-50/35 p-4 sm:p-5">
       <div className="flex items-start gap-3">
@@ -142,7 +143,7 @@ function SubmissionQuestion({
                 isSubmitted={isSubmitted}
                 key={option.id}
                 option={option}
-                selected={selectedOptionIds.includes(option.id)}
+                selected={selectedOptionIdSet.has(option.id)}
               />
             ))}
           </ul>

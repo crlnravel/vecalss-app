@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -917,6 +917,12 @@ export function manifestDigest(manifest: Omit<ProviderReleaseManifest, "manifest
   return createHash("sha256").update(canonicalJson(manifest)).digest("hex");
 }
 
+function timingSafeStringEqual(left: string, right: string) {
+  const leftBytes = Buffer.from(left, "utf8");
+  const rightBytes = Buffer.from(right, "utf8");
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
+}
+
 export function validateProviderReleaseManifest(
   manifest: ProviderReleaseManifest | null,
   input: { now?: Date; expectedUpstreamProviderSlug?: string; expectedEndpointMetadataDigest?: string; requireToolCalling?: boolean } = {},
@@ -1070,15 +1076,16 @@ export function validateProviderReleaseManifest(
     || losslessString(artifact.model) !== evidence.model
     || losslessString(artifact.upstreamProviderSlug) !== evidence.upstreamProviderSlug
     || losslessString(artifact.producer) !== evidence.producer
-    || losslessString(artifact.artifactHash) !== evidence.artifactHash
-    || losslessString(artifact.signature) !== evidence.signature
+    || !timingSafeStringEqual(losslessString(artifact.artifactHash) ?? "", evidence.artifactHash)
+    || !timingSafeStringEqual(losslessString(artifact.signature) ?? "", evidence.signature)
     || losslessString(artifact.verifiedAt) !== evidence.verifiedAt
     || losslessString(artifact.expiresAt) !== evidence.expiresAt) {
     throw new ProviderSafetyError("Provider certifier evidence artifact does not match the release manifest.");
   }
   const { artifactHash: claimedArtifactHash, signature: artifactSignature, ...artifactPayload } = artifact;
-  if (losslessString(artifactSignature) !== evidence.signature
-    || losslessString(claimedArtifactHash) !== `sha256:${sha256Hex(canonicalJson(plainJson(artifactPayload as LosslessJsonValue)))}`) {
+  const expectedArtifactHash = `sha256:${sha256Hex(canonicalJson(plainJson(artifactPayload as LosslessJsonValue)))}`;
+  if (!timingSafeStringEqual(losslessString(artifactSignature) ?? "", evidence.signature)
+    || !timingSafeStringEqual(losslessString(claimedArtifactHash) ?? "", expectedArtifactHash)) {
     throw new ProviderSafetyError("Provider certifier evidence artifact hash or signature is invalid.");
   }
   const verifiedAt = new Date(manifest.verifiedAt);

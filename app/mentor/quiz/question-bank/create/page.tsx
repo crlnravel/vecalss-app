@@ -20,14 +20,13 @@ export const metadata: Metadata = {
 const QUESTION_BANK_FOLDER_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export default async function CreateMentorQuestionBankPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const session = await requireTutorSession();
-  const query = await searchParams;
+function getQuestionBankCreateContext(query: Record<string, NavigationQueryValue>) {
   const purposeValues = readQueryValues(query, "purpose");
   const requestedPurpose = purposeValues[0]?.trim();
   const folderValues = readQueryValues(query, "folder");
   const requestedFolder = folderValues[0]?.trim();
   const issues: CanonicalContextIssue[] = [];
+
   if (purposeValues.length > 1) issues.push({ code: "invalid", field: "purpose", message: "Tujuan Bank Soal hanya boleh dipilih satu kali.", value: requestedPurpose });
   if (purposeValues.length === 1 && !requestedPurpose) issues.push({ code: "invalid", field: "purpose", message: "Tujuan Bank Soal tidak boleh kosong." });
   if (requestedPurpose && !QUESTION_BANK_PURPOSES.includes(requestedPurpose as QuestionBankPurpose)) issues.push({ code: "unsupported", field: "purpose", message: "Pilih tujuan Bank Soal: Kuis atau Tryout.", value: requestedPurpose });
@@ -36,6 +35,13 @@ export default async function CreateMentorQuestionBankPage({ searchParams }: { s
   if (requestedFolder && requestedFolder !== "root" && requestedFolder !== "unfiled" && !QUESTION_BANK_FOLDER_UUID_PATTERN.test(requestedFolder)) {
     issues.push({ code: "unsupported", field: "folder", message: "Folder Bank Soal tidak tersedia.", value: requestedFolder });
   }
+
+  return { issues, requestedFolder, requestedPurpose };
+}
+
+export default async function CreateMentorQuestionBankPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
+  const [session, query] = await Promise.all([requireTutorSession(), searchParams]);
+  const { issues, requestedFolder, requestedPurpose } = getQuestionBankCreateContext(query);
   if (issues.length) {
     const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
     return (

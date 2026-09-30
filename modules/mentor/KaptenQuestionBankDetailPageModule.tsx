@@ -66,10 +66,7 @@ import {
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import type { QuestionBankXlsxImportResult } from "@/modules/mentor/components/question-bank-xlsx-flow";
 import { QuestionBankImportControl } from "@/modules/mentor/components/question-bank-import-control";
-import {
-  ResourceAuthoringLockBanner,
-  type AuthoringLockState,
-} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
 import type {
   BankQuestion,
   KaptenQuestionBank,
@@ -881,7 +878,6 @@ function QuestionBankDetailContent({
   const [readiness, setReadiness] = useState<QuestionBankReadiness>(
     initialReadiness ?? getQuestionBankReadinessFromDrafts(initialQuestions),
   );
-  const lockState: AuthoringLockState = resourceLock.state;
   const isReadOnly = !resourceLock.canEdit;
   const isMetadataLocked = bank.status === "archived" || isReadOnly;
 
@@ -1085,111 +1081,112 @@ function QuestionBankDetailContent({
     });
   }
 
+  return <QuestionBankDetailLayout
+    activeTab={activeTab}
+    bank={bank}
+    bankId={bankId}
+    changeTab={changeTab}
+    confirmationRequest={confirmationRequest}
+    descriptionInput={descriptionInput}
+    folderLabel={folderLabel}
+    formState={{ isEditingDescription, isEditingTitle, isLocked: isMetadataLocked, isSavingDescription, isSavingTitle }}
+    handleLifecycle={handleLifecycle}
+    handleSaveDescription={handleSaveDescription}
+    handleSaveTitle={handleSaveTitle}
+    isDeleting={isDeleting}
+    isReadOnly={isReadOnly}
+    isSavingLifecycle={isSavingLifecycle}
+    materiCoverage={materiCoverage}
+    onCloseConfirmation={() => setConfirmationRequest(null)}
+    onImport={async () => {
+      try {
+        const refreshed = await getQuestionBankForEditAction(bank.id);
+        if (refreshed) {
+          setBank(refreshed.bank as KaptenQuestionBank);
+          setQuestions(refreshed.questions as BankQuestion[]);
+          setReadiness(refreshed.readiness);
+          return;
+        }
+      } catch {
+        // The import already committed; refresh the authoritative route
+        // instead of turning a successful write into a retryable failure.
+      }
+      router.refresh();
+    }}
+    questionBankEditLease={resourceLock.proof}
+    questions={questions}
+    readiness={readiness}
+    requestArchive={requestArchive}
+    requestDelete={requestDelete}
+    resourceLock={resourceLock}
+    session={session}
+    setDescriptionInput={setDescriptionInput}
+    setIsEditingDescription={setIsEditingDescription}
+    setIsEditingTitle={setIsEditingTitle}
+    setTitleInput={setTitleInput}
+    subjectCoverage={subjectCoverage}
+    titleInput={titleInput}
+  />;
+}
+
+function QuestionBankDetailLayout({
+  activeTab, bank, bankId, changeTab, confirmationRequest, descriptionInput, folderLabel, formState,
+  handleLifecycle, handleSaveDescription, handleSaveTitle, isDeleting, isReadOnly, isSavingLifecycle,
+  materiCoverage, onCloseConfirmation, onImport, questionBankEditLease, questions, readiness, requestArchive,
+  requestDelete, resourceLock, session, setDescriptionInput, setIsEditingDescription, setIsEditingTitle,
+  setTitleInput, subjectCoverage, titleInput,
+}: {
+  activeTab: QuestionBankDetailTab;
+  bank: KaptenQuestionBank;
+  bankId: string;
+  changeTab: (value: string) => void;
+  confirmationRequest: ConfirmationRequest | null;
+  descriptionInput: string;
+  folderLabel: string;
+  formState: { isEditingDescription: boolean; isEditingTitle: boolean; isLocked: boolean; isSavingDescription: boolean; isSavingTitle: boolean };
+  handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  handleSaveDescription: () => Promise<void>;
+  handleSaveTitle: () => Promise<void>;
+  isDeleting: boolean;
+  isReadOnly: boolean;
+  isSavingLifecycle: boolean;
+  materiCoverage: string[];
+  onCloseConfirmation: () => void;
+  onImport: () => Promise<void>;
+  questionBankEditLease: ReturnType<typeof useResourceEditLock>["proof"];
+  questions: BankQuestion[];
+  readiness: QuestionBankReadiness;
+  requestArchive: () => void;
+  requestDelete: () => void;
+  resourceLock: ReturnType<typeof useResourceEditLock>;
+  session: SessionContext;
+  setDescriptionInput: (value: string) => void;
+  setIsEditingDescription: (value: boolean) => void;
+  setIsEditingTitle: (value: boolean) => void;
+  setTitleInput: (value: string) => void;
+  subjectCoverage: string[];
+  titleInput: string;
+}) {
   const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
-
   return (
-    <MentorWorkspaceShell
-      activeLabel={navigationLabel}
-      breadcrumbLabel={bank.title || "Detail Bank Soal"}
-      contentElement="div"
-      mainClassName="max-w-[1400px] gap-7"
-      session={session}
-      sidebarAppearance="reference"
-      showSearch={false}
-    >
+    <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={bank.title || "Detail Bank Soal"} contentElement="div" mainClassName="max-w-[1400px] gap-7" session={session} sidebarAppearance="reference" showSearch={false}>
       <div className="space-y-8">
-        <ResourceAuthoringLockBanner
-          hasLocalChanges={isEditingTitle || isEditingDescription}
-          onRetry={resourceLock.retry}
-          resourceLabel="Bank Soal"
-          state={lockState}
-        />
-
-        <QuestionBankMetadataCard
-          bank={bank}
-          descriptionInput={descriptionInput}
-          folderLabel={folderLabel}
-          formState={{
-            isEditingDescription,
-            isEditingTitle,
-            isLocked: isMetadataLocked,
-            isSavingDescription,
-            isSavingTitle,
-          }}
-          handleSaveDescription={handleSaveDescription}
-          handleSaveTitle={handleSaveTitle}
-          setDescriptionInput={setDescriptionInput}
-          setIsEditingDescription={setIsEditingDescription}
-          setIsEditingTitle={setIsEditingTitle}
-          setTitleInput={setTitleInput}
-          materiCoverage={materiCoverage}
-          subjectCoverage={subjectCoverage}
-          titleInput={titleInput}
-        />
-
-        <Tabs
-          className="w-full min-w-0 gap-7"
-          onValueChange={changeTab}
-          value={activeTab}
-        >
+        <ResourceAuthoringLockBanner hasLocalChanges={formState.isEditingTitle || formState.isEditingDescription} onRetry={resourceLock.retry} resourceLabel="Bank Soal" state={resourceLock.state} />
+        <QuestionBankMetadataCard bank={bank} descriptionInput={descriptionInput} folderLabel={folderLabel} formState={formState} handleSaveDescription={handleSaveDescription} handleSaveTitle={handleSaveTitle} setDescriptionInput={setDescriptionInput} setIsEditingDescription={setIsEditingDescription} setIsEditingTitle={setIsEditingTitle} setTitleInput={setTitleInput} materiCoverage={materiCoverage} subjectCoverage={subjectCoverage} titleInput={titleInput} />
+        <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
           <FullWidthLineTabsList aria-label="Bagian detail Bank Soal">
-            <FullWidthLineTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
-              value="soal"
-            >
-              Soal
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
-              value="pengaturan"
-            >
-              Administrasi
-            </FullWidthLineTabsTrigger>
+            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="soal">Soal</FullWidthLineTabsTrigger>
+            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Administrasi</FullWidthLineTabsTrigger>
           </FullWidthLineTabsList>
           <TabsContent className="m-0" value="soal">
-            <QuestionBankQuestionsSection
-              bank={bank}
-              bankId={bankId}
-              editLease={resourceLock.proof}
-              expectedRevision={bank.revision ?? 1}
-              isReadOnly={isReadOnly}
-              onImport={async () => {
-                try {
-                  const refreshed = await getQuestionBankForEditAction(bank.id);
-                  if (refreshed) {
-                    setBank(refreshed.bank as KaptenQuestionBank);
-                    setQuestions(refreshed.questions as BankQuestion[]);
-                    setReadiness(refreshed.readiness);
-                    return;
-                  }
-                } catch {
-                  // The import already committed; refresh the authoritative route
-                  // instead of turning a successful write into a retryable failure.
-                }
-                router.refresh();
-              }}
-              questions={questions}
-              readiness={readiness}
-            />
+            <QuestionBankQuestionsSection bank={bank} bankId={bankId} editLease={questionBankEditLease} expectedRevision={bank.revision ?? 1} isReadOnly={isReadOnly} onImport={onImport} questions={questions} readiness={readiness} />
           </TabsContent>
           <TabsContent className="m-0" value="pengaturan">
-            <QuestionBankArchiveSection
-              bank={bank}
-              handleLifecycle={handleLifecycle}
-              isDeleting={isDeleting}
-              isReadOnly={isReadOnly}
-              isSavingLifecycle={isSavingLifecycle}
-              requestDelete={requestDelete}
-              requestArchive={requestArchive}
-            />
+            <QuestionBankArchiveSection bank={bank} handleLifecycle={handleLifecycle} isDeleting={isDeleting} isReadOnly={isReadOnly} isSavingLifecycle={isSavingLifecycle} requestDelete={requestDelete} requestArchive={requestArchive} />
           </TabsContent>
         </Tabs>
       </div>
-
-      <QuestionBankArchiveConfirmationDialog
-        confirmationRequest={confirmationRequest}
-        onClose={() => setConfirmationRequest(null)}
-      />
+      <QuestionBankArchiveConfirmationDialog confirmationRequest={confirmationRequest} onClose={onCloseConfirmation} />
     </MentorWorkspaceShell>
   );
 }

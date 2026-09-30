@@ -15,6 +15,18 @@ import {
 import type { DeveloperReportListItem } from "@/lib/reports";
 import { ClipboardList } from "@/lib/icons";
 
+const SUBMITTED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
+const SUBMITTED_DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 const FEATURE_LABELS: Record<string, string> = {
   bank_soal_kuis: "Bank Soal Kuis",
   bank_soal_tryout: "Bank Soal Tryout",
@@ -32,19 +44,11 @@ function getFeatureLabel(feature: string) {
 }
 
 function formatSubmittedAt(date: Date) {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return SUBMITTED_AT_FORMATTER.format(date);
 }
 
 function formatSubmittedDate(date: Date) {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return SUBMITTED_DATE_FORMATTER.format(date);
 }
 
 function DeveloperReportsTable({ reports }: { reports: DeveloperReportListItem[] }) {

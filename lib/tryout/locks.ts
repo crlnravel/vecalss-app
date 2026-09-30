@@ -193,12 +193,14 @@ async function lockTryoutRuns(tx: TryoutTransaction, runIds: readonly string[]) 
 
 async function lockTryoutStudents(tx: TryoutTransaction, studentIds: readonly string[]) {
   for (const studentId of [...new Set(studentIds)].sort()) {
+    // react-doctor-disable-next-line async-await-in-loop -- acquire participant locks in stable sorted order to avoid deadlocks.
     await acquirePrincipalRuntimeKey(tx, `tryout:student:${studentId}`);
   }
 }
 
 async function lockTryoutRuntimeKeys(tx: TryoutTransaction, keys: readonly string[]) {
   for (const key of [...new Set(keys)].sort()) {
+    // react-doctor-disable-next-line async-await-in-loop -- acquire runtime locks in stable sorted order to avoid deadlocks.
     await acquirePrincipalRuntimeKey(tx, key);
   }
 }

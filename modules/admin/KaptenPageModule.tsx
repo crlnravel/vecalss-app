@@ -161,26 +161,48 @@ function KaptenPageModule({
               <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}</p>
               <StudentPageSizeSelect basePath="/admin/kapten" pageSize={pageSize} query={directoryQuery} />
             </div>
-            {pageCount > 1 ? (
-              <nav aria-label="Halaman direktori Kapten" className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
-                <div className="flex min-w-0 items-center gap-0.5">
-                  {page > 1 ? <Link aria-label="Halaman direktori Kapten sebelumnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
-                  <ol className="flex items-center gap-0.5">
-                    {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
-                      <li key={item}><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>
-                    ) : (
-                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: item === page ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: item === page ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link></li>
-                    ))}
-                  </ol>
-                  {page < pageCount ? <Link aria-label="Halaman direktori Kapten berikutnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
-                </div>
-              </nav>
-            ) : null}
+            <KaptenDirectoryPagination page={page} pageCount={pageCount} pageHref={pageHref} paginationItems={paginationItems} />
           </div>
         </ReferenceSurface>
       </div>
     </PortalShell>
+  );
+}
+
+function KaptenDirectoryPagination({ page, pageCount, pageHref, paginationItems }: {
+  page: number;
+  pageCount: number;
+  pageHref: (page: number) => string;
+  paginationItems: ReturnType<typeof getPaginationItems>;
+}) {
+  if (pageCount <= 1) return null;
+  return (
+    <nav aria-label="Halaman direktori Kapten" className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
+      <div className="flex min-w-0 items-center gap-0.5">
+        {page > 1 ? <Link aria-label="Halaman direktori Kapten sebelumnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
+        <ol className="flex items-center gap-0.5">
+          {paginationItems.map((item) => <KaptenPaginationItem item={item} key={item} page={page} pageHref={pageHref} />)}
+        </ol>
+        {page < pageCount ? <Link aria-label="Halaman direktori Kapten berikutnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
+      </div>
+    </nav>
+  );
+}
+
+function KaptenPaginationItem({ item, page, pageHref }: {
+  item: ReturnType<typeof getPaginationItems>[number];
+  page: number;
+  pageHref: (page: number) => string;
+}) {
+  if (item === "ellipsis-before" || item === "ellipsis-after") {
+    return <li><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>;
+  }
+  const isCurrent = item === page;
+  return (
+    <li>
+      <Link aria-current={isCurrent ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: isCurrent ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: isCurrent ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link>
+    </li>
   );
 }
 

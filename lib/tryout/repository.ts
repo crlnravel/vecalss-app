@@ -1164,6 +1164,7 @@ async function unpublishTryoutCore(
       include: tryoutInclude,
       where: { id },
     });
+    // react-doctor-disable-next-line server-sequential-independent-await -- inspect the main session after the package status transition in the same transaction.
     const mainSession = await tx.tryoutDeliverySession.findFirst({
       where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
       select: {
@@ -1526,6 +1527,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const directQuestions = sectionInput.directQuestions ?? [];
       const sourceSelections = directQuestions.filter((question): question is DirectSourceQuestionInput => !isSnapshotQuestionInput(question));
       const directSources = sourceSelections.length
+        // react-doctor-disable-next-line async-await-in-loop -- validate each subject's source set within the shared transaction before continuing.
         ? await readAndValidateDirectSources(tx, sourceSelections, sectionInput.subtest)
         : [];
       const sourceById = new Map(directSources.map((source) => [source.id, source]));
@@ -1560,11 +1562,13 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 
     const sectionRecords: Array<{ snapshots: PersistedDirectQuestion[]; section: { id: string } }> = [];
     for (const [index, prepared] of preparedSections.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- create sections in canonical subject order before attaching items.
       const section = await tx.tryoutSection.create({ data: { durationSeconds: prepared.sectionInput.durationMinutes * 60, instructions: prepared.sectionInput.instructions.trim() || null, packageVersionId: null, questionCount: prepared.snapshots.length, scoringConfig: json(prepared.scoringConfig), sequenceNo: index + 1, shuffleItems: prepared.sectionInput.shuffleItems, subtestId: prepared.subtest.id, testType: TryoutTestType.cbt, title: `${prepared.sectionInput.subtest} · ${prepared.subtest.name}`, tryoutId: id! } });
       sectionRecords.push({ snapshots: prepared.snapshots, section });
     }
     for (const { section, snapshots } of sectionRecords) {
       for (const snapshot of snapshots) {
+        // react-doctor-disable-next-line async-await-in-loop -- persist each section's items in the frozen snapshot order.
         const item = await tx.tryoutItem.create({ data: {
           difficulty: snapshot.difficulty,
           explanation: snapshot.explanation,

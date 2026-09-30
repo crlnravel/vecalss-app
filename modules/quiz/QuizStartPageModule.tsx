@@ -10,6 +10,12 @@ import { startQuizAction } from "./actions";
 import type { QuizItem } from "./data";
 import { canStartQuiz, type QuizStartAvailability } from "./start-availability";
 
+const RETRY_AVAILABLE_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 type QuizStartPolicy = {
   attemptsAllowed: number | null;
   correctAnswerVisibility: "show" | "hide";
@@ -39,12 +45,9 @@ function QuizStartPageModule({
   const [isStarting, setIsStarting] = useState(false);
   const canStart = canStartQuiz(startAvailability);
   const retryAvailableAtLabel = startAvailability.kind === "retry-wait"
-    ? new Intl.DateTimeFormat("id-ID", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Jakarta",
-      }).format(new Date(startAvailability.retryAvailableAt))
+    ? RETRY_AVAILABLE_AT_FORMATTER.format(new Date(startAvailability.retryAvailableAt))
     : null;
+  const stats = getPolicyStats(quiz.questionCount, policy);
 
   async function start() {
     if (isStarting) return;
@@ -85,122 +88,103 @@ function QuizStartPageModule({
           sudah siap!
         </p>
         <div className="mt-7 grid gap-3 text-sm text-secondary-700 sm:grid-cols-3">
-          <PolicyStat
-            label="Jumlah soal"
-            value={`${quiz.questionCount} soal`}
-          />
-          <PolicyStat
-            label="Kesempatan"
-            value={
-              policy.attemptsAllowed === null
-                ? "Tanpa batas"
-                : `${policy.attemptsAllowed} kali`
-            }
-          />
-          <PolicyStat
-            label="Skor kamu"
-            value={
-              policy.scorePolicy === "highest"
-                ? "Tertinggi"
-                : policy.scorePolicy === "first"
-                  ? "Pertama"
-                  : policy.scorePolicy === "average"
-                    ? "Rata-rata"
-                    : "Terbaru"
-            }
-          />
-          <PolicyStat
-            label="Urutan soal"
-            value={
-              policy.formBehavior === "fresh_randomized" ? "Acak" : "Tetap"
-            }
-          />
-          <PolicyStat
-            label="Cek jawaban"
-            value={
-              policy.reviewTiming === "after_close"
-                ? "Setelah ditutup"
-                : policy.reviewTiming === "never"
-                  ? "Tidak tersedia"
-                  : "Langsung"
-            }
-          />
-          <PolicyStat
-            label="Kunci jawaban"
-            value={
-              policy.correctAnswerVisibility === "hide"
-                ? "Disembunyikan"
-                : "Ditampilkan"
-            }
-          />
+          {stats.map((stat) => <PolicyStat key={stat.label} {...stat} />)}
         </div>
-        {policy.retryDelaySeconds && startAvailability.kind === "available" ? (
-          <p className="mt-5 text-sm text-secondary-500">
-            Percobaan ulang memiliki jeda sebelum dapat dimulai kembali.
-          </p>
-        ) : null}
-        {startAvailability.kind === "exhausted" ? (
-          <div
-            className="mt-7 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg px-5 py-4 text-student-status-attention-fg"
-            role="status"
-          >
-            <p className="font-semibold">Kesempatan mengerjakan kuis ini sudah habis</p>
-            <p className="mt-1 text-sm leading-6">
-              Kamu sudah menggunakan seluruh percobaan yang tersedia.
-            </p>
-          </div>
-        ) : null}
-        {startAvailability.kind === "retry-wait" ? (
-          <div
-            className="mt-7 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg px-5 py-4 text-student-status-attention-fg"
-            role="status"
-          >
-            <p className="font-semibold">Jeda percobaan belum selesai</p>
-            <p className="mt-1 text-sm leading-6">
-              Kesempatan berikutnya tersedia pada {retryAvailableAtLabel} WIB.
-            </p>
-          </div>
-        ) : null}
-        <div className="mt-8 flex flex-wrap gap-3">
-          {canStart ? (
-            <Button
-              disabled={isStarting}
-              onClick={() => {
-                void start();
-              }}
-              size="lg"
-              variant="brand"
-            >
-              {isStarting
-                ? startAvailability.kind === "resume"
-                  ? "Melanjutkan…"
-                  : "Memulai…"
-                : startAvailability.kind === "resume"
-                  ? "Lanjutkan kuis"
-                  : "Mulai kuis"}
-            </Button>
-          ) : null}
-          {startAvailability.kind === "retry-wait" ? (
-            <Button
-              onClick={() => router.refresh()}
-              size="lg"
-              variant="brand"
-            >
-              Perbarui status
-            </Button>
-          ) : null}
-          <Button
-            disabled={isStarting}
-            onClick={() => router.push(`/quiz/${subjectSlug}`)}
-            size="lg"
-            variant="brandOutline"
-          >
-            {canStart ? "Nanti dulu" : "Kembali ke daftar kuis"}
-          </Button>
-        </div>
+        <QuizAvailabilityStatus policy={policy} retryAvailableAtLabel={retryAvailableAtLabel} startAvailability={startAvailability} />
+        <QuizStartActions
+          availability={startAvailability}
+          canStart={canStart}
+          isStarting={isStarting}
+          onBack={() => router.push(`/quiz/${subjectSlug}`)}
+          onRefresh={() => router.refresh()}
+          onStart={() => { void start(); }}
+        />
       </section>
     </main>
   );
+}
+
+function getPolicyStats(questionCount: number, policy: QuizStartPolicy) {
+  const scorePolicyLabels: Record<QuizStartPolicy["scorePolicy"], string> = {
+    highest: "Tertinggi",
+    latest: "Terbaru",
+    first: "Pertama",
+    average: "Rata-rata",
+  };
+  const reviewTimingLabels: Record<QuizStartPolicy["reviewTiming"], string> = {
+    immediate: "Langsung",
+    after_close: "Setelah ditutup",
+    never: "Tidak tersedia",
+  };
+  return [
+    { label: "Jumlah soal", value: `${questionCount} soal` },
+    { label: "Kesempatan", value: policy.attemptsAllowed === null ? "Tanpa batas" : `${policy.attemptsAllowed} kali` },
+    { label: "Skor kamu", value: scorePolicyLabels[policy.scorePolicy] },
+    { label: "Urutan soal", value: policy.formBehavior === "fresh_randomized" ? "Acak" : "Tetap" },
+    { label: "Cek jawaban", value: reviewTimingLabels[policy.reviewTiming] },
+    { label: "Kunci jawaban", value: policy.correctAnswerVisibility === "hide" ? "Disembunyikan" : "Ditampilkan" },
+  ];
+}
+
+function QuizAvailabilityStatus({
+  policy,
+  retryAvailableAtLabel,
+  startAvailability,
+}: {
+  policy: QuizStartPolicy;
+  retryAvailableAtLabel: string | null;
+  startAvailability: QuizStartAvailability;
+}) {
+  if (policy.retryDelaySeconds && startAvailability.kind === "available") {
+    return <p className="mt-5 text-sm text-secondary-500">Percobaan ulang memiliki jeda sebelum dapat dimulai kembali.</p>;
+  }
+  if (startAvailability.kind === "exhausted") {
+    return (
+      <div className="mt-7 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg px-5 py-4 text-student-status-attention-fg" role="status">
+        <p className="font-semibold">Kesempatan mengerjakan kuis ini sudah habis</p>
+        <p className="mt-1 text-sm leading-6">Kamu sudah menggunakan seluruh percobaan yang tersedia.</p>
+      </div>
+    );
+  }
+  if (startAvailability.kind === "retry-wait") {
+    return (
+      <div className="mt-7 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg px-5 py-4 text-student-status-attention-fg" role="status">
+        <p className="font-semibold">Jeda percobaan belum selesai</p>
+        <p className="mt-1 text-sm leading-6">Kesempatan berikutnya tersedia pada {retryAvailableAtLabel} WIB.</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+function QuizStartActions({
+  availability,
+  canStart,
+  isStarting,
+  onBack,
+  onRefresh,
+  onStart,
+}: {
+  availability: QuizStartAvailability;
+  canStart: boolean;
+  isStarting: boolean;
+  onBack: () => void;
+  onRefresh: () => void;
+  onStart: () => void;
+}) {
+  const startLabel = getQuizStartLabel(availability, isStarting);
+  return (
+    <div className="mt-8 flex flex-wrap gap-3">
+      {canStart ? <Button disabled={isStarting} onClick={onStart} size="lg" variant="brand">{startLabel}</Button> : null}
+      {availability.kind === "retry-wait" ? <Button onClick={onRefresh} size="lg" variant="brand">Perbarui status</Button> : null}
+      <Button disabled={isStarting} onClick={onBack} size="lg" variant="brandOutline">{canStart ? "Nanti dulu" : "Kembali ke daftar kuis"}</Button>
+    </div>
+  );
+}
+
+function getQuizStartLabel(availability: QuizStartAvailability, isStarting: boolean) {
+  if (isStarting) return availability.kind === "resume" ? "Melanjutkan…" : "Memulai…";
+  return availability.kind === "resume" ? "Lanjutkan kuis" : "Mulai kuis";
 }
 
 function PolicyStat({ label, value }: { label: string; value: string }) {

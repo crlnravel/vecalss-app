@@ -331,6 +331,7 @@ function QuizOngoingScreen({
   unansweredCount,
   viewState,
 }: QuizOngoingScreenProps) {
+  const currentSelectedOptionKeySet = new Set(currentSelectedOptionKeys);
   const questionMarkers = attempt.questions.map((question, index) => {
     const number = index + 1;
     const markerState: QuizAttemptNavState =
@@ -417,7 +418,7 @@ function QuizOngoingScreen({
                   key={option.key}
                   onClick={() => void onSelectAnswer(option.id)}
                   option={option}
-                  selected={currentSelectedOptionKeys.includes(option.id)}
+                  selected={currentSelectedOptionKeySet.has(option.id)}
                   selectionMode={
                     currentQuizQuestion?.questionType === "multiple_choice"
                       ? "multiple"
@@ -440,79 +441,14 @@ function QuizOngoingScreen({
         </div>
       }
       dialog={
-        <>
-          <AlertDialog
-            onOpenChange={onExitDialogChange}
-            open={viewState.dialogOpen}
-          >
-            <AlertDialogContent variant="danger">
-              <AlertDialogHeader>
-                <AlertDialogMedia variant="danger">
-                  <AlertTriangle />
-                </AlertDialogMedia>
-                <AlertDialogTitle>Keluar dari kuis?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar
-                  sekarang dan kembali melanjutkan kuis ini nanti.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Kembali</AlertDialogCancel>
-                <AlertDialogAction onClick={onExit} variant="destructive">
-                  Keluar dari kuis
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <AlertDialog
-            onOpenChange={onSubmitDialogChange}
-            open={viewState.submitDialogOpen}
-          >
-            <AlertDialogContent
-              pending={viewState.submitting}
-              variant="warning"
-            >
-              <AlertDialogHeader>
-                <AlertDialogMedia variant="warning">
-                  <AlertTriangle />
-                </AlertDialogMedia>
-                <AlertDialogTitle>
-                  {unansweredCount
-                    ? "Masih ada soal yang belum terjawab"
-                    : "Kumpulkan kuis?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {unansweredCount ? (
-                    <>
-                      Kamu masih memiliki{" "}
-                      <strong className="text-secondary-900">
-                        {unansweredCount} soal belum terjawab
-                      </strong>
-                      . Periksa kembali sebelum mengumpulkan kuis.
-                    </>
-                  ) : (
-                    "Setelah dikumpulkan, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  disabled={viewState.submitting}
-                  variant="brandOutline"
-                >
-                  Kembali
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={viewState.submitting}
-                  onClick={onSubmitQuiz}
-                  variant="destructive"
-                >
-                  {viewState.submitting ? "Mengumpulkan…" : "Kumpulkan kuis"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
+        <QuizOngoingDialogs
+          onExit={onExit}
+          onExitDialogChange={onExitDialogChange}
+          onSubmitDialogChange={onSubmitDialogChange}
+          onSubmitQuiz={onSubmitQuiz}
+          unansweredCount={unansweredCount}
+          viewState={viewState}
+        />
       }
       exitControl={
         <Button
@@ -602,6 +538,93 @@ function QuizOngoingScreen({
         />
       }
     />
+  );
+}
+
+function QuizOngoingDialogs({
+  onExit,
+  onExitDialogChange,
+  onSubmitDialogChange,
+  onSubmitQuiz,
+  unansweredCount,
+  viewState,
+}: Pick<
+  QuizOngoingScreenProps,
+  | "onExit"
+  | "onExitDialogChange"
+  | "onSubmitDialogChange"
+  | "onSubmitQuiz"
+  | "unansweredCount"
+  | "viewState"
+>) {
+  return (
+    <>
+      <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
+        <AlertDialogContent variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger">
+              <AlertTriangle />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Keluar dari kuis?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar sekarang
+              dan kembali melanjutkan kuis ini nanti.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Kembali</AlertDialogCancel>
+            <AlertDialogAction onClick={onExit} variant="destructive">
+              Keluar dari kuis
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        onOpenChange={onSubmitDialogChange}
+        open={viewState.submitDialogOpen}
+      >
+        <AlertDialogContent pending={viewState.submitting} variant="warning">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="warning">
+              <AlertTriangle />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {unansweredCount
+                ? "Masih ada soal yang belum terjawab"
+                : "Kumpulkan kuis?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {unansweredCount ? (
+                <>
+                  Kamu masih memiliki{" "}
+                  <strong className="text-secondary-900">
+                    {unansweredCount} soal belum terjawab
+                  </strong>
+                  . Periksa kembali sebelum mengumpulkan kuis.
+                </>
+              ) : (
+                "Setelah dikumpulkan, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={viewState.submitting}
+              variant="brandOutline"
+            >
+              Kembali
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={viewState.submitting}
+              onClick={onSubmitQuiz}
+              variant="destructive"
+            >
+              {viewState.submitting ? "Mengumpulkan…" : "Kumpulkan kuis"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

@@ -1114,11 +1114,13 @@ async function resolveAndMaterializeAssemblies(
 
   const tryoutSectionById = new Map(tryout.sections.map((section) => [section.id, section]));
   for (const resolution of resolutions) {
+    // react-doctor-disable-next-line async-await-in-loop -- replace each section's item set before writing its snapshots.
     await tx.tryoutItem.deleteMany({ where: { tryoutSectionId: resolution.sectionId } });
     await tx.tryoutSection.update({ where: { id: resolution.sectionId }, data: { questionCount: resolution.snapshots.length } });
     const version = versionById.get(tryoutSectionById.get(resolution.sectionId)?.packageVersionId ?? "");
     if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia saat membuat bridge fisik.", { sectionId: resolution.sectionId });
     for (const [index, snapshot] of resolution.snapshots.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- item order and bridge identity are fixed by the release snapshot.
       const item = await tx.tryoutItem.create({
         data: {
           difficulty: snapshot.difficulty,

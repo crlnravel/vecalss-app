@@ -37,7 +37,7 @@ function CsvTemplateDownload({
         aria-label="Unduh templat soal"
         className="shrink-0"
         nativeButton={false}
-        render={<a download={fileName} href={href} />}
+        render={<a aria-label={title} download={fileName} href={href} />}
         size="sm"
         variant="reference"
       >

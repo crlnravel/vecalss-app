@@ -465,6 +465,7 @@ async function getOwnedTryoutOperationsView(
   if (!sessionIds) return null;
   for (const sessionId of sessionIds) {
     try {
+      // react-doctor-disable-next-line async-await-in-loop -- serialize expiry reconciliation to limit concurrent writes for one tryout.
       await synchronizeTryoutSessionReleaseState(sessionId, new Date());
     } catch (error) {
       if (!(error instanceof TryoutResultValidationError)) throw error;

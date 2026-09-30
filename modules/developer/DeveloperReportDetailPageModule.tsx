@@ -6,6 +6,16 @@ import { ArrowLeft, ArrowUpRight, Download, FileText } from "@/lib/icons";
 
 import { DeveloperWorkspaceShell } from "./components/developer-workspace-shell";
 
+const SUBMITTED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "long",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
+const FILE_SIZE_FORMATTER = new Intl.NumberFormat("id-ID", {
+  maximumFractionDigits: 1,
+});
+
 const FEATURE_LABELS: Record<string, string> = {
   bank_soal_kuis: "Bank Soal Kuis",
   bank_soal_tryout: "Bank Soal Tryout",
@@ -23,11 +33,7 @@ function getFeatureLabel(feature: string) {
 }
 
 function formatSubmittedAt(date: Date) {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return SUBMITTED_AT_FORMATTER.format(date);
 }
 
 function formatFileSize(sizeBytes: number) {
@@ -35,11 +41,11 @@ function formatFileSize(sizeBytes: number) {
 
   const sizeInKilobytes = sizeBytes / 1024;
   if (sizeInKilobytes < 1024) {
-    return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(sizeInKilobytes)} KB`;
+    return `${FILE_SIZE_FORMATTER.format(sizeInKilobytes)} KB`;
   }
 
   const sizeInMegabytes = sizeInKilobytes / 1024;
-  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(sizeInMegabytes)} MB`;
+  return `${FILE_SIZE_FORMATTER.format(sizeInMegabytes)} MB`;
 }
 
 function getFriendlyAttachmentType(contentType: string) {

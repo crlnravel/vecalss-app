@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AlertCircle, FileImage, ImageOff, RefreshCw, Search, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
@@ -30,7 +31,7 @@ function getRecoveryCopy(kind: MediaLibraryRecoveryKind, mediaLabel: string, err
   return { Icon, isFiltered, isStorageUnavailable, title, description };
 }
 
-function MediaLibraryRecoveryActions({
+function getMediaRecoveryActions({
   isFiltered,
   isPicker,
   isStorageUnavailable,
@@ -50,21 +51,31 @@ function MediaLibraryRecoveryActions({
   onRetry?: () => void;
   onUpload?: () => void;
   showUploadAction?: boolean;
+}): ReactNode[] {
+  const actions: ReactNode[] = [];
+  if (isFiltered && onClear) actions.push(<Button key="clear" onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button>);
+  if (isStorageUnavailable && onRetry) actions.push(<Button key="retry-storage" onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "error" && onRetry) actions.push(<Button key="retry-error" onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "empty" && showUploadAction && onUpload) actions.push(<Button key="upload" className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Unggah {mediaName}</Button>);
+  return actions;
+}
+
+function MediaLibraryRecoveryActions(props: {
+  isFiltered: boolean;
+  isPicker: boolean;
+  isStorageUnavailable: boolean;
+  kind: MediaLibraryRecoveryKind;
+  mediaName: string;
+  onClear?: () => void;
+  onRetry?: () => void;
+  onUpload?: () => void;
+  showUploadAction?: boolean;
 }) {
-  const hasRecoveryAction =
-    (isFiltered && Boolean(onClear)) ||
-    (isStorageUnavailable && Boolean(onRetry)) ||
-    (kind === "error" && Boolean(onRetry)) ||
-    (kind === "empty" && showUploadAction && Boolean(onUpload));
-
-  if (!hasRecoveryAction) return null;
-
+  const actions = getMediaRecoveryActions(props);
+  if (!actions.length) return null;
   return (
     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-      {isFiltered && onClear ? <Button onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button> : null}
-      {isStorageUnavailable && onRetry ? <Button onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "error" && onRetry ? <Button onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "empty" && showUploadAction && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Unggah {mediaName}</Button> : null}
+      {actions}
     </div>
   );
 }

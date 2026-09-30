@@ -31,6 +31,52 @@ type QuestionBankCreateFileImportControlProps = {
 const XLSX_ACCEPT =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+function questionBankImportFileKind(file: File | null) {
+  const name = file?.name.toLowerCase();
+  if (name?.endsWith(".csv")) return "csv";
+  if (name?.endsWith(".xlsx")) return "xlsx";
+  return null;
+}
+
+function syncCsvPreviewResult({ csvFile, csvPreview, onCsvDraftApplied, onStateChange, appliedFileRef, errorNotifiedFileRef }: {
+  csvFile: File | null;
+  csvPreview: ReturnType<typeof useQuestionBankCsvPreview>;
+  onCsvDraftApplied: (draft: QuestionBankCsvDraftSummary) => void;
+  onStateChange: (state: ImportState) => void;
+  appliedFileRef: { current: File | null };
+  errorNotifiedFileRef: { current: File | null };
+}) {
+  if (!csvFile) return;
+  if (csvPreview.status === "loading") {
+    onStateChange("processing");
+    return;
+  }
+  if (csvPreview.status === "invalid" || csvPreview.status === "empty") {
+    onStateChange("invalid");
+    if (errorNotifiedFileRef.current !== csvFile) {
+      errorNotifiedFileRef.current = csvFile;
+      const detail = csvPreview.errors.slice(0, 3).join(" · ");
+      showToast(detail || "File CSV belum berisi soal yang bisa digunakan.", { variant: "error" });
+    }
+    return;
+  }
+  if (csvPreview.status !== "valid" || !csvPreview.summary) return;
+  if (appliedFileRef.current !== csvFile) {
+    appliedFileRef.current = csvFile;
+    try {
+      const payload = toQuestionBankCsvDraftPayload({ normalizedRows: csvPreview.normalizedRows, summary: csvPreview.summary }, "");
+      // react-doctor-disable-next-line no-pass-data-to-parent, no-pass-live-state-to-parent -- the parent owns the draft that will be saved after server validation.
+      onCsvDraftApplied({ fileName: csvFile.name, questions: payload.questions, rowCount: payload.questions.length, summary: payload.summary });
+      showToast(`${payload.questions.length.toLocaleString("id-ID")} soal dari CSV siap disimpan.`, { variant: "success" });
+    } catch {
+      onStateChange("invalid");
+      showToast("Isi file CSV belum dapat digunakan. Periksa kembali formatnya.", { variant: "error" });
+      return;
+    }
+  }
+  onStateChange("ready");
+}
+
 function QuestionBankCreateFileImportControl({
   disabled = false,
   hidden = false,
@@ -49,63 +95,14 @@ function QuestionBankCreateFileImportControl({
   const [xlsxPanelOpen, setXlsxPanelOpen] = useState(false);
   const [xlsxUploadStatus, setXlsxUploadStatus] =
     useState<QuestionBankXlsxDraftUploadStatus | null>(null);
-  const fileKind = file?.name.toLowerCase().endsWith(".csv")
-    ? "csv"
-    : file?.name.toLowerCase().endsWith(".xlsx")
-      ? "xlsx"
-      : null;
+  const fileKind = questionBankImportFileKind(file);
   const csvFile = fileKind === "csv" ? file : null;
   const csvPreview = useQuestionBankCsvPreview(csvFile);
 
+  // The server preview resolves asynchronously after a file is chosen; this effect commits its validated result.
+  // react-doctor-disable-next-line no-event-handler -- preview status and validated rows are produced after the file-selection event.
   useEffect(() => {
-    if (!csvFile) return;
-    if (csvPreview.status === "loading") {
-      onStateChange("processing");
-      return;
-    }
-    if (csvPreview.status === "invalid" || csvPreview.status === "empty") {
-      onStateChange("invalid");
-      if (csvErrorNotifiedFileRef.current !== csvFile) {
-        csvErrorNotifiedFileRef.current = csvFile;
-        const detail = csvPreview.errors.slice(0, 3).join(" · ");
-        showToast(detail || "File CSV belum berisi soal yang bisa digunakan.", {
-          variant: "error",
-        });
-      }
-      return;
-    }
-    if (csvPreview.status !== "valid" || !csvPreview.summary) return;
-
-    if (csvAppliedFileRef.current !== csvFile) {
-      csvAppliedFileRef.current = csvFile;
-      try {
-        const payload = toQuestionBankCsvDraftPayload(
-          {
-            normalizedRows: csvPreview.normalizedRows,
-            summary: csvPreview.summary,
-          },
-          "",
-        );
-        onCsvDraftApplied({
-          fileName: csvFile.name,
-          questions: payload.questions,
-          rowCount: payload.questions.length,
-          summary: payload.summary,
-        });
-        showToast(
-          `${payload.questions.length.toLocaleString("id-ID")} soal dari CSV siap disimpan.`,
-          { variant: "success" },
-        );
-      } catch {
-        onStateChange("invalid");
-        showToast(
-          "Isi file CSV belum dapat digunakan. Periksa kembali formatnya.",
-          { variant: "error" },
-        );
-        return;
-      }
-    }
-    onStateChange("ready");
+    syncCsvPreviewResult({ appliedFileRef: csvAppliedFileRef, csvFile, csvPreview, errorNotifiedFileRef: csvErrorNotifiedFileRef, onCsvDraftApplied, onStateChange });
   }, [csvFile, csvPreview, onCsvDraftApplied, onStateChange]);
 
   function clearSelectedFile() {
@@ -128,12 +125,7 @@ function QuestionBankCreateFileImportControl({
       return;
     }
 
-    const lowerName = nextFile.name.toLowerCase();
-    const nextKind = lowerName.endsWith(".csv")
-      ? "csv"
-      : lowerName.endsWith(".xlsx")
-        ? "xlsx"
-        : null;
+    const nextKind = questionBankImportFileKind(nextFile);
     setFile(nextFile);
     setXlsxUploadStatus(null);
     csvAppliedFileRef.current = null;

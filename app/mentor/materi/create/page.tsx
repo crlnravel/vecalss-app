@@ -22,15 +22,7 @@ type CreateMentorMateriPageProps = {
   searchParams: Promise<Record<string, NavigationQueryValue>>;
 };
 
-export default async function CreateMentorMateriPage({
-  searchParams,
-}: CreateMentorMateriPageProps) {
-  const [session, catalogue, query] = await Promise.all([
-    requireTutorSession(),
-    getMentorMateriCatalogue(),
-    searchParams,
-  ]);
-  const view = toKaptenMateriCatalogueView(catalogue);
+function getMateriCreateContext(query: Record<string, NavigationQueryValue>, subjectSlugs: readonly string[]) {
   const issues: CanonicalContextIssue[] = [];
   const subjectValues = readQueryValues(query, "subject");
   const subjectSlug = subjectValues[0]?.trim() || undefined;
@@ -40,7 +32,7 @@ export default async function CreateMentorMateriPage({
   if (subjectValues.length === 1 && !subjectSlug) {
     issues.push({ code: "invalid", field: "subject", message: "Subtes materi tidak boleh kosong." });
   }
-  if (subjectSlug && !view.subjects.some((subject) => subject.slug === subjectSlug)) {
+  if (subjectSlug && !subjectSlugs.includes(subjectSlug)) {
     issues.push({ code: "unsupported", field: "subject", message: "Subtes materi tersebut tidak tersedia.", value: subjectSlug });
   }
 
@@ -50,7 +42,7 @@ export default async function CreateMentorMateriPage({
     let returnToSubjectKnown = false;
     try {
       const returnPath = new URL(returnContext.returnTo, "https://vecalss.invalid").pathname;
-      returnToSubjectKnown = view.subjects.some((subject) => returnPath === `/mentor/materi/subject/${subject.slug}`);
+      returnToSubjectKnown = subjectSlugs.some((slug) => returnPath === `/mentor/materi/subject/${slug}`);
     } catch {
       returnToSubjectKnown = false;
     }
@@ -58,6 +50,20 @@ export default async function CreateMentorMateriPage({
       issues.push({ code: "unsupported", field: "returnTo", message: "Tujuan kembali materi tersebut tidak tersedia.", value: returnContext.returnTo });
     }
   }
+
+  return { issues, returnTo: returnContext.returnTo, subjectSlug };
+}
+
+export default async function CreateMentorMateriPage({
+  searchParams,
+}: CreateMentorMateriPageProps) {
+  const [session, catalogue, query] = await Promise.all([
+    requireTutorSession(),
+    getMentorMateriCatalogue(),
+    searchParams,
+  ]);
+  const view = toKaptenMateriCatalogueView(catalogue);
+  const { issues, returnTo: requestedReturnTo, subjectSlug } = getMateriCreateContext(query, view.subjects.map((subject) => subject.slug));
 
   if (issues.length) {
     return (
@@ -71,7 +77,7 @@ export default async function CreateMentorMateriPage({
     );
   }
 
-  const returnTo = returnContext.returnTo ?? (subjectSlug ? buildMentorMateriSubjectHref(subjectSlug) : undefined);
+  const returnTo = requestedReturnTo ?? (subjectSlug ? buildMentorMateriSubjectHref(subjectSlug) : undefined);
   const dialogQuery = new URLSearchParams({ create: "1" });
   if (subjectSlug) dialogQuery.set("subject", subjectSlug);
   if (returnTo) dialogQuery.set("returnTo", returnTo);

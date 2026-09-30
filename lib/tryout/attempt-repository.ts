@@ -258,6 +258,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
     for (const answer of run.answers) {
       const materialized = materializedByItemId.get(answer.tryoutItemId);
       if (!materialized) continue;
+      // react-doctor-disable-next-line async-await-in-loop -- apply each persisted answer's score before sealing the run.
       await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.isCorrect ? 1 : 0, scoringVersion: estimated.scoringVersion } });
     }
     const result = { ability: estimated.ability, answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: items.length, normalizedScore: estimated.normalizedScore, score: estimated.ability, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
@@ -289,6 +290,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
   for (const answer of run.answers) {
       const materialized = materializedByItemId.get(answer.tryoutItemId);
       if (!materialized) continue;
+      // react-doctor-disable-next-line async-await-in-loop -- persist answer scoring before sealing the run transaction.
       await tx.tryoutAnswer.update({
         where: { id: answer.id },
         data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION },

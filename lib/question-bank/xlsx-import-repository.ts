@@ -1593,6 +1593,7 @@ async function ensureQuestionBankXlsxAttemptAssets(
 
       const assetId = randomUUID();
       const objectKey = buildMediaObjectKey("kapten", assetId, image.mimeType as "image/jpeg" | "image/png" | "image/webp" | "image/gif");
+      // react-doctor-disable-next-line async-await-in-loop -- each image is paired with its attempt row before the next image is processed.
       const createdAsset = await tx.asset.create({
         data: {
           checksum: image.contentSha256,
@@ -1642,6 +1643,7 @@ async function readFrozenQuestionBankXlsxImages(
   const payloads = new Map<string, Uint8Array>();
   for (const image of preview.previewImageIndex) {
     if (signal?.aborted) throw signal.reason ?? new QuestionBankXlsxImportError("attempt_cancelled");
+    // react-doctor-disable-next-line async-await-in-loop -- keep image buffers bounded and stop promptly if the upload is cancelled.
     const bytes = await readPrivateStagingObject(
       image.objectKey,
       QUESTION_BANK_XLSX_LIMITS.imageBytes,
@@ -1734,6 +1736,7 @@ async function uploadAndVerifyQuestionBankXlsxImages(
     if (!bytes || bytes.byteLength !== asset.sizeBytes || sha256(bytes) !== asset.contentSha256) {
       throw new QuestionBankXlsxImportError("attempt_unavailable");
     }
+    // react-doctor-disable-next-line async-await-in-loop -- upload and verify each object before proceeding to the next to bound storage pressure.
     await putKaptenImageObject(asset.objectKey, bytes, asset.mimeType, asset.contentSha256, signal);
     const head = await headMediaObject(asset.objectKey, signal);
     if (
@@ -2269,6 +2272,7 @@ async function removeAttemptStaging(attempt: {
     for (const upload of active) if (upload.uploadId) multipartIds.add(upload.uploadId);
     for (const multipartUploadId of multipartIds) {
       try {
+        // react-doctor-disable-next-line async-await-in-loop -- abort multipart uploads one at a time so cleanup failures are handled precisely.
         await abortPrivateStagingMultipartUpload(attempt.uploadObjectKey, multipartUploadId);
       } catch (error) {
         if (!isMissingMultipartUploadError(error)) throw error;

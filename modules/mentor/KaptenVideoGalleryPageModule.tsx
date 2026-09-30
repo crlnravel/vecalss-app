@@ -188,7 +188,7 @@ function KaptenVideoCard({
             <Button
               nativeButton={false}
               render={
-                <a href={video.youtubeUrl} rel="noreferrer" target="_blank" />
+                <a aria-label="Lihat di YouTube" href={video.youtubeUrl} rel="noreferrer" target="_blank" />
               }
               size="sm"
               variant="ghost"
@@ -611,104 +611,18 @@ function KaptenVideoGalleryPageModule({
           titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
         />
 
-        <section aria-label="Koleksi video Kapten" className="grid gap-5">
-          <div className="grid gap-3">
-            <div className="relative min-w-0 sm:max-w-[30rem]">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500"
-              />
-              <input
-                aria-label="Cari video Kapten"
-                className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari judul atau topik..."
-                type="search"
-                value={query}
-              />
-            </div>
-            <div
-              aria-label="Filter subtes video Kapten"
-              className="flex max-w-full gap-2 overflow-x-auto pb-1"
-              role="tablist"
-            >
-              {videoFilters.map((filter) => {
-                const isActive = activeSubtest === filter;
-
-                return (
-                  <SunkenTabButton
-                    aria-selected={isActive}
-                    key={filter}
-                    layout="content"
-                    onClick={() => setActiveSubtest(filter)}
-                    role="tab"
-                    selected={isActive}
-                    type="button"
-                  >
-                    {filter}
-                  </SunkenTabButton>
-                );
-              })}
-            </div>
-            <label
-              className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700"
-              htmlFor="kapten-video-show-archived"
-            >
-              <Checkbox
-                checked={showArchivedVideos}
-                id="kapten-video-show-archived"
-                onCheckedChange={(checked) =>
-                  setShowArchivedVideos(checked === true)
-                }
-              />
-              <span>Tampilkan arsip</span>
-            </label>
-          </div>
-
-          {filteredVideos.length ? (
-            <div className="grid gap-4" id="kapten-video-list">
-              {filteredVideos.map((video) => (
-                <KaptenVideoCard
-                  isPending={isPending}
-                  key={video.id}
-                  onArchive={updateArchivedState}
-                  onDelete={setVideoPendingDeletion}
-                  onEdit={openEdit}
-                  video={video}
-                />
-              ))}
-            </div>
-          ) : (
-            <ReferenceSurface
-              className="border-learning-card-border"
-              variant="raised"
-            >
-              <ReferenceEmptyState
-                action={!hasVideosInCurrentCollection ? (
-                  <Button
-                    disabled={isPending}
-                    onClick={openCreate}
-                    size="sm"
-                    variant="brand"
-                  >
-                    Tambah video
-                  </Button>
-                ) : undefined}
-                description={hasVideosInCurrentCollection
-                  ? "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia."
-                  : !showArchivedVideos && hasArchivedVideos
-                    ? "Centang Tampilkan arsip untuk melihat video yang diarsipkan."
-                    : "Tambahkan tautan YouTube pertama untuk koleksi video siswa."}
-                icon={Video}
-                title={hasVideosInCurrentCollection
-                  ? "Video tidak ditemukan"
-                  : !showArchivedVideos && hasArchivedVideos
-                    ? "Belum ada video aktif"
-                    : "Belum ada video"}
-              />
-            </ReferenceSurface>
-          )}
-        </section>
+        <VideoLibraryToolbar activeSubtest={activeSubtest} onQueryChange={setQuery} onSubtestChange={setActiveSubtest} onShowArchivedChange={setShowArchivedVideos} query={query} showArchivedVideos={showArchivedVideos} />
+        <VideoCollection
+          hasArchivedVideos={hasArchivedVideos}
+          hasVideosInCurrentCollection={hasVideosInCurrentCollection}
+          isPending={isPending}
+          onArchive={updateArchivedState}
+          onCreate={openCreate}
+          onDelete={setVideoPendingDeletion}
+          onEdit={openEdit}
+          showArchivedVideos={showArchivedVideos}
+          videos={filteredVideos}
+        />
       </div>
 
       <VideoEditorDialog
@@ -730,6 +644,68 @@ function KaptenVideoGalleryPageModule({
         video={videoPendingDeletion}
       />
     </MentorWorkspaceShell>
+  );
+}
+
+function VideoLibraryToolbar({ activeSubtest, onQueryChange, onShowArchivedChange, onSubtestChange, query, showArchivedVideos }: {
+  activeSubtest: (typeof videoFilters)[number];
+  onQueryChange: (value: string) => void;
+  onShowArchivedChange: (value: boolean) => void;
+  onSubtestChange: (value: (typeof videoFilters)[number]) => void;
+  query: string;
+  showArchivedVideos: boolean;
+}) {
+  return (
+    <div className="grid gap-3">
+      <div className="relative min-w-0 sm:max-w-[30rem]">
+        <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
+        <input aria-label="Cari video Kapten" className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")} onChange={(event) => onQueryChange(event.target.value)} placeholder="Cari judul atau topik..." type="search" value={query} />
+      </div>
+      <div aria-label="Filter subtes video Kapten" className="flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist">
+        {videoFilters.map((filter) => <VideoFilterTab activeSubtest={activeSubtest} filter={filter} key={filter} onSubtestChange={onSubtestChange} />)}
+      </div>
+      <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700" htmlFor="kapten-video-show-archived">
+        <Checkbox checked={showArchivedVideos} id="kapten-video-show-archived" onCheckedChange={(checked) => onShowArchivedChange(checked === true)} />
+        <span>Tampilkan arsip</span>
+      </label>
+    </div>
+  );
+}
+
+function VideoFilterTab({ activeSubtest, filter, onSubtestChange }: {
+  activeSubtest: (typeof videoFilters)[number];
+  filter: (typeof videoFilters)[number];
+  onSubtestChange: (value: (typeof videoFilters)[number]) => void;
+}) {
+  const isActive = activeSubtest === filter;
+  return <SunkenTabButton aria-selected={isActive} layout="content" onClick={() => onSubtestChange(filter)} role="tab" selected={isActive} type="button">{filter}</SunkenTabButton>;
+}
+
+function getVideoEmptyState(hasVideosInCurrentCollection: boolean, hasArchivedVideos: boolean, showArchivedVideos: boolean) {
+  if (hasVideosInCurrentCollection) return { description: "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia.", title: "Video tidak ditemukan" };
+  if (!showArchivedVideos && hasArchivedVideos) return { description: "Centang Tampilkan arsip untuk melihat video yang diarsipkan.", title: "Belum ada video aktif" };
+  return { description: "Tambahkan tautan YouTube pertama untuk koleksi video siswa.", title: "Belum ada video" };
+}
+
+function VideoCollection({ hasArchivedVideos, hasVideosInCurrentCollection, isPending, onArchive, onCreate, onDelete, onEdit, showArchivedVideos, videos }: {
+  hasArchivedVideos: boolean;
+  hasVideosInCurrentCollection: boolean;
+  isPending: boolean;
+  onArchive: (video: VideoGalleryItem, archived: boolean) => void;
+  onCreate: () => void;
+  onDelete: (video: VideoGalleryItem) => void;
+  onEdit: (video: VideoGalleryItem) => void;
+  showArchivedVideos: boolean;
+  videos: VideoGalleryItem[];
+}) {
+  if (videos.length) {
+    return <div className="grid gap-4" id="kapten-video-list">{videos.map((video) => <KaptenVideoCard isPending={isPending} key={video.id} onArchive={onArchive} onDelete={onDelete} onEdit={onEdit} video={video} />)}</div>;
+  }
+  const emptyState = getVideoEmptyState(hasVideosInCurrentCollection, hasArchivedVideos, showArchivedVideos);
+  return (
+    <ReferenceSurface className="border-learning-card-border" variant="raised">
+      <ReferenceEmptyState action={!hasVideosInCurrentCollection ? <Button disabled={isPending} onClick={onCreate} size="sm" variant="brand">Tambah video</Button> : undefined} description={emptyState.description} icon={Video} title={emptyState.title} />
+    </ReferenceSurface>
   );
 }
 

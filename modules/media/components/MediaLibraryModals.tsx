@@ -37,22 +37,7 @@ import type {
   TrashRequest,
 } from "../types";
 
-export function MediaLibraryModals({
-  actions,
-  editingItem,
-  editingName,
-  folderDialogOpen,
-  isMutationPending,
-  isPicker,
-  moveRequest,
-  moveTargetId,
-  moveTargetOptions,
-  mutationsDisabled,
-  mutationPending,
-  newFolderName,
-  previewAsset,
-  trashRequest,
-}: {
+type MediaLibraryModalsProps = {
   actions: MediaLibraryScreenActions;
   editingItem: EditableItem | null;
   editingName: string;
@@ -67,10 +52,23 @@ export function MediaLibraryModals({
   newFolderName: string;
   previewAsset: MediaAssetDto | null;
   trashRequest: TrashRequest | null;
-}) {
+};
+
+export function MediaLibraryModals(props: MediaLibraryModalsProps) {
   return (
     <>
-      <Dialog onOpenChange={(open) => { if (open || !mutationPending) actions.setFolderDialogOpen(open); }} open={folderDialogOpen}>
+      <CreateFolderDialog {...props} />
+      <RenameMediaDialog {...props} />
+      <MoveMediaDialog {...props} />
+      <TrashMediaDialog {...props} />
+      <MediaPreviewDialog {...props} />
+    </>
+  );
+}
+
+function CreateFolderDialog({ actions, folderDialogOpen, isMutationPending, mutationPending, newFolderName }: MediaLibraryModalsProps) {
+  return (
+    <Dialog onOpenChange={(open) => { if (open || !mutationPending) actions.setFolderDialogOpen(open); }} open={folderDialogOpen}>
         <DialogContent pending={isMutationPending("create-folder")} showCloseButton={!isMutationPending("create-folder")} variant="default">
           <DialogHeader><DialogTitle>Folder baru</DialogTitle></DialogHeader>
           <Field>
@@ -82,8 +80,13 @@ export function MediaLibraryModals({
             <Button disabled={!newFolderName.trim() || isMutationPending("create-folder")} onClick={() => void actions.handleCreateFolder()} variant="brand">{isMutationPending("create-folder") ? "Menyimpan…" : "Buat folder"}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-      <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setEditingItem(null); } }} open={Boolean(editingItem)}>
+    </Dialog>
+  );
+}
+
+function RenameMediaDialog({ actions, editingItem, editingName, isMutationPending, mutationPending, mutationsDisabled }: MediaLibraryModalsProps) {
+  return (
+    <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setEditingItem(null); } }} open={Boolean(editingItem)}>
         <DialogContent pending={isMutationPending("rename")} showCloseButton={!isMutationPending("rename")} variant="default">
           <DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi penyimpanan file.</DialogDescription></DialogHeader>
           <Field>
@@ -95,8 +98,13 @@ export function MediaLibraryModals({
             <Button disabled={mutationsDisabled || !editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="brand">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-      <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setMoveRequest(null); } }} open={Boolean(moveRequest)}>
+    </Dialog>
+  );
+}
+
+function MoveMediaDialog({ actions, isMutationPending, moveRequest, moveTargetId, moveTargetOptions, mutationPending, mutationsDisabled }: MediaLibraryModalsProps) {
+  return (
+    <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setMoveRequest(null); } }} open={Boolean(moveRequest)}>
         <DialogContent pending={isMutationPending("move")} showCloseButton={!isMutationPending("move")} variant="default">
           <DialogHeader><DialogTitle>Pindahkan item</DialogTitle><DialogDescription>Pilih folder tujuan untuk “{moveRequest?.name}”.</DialogDescription></DialogHeader>
           <Field>
@@ -119,8 +127,13 @@ export function MediaLibraryModals({
             <Button disabled={mutationsDisabled || isMutationPending("move")} onClick={() => void actions.handleMove()} variant="brand">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-      <AlertDialog onOpenChange={(open) => { if ((open || !mutationPending) && !open) actions.setTrashRequest(null); }} open={Boolean(trashRequest)}>
+    </Dialog>
+  );
+}
+
+function TrashMediaDialog({ actions, isMutationPending, mutationPending, mutationsDisabled, trashRequest }: MediaLibraryModalsProps) {
+  return (
+    <AlertDialog onOpenChange={(open) => { if ((open || !mutationPending) && !open) actions.setTrashRequest(null); }} open={Boolean(trashRequest)}>
         <AlertDialogContent pending={isMutationPending("trash")} size="sm" variant="danger">
           <AlertDialogHeader>
             <AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia>
@@ -132,8 +145,13 @@ export function MediaLibraryModals({
             <AlertDialogAction disabled={mutationsDisabled || isMutationPending("trash")} onClick={() => void actions.handleTrash()} variant="destructive">{isMutationPending("trash") ? "Memproses…" : "Masukkan Sampah"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
-      <Dialog onOpenChange={(open) => { if (!open) actions.setPreviewAsset(null); }} open={Boolean(previewAsset)}>
+    </AlertDialog>
+  );
+}
+
+function MediaPreviewDialog({ actions, isPicker, previewAsset }: Pick<MediaLibraryModalsProps, "actions" | "isPicker" | "previewAsset">) {
+  return (
+    <Dialog onOpenChange={(open) => { if (!open) actions.setPreviewAsset(null); }} open={Boolean(previewAsset)}>
         <DialogContent className="sm:max-w-4xl" variant="info">
           <DialogHeader>
             <DialogTitle>{previewAsset?.name}</DialogTitle>
@@ -162,7 +180,6 @@ export function MediaLibraryModals({
             </DialogFooter>
           ) : null}
         </DialogContent>
-      </Dialog>
-    </>
+    </Dialog>
   );
 }

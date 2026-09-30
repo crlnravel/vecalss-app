@@ -158,7 +158,8 @@ export function buildLocalSpan01Request(input: {
   }
   if (bytes.byteLength > VERA_RESPAN_SCORE_MAX_REQUEST_BYTES) throw new LocalSpan01SelectorError("respan_selector_request_too_large");
   const candidateKeys = included.map((row) => row.key);
-  const retained = candidates.filter((candidate) => candidateKeys.includes(candidate.key));
+  const retainedKeys = new Set(candidateKeys);
+  const retained = candidates.filter((candidate) => retainedKeys.has(candidate.key));
   return { request: { body, bytes, digest: sha256Hex(bytes), candidateKeys }, candidates: retained };
 }
 
@@ -189,6 +190,7 @@ export function validateLocalSpan01Response(input: {
     throw new LocalSpan01SelectorError("respan_selector_model_or_schema_drift");
   }
   const candidateKeys = input.candidates.map((candidate) => candidate.key);
+  const candidateKeySet = new Set(candidateKeys);
   if (new Set(candidateKeys).size !== candidateKeys.length || candidateKeys.some((key) => !/^cand_[0-9]{2}$/u.test(key))) {
     throw new LocalSpan01SelectorError("respan_selector_candidate_keys_invalid");
   }
@@ -197,7 +199,7 @@ export function validateLocalSpan01Response(input: {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new LocalSpan01SelectorError("respan_selector_schema_drift");
     const row = value as Record<string, unknown>;
     if (Object.keys(row).sort().join(",") !== "id,p_absent,p_not_observable,p_present"
-      || typeof row.id !== "string" || !candidateKeys.includes(row.id) || byId.has(row.id)
+      || typeof row.id !== "string" || !candidateKeySet.has(row.id) || byId.has(row.id)
       || typeof row.p_present !== "number" || typeof row.p_absent !== "number" || typeof row.p_not_observable !== "number"
       || ![row.p_present, row.p_absent, row.p_not_observable].every((score) => Number.isFinite(score) && score >= 0 && score <= 1)
       || Math.abs((row.p_present as number) + (row.p_absent as number) + (row.p_not_observable as number) - 1) > 0.000001) {
@@ -213,22 +215,28 @@ export function validateLocalSpan01Response(input: {
   if (byId.size !== candidateKeys.length || !/^[a-f0-9]{64}$/u.test(input.envelope.responseDigest)) {
     throw new LocalSpan01SelectorError("respan_selector_result_key_mismatch");
   }
+  const readScore = (key: string) => {
+    const score = byId.get(key);
+    if (!score) throw new LocalSpan01SelectorError("respan_selector_result_key_mismatch");
+    return score;
+  };
+  const candidateOrder = new Map(candidateKeys.map((key, index) => [key, index]));
   const decision: LocalSpan01Decision = {
     model: VERA_RESPAN_SCORE_MODEL,
-    scores: candidateKeys.map((key) => byId.get(key)!),
+    scores: candidateKeys.map(readScore),
     responseDigest: input.envelope.responseDigest,
     inputTokens: input.envelope.inputTokens,
     logId: input.envelope.logId,
   };
   const selected = input.candidates
-    .filter((candidate) => {
-      const score = byId.get(candidate.key)!;
-      return score.p_present >= (input.threshold ?? 0.8) && score.p_not_observable <= (input.maxNotObservable ?? 0.2);
-    })
-    .sort((left, right) => byId.get(right.key)!.p_present - byId.get(left.key)!.p_present
-      || input.candidates.indexOf(left) - input.candidates.indexOf(right))
+    .map((candidate) => ({ candidate, score: readScore(candidate.key) }))
+    .filter(({ score }) =>
+      score.p_present >= (input.threshold ?? 0.8)
+      && score.p_not_observable <= (input.maxNotObservable ?? 0.2))
+    .sort((left, right) => right.score.p_present - left.score.p_present
+      || (candidateOrder.get(left.candidate.key) ?? 0) - (candidateOrder.get(right.candidate.key) ?? 0))
     .slice(0, 4);
-  return { decision, selected };
+  return { decision, selected: selected.map(({ candidate }) => candidate) };
 }
 
 export type LocalSpan01SelectorOptions = {

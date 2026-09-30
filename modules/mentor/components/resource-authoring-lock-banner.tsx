@@ -68,6 +68,37 @@ function LockStateIcon({ state }: { state: AuthoringLockState }) {
   return <CircleAlert aria-hidden="true" />;
 }
 
+function getLockBannerPresentation(state: AuthoringLockState, resourceLabel: string, holderName: string, hasLocalChanges: boolean) {
+  if (state === "owned" || state === "acquiring" || state === "uncertain") return null;
+  const isQuestionBankLock = state === "locked" && resourceLabel === "Bank Soal";
+  const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
+  const description = isQuestionBankLock
+    ? "Untuk sementara, Bank Soal ini hanya bisa dilihat. Coba lagi setelah sesi pengeditan selesai."
+    : stateCopy.description.replace("{resource}", resourceLabel);
+  const title = isQuestionBankLock
+    ? `Soal sedang diedit oleh ${holderName}`
+    : stateCopy.title.replace("{holder}", holderName);
+  const toneClass = state === "locked"
+    ? "border-amber-300 bg-amber-50 text-amber-950"
+    : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg";
+  return {
+    description: `${description}${hasLocalChanges && !isQuestionBankLock ? " Perubahan yang belum disimpan tetap ada di layar." : ""}`,
+    readOnly: state === "locked" || state === "lost",
+    title,
+    toneClass,
+  };
+}
+
+function LockRetryAction({ onRetry }: { onRetry?: () => void }) {
+  if (!onRetry) return null;
+  return (
+    <Button aria-label="Coba lagi" onClick={onRetry} size="sm" type="button" variant="brandOutline">
+      <RefreshCw data-icon="inline-start" />
+      Coba lagi
+    </Button>
+  );
+}
+
 function ResourceAuthoringLockBanner({
   className,
   hasLocalChanges = false,
@@ -85,25 +116,8 @@ function ResourceAuthoringLockBanner({
 }) {
   const resourceLock = useResourceEditLock();
   const holderName = providedHolderName ?? resourceLock.holderName ?? "Kapten lain";
-
-  if (state === "owned" || state === "acquiring" || state === "uncertain") {
-    return null;
-  }
-
-  const readOnly = state === "locked" || state === "lost";
-  const stateCopy = AUTHORING_LOCK_STATE_COPY[state];
-  const isQuestionBankLock =
-    state === "locked" && resourceLabel === "Bank Soal";
-  const title = isQuestionBankLock
-    ? `Soal sedang diedit oleh ${holderName}`
-    : stateCopy.title.replace("{holder}", holderName);
-  const description = isQuestionBankLock
-    ? "Untuk sementara, Bank Soal ini hanya bisa dilihat. Coba lagi setelah sesi pengeditan selesai."
-    : stateCopy.description.replace("{resource}", resourceLabel);
-  const toneClass =
-    state === "locked"
-      ? "border-amber-300 bg-amber-50 text-amber-950"
-      : "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg";
+  const presentation = getLockBannerPresentation(state, resourceLabel, holderName, hasLocalChanges);
+  if (!presentation) return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-3 z-40 px-4 sm:px-6 lg:px-8">
@@ -112,12 +126,12 @@ function ResourceAuthoringLockBanner({
         aria-label="Status perubahan"
         className={cn(
           "pointer-events-auto mx-auto flex w-full flex-col gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)] backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:px-5",
-          toneClass,
+          presentation.toneClass,
           className,
           "max-w-[36rem]",
         )}
         data-authoring-lock-state={state}
-        data-read-only={readOnly ? "true" : "false"}
+        data-read-only={presentation.readOnly ? "true" : "false"}
         role={state === "lost" ? "alert" : "status"}
       >
         <div className="flex min-w-0 items-start gap-3">
@@ -125,32 +139,18 @@ function ResourceAuthoringLockBanner({
             <LockStateIcon state={state} />
           </span>
           <div className="min-w-0">
-            <p className="font-semibold leading-5">{title}</p>
+            <p className="font-semibold leading-5">{presentation.title}</p>
             <p
               className="mt-1 max-w-[65ch] text-sm leading-5 text-current/85"
               id="resource-authoring-lock-description"
             >
-              {description}
-              {hasLocalChanges && !isQuestionBankLock
-                ? " Perubahan yang belum disimpan tetap ada di layar."
-                : null}
+              {presentation.description}
             </p>
           </div>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-          {onRetry ? (
-            <Button
-              aria-label="Coba lagi"
-              onClick={onRetry}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <RefreshCw data-icon="inline-start" />
-              Coba lagi
-            </Button>
-          ) : null}
+          <LockRetryAction onRetry={onRetry} />
         </div>
       </section>
     </div>

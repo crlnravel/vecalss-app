@@ -446,7 +446,8 @@ function validate(input: SaveBankInput) {
       throw new QuestionBankError("Mode jawaban soal tidak valid.", { code: "invalid_input" });
     }
     const correctChoiceIds = question.correctChoiceIds ?? [question.correctChoiceId];
-    const answerKey = validateAnswerKey(questionType, question.choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIds.includes(choice.id) })));
+    const correctChoiceIdSet = new Set(correctChoiceIds);
+    const answerKey = validateAnswerKey(questionType, question.choices.map((choice) => ({ id: choice.id, isCorrect: correctChoiceIdSet.has(choice.id) })));
     if (new Set(question.choices.map((choice) => choice.id)).size !== question.choices.length || new Set(correctChoiceIds).size !== correctChoiceIds.length || !answerKey.ok) {
       throw new QuestionBankError("Opsi jawaban soal tidak valid.");
     }
@@ -1123,16 +1124,17 @@ async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionI
     return;
   }
   const retained = new Set<string>();
-  for (const [optionIndex, option] of options.entries()) {
-    const old = existing.find((candidate) => candidate.sortOrder === optionIndex);
+  const existingBySortOrder = new Map(existing.map((option) => [option.sortOrder, option]));
+  const retainedIds = await Promise.all(options.map(async (option, optionIndex) => {
+    const old = existingBySortOrder.get(optionIndex);
     if (old) {
-      retained.add(old.id);
       await tx.questionOption.update({ where: { id: old.id }, data: option });
-    } else {
-      const created = await tx.questionOption.create({ data: { ...option, questionId } });
-      retained.add(created.id);
+      return old.id;
     }
-  }
+    const created = await tx.questionOption.create({ data: { ...option, questionId } });
+    return created.id;
+  }));
+  for (const id of retainedIds) retained.add(id);
   const extras = existing.filter((option) => !retained.has(option.id));
   if (extras.length) {
     await tx.questionOption.deleteMany({
@@ -1377,6 +1379,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
         if (!current) {
           const revisionId = randomUUID();
+          // react-doctor-disable-next-line async-await-in-loop -- question identities and revisions are written in source order within one transaction.
           const saved = await tx.question.create({
             data: {
               ...data,
@@ -1470,6 +1473,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const removed = existing.filter((question) => !retainedIds.has(question.id));
     for (const question of removed) {
       if (question.currentRevision && question.currentRevision.status !== QuestionRevisionStatus.retired) {
+        // react-doctor-disable-next-line async-await-in-loop -- retire the revision before archiving its question in the transaction.
         await tx.questionRevision.update({
           where: { id: question.currentRevision.id },
           data: {
@@ -1479,12 +1483,14 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
           },
         });
       }
+      // react-doctor-disable-next-line async-await-in-loop -- preserve the revision-before-question transition for each removed question.
       await tx.question.update({
         where: { id: question.id },
         data: { status: ContentStatus.archived, updatedByUserId: actorId },
       });
     }
     const saved = await tx.questionBank.findUniqueOrThrow({ where: { id: persistedBankId }, include: bankInclude });
+    // react-doctor-disable-next-line server-sequential-independent-await -- this read shares the interactive transaction's single connection with the bank read.
     const folderRows = await getFolderRows(tx);
     return toDto(saved, folderRows);
   }, { maxWait: 5_000, timeout: 120_000 }).catch(async (saveError: unknown) => {
@@ -1557,6 +1563,7 @@ async function updateQuestionBankLifecycle(id: string, operation: "archive" | "r
     // sources while preserving their current revisions for a safe restore.
     if (isArchive) {
       for (const question of activeQuestions) {
+        // react-doctor-disable-next-line async-await-in-loop -- archive question identities in order within this transaction.
         await tx.question.update({
           where: { id: question.id },
           data: { status: ContentStatus.archived, updatedByUserId: actorId },
@@ -1565,6 +1572,7 @@ async function updateQuestionBankLifecycle(id: string, operation: "archive" | "r
     } else {
       const restoreQuestions = bank.questions.filter((question) => question.status === ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
       for (const question of restoreQuestions) {
+        // react-doctor-disable-next-line async-await-in-loop -- restore question identities in order within this transaction.
         await tx.question.update({
           where: { id: question.id },
           data: {

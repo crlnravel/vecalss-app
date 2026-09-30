@@ -325,6 +325,7 @@ function QuizResultQuestionCard({
       ? "Jawaban tersimpan"
       : "Tidak dijawab";
   const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const selectedOptionIdSet = new Set(selectedOptionIds);
   return (
     <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
@@ -358,7 +359,7 @@ function QuizResultQuestionCard({
             correct={option.correct}
             key={option.id}
             label={option.key}
-            selected={selectedOptionIds.includes(option.id)}
+            selected={selectedOptionIdSet.has(option.id)}
             text={option.text}
             textClassName={readingTextClass}
           />
@@ -460,8 +461,9 @@ function QuizResultPageModule({
   const question = result.questions[currentQuestion - 1];
   if (!question) return null;
   const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const selectedOptionIdSet = new Set(selectedOptionIds);
   const selectedOptions = question.options.filter((option) =>
-    selectedOptionIds.includes(option.id),
+    selectedOptionIdSet.has(option.id),
   );
   const isCorrect = result.correctnessAvailable && isQuestionCorrect(question);
   const markers = buildQuizResultMarkers(result, currentQuestion);

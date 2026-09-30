@@ -781,61 +781,7 @@ function QuestionBankCsvImportDialog({
 
           <CsvFileSummary preview={preview} />
 
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
-              Cara memasukkan soal
-            </FieldLabel>
-            <RadioGroup
-              aria-label="Cara memasukkan soal"
-              className="grid gap-3 sm:grid-cols-2"
-              disabled={disabled || isApplying}
-              onValueChange={(value) => setMode(value as QuestionBankCsvMode)}
-              value={mode}
-            >
-              <label
-                className={cn(
-                  REFERENCE_CONTROL_CLASS_NAMES.choice,
-                  "items-start",
-                )}
-                htmlFor="question-bank-csv-mode-append"
-              >
-                <RadioGroupItem
-                  id="question-bank-csv-mode-append"
-                  value="append"
-                />
-                <span className="min-w-0">
-                  <span className="block font-semibold text-secondary-900">
-                    Tambahkan
-                  </span>
-                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
-                    Soal yang sudah ada tetap dipertahankan, lalu soal dari file
-                    ditambahkan.
-                  </span>
-                </span>
-              </label>
-              <label
-                className={cn(
-                  REFERENCE_CONTROL_CLASS_NAMES.choice,
-                  "items-start",
-                )}
-                htmlFor="question-bank-csv-mode-overwrite"
-              >
-                <RadioGroupItem
-                  id="question-bank-csv-mode-overwrite"
-                  value="overwrite"
-                />
-                <span className="min-w-0">
-                  <span className="block font-semibold text-secondary-900">
-                    Timpa semua
-                  </span>
-                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
-                    Isi Bank Soal akan mengikuti file. Judul dan deskripsi tetap
-                    sama.
-                  </span>
-                </span>
-              </label>
-            </RadioGroup>
-          </Field>
+          <CsvImportModeField disabled={disabled || isApplying} mode={mode} onModeChange={(value) => setMode(value)} />
 
           <div className="rounded-2xl border border-primary-100 bg-primary-50/40 px-4 py-3 text-sm leading-6 text-secondary-700">
             <p className="font-semibold text-secondary-900">
@@ -904,6 +850,28 @@ function QuestionBankCsvImportDialog({
         {content}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CsvImportModeField({ disabled, mode, onModeChange }: {
+  disabled: boolean;
+  mode: QuestionBankCsvMode;
+  onModeChange: (value: QuestionBankCsvMode) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Cara memasukkan soal</FieldLabel>
+      <RadioGroup aria-label="Cara memasukkan soal" className="grid gap-3 sm:grid-cols-2" disabled={disabled} onValueChange={(value) => onModeChange(value as QuestionBankCsvMode)} value={mode}>
+        <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-append">
+          <RadioGroupItem id="question-bank-csv-mode-append" value="append" />
+          <span className="min-w-0"><span className="block font-semibold text-secondary-900">Tambahkan</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Soal yang sudah ada tetap dipertahankan, lalu soal dari file ditambahkan.</span></span>
+        </label>
+        <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-overwrite">
+          <RadioGroupItem id="question-bank-csv-mode-overwrite" value="overwrite" />
+          <span className="min-w-0"><span className="block font-semibold text-secondary-900">Timpa semua</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Isi Bank Soal akan mengikuti file. Judul dan deskripsi tetap sama.</span></span>
+        </label>
+      </RadioGroup>
+    </Field>
   );
 }
 

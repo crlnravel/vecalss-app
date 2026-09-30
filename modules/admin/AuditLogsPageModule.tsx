@@ -151,6 +151,8 @@ function AuditFilterPanel({
   targetType: AuditLogTargetType | null;
 }) {
   const router = useRouter();
+  // The parent remounts this draft when its URL filter state changes.
+  // react-doctor-disable-next-line no-derived-useState -- key at the caller resets the draft for each filter context.
   const [draftTargetType, setDraftTargetType] = useState<AuditLogTargetType | null>(targetType);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

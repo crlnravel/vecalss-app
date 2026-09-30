@@ -22,6 +22,43 @@ export const metadata: Metadata = {
   title: "Bank Soal Kapten | Vecalss LMS",
 };
 
+function isCreateDialogRequested(params: Record<string, NavigationQueryValue>) {
+  const values = readCreateQueryValues(params.create);
+  return values.length === 1 && values[0] === "1";
+}
+
+function readCreateQueryValues(value: NavigationQueryValue) {
+  if (Array.isArray(value)) return value;
+  return value === undefined || value === null ? [] : [value];
+}
+
+function getQuestionBankFolderId(folder: string | undefined) {
+  if (!folder || folder === "root" || folder === "unfiled") return null;
+  return folder;
+}
+
+function QuestionBankContextUnavailable({
+  issues,
+  purposeValue,
+  session,
+}: {
+  issues: ReturnType<typeof parseQuestionBankQuery>["issues"];
+  purposeValue: NavigationQueryValue;
+  session: Awaited<ReturnType<typeof requireTutorSession>>;
+}) {
+  const requestedPurpose = Array.isArray(purposeValue) ? purposeValue[0] : purposeValue;
+  const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
+  return (
+    <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={navigationLabel} searchPlaceholder="Cari bank soal, folder, atau materi..." session={session} showSearch={false} sidebarAppearance="reference">
+      <section aria-labelledby="question-bank-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
+        <h1 className="text-lg font-semibold" id="question-bank-context-unavailable">Konteks Bank Soal tidak tersedia</h1>
+        <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
+        <p className="mt-2 text-sm leading-6">Pilih tujuan, subtes, folder, dan filter yang tersedia untuk melanjutkan.</p>
+      </section>
+    </MentorWorkspaceShell>
+  );
+}
+
 export default async function MentorQuestionBankPage({
   searchParams,
 }: {
@@ -30,29 +67,12 @@ export default async function MentorQuestionBankPage({
   const session = await requireTutorSession();
   const params = await searchParams;
   const parsedQuery = parseQuestionBankQuery(params);
-  const createValues = Array.isArray(params.create)
-    ? params.create
-    : params.create === undefined || params.create === null
-      ? []
-      : [params.create];
-  const initialCreateDialogOpen = createValues.length === 1 && createValues[0] === "1";
+  const initialCreateDialogOpen = isCreateDialogRequested(params);
   if (parsedQuery.issues.length || parsedQuery.purpose === null) {
-    const requestedPurpose = Array.isArray(params.purpose) ? params.purpose[0] : params.purpose;
-    const navigationLabel = requestedPurpose === "tryout" ? questionBankNavigationLabel("tryout") : questionBankNavigationLabel("quiz");
-    return (
-      <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={navigationLabel} searchPlaceholder="Cari bank soal, folder, atau materi..." session={session} showSearch={false} sidebarAppearance="reference">
-        <section aria-labelledby="question-bank-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
-          <h1 className="text-lg font-semibold" id="question-bank-context-unavailable">Konteks Bank Soal tidak tersedia</h1>
-          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(parsedQuery.issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih tujuan, subtes, folder, dan filter yang tersedia untuk melanjutkan.</p>
-        </section>
-      </MentorWorkspaceShell>
-    );
+    return <QuestionBankContextUnavailable issues={parsedQuery.issues} purposeValue={params.purpose} session={session} />;
   }
   const catalogueHref = buildQuestionBankHref(parsedQuery);
-  const canonicalHref = initialCreateDialogOpen
-    ? `${catalogueHref}&create=1`
-    : catalogueHref;
+  const canonicalHref = initialCreateDialogOpen ? `${catalogueHref}&create=1` : catalogueHref;
   if (!canonicalQueryEquals(params, canonicalHref)) {
     redirect(canonicalHref);
   }
@@ -62,7 +82,7 @@ export default async function MentorQuestionBankPage({
   const requestedFolder = parsedQuery.folder === "root" ? "root" : parsedQuery.folder;
   // The catalogue root is the unfiled collection. A committed search is the
   // only state that intentionally spans every folder.
-  const folderId = requestedFolder === undefined ? null : requestedFolder === "root" || requestedFolder === "unfiled" ? null : requestedFolder;
+  const folderId = getQuestionBankFolderId(requestedFolder);
   const status = parsedQuery.status ? parsedQuery.status as "published" | "archived" : undefined;
   const page = parsedQuery.page;
   const search = parsedQuery.q;

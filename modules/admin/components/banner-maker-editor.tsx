@@ -1061,7 +1061,6 @@ export {
   BannerMakerEditor,
   EditorPropertiesPanel,
   LayerList,
-  createBannerMakerEditorActions,
 };
 export type {
   BannerMakerAction,

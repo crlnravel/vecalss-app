@@ -121,7 +121,7 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
                     setActiveFilterId(filter.id);
                   }}
                   onMouseLeave={() => scheduleClose(filter.id)}
-                  role="dialog"
+                  role="group"
                 >
                   {filter.content}
                 </div>

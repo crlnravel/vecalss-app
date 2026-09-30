@@ -1,5 +1,32 @@
 # Session Handoff
 
+## Current handoff — React Doctor cleanup (2026-09-30)
+
+- Objective: clear all React Doctor diagnostics across the application.
+- Source work: the scan baseline of 220 findings across 940 files (score 64)
+  was reduced to zero through focused component and hook refactors, collection
+  lookup improvements, and explained suppressions for intentional effect-based
+  synchronization.
+- Final verification: React Doctor 0.9.14 scanned 945 files and reported 0
+  errors, 0 warnings, and 0 diagnostics. `git diff --check` passes.
+- The normal guard and its approved emergency attempt were blocked by host
+  load. After the user explicitly authorized bypassing it, the cached CLI ran
+  directly and completed the scan.
+- Tests: 46 focused scripts were attempted after the user asked to check them;
+  24 passed and 22 failed. The initial sandboxed run was blocked because `tsx`
+  could not create its local IPC socket (`EPERM`). The rerun outside the
+  sandbox executed the scripts.
+- Failure groups: 19 source-contract assertions still expect inline component
+  markup or helper names; `test:banner-media-safety` fails its R2 HEAD/finalize
+  ordering assertion; `test:tryout-seed-release-guards` has a fixture that
+  lacks the stable direct snapshot IDs and carries source lineage required by
+  the validator; `test:mentor-report` cannot connect because the configured
+  database does not contain the `mentor_reports` table. No build or browser
+  checks were run.
+- Next: review/update the source-contract tests against the extracted
+  components, fix the Tryout fixture, investigate banner ordering, and rerun
+  the report test after confirming the local test database schema.
+
 ## Current handoff — Mentor Report and Developer inbox (2026-09-29)
 
 - Objective: let Mentors submit bug reports with an optional attachment and let a separate Developer role review every report in a table and detail view.
