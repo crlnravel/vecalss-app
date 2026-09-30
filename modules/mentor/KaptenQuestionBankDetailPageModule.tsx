@@ -1176,7 +1176,7 @@ function QuestionBankDetailLayout({
         <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
           <FullWidthLineTabsList aria-label="Bagian detail Bank Soal">
             <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="soal">Soal</FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Administrasi</FullWidthLineTabsTrigger>
+            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger>
           </FullWidthLineTabsList>
           <TabsContent className="m-0" value="soal">
             <QuestionBankQuestionsSection bank={bank} bankId={bankId} editLease={questionBankEditLease} expectedRevision={bank.revision ?? 1} isReadOnly={isReadOnly} onImport={onImport} questions={questions} readiness={readiness} />
