@@ -142,7 +142,7 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
   {
     id: "sidebar",
     title: "Sidebar · DeveloperWorkspaceShell",
-    description: "Kendali langsung untuk sidebar shell yang sedang membingkai halaman, dengan daftar nilai varian tanpa sidebar kedua.",
+    description: "Kendali sidebar Developer serta pratinjau terpisah untuk mencoba posisi, tampilan, perilaku ciut, dan ukuran menu Sidebar.",
     sources: ["components/ui/sidebar.tsx", "components/ui/input.tsx", "components/ui/separator.tsx", "components/ui/sheet.tsx", "components/ui/skeleton.tsx", "components/ui/tooltip.tsx", "components/ui/button.tsx", "components/dashboard/reference-dashboard-controls.tsx", "components/dashboard/reference-dashboard-tokens.ts", "lib/icons.tsx", "hooks/use-mobile.ts", "modules/developer/components/developer-workspace-shell.tsx", "modules/developer/components/catalogue-sidebar-preview.tsx", "modules/student/components/student-sidebar-utils.ts", "modules/home/components/home-primitives.tsx"],
     preview: <SidebarPreview />,
   },

@@ -53,6 +53,7 @@ export function SidebarVariantPreview() {
   const [variant, setVariant] = useState<SidebarVariant>("floating");
   const [collapsible, setCollapsible] = useState<SidebarCollapsible>("icon");
   const [activeMenu, setActiveMenu] = useState("default-default");
+  const isStatic = collapsible === "none";
 
   return (
     <div className="min-w-0 space-y-4 p-4 sm:p-6">
@@ -168,17 +169,17 @@ export function SidebarVariantPreview() {
           </SidebarContent>
           <SidebarSeparator />
           <SidebarFooter className="p-3">
-            <SidebarTrigger aria-label="Ciutkan atau buka sidebar contoh" className="min-h-[44px] w-full rounded-xl" />
+            <SidebarTrigger aria-label="Ciutkan atau buka sidebar contoh" className="min-h-[44px] w-full rounded-xl" disabled={isStatic} />
             <p className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-              Tombol ini mengubah mode ciut pada pratinjau.
+              {isStatic ? "Mode ini selalu terbuka dan tidak dapat diciutkan." : "Tombol ini mengubah mode ciut pada pratinjau."}
             </p>
           </SidebarFooter>
-          <SidebarRail aria-label="Ciutkan atau buka sidebar contoh" className="w-[44px]" />
+          {!isStatic && <SidebarRail aria-label="Ciutkan atau buka sidebar contoh" className="w-[44px]" />}
         </Sidebar>
 
         <SidebarInset className="min-h-0 min-w-0 overflow-auto bg-voyage-canvas">
           <header className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b border-voyage-soft-border bg-white/95 px-4 backdrop-blur">
-            <SidebarTrigger aria-label="Buka atau tutup menu contoh" className="min-h-[44px] min-w-[44px] rounded-xl" />
+            <SidebarTrigger aria-label="Buka atau tutup menu contoh" className="min-h-[44px] min-w-[44px] rounded-xl" disabled={isStatic} />
             <p className="min-w-0 truncate text-sm font-semibold text-secondary-900">Area konten utama</p>
           </header>
           <div className="space-y-4 p-4 sm:p-6">
