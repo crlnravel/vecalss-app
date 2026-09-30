@@ -3,10 +3,10 @@
 import { useState } from "react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { ModeCardTabs } from "@/components/ui/mode-card-tabs";
 import type { ModeCardTabItem } from "@/components/ui/mode-card-tabs";
-import { Plus, UserPlus, Users } from "@/lib/icons";
+import styles from "./reui-directory-grid.module.css";
+import { UserPlus, Users } from "@/lib/icons";
 
 import { CreateKaptenForm } from "./create-kapten-form";
 import { ImportsIntakeModule } from "../imports/ImportsIntakeModule";
@@ -32,8 +32,8 @@ const modeTabs = [
   },
 ] satisfies readonly ModeCardTabItem<AddKaptenMode>[];
 
-function AddKaptenDialog() {
-  const [mode, setMode] = useState<AddKaptenMode>("single");
+function AddKaptenDialog({ initialMode = "single" }: { initialMode?: AddKaptenMode } = {}) {
+  const [mode, setMode] = useState<AddKaptenMode>(initialMode);
   const [open, setOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const dialogLocked = bulkBusy;
@@ -44,7 +44,7 @@ function AddKaptenDialog() {
     }
 
     if (!nextOpen) {
-      setMode("single");
+      setMode(initialMode);
       setBulkBusy(false);
     }
     setOpen(nextOpen);
@@ -55,14 +55,14 @@ function AddKaptenDialog() {
       <DialogTrigger
         render={
           <button
-             aria-label="Tambah Kapten"
-            className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
-             title="Tambah Kapten"
+             aria-label={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
+            className={initialMode === "bulk" ? styles.button : styles.primaryButton}
+             title={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
             type="button"
           />
         }
       >
-        <Plus aria-hidden="true" size={18} />
+        {initialMode === "bulk" ? "Impor" : "Tambah Kapten"}
       </DialogTrigger>
 
       <DialogContent

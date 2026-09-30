@@ -3,8 +3,7 @@
 import { useState } from "react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { Plus } from "@/lib/icons";
+import styles from "./reui-directory-grid.module.css";
 
 import { CreateAffiliatorForm } from "./create-affiliator-form";
 
@@ -17,13 +16,13 @@ function AddAffiliatorDialog() {
         render={
           <button
             aria-label="Tambah affiliator"
-            className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
+            className={styles.primaryButton}
             title="Tambah affiliator"
             type="button"
           />
         }
       >
-        <Plus aria-hidden="true" size={18} />
+        Tambah affiliator
       </DialogTrigger>
 
       <DialogContent

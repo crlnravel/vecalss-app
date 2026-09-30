@@ -1,11 +1,3 @@
-import Link from "next/link";
-
-import {
-  ReferencePageHeader,
-  ReferenceSurface,
-} from "@/components/dashboard/reference-dashboard-primitives";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
-import { buttonVariants } from "@/components/ui/button-variants";
 import type { EnrollmentHandoff, TutorProfile, User, UserStatus } from "@/generated/prisma/client";
 import { buildDirectoryQuery, type DirectoryPageSize, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
@@ -16,7 +8,8 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 import { AddKaptenDialog } from "./components/add-kapten-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
 import { KaptenDirectoryTable, type KaptenDirectoryItem } from "./components/kapten-directory-table";
-import { StudentPageSizeSelect } from "./components/student-page-size-select";
+import { ReuiDirectoryFooter } from "./components/reui-directory-grid";
+import styles from "./components/reui-directory-grid.module.css";
 
 type EnrolledKapten = Pick<User, "createdAt" | "email" | "fullName" | "id" | "phone" | "status"> & {
   enrollmentHandoffs: Pick<EnrollmentHandoff, "expiresAt" | "id" | "method" | "sourceImportRowId" | "status">[];
@@ -37,29 +30,6 @@ const errorMessages: Record<string, string> = {
   "missing-user": "Akun Kapten tersebut tidak ditemukan.",
   "update-failed": "Akun Kapten tidak dapat diperbarui. Silakan coba lagi.",
 };
-
-type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
-
-function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
-  if (pageCount <= 7) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1);
-  }
-
-  const visiblePages = new Set([1, pageCount, page - 1, page, page + 1]);
-  const sortedPages = [...visiblePages]
-    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= pageCount)
-    .sort((left, right) => left - right);
-  const items: PaginationItem[] = [];
-
-  sortedPages.forEach((pageNumber, index) => {
-    if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
-      items.push(pageNumber > page ? "ellipsis-after" : "ellipsis-before");
-    }
-    items.push(pageNumber);
-  });
-
-  return items;
-}
 
 function KaptenPageModule({
   error,
@@ -90,15 +60,7 @@ function KaptenPageModule({
   statusFilter: UserStatus | "all";
   total: number;
 }) {
-  const pageHref = (nextPage: number) => {
-    const query = buildDirectoryQuery({ direction, focus: null, page: nextPage, pageSize, search, sort, status: statusFilter });
-    return query ? `/admin/kapten${query}` : "/admin/kapten";
-  };
   const directoryQuery = buildDirectoryQuery({ direction, focus: focus ?? null, page, pageSize, search, sort, status: statusFilter });
-  const visibleStart = kapten.length ? (page - 1) * pageSize + 1 : 0;
-  const visibleEnd = Math.min(page * pageSize, (page - 1) * pageSize + kapten.length);
-  const paginationItems = getPaginationItems(page, pageCount);
-
   const rows: KaptenDirectoryItem[] = kapten.map((person) => ({
     bio: person.tutorProfile?.bio ?? null,
     createdAt: person.createdAt.toISOString(),
@@ -130,12 +92,6 @@ function KaptenPageModule({
       <div className="space-y-8">
         <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-heading" targetId={focus ? `kapten-${focus}` : null} />
 
-        <ReferencePageHeader
-          actions={<AddKaptenDialog />}
-          id="kapten-heading"
-          title="Kapten"
-        />
-
         <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Kembali ke baris Kapten yang dipilih di direktori." : ""}</p>
         {notice ? <ToastOnMount message={noticeMessages[notice] ?? notice} variant="success" /> : null}
         {error === "update-failed" ? (
@@ -144,8 +100,9 @@ function KaptenPageModule({
           <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice>
         ) : null}
 
-        <ReferenceSurface as="section" aria-label="Direktori Kapten" className="min-w-0 overflow-hidden">
+        <section aria-label="Direktori Kapten" className={styles.root} id="kapten-heading" tabIndex={-1}>
           <KaptenDirectoryTable
+            total={total} actions={<><AddKaptenDialog initialMode="bulk" /><AddKaptenDialog /></>} key={directoryQuery}
             direction={direction}
             focus={focus ?? null}
             kapten={rows}
@@ -156,53 +113,10 @@ function KaptenPageModule({
             status={statusFilter}
           />
 
-          <div className="flex flex-col gap-3 border-t border-primary-100/80 bg-white/70 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}</p>
-              <StudentPageSizeSelect basePath="/admin/kapten" pageSize={pageSize} query={directoryQuery} />
-            </div>
-            <KaptenDirectoryPagination page={page} pageCount={pageCount} pageHref={pageHref} paginationItems={paginationItems} />
-          </div>
-        </ReferenceSurface>
+          <ReuiDirectoryFooter basePath="/admin/kapten" query={directoryQuery} page={page} pageCount={pageCount} pageSize={pageSize} total={total} visibleCount={kapten.length} />
+        </section>
       </div>
     </PortalShell>
-  );
-}
-
-function KaptenDirectoryPagination({ page, pageCount, pageHref, paginationItems }: {
-  page: number;
-  pageCount: number;
-  pageHref: (page: number) => string;
-  paginationItems: ReturnType<typeof getPaginationItems>;
-}) {
-  if (pageCount <= 1) return null;
-  return (
-    <nav aria-label="Halaman direktori Kapten" className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
-      <div className="flex min-w-0 items-center gap-0.5">
-        {page > 1 ? <Link aria-label="Halaman direktori Kapten sebelumnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
-        <ol className="flex items-center gap-0.5">
-          {paginationItems.map((item) => <KaptenPaginationItem item={item} key={item} page={page} pageHref={pageHref} />)}
-        </ol>
-        {page < pageCount ? <Link aria-label="Halaman direktori Kapten berikutnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
-      </div>
-    </nav>
-  );
-}
-
-function KaptenPaginationItem({ item, page, pageHref }: {
-  item: ReturnType<typeof getPaginationItems>[number];
-  page: number;
-  pageHref: (page: number) => string;
-}) {
-  if (item === "ellipsis-before" || item === "ellipsis-after") {
-    return <li><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>;
-  }
-  const isCurrent = item === page;
-  return (
-    <li>
-      <Link aria-current={isCurrent ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: isCurrent ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: isCurrent ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link>
-    </li>
   );
 }
 

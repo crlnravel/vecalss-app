@@ -4,10 +4,10 @@ import { useActionState, useState } from "react";
 
 import type { ExamEvent } from "@/generated/prisma/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { ModeCardTabs } from "@/components/ui/mode-card-tabs";
 import type { ModeCardTabItem } from "@/components/ui/mode-card-tabs";
-import { Plus, UserPlus, Users } from "@/lib/icons";
+import styles from "./reui-directory-grid.module.css";
+import { UserPlus, Users } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
 import { CreateStudentForm } from "./create-student-form";
@@ -37,10 +37,12 @@ const modeTabs = [
 
 function AddStudentDialog({
   examEvents,
+  initialMode = "single",
 }: {
   examEvents: Array<Pick<ExamEvent, "id" | "name">>;
+  initialMode?: AddStudentMode;
 }) {
-  const [mode, setMode] = useState<AddStudentMode>("single");
+  const [mode, setMode] = useState<AddStudentMode>(initialMode);
   const [open, setOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [singleState, singleFormAction, singleBusy] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
@@ -59,7 +61,7 @@ function AddStudentDialog({
     }
 
     if (!nextOpen) {
-      setMode("single");
+      setMode(initialMode);
       setBulkBusy(false);
       setAcknowledgedHandoffId(null);
     }
@@ -71,14 +73,14 @@ function AddStudentDialog({
       <DialogTrigger
         render={
           <button
-             aria-label="Tambah siswa"
-            className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
-             title="Tambah siswa"
+             aria-label={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
+            className={initialMode === "bulk" ? styles.button : styles.primaryButton}
+             title={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
             type="button"
           />
         }
       >
-        <Plus aria-hidden="true" size={18} />
+        {initialMode === "bulk" ? "Impor" : "Tambah siswa"}
       </DialogTrigger>
 
       <DialogContent
