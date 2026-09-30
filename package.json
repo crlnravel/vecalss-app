@@ -184,7 +184,8 @@
     "test:guard-assessment-prototype-reset-postlock": "node scripts/test-guard-assessment-prototype-reset-concurrency.mjs post",
     "test:suite-manifest": "tsx scripts/test-suite-manifest.ts",
     "verify": "pnpm lint && pnpm build",
-    "doctor": "npx react-doctor@latest --project vecalss-app"
+    "doctor": "npx react-doctor@latest --project vecalss-app",
+    "test:mentor-quiz-dashboard": "tsx scripts/test-mentor-quiz-dashboard.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1089.0",
