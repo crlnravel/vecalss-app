@@ -7,10 +7,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Match the standard 16px browser-default sizes without changing rem-based layout dimensions. */
+  /* Match 12px secondary and 14px normal text without changing rem-based layout dimensions. */
   --text-xs: 0.8rem;
   --text-sm: 0.9333333333333333rem;
-  --text-base: 1.0666666666666667rem;
+  --text-base: 0.9333333333333333rem;
 }
 
 @theme inline {
