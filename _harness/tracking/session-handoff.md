@@ -1,5 +1,13 @@
 # Session Handoff
 
+## Current refinement — Admin directory green surfaces (2026-10-01)
+
+- User asked for greenish background, padding, rounded border and Vecalss styling, while retaining the current components.
+- Added Sea-Glass Wash outer surfaces with 24px desktop / 16px mobile padding, 20px corners and Soft Border on student/Kapten/affiliator directories. Applied existing green text, primary action, focus and hover tokens. Table implementation and behavior remain unchanged.
+- Source commits: `13371ef` and the following token/brief correction commit.
+- Verification: scoped palette-variable, CSS-balance and wrapper checks pass; `git diff --check` passes. Browser/full suites were not rerun for this styling-only refinement. Existing full-verification blockers from the prior handoff remain.
+- No Node/package launches, background processes or component replacements. Unrelated worktree changes preserved.
+
 ## Current handoff — ReUI admin directory tables (2026-10-01)
 
 - Objective: match the linked ReUI Members table on `/admin/enrollment`, `/admin/kapten`, and `/admin/affiliators` using independent table markup/styles.

@@ -1,5 +1,10 @@
 # Session Progress Log
 
+## Admin directory green surface refinement (2026-10-01)
+
+- [x] Added green-tinted background, padded rounded border and existing Vecalss color tokens to all three admin directories without changing components or behavior.
+- [x] Static palette/CSS/wrapper checks and `git diff --check` pass. No browser or package checks rerun for this styling-only change.
+
 ## ReUI admin directory tables (2026-10-01)
 
 - [x] Replaced student, Kapten, and affiliator table UI with the user-requested isolated ReUI preview styling; source commit `4383d3f`.
