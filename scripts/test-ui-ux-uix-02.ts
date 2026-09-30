@@ -96,24 +96,24 @@ includes(copyValue, "disabled={masked}", "Masked admin values must disable copy.
 includes(copyValue, "Nilai tersamarkan tidak dapat disalin", "Masked copy must provide a truthful outcome.");
 
 const settingsPage = read("app/mentor/settings/page.tsx");
-const settingsModule = read("modules/mentor/KaptenContentPageModules.tsx");
+const settingsModule = read("modules/mentor/KaptenSettingsPageModule.tsx");
 const settingsActions = read("modules/mentor/settings-actions.ts");
 includes(settingsPage, "initialSettings={settings}", "Settings page must pass server-read settings to the form.");
 includes(settingsModule, "Nama profil", "Settings must expose the supported profile name field.");
-includes(settingsModule, "Email tutor", "Settings must expose the supported tutor email field.");
-includes(settingsModule, "Subjek utama", "Settings must expose the supported subject field.");
-includes(settingsModule, "Bahasa konten", "Settings must expose the supported content language field.");
-includes(settingsModule, "User ID hanya untuk referensi", "User ID must be read-only and clearly labelled.");
-includes(settingsModule, "Perubahan belum disimpan.", "Settings must disclose dirty state.");
-includes(settingsModule, "Simpan pengaturan", "Settings must expose a save action.");
+includes(settingsModule, "Email login", "Settings must explain the account login identity.");
+excludes(settingsModule, 'updateDraft("email"', "Login identity must not be editable in profile settings.");
+excludes(settingsModule, "Subjek utama", "Unused teaching defaults must not be exposed.");
+excludes(settingsModule, "Bahasa konten", "Unused language preferences must not be exposed.");
+includes(settingsModule, "Salin ID akun", "Account ID must be copyable as account information.");
+includes(settingsModule, "Ada perubahan yang belum disimpan", "Settings must disclose dirty state.");
+includes(settingsModule, "Perubahan tersimpan", "Settings must retain save feedback in the page.");
+includes(settingsModule, "Simpan perubahan", "Settings must expose a save action.");
 includes(settingsModule, "Batal", "Settings must expose a cancel action.");
 includes(settingsModule, "saveKaptenSettingsAction", "Settings must persist through a server action.");
-excludes(settingsModule, "ProfilePhotoEditor", "Settings must keep the supported setting set exact.");
-includes(settingsActions, "prisma.$transaction", "Settings writes must be atomic.");
+includes(settingsModule, "showSearch={false}", "Settings must omit nonfunctional search.");
+includes(settingsActions, 'data: { fullName: profileName }', "The atomic profile write must only change the name.");
+excludes(settingsActions, "systemConfig", "Profile settings must not persist unused teaching preferences.");
 includes(settingsActions, 'revalidatePath("/mentor/settings")', "Settings writes must revalidate the server page.");
-for (const field of ["profileName", "email", "subjectCode", "contentLanguage"]) {
-  includes(settingsActions, field, `Settings action must support ${field}.`);
-}
 includes(settingsActions, "requireTutorSession", "Settings reads and writes must derive identity from the authenticated tutor session.");
 
 const studentDetail = read("modules/admin/StudentDetailPageModule.tsx");
