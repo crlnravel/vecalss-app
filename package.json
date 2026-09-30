@@ -185,7 +185,8 @@
     "test:suite-manifest": "tsx scripts/test-suite-manifest.ts",
     "verify": "pnpm lint && pnpm build",
     "doctor": "npx react-doctor@latest --project vecalss-app",
-    "test:mentor-quiz-dashboard": "tsx scripts/test-mentor-quiz-dashboard.ts"
+    "test:mentor-quiz-dashboard": "tsx scripts/test-mentor-quiz-dashboard.ts",
+    "test:mentor-quiz-dashboard-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-mentor-quiz-dashboard-db.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1089.0",

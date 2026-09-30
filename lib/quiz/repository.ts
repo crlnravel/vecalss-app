@@ -3767,6 +3767,42 @@ async function detachStandaloneQuizAssembly(
     return toKaptenQuiz(saved);
   });
 }
+/** Lightweight catalogue metadata; only compare content for quizzes with both a live and editing definition. */
+export async function getMentorQuizCatalogueRecords(tutorId: string, client: Prisma.TransactionClient = prisma) {
+  const records = await client.standaloneQuiz.findMany({
+    where: { createdByUserId: tutorId },
+    select: {
+      id: true, title: true, status: true, isHidden: true, updatedAt: true,
+      subtest: { select: { code: true, name: true } },
+      _count: { select: { items: { where: { quizVersionId: null } } } },
+      versions: { where: { state: { in: ["active", "draft"] } }, select: {
+        id: true, state: true, title: true, _count: { select: { items: true } },
+      } },
+    },
+  });
+  const versioning = isStandaloneQuizVersioningCutoverEnabled();
+  const comparisonIds = versioning ? records.filter(record => record.versions.some(v => v.state === "active") && record.versions.some(v => v.state === "draft")).flatMap(record => record.versions.map(v => v.id)) : [];
+  const versions = comparisonIds.length ? await client.standaloneQuizVersion.findMany({
+    where: { id: { in: comparisonIds } }, include: quizVersionItemsInclude,
+  }) : [];
+  const definitions = new Map(versions.map(version => [version.id, version]));
+  return records.map(record => {
+    const active = record.versions.find(v => v.state === "active");
+    const draft = record.versions.find(v => v.state === "draft");
+    const activeDefinition = active && definitions.get(active.id);
+    const draftDefinition = draft && definitions.get(draft.id);
+    return {
+      id: record.id, title: record.title, editingTitle: draft?.title ?? record.title,
+      subjectCode: record.subtest.code, subjectName: record.subtest.name,
+      questionCount: versioning ? (active ?? draft)?._count.items ?? record._count.items : record._count.items,
+      publication: record.status === "archived" ? "archived" as const : versioning && !active ? "unpublished" as const : "published" as const,
+      isHidden: record.isHidden,
+      hasUnpublishedChanges: Boolean(activeDefinition && draftDefinition && assessmentVersionChanged(activeDefinition, draftDefinition)),
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  });
+}
+
 async function getMentorStandaloneQuizzes(tutorId: string) {
   if (isStandaloneQuizVersioningCutoverEnabled()) {
     const records = await prisma.standaloneQuiz.findMany({
