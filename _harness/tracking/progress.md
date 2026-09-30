@@ -1,5 +1,10 @@
 # Session Progress Log
 
+## Bank Soal settings tab label (2026-09-30)
+
+- [x] Renamed the Bank Soal detail tab from “Administrasi” to “Pengaturan”; the section heading and contents remain unchanged.
+- [x] Committed as `f60f802`. The scoped `git diff --check` passed; no tests or browser checks were run.
+
 ## React Doctor cleanup (2026-09-30)
 
 - [x] Reduced the initial React Doctor baseline from 220 findings across 940

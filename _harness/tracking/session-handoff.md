@@ -1,6 +1,14 @@
 # Session Handoff
 
-## Current handoff — React Doctor cleanup (2026-09-30)
+## Current handoff — Bank Soal tab label (2026-09-30)
+
+- Objective: change the Bank Soal detail tab title from “Administrasi” to “Pengaturan”.
+- Completed: updated only the tab trigger label in `modules/mentor/KaptenQuestionBankDetailPageModule.tsx`; the `pengaturan` tab value, section heading, and contents remain unchanged.
+- Commit: `f60f802` (`Rename Bank Soal settings tab`).
+- Verification: scoped `git diff --check` passed. No tests or browser checks were run.
+- Next: none for this request.
+
+## Previous handoff — React Doctor cleanup (2026-09-30)
 
 - Objective: clear all React Doctor diagnostics across the application.
 - Source work: the scan baseline of 220 findings across 940 files (score 64)
