@@ -47,7 +47,7 @@ const mentorRootHrefByLabel: Record<string, string> = {
   "Bank Soal Tryout": "/mentor/quiz/question-bank?purpose=tryout",
   Tryout: "/mentor/tryout",
   Media: "/mentor/media",
-  Report: "/mentor/report",
+  Laporan: "/mentor/report",
   Pengaturan: "/mentor/settings",
 };
 

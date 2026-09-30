@@ -4,7 +4,7 @@ import { requireTutorSession } from "@/lib/auth/access";
 import { MentorReportPageModule } from "@/modules/mentor/MentorReportPageModule";
 
 export const metadata: Metadata = {
-  title: "Report Kapten | Vecalss LMS",
+  title: "Laporan Kapten | Vecalss LMS",
 };
 
 export default async function MentorReportPage() {

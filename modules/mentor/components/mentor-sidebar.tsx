@@ -62,7 +62,7 @@ const kaptenTryoutNavigation: KaptenNavigationItem[] = [
 
 const kaptenUtilityNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/media", icon: ImageIcon, label: "Media" },
-  { href: "/mentor/report", icon: Flag, label: "Report" },
+  { href: "/mentor/report", icon: Flag, label: "Laporan" },
   { href: "/mentor/settings", icon: Settings, label: "Pengaturan" },
 ];
 

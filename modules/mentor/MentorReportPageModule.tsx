@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 
 import {
   ReferencePageHeader,
@@ -12,6 +12,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import {
   Field,
   FieldInput,
@@ -19,7 +20,6 @@ import {
   FieldTextarea,
 } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
-import { Upload } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -38,9 +38,10 @@ const reportFeatureOptions = [
 ] as const;
 
 function MentorReportPageModule({ session }: { session: SessionContext }) {
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputId = useId();
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const [feature, setFeature] = useState("");
-  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -53,9 +54,8 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
 
     try {
       const formData = new FormData(form);
-      if (!attachmentInputRef.current?.files?.length) {
-        formData.delete("attachment");
-      }
+      if (attachment) formData.set("attachment", attachment);
+      else formData.delete("attachment");
 
       const result = await submitMentorReportAction(formData);
 
@@ -66,7 +66,8 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
       if (result.ok) {
         form.reset();
         setFeature("");
-        setAttachmentName(null);
+        if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+        setAttachment(null);
       }
     } catch {
       showToast("Laporan belum terkirim. Coba lagi.", { variant: "error" });
@@ -75,22 +76,15 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
     }
   }
 
-  function clearAttachment() {
-    if (attachmentInputRef.current) {
-      attachmentInputRef.current.value = "";
-    }
-    setAttachmentName(null);
-  }
-
   return (
     <MentorWorkspaceShell
-      activeLabel="Report"
-      breadcrumbLabel="Report"
+      activeLabel="Laporan"
+      breadcrumbLabel="Laporan"
       mainClassName="max-w-[960px] gap-6"
       session={session}
       sidebarAppearance="reference"
     >
-      <ReferencePageHeader title="Report" />
+      <ReferencePageHeader title="Laporan" />
 
       <form className="min-w-0" onSubmit={handleSubmit}>
         <ReferenceSurface
@@ -174,7 +168,7 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
                 htmlFor="mentor-report-description"
                 required
               >
-                Apa yang terjadi?
+                Laporan bug/Saran fitur
               </FieldLabel>
               <FieldTextarea
                 className={cn(
@@ -193,66 +187,20 @@ function MentorReportPageModule({ session }: { session: SessionContext }) {
             <Field className="sm:col-span-2">
               <FieldLabel
                 className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-                htmlFor="mentor-report-attachment"
+                htmlFor={attachmentInputId}
               >
                 Lampiran
               </FieldLabel>
-              <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center">
-                <input
-                  aria-describedby="mentor-report-attachment-help"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
-                  className="peer sr-only"
-                  id="mentor-report-attachment"
-                  name="attachment"
-                  disabled={isSubmitting}
-                  onChange={(event) => {
-                    setAttachmentName(
-                      event.currentTarget.files?.[0]?.name ?? null,
-                    );
-                  }}
-                  ref={attachmentInputRef}
-                  type="file"
-                />
-                <label
-                  className={cn(
-                    REFERENCE_CONTROL_CLASS_NAMES.file,
-                    isSubmitting
-                      ? "cursor-not-allowed opacity-55"
-                      : "cursor-pointer peer-focus-visible:border-primary-500/65 peer-focus-visible:ring-4 peer-focus-visible:ring-primary-700/15",
-                  )}
-                  htmlFor="mentor-report-attachment"
-                >
-                  <Upload
-                    aria-hidden="true"
-                    className="size-4 text-primary-800"
-                  />
-                  <span>Pilih file</span>
-                </label>
-                <p
-                  className="text-sm leading-6 text-secondary-500"
-                  id="mentor-report-attachment-help"
-                >
-                  JPG, PNG, GIF, WebP, atau PDF; maksimal 10 MB.
-                </p>
-              </div>
-
-              {attachmentName ? (
-                <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="min-w-0 break-all text-sm leading-6 text-secondary-700">
-                    {attachmentName}
-                  </p>
-                  <Button
-                    className="min-h-11 shrink-0 self-start sm:self-auto"
-                    onClick={clearAttachment}
-                    disabled={isSubmitting}
-                    size="sm"
-                    type="button"
-                    variant="brandOutline"
-                  >
-                    Hapus lampiran
-                  </Button>
-                </div>
-              ) : null}
+              <FileUploadSlot
+                accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
+                disabled={isSubmitting}
+                dropZoneClassName="min-h-44 sm:min-h-64"
+                file={attachment}
+                id={attachmentInputId}
+                inputRef={attachmentInputRef}
+                maxSizeLabel="JPG, PNG, GIF, WebP, atau PDF; maksimal 10 MB."
+                onChange={setAttachment}
+              />
             </Field>
           </div>
 
