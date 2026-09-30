@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## ReUI admin directory tables (2026-10-01)
+
+- [x] Replaced student, Kapten, and affiliator table UI with the user-requested isolated ReUI preview styling; source commit `4383d3f`.
+- [x] Approved desktop/mobile browser checks exercised sorting/search/pagination/filters/previews/add/import controls and closed the browser session.
+- [x] Focused ESLint and enrollment contract pass. Full verification/typechecking and the operations contract remain blocked by existing unrelated failures (see current handoff).
+- [ ] Consume independent Standards/Spec review replies when delivered.
+
 ## Bank Soal settings tab label (2026-09-30)
 
 - [x] Renamed the Bank Soal detail tab from “Administrasi” to “Pengaturan”; the section heading and contents remain unchanged.

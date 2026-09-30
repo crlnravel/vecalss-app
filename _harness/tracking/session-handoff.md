@@ -1,5 +1,18 @@
 # Session Handoff
 
+## Current handoff — ReUI admin directory tables (2026-10-01)
+
+- Objective: match the linked ReUI Members table on `/admin/enrollment`, `/admin/kapten`, and `/admin/affiliators` using independent table markup/styles.
+- Completed: compact Inter toolbar/table/footer; name/avatar cells and hover actions; dot statuses; neutral separators; sorting/search/filter/page controls. Existing student/Kapten server queries, previews, account actions, import/add dialogs remain wired. Affiliator uses its already-loaded records for controls. No new runtime dependencies.
+- Commit: `4383d3f` on `dev`. All unrelated dirty files remain unstaged and unchanged by this task.
+- Verification: Focused ESLint: pass. test:admin-enrollment: pass. test:admin-operations: fails on an existing assertion in scripts/test-admin-operations-contract.ts:23 expecting removed Admin dashboard operationKeys. Full pnpm verify: fails before build on four existing mentor ESLint errors. Full tsc --noEmit: fails in existing assessment, mentor, student preview, upload-slot, and other unrelated files; no errors in changed directory files.
+- Browser: user-approved ego-browser Admin session. Desktop/mobile screenshots captured at 1440×1000 and 390×844. Confirmed 14px Inter, 32px headers, 53px rows; student search/sort/pagination/status/date filters, student/Kapten previews, Kapten status filter, affiliator sort/empty search, and all add/import triggers. No records created/deleted. Browser TaskSpace 4 finished and closed. Student/Kapten document widths equal 390; affiliator reports 432 while the screenshot and element inspection show no visible element outside its grid. This remains a measurement limitation.
+- Evidence: `/tmp/reui-final-browser.log`, `/tmp/reui-browser-check.log`, `/tmp/reui-final-lint.log`, `/tmp/reui-types.log`, `/tmp/reui-verify.log`, `/tmp/admin-{enrollment,kapten,affiliators}-final-{desktop,mobile}.png`.
+- Decisions: live deployed preview differs from current GitHub demo. Live preview governs; isolated light reference styling within light admin portal. User’s 1-to-1 instruction intentionally overrides table token/shared-primitive rules; DESIGN.md stays unchanged. Initials stand in for unavailable portrait data; no demo billing/auth claims or unsupported account operations.
+- Permissions: user approved gpt-6.1-sol for this task, ego-browser reference/admin routes and checklist, and up to 12 normal guarded launches. No emergency mode or bypass was used; no agent-owned server was started.
+- Review: two independent Luna/max review agents were requested for Standards and Spec; their replies have not yet arrived at this handoff.
+- Next: address the independent reviews when delivered. Global verification needs the pre-existing repository errors resolved separately.
+
 ## Current handoff — Bank Soal tab label (2026-09-30)
 
 - Objective: change the Bank Soal detail tab title from “Administrasi” to “Pengaturan”.
