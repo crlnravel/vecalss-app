@@ -27,11 +27,18 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ClipboardList } from "@/lib/icons";
+import { ClipboardList, LayoutGrid } from "@/lib/icons";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 import { StudentAccountMenu, type AccountMenuUser } from "@/modules/student/components/student-account-menu";
 
-function DeveloperNavigation({ isDetailPage }: { isDetailPage: boolean }) {
+type DeveloperWorkspacePage = "reports" | "components";
+
+const developerNavigationItems = [
+  { page: "reports", label: "Laporan", href: "/developer/reports", icon: ClipboardList },
+  { page: "components", label: "Komponen", href: "/developer/components", icon: LayoutGrid },
+] as const;
+
+function DeveloperNavigation({ activePage, isDetailPage }: { activePage: DeveloperWorkspacePage; isDetailPage: boolean }) {
   const { isMobile, setOpenMobile, state } = useSidebar();
   const isCollapsed = !isMobile && state === "collapsed";
   const toggleLabel = isMobile ? "Tutup navigasi" : isCollapsed ? "Buka navigasi" : "Ciutkan navigasi";
@@ -60,20 +67,22 @@ function DeveloperNavigation({ isDetailPage }: { isDetailPage: boolean }) {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
+              {developerNavigationItems.map((item) => (
+              <SidebarMenuItem key={item.page}>
                 <SidebarMenuButton
                   className="h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none! group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
-                  isActive
-                  render={<Link aria-current={isDetailPage ? undefined : "page"} aria-label="Laporan" href="/developer/reports" />}
+                  isActive={activePage === item.page}
+                  render={<Link aria-current={activePage === item.page && !isDetailPage ? "page" : undefined} aria-label={item.label} href={item.href} />}
                   onClick={() => setOpenMobile(false)}
-                  tooltip="Laporan"
+                  tooltip={item.label}
                 >
-                  <span className="flex size-4 shrink-0 items-center justify-center group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]">
-                    <ClipboardList aria-hidden="true" className="size-5" />
+                  <span className={`flex size-4 shrink-0 items-center justify-center group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full ${activePage === item.page ? "group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]" : "group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:text-secondary-500"}`}>
+                    <item.icon aria-hidden="true" className="size-5" />
                   </span>
-                  <span className="group-data-[collapsible=icon]:hidden">Laporan</span>
+                  <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -90,10 +99,12 @@ function DeveloperNavigation({ isDetailPage }: { isDetailPage: boolean }) {
 }
 
 function DeveloperWorkspaceShell({
+  activePage = "reports",
   children,
   isDetailPage = false,
   accountUser,
 }: {
+  activePage?: DeveloperWorkspacePage;
   children: ReactNode;
   isDetailPage?: boolean;
   accountUser: AccountMenuUser;
@@ -101,7 +112,7 @@ function DeveloperWorkspaceShell({
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
       <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
-        <DeveloperNavigation isDetailPage={isDetailPage} />
+        <DeveloperNavigation activePage={activePage} isDetailPage={isDetailPage} />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
           <header aria-label="Header workspace Developer" className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border">
@@ -111,9 +122,9 @@ function DeveloperWorkspaceShell({
               <Breadcrumb className="hidden min-w-0 flex-1 md:block">
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    {isDetailPage ? <BreadcrumbLink href="/developer/reports">Laporan</BreadcrumbLink> : <BreadcrumbPage>Laporan</BreadcrumbPage>}
+                    {activePage === "components" ? <BreadcrumbPage>Komponen</BreadcrumbPage> : isDetailPage ? <BreadcrumbLink href="/developer/reports">Laporan</BreadcrumbLink> : <BreadcrumbPage>Laporan</BreadcrumbPage>}
                   </BreadcrumbItem>
-                  {isDetailPage ? (
+                  {isDetailPage && activePage === "reports" ? (
                     <>
                       <BreadcrumbSeparator />
                       <BreadcrumbItem><BreadcrumbPage>Detail laporan</BreadcrumbPage></BreadcrumbItem>

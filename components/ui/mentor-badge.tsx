@@ -19,18 +19,24 @@ type MentorBadgeProps = React.ComponentProps<"span"> &
 
 function MentorBadge({
   className,
+  depth,
   size = "sm",
   tone = "neutral",
   ...props
 }: MentorBadgeProps) {
   const variantSize = size === "compact" ? "xs" : size;
+  const depthClassName =
+    depth === undefined
+      ? "shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]"
+      : undefined;
 
   return (
     <span
       data-slot="mentor-badge"
       className={cn(
-        studentBadgeVariants({ size: variantSize, tone }),
-        "border-0 font-medium shadow-[inset_0_-2px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
+        studentBadgeVariants({ depth, size: variantSize, tone }),
+        "border-0 font-medium",
+        depthClassName,
         MENTOR_BADGE_SIZE_CLASS_NAMES[size ?? "sm"],
         className,
       )}
