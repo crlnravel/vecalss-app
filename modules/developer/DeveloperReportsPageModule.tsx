@@ -15,7 +15,7 @@ function DeveloperReportsPageModule({
   return (
     <DeveloperWorkspaceShell accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
       <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-reports-title">
-        <ReferencePageHeader title={<span id="developer-reports-title">Laporan</span>} />
+        <ReferencePageHeader id="developer-reports-title" title="Laporan" />
 
         <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white">
           <div className="flex items-center justify-between gap-4 border-b border-primary-100 px-4 py-5 sm:px-5">
