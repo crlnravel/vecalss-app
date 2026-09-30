@@ -239,15 +239,15 @@ includes(vera, "motion-reduce:animate-none", "Vera loading animation must respec
 includes(vera, 'size="icon"', "Vera compact controls must meet the 44px target.");
 
 const materi = read("modules/mentor/KaptenMateriCataloguePageModules.tsx");
-const quiz = read("modules/mentor/KaptenQuizCataloguePageModules.tsx");
+const quiz = read("modules/mentor/quiz-dashboard.module.css");
 const tryout = read("modules/mentor/KaptenTryoutCataloguePageModule.tsx");
 const mentorContent = read("modules/mentor/KaptenContentPageModules.tsx");
 
 includes(materi, "items-center px-5 py-8 text-center", "Materi empty states must align their recovery content centrally.");
 includes(materi, 'size="default"', "Materi primary controls must meet the 44px target.");
-includes(quiz, 'size="icon"', "Quiz selection controls must meet the 44px target.");
-includes(quiz, 'size="default"', "Quiz lifecycle controls must meet the 44px target.");
-includes(quiz, "motion-reduce:transition-none", "Quiz catalogue transitions must respect reduced motion.");
+includes(quiz, "@media(pointer:coarse)", "Quiz controls adapt to coarse pointers.");
+includes(quiz, "min-height:44px", "Quiz actions meet touch target sizes.");
+includes(quiz, "@media(prefers-reduced-motion:reduce)", "Quiz catalogue respects reduced motion.");
 includes(tryout, 'size="default"', "Tryout catalogue actions must meet the 44px target.");
 includes(tryout, "motion-reduce:transition-none", "Tryout catalogue transitions must respect reduced motion.");
 includes(mentorContent, 'size="default"', "Kapten content actions must meet the 44px target.");
@@ -312,7 +312,7 @@ check(compactHeaderGeometry.contentWidth === 278, "390px fullscreen header retai
 check(compactHeaderGeometry.brandRow.bottom <= compactHeaderGeometry.controlsRow.top, "390px fullscreen brand and controls occupy separate rows.");
 check(compactHeaderGeometry.controlsRow.bottom <= 390, "390px fullscreen controls remain inside the viewport contract.");
 check(
-  /motion-safe:group-hover:[^\s"]+/.test(quiz) && /motion-reduce:[^\s"]*translate/.test(quiz),
+  quiz.includes("transition:none"),
   "Rendered quiz hover transforms have an explicit reduced-motion reset.",
 );
 check(

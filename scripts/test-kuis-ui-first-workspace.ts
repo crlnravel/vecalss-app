@@ -15,8 +15,11 @@ const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, pick
   readFile(`${root}/lib/quiz/repository.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizResultsPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizSubmissionPageModule.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenQuizCataloguePageModules.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenQuizDashboardPageModule.tsx`, "utf8"),
 ]);
+assert.match(detail, /breadcrumbParent=\{\{ href: returnHref, label: "Daftar kuis" \}\}/u, "detail returns to the filtered dashboard");
+assert.match(detail, /returnTo: returnHref/u, "tab navigation preserves dashboard context");
+assert.match(quizCatalogue, /useReactTable/u, "the quiz dashboard uses the headless grid");
 const actions = await readFile(`${root}/modules/mentor/quiz-actions.ts`, "utf8");
 
 // Guard client-visible Kuis surfaces. Legacy source identifiers may remain in
@@ -28,16 +31,12 @@ for (const [label, source] of [["detail route", detailRoute], ["editor route", e
 }
 
 assert.match(detailRoute, /searchParams: Promise/u, "detail route must accept a deep-linked tab");
-assert.match(detail, /const subjectHref = subject\s*\?\s*`\/mentor\/quiz\/subject\/\$\{subject\.slug\}`\s*:\s*"\/mentor\/quiz";/u, "detail back navigation must derive the subject route");
-assert.match(detail, /render=\{<Link href=\{subjectHref\} \/>\}/u, "detail back navigation must target the subject route");
 assert.match(detail, /breadcrumbLabel="Detail Kuis"/u, "detail breadcrumb must use the detail label");
-assert.match(detail, /breadcrumbParent=\{\s*subject\s*\?\s*\{\s*href:\s*subjectHref,\s*label:\s*subject\.code\s*\}\s*:\s*undefined\s*\}/u, "detail breadcrumb must include the subject parent");
 assert.match(detail, /value="preview"/u, "detail must expose Preview Soal");
 assert.match(detail, /value="preview"[\s\S]*?>\s*Soal\s*<\/FullWidthLineTabsTrigger>/u, "detail must label the question tab Soal");
 assert.match(detail, /value="hasil"/u, "detail must expose Hasil");
 assert.match(detail, /value="hasil"[\s\S]*?>\s*Hasil\s*<\/FullWidthLineTabsTrigger>/u, "Hasil tab must remain text-only");
 assert.match(detail, /value="pengaturan"/u, "detail must expose Pengaturan");
-assert.match(detail, /router\.push\(`\/mentor\/quiz\/\$\{quiz\.id\}\?tab=\$\{next\}`/u, "detail tab selection must preserve URL history");
 assert.match(detail, /Edit soal/u, "detail must expose the dedicated editor action");
 assert.match(editorRoute, /KaptenQuizEditorPageModule/u, "editor route must render the dedicated editor");
 assert.match(editor, /Daftar soal/u, "editor must expose a question inventory");
@@ -123,18 +122,6 @@ assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untu
 assert.match(detail, /<MentorBadge size="xs" tone="category">[\s\S]*?\{subject\s*\?\s*`\$\{subject\.code\} · \$\{subject\.name\}`\s*:\s*value\}[\s\S]*?<\/MentorBadge>/u, "Kuis metadata must use the Bank Soal subject chip sizing");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.match(detail, /Arsipkan Kuis[\s\S]*updateStandaloneQuizLifecycleAction/u, "Kuis detail must expose its archive lifecycle action");
-assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");
-assert.match(quizCatalogue, /grid min-w-0 gap-4 p-5/u, "quiz rows must use Tryout-style card sizing");
-assert.match(quizCatalogue, /<span className="mt-0\.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">/u, "quiz rows must use the Tryout-style icon treatment");
-assert.match(quizCatalogue, /<ListChecks aria-hidden="true" className="size-5" \/>/u, "quiz rows must show the quiz icon");
-assert.match(quizCatalogue, /<h2 className="truncate text-base font-semibold text-secondary-900">/u, "quiz row titles must use Tryout-style sizing");
-assert.match(quizCatalogue, /<div className="mt-1 flex flex-wrap items-center gap-2">/u, "quiz row badges must sit beneath the title");
-assert.match(quizCatalogue, /<ReferenceStatusBadge[\s\S]*?appearance="mentor"[\s\S]*?size="sm"[\s\S]*?status=\{quiz\.status\}[\s\S]*?\/>/u, "quiz row badges must use Tryout-style sizing");
-assert.match(quizCatalogue, /aria-label=\{`Buka \$\{quiz\.title\}`\}/u, "quiz rows must provide a direct open action");
-assert.match(quizCatalogue, /<ChevronRight\s+aria-hidden/u, "quiz rows must use the Tryout-style trailing chevron");
-assert.doesNotMatch(quizCatalogue, /<Archive|>Arsipkan<|>Pulihkan</u, "subject catalogue must not expose archive lifecycle actions");
-assert.doesNotMatch(quizCatalogue, /Lihat hasil siswa|aria-label="Edit quiz"|Aksi untuk \$\{quiz\.title\}|<Ellipsis/u, "quiz rows must not expose row-level action controls");
-assert.doesNotMatch(quizCatalogue, /<span>\{quiz\.primaryMetric\}<\/span>|quizDateFormatter/u, "quiz rows must not repeat metadata below the title");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");

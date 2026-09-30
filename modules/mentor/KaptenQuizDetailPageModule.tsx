@@ -877,12 +877,14 @@ function KaptenQuizDetailPageContent({
   initialQuiz,
   initialResults,
   initialTab = "preview",
+  returnHref = "/mentor/quiz",
   session,
 }: {
   initialQuestions: QuizQuestionSnapshot[];
   initialQuiz: KaptenQuiz;
   initialResults: KaptenQuizResultsData;
   initialTab?: QuizDetailTab;
+  returnHref?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
@@ -906,7 +908,7 @@ function KaptenQuizDetailPageContent({
       return;
     const next = value as QuizDetailTab;
     setActiveTab(next);
-    router.push(`/mentor/quiz/${quiz.id}?tab=${next}`, { scroll: false });
+    router.push(`/mentor/quiz/${quiz.id}?${new URLSearchParams({ tab: next, returnTo: returnHref })}`, { scroll: false });
   }
 
   async function saveSettings() {
@@ -1033,18 +1035,13 @@ function KaptenQuizDetailPageContent({
     }
   }
 
-  const subject = kaptenSubjects.find((item) => item.code === quiz.subjectCode);
-  const subjectHref = subject
-    ? `/mentor/quiz/subject/${subject.slug}`
-    : "/mentor/quiz";
+
 
   return (
     <MentorWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel="Detail Kuis"
-      breadcrumbParent={
-        subject ? { href: subjectHref, label: subject.code } : undefined
-      }
+      breadcrumbParent={{ href: returnHref, label: "Daftar kuis" }}
       contentElement="div"
       mainClassName="max-w-[1500px] gap-7"
       session={session}
@@ -1128,6 +1125,7 @@ function KaptenQuizDetailPageModule(props: {
   initialQuiz: KaptenQuiz;
   initialResults: KaptenQuizResultsData;
   initialTab?: QuizDetailTab;
+  returnHref?: string;
   session: SessionContext;
 }) {
   return (
