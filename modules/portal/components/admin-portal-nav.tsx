@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Share2,
   Sparkles,
+  TableIcon,
   Users,
 } from "@/lib/icons";
 
@@ -32,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "ai" | "students" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
+type AdminSection = "overview" | "ai" | "students" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs" | "table-demo";
 
 type AdminNavigationItem = {
   href: string;
@@ -46,6 +47,7 @@ const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin/ai", icon: Sparkles, id: "ai", label: "Vera AI" },
   { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Kirim notifikasi" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Riwayat audit" },
+  { href: "/admin/table-demo", icon: TableIcon, id: "table-demo", label: "Demo tabel" },
 ];
 
 const adminDirectoryNavigation: AdminNavigationItem[] = [
