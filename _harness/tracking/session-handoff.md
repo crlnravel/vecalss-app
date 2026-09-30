@@ -1305,3 +1305,14 @@
   outside this unit and must not be reset or staged with it.
 - Next step: fix the Tryout workspace header key in its owning workstream,
   then rerun the repository-wide verify gate before a release claim.
+
+## Current handoff — Developer component catalogue (2026-10-01)
+
+- Implementation: `dev` / `d2fe796`, with 16 explicitly staged catalogue files. Other agents' dirty mentor/admin/upload files were preserved.
+- Intent and decisions: [Catalogue brief](/Users/ravel/.traycer/epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/developer-component-catalogue/index.md).
+- The committed shell uses `accountUser={id,email,fullName}`, preserving the separate account-switching follow-up. `activePage` defaults to reports; components selects its navigation and breadcrumb.
+- Both `?preview=sidebar` and `?preview=dashboard` branches authenticate before rendering. Tokens read the shipped CSS/classes rather than duplicating values or migrating global styles.
+- Verification: guarded focused ESLint pass; staged diff-check pass; full TypeScript exit 2 with zero catalogue/developer/mentor-badge diagnostics. Full verify previously stopped on unrelated mentor lint errors. Final logs: `/tmp/vecalss-catalogue-lint-final.log`, `/tmp/vecalss-catalogue-types-with-previews.log`.
+- Independent Luna coverage review confirmed 65 sources and 30 section mappings; its P2 linked/interactive dashboard examples are resolved. Standards review fixes are applied; final confirmation was requested asynchronously.
+- Runtime/browser QA and a production build remain unverified. Obscura was unavailable, and ego-browser requires explicit approval for `/developer/components` as Developer, including desktop/mobile, search/categories, computed tokens, keyboard/overlay controls, and sidebar/dashboard previews.
+- Next: run approved browser QA and rerun the production gate after the unrelated repository blockers are resolved. No main-owned Node processes remain.

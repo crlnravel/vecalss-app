@@ -313,6 +313,14 @@
       ],
       "status": "complete",
       "evidence": "4383d3f; focused ESLint and admin enrollment contract pass; authorized desktop/mobile browser checks pass for core controls. Global verification has pre-existing blockers; independent reviews pending."
+    },
+    {
+      "id": "feat-040",
+      "name": "Developer Component and Token Catalogue",
+      "description": "Provide a Developer-only searchable catalogue of existing shared primitives, variants, source references, and live computed design tokens.",
+      "dependencies": ["feat-038"],
+      "status": "complete",
+      "evidence": "d2fe796; 65 shared source files mapped to 30 catalogue sections; Luna extraction and independent coverage review completed, review fixes applied. Guarded focused ESLint and staged diff-check pass; full TypeScript has no catalogue diagnostics but fails outside scope. Full verify stops on unrelated lint errors; production build and browser QA remain unverified."
     }
   ]
 }

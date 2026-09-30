@@ -1107,3 +1107,12 @@ Live refresh/polling. AS-08 remains closed.
   unrelated unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
   `react/jsx-key` error; no Tryout/CAT or other agent-owned files were changed
   for this handoff.
+
+## Developer component catalogue (2026-10-01)
+
+- [x] Committed the isolated catalogue in `d2fe796`: Developer-only `/developer/components`, current account-menu boundary, report/components navigation, 30 searchable groups and a 65-source inventory.
+- [x] Three exact Luna/max workers extracted controls, surfaces, and computed token references; independent coverage review confirmed the complete inventory and resolved its dashboard variant finding.
+- [x] Applied standards findings: keyboard-accessible context menu, exact 44px reaction target, real isolated Sidebar variations and ReferenceDashboard composition.
+- [x] Final guarded focused ESLint and staged whitespace checks pass. Full TypeScript reports no errors in the catalogue or MentorBadge change.
+- [ ] Repository-wide verification remains blocked outside this scope: prior `pnpm verify` stopped on unrelated mentor lint errors; final TypeScript still reports unrelated assessment, upload-slot, and student-preview diagnostics. Production build is unverified.
+- [ ] Browser QA is unverified: Obscura CDP was unavailable, and interactive ego-browser inspection requires route/role/checklist approval. No agent-owned server remains.
