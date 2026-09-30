@@ -9,7 +9,7 @@ related_targets: ["modules/admin/components/reui-directory-grid.module.css","mod
 
 MODE: Operate. Admin scans and manages student, Kapten, and affiliator accounts.
 
-REFERENCE: Exact table visual language from the deployed https://reui.io/preview/base/data-grid-base-6 Members preview. Use the light palette within the existing light Admin portal; neutral table styling is isolated from the surrounding Vecalss shell.
+REFERENCE: Exact table visual language from the deployed https://reui.io/preview/base/data-grid-base-6 Members preview. Keep the ReUI structure within the existing light Admin portal. Per the user’s follow-up, apply Sea-Glass Wash background, Soft Border, 20px outer corners, and padding (24px desktop, 16px mobile), with Voyage Ink/Muted Ink text and Voyage Deep primary actions.
 
 BOUNDARY: User explicitly requested independent table markup and styling rather than existing Vecalss table components. Use Inter at 14px, 32px header rows, 53px body rows, 32px avatars with initials when images are absent, name plus email prefix, understated dividers, hover-revealed existing actions, flat toolbar/footer, and inline status dots. Existing dialog/sheet forms and data contracts remain.
 

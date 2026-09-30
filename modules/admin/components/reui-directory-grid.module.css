@@ -40,7 +40,7 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font: inherit; color: inherit; text-decoration: none; white-space: nowrap; transition: background-color 120ms;
 }
 .button, .primaryButton { height: 32px; padding: 0 10px; border: 1px solid var(--directory-border); border-radius: 10px; background: #fff; font-weight: 500; box-shadow: 0 1px 2px #0000000d; }
-.button:hover { background: var(--voyage-mint-island); }
+.button:hover { background: var(--voyage-sea-glass-wash); }
 .primaryButton { color: var(--voyage-surface); background: var(--voyage-deep); border-color: var(--voyage-deep); }
 .primaryButton:hover { background: var(--voyage-deep-hover); }
 .root :is(button,a,summary):focus-visible, .popup :is(button,a,input):focus-visible { outline: 2px solid var(--voyage-leaf); outline-offset: 2px; }
@@ -49,10 +49,10 @@
 .table th { height: 32px; padding: 0 8px; font-weight: 400; color: var(--directory-muted); border-bottom: 1px solid var(--directory-border); white-space: nowrap; }
 .table td { height: 53px; padding: 6px 8px; vertical-align: middle; white-space: nowrap; }
 .table tbody tr:not(:last-child) td { border-bottom: 1px solid var(--directory-border); }
-.table tbody tr:hover { background: var(--voyage-mint-island); }
+.table tbody tr:hover { background: var(--voyage-canvas); }
 .table tbody tr:focus-within, .table tbody tr[data-focused="true"] { background: var(--voyage-sea-glass); }
 .sortTrigger { height: 24px; padding: 0 8px; margin-left: -8px; border: 0; border-radius: 8px; background: transparent; font-weight: 400; }
-.sortTrigger:hover, .sortTrigger[data-popup-open] { background: var(--voyage-mint-island); }
+.sortTrigger:hover, .sortTrigger[data-popup-open] { background: var(--voyage-canvas); }
 .sortTrigger svg { width: 14px; height: 14px; }
 .member { display: flex; align-items: center; gap: 8px; min-width: 225px; }
 .avatar { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--voyage-surface); border: 1px solid var(--directory-border); font-size: 12px; font-weight: 500; }
@@ -95,7 +95,7 @@
 .dateFields input { font: inherit; padding: 6px 8px; border: 1px solid var(--directory-border); border-radius: 6px; color: var(--directory-ink); background: white; }
 .filterActions { display: flex; justify-content: space-between; gap: 8px; }
 .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; }
-.chip { display: flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--voyage-mint-island); padding: 2px 8px; color: var(--directory-muted); font-size: 12px; }
+.chip { display: flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--voyage-canvas); padding: 2px 8px; color: var(--directory-muted); font-size: 12px; }
 .chip a { color: inherit; display: inline-flex; }
 .clear { color: var(--directory-muted); font-size: 12px; }
 @media (hover: none) { .rowActions { opacity: 1; } }
