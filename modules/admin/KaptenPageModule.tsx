@@ -100,7 +100,7 @@ function KaptenPageModule({
           <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice>
         ) : null}
 
-        <section aria-label="Direktori Kapten" className={styles.root} id="kapten-heading" tabIndex={-1}>
+        <section aria-label="Direktori Kapten" className={`${styles.root} ${styles.surface}`} id="kapten-heading" tabIndex={-1}>
           <KaptenDirectoryTable
             total={total} actions={<><AddKaptenDialog initialMode="bulk" /><AddKaptenDialog /></>} key={directoryQuery}
             direction={direction}

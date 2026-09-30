@@ -184,7 +184,7 @@ function EnrollmentPageModule({
         </p>
         <EnrollmentNotices demo={demo} error={error} notice={notice} />
 
-        <section aria-label="Direktori siswa" className={styles.root} id="students-heading" tabIndex={-1}>
+        <section aria-label="Direktori siswa" className={`${styles.root} ${styles.surface}`} id="students-heading" tabIndex={-1}>
           <StudentDirectoryTable addedFrom={addedFrom} addedTo={addedTo} backQuery={backQuery} dataQuery={directoryQuery}
             demo={demo} direction={direction} focus={focus ?? null} isEmptyDirectory={isEmptyDirectory} key={directoryQuery}
             pageSize={pageSize} search={search} sort={sort} statusFilters={statusFilters} students={students.map(toStudentDirectoryRow)} total={total}

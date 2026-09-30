@@ -42,7 +42,7 @@ function AffiliatorDirectoryTable({ affiliators }: { affiliators: Row[] }) {
     { id: "status", label: "Status akun", sortKey: "status", cell: person => <span className={styles.status} data-status={person.status}>{statusLabel(person.status)}</span> },
     { id: "added", label: "Ditambahkan", sortKey: "added", cell: person => <time className={styles.muted} dateTime={person.createdAt}>{dateFormatter.format(new Date(person.createdAt))}</time> },
   ];
-  return <section className={styles.root} aria-label="Direktori affiliator">
+  return <section className={`${styles.root} ${styles.surface}`} aria-label="Direktori affiliator">
     <ReuiDirectoryGrid caption="Daftar akun affiliator dan performa pembeliannya" title="Affiliator" total={filtered.length} columns={columns} rows={visible} getRowId={person => person.id}
       search={{ action: "/admin/affiliators", label: "Cari affiliator", placeholder: "Cari…", value: search, onValueChange: value => { setSearch(value); setPage(1); } }}
       sort={{ key: sort, direction, onChange: (key, nextDirection) => { setSort(key); setDirection(nextDirection); setPage(1); } }}
