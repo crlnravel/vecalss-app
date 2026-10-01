@@ -35,7 +35,7 @@ export function AiFreshnessBanner({
   const hasPolicySnapshot = Boolean(policyVersion || activatedAt);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-card border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 border border-primary-100">
           <Sparkles className="size-5" />

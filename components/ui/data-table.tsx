@@ -134,7 +134,7 @@ function DataTableFilterChips({
           {filter.href ? (
             <Link
                aria-label={`Hapus filter ${filter.label}`}
-              className="ml-0.5 inline-flex size-[44px] items-center justify-center rounded-control text-secondary-500 transition-colors motion-reduce:transition-none hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
+              className={buttonVariants({ variant: "quiet", size: "icon", className: "ml-0.5" })}
               href={filter.href}
             >
               <X aria-hidden="true" size={13} />
@@ -458,7 +458,7 @@ function DataTableSearchForm({
       {search.value && search.clearHref ? (
         <Link
           aria-label="Hapus pencarian tabel"
-          className="absolute right-0 top-1/2 inline-flex size-[44px] -translate-y-1/2 items-center justify-center rounded-control text-secondary-400 transition-colors motion-reduce:transition-none hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
+          className={buttonVariants({ variant: "quiet", size: "icon", className: "absolute right-0 top-1/2 -translate-y-1/2" })}
           href={search.clearHref}
           onClick={cancelPendingSearch}
         >
@@ -495,7 +495,7 @@ function DataTableActionMenu({
       >
         <MoreHorizontal aria-hidden="true" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 rounded-field" keepMounted>
+      <DropdownMenuContent align="end" className="w-56 rounded-control" keepMounted>
         {hasSelection ? (
           <>
             <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
@@ -598,7 +598,7 @@ function DataTableToolbar({
               >
                 <ListFilter aria-hidden="true" />
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-field p-2">
+              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-control p-2">
                 {filterPanel}
               </PopoverContent>
             </Popover>

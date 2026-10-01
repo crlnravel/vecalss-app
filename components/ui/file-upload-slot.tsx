@@ -188,7 +188,7 @@ function SelectedFilePill({ disabled, file, inputRef, onChange }: Pick<FileUploa
       <div className={cn(fieldControlClassName, "inline-flex w-fit max-w-full items-center gap-2 px-2 py-1.5 text-left")}>
         <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-control bg-primary-100 text-primary-800"><FileText className="size-4" /></span>
         <span className="min-w-0 max-w-[min(58vw,20rem)] truncate text-xs font-semibold text-secondary-800" title={file.name}>{file.name}</span>
-        <Button aria-label={`Hapus file ${file.name}`} disabled={disabled} onClick={removeFile} size="icon-sm" type="button" variant="outline"><X aria-hidden="true" /></Button>
+        <Button aria-label={`Hapus file ${file.name}`} disabled={disabled} onClick={removeFile} size="icon" type="button" variant="quiet"><X aria-hidden="true" /></Button>
       </div>
     </div>
   );
@@ -228,7 +228,7 @@ function FileUploadProgressAction({ completed, disabled, file, inputRef, onCance
     return (
       <>
         <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-student-status-success-fg" weight="fill" />
-        <Button aria-label={`Hapus file ${file.name}`} disabled={disabled} onClick={removeFile} size="icon-sm" type="button" variant="outline"><X aria-hidden="true" /></Button>
+        <Button aria-label={`Hapus file ${file.name}`} disabled={disabled} onClick={removeFile} size="icon" type="button" variant="quiet"><X aria-hidden="true" /></Button>
       </>
     );
   }

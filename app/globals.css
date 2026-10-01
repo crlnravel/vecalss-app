@@ -16,9 +16,9 @@
   --radius-indicator: 4px;
   --radius-detail: 8px;
   --radius-control: 12px;
-  --radius-field: 20px;
-  --radius-card: 32px;
-  --radius-panel: 36px;
+  --radius-field: var(--radius-control);
+  --radius-card: 12px;
+  --radius-panel: 12px;
   --radius-pill: 9999px;
 }
 
@@ -204,7 +204,8 @@
 }
 
 @layer utilities {
-  .student-page-canvas {
+  .student-page-canvas,
+  .workspace-page-canvas {
     background:
       radial-gradient(
         46rem 34rem at 0% 100%,
@@ -224,7 +225,8 @@
     background-color: var(--voyage-canvas);
   }
 
-  .dark .student-page-canvas {
+  .dark .student-page-canvas,
+  .dark .workspace-page-canvas {
     background:
       radial-gradient(
         46rem 34rem at 0% 100%,
@@ -998,7 +1000,6 @@ html.lenis {
     0 16px 30px -18px color-mix(in oklab, var(--voyage-deep) 58%, transparent);
   translate: 0 0;
   transition:
-    translate 180ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 180ms ease-out,
     border-color 180ms ease-out;
@@ -1011,7 +1012,6 @@ html.lenis {
 }
 
 .landing-elevated-button:hover {
-  translate: 0 -2px;
   box-shadow:
     0 7px 0 color-mix(in oklab, var(--voyage-deep) 82%, black),
     0 20px 34px -18px color-mix(in oklab, var(--voyage-deep) 62%, transparent);
@@ -1024,7 +1024,6 @@ html.lenis {
 }
 
 .landing-elevated-button:active {
-  translate: 0 3px;
   box-shadow:
     0 2px 0 color-mix(in oklab, var(--voyage-deep) 82%, black),
     0 8px 18px -16px color-mix(in oklab, var(--voyage-deep) 52%, transparent);

@@ -313,7 +313,9 @@ function QuestionBankMetadataCard({
                 value={titleInput}
               />
               <Button
-                disabled={isSavingTitle || isMetadataLocked || !titleInput.trim()}
+                disabled={
+                  isSavingTitle || isMetadataLocked || !titleInput.trim()
+                }
                 onClick={() => void handleSaveTitle()}
                 size="sm"
                 type="button"
@@ -359,7 +361,6 @@ function QuestionBankMetadataCard({
               ) : null}
             </div>
           )}
-
         </div>
 
         <div className="space-y-5">
@@ -467,7 +468,7 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {subjectCoverage.length > 0 ? (
                 subjectCoverage.map((code) => (
-                  <Badge key={code} size="xs" tone="category">
+                  <Badge key={code} size="sm" tone="category">
                     {code}
                   </Badge>
                 ))
@@ -735,7 +736,9 @@ function QuestionBankQuestionsSection({
   editLease: import("@/lib/resource-edit-lock/types").EditLeaseProof | null;
   expectedRevision: number;
   isReadOnly: boolean;
-  onImport: (result: QuestionBankCsvImportResult | QuestionBankXlsxImportResult) => Promise<void> | void;
+  onImport: (
+    result: QuestionBankCsvImportResult | QuestionBankXlsxImportResult,
+  ) => Promise<void> | void;
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
@@ -857,8 +860,7 @@ function QuestionBankDetailContent({
   const router = useRouter();
   const resourceLock = useResourceEditLock();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
-  const [activeTab, setActiveTab] =
-    useState<QuestionBankDetailTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<QuestionBankDetailTab>(initialTab);
   const [questions, setQuestions] = useState<BankQuestion[]>(initialQuestions);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -906,10 +908,9 @@ function QuestionBankDetailContent({
     if (value !== "soal" && value !== "pengaturan") return;
     const next = value as QuestionBankDetailTab;
     setActiveTab(next);
-    router.push(
-      `/mentor/quiz/question-bank/${bank.id}?tab=${next}`,
-      { scroll: false },
-    );
+    router.push(`/mentor/quiz/question-bank/${bank.id}?tab=${next}`, {
+      scroll: false,
+    });
   }
 
   async function handleSaveTitle() {
@@ -943,7 +944,7 @@ function QuestionBankDetailContent({
       setIsEditingTitle(false);
       showToast("Judul Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
-    } catch {
+    } catch (err) {
       showToast(
         err instanceof Error ? err.message : "Gagal mengubah judul bank soal.",
         { variant: "error" },
@@ -984,7 +985,7 @@ function QuestionBankDetailContent({
       setIsEditingDescription(false);
       showToast("Deskripsi Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
-    } catch {
+    } catch (err) {
       showToast(
         err instanceof Error
           ? err.message
@@ -996,9 +997,7 @@ function QuestionBankDetailContent({
     }
   }
 
-  async function handleLifecycle(
-    operation: "archive" | "restore",
-  ) {
+  async function handleLifecycle(operation: "archive" | "restore") {
     if (isReadOnly) return;
     setIsSavingLifecycle(true);
     try {
@@ -1026,7 +1025,9 @@ function QuestionBankDetailContent({
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch {
-      showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", { variant: "error" });
+      showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", {
+        variant: "error",
+      });
     } finally {
       setIsSavingLifecycle(false);
     }
@@ -1049,7 +1050,9 @@ function QuestionBankDetailContent({
         `/mentor/quiz/question-bank?purpose=${encodeURIComponent(bank.purpose ?? "quiz")}`,
       );
     } catch {
-      showToast("Bank soal tidak dapat dihapus. Coba lagi.", { variant: "error" });
+      showToast("Bank soal tidak dapat dihapus. Coba lagi.", {
+        variant: "error",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -1081,60 +1084,93 @@ function QuestionBankDetailContent({
     });
   }
 
-  return <QuestionBankDetailLayout
-    activeTab={activeTab}
-    bank={bank}
-    bankId={bankId}
-    changeTab={changeTab}
-    confirmationRequest={confirmationRequest}
-    descriptionInput={descriptionInput}
-    folderLabel={folderLabel}
-    formState={{ isEditingDescription, isEditingTitle, isLocked: isMetadataLocked, isSavingDescription, isSavingTitle }}
-    handleLifecycle={handleLifecycle}
-    handleSaveDescription={handleSaveDescription}
-    handleSaveTitle={handleSaveTitle}
-    isDeleting={isDeleting}
-    isReadOnly={isReadOnly}
-    isSavingLifecycle={isSavingLifecycle}
-    materiCoverage={materiCoverage}
-    onCloseConfirmation={() => setConfirmationRequest(null)}
-    onImport={async () => {
-      try {
-        const refreshed = await getQuestionBankForEditAction(bank.id);
-        if (refreshed) {
-          setBank(refreshed.bank as KaptenQuestionBank);
-          setQuestions(refreshed.questions as BankQuestion[]);
-          setReadiness(refreshed.readiness);
-          return;
+  return (
+    <QuestionBankDetailLayout
+      activeTab={activeTab}
+      bank={bank}
+      bankId={bankId}
+      changeTab={changeTab}
+      confirmationRequest={confirmationRequest}
+      descriptionInput={descriptionInput}
+      folderLabel={folderLabel}
+      formState={{
+        isEditingDescription,
+        isEditingTitle,
+        isLocked: isMetadataLocked,
+        isSavingDescription,
+        isSavingTitle,
+      }}
+      handleLifecycle={handleLifecycle}
+      handleSaveDescription={handleSaveDescription}
+      handleSaveTitle={handleSaveTitle}
+      isDeleting={isDeleting}
+      isReadOnly={isReadOnly}
+      isSavingLifecycle={isSavingLifecycle}
+      materiCoverage={materiCoverage}
+      onCloseConfirmation={() => setConfirmationRequest(null)}
+      onImport={async () => {
+        try {
+          const refreshed = await getQuestionBankForEditAction(bank.id);
+          if (refreshed) {
+            setBank(refreshed.bank as KaptenQuestionBank);
+            setQuestions(refreshed.questions as BankQuestion[]);
+            setReadiness(refreshed.readiness);
+            return;
+          }
+        } catch {
+          // The import already committed; refresh the authoritative route
+          // instead of turning a successful write into a retryable failure.
         }
-      } catch {
-        // The import already committed; refresh the authoritative route
-        // instead of turning a successful write into a retryable failure.
-      }
-      router.refresh();
-    }}
-    questionBankEditLease={resourceLock.proof}
-    questions={questions}
-    readiness={readiness}
-    requestArchive={requestArchive}
-    requestDelete={requestDelete}
-    resourceLock={resourceLock}
-    session={session}
-    setDescriptionInput={setDescriptionInput}
-    setIsEditingDescription={setIsEditingDescription}
-    setIsEditingTitle={setIsEditingTitle}
-    setTitleInput={setTitleInput}
-    subjectCoverage={subjectCoverage}
-    titleInput={titleInput}
-  />;
+        router.refresh();
+      }}
+      questionBankEditLease={resourceLock.proof}
+      questions={questions}
+      readiness={readiness}
+      requestArchive={requestArchive}
+      requestDelete={requestDelete}
+      resourceLock={resourceLock}
+      session={session}
+      setDescriptionInput={setDescriptionInput}
+      setIsEditingDescription={setIsEditingDescription}
+      setIsEditingTitle={setIsEditingTitle}
+      setTitleInput={setTitleInput}
+      subjectCoverage={subjectCoverage}
+      titleInput={titleInput}
+    />
+  );
 }
 
 function QuestionBankDetailLayout({
-  activeTab, bank, bankId, changeTab, confirmationRequest, descriptionInput, folderLabel, formState,
-  handleLifecycle, handleSaveDescription, handleSaveTitle, isDeleting, isReadOnly, isSavingLifecycle,
-  materiCoverage, onCloseConfirmation, onImport, questionBankEditLease, questions, readiness, requestArchive,
-  requestDelete, resourceLock, session, setDescriptionInput, setIsEditingDescription, setIsEditingTitle,
-  setTitleInput, subjectCoverage, titleInput,
+  activeTab,
+  bank,
+  bankId,
+  changeTab,
+  confirmationRequest,
+  descriptionInput,
+  folderLabel,
+  formState,
+  handleLifecycle,
+  handleSaveDescription,
+  handleSaveTitle,
+  isDeleting,
+  isReadOnly,
+  isSavingLifecycle,
+  materiCoverage,
+  onCloseConfirmation,
+  onImport,
+  questionBankEditLease,
+  questions,
+  readiness,
+  requestArchive,
+  requestDelete,
+  resourceLock,
+  session,
+  setDescriptionInput,
+  setIsEditingDescription,
+  setIsEditingTitle,
+  setTitleInput,
+  subjectCoverage,
+  titleInput,
 }: {
   activeTab: QuestionBankDetailTab;
   bank: KaptenQuestionBank;
@@ -1143,7 +1179,13 @@ function QuestionBankDetailLayout({
   confirmationRequest: ConfirmationRequest | null;
   descriptionInput: string;
   folderLabel: string;
-  formState: { isEditingDescription: boolean; isEditingTitle: boolean; isLocked: boolean; isSavingDescription: boolean; isSavingTitle: boolean };
+  formState: {
+    isEditingDescription: boolean;
+    isEditingTitle: boolean;
+    isLocked: boolean;
+    isSavingDescription: boolean;
+    isSavingTitle: boolean;
+  };
   handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
   handleSaveDescription: () => Promise<void>;
   handleSaveTitle: () => Promise<void>;
@@ -1169,24 +1211,87 @@ function QuestionBankDetailLayout({
 }) {
   const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
   return (
-    <MentorWorkspaceShell activeLabel={navigationLabel} breadcrumbLabel={bank.title || "Detail Bank Soal"} contentElement="div" mainClassName="max-w-[1400px] gap-7" session={session} sidebarAppearance="reference" showSearch={false}>
+    <MentorWorkspaceShell
+      activeLabel={navigationLabel}
+      breadcrumbLabel={bank.title || "Detail Bank Soal"}
+      contentElement="div"
+      mainClassName="max-w-[1400px] gap-7"
+      session={session}
+      sidebarAppearance="reference"
+      showSearch={false}
+    >
       <div className="space-y-8">
-        <ResourceAuthoringLockBanner hasLocalChanges={formState.isEditingTitle || formState.isEditingDescription} onRetry={resourceLock.retry} resourceLabel="Bank Soal" state={resourceLock.state} />
-        <QuestionBankMetadataCard bank={bank} descriptionInput={descriptionInput} folderLabel={folderLabel} formState={formState} handleSaveDescription={handleSaveDescription} handleSaveTitle={handleSaveTitle} setDescriptionInput={setDescriptionInput} setIsEditingDescription={setIsEditingDescription} setIsEditingTitle={setIsEditingTitle} setTitleInput={setTitleInput} materiCoverage={materiCoverage} subjectCoverage={subjectCoverage} titleInput={titleInput} />
-        <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
+        <ResourceAuthoringLockBanner
+          hasLocalChanges={
+            formState.isEditingTitle || formState.isEditingDescription
+          }
+          onRetry={resourceLock.retry}
+          resourceLabel="Bank Soal"
+          state={resourceLock.state}
+        />
+        <QuestionBankMetadataCard
+          bank={bank}
+          descriptionInput={descriptionInput}
+          folderLabel={folderLabel}
+          formState={formState}
+          handleSaveDescription={handleSaveDescription}
+          handleSaveTitle={handleSaveTitle}
+          setDescriptionInput={setDescriptionInput}
+          setIsEditingDescription={setIsEditingDescription}
+          setIsEditingTitle={setIsEditingTitle}
+          setTitleInput={setTitleInput}
+          materiCoverage={materiCoverage}
+          subjectCoverage={subjectCoverage}
+          titleInput={titleInput}
+        />
+        <Tabs
+          className="w-full min-w-0 gap-7"
+          onValueChange={changeTab}
+          value={activeTab}
+        >
           <FullWidthTabsList aria-label="Bagian detail Bank Soal">
-            <FullWidthTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="soal">Soal</FullWidthTabsTrigger>
-            <FullWidthTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
+              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              value="soal"
+            >
+              Soal
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
+              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              value="pengaturan"
+            >
+              Pengaturan
+            </FullWidthTabsTrigger>
           </FullWidthTabsList>
           <TabsContent className="m-0" value="soal">
-            <QuestionBankQuestionsSection bank={bank} bankId={bankId} editLease={questionBankEditLease} expectedRevision={bank.revision ?? 1} isReadOnly={isReadOnly} onImport={onImport} questions={questions} readiness={readiness} />
+            <QuestionBankQuestionsSection
+              bank={bank}
+              bankId={bankId}
+              editLease={questionBankEditLease}
+              expectedRevision={bank.revision ?? 1}
+              isReadOnly={isReadOnly}
+              onImport={onImport}
+              questions={questions}
+              readiness={readiness}
+            />
           </TabsContent>
           <TabsContent className="m-0" value="pengaturan">
-            <QuestionBankArchiveSection bank={bank} handleLifecycle={handleLifecycle} isDeleting={isDeleting} isReadOnly={isReadOnly} isSavingLifecycle={isSavingLifecycle} requestDelete={requestDelete} requestArchive={requestArchive} />
+            <QuestionBankArchiveSection
+              bank={bank}
+              handleLifecycle={handleLifecycle}
+              isDeleting={isDeleting}
+              isReadOnly={isReadOnly}
+              isSavingLifecycle={isSavingLifecycle}
+              requestDelete={requestDelete}
+              requestArchive={requestArchive}
+            />
           </TabsContent>
         </Tabs>
       </div>
-      <QuestionBankArchiveConfirmationDialog confirmationRequest={confirmationRequest} onClose={onCloseConfirmation} />
+      <QuestionBankArchiveConfirmationDialog
+        confirmationRequest={confirmationRequest}
+        onClose={onCloseConfirmation}
+      />
     </MentorWorkspaceShell>
   );
 }
@@ -1200,7 +1305,10 @@ function KaptenQuestionBankDetailPageModule(props: {
   session: SessionContext;
 }) {
   return (
-    <ResourceEditLockProvider resourceId={props.bankId} resourceType="question_bank">
+    <ResourceEditLockProvider
+      resourceId={props.bankId}
+      resourceType="question_bank"
+    >
       <QuestionBankDetailContent {...props} />
     </ResourceEditLockProvider>
   );

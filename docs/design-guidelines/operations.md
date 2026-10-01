@@ -42,7 +42,7 @@ references before creating a new table shell:
 | `/mentor/quiz/question-bank` | Kapten Bank Soal catalogue | Folder and bank rows in one grid, breadcrumb/header actions, subject/category/status filters, sorting, row action menus, and dense-column overflow. |
 
 - **Density:** Shared `Table density="compact"` applies exact 4px vertical padding only to its direct body cells. Default density keeps shared spacing. Header, footer, horizontal padding, row states and nested tables retain their own geometry; callers choose density instead of local cell-padding overrides.
-- **Frame:** Render the table inside the approved white `rounded-card` (32px)
+- **Frame:** Render the table inside the approved white `rounded-card` (12px)
   surface. Use `DataTable` for the toolbar, filter chips, sortable header,
   row states, empty state, and responsive overflow; use `Table` primitives for
   semantic markup.

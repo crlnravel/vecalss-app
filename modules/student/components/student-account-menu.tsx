@@ -83,6 +83,8 @@ const debugRoleLabels: Record<string, string> = {
 
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
+const navbarAvatarTriggerClassName =
+	"rounded-control border-0 bg-transparent shadow-none transition-none hover:border-0 hover:bg-transparent hover:shadow-none focus-visible:border-transparent data-active:border-0 data-active:bg-transparent data-active:shadow-none motion-safe:active:shadow-none";
 
 function LogoutDialogFooter() {
   const { pending } = useFormStatus();
@@ -103,9 +105,9 @@ function DebugAccountOptionContent({ account, isCurrent }: { account: DebugAccou
 
 function DebugAccountSelection({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccount, selectedAccountId, sessionUserId, setSelectedAccountId, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccount: DebugAccount | null; selectedAccountId: string; sessionUserId: string; setSelectedAccountId: (id: string) => void; switchingAccountId: string | null }) {
   if (isLoadingDebugAccounts) return <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600"><LoaderCircle className="animate-spin motion-reduce:animate-none" />Memuat daftar akun…</div>;
-  if (debugAccountsError) return <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{debugAccountsError}</p>;
-  if (!debugAccounts?.length) return <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">Belum ada akun yang bisa dipilih.</p>;
-  return <DropdownMenu><DropdownMenuTrigger aria-label="Pilih akun" disabled={switchingAccountId !== null} id="debug-account-select" render={<Button className="w-full justify-between gap-3 text-left" size="lg" variant="outline" />}>{selectedAccount ? <DebugAccountOptionContent account={selectedAccount} isCurrent={selectedAccount.id === sessionUserId} /> : <span className="text-secondary-500">Pilih akun…</span>}<ChevronDown aria-hidden="true" className="size-4 shrink-0" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width) min-w-[280px] p-1.5"><DropdownMenuRadioGroup onValueChange={setSelectedAccountId} value={selectedAccountId}>{debugAccounts.map((account) => <DropdownMenuRadioItem className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl py-2.5 pr-8 pl-3" closeOnClick key={account.id} value={account.id}><DebugAccountOptionContent account={account} isCurrent={account.id === sessionUserId} /></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
+  if (debugAccountsError) return <p className="rounded-card border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{debugAccountsError}</p>;
+  if (!debugAccounts?.length) return <p className="rounded-card border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">Belum ada akun yang bisa dipilih.</p>;
+  return <DropdownMenu><DropdownMenuTrigger aria-label="Pilih akun" disabled={switchingAccountId !== null} id="debug-account-select" render={<Button className="w-full justify-between gap-3 text-left" size="lg" variant="outline" />}>{selectedAccount ? <DebugAccountOptionContent account={selectedAccount} isCurrent={selectedAccount.id === sessionUserId} /> : <span className="text-secondary-500">Pilih akun…</span>}<ChevronDown aria-hidden="true" className="size-4 shrink-0" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width) min-w-[280px] p-1.5"><DropdownMenuRadioGroup onValueChange={setSelectedAccountId} value={selectedAccountId}>{debugAccounts.map((account) => <DropdownMenuRadioItem className="flex cursor-pointer items-center justify-between gap-3 rounded-control py-2.5 pr-8 pl-3" closeOnClick key={account.id} value={account.id}><DebugAccountOptionContent account={account} isCurrent={account.id === sessionUserId} /></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
 }
 
 function DebugAccountSwitchButton({ debugAccounts, debugAccountsError, isLoadingDebugAccounts, selectedAccountId, sessionUserId, switchAccount, switchingAccountId }: { debugAccounts: DebugAccount[] | null; debugAccountsError: string | null; isLoadingDebugAccounts: boolean; selectedAccountId: string; sessionUserId: string; switchAccount: (id: string) => Promise<void>; switchingAccountId: string | null }) {
@@ -301,7 +303,7 @@ function StudentAccountMenu({
           aria-label="Menu akun"
           render={
             <Button
-              className="rounded-pill"
+              className={navbarAvatarTriggerClassName}
               size="icon"
               variant="outline"
             />

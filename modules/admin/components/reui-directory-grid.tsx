@@ -48,14 +48,14 @@ function ReuiDirectoryGrid<T>({ caption, title, total, actions, columns, rows, g
             <Search size={16} aria-hidden="true" />
             {Object.entries(search.hiddenFields ?? {}).flatMap(([key, value]) => (Array.isArray(value) ? value : [value]).map((item, index) => <input key={`${key}-${index}`} type="hidden" name={key} value={item} />))}
             <input name="q" aria-label={search.label ?? `Cari ${title}`} placeholder={search.placeholder ?? "Cari…"} defaultValue={search.onValueChange ? undefined : search.value} value={search.onValueChange ? search.value : undefined} onChange={search.onValueChange ? event => search.onValueChange?.(event.target.value) : undefined} key={search.onValueChange ? "local-search" : search.value} type="search" />
-            {search.value ? search.onValueChange ? <Button aria-label="Hapus pencarian" onClick={() => search.onValueChange?.("")} size="icon-sm" type="button" variant="outline"><X size={14} /></Button> : search.clearHref ? <Link className={buttonVariants({ size: "icon-sm", variant: "outline" })} aria-label="Hapus pencarian" href={search.clearHref}><X size={14} /></Link> : null : null}
+            {search.value ? search.onValueChange ? <Button aria-label="Hapus pencarian" onClick={() => search.onValueChange?.("")} size="icon" type="button" variant="quiet"><X size={14} /></Button> : search.clearHref ? <Link className={buttonVariants({ size: "icon", variant: "quiet" })} aria-label="Hapus pencarian" href={search.clearHref}><X size={14} /></Link> : null : null}
           </form> : null}
           {filterPanel}
           {actions}
         </div>
       </div>
       {filters.length ? <div className={styles.chips} aria-label="Filter aktif">
-        {filters.map(filter => <span className={styles.chip} key={filter.id}>{filter.label}: {filter.value}{filter.href ? <Link href={filter.href} aria-label={`Hapus filter ${filter.label}`}><X size={12} /></Link> : null}</span>)}
+        {filters.map(filter => <span className={styles.chip} key={filter.id}>{filter.label}: {filter.value}{filter.href ? <Link className={buttonVariants({ variant: "quiet", size: "icon" })} href={filter.href} aria-label={`Hapus filter ${filter.label}`}><X aria-hidden="true" size={12} /></Link> : null}</span>)}
         {clearFiltersHref ? <Link className={styles.clear} href={clearFiltersHref}>Hapus semua</Link> : null}
       </div> : null}
       <div className={styles.viewport}>
@@ -88,7 +88,7 @@ function ReuiDirectoryMember({ name, email, onView, editHref }: { name: string; 
     <div className={styles.identity}><span className={styles.name} title={name}>{name}</span><span className={styles.username}>{email.split("@")[0]}</span></div>
     {onView || editHref ? <div className={styles.rowActions}>
       {onView ? <Button aria-label={`Lihat ${name}`} title={`Lihat ${name}`} onClick={onView} size="icon-sm" type="button" variant="outline"><Eye /></Button> : null}
-      {editHref ? <Link className={buttonVariants({ size: "icon-sm", variant: "outline" })} aria-label={`Kelola ${name}`} title={`Kelola ${name}`} href={editHref}><Pencil /></Link> : null}
+      {editHref ? <Link className={buttonVariants({ size: "icon", variant: "quiet" })} aria-label={`Kelola ${name}`} title={`Kelola ${name}`} href={editHref}><Pencil /></Link> : null}
     </div> : null}
   </div>;
 }

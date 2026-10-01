@@ -267,7 +267,7 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative flex min-h-16 items-center gap-3 rounded-3xl border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              ? "group relative flex min-h-16 items-center gap-3 rounded-card border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
               : "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]",
             selectedItemIds.has(folderItem.id) &&
               "border-primary-300 bg-primary-50/60",
@@ -356,7 +356,7 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              ? "group relative overflow-hidden rounded-card border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
               : "group relative overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:scale-[1.015] hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]",
             selectedItemIds.has(asset.id) &&
               "border-primary-300 shadow-[0_18px_34px_-22px_color-mix(in_oklab,var(--voyage-forest)_80%,transparent)]",
@@ -581,7 +581,7 @@ function MediaLibraryItemsPane({
         onDrop={actions.handleDrop}
       >
         {isDragging ? (
-          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-[1.5rem] border-2 border-dashed border-primary-500 bg-primary-50/90 text-center">
+          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-field border-2 border-dashed border-primary-500 bg-primary-50/90 text-center">
             <div className="flex flex-col items-center gap-2 text-primary-900">
               <Upload className="size-8" />
               <p className="font-semibold">
@@ -750,7 +750,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
       ) : null}
       {error && snapshot ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive"
           role="alert"
         >
           <div className="min-w-0">
@@ -770,7 +770,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
       !snapshot.isStorageConfigured &&
       (visibleAssets.length > 0 || visibleFolders.length > 0) ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700"
           role="status"
         >
           <span>Penyimpanan media belum siap. Kamu belum bisa mengunggah media.</span>
@@ -867,9 +867,9 @@ function MediaLibraryReferenceToolbar({
             aria-label="Selesai memilih media"
             className="ml-auto"
             onClick={props.clearSelection}
-            size="icon-sm"
+            size="icon"
             type="button"
-            variant="outline"
+            variant="quiet"
           >
             <X />
           </Button>
@@ -977,7 +977,7 @@ function MediaLibraryWorkspaceNotices({
     <>
       {snapshot && !snapshot.isStorageConfigured && !isLoading ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700"
           role="status"
         >
           <span>
@@ -992,7 +992,7 @@ function MediaLibraryWorkspaceNotices({
       ) : null}
       {error && snapshot ? (
         <div
-          className="flex flex-col gap-3 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-card border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
           role="alert"
         >
           <span>{error}</span>
@@ -1414,7 +1414,7 @@ function MediaLibraryWorkspaceView(props: MediaLibraryScreenViewProps) {
   const { className, isDrive, isReference, isDragging } = renderProps;
   const dropAreaClassName = cn(
     "relative min-h-[28rem] overflow-hidden transition-[border-color,background-color] duration-150",
-    !isDrive && "rounded-[2rem] border border-primary-100 bg-white",
+    !isDrive && "rounded-field border border-primary-100 bg-white",
     isDrive && !isReference && "flex min-h-0 flex-1 flex-col",
     isReference && "flex flex-col",
     isReference && REFERENCE_SURFACE_CLASS_NAMES.raised,

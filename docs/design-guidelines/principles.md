@@ -21,7 +21,7 @@ Use this file before introducing a new pattern or visual exception.
   compact filters and equal-width tabs for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
   and action lists instead of reaching for browser-native dropdowns.
-- **Do** use the shared top-center Sonner toast for every notification
+- **Do** use the shared bottom-center Sonner toast for every notification
   alert; keep field validation, blocking recovery content, and confirmation
   decisions in their proper task context.
 - **Do** use a persistent, lifecycle-managed Sonner notice for unsaved changes,

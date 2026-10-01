@@ -13,7 +13,7 @@ import styles from "./sonner-layout.module.css";
 import { toastVariantClassNames, type ToastVariant, type VecalssToastOptions } from "./toast";
 
 const SONNER_BUTTON_CASCADE_CLASSES =
-  "min-h-[44px] !rounded-control !border !px-3.5 !text-sm !transition-[transform,background-color,border-color,box-shadow,color] focus-visible:!ring-3 focus-visible:!ring-offset-2 motion-reduce:!transition-none";
+  "min-h-[44px] !rounded-control !border !px-3.5 !text-sm !transition-[background-color,border-color,box-shadow,color] focus-visible:!ring-3 focus-visible:!ring-offset-2 motion-reduce:!transition-none";
 const SONNER_ACTION_BUTTON_CASCADE_CLASSES =
   `${SONNER_BUTTON_CASCADE_CLASSES} !border-voyage-deep !bg-voyage-deep !text-white hover:!border-voyage-deep-hover hover:!bg-voyage-deep-hover focus-visible:!border-voyage-deep`;
 const SONNER_CANCEL_BUTTON_CASCADE_CLASSES =
@@ -30,7 +30,11 @@ const defaultToastClassNames: ToastClassnames = {
     variant: "outline",
     size: "sm",
   }),
-  closeButton: `${styles.closeButton} !min-h-[44px] !min-w-[44px] !rounded-control !border-0 !bg-transparent !text-secondary-500 !opacity-100 hover:!bg-secondary-100 hover:!text-secondary-900 focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-primary-700/30`,
+  closeButton: buttonVariants({
+    variant: "quiet",
+    size: "icon",
+    className: `${styles.closeButton} !min-h-[44px] !min-w-[44px] !rounded-control !border-0 !bg-transparent !text-secondary-600 !opacity-100 !shadow-none hover:!bg-transparent hover:!text-voyage-deep focus-visible:!outline-none focus-visible:!ring-3 focus-visible:!ring-voyage-leaf/35`,
+  }),
   content: styles.content,
   default: toastVariantClassNames.default,
   description: `${styles.text} text-xs leading-5 text-secondary-600`,
@@ -39,7 +43,7 @@ const defaultToastClassNames: ToastClassnames = {
   info: toastVariantClassNames.info,
   success: toastVariantClassNames.success,
   title: `${styles.text} text-sm font-semibold text-secondary-950`,
-  toast: `${styles.toast} group/sonner-toast !rounded-field border shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]`,
+  toast: `${styles.toast} group/sonner-toast !rounded-control border shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]`,
   warning: toastVariantClassNames.warning,
 };
 
@@ -58,11 +62,10 @@ function Toaster({ className, toastOptions, ...props }: ToasterProps) {
         success: <CircleCheckBig aria-hidden="true" className="text-student-status-success-fg" />,
         warning: <AlertTriangle aria-hidden="true" className="text-student-status-attention-fg" />,
       }}
-      mobileOffset={{ top: "calc(16px + env(safe-area-inset-top, 0px))", left: 16, right: 16 }}
+      mobileOffset={{ top: "calc(16px + env(safe-area-inset-top, 0px))", bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", left: 16, right: 16 }}
       offset={24}
-      position="top-center"
+      position="bottom-center"
       richColors={false}
-      swipeDirections={["top", "left", "right"]}
       toastOptions={{
         ...toastOptions,
         className: cn("group/sonner-toast", toastOptions?.className),

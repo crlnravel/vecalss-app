@@ -91,14 +91,14 @@ function PageStatusToastPreview() {
       <div>
         <p className="text-sm font-semibold text-secondary-800">usePageStatusToast · status halaman persisten</p>
         <p className="mt-1 text-xs leading-5 text-secondary-600">
-          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan atau batalkan simpanan. Pemberitahuan aktif tetap berada di Sonner selama statusnya berlaku.
+          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan atau batalkan simpanan. Pemberitahuan yang perlu tindakan tetap di bagian atas selama statusnya berlaku.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button disabled={dirty} onClick={() => { setDirty(true); setSaving(false); }} type="button" variant="outline">
           Tandai perubahan
         </Button>
-        <Button disabled={!saving} onClick={() => { setDirty(false); setSaving(false); }} type="button" variant="default">
+        <Button disabled={!saving} onClick={() => { setDirty(false); setSaving(false); showToast("Contoh draf berhasil disimpan.", { variant: "success" }); }} type="button" variant="default">
           Selesaikan simpanan
         </Button>
       </div>
@@ -115,7 +115,7 @@ export function NotificationsPreview() {
         <div>
           <p className="text-sm font-semibold text-secondary-800">Sonner · showToast · semua tone</p>
           <p className="mt-1 text-sm leading-6 text-secondary-600">
-            Toaster sudah terpasang sekali di layout aplikasi. Tombol berikut hanya menampilkan pesan simulasi.
+            Toaster sudah terpasang sekali di layout aplikasi. Notifikasi muncul di bagian bawah dengan tombol tutup di kanan atas. Tombol berikut hanya menampilkan pesan simulasi.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

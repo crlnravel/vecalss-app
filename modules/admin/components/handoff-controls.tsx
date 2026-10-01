@@ -85,7 +85,7 @@ function HandoffControls({
       {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
       {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
-        <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
+        <p className="rounded-card border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
            Informasi akses dari impor belum bisa dibuat ulang di sini. Nilai akses yang dibuat saat impor hanya ditampilkan sekali.
         </p>
       ) : state.status !== "success" || !state.handoffId ? (

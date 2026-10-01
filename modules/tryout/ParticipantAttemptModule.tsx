@@ -140,7 +140,7 @@ function ParticipantAttemptStatusScreen({
   return (
     <main className="student-page-canvas min-h-svh px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
       <div className="mx-auto grid w-full max-w-[72rem] gap-8">
-        <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)]">
+        <section className="overflow-hidden rounded-card border border-primary-100 bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)]">
           <div className="bg-[linear-gradient(120deg,var(--voyage-deep)_0%,var(--voyage-forest)_68%,var(--voyage-leaf)_100%)] p-6 text-white sm:p-8">
             <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{title}</h1>
             {tryoutDescription ? <p className="mt-4 max-w-2xl text-sm leading-6 text-primary-50 sm:text-base">{tryoutDescription}</p> : null}
@@ -173,10 +173,10 @@ function ParticipantAttemptStatusScreen({
         </section>
 
         {finished ? (
-          <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
+          <section className="rounded-card border border-primary-100 bg-white p-6 sm:p-8">
             <div className="grid gap-3 sm:grid-cols-3">
               {["Memeriksa jawaban", "Menghitung skor", "Menyiapkan analisis"].map((label, itemIndex) => (
-                <div className="rounded-2xl bg-primary-50 p-4 text-center" key={label}>
+                <div className="rounded-card bg-primary-50 p-4 text-center" key={label}>
                   {itemIndex === 2 ? <LoaderCircle className="mx-auto animate-spin text-2xl text-primary-700 motion-reduce:animate-none" /> : <Check className="mx-auto text-2xl text-primary-700" />}
                   <p className="mt-2 text-sm font-semibold">{label}</p>
                 </div>
@@ -190,7 +190,7 @@ function ParticipantAttemptStatusScreen({
               const isNext = candidate.id === nextRun?.id;
               const isComplete = ["sealed", "expired"].includes(candidate.status);
               return (
-                <article className="grid gap-4 rounded-[1.5rem] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
+                <article className="grid gap-4 rounded-card border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
                   <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>
                     {isComplete ? <Check /> : candidate.sequenceNo}
                   </span>

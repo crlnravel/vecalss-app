@@ -145,7 +145,7 @@ function ReferenceEmptyState({
       {...props}
     >
       {Icon ? (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-field bg-primary-50 text-primary-700">
+        <div className="mb-4 flex size-12 items-center justify-center rounded-control bg-primary-50 text-primary-700">
           <Icon aria-hidden={true} className="size-5" />
         </div>
       ) : null}
@@ -277,7 +277,7 @@ function ReferenceStatCard({
         </span>
         {Icon ? <Icon aria-hidden={true} className="size-4 text-primary-700" /> : null}
       </div>
-      <div className="mt-3 flex size-20 items-center justify-center rounded-field border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]">
+      <div className="mt-3 flex size-20 items-center justify-center rounded-control border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]">
         <span className="font-heading text-3xl leading-none font-semibold tracking-[-0.03em] text-secondary-900">
           {value}
         </span>
@@ -443,7 +443,7 @@ function ReferenceActivityFeed({
       </div>
 
       {nextAction ? (
-        <div className="mx-4 mt-4 shrink-0 rounded-field border border-primary-100 bg-primary-50/70 px-4 py-3 md:mx-5">
+        <div className="mx-4 mt-4 shrink-0 rounded-card border border-primary-100 bg-primary-50/70 px-4 py-3 md:mx-5">
           <p className="text-ui-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase">
             Berikutnya
           </p>
@@ -510,7 +510,7 @@ function ReferenceGoalProgressRow({
 
   const isInteractive = Boolean(href);
   const classes = cn(
-    "flex min-w-0 items-center gap-3 rounded-field border border-primary-100 bg-primary-50/70 px-3.5 py-3",
+    "flex min-w-0 items-center gap-3 rounded-card border border-primary-100 bg-primary-50/70 px-3.5 py-3",
     isInteractive &&
       "transition-[transform,border-color,box-shadow,background-color] duration-200 hover:border-primary-200 hover:bg-primary-50 motion-safe:hover:-translate-y-0.5 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
     className,

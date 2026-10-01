@@ -126,7 +126,7 @@ function ReferenceContentPreview() {
         Komposisi berikut memakai ReferenceDashboardComponentPreview dan ReferenceDashboardShell.
         Navigasi dan tampilan contoh berada dalam area terpisah agar tidak mengubah katalog ini.
       </p>
-      <iframe className="h-[720px] w-full rounded-2xl border border-primary-100" loading="lazy" src="/developer/components?preview=dashboard" title="Contoh komposisi dashboard dan navigasi" />
+      <iframe className="h-[720px] w-full rounded-card border border-primary-100" loading="lazy" src="/developer/components?preview=dashboard" title="Contoh komposisi dashboard dan navigasi" />
     </div>
   );
 }

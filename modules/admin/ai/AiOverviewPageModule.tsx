@@ -90,7 +90,7 @@ export function AiOverviewPageModule({
         {error && (
           <div
             aria-live="assertive"
-            className="mt-6 flex items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
+            className="mt-6 flex items-center gap-3 rounded-card border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
             role="alert"
           >
             <AlertCircle className="size-5 shrink-0 text-danger-600" />
@@ -102,14 +102,14 @@ export function AiOverviewPageModule({
           <div className="mt-8 space-y-10 animate-pulse motion-reduce:animate-none">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-32 rounded-2xl bg-secondary-100" />
+                <div key={i} className="h-32 rounded-card bg-secondary-100" />
               ))}
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="h-80 rounded-3xl bg-secondary-100" />
-              <div className="h-80 rounded-3xl bg-secondary-100" />
+              <div className="h-80 rounded-card bg-secondary-100" />
+              <div className="h-80 rounded-card bg-secondary-100" />
             </div>
-            <div className="h-64 rounded-3xl bg-secondary-100" />
+            <div className="h-64 rounded-card bg-secondary-100" />
           </div>
         ) : null}
 
@@ -128,7 +128,7 @@ export function AiOverviewPageModule({
               {/* Requests Over Time */}
               <section
                 aria-labelledby="ai-overview-requests-heading"
-                className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+                className="rounded-card border border-primary-100 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary-50 pb-4">
                   <div className="min-w-0">
@@ -198,7 +198,7 @@ export function AiOverviewPageModule({
               {/* Feature Usage */}
               <section
                 aria-labelledby="ai-overview-features-heading"
-                className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+                className="rounded-card border border-primary-100 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary-50 pb-4">
                   <div className="min-w-0">

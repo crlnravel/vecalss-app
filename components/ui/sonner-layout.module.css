@@ -54,6 +54,21 @@
   flex-shrink: 0;
 }
 
+/* Bottom notifications place the quiet close target at the top right.
+   Reserve space only when that control exists, preserving symmetric padding
+   for persistent action notices and notifications without a close control. */
+.toast[data-y-position="bottom"]:has(> .closeButton) {
+  min-height: 68px;
+  padding-right: 64px !important;
+}
+
+.toast[data-y-position="bottom"] > .closeButton {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  left: auto !important;
+}
+
 @media (max-width: 600px) {
   .toast:has(> [data-button], > [data-slot="button"]) {
     flex-wrap: wrap;

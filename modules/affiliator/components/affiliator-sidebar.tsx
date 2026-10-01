@@ -49,7 +49,7 @@ function AffiliatorSidebar({ activeLabel }: { activeLabel?: string }) {
     <Sidebar
       collapsible="icon"
       variant="floating"
-      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-control [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
+      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
     >
       <SidebarHeader className="mb-2 gap-5 p-3 group-data-[collapsible=icon]:px-0">
         <Link
@@ -74,7 +74,7 @@ function AffiliatorSidebar({ activeLabel }: { activeLabel?: string }) {
                 <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton
                     className={cn(
-                      "h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+                      "h-11 min-h-11 rounded-control px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
                       "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
                       "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
                       item.label === activeLabel &&
@@ -108,7 +108,7 @@ function AffiliatorSidebar({ activeLabel }: { activeLabel?: string }) {
         <SidebarTrigger
           aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
           className={cn(
-            "min-h-11 w-full rounded-2xl border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+            "min-h-11 w-full rounded-control border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
             state === "collapsed" ? "justify-center" : "justify-end px-4",
             "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!",
           )}

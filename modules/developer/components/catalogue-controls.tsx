@@ -40,7 +40,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { ArrowRight, BookOpenText, Check, GraduationCap, LoaderCircle, Sparkles } from "@/lib/icons";
+import { ArrowRight, Bell, BookOpenText, Check, GraduationCap, LoaderCircle, Sparkles, X } from "@/lib/icons";
 
 type ButtonVariant = NonNullable<ComponentProps<typeof Button>["variant"]>;
 type ButtonSize = NonNullable<ComponentProps<typeof Button>["size"]>;
@@ -64,6 +64,7 @@ const BUTTON_VARIANTS = [
 ] satisfies readonly ButtonVariant[];
 
 const BUTTON_SIZES = [
+  "xs",
   "sm",
   "default",
   "lg",
@@ -221,7 +222,7 @@ function ButtonPreview() {
 
             return (
               <div
-                className={usesDarkSurface ? "flex min-w-0 flex-col items-start gap-2 rounded-2xl bg-voyage-deep p-3" : "flex min-w-0 flex-col items-start gap-2 border-b border-voyage-soft-border py-3"}
+                className={usesDarkSurface ? "flex min-w-0 flex-col items-start gap-2 rounded-card bg-voyage-deep p-3" : "flex min-w-0 flex-col items-start gap-2 border-b border-voyage-soft-border py-3"}
                 key={option}
               >
                 <Button
@@ -243,7 +244,19 @@ function ButtonPreview() {
         </div>
       </DemoGroup>
 
+      <DemoGroup api='Button · variant="quiet" · size="icon" (44 px)' title="Ikon tanpa penekanan">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button aria-label="Tutup contoh" onClick={() => setActionCount((count) => count + 1)} size="icon" title="Tutup contoh" type="button" variant="quiet"><X aria-hidden="true" /></Button>
+          <Button aria-label="Notifikasi contoh" onClick={() => setActionCount((count) => count + 1)} size="icon" title="Notifikasi contoh" type="button" variant="quiet"><Bell aria-hidden="true" /></Button>
+          <Button aria-label="Tutup contoh nonaktif" disabled size="icon" type="button" variant="quiet"><X aria-hidden="true" /></Button>
+        </div>
+        <p className="text-sm text-voyage-muted-ink">Transparan tanpa bayangan atau gerakan. Warna ikon berubah saat diarahkan; fokus keyboard tetap terlihat.</p>
+      </DemoGroup>
+
       <DemoGroup api={`buttonVariants · ${BUTTON_SIZES.length} nilai size`} title="Semua ukuran">
+        <p className="mb-3 text-sm leading-6 text-voyage-muted-ink">
+          Ukuran xs setinggi 40 px dengan teks 12 px, jarak ikon 4 px, dan padding samping 12 px. Ikon sebaris memakai padding 8 px.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BUTTON_SIZES.map((option) => {
             const isIconOnly = String(option).startsWith("icon");
@@ -740,7 +753,7 @@ function AvatarPreview() {
               <Avatar size={avatarSize}>
                 <AvatarFallback>AR</AvatarFallback>
               </Avatar>
-              <code className="text-xs text-voyage-muted-ink">{`size="${avatarSize}" · ${AVATAR_SIZE_PIXELS[avatarSize]} px`}</code>
+              <code className="text-xs text-voyage-muted-ink">{`size="${avatarSize}" · ${AVATAR_SIZE_PIXELS[avatarSize]} px · inisial ${avatarSize === "sm" ? 10 : 12} px`}</code>
             </div>
           ))}
         </div>
@@ -780,9 +793,21 @@ function AvatarPreview() {
         </div>
       </DemoGroup>
 
+      <DemoGroup api={'AvatarGroup · Avatar size="sm" · AvatarGroupCount'} title="Kelompok avatar kecil">
+        <div className="flex items-center gap-4">
+          <AvatarGroup aria-label="Kelompok avatar kecil: AR, BK, CN, dan dua anggota lain" role="group">
+            <Avatar size="sm"><AvatarFallback>AR</AvatarFallback></Avatar>
+            <Avatar size="sm"><AvatarFallback>BK</AvatarFallback></Avatar>
+            <Avatar size="sm"><AvatarFallback>CN</AvatarFallback></Avatar>
+            <AvatarGroupCount>+2</AvatarGroupCount>
+          </AvatarGroup>
+          <span className="text-sm text-voyage-muted-ink">Avatar, inisial, dan hitungan memakai ukuran 24 px dengan teks 10 px.</span>
+        </div>
+      </DemoGroup>
+
       <DemoGroup api={'Button · variant="outline" · size="icon" (44 px) · Avatar size="lg" (40 px)'} title="Komposisi tombol akun">
         <div className="flex items-center gap-4">
-          <Button aria-label="Tombol akun contoh" className="rounded-pill" size="icon" type="button" variant="outline">
+          <Button aria-label="Tombol akun contoh" className="rounded-control" size="icon" type="button" variant="outline">
             <Avatar aria-hidden="true" size="lg">
               <AvatarImage alt="" src={AVATAR_FAILURE_SRC} />
               <AvatarFallback>RA</AvatarFallback>
@@ -1003,7 +1028,7 @@ export const controlSections: ControlSection[] = [
   {
     id: "buttons",
     title: "Tombol",
-    description: "Lima varian, enam ukuran, status nonaktif dan memuat, serta contoh penempatan ikon.",
+    description: "Lima varian taktil dan ikon quiet, tujuh ukuran, status nonaktif dan memuat, serta contoh penempatan ikon.",
     sources: [
       "components/ui/button.tsx — Button",
       "components/ui/button-variants.ts — buttonVariants",

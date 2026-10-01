@@ -81,7 +81,6 @@ import styles from "./quiz-dashboard.module.css";
 
 const publicationLabels = {
   published: "Terbit",
-  unpublished: "Draf",
   archived: "Arsip",
 };
 const columnLabels: Record<string, string> = {
@@ -312,11 +311,7 @@ export function KaptenQuizDashboardPageModule({
           <Badge
             size="sm"
             tone={
-              row.original.publication === "published"
-                ? "success"
-                : row.original.publication === "unpublished"
-                  ? "attention"
-                  : "neutral"
+              row.original.publication === "published" ? "success" : "neutral"
             }
           >
             {publicationLabels[row.original.publication]}

@@ -16,6 +16,7 @@ const pageStatusToastSink: PageStatusToastSink = {
     showToast(message, {
       ...toastOptions,
       id,
+      placement: "action",
       action: action
         ? createElement(
             Button,

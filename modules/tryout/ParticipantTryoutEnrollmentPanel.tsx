@@ -215,7 +215,7 @@ function EnrollmentConfirmationDialog({
           <AlertDialogTitle>Konfirmasi pendaftaran</AlertDialogTitle>
         </AlertDialogHeader>
 
-        <dl className="grid gap-4 rounded-2xl border border-primary-100 p-4">
+        <dl className="grid gap-4 rounded-card border border-primary-100 p-4">
           <div className="grid gap-1">
             <dt className="text-sm text-secondary-500">Universitas target</dt>
             <dd className="font-semibold text-secondary-900">{university?.name}</dd>

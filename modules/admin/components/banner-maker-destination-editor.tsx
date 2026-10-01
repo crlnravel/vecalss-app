@@ -103,7 +103,7 @@ function StarterCorrectionPanel({
   return (
     <section
       aria-labelledby="banner-starter-correction-title"
-      className="mx-auto w-full max-w-3xl rounded-[2rem] border border-warning-200 bg-warning-50/70 p-5 shadow-[0_18px_42px_-34px_rgba(91,75,24,0.55)] sm:p-7"
+      className="mx-auto w-full max-w-3xl rounded-card border border-warning-200 bg-warning-50/70 p-5 shadow-[0_18px_42px_-34px_rgba(91,75,24,0.55)] sm:p-7"
       data-testid="banner-starter-correction"
     >
       <div className="flex items-start gap-3">
@@ -170,7 +170,7 @@ function RecoveryPanel({
   return (
     <section
       aria-labelledby="banner-recovery-title"
-      className="mx-auto w-full max-w-3xl rounded-[2rem] border border-student-status-danger-border bg-student-status-danger-bg p-5 shadow-[0_18px_42px_-34px_rgba(154,52,18,0.55)] sm:p-7"
+      className="mx-auto w-full max-w-3xl rounded-card border border-student-status-danger-border bg-student-status-danger-bg p-5 shadow-[0_18px_42px_-34px_rgba(154,52,18,0.55)] sm:p-7"
       data-testid="banner-recovery"
     >
       <div className="flex items-start gap-3">
@@ -405,7 +405,7 @@ function BannerMakerDestinationEditorInstance({ action, requestId, session, snap
   }, [controller.formState.message, controller.formState.status]);
 
   return (
-    <div className="relative h-svh min-h-[38rem] overflow-hidden bg-voyage-canvas text-secondary-900">
+    <div className="relative h-svh min-h-[38rem] overflow-hidden workspace-page-canvas text-secondary-900">
       <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={handleSubmit}>
         <input name="destination" type="hidden" value={destination} readOnly />
         <input name="requestId" type="hidden" value={controller.requestId} readOnly />

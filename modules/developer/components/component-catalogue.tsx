@@ -138,7 +138,7 @@ function ComponentCatalogue() {
                         {section.sources.map((source) => <code className="break-all" key={source}>{source}</code>)}
                       </div>
                     </div>
-                    <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-4 sm:p-6" data-catalogue-preview={section.id}>
+                    <div className="min-w-0 rounded-card border border-primary-100 bg-white p-4 sm:p-6" data-catalogue-preview={section.id}>
                       {section.preview}
                     </div>
                   </section>

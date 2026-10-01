@@ -81,7 +81,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         <AiControlPlaneNav activeTab="providers" />
 
         {error && (
-          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-card border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
             <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p className="min-w-0 flex-1">{error}</p>
             <Button disabled={isLoading} onClick={() => void loadProviders()} size="default" type="button" variant="outline">
@@ -91,11 +91,11 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         )}
 
         {isLoading && !data ? (
-          <div aria-live="polite" className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm" role="status">
+          <div aria-live="polite" className="grid gap-4 rounded-card border border-primary-100 bg-white p-5 shadow-sm" role="status">
             <div className="h-5 w-48 animate-pulse rounded bg-secondary-100 motion-reduce:animate-none" />
             <div className="grid gap-4 md:grid-cols-3">
               {["gateway-1", "gateway-2", "gateway-3"].map((key) => (
-                <div className="h-40 animate-pulse rounded-3xl bg-secondary-50 motion-reduce:animate-none" key={key} />
+                <div className="h-40 animate-pulse rounded-card bg-secondary-50 motion-reduce:animate-none" key={key} />
               ))}
             </div>
             <p className="text-sm text-secondary-600">Memuat status provider dari sumber admin…</p>
@@ -103,7 +103,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
         ) : null}
 
         {!isLoading && !data && !error ? (
-          <div className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
+          <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
             <p className="text-sm font-semibold text-secondary-900">Belum ada data provider</p>
             <p className="mt-1 text-sm text-secondary-600">Segarkan untuk meminta snapshot baru dari control plane admin.</p>
           </div>
@@ -131,7 +131,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
                     <div
                       key={gw.gateway}
                       className={cn(
-                        "rounded-3xl border p-5 shadow-sm transition-all motion-reduce:transition-none",
+                        "rounded-card border p-5 shadow-sm transition-all motion-reduce:transition-none",
                         isDisabled
                           ? "border-secondary-200 bg-secondary-50/50 opacity-75"
                           : isHealthy

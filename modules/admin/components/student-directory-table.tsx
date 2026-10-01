@@ -174,10 +174,9 @@ function StudentPreviewPanel({
             <SheetClose
               render={
                 <Button
-                  className="cursor-pointer border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40"
                   size="icon"
                   type="button"
-                  variant="outline"
+                  variant="quiet"
                 />
               }
             >

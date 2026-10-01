@@ -114,9 +114,9 @@ export const RADIUS_PROBES = [
   { id: "indicator", token: "--radius-indicator", className: "rounded-indicator", expectedValue: "4px", use: "Penanda pilihan kecil" },
   { id: "detail", token: "--radius-detail", className: "rounded-detail", expectedValue: "8px", use: "Menu kecil dan rincian bertingkat" },
   { id: "control", token: "--radius-control", className: "rounded-control", expectedValue: "12px", use: "Tombol, tab, dan aksi navigasi" },
-  { id: "field", token: "--radius-field", className: "rounded-field", expectedValue: "20px", use: "Isian, menu, popover, dan toast" },
-  { id: "card", token: "--radius-card", className: "rounded-card", expectedValue: "32px", use: "Kartu dan bingkai tabel" },
-  { id: "panel", token: "--radius-panel", className: "rounded-panel", expectedValue: "36px", use: "Dialog, sheet, dan panel besar" },
+  { id: "field", token: "--radius-field", className: "rounded-field", expectedValue: "12px", use: "Input, textarea, select, dan isian pilihan/file" },
+  { id: "card", token: "--radius-card", className: "rounded-card", expectedValue: "12px", use: "Kartu dan bingkai tabel" },
+  { id: "panel", token: "--radius-panel", className: "rounded-panel", expectedValue: "12px", use: "Dialog, sheet, dan panel besar" },
   { id: "pill", token: "--radius-pill", className: "rounded-pill", expectedValue: "9999px", use: "Badge, avatar, dan jalur switch" },
 ] as const;
 
@@ -167,7 +167,7 @@ export const primitiveInventory = [
     demoId: "avatars",
     variants: { size: ["sm", "default", "lg"] },
     defaults: { size: "default" },
-    defaultNotes: { size: "sm=24px; default=32px; lg=40px. AvatarBadge=8/10/12px; AvatarGroupCount mengikuti ukuran grup." },
+    defaultNotes: { size: "sm=24px; default=32px; lg=40px. Font inisial/count sm=10px; default/lg=12px. AvatarBadge=8/10/12px; AvatarGroupCount mengikuti ukuran grup." },
   },
   { source: "components/ui/back-button.tsx", category: "navigation", kind: "component", demoId: "breadcrumbs-pagination" },
   {
@@ -224,8 +224,8 @@ export const primitiveInventory = [
     relatedSources: ["components/ui/button.tsx"],
     supportOnlyReason: "Defines Button recipes; variant examples are rendered by the Button demo.",
     variants: {
-      variant: ["default", "outline", "destructive", "warning", "inverse"],
-      size: ["sm", "default", "lg", "icon-sm", "icon", "icon-lg"],
+      variant: ["default", "outline", "destructive", "warning", "inverse", "quiet"],
+      size: ["xs", "sm", "default", "lg", "icon-sm", "icon", "icon-lg"],
     },
   },
   { source: "components/ui/button.tsx", category: "controls", kind: "component", demoId: "buttons", relatedSources: ["components/ui/button-variants.ts"] },
@@ -272,7 +272,7 @@ export const primitiveInventory = [
     kind: "component",
     demoId: "data-tables",
     relatedSources: ["components/ui/field-constants.ts"],
-    defaultNotes: { search: "Permukaan pencarian memakai resep inset mint bersama dengan tinggi minimum 44px dan radius 20px." },
+    defaultNotes: { search: "Permukaan pencarian memakai resep inset mint bersama dengan tinggi minimum 44px dan radius 12px." },
   },
   {
     source: "components/ui/dialog.tsx",
@@ -282,7 +282,7 @@ export const primitiveInventory = [
     variants: { variant: ["default", "info", "warning", "danger", "success"] },
     defaults: { variant: "default" },
   },
-  { source: "components/ui/dropdown-menu.tsx", category: "navigation", kind: "component", demoId: "menus" },
+  { source: "components/ui/dropdown-menu.tsx", category: "navigation", kind: "component", demoId: "menus", variants: { "Item/CheckboxItem/RadioItem/SubTrigger.size": ["sm", "default"] }, defaults: { size: "default" }, defaultNotes: { size: "sm=12px; default=14px. Target minimum 44px pada kedua ukuran." } },
   {
     source: "components/ui/empty.tsx",
     category: "feedback",
@@ -297,7 +297,7 @@ export const primitiveInventory = [
     demoId: "fields",
     relatedSources: ["components/ui/field.tsx"],
     supportOnlyReason: "Exports shared field classes consumed by Field and settings-style controls.",
-    defaultNotes: { appearance: "Satu permukaan hijau-putih inset dari contoh Email /settings dengan tinggi minimum 44px dan rounded-field 20px; dipakai oleh semua tipe input native dan textarea." },
+    defaultNotes: { appearance: "Satu permukaan hijau-putih inset dari contoh Email /settings dengan tinggi minimum 44px dan rounded-control 12px; dipakai oleh semua tipe input native dan textarea." },
   },
   {
     source: "components/ui/field.tsx",
@@ -338,7 +338,20 @@ export const primitiveInventory = [
     variants: { ModalVariant: ["default", "info", "warning", "danger", "success"] },
   },
   { source: "components/ui/mode-card-tabs.tsx", category: "navigation", kind: "component", demoId: "specialty-tabs" },
-  { source: "components/ui/pagination.tsx", category: "navigation", kind: "component", demoId: "breadcrumbs-pagination" },
+  {
+    source: "components/ui/pagination.tsx",
+    category: "navigation",
+    kind: "component",
+    demoId: "breadcrumbs-pagination",
+    variants: {
+      "Pagination.size": ["sm", "default"],
+      "PaginationPrevious/Next.minimal": ["false", "true"],
+      "PaginationPage.minimal": ["false", "true"],
+      "PaginationPage.isActive": ["false", "true"],
+    },
+    defaults: { size: "default" },
+    defaultNotes: { size: "sm=40px dengan teks 12px; default=44px dengan teks 14px. Semua kontrol mewarisi ukuran Pagination; size per kontrol boleh menggantikannya.", minimal: "Default retains navigation text; minimal uses quiet chevrons and sunken emphasis for the current page." },
+  },
   { source: "components/ui/popover.tsx", category: "surfaces", kind: "component", demoId: "popovers-tooltips" },
   {
     source: "components/ui/user-card-popover.tsx", category: "surfaces", kind: "component", demoId: "popovers-tooltips",
@@ -381,7 +394,7 @@ export const primitiveInventory = [
     kind: "token-contract",
     demoId: "notifications",
     relatedSources: ["components/ui/sonner.tsx"],
-    supportOnlyReason: "Content-sized top notices, equal horizontal padding, in-flow close targets and responsive action rows.",
+    supportOnlyReason: "Content-sized top action notices and bottom notifications, top-right notification close targets and responsive action rows.",
   },
   {
     source: "components/ui/student-catalogue-card-variants.ts",
@@ -422,7 +435,8 @@ export const primitiveInventory = [
     demoId: "notifications",
     relatedSources: ["components/ui/sonner.tsx"],
     supportOnlyReason: "Exports the imperative toast API and variants; rendered feedback belongs in Sonner.",
-    variants: { variant: ["default", "success", "error", "warning", "info"] },
+    variants: { variant: ["default", "success", "error", "warning", "info"], placement: ["action", "notification"] },
+    defaultNotes: { placement: "Action/cancel controls select top-center; ordinary notifications use bottom-center. Persistent page status always stays top-center." },
   },
   {
     source: "components/ui/use-page-status-toast.ts",

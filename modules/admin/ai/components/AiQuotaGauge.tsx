@@ -14,7 +14,7 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
   } = quotaHealth;
 
   return (
-    <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="border-b border-primary-50 pb-4">
         <div>
           <h3 className="text-base font-bold text-secondary-950">Kuota Harian</h3>
@@ -71,7 +71,7 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-secondary-50 p-4 text-xs text-secondary-600">
+      <div className="mt-6 rounded-card bg-secondary-50 p-4 text-xs text-secondary-600">
         <p className="font-bold text-secondary-800">Cara membaca angka ini</p>
         <p className="mt-1 leading-relaxed">
           Kuota terpakai menunjukkan pemakaian saat ini. Kuota yang disiapkan sudah dialokasikan untuk API Request yang sedang berjalan; sisanya masih bisa digunakan.

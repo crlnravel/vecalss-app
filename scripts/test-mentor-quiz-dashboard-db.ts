@@ -153,7 +153,7 @@ async function run() {
           (await getMentorQuizDashboardRows(tutor.id, tx)).find(
             (row) => row.id === quiz.id,
           )!.publication,
-          "unpublished",
+          "published",
         );
         await tx.standaloneQuiz.update({
           where: { id: quiz.id },

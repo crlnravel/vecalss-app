@@ -17,6 +17,7 @@ export default function MentorError({
 
   return (
     <TypedRouteState
+      className="workspace-page-canvas"
       description="Ruang kerja Kapten belum dapat dimuat. Coba lagi untuk memeriksa layanan tanpa mengubah data yang tersimpan."
       kind="error"
       onRetry={reset}

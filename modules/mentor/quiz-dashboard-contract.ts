@@ -1,4 +1,4 @@
-export type QuizPublication = "published" | "unpublished" | "archived";
+export type QuizPublication = "published" | "archived";
 export type QuizDashboardRow = {
   id: string;
   title: string;
@@ -46,7 +46,7 @@ export function parseQuizDashboardQuery(
   return {
     q: scalar("q").trim().slice(0, 200),
     subject: scalar("subject").trim().slice(0, 40),
-    status: ["published", "unpublished", "archived"].includes(status)
+    status: ["published", "archived"].includes(status)
       ? (status as QuizPublication)
       : "",
     hidden: scalar("hidden") === "1",

@@ -76,7 +76,7 @@ function DialogContent({
               <Button
                 className="absolute right-4 top-4"
                 size="icon"
-                variant="outline"
+                variant="quiet"
               />
             }
           >

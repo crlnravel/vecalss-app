@@ -114,7 +114,7 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
               {isActive ? (
                 <div
                   aria-label={`${filter.label} filter`}
-                  className="mt-1 w-full rounded-field border border-primary-100 bg-white p-3 text-secondary-900 shadow-[0_16px_36px_-22px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] outline-none lg:absolute lg:right-full lg:top-0 lg:mt-0 lg:mr-2 lg:w-72"
+                  className="mt-1 w-full rounded-control border border-primary-100 bg-white p-3 text-secondary-900 shadow-[0_16px_36px_-22px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] outline-none lg:absolute lg:right-full lg:top-0 lg:mt-0 lg:mr-2 lg:w-72"
                   id={panelId}
                   onMouseEnter={() => {
                     clearCloseTimeout();

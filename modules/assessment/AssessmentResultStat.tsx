@@ -18,7 +18,7 @@ function AssessmentResultStat({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3",
+		"rounded-card border border-primary-100 bg-secondary-50 px-3 py-3",
         className,
       )}
       data-slot="assessment-result-stat"

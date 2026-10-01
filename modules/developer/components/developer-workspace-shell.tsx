@@ -47,7 +47,7 @@ function DeveloperNavigation({ activePage, isDetailPage }: { activePage: Develop
     <Sidebar
       collapsible="icon"
       variant="floating"
-      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-control [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
+      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
     >
       <SidebarHeader className="mb-2 gap-5 p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
         <Link
@@ -70,7 +70,7 @@ function DeveloperNavigation({ activePage, isDetailPage }: { activePage: Develop
               {developerNavigationItems.map((item) => (
               <SidebarMenuItem key={item.page}>
                 <SidebarMenuButton
-                  className="h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none! group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
+                  className="h-11 min-h-11 rounded-control px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none! group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!"
                   isActive={activePage === item.page}
                   render={<Link aria-current={activePage === item.page && !isDetailPage ? "page" : undefined} aria-label={item.label} href={item.href} />}
                   onClick={() => setOpenMobile(false)}
@@ -91,7 +91,7 @@ function DeveloperNavigation({ activePage, isDetailPage }: { activePage: Develop
       <SidebarFooter className="p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
         <SidebarTrigger
           aria-label={toggleLabel}
-          className="min-h-11 w-full justify-end rounded-2xl border border-primary-100 bg-primary-50/60 px-4 text-secondary-500 hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+          className="min-h-11 w-full justify-end rounded-control border border-primary-100 bg-primary-50/60 px-4 text-secondary-500 hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
         />
       </SidebarFooter>
     </Sidebar>
@@ -110,12 +110,12 @@ function DeveloperWorkspaceShell({
   accountUser: AccountMenuUser;
 }) {
   return (
-    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+    <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
+      <div className="flex min-h-svh w-full bg-transparent text-secondary-900 lg:gap-2">
         <DeveloperNavigation activePage={activePage} isDetailPage={isDetailPage} />
 
-        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header aria-label="Header workspace Developer" className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-control lg:border">
+        <SidebarInset className="min-h-svh min-w-0 !bg-transparent lg:rounded-3xl">
+          <header aria-label="Header workspace Developer" className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] rounded-control bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger aria-label="Buka atau tutup navigasi" className="size-[44px] min-h-[44px] min-w-[44px] shrink-0 motion-reduce:transition-none lg:hidden" />
 

@@ -7,7 +7,7 @@ import styles from "@/modules/mentor/quiz-dashboard.module.css";
 
 export default function QuizError({ reset }: { reset: () => void }) {
   return (
-    <main className={styles.canvas}>
+    <main className={`${styles.canvas} workspace-page-canvas`}>
       <section className={styles.panel}>
         <div className={styles.header}>
           <h1 className={styles.title}>Kuis belum dapat dimuat</h1>

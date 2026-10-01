@@ -33,7 +33,7 @@ function AiRequestClassificationCard({
   classification: VeraAiReliabilityDto["requestClassification"];
 }) {
   return (
-    <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
           <h2 className="text-base font-bold text-secondary-950">Arsitektur Klasifikasi Permintaan</h2>
@@ -44,7 +44,7 @@ function AiRequestClassificationCard({
       </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-primary-200 bg-primary-50/40 p-5">
+        <div className="rounded-card border border-primary-200 bg-primary-50/40 p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-primary-900">
               Permintaan Diterima & Dieksekusi (Admitted)
@@ -87,7 +87,7 @@ function AiRequestClassificationCard({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-secondary-200 bg-secondary-50/50 p-5">
+        <div className="rounded-card border border-secondary-200 bg-secondary-50/50 p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-secondary-700">
               Ditolak pada Batas Admisi (Not Admitted)
@@ -131,7 +131,7 @@ function AiGracefulDegradationCard({
   breakdown: VeraAiReliabilityDto["metrics"]["gracefulDegradationBreakdown"];
 }) {
   return (
-    <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
           <h2 className="text-base font-bold text-secondary-950">Efektivitas Graceful Degradation</h2>
@@ -226,7 +226,7 @@ function AiIncidentTaxonomySection({
   selectedIncident: IncidentSummaryItem | null;
 }) {
   return (
-    <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="border-b border-primary-50 pb-4">
         <h2 className="text-base font-bold text-secondary-950">Taksonomi Insiden per Domain Operasional</h2>
         <p className="mt-0.5 text-xs text-secondary-500">
@@ -247,7 +247,7 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
+                  "flex w-full items-center justify-between rounded-control border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
@@ -281,7 +281,7 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
+                  "flex w-full items-center justify-between rounded-control border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
@@ -327,7 +327,7 @@ function AiIncidentTaxonomySection({
                 onClick={() => onSelectIncident(item)}
                 type="button"
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
+                  "flex w-full items-center justify-between rounded-control border p-3.5 text-left text-xs transition-all motion-reduce:transition-none cursor-pointer",
                   selectedIncident?.label === item.label
                     ? "border-primary-600 bg-primary-50/70 shadow-xs"
                     : "border-primary-100 bg-white hover:bg-primary-50/30",
@@ -371,7 +371,7 @@ function AiIncidentCohortDrilldown({
   selectedIncident: IncidentSummaryItem | null;
 }) {
   return (
-    <div className="sticky top-24 rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="sticky top-24 rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="border-b border-primary-50 pb-4">
         <h2 className="text-base font-bold text-secondary-950">Detail Cohort Insiden</h2>
         <p className="mt-0.5 text-xs text-secondary-500">
@@ -522,7 +522,7 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
         />
 
         {error && (
-          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
+          <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-card border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
             <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p className="min-w-0 flex-1">{error}</p>
             <Button disabled={isLoading} onClick={() => void loadReliability()} size="default" type="button" variant="outline">
@@ -532,11 +532,11 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
         )}
 
         {isLoading && !data ? (
-          <div aria-live="polite" className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm" role="status">
+          <div aria-live="polite" className="grid gap-4 rounded-card border border-primary-100 bg-white p-5 shadow-sm" role="status">
             <div className="h-5 w-56 animate-pulse rounded bg-secondary-100 motion-reduce:animate-none" />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {["metric-1", "metric-2", "metric-3", "metric-4", "metric-5", "metric-6"].map((key) => (
-                <div className="h-24 animate-pulse rounded-2xl bg-secondary-50 motion-reduce:animate-none" key={key} />
+                <div className="h-24 animate-pulse rounded-card bg-secondary-50 motion-reduce:animate-none" key={key} />
               ))}
             </div>
             <p className="text-sm text-secondary-600">Memuat data keandalan dari sumber admin…</p>
@@ -544,7 +544,7 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
         ) : null}
 
         {!isLoading && !data && !error ? (
-          <div className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
+          <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
             <p className="text-sm font-semibold text-secondary-900">Belum ada data keandalan</p>
             <p className="mt-1 text-sm text-secondary-600">Segarkan untuk meminta snapshot insiden terbaru.</p>
           </div>

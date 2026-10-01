@@ -35,7 +35,6 @@ const rows = [
     hasUnpublishedChanges: true,
   }),
   row("c", { publication: "archived" }),
-  row("d", { publication: "unpublished" }),
 ];
 const query = parseQuizDashboardQuery({
   subject: "PU",
@@ -58,7 +57,7 @@ assert.equal(
   queryQuizDashboard(rows, parseQuizDashboardQuery({ q: "persamaan" })).rows[0]
     .id,
   "b",
-  "Search finds an unpublished editing title",
+  "Search finds an edited title",
 );
 assert.equal(
   queryQuizDashboard(rows, parseQuizDashboardQuery({ q: "kuantitatif" }))
@@ -67,9 +66,15 @@ assert.equal(
   "Search finds full subtest names",
 );
 assert.equal(
-  queryQuizDashboard(rows, parseQuizDashboardQuery({ status: "unpublished" }))
+  parseQuizDashboardQuery({ status: "unpublished" }).status,
+  "",
+  "The lifecycle filter accepts published and archived only",
+);
+assert.equal(
+  queryQuizDashboard(rows, parseQuizDashboardQuery({ status: "archived" }))
     .total,
   1,
+  "Archived is the only lifecycle state besides published",
 );
 assert.equal(
   queryQuizDashboard(rows, parseQuizDashboardQuery({ page: "9999" })).query
@@ -130,7 +135,7 @@ assert.equal(queryQuizDashboard(rows, query).changed, 1);
 assert.equal(queryQuizDashboard(rows, query).hidden, 1);
 
 const allSubjectQuery = parseQuizDashboardQuery({ subject: "all", page: "2" });
-assert.equal(queryQuizDashboard(rows, allSubjectQuery).total, 4);
+assert.equal(queryQuizDashboard(rows, allSubjectQuery).total, 3);
 assert.ok(
   quizDashboardHref(allSubjectQuery).includes("subject=all"),
   "Explicit All survives pagination and future saved defaults",

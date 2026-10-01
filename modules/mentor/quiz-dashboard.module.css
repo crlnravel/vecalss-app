@@ -1,7 +1,6 @@
 .canvas {
   font-family: var(--font-sans);
   color: var(--voyage-ink);
-  background: var(--voyage-canvas);
   max-width: none !important;
   min-height: calc(100svh - 64px);
   padding: 40px 32px !important;

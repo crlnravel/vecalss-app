@@ -173,13 +173,13 @@ function ColorInput({
   value: string;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+    <label className="flex items-center justify-between gap-3 rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
       <span className="text-sm font-medium text-secondary-700">{label}</span>
       <span className="flex items-center gap-2">
         <span className="font-mono text-ui-xs font-semibold uppercase text-secondary-500">{value}</span>
         <input
           aria-label={label}
-          className="size-9 cursor-pointer rounded-xl border border-white bg-transparent p-0.5 shadow-sm"
+          className="size-9 cursor-pointer rounded-field border border-white bg-transparent p-0.5 shadow-sm"
           onChange={(event) => onChange(event.target.value.toUpperCase())}
           type="color"
           value={value}
@@ -202,12 +202,12 @@ function BackgroundControls({
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-primary-50 p-1" role="group" aria-label="Jenis latar">
+      <div className="grid grid-cols-3 gap-1.5 rounded-control bg-primary-50 p-1" role="group" aria-label="Jenis latar">
         {backgroundModes.map((mode) => (
           <button
             aria-pressed={background.type === mode.type}
             className={cn(
-              "min-h-10 rounded-xl px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
+              "min-h-10 rounded-control px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
               background.type === mode.type
                 ? "bg-white text-primary-800 shadow-sm"
                 : "text-secondary-500 hover:bg-white/70 hover:text-secondary-800",
@@ -245,7 +245,7 @@ function BackgroundControls({
             onChange={(to) => onChange({ ...background, to })}
             value={background.to}
           />
-          <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+          <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
             <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
               <span>Arah gradasi</span>
               <span className="font-mono text-xs text-secondary-500">{background.angle}°</span>
@@ -266,7 +266,7 @@ function BackgroundControls({
       {background.type === "image" ? (
         <div className="space-y-2.5">
           {background.assetId && assetUrls[background.assetId] ? (
-            <div className="overflow-hidden rounded-2xl border border-primary-100 bg-primary-50">
+            <div className="overflow-hidden rounded-card border border-primary-100 bg-primary-50">
               <div className="relative aspect-[2.2]">
                 <Image
                   alt={assetUrls[background.assetId].name}
@@ -289,7 +289,7 @@ function BackgroundControls({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-4 py-5 text-center">
+            <div className="rounded-field border border-dashed border-primary-200 bg-primary-50/50 px-4 py-5 text-center">
               <ImageOff aria-hidden="true" className="mx-auto size-6 text-primary-600" />
               <p className="mt-2 text-xs leading-5 text-secondary-500">Pilih gambar.</p>
             </div>
@@ -381,7 +381,7 @@ function FrameControls({
           />
         </Field>
       </div>
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Radius</span>
           <span className="font-mono text-ui-xs text-secondary-500">{frame.radius}px</span>
@@ -396,7 +396,7 @@ function FrameControls({
           value={frame.radius}
         />
       </label>
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Padding</span>
           <span className="font-mono text-ui-xs text-secondary-500">{frame.padding}px</span>
@@ -411,7 +411,7 @@ function FrameControls({
           value={frame.padding}
         />
       </label>
-      <label className="flex min-h-11 items-center gap-2.5 rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5 text-sm font-medium text-secondary-700">
+      <label className="flex min-h-11 items-center gap-2.5 rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5 text-sm font-medium text-secondary-700">
         <input
           aria-label="Snap ke padding"
           checked={frame.snapToPadding}
@@ -488,7 +488,7 @@ function LayerInspector({
               <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`${idPrefix}-layer-color`}>Warna</FieldLabel>
               <input
                 aria-label="Warna teks"
-                className="h-11 w-full cursor-pointer rounded-2xl border border-primary-100 bg-primary-50/70 p-1"
+                className="h-11 w-full cursor-pointer rounded-field border border-primary-100 bg-primary-50/70 p-1"
                 id={`${idPrefix}-layer-color`}
                 onChange={(event) => onChange({ ...layer, color: event.target.value.toUpperCase() })}
                 type="color"
@@ -602,7 +602,7 @@ function LayerInspector({
         </Field>
       </div>
 
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Opasitas</span>
           <span className="font-mono text-xs text-secondary-500">{Math.round(layer.opacity * 100)}%</span>
@@ -656,7 +656,7 @@ function LayerList({
     <div className="space-y-2">
       {visibleLayers.length === 0 ? (
         <ReferenceEmptyState
-          className="min-h-32 rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-4 py-5"
+          className="min-h-32 rounded-card border border-dashed border-primary-200 bg-primary-50/35 px-4 py-5"
           description="Tambahkan layer."
           icon={Plus}
           title="Belum ada layer"
@@ -817,7 +817,7 @@ function AssetPickerPanel({
               {mode === "background" ? "Pilih gambar latar" : "Impor gambar"}
             </h2>
           </div>
-          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon-sm" type="button" variant="outline">
+          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon" type="button" variant="quiet">
             <X />
           </Button>
         </div>
@@ -1080,7 +1080,7 @@ function BannerMakerEditorForm({ controller, session }: { controller: BannerMake
 }
 
 function BannerMakerEditorShell({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
-  return <div className="relative h-svh min-h-[38rem] overflow-hidden bg-voyage-canvas text-secondary-900"><BannerMakerEditorForm controller={controller} session={session} />{controller.pickerMode ? <AssetPickerPanel mode={controller.pickerMode} onClose={controller.actions.closePicker} onSelect={controller.actions.handleAssetSelected} selectedAssetId={controller.selectedPickerAssetId} /> : null}</div>;
+  return <div className="relative h-svh min-h-[38rem] overflow-hidden workspace-page-canvas text-secondary-900"><BannerMakerEditorForm controller={controller} session={session} />{controller.pickerMode ? <AssetPickerPanel mode={controller.pickerMode} onClose={controller.actions.closePicker} onSelect={controller.actions.handleAssetSelected} selectedAssetId={controller.selectedPickerAssetId} /> : null}</div>;
 }
 
 function BannerMakerEditor({ action, assetUrls: initialAssetUrls, design: initialDesign, hasUnpublishedChanges, session, version: initialVersion }: BannerMakerEditorProps) {

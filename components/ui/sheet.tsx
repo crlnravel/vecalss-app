@@ -66,7 +66,7 @@ function SheetContent({
             data-slot="sheet-close"
             render={
               <Button
-                variant="outline"
+                variant="quiet"
                 className={cn("absolute top-4 right-4", closeButtonClassName)}
                 size="icon"
               />

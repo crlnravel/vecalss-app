@@ -222,7 +222,7 @@ function BannerPreviewPanel({
   return (
     <section
       aria-label="Pratinjau banner siswa"
-      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
+      className="overflow-hidden rounded-card border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
     >
       <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div>
@@ -244,7 +244,7 @@ function BannerPreviewPanel({
       <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-2">
         {bannerDefinitions.map(({ icon: Icon, key, label, route }) => (
           <article
-            className="rounded-2xl border border-primary-100 bg-white p-5 shadow-sm"
+            className="rounded-card border border-primary-100 bg-white p-5 shadow-sm"
             key={key}
           >
             <div className="flex items-center justify-between gap-3">
@@ -452,7 +452,7 @@ function StudentBannerEditorFeedback({
     <>
       {!canPublish ? (
         <p
-          className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800"
+          className="rounded-card border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800"
           data-testid="student-banner-publish-gating"
         >
           {publishBlockedCopy}
@@ -461,7 +461,7 @@ function StudentBannerEditorFeedback({
       {state.status === "error" && state.message && hasFieldErrors ? (
         <p
           aria-live="assertive"
-          className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg"
+          className="rounded-card border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg"
           data-testid="student-banner-error"
           role="alert"
         >

@@ -111,7 +111,7 @@ function KaptenDetailPanel({
               {getInitials(kapten.fullName)}
             </span>
             <SheetClose
-              render={<Button className="text-secondary-900 hover:text-primary-700" size="icon" type="button" variant="outline" />}
+              render={<Button size="icon" type="button" variant="quiet" />}
             >
               <XIcon />
                <span className="sr-only">Tutup</span>
@@ -162,7 +162,7 @@ function KaptenDetailPanel({
                   <Button size="sm" type="submit" variant="outline">Pulihkan</Button>
                 </form>
               ) : (
-                 <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">Akun ini memerlukan pemulihan manual sebelum status enrollment dapat diubah.</p>
+                 <p className="max-w-xs rounded-card border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">Akun ini memerlukan pemulihan manual sebelum status enrollment dapat diubah.</p>
               )}
             </div>
           </ReferenceSurface>

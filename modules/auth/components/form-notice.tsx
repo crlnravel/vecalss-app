@@ -65,7 +65,7 @@ function FormNotice({
       aria-live={tone === "danger" ? "assertive" : "polite"}
       role={tone === "danger" ? "alert" : "status"}
       className={cn(
-        "animate-in fade-in-0 slide-in-from-top-1 rounded-4xl border px-4 py-2 text-base leading-7 shadow-[0_16px_36px_-28px_color-mix(in_oklab,var(--voyage-ink)_18%,transparent)] duration-300",
+        "animate-in fade-in-0 slide-in-from-top-1 rounded-card border px-4 py-2 text-base leading-7 shadow-[0_16px_36px_-28px_color-mix(in_oklab,var(--voyage-ink)_18%,transparent)] duration-300",
         tone === "danger" &&
           "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
         tone === "neutral" &&

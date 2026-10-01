@@ -6,19 +6,33 @@ Use this file when selecting or extending a shared UI component.
 
 ## Buttons
 
-Use one shared tactile `Button` family on every surface. The approved
+Use the shared `Button` for actions and icon utilities. The approved tactile
 `variant` values are `default` (primary), `outline` (secondary),
 `destructive`, `warning`, and `inverse` (on dark surfaces). All five have
-the same restrained offset edge, hover lift, and press response. Primary
-hierarchy comes from color and contrast, not a competing flat button family.
+the same restrained offset edge and color/shadow feedback. Keep the button
+box stationary during hover and press: no translation, scaling or positional
+transition that moves its pointer hit area. Primary
+hierarchy comes from color and contrast.
+
+`variant="quiet"` is the approved exception for unobtrusive icon-only utilities,
+using the Student notification button as its reference: transparent background
+and border, no resting/hover/pressed shadow or translation, and only a subtle
+icon-color change on hover. Use `size="icon"` (44px), an accessible name and
+a visible keyboard focus ring. Dialog/Sheet/modal X controls, notification and
+sidebar triggers, search/filter clearing, explanatory tooltip icons and local
+attachment removal use this treatment. On dark surfaces, adapt only icon and
+focus colors for contrast. Keep save, submit, destructive mutations and
+consequential cancellation/exit actions tactile; do not use quiet for text buttons.
 
 - **Geometry:** Every Button uses `rounded-control` (12px).
-  Sizes are `sm` (40px, dense utilities only), `default` (44px),
+  Sizes are `xs` (40px, exact 12px text and tighter padding),
+  `sm` (40px, dense utilities only), `default` (44px),
   `lg` (48px), `icon-sm` (40px), `icon` (44px), and `icon-lg` (48px).
-  Size changes geometry, never tone or corner style. Main and touch actions
+  `xs` is for compact text utilities. Size changes geometry and the explicit
+  `xs` text size, never tone or corner style. Main and touch actions
   stay at least 44px; enlarge the hit area when a dense utility uses 40px.
-  The navbar avatar trigger uses `rounded-pill` as the circular identity
-  composition described below, while retaining the canonical tactile recipe.
+  The navbar avatar image remains circular inside a normal `rounded-control`
+  icon button; ordinary button surfaces do not use pill corners.
 - **States:** Keep visible focus, disabled and loading cues, and consistent
   hover/press behavior. Reduced motion removes transforms and transitions
   while preserving color, border, focus, and loading state.
@@ -70,13 +84,15 @@ following the [ReUI avatar reference](https://reui.io/components/avatar).
 
 - **Geometry:** Circular `rounded-pill`; `sm` is 24px, `default` is 32px,
   and `lg` is 40px in exact CSS pixels. Profile editors may use an explicit
-  larger size without creating a separate avatar style.
+  larger size without creating a separate avatar style. Initials and group
+  counts use 10px in `sm`, and the standard 12px in default/large avatars.
 - **Identity:** Real available images use meaningful alt text and fall back
   to initials when unavailable or failed. Use Sea-Glass Wash and Voyage Deep
   for the shared fallback, with a quiet semantic border. Do not create
   route-specific fallback palettes or gradients.
 - **Navbar:** All account menus consume the shared Avatar inside a named,
-  circular 44px tactile outline trigger. Preserve account switching, menu
+  44px quiet icon trigger with normal 12px control corners. The Avatar
+  image itself stays circular. Preserve account switching, menu
   keyboard behavior, and logout confirmation. Display initials when the
   account contract has no photo; never insert a sample user image.
 - **Groups and status:** Keep shared AvatarGroup, AvatarGroupCount, and
@@ -131,9 +147,10 @@ navigation. Generic filled tabs and line/underline styles are retired.
 
 ## Cards / Containers
 
-- **Corner Style:** `rounded-card` (32px) for bounded cards and table frames;
-  `rounded-field` (20px) for compact field surfaces; `rounded-panel` (36px)
-  for dialogs, sheets, sidebar shells, and large route panels.
+- **Corner Style:** `rounded-card` (12px) for bounded cards and table frames;
+  `rounded-field` (12px) for compact field surfaces; `rounded-panel` (12px)
+  for dialogs, sheets, sidebar shells, and large route panels. Match the shared
+  navbar/sidebar 12px corners; larger containers do not need larger radii.
 - **Background:** Surface white at rest, sea-glass wash for selected or
   supporting areas, and a mint-to-paper gradient for icon or milestone blocks.
 - **Shadow Strategy:** Follow the Soft-Lift Rule; use tactile offset shadows only
@@ -153,9 +170,10 @@ outer card contract should not.
 ## Inputs / Fields
 
 - **Style:** One sunken field surface, matching Student `/settings`: exact 44px
-  minimum height, `rounded-field` (20px), near-white green fill, muted green values, a quiet border and inset
+  minimum height, `rounded-field` (12px), near-white green fill, darker Voyage Deep (`#014C38`) values, a quiet border and inset
   depth, copied from the original Student `/settings` Email field. This applies to text, email, password, number, date, search, select,
-  file/choice field surfaces and textareas. Textareas grow with their content
+  file/choice field surfaces and textareas. Placeholders remain muted green.
+  Textareas grow with their content
   needs. Do not offer flat/raised field alternatives.
 - **Focus:** A visible 3px green-tinted ring and a slightly stronger border;
   never rely on a color change alone.
@@ -173,8 +191,10 @@ outer card contract should not.
 
 All app forms share the Student `/settings` field contract. The original
 Email field and supplied screenshot are the visual authority. Extract their
-appearance into the shared recipe; do not change `/settings` to match a new
-field design. Use the exported
+appearance into the shared recipe. The latest radius refinement explicitly
+uses the same `rounded-control` utility as buttons at 12px; `--radius-field`
+is an alias of `--radius-control`. Preserve its original fill,
+inset depth and typography. Use the exported
 `REFERENCE_FIELD_LABEL_CLASS_NAME` for visible field labels, also consumed by
 `FieldLabel`: Manrope (`font-heading`), 12px, semibold,
 sentence case, subtle tracking and muted green, following the original label
@@ -187,7 +207,7 @@ geometry in a route module:
 
 | Control family | Shared implementation | Contract |
 | --- | --- | --- |
-| Text, number, date, search, and textarea | `REFERENCE_CONTROL_CLASS_NAMES.input` | Original `/settings` Email surface: near-white green fill, muted green values, 44px minimum height, 20px corners, inset depth, and a visible green focus ring. Add only field-specific sizing such as a textarea minimum height. |
+| Text, number, date, search, and textarea | `REFERENCE_CONTROL_CLASS_NAMES.input` | Original `/settings` Email surface with darker Voyage Deep values: near-white green fill, muted placeholders, 44px minimum height, 12px corners, inset depth, and a visible green focus ring. Add only field-specific sizing such as a textarea minimum height. |
 | Select and dropdown | `ReferenceSelect`, `DropdownField`, or a custom listbox trigger with `REFERENCE_CONTROL_CLASS_NAMES.select` | Keep the visible label above the trigger; preserve keyboard navigation, selected state, and the shared popup surface. |
 | Radio or checkbox choices | `RadioGroup` / `Checkbox` inside a `REFERENCE_CONTROL_CLASS_NAMES.choice` surface | Apply the reference surface to the choice row, use a visible focus-within ring, and keep option labels at `text-sm` or larger. The group label uses the compact settings label token. |
 | File and media | A keyboard-accessible visible trigger with `REFERENCE_CONTROL_CLASS_NAMES.file` plus a native `input[type="file"]` kept `sr-only` | The trigger names the action (`Pilih gambar`, `Ganti gambar`, or `Upload gambar`), remains at least 44px high, and exposes disabled/uploading state without hiding the input semantics. |
@@ -205,3 +225,36 @@ answer text at every breakpoint. Questions can use semibold weight; answers
 use normal body weight and readable line height. Do not promote ordinary
 accordion questions to responsive title typography. Preserve expansion,
 keyboard access, visible focus and a 44px minimum trigger target.
+
+
+## Pagination
+
+Use the shared Pagination composition. The minimal option uses
+`PaginationPrevious minimal` and `PaginationNext minimal`: quiet icon-only
+chevrons with accessible previous/next names, no visible navigation text.
+Number controls use `PaginationPage minimal isActive={selected}`. Keep idle
+numbers quiet; emphasize the current page with the shared pale green sunken
+surface and semibold text, plus `aria-current="page"`. Set `Pagination size="sm"`
+for 40px controls with exact 12px text, or `size="default"` (the default) for
+44px controls with 14px text. Children inherit the size; an individual control
+can override it with either size. Prefer default for touch interfaces.
+Preserve first/last-page disabling and the existing callback or link
+navigation. The default version retains visible previous/next labels.
+
+## Dropdown menu density
+
+`DropdownMenuItem`, `DropdownMenuCheckboxItem`, `DropdownMenuRadioItem` and
+`DropdownMenuSubTrigger` accept `size="sm"` (exact 12px text) or
+`size="default"` (14px text). Both retain a 44px minimum target, the shared
+menu surface and keyboard semantics. For a compact labelled trigger, compose
+`DropdownMenuTrigger` with `Button size="xs"`; quiet icon triggers stay 44px.
+
+## User identity popover
+
+Use `UserCardPopover` from `components/ui/user-card-popover.tsx` for an
+avatar-only identity preview. Its props are `name` (required), optional
+`subject`, `avatarSrc` and `initials`. The named quiet 44px trigger uses a
+32px Avatar; the popup shows a 40px Avatar, 14px semibold name and optional
+12px muted subject. Omit missing subjects and retain the initials fallback.
+Keep shared 12px popup corners and a viewport-bounded, wrapping layout.
+Do not add verification badges or presence marks without the relevant data.

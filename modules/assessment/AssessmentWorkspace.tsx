@@ -9,6 +9,7 @@ import {
   X,
   type AppIcon,
 } from "@/lib/icons";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
@@ -194,7 +195,7 @@ function AssessmentQuestionNavigation({
           />
           <dialog
             aria-label="Pilih nomor soal"
-            className="fixed inset-auto top-1/2 right-4 bottom-auto left-auto z-50 m-0 max-h-[calc(100svh-2rem)] w-[min(26rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto rounded-[1.5rem] border border-primary-200 bg-secondary-900 p-4 text-white shadow-[0_24px_70px_-28px_color-mix(in_oklab,var(--secondary-900)_65%,transparent)] sm:right-8"
+            className="fixed inset-auto top-1/2 right-4 bottom-auto left-auto z-50 m-0 max-h-[calc(100svh-2rem)] w-[min(26rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto rounded-panel border border-primary-200 bg-secondary-900 p-4 text-white shadow-[0_24px_70px_-28px_color-mix(in_oklab,var(--secondary-900)_65%,transparent)] sm:right-8"
             onCancel={(event) => {
               event.preventDefault();
               closePicker();
@@ -205,7 +206,7 @@ function AssessmentQuestionNavigation({
               <h2 className="text-lg font-semibold">Pilih nomor soal</h2>
               <button
                 aria-label="Tutup daftar soal"
-                className="inline-flex size-11 items-center justify-center rounded-full text-secondary-300 transition-colors motion-reduce:transition-none hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
+                className={cn(buttonVariants({ variant: "quiet", size: "icon", className: "text-secondary-300 hover:text-white focus-visible:ring-primary-300/40" }))}
                 onClick={closePicker}
                 type="button"
               >
@@ -411,13 +412,13 @@ function AssessmentAnnotationOverlay({
         ) : null}
       </svg>
 
-      <div className="absolute top-[8.5rem] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-[1.5rem] border border-primary-200 bg-white px-3 py-2 shadow-[0_20px_48px_-20px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:top-[12rem]">
+      <div className="absolute top-[8.5rem] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-panel border border-primary-200 bg-white px-3 py-2 shadow-[0_20px_48px_-20px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:top-[12rem]">
         {ANNOTATION_SWATCHES.map((swatch) => (
           <button
             aria-label={`Gunakan warna ${swatch.label}`}
             className={cn(
-              "size-11 rounded-full border-2 transition-transform motion-safe:scale-100 motion-reduce:scale-100 motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
-              color === swatch.color ? "motion-safe:scale-110 border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_color-mix(in_oklab,var(--voyage-ink)_14%,transparent)]",
+              "size-11 rounded-full border-2 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none",
+              color === swatch.color ? "border-primary-700 ring-2 ring-primary-200" : "border-white shadow-[0_0_0_1px_color-mix(in_oklab,var(--voyage-ink)_14%,transparent)]",
             )}
             aria-pressed={color === swatch.color}
             key={swatch.color}
@@ -429,7 +430,7 @@ function AssessmentAnnotationOverlay({
         <span aria-hidden="true" className="mx-1 h-7 w-px bg-secondary-200" />
         <button
           aria-label="Urungkan coretan terakhir"
-          className="inline-flex size-11 items-center justify-center rounded-full text-secondary-600 transition-colors motion-reduce:transition-none hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
+          className={buttonVariants({ variant: "quiet", size: "icon" })}
           disabled={!strokes.length}
           onClick={() => setStrokes((current) => current.slice(0, -1))}
           type="button"
@@ -448,7 +449,7 @@ function AssessmentAnnotationOverlay({
         <span aria-hidden="true" className="mx-1 h-7 w-px bg-secondary-200" />
         <button
           aria-label="Tutup mode coretan"
-          className="inline-flex size-11 items-center justify-center rounded-full text-secondary-600 transition-colors motion-reduce:transition-none hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-3 focus-visible:ring-primary-400/40 focus-visible:outline-none"
+          className={buttonVariants({ variant: "quiet", size: "icon" })}
           onClick={onClose}
           ref={closeButtonRef}
           type="button"
@@ -561,7 +562,7 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "flex flex-col py-6 print:border-0 print:py-3",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            ? "mt-4 self-start rounded-panel border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
             : "min-h-full border-b border-primary-100 bg-white px-5 sm:px-8 lg:border-r lg:border-b-0 lg:px-8 xl:px-10 print:px-0",
         )}>
           <div className="flex justify-center">
@@ -597,7 +598,7 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "py-6 print:hidden",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            ? "mt-4 self-start rounded-panel border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
             : "border-t border-primary-100 bg-white px-5 sm:px-8 lg:border-t-0 lg:border-l lg:px-8 xl:px-10",
         )}>
             {navigation}
@@ -717,7 +718,7 @@ function AssessmentAnswerOption({
       aria-checked={selectionMode === "multiple" ? selected : undefined}
       role={selectionMode === "multiple" ? "checkbox" : undefined}
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-[1.25rem] border bg-white text-left shadow-none transition-all duration-200 motion-reduce:transition-none hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
+        "group flex w-full items-center gap-2.5 rounded-control border bg-white text-left shadow-none transition-all duration-200 motion-reduce:transition-none hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
         optionScaleClass,
         selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}

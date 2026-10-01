@@ -191,7 +191,7 @@ export function DialogsPreview() {
                   Ukuran dialog diatur lewat batas lebar pada komposisi. Pilihan ini hanya mengubah contoh di halaman.
                 </DialogDescription>
               </DialogHeader>
-              <div className="rounded-2xl border border-voyage-soft-border bg-voyage-sea-glass-wash/45 p-4 text-sm text-voyage-ink">
+              <div className="rounded-card border border-voyage-soft-border bg-voyage-sea-glass-wash/45 p-4 text-sm text-voyage-ink">
                 Tona saat ini: <span className="font-semibold">{dialogVariantsLabel(dialogVariant)}</span>
               </div>
               <DialogFooter>
@@ -203,7 +203,7 @@ export function DialogsPreview() {
           </Dialog>
         </div>
 
-        <div className="min-w-0 space-y-4 rounded-2xl border border-voyage-soft-border bg-white p-4 sm:p-5">
+        <div className="min-w-0 space-y-4 rounded-card border border-voyage-soft-border bg-white p-4 sm:p-5">
           <div>
             <h3 className="font-heading text-base font-semibold text-voyage-ink">AlertDialog</h3>
             <p className="mt-1 text-sm leading-6 text-voyage-muted-ink">
@@ -396,6 +396,7 @@ export function PopoversTooltipsPreview() {
 }
 
 export function MenusPreview() {
+  const [menuSize, setMenuSize] = useState<"sm" | "default">("default");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [sortOrder, setSortOrder] = useState("terbaru");
   const [contextAction, setContextAction] = useState("Belum ada aksi konteks dipilih.");
@@ -409,17 +410,21 @@ export function MenusPreview() {
             Pilihan menu mengubah status contoh di bawah, tanpa memanggil layanan.
           </p>
         </div>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => setMenuSize("sm")} size="xs" type="button" variant="outline">sm · 12 px</Button>
+          <Button onClick={() => setMenuSize("default")} type="button" variant="outline">default · 14 px</Button>
+        </div>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>
+          <DropdownMenuTrigger render={<Button size={menuSize === "sm" ? "xs" : "default"} type="button" variant="outline" />}>
             Buka menu pilihan
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
             <DropdownMenuLabel>Program belajar</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setContextAction("Menu program dipilih.")}>
+            <DropdownMenuItem size={menuSize} onClick={() => setContextAction("Menu program dipilih.")}>
               Buka program
               <DropdownMenuShortcut>Enter</DropdownMenuShortcut>
             </DropdownMenuItem>
-            <DropdownMenuCheckboxItem
+            <DropdownMenuCheckboxItem size={menuSize}
               checked={includeArchived}
               onCheckedChange={(checked) => setIncludeArchived(checked === true)}
             >
@@ -428,23 +433,23 @@ export function MenusPreview() {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Urutkan berdasarkan</DropdownMenuLabel>
             <DropdownMenuRadioGroup onValueChange={setSortOrder} value={sortOrder}>
-              <DropdownMenuRadioItem value="terbaru">Terbaru</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="nama">Nama</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem size={menuSize} value="terbaru">Terbaru</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem size={menuSize} value="nama">Nama</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Ukuran tampilan</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger size={menuSize}>Ukuran tampilan</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuItem onClick={() => setContextAction("Tampilan ringkas dipilih.")}>
+                <DropdownMenuItem size={menuSize} onClick={() => setContextAction("Tampilan ringkas dipilih.")}>
                   Ringkas
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setContextAction("Tampilan lega dipilih.")}>
+                <DropdownMenuItem size={menuSize} onClick={() => setContextAction("Tampilan lega dipilih.")}>
                   Lega
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setIncludeArchived(false)} variant="destructive">
+            <DropdownMenuItem size={menuSize} onClick={() => setIncludeArchived(false)} variant="destructive">
               Hapus filter arsip
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -464,7 +469,7 @@ export function MenusPreview() {
         <ContextMenu>
           <ContextMenuTrigger
             render={
-              <button className="flex min-h-28 w-full items-center justify-center rounded-2xl border border-dashed border-voyage-soft-border bg-white px-5 text-center text-sm text-secondary-700 outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25" type="button">
+              <button className="flex min-h-28 w-full items-center justify-center rounded-control border border-dashed border-voyage-soft-border bg-white px-5 text-center text-sm text-secondary-700 outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25" type="button">
                 Area contoh menu konteks
               </button>
             }

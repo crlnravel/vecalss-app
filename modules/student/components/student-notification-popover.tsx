@@ -31,7 +31,14 @@ function StudentNotificationPopover({
 
   if (renderedItems.length === 0) {
     return (
-      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon" variant="outline">
+      <Button
+        aria-label="Notifikasi"
+        className="relative"
+        nativeButton={false}
+        render={<Link href="/notifications" />}
+        size="icon"
+        variant="quiet"
+      >
         <Bell />
       </Button>
     );
@@ -46,7 +53,7 @@ function StudentNotificationPopover({
             className="relative"
             size="icon"
             type="button"
-            variant="outline"
+            variant="quiet"
           />
         }
       >

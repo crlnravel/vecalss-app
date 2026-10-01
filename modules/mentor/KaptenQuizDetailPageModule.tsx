@@ -67,10 +67,7 @@ import {
   ResourceEditLockProvider,
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
-import {
-  EyeIcon,
-  EyeSlashIcon,
-} from "@phosphor-icons/react";
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 
 type QuizDetailTab = "preview" | "hasil" | "pengaturan";
 
@@ -144,7 +141,7 @@ function QuizPreview({
           <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
             Daftar Soal
           </h2>
-          <Badge className="font-bold" size="xs" tone="category">
+          <Badge className="font-bold" size="sm" tone="category">
             {questions.length} Soal
           </Badge>
         </div>
@@ -152,7 +149,11 @@ function QuizPreview({
           className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]"
           nativeButton={false}
           size="xs"
-          render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
+          render={
+            <Link
+              href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`}
+            />
+          }
           type="button"
           variant="default"
         >
@@ -166,7 +167,11 @@ function QuizPreview({
             action={
               <Button
                 nativeButton={false}
-                render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
+                render={
+                  <Link
+                    href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`}
+                  />
+                }
                 size="sm"
                 variant="default"
               >
@@ -580,7 +585,7 @@ function QuizSubjectField({
       ) : (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <strong className="text-sm font-bold text-voyage-ink">
-            {subject ? `${subject.code} · ${subject.name}` : value}
+            {subject ? subject.name : value}
           </strong>
         </div>
       )}
@@ -1005,7 +1010,10 @@ function KaptenQuizDetailPageContent({
       return;
     const next = value as QuizDetailTab;
     setActiveTab(next);
-    router.push(`/mentor/quiz/${quiz.id}?${new URLSearchParams({ tab: next, returnTo: returnHref })}`, { scroll: false });
+    router.push(
+      `/mentor/quiz/${quiz.id}?${new URLSearchParams({ tab: next, returnTo: returnHref })}`,
+      { scroll: false },
+    );
   }
 
   async function saveSettings() {

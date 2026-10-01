@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { Badge } from "@/components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Table,
   TableBody,
@@ -53,13 +61,19 @@ function formatSubmittedDate(date: Date) {
 
 function EmptyReportsMessage() {
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">
-      <ClipboardList aria-hidden="true" className="mb-5 size-10 text-primary-700" />
-      <p className="text-lg font-semibold text-secondary-900">Belum ada laporan</p>
-      <p className="mt-2 text-sm leading-6 text-secondary-600">
-        Saat mentor mengirim laporan, detail kendala dan usulan perbaikannya akan muncul di sini.
-      </p>
-    </div>
+    <Empty className="mx-auto w-full max-w-[calc(100vw-2rem)] gap-0 rounded-none border-0 p-0">
+      <EmptyHeader className="max-w-sm gap-0">
+        <EmptyMedia className="mb-0 text-primary-300" variant="default">
+          <ClipboardList aria-hidden="true" className="size-7" />
+        </EmptyMedia>
+        <EmptyTitle className="mt-3 font-semibold text-secondary-900">
+          Belum ada laporan
+        </EmptyTitle>
+        <EmptyDescription className="mt-2 max-w-[42ch] leading-6 text-secondary-600">
+          Saat mentor mengirim laporan, detail kendala dan usulan perbaikannya akan muncul di sini.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
@@ -113,7 +127,9 @@ function DeveloperReportsTable({ reports }: { reports: DeveloperReportListItem[]
                 </Link>
               </TableCell>
               <TableCell className="hidden truncate px-4 py-3.5 text-secondary-700 sm:px-5 lg:table-cell" title={getFeatureLabel(report.feature)}>
-                {getFeatureLabel(report.feature)}
+                <Badge className="max-w-full" size="xs" tone="category">
+                  <span className="min-w-0 truncate">{getFeatureLabel(report.feature)}</span>
+                </Badge>
               </TableCell>
               <TableCell className="hidden truncate px-4 py-3.5 text-secondary-700 sm:px-5 xl:table-cell" title={report.authorName}>
                 {report.authorName}

@@ -127,11 +127,11 @@ function ActiveFieldError({ error, id }: { error: string; id: string }) {
               <Button
                 aria-describedby={id}
                 aria-label="Lihat pesan kesalahan"
-                className="border-student-status-danger-border text-student-status-danger-fg hover:border-student-status-danger-fg hover:bg-student-status-danger-bg/70 focus-visible:ring-student-status-danger-border/35"
+                className="text-student-status-danger-fg hover:text-student-status-danger-fg focus-visible:ring-student-status-danger-border/35"
                 onClick={() => setOpen(true)}
                 size="icon"
                 type="button"
-                variant="outline"
+                variant="quiet"
               >
                 <CircleAlert aria-hidden="true" className="size-5" />
               </Button>

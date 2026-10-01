@@ -147,7 +147,8 @@ metadata retain their own semantic treatments.
 should explain affordance, state, or progress rather than decorate every edge.
 
 **The Shared Action Depth Rule.** Every Button uses the same restrained offset
-edge, hover lift, and press response across all audiences. Select primary,
+edge and stable color/shadow feedback across all audiences. Hover/press must
+not translate or scale the button or change its pointer hit area. Select primary,
 outline, destructive, warning, or inverse by meaning; do not add a flat family
 or reproduce its shadows in route-local classes. Reduced motion removes
 translation and keeps the border, color, focus, and disabled cues.
@@ -168,10 +169,18 @@ does not change the geometry. All states of a component retain its radius.
 | `--radius-indicator` / `rounded-indicator` | 4px | Small checkbox marks and internal selection indicators. |
 | `--radius-detail` / `rounded-detail` | 8px | Small menu items, tooltip interiors, and nested details. |
 | `--radius-control` / `rounded-control` | 12px | Every Button, tab trigger, and navigation action. |
-| `--radius-field` / `rounded-field` | 20px | Inputs, selects, choice/file fields, icon blocks, menus, popovers, and toasts. |
-| `--radius-card` / `rounded-card` | 32px | Cards, table frames, and bounded content surfaces. |
-| `--radius-panel` / `rounded-panel` | 36px | Dialogs, sheets, sidebar shells, and large route panels. |
+| `--radius-field` / `rounded-field` | 12px | Inputs, textareas, selects, and choice/file fields with the Student `/settings` sunken surface. |
+| `--radius-card` / `rounded-card` | 12px | Cards, table frames, and bounded content surfaces. |
+| `--radius-panel` / `rounded-panel` | 12px | Dialogs, sheets, sidebar shells, and large route panels. |
 | `--radius-pill` / `rounded-pill` | 9999px | Compact Badge metadata, avatar circles, and switch tracks. |
+
+The current shared navbar and sidebar are the corner reference: ordinary
+buttons, cards, panels, menus, popovers and toasts use the same restrained
+12px corners. Field controls now share those corners while retaining the
+original `/settings` sunken surface and typography. Badge metadata, avatar
+images and switch tracks retain their capsule
+or circular shape. Do not add pill or oversized radius overrides to ordinary
+Button or card surfaces.
 
 Use these utilities in shared primitives. Numeric rounded utilities remain
 compatibility aliases to this scale, not additional design choices. Do not use

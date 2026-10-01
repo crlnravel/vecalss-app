@@ -150,7 +150,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
         </CardHeader>
       </Card>
 
-      <Card className="rounded-[2rem] border border-secondary-300 bg-white py-0 shadow-none">
+      <Card className="rounded-card border border-secondary-300 bg-white py-0 shadow-none">
         <CardHeader className="px-5 pt-5">
           <CardTitle className="text-lg">Akses cepat</CardTitle>
           <CardDescription>
@@ -164,7 +164,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
             ["Tryout", "Lihat Tryout yang tersedia untuk siswa.", "/tryout"],
           ].map(([label, description, path]) => (
             <Link
-              className="group rounded-2xl border border-secondary-300 bg-white p-4 transition-colors hover:border-primary-300 hover:bg-primary-50/35"
+              className="group rounded-control border border-secondary-300 bg-white p-4 transition-colors hover:border-primary-300 hover:bg-primary-50/35"
               href={buildAdminStudentPreviewRoute(path)}
               key={label}
             >
@@ -176,7 +176,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
         </CardContent>
       </Card>
 
-      <Card className="rounded-[2rem] border border-secondary-300 bg-white py-0 shadow-none">
+      <Card className="rounded-card border border-secondary-300 bg-white py-0 shadow-none">
         <CardHeader className="px-5 pt-5">
           <CardTitle className="text-lg">Ringkasan profil siswa</CardTitle>
           <CardDescription>Informasi ini ditampilkan untuk keperluan pratinjau dan tidak mengubah data siswa.</CardDescription>
@@ -195,7 +195,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-secondary-200 bg-secondary-50/60 px-4 py-3">
+    <div className="rounded-card border border-secondary-200 bg-secondary-50/60 px-4 py-3">
       <p className="text-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">{label}</p>
       <p className="mt-1 text-sm font-semibold text-secondary-900">{value}</p>
     </div>
@@ -254,7 +254,7 @@ function AdminStudentPreviewMateriCatalogueSurface({
           </div>
         </section>
       ) : (
-        <div className="rounded-[2rem] border border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)]">
+        <div className="rounded-card border border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_color-mix(in_oklab,var(--voyage-forest)_45%,transparent)]">
           <p className="text-base font-extrabold text-[var(--voyage-ink)]">Belum ada Materi yang diterbitkan</p>
           <p className="mt-2 text-sm text-[var(--voyage-muted-ink)]">Materi yang tersedia akan muncul di sini.</p>
         </div>
@@ -292,7 +292,7 @@ function AdminStudentPreviewMateriCourseSurface({ course }: { course: AdminPrevi
         ))}
       </div>
       {course.lessons.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center">
+        <div className="rounded-card border border-dashed border-[var(--voyage-soft-border)] bg-white px-6 py-12 text-center">
           <p className="font-semibold text-[var(--voyage-ink)]">Belum ada Materi yang diterbitkan</p>
         </div>
       ) : null}
@@ -325,7 +325,7 @@ function AdminStudentPreviewMateriLessonSurface({
         videoUrl={lesson.optionalVideo?.mediaUrl}
       />
       <PreviewContentBlocks content={lesson.content} summary={lesson.summary} />
-      <div className="mt-6 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
+      <div className="mt-6 rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         Pratinjau ini hanya menampilkan Materi yang sudah diterbitkan. Fitur menandai Materi selesai dan memperbarui progres tidak tersedia.
       </div>
     </article>
@@ -344,7 +344,7 @@ function PreviewContentBlocks({
   return (
     <section aria-label="Ringkasan konten Materi" className="mt-8 grid gap-4">
       {summary ? (
-        <Card className="rounded-3xl border border-[var(--voyage-soft-border)] bg-white shadow-none">
+        <Card className="rounded-card border border-[var(--voyage-soft-border)] bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-lg">Ringkasan</CardTitle>
             <CardDescription className="whitespace-pre-wrap text-sm leading-7 text-secondary-600">{summary}</CardDescription>
@@ -352,7 +352,7 @@ function PreviewContentBlocks({
         </Card>
       ) : null}
       {content.map((block, index) => (
-        <Card className="rounded-3xl border border-[var(--voyage-soft-border)] bg-white shadow-none" key={`${block.title ?? "content"}-${block.body.slice(0, 32)}`}>
+        <Card className="rounded-card border border-[var(--voyage-soft-border)] bg-white shadow-none" key={`${block.title ?? "content"}-${block.body.slice(0, 32)}`}>
           <CardHeader>
             <CardTitle className="text-lg">{block.title ?? `Catatan ${index + 1}`}</CardTitle>
           </CardHeader>
@@ -406,7 +406,7 @@ function TryoutScheduleBadge({ status }: { status: AdminPreviewTryoutSchedule["s
 
 function TryoutScheduleLine({ session }: { session: AdminPreviewTryoutSchedule }) {
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-secondary-200 bg-secondary-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+    <div className="flex flex-col gap-2 rounded-card border border-secondary-200 bg-secondary-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-secondary-900">{session.name}</p>
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-secondary-600">
@@ -432,7 +432,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
       <PreviewSurfaceHeader banner={banner} variables={bannerVariables} />
 
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
+      <div className="flex items-center gap-3 rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <ShieldCheck className="size-5 shrink-0 text-[var(--voyage-warm-sun-ink)]" />
         <span>Tryout di halaman ini hanya untuk dilihat. Pratinjau tidak membuat pengerjaan, menyimpan jawaban, memberi nilai, atau mengubah progres siswa.</span>
       </div>
@@ -483,7 +483,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
           </div>
         </section>
       ) : (
-        <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
+        <Card className="rounded-card border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada Tryout yang diterbitkan</CardTitle>
             <CardDescription>Tryout yang sudah diterbitkan akan muncul di sini.</CardDescription>
@@ -519,7 +519,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         </span>
       </div>
 
-      <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
+      <Card className="rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
           <CardTitle className="text-lg">Pratinjau tampilan siswa</CardTitle>
           <CardDescription>Halaman ini tidak membuka pengerjaan atau jawaban siswa. Gunakan tombol mulai ulang di bawah jika kamu perlu membuat sesi Tryout baru untuk pratinjau.</CardDescription>
@@ -527,19 +527,19 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]">
-        <Card className="rounded-[2rem] border border-secondary-200 bg-white shadow-none">
+        <Card className="rounded-card border border-secondary-200 bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-xl">Jadwal sesi</CardTitle>
             <CardDescription>Pilih sesi aktif atau yang sudah ditutup sebagai sumber pengerjaan ulang.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {tryout.schedule.length > 0 ? tryout.schedule.map((session) => <TryoutScheduleLine key={session.id} session={session} />) : (
-              <p className="rounded-2xl border border-dashed border-secondary-200 px-4 py-6 text-center text-sm text-secondary-600">Belum ada sesi yang diterbitkan.</p>
+              <p className="rounded-card border border-dashed border-secondary-200 px-4 py-6 text-center text-sm text-secondary-600">Belum ada sesi yang diterbitkan.</p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border border-secondary-200 bg-white shadow-none">
+        <Card className="rounded-card border border-secondary-200 bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-xl">Pendaftaran dan penugasan</CardTitle>
             <CardDescription>Status pendaftaran dan penugasan ditampilkan terpisah dari status penerbitan Tryout.</CardDescription>
@@ -560,7 +560,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         {tryout.sections.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {tryout.sections.map((section) => (
-              <Card className="rounded-3xl border border-secondary-200 bg-white shadow-none" key={`${section.sequenceNo}-${section.title}`}>
+              <Card className="rounded-card border border-secondary-200 bg-white shadow-none" key={`${section.sequenceNo}-${section.title}`}>
                 <CardHeader className="gap-2">
                   <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Bagian {section.sequenceNo}</p>
                   <CardTitle className="text-lg leading-6">{section.title}</CardTitle>
@@ -579,7 +579,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
             ))}
           </div>
         ) : (
-          <Card className="rounded-3xl border border-dashed border-secondary-200 bg-secondary-50/40 py-8 text-center shadow-none">
+          <Card className="rounded-card border border-dashed border-secondary-200 bg-secondary-50/40 py-8 text-center shadow-none">
             <CardHeader><CardTitle className="text-lg">Belum ada bagian</CardTitle></CardHeader>
           </Card>
         )}

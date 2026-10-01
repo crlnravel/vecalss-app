@@ -43,6 +43,7 @@ import {
   PaginationEllipsis,
   PaginationItem,
   PaginationNext,
+  PaginationPage,
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -127,38 +128,73 @@ export function BreadcrumbsPaginationPreview() {
           <p className="text-sm font-semibold text-secondary-800">Pagination</p>
           <p aria-live="polite" className="mt-1 text-sm text-secondary-600">Halaman {page} dari 8</p>
         </div>
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} />
-            </PaginationItem>
-            {visiblePages.map((pageNumber, index) => {
-              const previousPage = visiblePages[index - 1];
-              const hasGap = previousPage !== undefined && pageNumber - previousPage > 1;
+        {(["sm", "default"] as const).map((size) => (
+          <div className="space-y-2" key={size}>
+            <p className="text-xs text-secondary-600">{size} · {size === "sm" ? "40 px, teks 12 px" : "44 px, teks 14 px"}</p>
+            <Pagination aria-label={`Pagination ${size}`} size={size}>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} />
+                </PaginationItem>
+                {visiblePages.map((pageNumber, index) => {
+                  const previousPage = visiblePages[index - 1];
+                  const hasGap = previousPage !== undefined && pageNumber - previousPage > 1;
 
-              return (
-                <Fragment key={pageNumber}>
-                  {hasGap ? <PaginationItem><PaginationEllipsis /></PaginationItem> : null}
+                  return (
+                    <Fragment key={pageNumber}>
+                      {hasGap ? <PaginationItem><PaginationEllipsis /></PaginationItem> : null}
+                      <PaginationItem>
+                        <PaginationPage
+                          aria-label={`Halaman ${pageNumber}`}
+                          isActive={page === pageNumber}
+                          onClick={() => setPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </PaginationPage>
+                      </PaginationItem>
+                    </Fragment>
+                  );
+                })}
+                <PaginationItem>
+                  <PaginationNext disabled={page === 8} onClick={() => setPage((current) => Math.min(8, current + 1))} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        ))}
+        <div className="space-y-2 border-t border-voyage-soft-border pt-5">
+          <div>
+            <p className="text-sm font-semibold text-secondary-800">Pagination ringkas</p>
+            <p className="mt-1 text-sm text-secondary-600">Lima kontrol tanpa elipsis; halaman aktif tetap diumumkan.</p>
+          </div>
+          {(["sm", "default"] as const).map((size) => (
+            <div className="space-y-2" key={size}>
+              <p className="text-xs text-secondary-600">{size} · {size === "sm" ? "40 px, teks 12 px" : "44 px, teks 14 px"}</p>
+              <Pagination aria-label={`Pagination ringkas ${size}`} size={size}>
+                <PaginationContent>
                   <PaginationItem>
-                    <Button
-                      aria-current={page === pageNumber ? "page" : undefined}
-                      aria-label={`Halaman ${pageNumber}`}
-                      onClick={() => setPage(pageNumber)}
-                      size="icon-sm"
-                      type="button"
-                      variant={page === pageNumber ? "default" : "outline"}
-                    >
-                      {pageNumber}
-                    </Button>
+                    <PaginationPrevious disabled={page === 1} minimal onClick={() => setPage((current) => Math.max(1, current - 1))} />
                   </PaginationItem>
-                </Fragment>
-              );
-            })}
-            <PaginationItem>
-              <PaginationNext disabled={page === 8} onClick={() => setPage((current) => Math.min(8, current + 1))} />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+                  {pageNumbers.map((pageNumber) => (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationPage
+                        aria-label={`Halaman ${pageNumber}`}
+                        isActive={page === pageNumber}
+                        minimal
+                        onClick={() => setPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </PaginationPage>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext disabled={page === 8} minimal onClick={() => setPage((current) => Math.min(8, current + 1))} />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -237,7 +273,7 @@ export function DataTablesPreview() {
             </Button>
           ))}
         </div>
-        <div className="overflow-hidden rounded-2xl border border-voyage-soft-border bg-white">
+        <div className="overflow-hidden rounded-card border border-voyage-soft-border bg-white">
           <Table density={density}>
             <TableCaption className="sr-only">Contoh jadwal program belajar.</TableCaption>
             <TableHeader>
@@ -270,7 +306,7 @@ export function DataTablesPreview() {
             Pencarian, filter status, tabel responsif, dan keadaan tanpa hasil memakai data lokal contoh.
           </p>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-voyage-soft-border bg-white">
+        <div className="overflow-hidden rounded-card border border-voyage-soft-border bg-white">
           <DataTable
             caption="Daftar contoh program belajar"
             columns={programmeColumns}
@@ -320,7 +356,7 @@ export function CalendarScrollAreaPreview() {
     <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(17rem,0.9fr)_minmax(0,1.1fr)]">
       <div className="space-y-3">
         <p className="text-sm font-semibold text-secondary-800">Calendar · pilih satu tanggal</p>
-        <div className="w-fit max-w-full rounded-2xl border border-voyage-soft-border bg-white p-4">
+        <div className="w-fit max-w-full rounded-card border border-voyage-soft-border bg-white p-4">
           <Calendar
             mode="single"
             onSelect={setSelectedDate}
@@ -335,7 +371,7 @@ export function CalendarScrollAreaPreview() {
       <div className="min-w-0 space-y-5">
         <div className="space-y-3">
           <p className="text-sm font-semibold text-secondary-800">ScrollArea · vertical</p>
-          <ScrollArea className="h-44 rounded-2xl border border-voyage-soft-border bg-white">
+          <ScrollArea className="h-44 rounded-card border border-voyage-soft-border bg-white">
             <ul className="grid gap-1 p-3">
               {studyItems.map((item, index) => (
                 <li className="rounded-xl px-3 py-2.5 text-sm text-secondary-700 hover:bg-primary-50" key={item}>
@@ -348,7 +384,7 @@ export function CalendarScrollAreaPreview() {
 
         <div className="space-y-3">
           <p className="text-sm font-semibold text-secondary-800">ScrollArea · horizontal</p>
-          <ScrollArea className="h-14 w-full rounded-2xl border border-voyage-soft-border bg-white">
+          <ScrollArea className="h-14 w-full rounded-card border border-voyage-soft-border bg-white">
             <div className="flex w-max min-w-full items-center gap-2 p-2">
               {studyItems.map((item) => (
                 <span className="shrink-0 rounded-xl bg-voyage-sea-glass-wash px-3 py-2 text-xs font-medium text-voyage-deep" key={item}>
@@ -385,7 +421,7 @@ export function ChartsPreview() {
       </div>
       <ChartContainer
         aria-label="Diagram contoh aktivitas materi dan latihan per minggu"
-        className="h-[260px] w-full max-w-full aspect-auto rounded-2xl border border-voyage-soft-border bg-white p-3 sm:p-5"
+        className="h-[260px] w-full max-w-full aspect-auto rounded-card border border-voyage-soft-border bg-white p-3 sm:p-5"
         config={studyChartConfig}
       >
         <BarChart

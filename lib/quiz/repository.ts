@@ -3814,7 +3814,7 @@ export async function getMentorQuizCatalogueRecords(tutorId: string, client: Pri
       id: record.id, title: record.title, editingTitle: draft?.title ?? record.title,
       subjectCode: record.subtest.code, subjectName: record.subtest.name,
       questionCount: versioning ? (active ?? draft)?._count.items ?? record._count.items : record._count.items,
-      publication: record.status === "archived" ? "archived" as const : versioning && !active ? "unpublished" as const : "published" as const,
+      publication: record.status === "archived" ? "archived" as const : "published" as const,
       isHidden: record.isHidden,
       hasUnpublishedChanges: Boolean(activeDefinition && draftDefinition && assessmentVersionChanged(activeDefinition, draftDefinition)),
       updatedAt: record.updatedAt.toISOString(),

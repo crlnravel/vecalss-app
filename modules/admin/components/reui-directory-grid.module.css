@@ -85,7 +85,6 @@
 .filterActions { display: flex; justify-content: space-between; gap: 8px; }
 .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; }
 .chip { display: flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--voyage-canvas); padding: 2px 8px; color: var(--directory-muted); font-size: 12px; }
-.chip a { color: inherit; display: inline-flex; }
 .clear { color: var(--directory-muted); font-size: 12px; }
 @media (hover: none) { .rowActions { opacity: 1; } }
 @media (max-width: 640px) {

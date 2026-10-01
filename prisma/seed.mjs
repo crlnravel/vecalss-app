@@ -46,6 +46,17 @@ const DEFAULT_TUTOR = {
   password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
 };
 
+const FIRST_LOGIN_TUTOR_PASSWORD =
+  process.env.SEED_FIRST_LOGIN_TUTOR_PASSWORD?.trim() || "TempTutor123!";
+
+const FIRST_LOGIN_TUTORS = [
+  { email: "davinaadindaui@gmail.com", fullName: "Davina" },
+  { email: "efatyas01@gmail.com", fullName: "Efaphras" },
+  { email: "nauvferry@gmail.com", fullName: "Nauval" },
+  { email: "nicholassaputratjandra@gmail.com", fullName: "Nicho" },
+  { email: "berliantheresiart@gmail.com", fullName: "Berli" },
+];
+
 const DEFAULT_AFFILIATOR = {
   email: process.env.SEED_AFFILIATOR_EMAIL?.trim() || "affiliator@vecalss.local",
   fullName: "Salsa Rahma",
@@ -1178,6 +1189,31 @@ async function main() {
       userId: tutorUserId,
     });
 
+    const firstLoginTutorPasswordHash = await hashPassword(FIRST_LOGIN_TUTOR_PASSWORD);
+    const firstLoginTutorUserIds = [];
+    for (const tutor of FIRST_LOGIN_TUTORS) {
+      const userId = await upsertUser(client, {
+        email: tutor.email,
+        fullName: tutor.fullName,
+        mustChangePassword: true,
+        passwordHash: firstLoginTutorPasswordHash,
+        passwordUpdatedAt: null,
+      });
+
+      await ensureRoleAssignment(client, {
+        assignedByUserId: adminUserId,
+        role: "tutor",
+        userId,
+      });
+      await ensureNotificationPreference(client, userId);
+      await upsertTutorProfile(client, {
+        bio: null,
+        headline: null,
+        userId,
+      });
+      firstLoginTutorUserIds.push(userId);
+    }
+
     const affiliatorUserId = await upsertUser(client, {
       email: DEFAULT_AFFILIATOR.email,
       fullName: DEFAULT_AFFILIATOR.fullName,
@@ -1262,6 +1298,13 @@ async function main() {
       cohortId,
       tutorId: tutorUserId,
     });
+    for (const tutorId of firstLoginTutorUserIds) {
+      await ensureTutorCohortAssignment(client, {
+        assignedByUserId: adminUserId,
+        cohortId,
+        tutorId,
+      });
+    }
 
     await seedMateriCatalogue(client, {
       authorUserId: tutorUserId,
@@ -1326,6 +1369,12 @@ async function main() {
         password: DEFAULT_TUTOR.password,
         role: "tutor",
       },
+      ...FIRST_LOGIN_TUTORS.map((tutor) => ({
+        email: tutor.email,
+        loginPath: "/login",
+        password: FIRST_LOGIN_TUTOR_PASSWORD,
+        role: "tutor (must change password)",
+      })),
       {
         email: DEFAULT_AFFILIATOR.email,
         loginPath: "/login",

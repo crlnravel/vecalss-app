@@ -21,7 +21,7 @@ The login email is account information. It is not editable here because it is th
 | Subjek | Subjek yang diajar | One optional dropdown; saved selection becomes the default quiz-table subject filter. |
 | Menu footer | Status, Batal, Simpan perubahan | Persistent dirty/saving/saved feedback; save/cancel affects only the visible menu. |
 
-There is no settings search and no disabled account-ID input. **Profil** and **Subjek** switch the visible settings menu, rather than scrolling to sections. Informasi akun is contained in Profil. The menu navigation becomes a horizontal pair on compact screens; rows stack their labels above values and controls. Subjek contains one dropdown, including **Tidak ditentukan** to clear the default.
+There is no settings search and no disabled account-ID input. **Profil** and **Subjek** switch the visible settings menu, rather than scrolling to sections. The Profil menu shows two sibling cards: Profil contains name, email, and save/cancel actions; Informasi akun contains role and account ID. A 24px gap separates them, without an enclosing card. The menu navigation becomes a horizontal pair on compact screens; rows stack their labels above values and controls. Subjek contains one dropdown, including **Tidak ditentukan** to clear the default.
 
 Each section has one outer border, with horizontal separators between its header, rows, and actions. Row labels share one typography style. Section subtitles and redundant field explanations are omitted; only the email editing limitation and account-ID guidance remain as smaller supporting text beside their values.
 

@@ -749,7 +749,7 @@ function PendingHandoffRows({
         <p className="text-sm font-semibold text-secondary-900">Akses akun baru yang menunggu</p>
         <Button className="text-xs" onClick={() => onSelectPending(pendingIds)} size="default" variant="outline">{selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua akun"}</Button>
       </div>
-      <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
+      <div className="mt-2 divide-y divide-primary-100 rounded-card border border-primary-100">
         {pendingRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Pilih informasi akses untuk baris ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && onSelectRow(row.handoffId)} type="checkbox" />
@@ -1093,7 +1093,7 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
         </div>
          <Badge size="sm" tone="danger">{failedRows.length} gagal</Badge>
       </div>
-      <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
+      <div className="mt-4 divide-y divide-student-status-danger-border rounded-card border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Pilih baris ${row.rowNumber} untuk dicoba ulang`} checked={selectedRows.has(row.rowId)} className="size-4 accent-student-status-danger-solid-bg" onChange={() => toggleRow(row.rowId)} type="checkbox" />

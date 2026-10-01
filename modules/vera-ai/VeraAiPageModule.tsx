@@ -2007,7 +2007,7 @@ function VeraDataStatePanel({
   return (
     <section
       aria-live={loading ? "polite" : "assertive"}
-      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-card border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
       role={loading ? "status" : "alert"}
     >
       <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
@@ -2054,7 +2054,7 @@ function VeraTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-control focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
           href={returnToHref}
         >
           <Image
@@ -2533,7 +2533,7 @@ function SessionPanel({
         <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
           <div className="flex flex-col gap-1.5">
             {visibleSessions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
+              <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
                 {showArchived
                   ? "Belum ada sesi yang diarsipkan."
                   : "Belum ada sesi. Buat sesi baru untuk mulai berbicara dengan Vera."}
@@ -2607,7 +2607,7 @@ function SessionListItem({
   return (
     <div
       className={cn(
-        "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
+        "group relative flex min-h-14 w-full items-center gap-1 rounded-control border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
         active
           ? "border-primary-200 bg-primary-50 text-primary-950"
           : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
@@ -3039,7 +3039,7 @@ function VeraAutomaticMessageEvidence({
           {evidenceLabel}
         </p>
       ) : null}
-      <details className="mt-3 max-w-[68ch] rounded-2xl border border-primary-100 bg-primary-50/35 px-3 py-2">
+      <details className="mt-3 max-w-[68ch] rounded-card border border-primary-100 bg-primary-50/35 px-3 py-2">
         <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
           Sumber yang dipakai
         </summary>
@@ -3146,7 +3146,7 @@ function ProvisionalMessageCard({
         {body ? (
           <BubbleContent
             aria-live="polite"
-            className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
+            className="mt-2 max-w-[68ch] rounded-card border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
           >
             <StreamingAnswerText content={body} />
           </BubbleContent>
@@ -3177,7 +3177,7 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
+        <div className="flex items-center gap-2 rounded-field border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
             className="min-w-0 flex-1"
@@ -3312,7 +3312,7 @@ function StudioPanel({
                 />
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 p-4 text-center">
+              <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/50 p-4 text-center">
                 <Sparkles className="mx-auto size-5 text-primary-600" />
                 <p className="mt-2 text-sm font-semibold text-secondary-800">
                   Belum ada hasil
@@ -3349,7 +3349,7 @@ function StudioToolRow({
 
   return (
     <button
-      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 motion-reduce:transition-none hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="group flex min-h-14 w-full items-center gap-3 rounded-control border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 motion-reduce:transition-none hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onGenerate}
       type="button"
     >
@@ -3381,7 +3381,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-control border border-primary-100 bg-white p-3 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
@@ -3435,7 +3435,7 @@ function StudioArtifactDocument({
       </div>
 
       {backendArtifact ? (
-        <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
+        <dl className="mt-4 grid gap-2 rounded-card border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
           <div>
             <dt className="font-semibold text-secondary-500">Siklus</dt>
             <dd className="mt-1 text-secondary-800">
@@ -3462,7 +3462,7 @@ function StudioArtifactDocument({
       ) : (
         <div
           aria-live="polite"
-          className="mt-6 rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-5 text-sm leading-6 text-secondary-600"
+          className="mt-6 rounded-card border border-dashed border-primary-200 bg-primary-50/45 px-4 py-5 text-sm leading-6 text-secondary-600"
           role="status"
         >
           Dokumen hasil belum tersedia dari server.
@@ -3547,7 +3547,7 @@ function FullscreenArtifactDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-[2rem] border border-primary-100 bg-white p-0 sm:max-w-none"
+        className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-panel border border-primary-100 bg-white p-0 sm:max-w-none"
         showCloseButton={false}
         variant="info"
       >
@@ -3568,7 +3568,7 @@ function FullscreenArtifactDialog({
               aria-label="Tutup Vera Studio"
               onClick={() => onOpenChange(false)}
               size="icon"
-              variant="outline"
+              variant="quiet"
             >
               <X />
             </Button>
@@ -3595,7 +3595,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-panel border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
         className,
       )}
     >
@@ -3623,7 +3623,7 @@ function PanelHeader({
             onClick={closeAction}
             size="icon"
             title="Tutup dokumen"
-            variant="outline"
+            variant="quiet"
           >
             <X />
           </Button>

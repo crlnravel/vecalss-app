@@ -145,7 +145,7 @@ export function EmptyStatesPreview() {
     <div className="space-y-7">
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {emptyMediaVariants.map((variant) => (
-          <Empty className="min-h-56 rounded-2xl border border-dashed border-voyage-soft-border bg-white px-5 py-8" key={variant}>
+          <Empty className="min-h-56 rounded-card border border-dashed border-voyage-soft-border bg-white px-5 py-8" key={variant}>
             <EmptyHeader>
               <EmptyMedia variant={variant}>
                 {variant === "icon" ? <CircleHelp aria-hidden="true" /> : <BookOpen aria-hidden="true" className="size-8 text-primary-700" />}
@@ -164,7 +164,7 @@ export function EmptyStatesPreview() {
         ))}
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-voyage-soft-border bg-voyage-canvas/70 p-3 sm:p-4">
+      <div className="space-y-3 rounded-card border border-voyage-soft-border bg-voyage-canvas/70 p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-secondary-800">TypedRouteState · seluruh keadaan rute</p>
@@ -195,7 +195,7 @@ export function EmptyStatesPreview() {
         </div>
         <TypedRouteState
           as="section"
-          className="min-h-0 rounded-2xl bg-transparent px-2 py-5 sm:px-4"
+          className="min-h-0 rounded-card bg-transparent px-2 py-5 sm:px-4"
           description={routeState.description}
           kind={routeState.kind}
           title={routeState.title}
@@ -251,7 +251,7 @@ export function ProgressSkeletonPreview() {
           </Button>
         </div>
         {isLoading ? (
-          <div aria-label="Contoh pemuatan" className="space-y-3 rounded-2xl border border-voyage-soft-border bg-white p-5" role="status">
+          <div aria-label="Contoh pemuatan" className="space-y-3 rounded-card border border-voyage-soft-border bg-white p-5" role="status">
             <Skeleton className="h-5 w-2/5" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-4/5" />
@@ -259,7 +259,7 @@ export function ProgressSkeletonPreview() {
             <span className="sr-only">Contoh isi sedang dimuat.</span>
           </div>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-voyage-soft-border bg-white p-5">
+          <div className="space-y-2 rounded-card border border-voyage-soft-border bg-white p-5">
             <h4 className="font-semibold text-secondary-900">Peluang kejadian</h4>
             <p className="text-sm leading-6 text-secondary-600">Selesaikan satu bagian lagi untuk menutup materi ini.</p>
             <Button size="sm" type="button" variant="outline">Lanjutkan materi</Button>
@@ -275,7 +275,7 @@ export function SeparatorPreview() {
     <div className="grid min-w-0 gap-6 md:grid-cols-2">
       <div className="space-y-3">
         <p className="text-sm font-semibold text-secondary-800">Horizontal</p>
-        <div className="space-y-3 rounded-2xl border border-voyage-soft-border bg-white p-4">
+        <div className="space-y-3 rounded-card border border-voyage-soft-border bg-white p-4">
           <p className="text-sm text-secondary-700">Informasi materi</p>
           <Separator orientation="horizontal" />
           <p className="text-sm text-secondary-700">Informasi kuis</p>
@@ -283,7 +283,7 @@ export function SeparatorPreview() {
       </div>
       <div className="space-y-3">
         <p className="text-sm font-semibold text-secondary-800">Vertical</p>
-        <div className="flex min-h-20 items-center justify-center gap-4 rounded-2xl border border-voyage-soft-border bg-white p-4">
+        <div className="flex min-h-20 items-center justify-center gap-4 rounded-card border border-voyage-soft-border bg-white p-4">
           <span className="text-sm text-secondary-700">Materi</span>
           <Separator className="h-8" orientation="vertical" />
           <span className="text-sm text-secondary-700">Kuis</span>

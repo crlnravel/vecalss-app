@@ -56,7 +56,7 @@ function getRecoveryKind(error: string | null, snapshot: MediaLibrarySnapshot | 
 }
 
 function MediaLibraryLoadingState({ driveAssetGridStyle, isDrive, isMinimalGallery }: Pick<MediaLibraryItemsViewProps, "driveAssetGridStyle"> & { isDrive: boolean; isMinimalGallery: boolean }) {
-  return <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && "grid", isMinimalGallery && "grid grid-cols-2 p-0")} style={isDrive && !isMinimalGallery ? driveAssetGridStyle : undefined}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && "h-44")} key={index} />)}</div>;
+  return <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && "grid", isMinimalGallery && "grid grid-cols-2 p-0")} style={isDrive && !isMinimalGallery ? driveAssetGridStyle : undefined}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-card", isDrive && "h-44")} key={index} />)}</div>;
 }
 
 function MediaLibraryFolderSection({
@@ -99,7 +99,7 @@ function MediaLibraryAssetRows({
   return (
     <div>
       {visibleAssets.map((asset) => (
-        <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", !isDrive && "border-t border-primary-100", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
+        <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", !isDrive && "border-t border-primary-100", isDrive && viewMode === "list" && "min-h-16 rounded-card border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
           <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16")} onClick={() => void actions.handlePreview(asset)} type="button">
             <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800">{isPdfMimeType(asset.mimeType) ? <FileText className="size-7" /> : asset.thumbnailUrl ?? asset.previewUrl ? <NextImage alt="" className="size-full object-cover" fill loading="lazy" sizes="3rem" src={asset.thumbnailUrl ?? asset.previewUrl ?? ""} unoptimized /> : <FileImage className="size-5" />}</span>
             <span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className="mt-1 block text-xs text-secondary-500 md:hidden">{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span>

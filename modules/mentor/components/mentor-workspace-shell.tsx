@@ -312,7 +312,7 @@ function MentorWorkspaceHeader({
       className={cn(
         "sticky top-0 z-20 backdrop-blur-xl",
         sidebarAppearance === "reference"
-          ? "mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-control lg:border"
+          ? "mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] rounded-control bg-voyage-canvas/90 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:border"
           : "border-b border-primary-100/80 bg-[var(--voyage-canvas)]/90",
       )}
     >
@@ -429,24 +429,25 @@ function MentorWorkspaceShell({
   return (
     <>
       <SidebarProvider
-        className={sidebarAppearance === "reference" ? "!bg-voyage-canvas lg:gap-2 lg:p-6" : undefined}
+        className={cn(
+          "workspace-page-canvas",
+          sidebarAppearance === "reference" ? "lg:gap-2 lg:p-6" : undefined,
+        )}
       >
         <div
           className={cn(
             "flex min-h-svh w-full text-secondary-900",
-            sidebarAppearance === "reference"
-              ? "bg-voyage-canvas lg:gap-2"
-              : "bg-[var(--voyage-canvas)]",
+            sidebarAppearance === "reference" ? "lg:gap-2" : undefined,
           )}
         >
           <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />
 
           <SidebarInset
             className={cn(
-              "min-w-0",
+              "min-w-0 !bg-transparent",
               sidebarAppearance === "reference"
-                ? "min-h-svh bg-voyage-canvas lg:rounded-3xl"
-                : "bg-transparent",
+                ? "min-h-svh lg:rounded-3xl"
+                : undefined,
             )}
           >
             <MentorWorkspaceHeader
