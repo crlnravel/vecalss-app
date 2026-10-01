@@ -1,8 +1,38 @@
 "use client";
 
 import { CaretUpDown, Columns, Funnel } from "@phosphor-icons/react";
-import { Menu } from "@base-ui/react/menu";
-import { AlertDialog } from "@base-ui/react/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableCell,
+  TableRow,
+  TableCaption,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import {
   flexRender,
   getCoreRowModel,
@@ -31,8 +61,6 @@ import {
 } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { showToast } from "@/components/ui/toast";
-import { fieldControlClassName } from "@/components/ui/field-constants";
-import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MentorQuizCreateDialog } from "@/modules/mentor/KaptenQuizEditorPageModule";
 import { manageQuizDashboardAction } from "@/modules/mentor/quiz-dashboard-actions";
@@ -78,7 +106,7 @@ function GridMenu({
   children,
   trigger,
   label,
-  className = styles.button,
+  className,
 }: {
   children: ReactNode;
   trigger: ReactNode;
@@ -86,20 +114,25 @@ function GridMenu({
   className?: string;
 }) {
   return (
-    <Menu.Root>
-      <Menu.Trigger className={className} aria-label={label}>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant={
+              className === styles.iconButton || className === styles.sort
+                ? "quiet"
+                : "outline"
+            }
+            size={className === styles.iconButton ? "icon-sm" : "sm"}
+          />
+        }
+        className={className}
+        aria-label={label}
+      >
         {trigger}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          className={styles.positioner}
-          align="end"
-          sideOffset={5}
-        >
-          <Menu.Popup className={styles.popup}>{children}</Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">{children}</DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 function GridCheckbox({
@@ -116,16 +149,12 @@ function GridCheckbox({
   disabled?: boolean;
 }) {
   return (
-    <input
-      type="checkbox"
-      className={styles.check}
+    <Checkbox
       aria-label={label}
       checked={checked}
+      indeterminate={mixed}
       disabled={disabled}
-      ref={(node) => {
-        if (node) node.indeterminate = mixed;
-      }}
-      onChange={(event) => onChange(event.target.checked)}
+      onCheckedChange={onChange}
     />
   );
 }
@@ -177,11 +206,12 @@ export function KaptenQuizDashboardPageModule({
     setFeedback(null);
     try {
       const response = await manageQuizDashboardAction(ids, action);
-      const actionLabel = action === "hide"
-        ? "disembunyikan"
-        : action === "show"
-          ? "ditampilkan"
-          : "diarsipkan";
+      const actionLabel =
+        action === "hide"
+          ? "disembunyikan"
+          : action === "show"
+            ? "ditampilkan"
+            : "diarsipkan";
       setSelection(
         Object.fromEntries(
           response.failed
@@ -200,13 +230,19 @@ export function KaptenQuizDashboardPageModule({
           { variant: "warning" },
         );
       } else if (response.succeeded.length) {
-        showToast(`${response.succeeded.length} kuis berhasil ${actionLabel}.`, {
-          variant: "success",
-        });
+        showToast(
+          `${response.succeeded.length} kuis berhasil ${actionLabel}.`,
+          {
+            variant: "success",
+          },
+        );
       } else if (failures.length) {
-        showToast("Perubahan belum berhasil disimpan. Lihat rincian dan coba lagi.", {
-          variant: "error",
-        });
+        showToast(
+          "Perubahan belum berhasil disimpan. Lihat rincian dan coba lagi.",
+          {
+            variant: "error",
+          },
+        );
       }
       if (response.succeeded.length) router.refresh();
       setArchiving(null);
@@ -227,7 +263,7 @@ export function KaptenQuizDashboardPageModule({
   const columns: ColumnDef<QuizDashboardRow>[] = [
     {
       id: "select",
-      size: 36,
+      size: 48,
       enableHiding: false,
       enableSorting: false,
       header: ({ table }) => (
@@ -284,7 +320,9 @@ export function KaptenQuizDashboardPageModule({
       size: 160,
       cell: ({ row }) => (
         <>
-          <span className={styles.subtestCode}>{row.original.subjectCode}</span>
+          <Badge tone="category" size="xs">
+            {row.original.subjectCode}
+          </Badge>
           <span className={styles.secondary} title={row.original.subjectName}>
             {row.original.subjectName}
           </span>
@@ -314,9 +352,18 @@ export function KaptenQuizDashboardPageModule({
       size: 140,
       cell: ({ row }) => (
         <>
-          <span className={styles.status} data-state={row.original.publication}>
+          <Badge
+            size="xs"
+            tone={
+              row.original.publication === "published"
+                ? "success"
+                : row.original.publication === "unpublished"
+                  ? "attention"
+                  : "neutral"
+            }
+          >
             {publicationLabels[row.original.publication]}
-          </span>
+          </Badge>
           {row.original.isHidden && (
             <span className={styles.secondary}>Disembunyikan</span>
           )}
@@ -325,7 +372,7 @@ export function KaptenQuizDashboardPageModule({
     },
     {
       id: "actions",
-      size: 44,
+      size: 60,
       enableHiding: false,
       enableSorting: false,
       header: () => <span className={styles.srOnly}>Tindakan</span>,
@@ -335,29 +382,23 @@ export function KaptenQuizDashboardPageModule({
           label={`Tindakan untuk ${row.original.title}`}
           trigger={<MoreHorizontal size={16} />}
         >
-          <Menu.Item
-            className={styles.menuItem}
-            render={<Link href={detailHref(row.original)} />}
-          >
+          <DropdownMenuItem render={<Link href={detailHref(row.original)} />}>
             Buka kuis
-          </Menu.Item>
-          <Menu.Item
-            className={styles.menuItem}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             render={<Link href={detailHref(row.original, "hasil")} />}
           >
             Lihat hasil
-          </Menu.Item>
-          <Menu.Item
-            className={styles.menuItem}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             render={<Link href={detailHref(row.original, "pengaturan")} />}
           >
             Pengaturan
-          </Menu.Item>
+          </DropdownMenuItem>
           {row.original.publication !== "archived" && (
             <>
-              <Menu.Separator className={styles.separator} />
-              <Menu.Item
-                className={styles.menuItem}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 disabled={saving}
                 onClick={() =>
                   mutate(
@@ -368,15 +409,15 @@ export function KaptenQuizDashboardPageModule({
               >
                 {row.original.isHidden ? <Eye /> : <EyeOff />}
                 {row.original.isHidden ? "Tampilkan" : "Sembunyikan"}
-              </Menu.Item>
-              <Menu.Item
-                className={`${styles.menuItem} ${styles.danger}`}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
                 disabled={saving}
                 onClick={() => setArchiving(row.original)}
               >
                 <Archive />
                 Arsipkan
-              </Menu.Item>
+              </DropdownMenuItem>
             </>
           )}
         </GridMenu>
@@ -469,19 +510,20 @@ export function KaptenQuizDashboardPageModule({
               <span>{result.hidden} disembunyikan</span>
             </p>
           </div>
-          <button
+          <Button
             type="button"
-            className={styles.primary}
+            size="sm"
+            variant="default"
             onClick={() => setCreateOpen(true)}
           >
             <Plus />
             Buat kuis
-          </button>
+          </Button>
         </div>
         <div className={styles.toolbar}>
           <div className={styles.filters}>
             <form
-              className={cn(fieldControlClassName, "py-0", styles.search)}
+              className={styles.search}
               onSubmit={(event) => {
                 event.preventDefault();
                 navigate({
@@ -490,7 +532,8 @@ export function KaptenQuizDashboardPageModule({
               }}
             >
               <Search aria-hidden="true" />
-              <input
+              <Input
+                className="pl-9"
                 name="q"
                 key={query.q}
                 defaultValue={query.q}
@@ -501,7 +544,7 @@ export function KaptenQuizDashboardPageModule({
               />
             </form>
             <GridMenu
-              className={`${styles.button} ${styles.subject}`}
+              className={styles.subject}
               label="Filter subtes"
               trigger={
                 <>
@@ -512,21 +555,17 @@ export function KaptenQuizDashboardPageModule({
                 </>
               }
             >
-              <Menu.Item
-                className={styles.menuItem}
-                onClick={() => navigate({ subject: "all" })}
-              >
+              <DropdownMenuItem onClick={() => navigate({ subject: "all" })}>
                 Semua subtes
-              </Menu.Item>
+              </DropdownMenuItem>
               {subjects.map((subject) => (
-                <Menu.Item
-                  className={styles.menuItem}
+                <DropdownMenuItem
                   key={subject.code}
                   onClick={() => navigate({ subject: subject.code })}
                 >
                   {subject.code} — {subject.name}
                   {query.subject === subject.code && <Check />}
-                </Menu.Item>
+                </DropdownMenuItem>
               ))}
             </GridMenu>
             <GridMenu
@@ -537,27 +576,23 @@ export function KaptenQuizDashboardPageModule({
                   Status
                   {activeFilters.filter((filter) => filter.key !== "subject")
                     .length > 0 && (
-                    <span className={styles.count}>
+                    <Badge size="xs" tone="neutral">
                       {
                         activeFilters.filter(
                           (filter) => filter.key !== "subject",
                         ).length
                       }
-                    </span>
+                    </Badge>
                   )}
                 </>
               }
             >
-              <div className={styles.menuHeading}>Penerbitan</div>
-              <Menu.Item
-                className={styles.menuItem}
-                onClick={() => navigate({ status: "" })}
-              >
+              <DropdownMenuLabel>Penerbitan</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => navigate({ status: "" })}>
                 Semua status{!query.status && <Check />}
-              </Menu.Item>
+              </DropdownMenuItem>
               {Object.entries(publicationLabels).map(([value, label]) => (
-                <Menu.Item
-                  className={styles.menuItem}
+                <DropdownMenuItem
                   key={value}
                   onClick={() =>
                     navigate({ status: value as QuizDashboardQuery["status"] })
@@ -565,29 +600,21 @@ export function KaptenQuizDashboardPageModule({
                 >
                   {label}
                   {query.status === value && <Check />}
-                </Menu.Item>
+                </DropdownMenuItem>
               ))}
-              <Menu.Separator className={styles.separator} />
-              <Menu.CheckboxItem
-                className={styles.menuItem}
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
                 checked={query.hidden}
                 onCheckedChange={(hidden) => navigate({ hidden })}
               >
                 Disembunyikan
-                <Menu.CheckboxItemIndicator>
-                  <Check />
-                </Menu.CheckboxItemIndicator>
-              </Menu.CheckboxItem>
-              <Menu.CheckboxItem
-                className={styles.menuItem}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
                 checked={query.changed}
                 onCheckedChange={(changed) => navigate({ changed })}
               >
                 Ada perubahan
-                <Menu.CheckboxItemIndicator>
-                  <Check />
-                </Menu.CheckboxItemIndicator>
-              </Menu.CheckboxItem>
+              </DropdownMenuCheckboxItem>
             </GridMenu>
           </div>
           <div className={styles.tools}>
@@ -597,7 +624,7 @@ export function KaptenQuizDashboardPageModule({
                 <>
                   <Columns />
                   Kolom
-                  <span className={styles.count}>
+                  <Badge size="xs" tone="neutral">
                     {
                       table
                         .getVisibleLeafColumns()
@@ -606,7 +633,7 @@ export function KaptenQuizDashboardPageModule({
                             column.id !== "select" && column.id !== "actions",
                         ).length
                     }
-                  </span>
+                  </Badge>
                 </>
               }
             >
@@ -614,19 +641,15 @@ export function KaptenQuizDashboardPageModule({
                 .getAllLeafColumns()
                 .filter((column) => column.getCanHide())
                 .map((column) => (
-                  <Menu.CheckboxItem
+                  <DropdownMenuCheckboxItem
                     key={column.id}
-                    className={styles.menuItem}
                     checked={column.getIsVisible()}
                     onCheckedChange={(checked) =>
                       column.toggleVisibility(checked)
                     }
                   >
                     {columnLabels[column.id]}
-                    <Menu.CheckboxItemIndicator>
-                      <Check />
-                    </Menu.CheckboxItemIndicator>
-                  </Menu.CheckboxItem>
+                  </DropdownMenuCheckboxItem>
                 ))}
             </GridMenu>
             <GridMenu
@@ -636,39 +659,36 @@ export function KaptenQuizDashboardPageModule({
                   <MoreHorizontal />
                   Tindakan
                   {selectedIds.length > 0 && (
-                    <span className={styles.count}>{selectedIds.length}</span>
+                    <Badge size="xs" tone="neutral">
+                      {selectedIds.length}
+                    </Badge>
                   )}
                 </>
               }
             >
-              <div className={styles.menuHeading}>
+              <DropdownMenuLabel>
                 {selectedIds.length
                   ? `${selectedIds.length} kuis terpilih di halaman ini`
                   : "Pilih kuis di halaman ini"}
-              </div>
-              <Menu.Item
-                className={styles.menuItem}
+              </DropdownMenuLabel>
+              <DropdownMenuItem
                 disabled={!selectedIds.length || saving}
                 onClick={() => mutate(selectedIds, "hide")}
               >
                 <EyeOff />
                 Sembunyikan terpilih
-              </Menu.Item>
-              <Menu.Item
-                className={styles.menuItem}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 disabled={!selectedIds.length || saving}
                 onClick={() => mutate(selectedIds, "show")}
               >
                 <Eye />
                 Tampilkan terpilih
-              </Menu.Item>
+              </DropdownMenuItem>
               {selectedIds.length > 0 && (
-                <Menu.Item
-                  className={styles.menuItem}
-                  onClick={() => setSelection({})}
-                >
+                <DropdownMenuItem onClick={() => setSelection({})}>
                   Hapus pilihan
-                </Menu.Item>
+                </DropdownMenuItem>
               )}
             </GridMenu>
           </div>
@@ -676,19 +696,22 @@ export function KaptenQuizDashboardPageModule({
         {activeFilters.length > 0 && (
           <div className={styles.chips} aria-label="Filter aktif">
             {activeFilters.map((filter) => (
-              <span className={styles.chip} key={filter.key}>
+              <Badge size="sm" tone="category" key={filter.key}>
                 {filter.label}
-                <button
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant="quiet"
                   aria-label={`Hapus filter ${filter.label}`}
                   onClick={() => navigate({ [filter.key]: filter.reset })}
                 >
                   <X size={12} />
-                </button>
-              </span>
+                </Button>
+              </Badge>
             ))}
-            <button
-              className={styles.clear}
+            <Button
+              size="sm"
+              variant="quiet"
               type="button"
               onClick={() =>
                 navigate({
@@ -700,7 +723,7 @@ export function KaptenQuizDashboardPageModule({
               }
             >
               Hapus semua
-            </button>
+            </Button>
           </div>
         )}
         {feedback && (
@@ -713,14 +736,15 @@ export function KaptenQuizDashboardPageModule({
                 ))}
               </ul>
             </div>
-            <button
+            <Button
               type="button"
-              className={styles.iconButton}
+              size="icon-sm"
+              variant="quiet"
               aria-label="Tutup pemberitahuan"
               onClick={() => setFeedback(null)}
             >
               <X size={16} />
-            </button>
+            </Button>
           </div>
         )}
         <div
@@ -729,11 +753,11 @@ export function KaptenQuizDashboardPageModule({
           role="region"
           aria-label="Tabel kuis, geser untuk melihat semua kolom"
         >
-          <table className={styles.table}>
-            <caption className={styles.srOnly}>
+          <Table className={styles.table}>
+            <TableCaption className={styles.srOnly}>
               Daftar kuis lintas subtes. Pengerjaan menghitung upaya selesai.
               Rata-rata memakai nilai akhir setiap siswa sesuai aturan kuis.
-            </caption>
+            </TableCaption>
             <colgroup>
               {table.getVisibleLeafColumns().map((column) => (
                 <col
@@ -744,11 +768,11 @@ export function KaptenQuizDashboardPageModule({
                 />
               ))}
             </colgroup>
-            <thead>
+            <TableHeader>
               {table.getHeaderGroups().map((group) => (
-                <tr key={group.id}>
+                <TableRow key={group.id}>
                   {group.headers.map((header) => (
-                    <th
+                    <TableHead
                       key={header.id}
                       scope="col"
                       data-numeric={isNumeric(header.column.id)}
@@ -788,8 +812,7 @@ export function KaptenQuizDashboardPageModule({
                             </>
                           }
                         >
-                          <Menu.Item
-                            className={styles.menuItem}
+                          <DropdownMenuItem
                             onClick={() =>
                               navigate({
                                 sort: header.column
@@ -800,9 +823,8 @@ export function KaptenQuizDashboardPageModule({
                           >
                             <ArrowUp />
                             Urutkan naik
-                          </Menu.Item>
-                          <Menu.Item
-                            className={styles.menuItem}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() =>
                               navigate({
                                 sort: header.column
@@ -813,12 +835,11 @@ export function KaptenQuizDashboardPageModule({
                           >
                             <ArrowDown />
                             Urutkan turun
-                          </Menu.Item>
+                          </DropdownMenuItem>
                           {header.column.id === "title" && (
                             <>
-                              <Menu.Separator className={styles.separator} />
-                              <Menu.Item
-                                className={styles.menuItem}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
                                 onClick={() =>
                                   navigate({
                                     sort: "updatedAt",
@@ -829,7 +850,7 @@ export function KaptenQuizDashboardPageModule({
                                 <ArrowDown />
                                 Terakhir diubah
                                 {query.sort === "updatedAt" && <Check />}
-                              </Menu.Item>
+                              </DropdownMenuItem>
                             </>
                           )}
                         </GridMenu>
@@ -839,27 +860,30 @@ export function KaptenQuizDashboardPageModule({
                           header.getContext(),
                         )
                       )}
-                    </th>
+                    </TableHead>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </thead>
-            <tbody>
+            </TableHeader>
+            <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} data-selected={row.getIsSelected()}>
+                <TableRow key={row.id} data-selected={row.getIsSelected()}>
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} data-numeric={isNumeric(cell.column.id)}>
+                    <TableCell
+                      key={cell.id}
+                      data-numeric={isNumeric(cell.column.id)}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
               {!result.rows.length && (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     className={styles.empty}
                     colSpan={table.getVisibleLeafColumns().length}
                   >
@@ -873,8 +897,9 @@ export function KaptenQuizDashboardPageModule({
                       : "Buat kuis pertama untuk mulai menyusun soal."}
                     <div>
                       {counts.total ? (
-                        <button
-                          className={styles.button}
+                        <Button
+                          size="sm"
+                          variant="outline"
                           type="button"
                           onClick={() =>
                             navigate({
@@ -887,23 +912,24 @@ export function KaptenQuizDashboardPageModule({
                           }
                         >
                           Hapus pencarian dan filter
-                        </button>
+                        </Button>
                       ) : (
-                        <button
-                          className={styles.primary}
+                        <Button
+                          size="sm"
+                          variant="default"
                           type="button"
                           onClick={() => setCreateOpen(true)}
                         >
                           <Plus />
                           Buat kuis
-                        </button>
+                        </Button>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <div className={styles.footer}>
           <div className={styles.pageSize}>
@@ -918,14 +944,13 @@ export function KaptenQuizDashboardPageModule({
               }
             >
               {[6, 10, 20, 50].map((size) => (
-                <Menu.Item
-                  className={styles.menuItem}
+                <DropdownMenuItem
                   key={size}
                   onClick={() => navigate({ pageSize: size })}
                 >
                   {size}
                   {query.pageSize === size && <Check />}
-                </Menu.Item>
+                </DropdownMenuItem>
               ))}
             </GridMenu>
           </div>
@@ -935,22 +960,24 @@ export function KaptenQuizDashboardPageModule({
               {Math.min(query.page * query.pageSize, result.total)} dari{" "}
               {result.total}
             </span>
-            <button
-              className={styles.iconButton}
+            <Button
+              size="icon-sm"
+              variant="quiet"
               type="button"
               aria-label="Halaman sebelumnya"
               disabled={pending || query.page === 1}
               onClick={() => navigate({ page: query.page - 1 })}
             >
               <ChevronLeft size={16} />
-            </button>
+            </Button>
             {pages.map((page, index) => (
               <span key={page}>
                 {index > 0 && page - pages[index - 1] > 1 && (
                   <span aria-hidden="true">…</span>
                 )}
-                <button
-                  className={styles.pageButton}
+                <Button
+                  size="icon-sm"
+                  variant={query.page === page ? "default" : "quiet"}
                   aria-label={`Halaman ${page}`}
                   aria-current={query.page === page ? "page" : undefined}
                   disabled={pending}
@@ -958,18 +985,19 @@ export function KaptenQuizDashboardPageModule({
                   onClick={() => navigate({ page })}
                 >
                   {page}
-                </button>
+                </Button>
               </span>
             ))}
-            <button
-              className={styles.iconButton}
+            <Button
+              size="icon-sm"
+              variant="quiet"
               type="button"
               aria-label="Halaman berikutnya"
               disabled={pending || query.page === result.pageCount}
               onClick={() => navigate({ page: query.page + 1 })}
             >
               <ChevronRight size={16} />
-            </button>
+            </Button>
           </nav>
         </div>
       </section>
@@ -984,36 +1012,32 @@ export function KaptenQuizDashboardPageModule({
             router.replace(returnHref, { scroll: false });
         }}
       />
-      <AlertDialog.Root
+      <AlertDialog
         open={Boolean(archiving)}
         onOpenChange={(open) => {
           if (!open && !saving) setArchiving(null);
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Backdrop className={styles.overlay} />
-          <AlertDialog.Popup className={styles.dialog}>
-            <AlertDialog.Title>Arsipkan kuis?</AlertDialog.Title>
-            <AlertDialog.Description>
+        <AlertDialogContent pending={saving} variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arsipkan kuis?</AlertDialogTitle>
+            <AlertDialogDescription>
               “{archiving?.title}” tidak akan tersedia lagi untuk siswa. Kuis
               yang diarsipkan tidak bisa diaktifkan kembali.
-            </AlertDialog.Description>
-            <div className={styles.dialogActions}>
-              <AlertDialog.Close className={styles.button} disabled={saving}>
-                Batal
-              </AlertDialog.Close>
-              <button
-                type="button"
-                className={`${styles.primary} ${styles.destructive}`}
-                disabled={saving}
-                onClick={() => archiving && mutate([archiving.id], "archive")}
-              >
-                {saving ? "Mengarsipkan…" : "Arsipkan kuis"}
-              </button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={saving}
+              onClick={() => archiving && mutate([archiving.id], "archive")}
+            >
+              {saving ? "Mengarsipkan…" : "Arsipkan kuis"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MentorWorkspaceShell>
   );
 }
@@ -1042,14 +1066,15 @@ export function QuizDashboardUnavailable({
         <div className={styles.empty} role="alert">
           <strong>Daftar kuis belum dapat dimuat</strong>
           <p>Coba lagi untuk membuka daftar kuis.</p>
-          <button
-            className={styles.primary}
+          <Button
+            size="sm"
+            variant="default"
             type="button"
             disabled={pending}
             onClick={() => startTransition(() => router.refresh())}
           >
             {pending ? "Memuat…" : "Coba lagi"}
-          </button>
+          </Button>
         </div>
       </section>
     </MentorWorkspaceShell>
