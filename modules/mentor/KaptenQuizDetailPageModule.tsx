@@ -151,6 +151,7 @@ function QuizPreview({
         <Button
           className="shrink-0"
           nativeButton={false}
+          size="xs"
           render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
           type="button"
           variant="default"
@@ -216,9 +217,9 @@ function QuizQuestionCard({
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Subjek
             </span>
-            <Badge size="xs" tone="category">
+            <strong className="text-[12px] font-bold text-voyage-ink">
               {subjectCode}
-            </Badge>
+            </strong>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
@@ -578,9 +579,9 @@ function QuizSubjectField({
         </div>
       ) : (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <Badge size="xs" tone="category">
+          <strong className="text-sm font-bold text-voyage-ink">
             {subject ? `${subject.code} · ${subject.name}` : value}
-          </Badge>
+          </strong>
         </div>
       )}
     </div>

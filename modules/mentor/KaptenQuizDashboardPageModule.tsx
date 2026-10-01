@@ -281,9 +281,9 @@ export function KaptenQuizDashboardPageModule({
       accessorKey: "subjectCode",
       size: 100,
       cell: ({ row }) => (
-        <Badge tone="category" size="sm" title={row.original.subjectName}>
+        <strong className="font-bold" title={row.original.subjectName}>
           {row.original.subjectCode}
-        </Badge>
+        </strong>
       ),
     },
     {
@@ -748,13 +748,13 @@ export function KaptenQuizDashboardPageModule({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={
+                      className={`py-[4px] ${
                         cell.column.id === "select"
                           ? styles.selectionCell
                           : cell.column.id === "title"
                             ? styles.titleCell
-                            : undefined
-                      }
+                            : ""
+                      }`}
                       data-numeric={isNumeric(cell.column.id)}
                     >
                       {flexRender(

@@ -98,6 +98,10 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.table td[data-numeric="true"] {
+  font-size: 12px;
+  line-height: 18px;
+}
 .iconButton {
   flex-shrink: 0;
 }
