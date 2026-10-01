@@ -14,7 +14,61 @@ export const FIRST_LOGIN_TUTORS = [
   { email: "nauvferry@gmail.com", fullName: "Nauval" },
   { email: "nicholassaputratjandra@gmail.com", fullName: "Nicho" },
   { email: "berliantheresiart@gmail.com", fullName: "Berli" },
+  { email: "carleanoravel@gmail.com", fullName: "Carleano" },
 ];
+
+export const CANONICAL_SUBTESTS = [
+  { code: "PU", name: "Penalaran Umum", sortOrder: 1 },
+  { code: "PPU", name: "Pengetahuan dan Pemahaman Umum", sortOrder: 2 },
+  { code: "PBM", name: "Pemahaman Bacaan dan Menulis", sortOrder: 3 },
+  { code: "PK", name: "Pengetahuan Kuantitatif", sortOrder: 4 },
+  { code: "LBI", name: "Literasi Bahasa Indonesia", sortOrder: 5 },
+  { code: "LBE", name: "Literasi Bahasa Inggris", sortOrder: 6 },
+  { code: "PM", name: "Penalaran Matematika", sortOrder: 7 },
+];
+
+export async function ensureCanonicalSubtests(client) {
+  for (const s of CANONICAL_SUBTESTS) {
+    await client.query(
+      `
+        INSERT INTO subtests (code, name, description, sort_order, is_active)
+        VALUES ($1, $2, $3, $4, TRUE)
+        ON CONFLICT (code)
+        DO UPDATE SET
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          sort_order = EXCLUDED.sort_order,
+          is_active = TRUE
+      `,
+      [s.code, s.name, s.name, s.sortOrder],
+    );
+  }
+}
+
+export async function cleanStagingDatabase(client) {
+  const tablesResult = await client.query(`
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = 'public'
+      AND tablename NOT IN ('_prisma_migrations', 'subtests')
+    ORDER BY tablename
+  `);
+
+  if (tablesResult.rows.length === 0) return;
+
+  const tableList = tablesResult.rows
+    .map((r) => `"${r.tablename.replace(/"/g, '""')}"`)
+    .join(", ");
+
+  await client.query("ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_immutable;");
+  await client.query("ALTER TABLE audit_logs DISABLE TRIGGER audit_logs_truncate_immutable;");
+  try {
+    await client.query(`TRUNCATE TABLE ${tableList} CASCADE;`);
+  } finally {
+    await client.query("ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_immutable;");
+    await client.query("ALTER TABLE audit_logs ENABLE TRIGGER audit_logs_truncate_immutable;");
+  }
+}
 
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();

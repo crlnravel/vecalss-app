@@ -19,6 +19,7 @@
     "db:apply-materi-reset": "node prisma/seed-materi.mjs --apply",
     "db:seed-assessment": "node prisma/seed-assessment.mjs",
     "db:seed-mentors": "node prisma/seed-mentors.mjs",
+    "db:seed-staging": "node prisma/seed-staging.mjs",
     "db:seed-question-bank-organization": "node prisma/seed-question-bank-organization.mjs",
     "obscura:serve": "node scripts/run-obscura.mjs serve",
     "obscura:status": "node scripts/run-obscura.mjs status",

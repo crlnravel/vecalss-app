@@ -279,7 +279,7 @@ staging-migrate: staging-env _ensure-deps _resource-status
     set -e
     exit "$command_status"
 
-# Seed Neon staging without resetting it.
+# Seed Neon staging with mentor accounts only (no demo fixtures).
 staging-seed: staging-env _ensure-deps _resource-status
     #!/usr/bin/env bash
     set -euo pipefail
@@ -290,13 +290,13 @@ staging-seed: staging-env _ensure-deps _resource-status
     fi
     export DATABASE_URL="${staging_url/-pooler./.}"
     set +e
-    ./_harness/resource-guard.sh run -- rtk pnpm exec node prisma/seed.mjs 2>&1 \
+    ./_harness/resource-guard.sh run -- rtk pnpm exec node prisma/seed-staging.mjs 2>&1 \
       | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
     command_status=${PIPESTATUS[0]}
     set -e
     exit "$command_status"
 
-# Destructively reset Neon staging, replay migrations, then seed demo fixtures.
+# Destructively reset Neon staging, replay migrations, then seed mentor accounts.
 staging-reset: staging-env _ensure-deps _resource-status
     #!/usr/bin/env bash
     set -euo pipefail
