@@ -4,6 +4,17 @@ import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPage,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+import type { QuizDashboardMutation } from "@/lib/quiz/mentor-dashboard-repository";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -36,16 +47,16 @@ import {
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import {
   Archive,
+  Trash2,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   EyeOff,
   MoreHorizontal,
@@ -74,7 +85,6 @@ const publicationLabels = {
 const columnLabels: Record<string, string> = {
   title: "Kuis",
   subjectCode: "Subtes",
-  questionCount: "Soal",
   completedAttempts: "Pengerjaan",
   averageScore: "Rata-rata",
   publication: "Status",
@@ -101,11 +111,13 @@ function GridMenu({
   trigger,
   label,
   className,
+  disabled = false,
 }: {
   children: ReactNode;
   trigger: ReactNode;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -117,6 +129,7 @@ function GridMenu({
           />
         }
         className={className}
+        disabled={disabled}
         aria-label={label}
       >
         {trigger}
@@ -143,7 +156,12 @@ export function KaptenQuizDashboardPageModule({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [createOpen, setCreateOpen] = useState(initialCreateDialogOpen);
-  const [archiving, setArchiving] = useState<QuizDashboardRow | null>(null);
+  const [selection, setSelection] = useState<RowSelectionState>({});
+  const [confirmation, setConfirmation] = useState<{
+    action: "archive" | "delete";
+    ids: string[];
+    label: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const mutationInFlight = useRef(false);
   const [feedback, setFeedback] = useState<string[] | null>(null);
@@ -151,6 +169,7 @@ export function KaptenQuizDashboardPageModule({
   const returnHref = quizDashboardHref(query);
   function navigate(patch: Partial<QuizDashboardQuery>) {
     if (pending || saving) return;
+    setSelection({});
     startTransition(() =>
       router.push(quizDashboardHref({ ...query, page: 1, ...patch }), {
         scroll: false,
@@ -162,7 +181,7 @@ export function KaptenQuizDashboardPageModule({
     if (tab) params.set("tab", tab);
     return `/mentor/quiz/${row.id}?${params}`;
   }
-  async function mutate(ids: string[], action: "hide" | "show" | "archive") {
+  async function mutate(ids: string[], action: QuizDashboardMutation) {
     if (mutationInFlight.current) return;
     mutationInFlight.current = true;
     setSaving(true);
@@ -174,7 +193,16 @@ export function KaptenQuizDashboardPageModule({
           ? "disembunyikan"
           : action === "show"
             ? "ditampilkan"
-            : "diarsipkan";
+            : action === "archive"
+              ? "diarsipkan"
+              : "dihapus";
+      setSelection((previous) =>
+        Object.fromEntries(
+          response.failed
+            .filter((item) => previous[item.id])
+            .map((item) => [item.id, true]),
+        ),
+      );
       const failures = response.failed.map(
         (item) =>
           `${result.rows.find((row) => row.id === item.id)?.title ?? "Kuis"}: ${item.message}`,
@@ -201,7 +229,7 @@ export function KaptenQuizDashboardPageModule({
         );
       }
       if (response.succeeded.length) router.refresh();
-      setArchiving(null);
+      setConfirmation(null);
     } catch {
       setFeedback(null);
       showToast("Perubahan belum berhasil disimpan. Coba lagi.", {
@@ -213,8 +241,31 @@ export function KaptenQuizDashboardPageModule({
     }
   }
   const isNumeric = (id: string) =>
-    ["questionCount", "completedAttempts", "averageScore"].includes(id);
+    ["completedAttempts", "averageScore"].includes(id);
   const columns: ColumnDef<QuizDashboardRow>[] = [
+    {
+      id: "select",
+      size: 48,
+      header: ({ table }) => (
+        <Checkbox
+          aria-label="Pilih semua kuis di halaman ini"
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          onCheckedChange={(checked) =>
+            table.toggleAllPageRowsSelected(checked)
+          }
+          disabled={pending || saving || !result.rows.length}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={`Pilih ${row.original.title}`}
+          checked={row.getIsSelected()}
+          onCheckedChange={(checked) => row.toggleSelected(checked)}
+          disabled={pending || saving}
+        />
+      ),
+    },
     {
       accessorKey: "title",
       size: 350,
@@ -248,20 +299,10 @@ export function KaptenQuizDashboardPageModule({
       accessorKey: "subjectCode",
       size: 160,
       cell: ({ row }) => (
-        <>
-          <Badge tone="category" size="xs">
-            {row.original.subjectCode}
-          </Badge>
-          <span className={styles.secondary} title={row.original.subjectName}>
-            {row.original.subjectName}
-          </span>
-        </>
+        <Badge tone="category" size="sm" title={row.original.subjectName}>
+          {row.original.subjectCode}
+        </Badge>
       ),
-    },
-    {
-      accessorKey: "questionCount",
-      size: 85,
-      cell: ({ getValue }) => numberFormatter.format(getValue<number>()),
     },
     {
       accessorKey: "completedAttempts",
@@ -282,7 +323,7 @@ export function KaptenQuizDashboardPageModule({
       cell: ({ row }) => (
         <>
           <Badge
-            size="xs"
+            size="sm"
             tone={
               row.original.publication === "published"
                 ? "success"
@@ -311,24 +352,10 @@ export function KaptenQuizDashboardPageModule({
           label={`Tindakan untuk ${row.original.title}`}
           trigger={<MoreHorizontal size={16} />}
         >
-          <DropdownMenuItem render={<Link href={detailHref(row.original)} />}>
-            Buka kuis
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            render={<Link href={detailHref(row.original, "hasil")} />}
-          >
-            Lihat hasil
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            render={<Link href={detailHref(row.original, "pengaturan")} />}
-          >
-            Pengaturan
-          </DropdownMenuItem>
           {row.original.publication !== "archived" && (
             <>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
-                disabled={saving}
+                disabled={pending || saving}
                 onClick={() =>
                   mutate(
                     [row.original.id],
@@ -342,13 +369,33 @@ export function KaptenQuizDashboardPageModule({
               <DropdownMenuItem
                 variant="destructive"
                 disabled={saving}
-                onClick={() => setArchiving(row.original)}
+                onClick={() =>
+                  setConfirmation({
+                    action: "archive",
+                    ids: [row.original.id],
+                    label: `“${row.original.title}”`,
+                  })
+                }
               >
                 <Archive />
                 Arsipkan
               </DropdownMenuItem>
             </>
           )}
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending || saving}
+            onClick={() =>
+              setConfirmation({
+                action: "delete",
+                ids: [row.original.id],
+                label: `“${row.original.title}”`,
+              })
+            }
+          >
+            <Trash2 />
+            Hapus
+          </DropdownMenuItem>
         </GridMenu>
       ),
     },
@@ -361,15 +408,22 @@ export function KaptenQuizDashboardPageModule({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     state: {
+      rowSelection: selection,
       pagination: { pageIndex: query.page - 1, pageSize: query.pageSize },
     },
-    enableRowSelection: false,
+    enableRowSelection: true,
+    onRowSelectionChange: setSelection,
     manualPagination: true,
     enableSorting: false,
     manualFiltering: true,
     pageCount: result.pageCount,
     autoResetPageIndex: false,
   });
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedIds = selectedRows.map((row) => row.id);
+  const hasArchivedSelection = selectedRows.some(
+    (row) => row.original.publication === "archived",
+  );
   const activeFilters = [
     ...(query.subject && query.subject !== "all"
       ? [
@@ -438,29 +492,29 @@ export function KaptenQuizDashboardPageModule({
         aria-busy={pending || saving}
         data-quiz-dashboard
       >
-        <div className={styles.toolbar}>
+        <div className={styles.toolbar} data-selected={selectedIds.length > 0}>
+          <form
+            className={styles.search}
+            onSubmit={(event) => {
+              event.preventDefault();
+              navigate({
+                q: String(new FormData(event.currentTarget).get("q") ?? ""),
+              });
+            }}
+          >
+            <Search aria-hidden="true" />
+            <Input
+              className="pl-9"
+              name="q"
+              key={query.q}
+              defaultValue={query.q}
+              placeholder="Cari kuis…"
+              aria-label="Cari kuis berdasarkan judul atau subtes"
+              type="search"
+              disabled={pending}
+            />
+          </form>
           <div className={styles.filters}>
-            <form
-              className={styles.search}
-              onSubmit={(event) => {
-                event.preventDefault();
-                navigate({
-                  q: String(new FormData(event.currentTarget).get("q") ?? ""),
-                });
-              }}
-            >
-              <Search aria-hidden="true" />
-              <Input
-                className="pl-9"
-                name="q"
-                key={query.q}
-                defaultValue={query.q}
-                placeholder="Cari kuis…"
-                aria-label="Cari kuis berdasarkan judul atau subtes"
-                type="search"
-                disabled={pending}
-              />
-            </form>
             <GridMenu
               className={styles.subject}
               label="Filter subtes"
@@ -529,6 +583,52 @@ export function KaptenQuizDashboardPageModule({
               ))}
             </GridMenu>
           </div>
+          {selectedIds.length > 0 && (
+            <div className={styles.bulkTools}>
+              <GridMenu
+                className={styles.iconButton}
+                disabled={pending || saving}
+                label={`Tindakan ${selectedIds.length} kuis terpilih`}
+                trigger={<MoreHorizontal size={16} />}
+              >
+                <DropdownMenuItem
+                  disabled={hasArchivedSelection || pending || saving}
+                  onClick={() => mutate(selectedIds, "hide")}
+                >
+                  <EyeOff />
+                  Sembunyikan
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={hasArchivedSelection || pending || saving}
+                  onClick={() =>
+                    setConfirmation({
+                      action: "archive",
+                      ids: selectedIds,
+                      label: `${selectedIds.length} kuis yang dipilih`,
+                    })
+                  }
+                >
+                  <Archive />
+                  Arsipkan
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={pending || saving}
+                  onClick={() =>
+                    setConfirmation({
+                      action: "delete",
+                      ids: selectedIds,
+                      label: `${selectedIds.length} kuis yang dipilih`,
+                    })
+                  }
+                >
+                  <Trash2 />
+                  Hapus
+                </DropdownMenuItem>
+              </GridMenu>
+            </div>
+          )}
         </div>
         {activeFilters.length > 0 && (
           <div className={styles.chips} aria-label="Filter aktif">
@@ -635,7 +735,11 @@ export function KaptenQuizDashboardPageModule({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="bg-voyage-surface">
+                <TableRow
+                  key={row.id}
+                  className="bg-voyage-surface"
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
@@ -722,51 +826,55 @@ export function KaptenQuizDashboardPageModule({
               ))}
             </GridMenu>
           </div>
-          <nav className={styles.pagination} aria-label="Halaman kuis">
+          <div className={styles.pagination}>
             <span className={styles.range}>
-              {result.total ? (query.page - 1) * query.pageSize + 1 : 0} -{" "}
+              {result.total ? (query.page - 1) * query.pageSize + 1 : 0}–
               {Math.min(query.page * query.pageSize, result.total)} dari{" "}
               {result.total}
             </span>
-            <Button
-              size="icon-sm"
-              variant="quiet"
-              type="button"
-              aria-label="Halaman sebelumnya"
-              disabled={pending || query.page === 1}
-              onClick={() => navigate({ page: query.page - 1 })}
+            <Pagination
+              size="sm"
+              aria-label="Halaman kuis"
+              className="mx-0 w-auto"
             >
-              <ChevronLeft size={16} />
-            </Button>
-            {pages.map((page, index) => (
-              <span key={page}>
-                {index > 0 && page - pages[index - 1] > 1 && (
-                  <span aria-hidden="true">…</span>
-                )}
-                <Button
-                  size="icon-sm"
-                  variant={query.page === page ? "default" : "quiet"}
-                  aria-label={`Halaman ${page}`}
-                  aria-current={query.page === page ? "page" : undefined}
-                  disabled={pending}
-                  type="button"
-                  onClick={() => navigate({ page })}
-                >
-                  {page}
-                </Button>
-              </span>
-            ))}
-            <Button
-              size="icon-sm"
-              variant="quiet"
-              type="button"
-              aria-label="Halaman berikutnya"
-              disabled={pending || query.page === result.pageCount}
-              onClick={() => navigate({ page: query.page + 1 })}
-            >
-              <ChevronRight size={16} />
-            </Button>
-          </nav>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    minimal
+                    aria-label="Halaman sebelumnya"
+                    disabled={pending || saving || query.page === 1}
+                    onClick={() => navigate({ page: query.page - 1 })}
+                  />
+                </PaginationItem>
+                {pages.map((page, index) => (
+                  <PaginationItem key={page} className="flex items-center">
+                    {index > 0 && page - pages[index - 1] > 1 && (
+                      <PaginationEllipsis />
+                    )}
+                    <PaginationPage
+                      minimal
+                      isActive={query.page === page}
+                      aria-label={`Halaman ${page}`}
+                      disabled={pending || saving}
+                      onClick={() => navigate({ page })}
+                    >
+                      {page}
+                    </PaginationPage>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    minimal
+                    aria-label="Halaman berikutnya"
+                    disabled={
+                      pending || saving || query.page === result.pageCount
+                    }
+                    onClick={() => navigate({ page: query.page + 1 })}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       </section>
       <MentorQuizCreateDialog
@@ -781,17 +889,25 @@ export function KaptenQuizDashboardPageModule({
         }}
       />
       <AlertDialog
-        open={Boolean(archiving)}
+        open={Boolean(confirmation)}
         onOpenChange={(open) => {
-          if (!open && !saving) setArchiving(null);
+          if (!open && !saving) setConfirmation(null);
         }}
       >
         <AlertDialogContent pending={saving} variant="danger">
           <AlertDialogHeader>
-            <AlertDialogTitle>Arsipkan kuis?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmation?.action === "delete" ? "Hapus" : "Arsipkan"}{" "}
+              {confirmation && confirmation.ids.length > 1
+                ? `${confirmation.ids.length} kuis`
+                : "kuis"}
+              ?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              “{archiving?.title}” tidak akan tersedia lagi untuk siswa. Kuis
-              yang diarsipkan tidak bisa diaktifkan kembali.
+              {confirmation?.label}
+              {confirmation?.action === "delete"
+                ? " beserta soal, hasil, dan riwayat pengerjaannya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
+                : " tidak akan tersedia lagi untuk siswa. Kuis yang diarsipkan tidak bisa diaktifkan kembali."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -799,9 +915,17 @@ export function KaptenQuizDashboardPageModule({
             <AlertDialogAction
               variant="destructive"
               disabled={saving}
-              onClick={() => archiving && mutate([archiving.id], "archive")}
+              onClick={() =>
+                confirmation && mutate(confirmation.ids, confirmation.action)
+              }
             >
-              {saving ? "Mengarsipkan…" : "Arsipkan kuis"}
+              {saving
+                ? confirmation?.action === "delete"
+                  ? "Menghapus…"
+                  : "Mengarsipkan…"
+                : confirmation?.action === "delete"
+                  ? "Hapus kuis"
+                  : "Arsipkan kuis"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

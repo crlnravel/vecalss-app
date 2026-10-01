@@ -186,6 +186,10 @@ async function run() {
       manageMentorDashboardQuiz(student.id, managed.id, "hide"),
       "Other users cannot manage the quiz",
     );
+    await assert.rejects(
+      manageMentorDashboardQuiz(student.id, managed.id, "delete"),
+      "Other users cannot delete the quiz",
+    );
     assert.equal((await read()).isHidden, false);
     await manageMentorDashboardQuiz(tutor.id, managed.id, "hide");
     assert.equal((await read()).isHidden, true);
@@ -201,6 +205,10 @@ async function run() {
       await assert.rejects(
         manageMentorDashboardQuiz(tutor.id, managed.id, "show"),
         "An open editor fences dashboard writes, even for its holder",
+      );
+      await assert.rejects(
+        manageMentorDashboardQuiz(tutor.id, managed.id, "delete"),
+        "An open editor also fences deletion",
       );
       assert.equal((await read()).isHidden, true);
     } finally {
@@ -220,11 +228,140 @@ async function run() {
       manageMentorDashboardQuiz(tutor.id, managed.id, "show"),
       "Archived quizzes remain read-only",
     );
+    const version = await prisma.standaloneQuizVersion.create({
+      data: {
+        quizId: managed.id,
+        title: managed.title,
+        state: "superseded",
+        versionNo: 1,
+      },
+    });
+    await prisma.standaloneQuizVersion.create({
+      data: {
+        quizId: managed.id,
+        title: managed.title,
+        state: "draft",
+        baseVersionId: version.id,
+      },
+    });
+    const item = await prisma.standaloneQuizItem.create({
+      data: {
+        quizId: managed.id,
+        quizVersionId: version.id,
+        subtestId: subtest.id,
+        sortOrder: 1,
+        prompt: "Fixture question",
+      },
+    });
+    const option = await prisma.standaloneQuizItemOption.create({
+      data: {
+        quizItemId: item.id,
+        choiceKey: "A",
+        content: "Fixture choice",
+        isCorrect: true,
+        sortOrder: 1,
+      },
+    });
+    const participation = await prisma.standaloneQuizParticipation.create({
+      data: {
+        quizId: managed.id,
+        quizVersionId: version.id,
+        studentId: student.id,
+        policySnapshot: {},
+      },
+    });
+    const attempt = await prisma.standaloneQuizAttempt.create({
+      data: {
+        participationId: participation.id,
+        attemptNo: 1,
+        status: "submitted",
+        policySnapshot: {},
+        formItemOrder: [],
+      },
+    });
+    await prisma.standaloneQuizAnswer.create({
+      data: {
+        attemptId: attempt.id,
+        quizItemId: item.id,
+        selectedOptionId: option.id,
+      },
+    });
+    await prisma.standaloneQuizStartCommand.create({
+      data: {
+        quizId: managed.id,
+        quizVersionId: version.id,
+        studentId: student.id,
+        requestId: randomUUID(),
+        attemptId: attempt.id,
+      },
+    });
+    await manageMentorDashboardQuiz(tutor.id, managed.id, "delete");
+    assert.equal(
+      await prisma.standaloneQuiz.findUnique({ where: { id: managed.id } }),
+      null,
+    );
+    assert.equal(
+      await prisma.standaloneQuizVersion.count({
+        where: { quizId: managed.id },
+      }),
+      0,
+    );
+    assert.equal(
+      await prisma.standaloneQuizItem.count({ where: { quizId: managed.id } }),
+      0,
+    );
+    assert.equal(
+      await prisma.standaloneQuizStartCommand.count({
+        where: { quizId: managed.id },
+      }),
+      0,
+    );
+    assert.equal(
+      await prisma.standaloneQuizParticipation.count({
+        where: { quizId: managed.id },
+      }),
+      0,
+    );
+    assert.equal(
+      await prisma.standaloneQuizAttempt.findUnique({
+        where: { id: attempt.id },
+      }),
+      null,
+    );
+    assert.equal(
+      await prisma.standaloneQuizAnswer.count({
+        where: { attemptId: attempt.id },
+      }),
+      0,
+    );
+    assert.equal(
+      await prisma.standaloneQuizItemOption.findUnique({
+        where: { id: option.id },
+      }),
+      null,
+    );
   } finally {
     await prisma.editLease.deleteMany({
       where: { resourceType: "quiz", resourceId: managed.id },
     });
-    await prisma.standaloneQuiz.delete({ where: { id: managed.id } });
+    // A failed deletion contract must still leave no fixture dependents behind.
+    await prisma.standaloneQuizStartCommand.deleteMany({
+      where: { quizId: managed.id },
+    });
+    await prisma.standaloneQuizParticipation.deleteMany({
+      where: { quizId: managed.id },
+    });
+    await prisma.standaloneQuizItem.deleteMany({
+      where: { quizId: managed.id },
+    });
+    await prisma.standaloneQuizVersion.updateMany({
+      where: { quizId: managed.id },
+      data: { baseVersionId: null },
+    });
+    await prisma.standaloneQuizVersion.deleteMany({
+      where: { quizId: managed.id },
+    });
+    await prisma.standaloneQuiz.deleteMany({ where: { id: managed.id } });
   }
   console.log("Mentor quiz dashboard database contracts passed.");
 }

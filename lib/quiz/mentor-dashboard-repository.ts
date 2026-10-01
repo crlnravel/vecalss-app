@@ -45,7 +45,7 @@ export async function getMentorQuizDashboardRows(
   }));
 }
 
-export type QuizDashboardMutation = "hide" | "show" | "archive";
+export type QuizDashboardMutation = "hide" | "show" | "archive" | "delete";
 export async function manageMentorDashboardQuiz(
   tutorId: string,
   quizId: string,
@@ -64,7 +64,29 @@ export async function manageMentorDashboardQuiz(
           where: { id: quizId, createdByUserId: tutorId },
           select: { status: true },
         });
-        if (!quiz || quiz.status !== "published")
+        if (!quiz)
+          throw new QuizValidationError(
+            "Kuis ini tidak tersedia untuk diubah.",
+          );
+        if (action === "delete") {
+          // Delete quiz-owned history before its definitions: these links restrict deletion.
+          await tx.standaloneQuizStartCommand.deleteMany({ where: { quizId } });
+          await tx.standaloneQuizParticipation.deleteMany({
+            where: { quizId },
+          });
+          await tx.standaloneQuizItem.deleteMany({ where: { quizId } });
+          await tx.standaloneQuizVersion.updateMany({
+            where: { quizId },
+            data: { baseVersionId: null },
+          });
+          await tx.standaloneQuizVersion.deleteMany({ where: { quizId } });
+          await tx.standaloneQuiz.delete({ where: { id: quizId } });
+          return;
+        }
+        if (
+          quiz.status === "archived" ||
+          (action !== "archive" && quiz.status !== "published")
+        )
           throw new QuizValidationError(
             "Kuis ini tidak tersedia untuk diubah.",
           );

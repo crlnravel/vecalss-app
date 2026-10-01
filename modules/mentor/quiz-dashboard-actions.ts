@@ -20,8 +20,7 @@ export async function manageQuizDashboardAction(
     !ids.length ||
     ids.length > 50 ||
     ids.some((id) => typeof id !== "string" || !isUuid(id)) ||
-    !["hide", "show", "archive"].includes(action) ||
-    (action === "archive" && ids.length !== 1)
+    !["hide", "show", "archive", "delete"].includes(action)
   ) {
     return {
       succeeded: [] as string[],
