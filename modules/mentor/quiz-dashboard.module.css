@@ -7,21 +7,21 @@
 }
 .canvas {
   font-family: QuizGridInter, Inter, Arial, sans-serif;
-  color: #fafafa;
-  background: #111;
+  color: var(--voyage-ink);
+  background: var(--voyage-canvas);
   max-width: none !important;
   min-height: calc(100svh - 64px);
   padding: 40px 32px !important;
   gap: 0 !important;
   overflow-x: clip;
-  color-scheme: dark;
+  color-scheme: light;
 }
 .panel {
   width: 100%;
   max-width: 1218px;
   margin: 0 auto;
-  background: #171717;
-  border: 1px solid #292929;
+  background: var(--voyage-surface);
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 16px;
   overflow: hidden;
   font-size: 14px;
@@ -33,7 +33,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--voyage-soft-border);
   min-height: 74px;
 }
 .title {
@@ -45,12 +45,12 @@
 .summary {
   font-size: 12px;
   line-height: 16px;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   margin: 2px 0 0;
 }
 .summary span + span:before {
   content: " · ";
-  color: #737373;
+  color: var(--voyage-muted-ink);
   margin: 0 4px;
 }
 .button,
@@ -64,9 +64,9 @@
   cursor: pointer;
   font: inherit;
   line-height: 20px;
-  border: 1px solid #393939;
-  background: #212121;
-  color: #fafafa;
+  border: 1px solid var(--voyage-soft-border);
+  background: var(--voyage-surface);
+  color: var(--voyage-ink);
   border-radius: 10px;
   height: 32px;
   padding: 5px 10px;
@@ -74,17 +74,17 @@
   transition: background 0.12s;
 }
 .primary {
-  background: #e5e5e5;
-  border-color: #e5e5e5;
-  color: #171717;
+  background: var(--voyage-deep);
+  border-color: var(--voyage-deep);
+  color: var(--voyage-surface);
   font-weight: 500;
 }
 .primary:hover {
-  background: #fff;
+  background: var(--voyage-deep-hover);
 }
 .button:hover,
 .iconButton:hover {
-  background: #2b2b2b;
+  background: var(--voyage-sea-glass-wash);
 }
 .button svg,
 .primary svg {
@@ -106,7 +106,7 @@
 }
 .panel :is(button, a, input):focus-visible,
 .popup :is(button, a, [role]):focus-visible {
-  outline: 2px solid #a3a3a3;
+  outline: 2px solid var(--voyage-deep);
   outline-offset: 3px;
 }
 .toolbar {
@@ -114,7 +114,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 20px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--voyage-soft-border);
   min-height: 56px;
 }
 .filters,
@@ -135,12 +135,12 @@
   position: relative;
   width: 256px;
   height: 32px;
-  background: #212121;
-  border: 1px solid #404040;
+  background: var(--voyage-sea-glass-wash);
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 10px;
   padding: 0 9px;
   gap: 7px;
-  color: #a3a3a3;
+  color: var(--secondary-700);
 }
 .search svg {
   width: 16px;
@@ -153,29 +153,29 @@
   outline: 0 !important;
   border: 0;
   background: none;
-  color: #fafafa;
+  color: var(--voyage-ink);
   font: inherit;
   line-height: 20px;
   padding: 0;
 }
 .search:focus-within {
-  outline: 2px solid #a3a3a3;
+  outline: 2px solid var(--voyage-deep);
   outline-offset: 2px;
 }
 .search input::placeholder {
-  color: #a3a3a3;
+  color: var(--secondary-700);
 }
 .subject {
   min-width: 172px;
   justify-content: space-between;
 }
 .count {
-  border: 1px solid #404040;
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 50%;
   height: 18px;
   min-width: 18px;
   font-size: 11px;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   text-align: center;
   line-height: 16px;
 }
@@ -184,31 +184,32 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 20px;
-  border-bottom: 1px solid #303030;
-  color: #a3a3a3;
+  border-bottom: 1px solid var(--voyage-soft-border);
+  color: var(--voyage-muted-ink);
   font-size: 12px;
 }
 .chip {
+  background: var(--voyage-sea-glass-wash);
   display: flex;
   gap: 5px;
   align-items: center;
-  border: 1px solid #404040;
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 6px;
   padding: 2px 7px;
-  color: #e5e5e5;
+  color: var(--voyage-deep);
 }
 .chip button {
   display: flex;
   border: 0;
   background: transparent;
-  color: #a3a3a3;
+  color: var(--secondary-700);
   padding: 0;
   cursor: pointer;
 }
 .clear {
   background: none;
   border: 0;
-  color: #d4d4d4;
+  color: var(--voyage-ink);
   cursor: pointer;
   font: inherit;
 }
@@ -229,27 +230,31 @@
   line-height: 20px;
 }
 .table th {
+  background: var(--voyage-canvas);
   height: 32px;
   font-weight: 400;
-  color: #d4d4d4;
+  color: var(--voyage-ink);
   padding: 0 12px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--voyage-soft-border);
   white-space: nowrap;
 }
 .table td {
   height: 51px;
   padding: 6px 12px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--voyage-soft-border);
   vertical-align: middle;
 }
 .table tr:last-child td {
   border-bottom: 0;
 }
 .table tbody tr:hover td {
-  background: #1c1c1c;
+  background: var(--voyage-canvas);
 }
 .table tbody tr[data-selected="true"] td {
-  background: #222;
+  background: var(--primary-50);
+}
+.table tbody tr[data-selected="true"] .secondary {
+  color: var(--secondary-700);
 }
 .table th:first-child,
 .table td:first-child {
@@ -277,14 +282,14 @@
 .sort svg {
   height: 12px;
   width: 12px;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
 }
 .check {
   appearance: none;
   width: 16px;
   height: 16px;
-  border: 1px solid #444;
-  background: #222;
+  border: 1px solid var(--secondary-600);
+  background: var(--voyage-surface);
   border-radius: 4px;
   margin: 0;
   vertical-align: middle;
@@ -293,8 +298,8 @@
 }
 .check:checked,
 .check:indeterminate {
-  background: #e5e5e5;
-  border-color: #e5e5e5;
+  background: var(--voyage-deep);
+  border-color: var(--voyage-deep);
 }
 .check:checked:after {
   content: "✓";
@@ -302,14 +307,14 @@
   top: -3px;
   left: 2px;
   font-size: 13px;
-  color: #171717;
+  color: var(--voyage-surface);
 }
 .check:indeterminate:after {
   content: "−";
   position: absolute;
   top: -3px;
   left: 3px;
-  color: #171717;
+  color: var(--voyage-surface);
 }
 .quizTitle {
   font-weight: 500;
@@ -317,7 +322,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #fafafa;
+  color: var(--voyage-ink);
   text-decoration: none;
 }
 .quizTitle:hover {
@@ -325,7 +330,7 @@
 }
 .secondary {
   display: block;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   font-size: 12px;
   line-height: 16px;
   overflow: hidden;
@@ -333,13 +338,14 @@
   white-space: nowrap;
 }
 .change {
-  color: #facc15;
+  color: var(--warning-700);
 }
 .subtestCode {
+  color: var(--student-status-category-fg);
   display: inline-flex;
   align-items: center;
-  background: #262626;
-  border: 1px solid #343434;
+  background: var(--student-status-category-bg);
+  border: 1px solid var(--student-status-category-border);
   border-radius: 5px;
   padding: 0 5px;
   font-size: 12px;
@@ -349,14 +355,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #202322;
-  border: 1px solid #333936;
+  background: var(--student-status-success-bg);
+  border: 1px solid var(--student-status-success-border);
   border-radius: 5px;
   font-size: 12px;
   line-height: 18px;
   padding: 0 5px;
   white-space: nowrap;
-  color: #34d399;
+  color: var(--student-status-success-fg);
 }
 .status:before {
   content: "";
@@ -366,14 +372,14 @@
   border-radius: 50%;
 }
 .status[data-state="unpublished"] {
-  color: #facc15;
-  background: #292619;
-  border-color: #3f3924;
+  color: var(--student-status-attention-fg);
+  background: var(--student-status-attention-bg);
+  border-color: var(--student-status-attention-border);
 }
 .status[data-state="archived"] {
-  color: #a3a3a3;
-  background: #242424;
-  border-color: #393939;
+  color: var(--voyage-muted-ink);
+  background: var(--voyage-canvas);
+  border-color: var(--voyage-soft-border);
 }
 .footer {
   display: flex;
@@ -381,10 +387,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 20px;
-  background: #1f1f1f;
-  border-top: 1px solid #303030;
+  background: var(--voyage-canvas);
+  border-top: 1px solid var(--voyage-soft-border);
   min-height: 52px;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
 }
 .pageSize,
 .pagination {
@@ -407,33 +413,34 @@
   font: inherit;
   border: 0;
   background: none;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   border-radius: 8px;
   min-width: 26px;
   height: 26px;
   cursor: pointer;
 }
 .pageButton[aria-current="page"] {
-  color: #fafafa;
-  background: #292929;
+  color: var(--voyage-surface);
+  background: var(--voyage-deep);
 }
 .pageButton:hover {
-  background: #292929;
-  color: #fafafa;
+  background: var(--voyage-sea-glass-wash);
+  color: var(--voyage-ink);
 }
 .positioner {
   z-index: 70;
 }
 .popup {
   font-family: QuizGridInter, Inter, Arial, sans-serif;
-  background: #202020;
-  color: #fafafa;
-  border: 1px solid #404040;
+  background: var(--voyage-surface);
+  color: var(--voyage-ink);
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 10px;
   padding: 4px;
   min-width: 180px;
   max-width: calc(100vw - 24px);
-  box-shadow: 0 12px 28px #0006;
+  box-shadow: 0 12px 28px
+    color-mix(in oklab, var(--voyage-deep) 18%, transparent);
   font-size: 14px;
   line-height: 20px;
 }
@@ -450,36 +457,37 @@
   text-decoration: none;
 }
 .menuItem[data-highlighted] {
-  background: #333;
+  background: var(--voyage-sea-glass-wash);
 }
 .menuItem svg {
   height: 16px;
   width: 16px;
 }
 .menuItem[data-checked] {
-  background: #292929;
+  background: var(--primary-50);
+  color: var(--voyage-deep);
 }
 .separator {
   border: 0;
-  border-top: 1px solid #393939;
+  border-top: 1px solid var(--voyage-soft-border);
   margin: 4px 0;
 }
 .menuHeading {
   font-size: 12px;
   line-height: 16px;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   padding: 7px 9px;
 }
 .danger {
-  color: #f87171;
+  color: var(--danger-700);
 }
 .feedback {
   padding: 12px 20px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--voyage-soft-border);
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  color: #e5e5e5;
+  color: var(--voyage-deep);
 }
 .feedback ul {
   margin: 4px 0 0;
@@ -489,11 +497,11 @@
 .empty {
   height: 200px !important;
   text-align: center !important;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   padding: 32px !important;
 }
 .empty strong {
-  color: #fafafa;
+  color: var(--voyage-ink);
   display: block;
   font-weight: 500;
   margin-bottom: 6px;
@@ -516,12 +524,12 @@
   min-height: 430px;
   display: grid;
   place-content: center;
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
 }
 .overlay {
   position: fixed;
   inset: 0;
-  background: #0009;
+  background: color-mix(in oklab, var(--voyage-deep) 45%, transparent);
   z-index: 80;
 }
 .dialog {
@@ -531,9 +539,9 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 81;
-  background: #202020;
-  color: #fafafa;
-  border: 1px solid #404040;
+  background: var(--voyage-surface);
+  color: var(--voyage-ink);
+  border: 1px solid var(--voyage-soft-border);
   border-radius: 16px;
   padding: 24px;
   width: min(420px, calc(100vw - 32px));
@@ -546,7 +554,7 @@
   margin: 0 0 8px;
 }
 .dialog p {
-  color: #a3a3a3;
+  color: var(--voyage-muted-ink);
   margin: 0;
 }
 .dialogActions {
@@ -556,9 +564,13 @@
   margin-top: 24px;
 }
 .destructive {
-  background: #dc2626;
-  color: white;
-  border-color: #dc2626;
+  background: var(--danger-700);
+  color: var(--voyage-surface);
+  border-color: var(--danger-700);
+}
+.destructive:hover {
+  background: var(--danger-800);
+  border-color: var(--danger-800);
 }
 @media (max-width: 900px) {
   .canvas {
@@ -640,18 +652,22 @@
   .table td:nth-child(2) {
     position: sticky;
     left: 0;
-    background: #171717;
+    background: var(--voyage-surface);
     z-index: 1;
-    box-shadow: 1px 0 #303030;
+    box-shadow: 1px 0 var(--voyage-soft-border);
   }
   .table th:nth-child(2) {
+    background: var(--voyage-canvas);
     z-index: 2;
   }
   .table td:nth-child(2) {
     padding-left: 12px;
   }
   .table tbody tr:hover td:nth-child(2) {
-    background: #1c1c1c;
+    background: var(--voyage-canvas);
+  }
+  .table tbody tr[data-selected="true"] td:nth-child(2) {
+    background: var(--primary-50);
   }
 }
 @media (pointer: coarse) {
