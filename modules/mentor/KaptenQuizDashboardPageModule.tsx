@@ -281,7 +281,7 @@ export function KaptenQuizDashboardPageModule({
       accessorKey: "subjectCode",
       size: 100,
       cell: ({ row }) => (
-        <strong className="font-bold" title={row.original.subjectName}>
+        <strong className="font-bold text-xs" title={row.original.subjectName}>
           {row.original.subjectCode}
         </strong>
       ),
@@ -696,7 +696,7 @@ export function KaptenQuizDashboardPageModule({
           role="region"
           aria-label="Tabel kuis, geser untuk melihat semua kolom"
         >
-          <Table className={styles.table}>
+          <Table className={styles.table} density="compact">
             <TableCaption className={styles.srOnly}>
               Daftar kuis lintas subtes. Pengerjaan menghitung upaya selesai.
               Rata-rata memakai nilai akhir setiap siswa sesuai aturan kuis.
@@ -748,13 +748,13 @@ export function KaptenQuizDashboardPageModule({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={`py-[4px] ${
+                      className={
                         cell.column.id === "select"
                           ? styles.selectionCell
                           : cell.column.id === "title"
                             ? styles.titleCell
-                            : ""
-                      }`}
+                            : undefined
+                      }
                       data-numeric={isNumeric(cell.column.id)}
                     >
                       {flexRender(

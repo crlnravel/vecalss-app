@@ -207,6 +207,7 @@ function ProgrammeFilterMenu({
 }
 
 export function DataTablesPreview() {
+  const [density, setDensity] = useState<"default" | "compact">("default");
   const [query, setQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<Set<ProgrammeStatus>>(() => new Set());
 
@@ -229,8 +230,15 @@ export function DataTablesPreview() {
     <div className="space-y-7">
       <div className="space-y-3">
         <p className="text-sm font-semibold text-secondary-800">Table · tabel semantik</p>
+        <div className="flex flex-wrap gap-2">
+          {(["default", "compact"] as const).map((value) => (
+            <Button aria-pressed={density === value} data-active={density === value || undefined} key={value} onClick={() => setDensity(value)} size="xs" type="button" variant="outline">
+              {value === "compact" ? "Ringkas" : "Standar"}
+            </Button>
+          ))}
+        </div>
         <div className="overflow-hidden rounded-2xl border border-voyage-soft-border bg-white">
-          <Table>
+          <Table density={density}>
             <TableCaption className="sr-only">Contoh jadwal program belajar.</TableCaption>
             <TableHeader>
               <TableRow className="bg-secondary-50/80 hover:bg-secondary-50/80">

@@ -54,6 +54,7 @@ assert.match(editor, /Tambah soal dari Bank Soal/u, "empty editor state must off
 assert.doesNotMatch(editor, /data-source-update-review|Tinjau perubahan|Terima ke draf|Perlu ditinjau/u, "published Bank Soal revisions must not render a manual review card");
 assert.match(editor, /autoAppliedUpdateKeysRef/u, "published Bank Soal revisions must be applied automatically");
 assert.match(editor, /reorderQuestion/u, "editor must reorder questions");
+assert.match(inventory, /aria-label=\{`Pindah soal \$\{index \+ 1\}`\}/u, "inventory must name its accessible reorder handle");
 assert.match(editor, /Hapus soal/u, "editor must delete questions");
 assert.doesNotMatch(editor, /function QuestionForm|Edit soal|quiz-preview-toggle|MediaPickerDialog|Tampilan penulis/u, "Kuis must not expose a local question editor or preview toggle");
 assert.match(editor, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u, "editor must guard unsaved navigation");

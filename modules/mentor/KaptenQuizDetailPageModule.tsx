@@ -149,7 +149,7 @@ function QuizPreview({
           </Badge>
         </div>
         <Button
-          className="shrink-0"
+          className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]"
           nativeButton={false}
           size="xs"
           render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}

@@ -395,7 +395,7 @@ export const primitiveInventory = [
   { source: "components/ui/student-catalogue-card.tsx", category: "content", kind: "component", demoId: "cards", relatedSources: ["components/ui/student-catalogue-card-variants.ts"] },
   { source: "components/ui/sunken-tabs.tsx", category: "navigation", kind: "component", demoId: "specialty-tabs" },
   { source: "components/ui/switch.tsx", category: "forms", kind: "component", demoId: "choice-controls" },
-  { source: "components/ui/table.tsx", category: "data", kind: "component", demoId: "data-tables" },
+  { source: "components/ui/table.tsx", category: "data", kind: "component", demoId: "data-tables", variants: { density: ["default", "compact"] }, defaults: { density: "default" }, defaultNotes: { density: "compact memberi padding vertikal 4px pada sel isi tabel; header, footer, tabel bersarang, dan padding horizontal tetap." } },
   {
     source: "components/ui/tabs.tsx",
     category: "navigation",
