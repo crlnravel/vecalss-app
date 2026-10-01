@@ -4,12 +4,13 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { BookOpen, Copy, UserRound } from "@/lib/icons";
@@ -53,6 +54,7 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
   const [profileName, setProfileName] = useState(initialSettings.profileName);
   const [subjectCode, setSubjectCode] = useState(initialSettings.subjectCode ?? "");
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>("profil");
+  const [orientation, setOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const [feedback, setFeedback] = useState<Record<SettingsMenu, MenuFeedback>>({ profil: { status: "idle" }, subjek: { status: "idle" } });
   const menuDirty = { profil: profileName !== savedSettings.profileName, subjek: subjectCode !== (savedSettings.subjectCode ?? "") };
   const dirty = menuDirty.profil || menuDirty.subjek;
@@ -62,6 +64,14 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
   const otherMenu = activeMenu === "profil" ? "subjek" : "profil";
   const initials = savedSettings.profileName.trim().split(/\s+/u).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const currentSession = { ...session, user: { ...session.user, fullName: savedSettings.profileName } };
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const updateOrientation = () => setOrientation(desktop.matches ? "vertical" : "horizontal");
+    updateOrientation();
+    desktop.addEventListener("change", updateOrientation);
+    return () => desktop.removeEventListener("change", updateOrientation);
+  }, []);
 
   useEffect(() => {
     if (!dirty) return;
@@ -135,25 +145,24 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-6 md:grid-cols-[176px_minmax(0,1fr)] md:gap-8">
-        <nav aria-label="Menu pengaturan" className="flex gap-2 md:flex-col md:self-start">
+      <Tabs className="grid min-w-0 gap-6 md:grid-cols-[176px_minmax(0,1fr)] md:gap-8" onValueChange={(value) => { if (value === "profil" || value === "subjek") setActiveMenu(value); }} orientation={orientation} value={activeMenu}>
+        <TabsList aria-label="Menu pengaturan" className="h-auto w-full md:self-start" layout="equal">
           {([
             { icon: UserRound, id: "profil", label: "Profil" },
             { icon: BookOpen, id: "subjek", label: "Subjek" },
           ] as const).map(({ icon: Icon, id, label }) => (
-            <Button
-              aria-controls="settings-panel" aria-pressed={activeMenu === id}
-              className={`min-h-11 flex-1 justify-start gap-3 whitespace-normal px-3 text-left md:w-full md:flex-none ${activeMenu === id ? "bg-voyage-sea-glass-wash" : ""}`}
-              disabled={saving} key={id} onClick={() => setActiveMenu(id)} type="button" variant="outline"
-            ><Icon aria-hidden="true" className="size-4" />{label}</Button>
+            <TabsTrigger className="justify-start gap-3 whitespace-normal text-left md:w-full md:flex-none" disabled={saving} key={id} layout="equal" value={id}>
+              <Icon aria-hidden="true" className="size-4" />{label}
+            </TabsTrigger>
           ))}
-        </nav>
+        </TabsList>
 
+        <TabsContent className="min-w-0" key={activeMenu} value={activeMenu}>
         <SettingsPanel title={activeMenu === "profil" ? "Profil" : "Subjek"}>
           <form aria-busy={saving} onSubmit={handleSubmit}>
             {activeMenu === "profil" ? <>
               <Field className="grid gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
-                <FieldLabel className={SETTINGS_LABEL_CLASS_NAME} htmlFor="kapten-profile-name" required>Nama profil</FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-profile-name" required>Nama profil</FieldLabel>
                 <FieldInput
                   aria-describedby={error?.field === "profileName" ? "kapten-profile-name-error" : undefined}
                   aria-invalid={error?.field === "profileName"} autoComplete="name"
@@ -180,7 +189,7 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
                 </AccountRow>
               </dl>
             </> : <div className="grid min-w-0 gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-start sm:gap-6">
-              <label className={SETTINGS_LABEL_CLASS_NAME} htmlFor="kapten-teaching-subject">Subjek yang diajar</label>
+              <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-teaching-subject">Subjek yang diajar</label>
               <div className="min-w-0">
                 <ReferenceSelect
                   aria-describedby={error?.field === "subjectCode" ? "kapten-teaching-subject-help kapten-teaching-subject-error" : "kapten-teaching-subject-help"}
@@ -203,7 +212,8 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
             </footer>
           </form>
         </SettingsPanel>
-      </div>
+        </TabsContent>
+      </Tabs>
     </MentorWorkspaceShell>
   );
 }
