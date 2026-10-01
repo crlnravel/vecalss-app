@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -87,7 +88,7 @@ function DeveloperReportDetailPageModule({
       <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-report-title">
         <header className="flex items-start gap-4">
           <Tooltip>
-            <TooltipTrigger render={<Button aria-label="Kembali ke laporan" className="size-11 shrink-0" render={<Link href="/developer/reports" />} variant="brandOutline" />}>
+            <TooltipTrigger render={<Button aria-label="Kembali ke laporan" className="size-11 shrink-0" render={<Link href="/developer/reports" />} variant="outline" />}>
               <ChevronLeft aria-hidden="true" className="size-5" />
             </TooltipTrigger>
             <TooltipContent>Kembali ke laporan</TooltipContent>
@@ -150,28 +151,79 @@ function DeveloperReportDetailPageModule({
 
           <section className="pt-8" aria-labelledby="report-attachment-heading">
             <h3 className="text-sm font-semibold text-secondary-900" id="report-attachment-heading">Lampiran</h3>
-            {report.attachment ? (
-              <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-start gap-3">
-                  <FileText aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-secondary-900" title={report.attachment.fileName}>
-                      {report.attachment.fileName}
-                    </p>
-                    <p className="mt-1 text-xs text-secondary-600">
-                      {getFriendlyAttachmentType(report.attachment.contentType)} · {formatFileSize(report.attachment.sizeBytes)}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  className="min-h-11 shrink-0"
-                  render={<a href={report.attachment.downloadUrl} />}
-                  variant="brandOutline"
-                >
-                  <Download aria-hidden="true" className="size-4" />
-                  Unduh lampiran
-                </Button>
-              </div>
+            {report.attachments.length > 0 ? (
+              <ul className="mt-4 grid gap-4">
+                {report.attachments.map((attachment) => {
+                  const isImage = attachment.contentType.startsWith("image/");
+                  const isPdf = attachment.contentType === "application/pdf";
+                  const previewHref = attachment.previewUrl || attachment.downloadUrl;
+
+                  return (
+                    <li className="grid min-w-0 gap-4 rounded-card border border-primary-100 bg-primary-50/30 p-4 sm:p-5" key={attachment.id}>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <FileText aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-700" />
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-medium text-secondary-900" title={attachment.fileName}>
+                              {attachment.fileName}
+                            </p>
+                            <p className="mt-1 text-xs text-secondary-600">
+                              {getFriendlyAttachmentType(attachment.contentType)} · {formatFileSize(attachment.sizeBytes)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          className="min-h-11 shrink-0"
+                          render={<a download={attachment.fileName} href={attachment.downloadUrl} />}
+                          variant="outline"
+                        >
+                          <Download aria-hidden="true" className="size-4" />
+                          Unduh lampiran
+                        </Button>
+                      </div>
+
+                      {isImage ? (
+                        <a
+                          aria-label={`Buka pratinjau gambar ${attachment.fileName} di tab baru`}
+                          className="block w-fit max-w-full rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                          href={previewHref}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <Image
+                            alt={`Pratinjau ${attachment.fileName}`}
+                            className="max-h-72 w-auto max-w-full rounded-control border border-primary-100 bg-white object-contain"
+                            height={288}
+                            loading="lazy"
+                            src={previewHref}
+                            unoptimized
+                            width={512}
+                          />
+                        </a>
+                      ) : isPdf ? (
+                        <details className="min-w-0 rounded-control border border-primary-100 bg-white p-3">
+                          <summary aria-label={`Tampilkan pratinjau PDF ${attachment.fileName}`} className="cursor-pointer text-sm font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+                            Pratinjau PDF
+                          </summary>
+                          <iframe
+                            className="mt-3 h-[min(70vh,44rem)] min-h-80 w-full rounded-control border border-primary-100"
+                            loading="lazy"
+                            src={previewHref}
+                            title={`Pratinjau PDF: ${attachment.fileName}`}
+                          />
+                          <p className="mt-2 text-sm text-secondary-600">
+                            Jika pratinjau tidak muncul, <a className="font-medium text-primary-800 underline underline-offset-4" href={previewHref} rel="noopener noreferrer" target="_blank">buka PDF di tab baru</a> atau unduh file.
+                          </p>
+                        </details>
+                      ) : (
+                        <p className="text-sm text-secondary-600">
+                          Pratinjau tidak tersedia. <a className="font-medium text-primary-800 underline underline-offset-4" href={previewHref} rel="noopener noreferrer" target="_blank">Buka lampiran di tab baru</a> atau unduh file.
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             ) : (
               <p className="mt-2 text-sm text-secondary-600">Tidak ada lampiran.</p>
             )}

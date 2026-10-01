@@ -4,7 +4,11 @@ import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 
-import { deleteSavedReportAttachment, savePrivateReportAttachment } from "./attachments";
+import {
+  deleteSavedReportAttachment,
+  savePrivateReportAttachment,
+  type SavedReportAttachment,
+} from "./attachments";
 import type { ValidatedMentorReportSubmission } from "./validation";
 
 async function createMentorReport(
@@ -12,31 +16,34 @@ async function createMentorReport(
   input: ValidatedMentorReportSubmission,
 ): Promise<{ id: string }> {
   const id = randomUUID();
-  let attachment: Awaited<ReturnType<typeof savePrivateReportAttachment>> | null = null;
+  const attachments: SavedReportAttachment[] = [];
 
   try {
-    if (input.attachment) {
-      attachment = await savePrivateReportAttachment(id, input.attachment);
+    for (const attachment of input.attachments) {
+      attachments.push(await savePrivateReportAttachment(id, attachment));
     }
 
     await prisma.mentorReport.create({
       data: {
-        attachmentContentType: attachment?.contentType ?? null,
-        attachmentFileName: attachment?.fileName ?? null,
-        attachmentKey: attachment?.key ?? null,
-        attachmentSizeBytes: attachment?.sizeBytes ?? null,
         authorId,
         description: input.description,
         feature: input.feature,
         id,
         title: input.title,
         url: input.url,
+        attachments: {
+          create: attachments.map(({ contentType, fileName, key, sizeBytes }, sortOrder) => ({
+            contentType,
+            fileName,
+            sizeBytes,
+            storageKey: key,
+            sortOrder,
+          })),
+        },
       },
     });
   } catch (error) {
-    if (attachment) {
-      await deleteSavedReportAttachment(attachment.key).catch(() => undefined);
-    }
+    await Promise.allSettled(attachments.map(({ key }) => deleteSavedReportAttachment(key)));
     throw error;
   }
 

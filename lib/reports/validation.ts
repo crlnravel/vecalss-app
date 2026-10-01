@@ -3,6 +3,8 @@ import "server-only";
 import { MentorReportFeature } from "@/generated/prisma/client";
 
 export const REPORT_ATTACHMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
+export const REPORT_ATTACHMENT_MAX_COUNT = 10;
+export const REPORT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES = 50 * 1024 * 1024;
 
 const MAX_TITLE_LENGTH = 160;
 const MAX_URL_LENGTH = 2048;
@@ -47,7 +49,7 @@ type ValidatedReportAttachment = {
 };
 
 type ValidatedMentorReportSubmission = {
-  attachment: ValidatedReportAttachment | null;
+  attachments: ValidatedReportAttachment[];
   description: string;
   feature: MentorReportFeature;
   title: string;
@@ -93,49 +95,62 @@ function safeAttachmentFileName(fileName: string, extension: string) {
   return `${stem.slice(0, 240)}.${extension}`;
 }
 
-async function validateAttachmentEntry(
+async function validateAttachmentEntries(
   formData: FormData,
-): Promise<{ ok: true; value: ValidatedReportAttachment | null } | { ok: false; message: string }> {
+): Promise<{ ok: true; value: ValidatedReportAttachment[] } | { ok: false; message: string }> {
   const entries = formData.getAll("attachment");
-  if (entries.length === 0) return { ok: true, value: null };
-  if (entries.length !== 1 || !(entries[0] instanceof File)) {
-    return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
+  if (entries.length > REPORT_ATTACHMENT_MAX_COUNT) {
+    return { ok: false, message: "Pilih maksimal 10 lampiran." };
   }
 
-  const file = entries[0];
-  if (file.name === "" && file.size === 0) return { ok: true, value: null };
-  if (file.size <= 0) {
-    return { ok: false, message: "Pilih lampiran yang berisi data." };
-  }
-  if (file.size > REPORT_ATTACHMENT_MAX_SIZE_BYTES) {
-    return { ok: false, message: "Ukuran lampiran maksimal 10 MB." };
+  const files: File[] = [];
+  let totalSizeBytes = 0;
+  for (const entry of entries) {
+    if (!(entry instanceof File)) {
+      return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
+    }
+    if (entry.name === "" && entry.size === 0) continue;
+    if (entry.size <= 0) {
+      return { ok: false, message: "Pilih lampiran yang berisi data." };
+    }
+    if (entry.size > REPORT_ATTACHMENT_MAX_SIZE_BYTES) {
+      return { ok: false, message: "Ukuran setiap lampiran maksimal 10 MB." };
+    }
+
+    totalSizeBytes += entry.size;
+    if (totalSizeBytes > REPORT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES) {
+      return { ok: false, message: "Total ukuran lampiran maksimal 50 MB." };
+    }
+    files.push(entry);
   }
 
-  let bytes: Uint8Array;
-  try {
-    bytes = new Uint8Array(await file.arrayBuffer());
-  } catch {
-    return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
-  }
+  const attachments: ValidatedReportAttachment[] = [];
+  for (const file of files) {
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } catch {
+      return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
+    }
 
-  if (bytes.byteLength !== file.size) {
-    return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
-  }
+    if (bytes.byteLength !== file.size) {
+      return { ok: false, message: "Lampiran tidak dapat dibaca. Pilih berkas lain dan coba lagi." };
+    }
 
-  const detectedType = ATTACHMENT_TYPES.find((type) => type.signature(bytes));
-  if (!detectedType) {
-    return { ok: false, message: "Gunakan lampiran berupa gambar JPG, PNG, GIF, WebP, atau PDF." };
-  }
+    const detectedType = ATTACHMENT_TYPES.find((type) => type.signature(bytes));
+    if (!detectedType) {
+      return { ok: false, message: "Gunakan lampiran berupa gambar JPG, PNG, GIF, WebP, atau PDF." };
+    }
 
-  return {
-    ok: true,
-    value: {
+    attachments.push({
       bytes,
       contentType: detectedType.contentType,
       fileName: safeAttachmentFileName(file.name, detectedType.extension),
       sizeBytes: bytes.byteLength,
-    },
-  };
+    });
+  }
+
+  return { ok: true, value: attachments };
 }
 
 async function validateMentorReportSubmission(formData: FormData): Promise<MentorReportValidationResult> {
@@ -162,13 +177,13 @@ async function validateMentorReportSubmission(formData: FormData): Promise<Mento
     };
   }
 
-  const attachmentResult = await validateAttachmentEntry(formData);
+  const attachmentResult = await validateAttachmentEntries(formData);
   if (!attachmentResult.ok) return attachmentResult;
 
   return {
     ok: true,
     value: {
-      attachment: attachmentResult.value,
+      attachments: attachmentResult.value,
       description,
       feature: feature as MentorReportFeature,
       title,

@@ -1515,23 +1515,35 @@ model RoleAssignment {
 }
 
 model MentorReport {
-  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId              String              @map("author_id") @db.Uuid
-  title                 String              @db.VarChar(160)
-  feature               MentorReportFeature
-  url                   String              @db.VarChar(2048)
-  description           String              @db.Text
-  attachmentKey         String?             @map("attachment_key") @db.Text
-  attachmentFileName    String?             @map("attachment_file_name") @db.VarChar(255)
-  attachmentContentType String?             @map("attachment_content_type") @db.VarChar(100)
-  attachmentSizeBytes   Int?                @map("attachment_size_bytes")
-  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId    String                  @map("author_id") @db.Uuid
+  title       String                  @db.VarChar(160)
+  feature     MentorReportFeature
+  url         String                  @db.VarChar(2048)
+  description String                  @db.Text
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  attachments MentorReportAttachment[]
 
   author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
   @@index([authorId, createdAt])
   @@index([createdAt])
   @@map("mentor_reports")
+}
+
+model MentorReportAttachment {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId    String      @map("report_id") @db.Uuid
+  storageKey  String      @map("storage_key") @db.Text
+  fileName    String      @map("file_name") @db.VarChar(255)
+  contentType String      @map("content_type") @db.VarChar(100)
+  sizeBytes   Int         @map("size_bytes")
+  sortOrder   Int         @default(0) @map("sort_order")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  report      MentorReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, sortOrder])
+  @@map("mentor_report_attachments")
 }
 
 /// One-time invite or temporary-password handoff for an enrolled account.

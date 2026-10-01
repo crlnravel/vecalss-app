@@ -23,12 +23,14 @@ type DeveloperReportListItem = {
 };
 
 type DeveloperReportDetail = {
-  attachment: null | {
+  attachments: {
     contentType: string;
     downloadUrl: string;
     fileName: string;
+    id: string;
+    previewUrl: string;
     sizeBytes: number;
-  };
+  }[];
   author: {
     email: string;
     id: string;
@@ -42,12 +44,14 @@ type DeveloperReportDetail = {
   url: string;
 };
 
-type DeveloperReportAttachmentDownload = {
+type DeveloperReportAttachmentAccess = {
   contentType: string;
   fileName: string;
   key: string;
   sizeBytes: number;
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 async function requireDeveloperReportAccess() {
   const session = await getSessionContext();
@@ -79,18 +83,21 @@ async function listDeveloperReports(): Promise<DeveloperReportListItem[]> {
 
 async function getDeveloperReportById(reportId: string): Promise<DeveloperReportDetail | null> {
   await requireDeveloperReportAccess();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(reportId)) {
-    return null;
-  }
+  if (!UUID_PATTERN.test(reportId)) return null;
 
   const report = await prisma.mentorReport.findUnique({
     where: { id: reportId },
     select: {
-      attachmentContentType: true,
-      attachmentFileName: true,
-      attachmentKey: true,
-      attachmentSizeBytes: true,
       author: { select: { email: true, fullName: true, id: true } },
+      attachments: {
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        select: {
+          contentType: true,
+          fileName: true,
+          id: true,
+          sizeBytes: true,
+        },
+      },
       createdAt: true,
       description: true,
       feature: true,
@@ -102,20 +109,20 @@ async function getDeveloperReportById(reportId: string): Promise<DeveloperReport
 
   if (!report) return null;
 
-  const attachment = report.attachmentKey !== null
-    && report.attachmentFileName !== null
-    && report.attachmentContentType !== null
-    && report.attachmentSizeBytes !== null
-    ? {
-        contentType: report.attachmentContentType,
-        downloadUrl: `/api/developer/reports/${report.id}/attachment`,
-        fileName: report.attachmentFileName,
-        sizeBytes: report.attachmentSizeBytes,
-      }
-    : null;
+  const attachments = report.attachments.map((attachment) => {
+    const attachmentUrl = `/api/developer/reports/${report.id}/attachment/${attachment.id}`;
+    return {
+      contentType: attachment.contentType,
+      downloadUrl: `${attachmentUrl}?mode=download`,
+      fileName: attachment.fileName,
+      id: attachment.id,
+      previewUrl: `${attachmentUrl}?mode=preview`,
+      sizeBytes: attachment.sizeBytes,
+    };
+  });
 
   return {
-    attachment,
+    attachments,
     author: {
       email: report.author.email,
       id: report.author.id,
@@ -130,50 +137,42 @@ async function getDeveloperReportById(reportId: string): Promise<DeveloperReport
   };
 }
 
-async function getDeveloperReportAttachmentForDownload(
+async function getDeveloperReportAttachmentForAccess(
   reportId: string,
-): Promise<DeveloperReportAttachmentDownload | null> {
+  attachmentId: string,
+): Promise<DeveloperReportAttachmentAccess | null> {
   await requireDeveloperReportAccess();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(reportId)) {
+  if (!UUID_PATTERN.test(reportId) || !UUID_PATTERN.test(attachmentId)) {
     return null;
   }
 
-  const report = await prisma.mentorReport.findUnique({
-    where: { id: reportId },
+  const attachment = await prisma.mentorReportAttachment.findFirst({
+    where: { id: attachmentId, reportId },
     select: {
-      attachmentContentType: true,
-      attachmentFileName: true,
-      attachmentKey: true,
-      attachmentSizeBytes: true,
+      contentType: true,
+      fileName: true,
+      sizeBytes: true,
+      storageKey: true,
     },
   });
-
-  if (
-    !report
-    || report.attachmentKey === null
-    || report.attachmentFileName === null
-    || report.attachmentContentType === null
-    || report.attachmentSizeBytes === null
-  ) {
-    return null;
-  }
+  if (!attachment) return null;
 
   return {
-    contentType: report.attachmentContentType,
-    fileName: report.attachmentFileName,
-    key: report.attachmentKey,
-    sizeBytes: report.attachmentSizeBytes,
+    contentType: attachment.contentType,
+    fileName: attachment.fileName,
+    key: attachment.storageKey,
+    sizeBytes: attachment.sizeBytes,
   };
 }
 
 export {
   DeveloperReportAccessError,
-  getDeveloperReportAttachmentForDownload,
+  getDeveloperReportAttachmentForAccess,
   getDeveloperReportById,
   listDeveloperReports,
 };
 export type {
-  DeveloperReportAttachmentDownload,
+  DeveloperReportAttachmentAccess,
   DeveloperReportDetail,
   DeveloperReportListItem,
 };
