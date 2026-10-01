@@ -67,21 +67,15 @@ export function QuizQuestionInventory(props: QuizInventoryProps) {
             const issueCount = question.issueCount ?? 0;
             return (
               <SortableItem className={styles.row} data-active={isActive || undefined} data-incomplete={issueCount > 0 || undefined} data-quiz-inventory-row={question.id} key={question.id} render={<li />} value={question.id}>
-                <Tooltip>
-                <TooltipTrigger render={<SortableHandle
+                <SortableHandle
                   aria-label={`Pindah soal ${index + 1}`}
                   className="max-md:size-11"
                   type="button"
-                />}><GripVertical aria-hidden="true" /></TooltipTrigger>
-                <TooltipContent>Geser untuk mengubah urutan</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                <TooltipTrigger render={<Button aria-current={isActive ? "true" : undefined} aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`} className={`h-auto min-h-10 min-w-0 flex-1 justify-start gap-2 px-0 text-xs font-normal max-md:min-h-11 ${styles.select}`} id={`${idPrefix}-question-select-${question.id}`} onClick={() => onSelect(question.id)} type="button" variant="quiet" />}>
+                ><GripVertical aria-hidden="true" /></SortableHandle>
+                <Button aria-current={isActive ? "true" : undefined} aria-label={`Soal ${index + 1}, ${question.prompt || "Soal tanpa pertanyaan"}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`} className={`h-auto min-h-10 min-w-0 flex-1 justify-start gap-2 px-0 text-xs font-normal max-md:min-h-11 ${styles.select}`} id={`${idPrefix}-question-select-${question.id}`} onClick={() => onSelect(question.id)} type="button" variant="quiet">
                   <strong className={styles.number}>{index + 1}</strong>
                   <span className={styles.prompt}>{question.prompt || "Soal tanpa pertanyaan"}</span>
-                </TooltipTrigger>
-                <TooltipContent>{question.prompt || "Soal tanpa pertanyaan"}{issueCount ? ` · ${issueCount} masalah perlu diperbaiki` : ""}</TooltipContent>
-                </Tooltip>
+                </Button>
                 <Tooltip>
                 <TooltipTrigger render={<Button aria-label={`Hapus soal ${index + 1}`} className="max-md:size-11" disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="quiet" />}><Trash2 aria-hidden="true" /></TooltipTrigger>
                 <TooltipContent>Hapus soal</TooltipContent>

@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   CircleHelp,
   LibraryBig,
+  Pencil,
   Plus,
   Save,
   Trash2,
@@ -44,11 +45,14 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Field,
@@ -60,7 +64,7 @@ import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { buildMentorQuizEditorHref } from "@/lib/navigation/canonical-context";
 import { validateAnswerKey } from "@/lib/question-bank/answer-contract";
-import { cn } from "@/lib/utils";
+import { asQuizOwnedQuestion } from "@/lib/quiz/question-ownership";
 import {
   QuestionContentEditor as QuizQuestionEditor,
 } from "@/modules/mentor/components/question-content-editor";
@@ -72,7 +76,6 @@ import {
   type QuestionMediaTarget as QuizQuestionMediaTarget,
 } from "@/modules/mentor/components/question-content-editor-helpers";
 import {
-  QuestionEditorHeader,
   QuestionEditorPageShell,
   QuestionEditorWorkspace,
 } from "@/modules/mentor/components/question-editor-workspace";
@@ -80,13 +83,11 @@ import { QuizMobileInventory, QuizQuestionInventory } from "@/modules/mentor/com
 import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import {
-  acceptStandaloneQuizQuestionUpdateAction,
   saveStandaloneQuizAction,
 } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
-  MediaAssetPreview,
   MediaPickerDialog,
 } from "@/modules/media/media-library";
 import {
@@ -114,6 +115,7 @@ type QuizEditorForm = {
 };
 
 function asEditorQuestion(question: QuizQuestionSnapshot): QuizEditorQuestion {
+  question = asQuizOwnedQuestion(question);
   const correctChoiceIds = correctChoiceIdsFor(question);
   return {
     choices: question.choices.map((choice) => ({ ...choice })),
@@ -212,75 +214,6 @@ function hasQuizDraftContent(
   );
 }
 
-function QuestionPreview({ question }: { question: QuizQuestionSnapshot }) {
-  const correctChoiceIds = correctChoiceIdsFor(question);
-  const correctChoiceIdSet = new Set(correctChoiceIds);
-  return (
-    <ReferenceSurface as="section" className="min-w-0 p-5 md:p-7">
-      <h3 className="text-xl leading-8 font-semibold text-secondary-900">
-        {question.prompt || "Pertanyaan akan tampil di sini."}
-      </h3>
-      {question.promptMediaAssetId ? (
-        <MediaAssetPreview
-          alt="Gambar pertanyaan"
-          assetId={question.promptMediaAssetId}
-          className="mt-5"
-        />
-      ) : null}
-      <div className="mt-6 grid gap-3">
-        {question.choices.map((choice, index) => (
-          <div
-            className="rounded-xl border border-primary-100 bg-secondary-50/40 p-4"
-            key={choice.id}
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center border text-xs font-bold uppercase",
-                  questionTypeFor(question) === "multiple_choice"
-                    ? "rounded-md"
-                    : "rounded-full",
-                  correctChoiceIdSet.has(choice.id)
-                    ? "border-primary-700 bg-primary-700 text-white"
-                    : "border-primary-200 bg-primary-50 text-primary-800",
-                )}
-              >
-                {String.fromCharCode(65 + index)}
-              </span>
-              <span className="min-w-0 flex-1 text-sm leading-6 text-secondary-800">
-                {choice.text || `Opsi ${String.fromCharCode(65 + index)}`}
-                {choice.mediaAssetId ? (
-                  <MediaAssetPreview
-                    alt={`Gambar opsi ${String.fromCharCode(65 + index)}`}
-                    assetId={choice.mediaAssetId}
-                    className="mt-3 max-h-44"
-                  />
-                ) : null}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-      {question.explanation ? (
-        <div className="mt-6 pt-5">
-          <h4 className="text-sm font-semibold text-secondary-900">
-            Penjelasan
-          </h4>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-secondary-600">
-            {question.explanation}
-          </p>
-          {question.explanationMediaAssetId ? (
-            <MediaAssetPreview
-              alt="Gambar penjelasan"
-              assetId={question.explanationMediaAssetId}
-              className="mt-4"
-            />
-          ) : null}
-        </div>
-      ) : null}
-    </ReferenceSurface>
-  );
-}
 
 type QuizEditorChangeMarker = (nextForm?: QuizEditorForm) => void;
 
@@ -451,6 +384,7 @@ function useQuizEditorPersistence({
         opensAt: form.opensAt,
         publishRequestId: publishRequestIdRef.current,
         questions: mode === "create" ? [] : form.questions,
+        questionOwnership: "quiz",
         retryDelaySeconds: form.retryDelaySeconds,
         reviewTiming: form.reviewTiming,
         scorePolicy: form.scorePolicy,
@@ -550,10 +484,6 @@ function useQuizEditorState({
   const [questionBankPickerOpen, setQuestionBankPickerOpen] = useState(false);
   const [mediaPickerTarget, setMediaPickerTarget] =
     useState<QuizQuestionMediaTarget | null>(null);
-  const [acceptingUpdateQuestionId, setAcceptingUpdateQuestionId] = useState<
-    string | null
-  >(null);
-  const autoAppliedUpdateKeysRef = useRef(new Set<string>());
   const activeQuestion = useMemo(
     () =>
       form.questions.find((question) => question.id === activeQuestionId) ??
@@ -633,138 +563,6 @@ function useQuizEditorState({
     },
     [],
   );
-  const acceptSourceUpdate = useCallback(
-    async (question: QuizQuestionSnapshot) => {
-      if (
-        acceptingUpdateQuestionId ||
-        !savedQuiz?.id ||
-        savedQuiz.sourceMode !== "assembly" ||
-        savedQuiz.status === "archived" ||
-        !question.sourceUpdate ||
-        !question.sourceQuestionRevisionId ||
-        !question.sourceContentDigest
-      )
-        return false;
-      const sourceUpdate = question.sourceUpdate;
-      const hadUnsavedChanges = hasUnsavedChanges;
-      setAcceptingUpdateQuestionId(question.id);
-      setSaveError(null);
-      try {
-        const result = await acceptStandaloneQuizQuestionUpdateAction({
-          editLease:
-            mode === "edit" ? (resourceLock.proof ?? undefined) : undefined,
-          expectedCurrentContentDigest: question.sourceContentDigest,
-          expectedCurrentRevisionId: question.sourceQuestionRevisionId,
-          quizId: savedQuiz.id,
-          quizItemId: question.id,
-          targetContentDigest: sourceUpdate.sourceContentDigest,
-          targetRevisionId: sourceUpdate.sourceQuestionRevisionId,
-        });
-        if (!result.ok) {
-          showToast(result.message, { variant: "error" });
-          return false;
-        }
-        const updatedQuestion = result.questions.find(
-          (candidate) => candidate.id === question.id,
-        );
-        const versionedUpdatedQuestion =
-          updatedQuestion ??
-          result.questions.find(
-            (candidate) =>
-              candidate.sourceQuestionId === question.sourceQuestionId &&
-              candidate.sourceQuestionRevisionId ===
-                sourceUpdate.sourceQuestionRevisionId,
-          );
-        if (versionedUpdatedQuestion) {
-          const persistedBySourceQuestionId = new Map(
-            result.questions
-              .filter((candidate) => candidate.sourceQuestionId)
-              .map((candidate) => [candidate.sourceQuestionId, candidate]),
-          );
-          setForm((current) => ({
-            ...current,
-            questions: current.questions.map((candidate) => {
-              if (candidate.id === question.id)
-                return asEditorQuestion(versionedUpdatedQuestion);
-              const persisted = candidate.sourceQuestionId
-                ? persistedBySourceQuestionId.get(candidate.sourceQuestionId)
-                : undefined;
-              return persisted ? { ...candidate, id: persisted.id } : candidate;
-            }),
-          }));
-          setActiveQuestionId((current) =>
-            current === question.id ? versionedUpdatedQuestion.id : current,
-          );
-        }
-        setSavedQuiz(result.quiz);
-        setHasUnsavedChanges(hadUnsavedChanges);
-        setSaveError(null);
-        showToast("Revisi Bank Soal otomatis diterapkan ke Kuis.", {
-          variant: "success",
-        });
-        return true;
-      } catch (error) {
-        showToast(
-          error instanceof Error
-            ? error.message
-            : "Revisi soal belum dapat diterapkan.",
-          { variant: "error" },
-        );
-        return false;
-      } finally {
-        setAcceptingUpdateQuestionId(null);
-      }
-    },
-    [
-      acceptingUpdateQuestionId,
-      hasUnsavedChanges,
-      mode,
-      resourceLock.proof,
-      savedQuiz,
-      setForm,
-      setHasUnsavedChanges,
-      setSaveError,
-      setSavedQuiz,
-    ],
-  );
-  useEffect(() => {
-    if (
-      mode !== "edit" ||
-      editorDisabled ||
-      !savedQuiz?.id ||
-      savedQuiz.sourceMode !== "assembly" ||
-      isSaving ||
-      acceptingUpdateQuestionId
-    ) {
-      return;
-    }
-    const pending = form.questions.find((question) => {
-      const update = question.sourceUpdate;
-      if (
-        !update ||
-        !question.sourceQuestionRevisionId ||
-        !question.sourceContentDigest
-      ) {
-        return false;
-      }
-      const key = `${question.id}:${update.sourceQuestionRevisionId}:${update.sourceContentDigest}`;
-      return !autoAppliedUpdateKeysRef.current.has(key);
-    });
-    if (!pending?.sourceUpdate) return;
-    const key = `${pending.id}:${pending.sourceUpdate.sourceQuestionRevisionId}:${pending.sourceUpdate.sourceContentDigest}`;
-    autoAppliedUpdateKeysRef.current.add(key);
-    // react-doctor-disable-next-line no-pass-live-state-to-parent -- this effect automatically persists a pending source revision for assembly-backed quizzes and reconciles the editor's saved state.
-    void acceptSourceUpdate(pending);
-  }, [
-    acceptingUpdateQuestionId,
-    acceptSourceUpdate,
-    editorDisabled,
-    form.questions,
-    isSaving,
-    mode,
-    savedQuiz?.id,
-    savedQuiz?.sourceMode,
-  ]);
   const navigation = useQuizEditorNavigation({
     hasUnsavedChanges,
     pendingRouteReplacement,
@@ -801,8 +599,6 @@ function useQuizEditorState({
   return {
     activeQuestion,
     activeQuestionId,
-    acceptingUpdateQuestionId,
-    acceptSourceUpdate,
     editorDisabled,
     form,
     hasUnsavedChanges,
@@ -874,27 +670,83 @@ function QuizEditHeader({
 }) {
   const searchParams = useSearchParams();
   const returnHref = quizDashboardReturnHref(searchParams.get("returnTo"));
+  const [titleEditorOpen, setTitleEditorOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(state.form.title);
   return (
-    <QuestionEditorHeader
-      backControl={
-        <Button
-          aria-label="Kembali ke detail Kuis"
-          onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}?returnTo=${encodeURIComponent(returnHref)}`)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <ChevronLeft />
-        </Button>
-      }
-      category={subject?.code}
-      dirty={state.hasUnsavedChanges}
-      onSave={() => void state.persistence.saveQuiz()}
-      saveDisabled={state.isSaving || state.editorDisabled}
-      saveId="quiz-save-button"
-      saving={state.isSaving}
-      title={state.form.title || "Kuis"}
-    />
+    <Dialog
+      onOpenChange={(open) => {
+        if (open) setTitleDraft(state.form.title);
+        setTitleEditorOpen(open);
+      }}
+      open={titleEditorOpen}
+    >
+      <header className="z-10 flex min-h-24 shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-b border-primary-100 bg-voyage-canvas/95 px-4 py-4 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:flex-nowrap md:px-6" data-quiz-editor-header="true">
+        <span className="sr-only" role="status">{state.hasUnsavedChanges ? "Ada perubahan belum tersimpan" : ""}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Button
+            aria-label="Kembali ke detail Kuis"
+            onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}?returnTo=${encodeURIComponent(returnHref)}`)}
+            size="icon"
+            type="button"
+            variant="quiet"
+          >
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1">
+              <h1 className="min-w-0 truncate text-base font-bold text-secondary-900 md:text-lg">{state.form.title || "Kuis"}</h1>
+              <Tooltip>
+                <TooltipTrigger render={
+                  <DialogTrigger render={
+                    <Button aria-label="Ubah judul Kuis" className="w-10 px-0 max-md:size-11" disabled={state.editorDisabled || state.isSaving} size="xs" type="button" variant="quiet">
+                      <Pencil aria-hidden="true" />
+                    </Button>
+                  } />
+                } />
+                <TooltipContent>Ubah judul Kuis</TooltipContent>
+              </Tooltip>
+              {state.hasUnsavedChanges ? (
+                <Tooltip>
+                  <TooltipTrigger render={
+                    <span aria-label="Ada perubahan belum tersimpan" className="inline-flex size-10 shrink-0 items-center justify-center rounded-control outline-none focus-visible:ring-3 focus-visible:ring-voyage-leaf/35 max-md:size-11" role="img" tabIndex={0}>
+                      <span aria-hidden="true" className="size-2 rounded-full bg-student-status-attention-solid-bg" />
+                    </span>
+                  } />
+                  <TooltipContent>Ada perubahan belum tersimpan</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+            {subject ? <Badge className="mt-1 max-w-full truncate" size="sm" tone="category">{subject.name}</Badge> : null}
+          </div>
+        </div>
+        <div className="flex w-full shrink-0 justify-end md:w-auto">
+          <Button aria-busy={state.isSaving} aria-label="Simpan" disabled={state.isSaving || state.editorDisabled} id="quiz-save-button" onClick={() => void state.persistence.saveQuiz()} type="button" variant="default">
+            <Save aria-hidden="true" />{state.isSaving ? "Menyimpan…" : "Simpan"}
+          </Button>
+        </div>
+      </header>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ubah judul Kuis</DialogTitle>
+        </DialogHeader>
+        <form className="mt-4 space-y-4" onSubmit={(event) => {
+          event.preventDefault();
+          const title = titleDraft.trim();
+          if (!title || state.editorDisabled || state.isSaving) return;
+          if (title !== state.form.title) state.patchForm({ title });
+          setTitleEditorOpen(false);
+        }}>
+          <Field>
+            <FieldLabel htmlFor="quiz-editor-title-edit">Judul Kuis</FieldLabel>
+            <FieldInput autoFocus disabled={state.editorDisabled || state.isSaving} id="quiz-editor-title-edit" onChange={(event) => setTitleDraft(event.target.value)} required value={titleDraft} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setTitleEditorOpen(false)} type="button" variant="outline">Batal</Button>
+            <Button disabled={!titleDraft.trim() || state.editorDisabled || state.isSaving} type="submit">Terapkan</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -980,11 +832,10 @@ function QuizQuestionAreaMain({ bankPickerDisabled, state }: { bankPickerDisable
       </ReferenceSurface>
     );
   }
-  const isLocal = question.origin === "local";
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-quiz-question-content-editor={isLocal ? "enabled" : "disabled"}>
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold text-secondary-900">{isLocal ? "Edit soal" : "Pratinjau soal"}</h2></div>
-      {isLocal ? <QuizQuestionEditor disabled={state.editorDisabled} onOpenMedia={state.setMediaPickerTarget} question={question} updateQuestion={state.updateQuestion} /> : <QuestionPreview question={question} />}
+    <div className="flex min-w-0 flex-col gap-4" data-quiz-question-content-editor="enabled">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold text-secondary-900">Edit soal</h2></div>
+      <QuizQuestionEditor disabled={state.editorDisabled} onOpenMedia={state.setMediaPickerTarget} question={question} updateQuestion={state.updateQuestion} />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   type QuestionAnswerMode,
 } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
+import { asQuizOwnedQuestion } from "@/lib/quiz/question-ownership";
 import {
   draftRevisionMatches,
   isStandaloneQuizVersioningCutoverEnabled,
@@ -112,6 +113,8 @@ type SaveStandaloneQuizInput = {
   opensAt: string;
   publishRequestId?: string | null;
   questions: QuizQuestionSnapshot[];
+  /** Persist independent quiz copies, atomically detaching any existing bank/assembly binding. */
+  questionOwnership?: "quiz";
   retryDelaySeconds?: number | null;
   reviewTiming?: QuizReviewTiming;
   scorePolicy?: QuizScorePolicy;
@@ -2077,11 +2080,11 @@ async function saveStandaloneQuizVersioned(
     const currentVersion = draft ?? active;
     const currentMode = sourceModeForQuiz(currentVersion ?? record ?? {});
     if (record) {
-      if (currentMode === "assembly")
+      if (currentMode === "assembly" && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Kuis yang terikat assembly harus diubah melalui perintah attachment atau pelepasan khusus.",
         );
-      if (requestedMode !== currentMode)
+      if (requestedMode !== currentMode && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Perubahan mode sumber Kuis harus memakai perintah transisi khusus.",
         );
@@ -2260,6 +2263,12 @@ async function saveStandaloneQuizVersioned(
         sourceBankId,
         state: StandaloneQuizVersionState.draft,
         title: metadata.title,
+        ...(input.questionOwnership === "quiz" ? {
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+        } : {}),
       },
       include: quizVersionItemsInclude,
     });
@@ -2349,6 +2358,11 @@ async function saveStandaloneQuiz(
   input: SaveStandaloneQuizInput,
   tutorId: string,
 ) {
+  if (input.questionOwnership !== undefined && input.questionOwnership !== "quiz")
+    throw new QuizValidationError("Soal Kuis belum dapat disimpan. Muat ulang halaman lalu coba lagi.");
+  if (input.questionOwnership === "quiz") {
+    input = { ...input, sourceMode: "local", sourceBankId: null, questions: input.questions.map(asQuizOwnedQuestion) };
+  }
   if (isStandaloneQuizVersioningCutoverEnabled())
     return saveStandaloneQuizVersioned(input, tutorId);
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka");
@@ -2413,11 +2427,11 @@ async function saveStandaloneQuiz(
       );
     if (current) {
       const currentMode = sourceModeForQuiz(current);
-      if (currentMode === "assembly")
+      if (currentMode === "assembly" && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Kuis yang terikat assembly harus diubah melalui perintah attachment atau pelepasan khusus.",
         );
-      if (requestedMode !== currentMode)
+      if (requestedMode !== currentMode && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Perubahan mode sumber Kuis harus memakai perintah transisi khusus.",
         );
@@ -2486,7 +2500,13 @@ async function saveStandaloneQuiz(
           description: input.description.trim() || null,
           durationSeconds,
           opensAt,
-          sourceBankId: current?.sourceBankId ?? null,
+          sourceBankId: input.questionOwnership === "quiz" ? null : current?.sourceBankId ?? null,
+          ...(input.questionOwnership === "quiz" ? {
+            assemblyDefinitionDigest: null,
+            assemblyMode: null,
+            assemblyPackageVersionId: null,
+            assemblySeed: null,
+          } : {}),
           status: ContentStatus.published,
           subtestId: requestedSubtest.id,
           title: input.title.trim() || "Kuis Baru",
@@ -2500,7 +2520,7 @@ async function saveStandaloneQuiz(
       questions: input.questions,
       quizId: id!,
       requestedSubtestId: requestedSubtest.id,
-      sourceBankId: current?.sourceBankId ?? null,
+      sourceBankId: input.questionOwnership === "quiz" ? null : current?.sourceBankId ?? null,
     });
     const saved = await tx.standaloneQuiz.findUniqueOrThrow({
       where: { id },
