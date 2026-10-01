@@ -84,7 +84,7 @@ assert.match(picker, /Semua soal yang saat ini dipilih di Kuis akan dibatalkan/u
 assert.match(picker, /effectiveExistingQuestionIds/u, "source-bank changes must exclude the previous selections from the next import");
 assert.doesNotMatch(picker, /Sudah ditambahkan/u, "question picker must not render the removed added-status badge");
 assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");
-assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil`/u, "legacy results route must redirect to Hasil");
+assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil/u, "legacy results route must redirect to Hasil");
 assert.match(results, /function KaptenQuizResultsContent/u, "results must have embeddable content");
 assert.doesNotMatch(results, /Bagian hasil Kuis|Peserta|Statistik|StatisticsPanel|Distribusi nilai|Peta skor|recharts/u, "Hasil must remain one results view without participant/statistics tabs or aggregate statistics");
 assert.doesNotMatch(results, /Lihat pengiriman jawaban dan buka detail submisi tanpa meninggalkan detail Kuis/u, "Hasil must not include the removed helper copy");

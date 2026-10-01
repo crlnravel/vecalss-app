@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { quizDashboardReturnHref } from "@/modules/mentor/quiz-dashboard-contract";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
@@ -153,7 +154,9 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
 function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
   const isSubmitted = attempt.status !== "in_progress";
   const router = useRouter();
-  const href = `/mentor/quiz/${quizId}/results/${attempt.id}`;
+  const searchParams = useSearchParams();
+  const returnHref = quizDashboardReturnHref(searchParams.get("returnTo"));
+  const href = `/mentor/quiz/${quizId}/results/${attempt.id}?returnTo=${encodeURIComponent(returnHref)}`;
 
   function navigateToAttempt() {
     router.push(href);

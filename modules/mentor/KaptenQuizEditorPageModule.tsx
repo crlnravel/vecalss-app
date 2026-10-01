@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { quizDashboardReturnHref } from "@/modules/mentor/quiz-dashboard-contract";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   CircleHelp,
@@ -876,12 +877,14 @@ function QuizEditHeader({
   state: QuizEditorState;
   subject?: (typeof kaptenSubjects)[number];
 }) {
+  const searchParams = useSearchParams();
+  const returnHref = quizDashboardReturnHref(searchParams.get("returnTo"));
   return (
     <QuestionEditorHeader
       backControl={
         <Button
           aria-label="Kembali ke detail Kuis"
-          onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}`)}
+          onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}?returnTo=${encodeURIComponent(returnHref)}`)}
           size="sm"
           type="button"
           variant="ghost"

@@ -2,15 +2,23 @@ import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getMentorQuizCatalogueRecords, QuizValidationError } from "@/lib/quiz/repository";
+import {
+  getMentorQuizCatalogueRecords,
+  QuizValidationError,
+} from "@/lib/quiz/repository";
 import { withTransientAuthoringEditLeases } from "@/lib/serialization/authoring-lease";
 import type { QuizDashboardRow } from "@/modules/mentor/quiz-dashboard-contract";
 
 /** The average gives each participation one vote under its frozen scoring policy. */
-export async function getMentorQuizDashboardRows(tutorId: string, client: Prisma.TransactionClient = prisma): Promise<QuizDashboardRow[]> {
+export async function getMentorQuizDashboardRows(
+  tutorId: string,
+  client: Prisma.TransactionClient = prisma,
+): Promise<QuizDashboardRow[]> {
   const [records, summaries] = await Promise.all([
     getMentorQuizCatalogueRecords(tutorId, client),
-    client.$queryRaw<{ quizId: string; completed: bigint; average: number | null }[]>(Prisma.sql`
+    client.$queryRaw<
+      { quizId: string; completed: bigint; average: number | null }[]
+    >(Prisma.sql`
       WITH participation_scores AS (
         SELECT p.quiz_id, p.id, COUNT(a.id) AS completed,
           CASE COALESCE(p.policy_snapshot->>'scorePolicy', v.score_policy::text, q.score_policy::text)
@@ -29,16 +37,45 @@ export async function getMentorQuizDashboardRows(tutorId: string, client: Prisma
       FROM participation_scores GROUP BY quiz_id
     `),
   ]);
-  const byQuiz = new Map(summaries.map(summary => [summary.quizId, summary]));
-  return records.map(record => ({ ...record, completedAttempts: Number(byQuiz.get(record.id)?.completed ?? 0), averageScore: byQuiz.get(record.id)?.average ?? null }));
+  const byQuiz = new Map(summaries.map((summary) => [summary.quizId, summary]));
+  return records.map((record) => ({
+    ...record,
+    completedAttempts: Number(byQuiz.get(record.id)?.completed ?? 0),
+    averageScore: byQuiz.get(record.id)?.average ?? null,
+  }));
 }
 
 export type QuizDashboardMutation = "hide" | "show" | "archive";
-export async function manageMentorDashboardQuiz(tutorId: string, quizId: string, action: QuizDashboardMutation) {
-  return prisma.$transaction(tx => withTransientAuthoringEditLeases(tx, [{ resourceId: quizId, resourceType: "quiz" }], tutorId, async () => {
-    await tx.$queryRaw(Prisma.sql`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`);
-    const quiz = await tx.standaloneQuiz.findFirst({ where: { id: quizId, createdByUserId: tutorId }, select: { status: true } });
-    if (!quiz || quiz.status !== "published") throw new QuizValidationError("Kuis ini tidak tersedia untuk diubah.");
-    await tx.standaloneQuiz.update({ where: { id: quizId }, data: action === "archive" ? { status: "archived", revision: { increment: 1 } } : { isHidden: action === "hide" } });
-  }));
+export async function manageMentorDashboardQuiz(
+  tutorId: string,
+  quizId: string,
+  action: QuizDashboardMutation,
+) {
+  return prisma.$transaction((tx) =>
+    withTransientAuthoringEditLeases(
+      tx,
+      [{ resourceId: quizId, resourceType: "quiz" }],
+      tutorId,
+      async () => {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`,
+        );
+        const quiz = await tx.standaloneQuiz.findFirst({
+          where: { id: quizId, createdByUserId: tutorId },
+          select: { status: true },
+        });
+        if (!quiz || quiz.status !== "published")
+          throw new QuizValidationError(
+            "Kuis ini tidak tersedia untuk diubah.",
+          );
+        await tx.standaloneQuiz.update({
+          where: { id: quizId },
+          data:
+            action === "archive"
+              ? { status: "archived", revision: { increment: 1 } }
+              : { isHidden: action === "hide" },
+        });
+      },
+    ),
+  );
 }

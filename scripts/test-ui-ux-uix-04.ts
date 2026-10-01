@@ -239,7 +239,7 @@ includes(vera, "motion-reduce:animate-none", "Vera loading animation must respec
 includes(vera, 'size="icon"', "Vera compact controls must meet the 44px target.");
 
 const materi = read("modules/mentor/KaptenMateriCataloguePageModules.tsx");
-const quiz = read("modules/mentor/quiz-dashboard.module.css");
+const quiz = read("modules/mentor/quiz-dashboard.module.css").replace(/\s+/g, "");
 const tryout = read("modules/mentor/KaptenTryoutCataloguePageModule.tsx");
 const mentorContent = read("modules/mentor/KaptenContentPageModules.tsx");
 

@@ -120,11 +120,13 @@ function QuizSourceSummary({ quiz }: { quiz: KaptenQuiz }) {
 }
 
 function QuizPreview({
+  returnHref,
   quizId,
   questions,
   subjectCode,
 }: {
   quizId: string;
+  returnHref: string;
   questions: QuizQuestionSnapshot[];
   subjectCode: string;
 }) {
@@ -145,7 +147,7 @@ function QuizPreview({
         <Button
           className="shrink-0"
           nativeButton={false}
-          render={<Link href={`/mentor/quiz/${quizId}/editor`} />}
+          render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
           type="button"
           variant="brand"
         >
@@ -159,7 +161,7 @@ function QuizPreview({
             action={
               <Button
                 nativeButton={false}
-                render={<Link href={`/mentor/quiz/${quizId}/editor`} />}
+                render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
                 size="sm"
                 variant="brand"
               >
@@ -1090,6 +1092,7 @@ function KaptenQuizDetailPageContent({
           </FullWidthLineTabsList>
           <TabsContent className="m-0 space-y-4" value="preview">
             <QuizPreview
+              returnHref={returnHref}
               quizId={quiz.id}
               questions={questions}
               subjectCode={quiz.subjectCode ?? "PU"}

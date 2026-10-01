@@ -35,7 +35,9 @@ const dateTime = new Intl.DateTimeFormat("id-ID", {
 
 function KaptenQuizSubmissionPageModule({
   submission,
+  returnHref = "/mentor/quiz",
 }: {
+  returnHref?: string;
   submission: Submission;
 }) {
   const isSubmitted = submission.status !== "in_progress";
@@ -48,7 +50,7 @@ function KaptenQuizSubmissionPageModule({
           className="mt-1 shrink-0"
           nativeButton={false}
           render={
-            <Link href={`/mentor/quiz/${submission.quiz.id}?tab=hasil`} />
+            <Link href={`/mentor/quiz/${submission.quiz.id}?tab=hasil&returnTo=${encodeURIComponent(returnHref)}`} />
           }
           size="icon"
           title="Kembali ke hasil Kuis"
