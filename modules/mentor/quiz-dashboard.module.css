@@ -197,7 +197,8 @@
   .canvas {
     padding: 16px !important;
   }
-  .viewport {
+  .viewport,
+  .chips {
     padding-inline: 16px;
   }
   .toolbar {

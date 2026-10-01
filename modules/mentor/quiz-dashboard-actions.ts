@@ -24,7 +24,12 @@ export async function manageQuizDashboardAction(
   ) {
     return {
       succeeded: [] as string[],
-      failed: [{ id: "", message: "Pilih kuis yang ingin diubah." }],
+      failed: [{
+        id: "",
+        message: action === "delete"
+          ? "Pilih kuis yang ingin dihapus."
+          : "Pilih kuis yang ingin diubah.",
+      }],
     };
   }
   const succeeded: string[] = [],
@@ -42,7 +47,9 @@ export async function manageQuizDashboardAction(
             ? "Kuis sedang dibuka di editor. Tutup editor sebelum mencoba lagi."
             : error instanceof QuizValidationError
               ? error.message
-              : "Kuis belum berhasil diubah. Coba lagi.",
+              : action === "delete"
+                ? "Kuis belum berhasil dihapus. Coba lagi."
+                : "Kuis belum berhasil diubah. Coba lagi.",
       });
     }
   }

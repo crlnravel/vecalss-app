@@ -391,12 +391,12 @@ function QuizTitleField({
       {!disabled ? (
         <Button
           aria-label="Ubah judul Kuis"
-          className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
+          className="mt-1 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          size="icon-sm"
+          size="icon"
           title="Ubah judul Kuis"
           type="button"
           variant="quiet"
@@ -435,12 +435,12 @@ function QuizDescriptionField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah deskripsi Kuis"
-            className="size-7 text-secondary-400 hover:text-secondary-900"
+            className="text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
             }}
-            size="icon-sm"
+            size="icon"
             title="Ubah deskripsi Kuis"
             type="button"
             variant="quiet"
@@ -524,12 +524,12 @@ function QuizSubjectField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah subjek Kuis"
-            className="size-7 text-secondary-400 hover:text-secondary-900"
+            className="text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
             }}
-            size="icon-sm"
+            size="icon"
             title="Ubah subjek Kuis"
             type="button"
             variant="quiet"

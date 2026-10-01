@@ -200,9 +200,9 @@ export function KaptenQuizDashboardPageModule({
               : "dihapus";
       setSelection((previous) =>
         Object.fromEntries(
-          response.failed
-            .filter((item) => previous[item.id])
-            .map((item) => [item.id, true]),
+          Object.entries(previous).filter(
+            ([id]) => !response.succeeded.includes(id),
+          ),
         ),
       );
       const failures = response.failed.map(
@@ -224,7 +224,9 @@ export function KaptenQuizDashboardPageModule({
         );
       } else if (failures.length) {
         showToast(
-          "Perubahan belum berhasil disimpan. Lihat rincian dan coba lagi.",
+          action === "delete"
+            ? "Kuis belum berhasil dihapus. Lihat rincian dan coba lagi."
+            : "Perubahan belum berhasil disimpan. Lihat rincian dan coba lagi.",
           {
             variant: "error",
           },
@@ -234,9 +236,12 @@ export function KaptenQuizDashboardPageModule({
       setConfirmation(null);
     } catch {
       setFeedback(null);
-      showToast("Perubahan belum berhasil disimpan. Coba lagi.", {
-        variant: "error",
-      });
+      showToast(
+        action === "delete"
+          ? "Kuis belum berhasil dihapus. Coba lagi."
+          : "Perubahan belum berhasil disimpan. Coba lagi.",
+        { variant: "error" },
+      );
     } finally {
       mutationInFlight.current = false;
       setSaving(false);
@@ -677,7 +682,7 @@ export function KaptenQuizDashboardPageModule({
         {feedback && (
           <div className={styles.feedback} role="status">
             <div>
-              <p>Kuis berikut belum berhasil diperbarui:</p>
+              <p>Kuis berikut belum berhasil diproses:</p>
               <ul>
                 {feedback.map((failure, index) => (
                   <li key={index}>{failure}</li>
