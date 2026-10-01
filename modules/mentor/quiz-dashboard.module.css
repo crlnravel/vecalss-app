@@ -53,15 +53,11 @@
   padding: 12px 20px;
   border-bottom: 1px solid var(--voyage-soft-border);
 }
-.filters,
-.tools {
+.filters {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-}
-.tools {
-  margin-left: auto;
 }
 .search {
   position: relative;
@@ -78,7 +74,8 @@
   pointer-events: none;
 }
 .subject {
-  min-width: 172px;
+  min-width: 128px;
+  padding-inline: 10px;
   justify-content: space-between;
 }
 .chips {
@@ -242,15 +239,8 @@
     gap: 10px;
   }
   .filters,
-  .tools,
   .search {
     width: 100%;
-  }
-  .subject {
-    flex: 1;
-  }
-  .tools {
-    justify-content: space-between;
   }
   .footer {
     padding: 12px 16px;

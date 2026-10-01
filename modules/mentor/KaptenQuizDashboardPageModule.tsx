@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDown, Columns, Funnel } from "@phosphor-icons/react";
+import { CaretUpDown, Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,8 +19,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,7 +37,6 @@ import {
   useReactTable,
   type ColumnDef,
   type RowSelectionState,
-  type VisibilityState,
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -74,8 +71,8 @@ import styles from "./quiz-dashboard.module.css";
 
 const publicationLabels = {
   published: "Terbit",
-  unpublished: "Belum terbit",
-  archived: "Diarsipkan",
+  unpublished: "Draf",
+  archived: "Arsip",
 };
 const columnLabels: Record<string, string> = {
   title: "Kuis",
@@ -177,7 +174,6 @@ export function KaptenQuizDashboardPageModule({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selection, setSelection] = useState<RowSelectionState>({});
-  const [visibility, setVisibility] = useState<VisibilityState>({});
   const [createOpen, setCreateOpen] = useState(initialCreateDialogOpen);
   const [archiving, setArchiving] = useState<QuizDashboardRow | null>(null);
   const [saving, setSaving] = useState(false);
@@ -433,12 +429,10 @@ export function KaptenQuizDashboardPageModule({
     getRowId: (row) => row.id,
     state: {
       rowSelection: selection,
-      columnVisibility: visibility,
       sorting: [{ id: query.sort, desc: query.direction === "desc" }],
       pagination: { pageIndex: query.page - 1, pageSize: query.pageSize },
     },
     onRowSelectionChange: setSelection,
-    onColumnVisibilityChange: setVisibility,
     enableRowSelection: (row) => row.original.publication !== "archived",
     manualPagination: true,
     manualSorting: true,
@@ -446,7 +440,6 @@ export function KaptenQuizDashboardPageModule({
     pageCount: result.pageCount,
     autoResetPageIndex: false,
   });
-  const selectedIds = table.getSelectedRowModel().rows.map((row) => row.id);
   const activeFilters = [
     ...(query.subject && query.subject !== "all"
       ? [
@@ -506,8 +499,6 @@ export function KaptenQuizDashboardPageModule({
             </h1>
             <p className={styles.summary}>
               <span>{result.total} kuis</span>
-              <span>{result.changed} ada perubahan</span>
-              <span>{result.hidden} disembunyikan</span>
             </p>
           </div>
           <Button
@@ -587,127 +578,48 @@ export function KaptenQuizDashboardPageModule({
                 </>
               }
             >
-              <DropdownMenuLabel>Penerbitan</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => navigate({ status: "" })}>
-                Semua status{!query.status && <Check />}
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate({ status: "", hidden: false, changed: false })
+                }
+              >
+                Semua{!query.status && <Check />}
               </DropdownMenuItem>
               {Object.entries(publicationLabels).map(([value, label]) => (
                 <DropdownMenuItem
                   key={value}
                   onClick={() =>
-                    navigate({ status: value as QuizDashboardQuery["status"] })
+                    navigate({
+                      status: value as QuizDashboardQuery["status"],
+                      hidden: false,
+                      changed: false,
+                    })
                   }
                 >
                   {label}
                   {query.status === value && <Check />}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={query.hidden}
-                onCheckedChange={(hidden) => navigate({ hidden })}
-              >
-                Disembunyikan
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={query.changed}
-                onCheckedChange={(changed) => navigate({ changed })}
-              >
-                Ada perubahan
-              </DropdownMenuCheckboxItem>
-            </GridMenu>
-          </div>
-          <div className={styles.tools}>
-            <GridMenu
-              label="Kolom tabel"
-              trigger={
-                <>
-                  <Columns />
-                  Kolom
-                  <Badge size="xs" tone="neutral">
-                    {
-                      table
-                        .getVisibleLeafColumns()
-                        .filter(
-                          (column) =>
-                            column.id !== "select" && column.id !== "actions",
-                        ).length
-                    }
-                  </Badge>
-                </>
-              }
-            >
-              {table
-                .getAllLeafColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(checked) =>
-                      column.toggleVisibility(checked)
-                    }
-                  >
-                    {columnLabels[column.id]}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </GridMenu>
-            <GridMenu
-              label="Tindakan kuis terpilih"
-              trigger={
-                <>
-                  <MoreHorizontal />
-                  Tindakan
-                  {selectedIds.length > 0 && (
-                    <Badge size="xs" tone="neutral">
-                      {selectedIds.length}
-                    </Badge>
-                  )}
-                </>
-              }
-            >
-              <DropdownMenuLabel>
-                {selectedIds.length
-                  ? `${selectedIds.length} kuis terpilih di halaman ini`
-                  : "Pilih kuis di halaman ini"}
-              </DropdownMenuLabel>
-              <DropdownMenuItem
-                disabled={!selectedIds.length || saving}
-                onClick={() => mutate(selectedIds, "hide")}
-              >
-                <EyeOff />
-                Sembunyikan terpilih
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!selectedIds.length || saving}
-                onClick={() => mutate(selectedIds, "show")}
-              >
-                <Eye />
-                Tampilkan terpilih
-              </DropdownMenuItem>
-              {selectedIds.length > 0 && (
-                <DropdownMenuItem onClick={() => setSelection({})}>
-                  Hapus pilihan
-                </DropdownMenuItem>
-              )}
             </GridMenu>
           </div>
         </div>
         {activeFilters.length > 0 && (
           <div className={styles.chips} aria-label="Filter aktif">
             {activeFilters.map((filter) => (
-              <Badge size="sm" tone="category" key={filter.key}>
-                {filter.label}
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="quiet"
-                  aria-label={`Hapus filter ${filter.label}`}
-                  onClick={() => navigate({ [filter.key]: filter.reset })}
-                >
-                  <X size={12} />
-                </Button>
-              </Badge>
+              <Button
+                key={filter.key}
+                type="button"
+                size="sm"
+                variant="quiet"
+                className="px-0"
+                aria-label={`Hapus filter ${filter.label}`}
+                onClick={() => navigate({ [filter.key]: filter.reset })}
+              >
+                <Badge size="sm" tone="category">
+                  {filter.label}
+                  <X className="size-3" aria-hidden="true" />
+                </Badge>
+              </Button>
             ))}
             <Button
               size="sm"
