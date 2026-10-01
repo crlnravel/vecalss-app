@@ -14,7 +14,6 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
-  REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
@@ -175,7 +174,7 @@ function useMediaLibraryScreenState({
             aria-label={`Aksi untuk ${item.name}`}
             className="size-8"
             size="icon-sm"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -268,7 +267,7 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative flex min-h-16 items-center gap-3 rounded-3xl border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              ? "group relative flex min-h-16 items-center gap-3 rounded-card border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
               : "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)]",
             selectedItemIds.has(folderItem.id) &&
               "border-primary-300 bg-primary-50/60",
@@ -357,7 +356,7 @@ function useMediaLibraryScreenState({
         <ContextMenuPrimitive.Trigger
           className={cn(
             isReference
-              ? "group relative overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
+              ? "group relative overflow-hidden rounded-card border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]"
               : "group relative overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_color-mix(in_oklab,var(--voyage-forest)_70%,transparent)] transition-[border-color,box-shadow,transform] hover:z-10 hover:scale-[1.015] hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]",
             selectedItemIds.has(asset.id) &&
               "border-primary-300 shadow-[0_18px_34px_-22px_color-mix(in_oklab,var(--voyage-forest)_80%,transparent)]",
@@ -389,14 +388,14 @@ function useMediaLibraryScreenState({
             {isPicker ? (
               <Button
                 aria-label={`Pilih ${asset.name}`}
-                className="absolute right-2 bottom-2 z-10 bg-white/95 shadow-sm hover:bg-white"
+                className="absolute right-2 bottom-2 z-10"
                 onClick={(event) => {
                   event.stopPropagation();
                   actions.onSelect?.(asset);
                 }}
                 size="sm"
                 variant={
-                  selectedAssetId === asset.id ? "brand" : "brandOutline"
+                  selectedAssetId === asset.id ? "default" : "outline"
                 }
               >
                 {selectedAssetId === asset.id ? "Dipilih" : "Pilih"}
@@ -484,7 +483,6 @@ type MediaLibraryScreenProps = {
   mutationsDisabled?: boolean;
   mutationPending: MediaMutation | null;
   newFolderName: string;
-  notice: string | null;
   previewAsset: MediaAssetDto | null;
   query: string;
   searchInput: string;
@@ -583,7 +581,7 @@ function MediaLibraryItemsPane({
         onDrop={actions.handleDrop}
       >
         {isDragging ? (
-          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-[1.5rem] border-2 border-dashed border-primary-500 bg-primary-50/90 text-center">
+          <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-field border-2 border-dashed border-primary-500 bg-primary-50/90 text-center">
             <div className="flex flex-col items-center gap-2 text-primary-900">
               <Upload className="size-8" />
               <p className="font-semibold">
@@ -677,7 +675,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           />
           <Input
             aria-label="Cari media"
-            className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none"
+            className="pl-10"
             onChange={(event) => actions.setSearchInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -696,7 +694,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           onClick={submitSearch}
           size="icon-sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Search />
         </Button>
@@ -709,7 +707,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
                 disabled={Boolean(uploadStatus)}
                 size="icon-sm"
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               />
             }
           >
@@ -752,7 +750,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
       ) : null}
       {error && snapshot ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive"
           role="alert"
         >
           <div className="min-w-0">
@@ -762,7 +760,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
               ulang.
             </p>
           </div>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -772,11 +770,11 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
       !snapshot.isStorageConfigured &&
       (visibleAssets.length > 0 || visibleFolders.length > 0) ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary-100 bg-primary-50/70 px-3 py-2 text-xs leading-5 text-secondary-700"
           role="status"
         >
           <span>Penyimpanan media belum siap. Kamu belum bisa mengunggah media.</span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -824,7 +822,7 @@ function MediaLibraryReferenceToolbar({
         <span className="sr-only">Cari {mediaLabel}</span>
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
         <Input
-          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 rounded-2xl py-2 pl-11 shadow-sm`}
+          className="pl-11"
           onChange={(event) => actions.setSearchInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -869,9 +867,9 @@ function MediaLibraryReferenceToolbar({
             aria-label="Selesai memilih media"
             className="ml-auto"
             onClick={props.clearSelection}
-            size="icon-sm"
+            size="icon"
             type="button"
-            variant="ghost"
+            variant="quiet"
           >
             <X />
           </Button>
@@ -911,7 +909,7 @@ function MediaLibraryWorkspaceStandardToolbar({
           <Button
             aria-label="Buat folder baru"
             onClick={() => actions.setFolderDialogOpen(true)}
-            variant="brandOutline"
+            variant="outline"
           >
             <FolderPlus />
             Folder baru
@@ -921,10 +919,9 @@ function MediaLibraryWorkspaceStandardToolbar({
           aria-label={
             uploadStatus ? `Mengunggah ${mediaLabel}` : `Unggah ${mediaLabel}`
           }
-          className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined}
           disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
           onClick={() => fileInputRef.current?.click()}
-          variant={isPicker ? "reference" : "brand"}
+          variant={isPicker ? "outline" : "default"}
         >
           {uploadStatus ? (
             <LoaderCircle className="animate-spin" />
@@ -953,11 +950,7 @@ function MediaLibraryWorkspaceStandardToolbar({
           )}
         />
         <Input
-          className={
-            isPicker
-              ? `${REFERENCE_CONTROL_CLASS_NAMES.input} pl-11`
-              : "h-11 border-primary-100 bg-white pl-11"
-          }
+          className="pl-11"
           onChange={(event) => actions.setSearchInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -978,37 +971,32 @@ function MediaLibraryWorkspaceNotices({
 }: {
   props: MediaLibraryScreenRenderProps;
 }) {
-  const { actions, error, isLoading, notice, snapshot } = props;
+  const { actions, error, isLoading, snapshot } = props;
 
   return (
     <>
       {snapshot && !snapshot.isStorageConfigured && !isLoading ? (
         <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700"
           role="status"
         >
           <span>
             Penyimpanan media belum siap. Unggah dan pratinjau belum tersedia.
             Coba lagi nanti atau hubungi admin jika masalah berlanjut.
           </span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
         </div>
       ) : null}
-      {notice ? (
-        <p className="text-sm font-medium text-primary-800" role="status">
-          {notice}
-        </p>
-      ) : null}
       {error && snapshot ? (
         <div
-          className="flex flex-col gap-3 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-card border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
           role="alert"
         >
           <span>{error}</span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -1046,7 +1034,7 @@ function MediaLibraryReferenceHeader({
                       aria-label="Buat folder baru"
                       onClick={() => actions.setFolderDialogOpen(true)}
                       size="icon"
-                      variant="reference"
+                      variant="outline"
                     />
                   }
                 >
@@ -1064,7 +1052,7 @@ function MediaLibraryReferenceHeader({
               disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
               onClick={() => fileInputRef.current?.click()}
               size="sm"
-              variant="brand"
+              variant="default"
             >
               {uploadStatus ? (
                 <LoaderCircle className="animate-spin" />
@@ -1124,7 +1112,7 @@ function MediaLibraryDriveHeader({
                   aria-label="Buat folder baru"
                   onClick={() => actions.setFolderDialogOpen(true)}
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -1146,7 +1134,7 @@ function MediaLibraryDriveHeader({
                   }
                   onClick={() => fileInputRef.current?.click()}
                   size="icon"
-                  variant="brand"
+                  variant="default"
                 />
               }
             >
@@ -1216,7 +1204,7 @@ function MediaLibraryDriveControls({
             <span className="sr-only">Search {mediaLabel}</span>
             <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-secondary-500" />
             <Input
-              className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none"
+              className="pl-10"
               onChange={(event) => actions.setSearchInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -1234,7 +1222,7 @@ function MediaLibraryDriveControls({
                 <Button
                   aria-label="Urutkan media"
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -1266,7 +1254,7 @@ function MediaLibraryDriveControls({
                 <Button
                   aria-label="Filter media"
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -1426,7 +1414,7 @@ function MediaLibraryWorkspaceView(props: MediaLibraryScreenViewProps) {
   const { className, isDrive, isReference, isDragging } = renderProps;
   const dropAreaClassName = cn(
     "relative min-h-[28rem] overflow-hidden transition-[border-color,background-color] duration-150",
-    !isDrive && "rounded-[2rem] border border-primary-100 bg-white",
+    !isDrive && "rounded-field border border-primary-100 bg-white",
     isDrive && !isReference && "flex min-h-0 flex-1 flex-col",
     isReference && "flex flex-col",
     isReference && REFERENCE_SURFACE_CLASS_NAMES.raised,

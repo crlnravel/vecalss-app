@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RefreshCw } from "@/lib/icons";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { refreshTryoutLiveAction } from "@/modules/mentor/tryout-operations-actions";
 import { Button } from "@/components/ui/button";
 
@@ -26,13 +27,15 @@ function useTryoutOperationsRefresh(initial: TryoutOperationsView) {
   const [view, setView] = useState(initial);
   const [refreshState, setRefreshState] = useState<"idle" | "refreshing" | "error">("idle");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
   const automaticFailureCount = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showPendingStatus = false) => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
+    if (showPendingStatus) setManualRefreshPending(true);
     setRefreshState("refreshing");
     try {
       const result = await refreshTryoutLiveAction(initial.id);
@@ -57,13 +60,28 @@ function useTryoutOperationsRefresh(initial: TryoutOperationsView) {
         : "Data operasional Tryout belum berhasil diperbarui. Coba lagi.");
     } finally {
       refreshInFlight.current = false;
+      if (showPendingStatus) setManualRefreshPending(false);
     }
   }, [initial.id]);
 
   const retryRefresh = useCallback(() => {
     automaticFailureCount.current = 0;
-    void refresh();
+    void refresh(true);
   }, [refresh]);
+
+  usePageStatusToast({
+    active: manualRefreshPending || Boolean(refreshMessage),
+    description: !manualRefreshPending && refreshMessage
+      ? `Data mungkin tertinggal. ${refreshMessage}`
+      : undefined,
+    message: manualRefreshPending
+      ? "Memperbarui data Tryout…"
+      : "Data Tryout belum berhasil diperbarui",
+    variant: manualRefreshPending ? "info" : "warning",
+    action: refreshMessage && !manualRefreshPending
+      ? { label: "Coba lagi", onClick: retryRefresh }
+      : undefined,
+  });
 
   useEffect(() => {
     const poll = () => {
@@ -84,7 +102,6 @@ function useTryoutOperationsRefresh(initial: TryoutOperationsView) {
 
   return {
     lastUpdatedAt,
-    refreshMessage,
     refreshState,
     retryRefresh,
     updatedLabel: formatTimestamp(lastUpdatedAt),
@@ -110,26 +127,14 @@ function TryoutRefreshToolbar({
         disabled={refreshState === "refreshing"}
         onClick={onRefresh}
         size="sm"
-        variant="brandOutline"
+        variant="outline"
       >
         <RefreshCw className={refreshState === "refreshing" ? "animate-spin" : undefined} data-icon="inline-start" />
-        Perbarui data
+        {refreshState === "refreshing" ? "Memperbarui…" : "Perbarui data"}
       </Button>
-      <div className="text-right text-xs text-secondary-500" aria-live="polite">
-        {refreshState === "refreshing" ? "Memperbarui data Tryout…" : updatedLabel ? `Data diperbarui ${updatedLabel}` : "Menunggu pembaruan data"}
-      </div>
+      {updatedLabel ? <p className="text-right text-xs text-secondary-500">Pembaruan terakhir {updatedLabel}</p> : null}
     </div>
   );
 }
 
-function TryoutRefreshNotice({ message, onRetry }: { message: string | null; onRetry: () => void }) {
-  if (!message) return null;
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3.5 text-sm leading-6 text-[var(--voyage-warm-sun-ink)]" role="alert">
-      <span>Data mungkin tertinggal. {message}</span>
-      <Button onClick={onRetry} size="sm" variant="outline">Coba lagi</Button>
-    </div>
-  );
-}
-
-export { TryoutRefreshNotice, TryoutRefreshToolbar, useTryoutOperationsRefresh };
+export { TryoutRefreshToolbar, useTryoutOperationsRefresh };

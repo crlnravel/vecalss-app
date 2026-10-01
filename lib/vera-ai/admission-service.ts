@@ -396,6 +396,7 @@ async function reserveV2QuotaInAdmissionTransaction(
     create: { ...monthlyData(target.day), periodKind: AiUsageWindowPeriodKind.day, creditLimit: VERA_DAILY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
     update: {},
   });
+  // react-doctor-disable-next-line server-sequential-independent-await -- Prisma interactive transactions serialize operations on this one connection.
   const isoWeek = await tx.aiUsageWindow.upsert({
     where: { studentId_ledgerVersion_periodKind_windowKey: {
       studentId: input.studentId,
@@ -408,7 +409,10 @@ async function reserveV2QuotaInAdmissionTransaction(
   });
 
   const ids = [day.id, isoWeek.id, monthly.id];
-  for (const id of ids) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+  for (const id of ids) {
+    // react-doctor-disable-next-line async-await-in-loop -- lock quota windows in fixed day/week/month order.
+    await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+  }
   const rows = await tx.aiUsageWindow.findMany({ where: { id: { in: ids } } });
   const byId = new Map(rows.map((row) => [row.id, row]));
   const lockedDay = byId.get(day.id);
@@ -438,6 +442,7 @@ async function reserveV2QuotaInAdmissionTransaction(
     { usageWindowId: lockedWeek.id, reservedUsdMicros: 0n },
     { usageWindowId: lockedMonth.id, reservedUsdMicros: input.maxProviderCostUsdMicros },
   ]) {
+    // react-doctor-disable-next-line async-await-in-loop -- persist reservation lineage in fixed day/week/month order.
     const row = await tx.aiRequestUsageReservation.create({
       data: {
         requestId: input.requestId,
@@ -509,6 +514,7 @@ export class VeraPrismaAdmissionService {
         where: { requestId: input.requestId },
         orderBy: { createdAt: "asc" },
       });
+      // react-doctor-disable-next-line server-sequential-independent-await -- both reads follow the request lock and share the transaction connection.
       const lockedRequest = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
         select: { ledgerVersion: true, creditCost: true },
@@ -581,6 +587,7 @@ export class VeraPrismaAdmissionService {
         create: { ...monthlyData(target.day), periodKind: AiUsageWindowPeriodKind.day, creditLimit: VERA_DAILY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
         update: {},
       });
+      // react-doctor-disable-next-line server-sequential-independent-await -- Prisma interactive transactions serialize operations on this one connection.
       const isoWeek = await tx.aiUsageWindow.upsert({
         where: { studentId_ledgerVersion_periodKind_windowKey: { studentId: input.studentId, ledgerVersion: VERA_CREDIT_USD_V2, periodKind: AiUsageWindowPeriodKind.iso_week, windowKey: target.isoWeek.key } },
         create: { ...monthlyData(target.isoWeek), periodKind: AiUsageWindowPeriodKind.iso_week, creditLimit: VERA_WEEKLY_CREDIT_LIMIT, costLimitUsdMicros: 0n },
@@ -588,7 +595,10 @@ export class VeraPrismaAdmissionService {
       });
 
       const ids = [day.id, isoWeek.id, monthly.id];
-      for (const id of ids) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      for (const id of ids) {
+        // react-doctor-disable-next-line async-await-in-loop -- lock quota windows in fixed day/week/month order.
+        await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      }
       const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: ids } } });
       const byId = new Map(windows.map((window) => [window.id, window]));
       const lockedDay = byId.get(day.id);
@@ -629,6 +639,7 @@ export class VeraPrismaAdmissionService {
       ];
       const created = [] as Array<{ id: string }>;
       for (const reservation of reservationInputs) {
+        // react-doctor-disable-next-line async-await-in-loop -- write reservation rows in fixed day/week/month order.
         created.push(await tx.aiRequestUsageReservation.create({ data: {
           requestId: input.requestId,
           usageWindowId: reservation.usageWindowId,
@@ -676,7 +687,10 @@ export class VeraPrismaAdmissionService {
       const rows = await tx.aiRequestUsageReservation.findMany({ where: { requestId: input.requestId }, orderBy: { createdAt: "asc" } });
       if (rows.length === 0) throw new VeraAdmissionError({ code: "v2_lineage_missing", status: 409 });
       const windowIds = rows.map((row) => row.usageWindowId);
-      for (const id of windowIds) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      for (const id of windowIds) {
+        // react-doctor-disable-next-line async-await-in-loop -- lock all referenced windows in the row order established above.
+        await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      }
       const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: windowIds } } });
       const byWindow = new Map(windows.map((window) => [window.id, window]));
       let chargedUsdMicros = 0n;
@@ -716,15 +730,16 @@ export class VeraPrismaAdmissionService {
           else if (row.state === AiReservationState.unknown && requestState !== "overrun") requestState = "unknown";
           continue;
         }
-        const next = settleReservation({
+      const next = settleReservation({
           current,
           outcome: input.outcome,
           chargedUsdMicros: input.outcome === "known" && window.periodKind === AiUsageWindowPeriodKind.month ? input.chargedUsdMicros ?? 0n : 0n,
           unresolvedUsdMicros: input.outcome === "unknown" && window.periodKind === AiUsageWindowPeriodKind.month ? row.reservedUsdMicros : 0n,
           ...(input.outcome === "unknown" && input.releaseCreditsOnUnknown ? { consumedCredits: 0 } : {}),
         });
-        assertReservationConservation(next);
-        const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome, forceOverrun: input.forceOverrun });
+      assertReservationConservation(next);
+      const nextState = v2ReservationState({ settledUsdMicros: next.settledUsdMicros, unknownUsdMicros: next.unknownUsdMicros, overrunUsdMicros: next.overrunUsdMicros, outcome: input.outcome, forceOverrun: input.forceOverrun });
+        // react-doctor-disable-next-line async-await-in-loop -- reservation state and its usage window must be updated together in row order.
         await tx.aiRequestUsageReservation.update({ where: { id: row.id }, data: {
           consumedCredits: next.consumedCredits,
           releasedCredits: next.releasedCredits,
@@ -812,7 +827,9 @@ export class VeraPrismaAdmissionService {
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      // react-doctor-disable-next-line server-sequential-independent-await -- read decision state only after acquiring the request identity lock.
       const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      // react-doctor-disable-next-line server-sequential-independent-await -- both state reads follow the request lock in one interactive transaction.
       const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
       if (!trace || trace.protocolVersion !== VERA_LOCAL_DECISION_PROTOCOL || !attempt
         || trace.selectorRequestDigest !== input.requestDigest
@@ -827,6 +844,7 @@ export class VeraPrismaAdmissionService {
         where: { requestId: input.requestId, state: AiContextDecisionState.shortlisted, networkDispatchCount: 0, selectorRequestDigest: input.requestDigest },
         data: { state: AiContextDecisionState.dispatching, networkDispatchCount: 1, selectorDispatchStartedAt: now },
       });
+      // react-doctor-disable-next-line server-sequential-independent-await -- keep the decision-then-attempt CAS lock order inside the transaction.
       const changedAttempt = await tx.aiRequestAttempt.updateMany({
         where: { id: attempt.id, state: AiAttemptState.reserved, finalPayloadHash: input.requestDigest },
         data: { state: AiAttemptState.dispatching, sendStartedAt: now, startedAt: now, errorCode: null },
@@ -849,8 +867,11 @@ export class VeraPrismaAdmissionService {
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      // react-doctor-disable-next-line server-sequential-independent-await -- the locked request is the serialization barrier for selector response writes.
       const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      // react-doctor-disable-next-line server-sequential-independent-await -- these independent reads share the locked transaction connection.
       const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
+      // react-doctor-disable-next-line server-sequential-independent-await -- read the request snapshot after the identity lock on the same transaction connection.
       const request = await tx.aiRequest.findUnique({ where: { id: input.requestId }, select: { automaticContextGateSnapshot: true } });
       const gateSnapshot = request?.automaticContextGateSnapshot && typeof request.automaticContextGateSnapshot === "object" && !Array.isArray(request.automaticContextGateSnapshot)
         ? request.automaticContextGateSnapshot as Record<string, unknown>
@@ -920,6 +941,7 @@ export class VeraPrismaAdmissionService {
           decidedAt: now,
         },
       });
+      // react-doctor-disable-next-line server-sequential-independent-await -- preserve the decision-then-attempt CAS order within this transaction.
       const changedAttempt = await tx.aiRequestAttempt.updateMany({
         where: { id: attempt.id, state: AiAttemptState.dispatching, finalPayloadHash: trace.selectorRequestDigest },
         data: {
@@ -1157,6 +1179,7 @@ export class VeraPrismaAdmissionService {
     const errorCode = /^[a-z0-9_:-]{1,100}$/iu.test(input.errorCode) ? input.errorCode : "respan_selector_unavailable";
     await this.db.$transaction(async (tx) => {
       const trace = await tx.aiContextDecision.findUnique({ where: { requestId: input.requestId } });
+      // react-doctor-disable-next-line server-sequential-independent-await -- both state reads share the transaction connection before conditional writes.
       const attempt = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
       if (!trace || trace.state === AiContextDecisionState.decided || trace.state === AiContextDecisionState.frozen) return;
       await tx.aiContextDecision.updateMany({
@@ -1365,6 +1388,7 @@ export class VeraPrismaAdmissionService {
       const createSourceIdentities = async (): Promise<void> => {
         for (const [index, source] of sources.entries()) {
           const sourceType = source.kind === "materi" ? "material" : "practice";
+          // react-doctor-disable-next-line async-await-in-loop -- retain citation ordinal order while writing source identities.
           await tx.aiRequestSource.create({
             data: {
               id: randomUUID(),
@@ -1653,9 +1677,9 @@ export class VeraPrismaAdmissionService {
     invocationFailureCode?: string;
     now?: Date;
   }): Promise<void> {
-    const now = input.now ?? await this.databaseNow();
     if (input.providerResult.attempts.length !== 1 || input.providerResult.attempts[0]?.attemptNo !== 1) throw new VeraAdmissionError({ code: "provider_attempt_terminal", status: 409 });
     if (input.toolArguments !== undefined && input.invocationFailureCode) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
+    const now = input.now ?? await this.databaseNow();
     const attempt = input.providerResult.attempts[0];
     return this.db.$transaction(async (tx) => {
       const existing = await tx.aiRequestAttempt.findUnique({ where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: 1 } } });
@@ -1757,6 +1781,7 @@ export class VeraPrismaAdmissionService {
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
+      // react-doctor-disable-next-line server-sequential-independent-await -- acquire the request lock before the attempt lock to preserve the quota lock order.
       await tx.$queryRaw`SELECT id FROM ai_request_attempts WHERE id = ${input.attemptId}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({
         where: { id: input.requestId },
@@ -1769,6 +1794,7 @@ export class VeraPrismaAdmissionService {
           overrunUsdMicros: true,
         },
       });
+      // react-doctor-disable-next-line server-sequential-independent-await -- request and attempt are read after their locks on the same transaction connection.
       const attempt = await tx.aiRequestAttempt.findUnique({
         where: { id: input.attemptId },
         select: { id: true, requestId: true, generationId: true, state: true },
@@ -1793,7 +1819,10 @@ export class VeraPrismaAdmissionService {
       const rows = await tx.aiRequestUsageReservation.findMany({ where: { requestId: request.id }, orderBy: { createdAt: "asc" } });
       if (rows.length === 0) throw new VeraAdmissionError({ code: "v2_lineage_missing", status: 409 });
       const windowIds = rows.map((row) => row.usageWindowId);
-      for (const id of windowIds) await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      for (const id of windowIds) {
+        // react-doctor-disable-next-line async-await-in-loop -- lock correction windows in stable reservation order.
+        await tx.$queryRaw`SELECT id FROM ai_usage_windows WHERE id = ${id}::uuid FOR UPDATE`;
+      }
       const windows = await tx.aiUsageWindow.findMany({ where: { id: { in: windowIds } } });
       const byWindow = new Map(windows.map((window) => [window.id, window]));
       const monthlyRow = rows.find((row) => byWindow.get(row.usageWindowId)?.periodKind === AiUsageWindowPeriodKind.month);
@@ -2386,8 +2415,9 @@ export class VeraPrismaAdmissionService {
       }
       if (localProtocol) {
         const candidateKeys = input.localSelectorRequest?.candidateKeys ?? [];
+        const candidateKeySet = new Set(candidateKeys);
         const candidateMap = input.localContextShortlist!
-          .filter((candidate) => candidateKeys.includes(candidate.key))
+          .filter((candidate) => candidateKeySet.has(candidate.key))
           .map((candidate) => {
             if (!/^cand_[0-9]{2}$/u.test(candidate.key)
               || !candidate.stableSourceId.trim()
@@ -2717,8 +2747,9 @@ export class VeraPrismaAdmissionService {
           const attemptReportedCostUsdMicros = parseMicrosString(attempt.reportedCostMicros ?? attempt.usage.reportedCostMicros);
           const attemptRecomputedCostUsdMicros = parseMicrosString(attempt.recomputedCostMicros ?? attempt.usage.recomputedCostMicros);
           const attemptDispatchDeadlineAt = attempt.dispatchDeadlineAt ? new Date(attempt.dispatchDeadlineAt) : input.preparedProviderTask.dispatchDeadlineAt ? new Date(input.preparedProviderTask.dispatchDeadlineAt) : null;
-          const completed = new Set<string>(["completed", "known", "failed", "ambiguous", "unknown", "overrun", "released"]).has(attempt.state);
-          await tx.aiRequestAttempt.upsert({
+        const completed = new Set<string>(["completed", "known", "failed", "ambiguous", "unknown", "overrun", "released"]).has(attempt.state);
+        // react-doctor-disable-next-line async-await-in-loop -- upsert provider attempts in attempt number order for deterministic lineage.
+        await tx.aiRequestAttempt.upsert({
             where: { requestId_attemptNo: { requestId: input.requestId, attemptNo: attempt.attemptNo } },
             create: {
               requestId: input.requestId,

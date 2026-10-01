@@ -42,7 +42,7 @@ const tokenHighlightExtension = ViewPlugin.fromClass(
 );
 
 const editorClassName =
-  "min-w-0 w-full overflow-hidden rounded-2xl border border-secondary-900/14 bg-white text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] outline-none transition-[border-color,box-shadow,background-color] focus-within:border-primary-700/40 focus-within:ring-4 focus-within:ring-primary-700/12";
+  "min-w-0 w-full overflow-hidden rounded-field border border-secondary-900/14 bg-white text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] outline-none transition-[border-color,box-shadow,background-color] focus-within:border-primary-700/40 focus-within:ring-4 focus-within:ring-primary-700/12";
 
 function createEditorTheme(multiline: boolean) {
   return EditorView.theme({

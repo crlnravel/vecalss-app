@@ -45,11 +45,9 @@ assert.doesNotMatch(editor, /Tinjau perubahan/);
 assert.doesNotMatch(editor, /Terima ke draf/);
 assert.doesNotMatch(editor, /Saat ini di Kuis/);
 assert.doesNotMatch(editor, /Revisi \$\{update\.revisionNo\} di Bank Soal/);
-assert.match(editor, /acceptStandaloneQuizQuestionUpdateAction/);
-assert.match(editor, /candidate\.sourceQuestionId === question\.sourceQuestionId/);
-assert.match(editor, /setActiveQuestionId\(\(current\)\s*=>\s*current === question\.id/);
-assert.match(editor, /savedQuiz\.status === "archived"/);
-assert.match(editor, /autoAppliedUpdateKeysRef/);
-assert.match(editor, /void acceptSourceUpdate\(pending\)/);
+assert.match(editor, /savedQuiz\?\.status === "archived"/);
+
+// Independent quiz copies do not accept automatic source-bank revisions.
+// End-to-end persistence and source isolation are covered by test:quiz-owned-editing.
 
 console.log("Quiz question source-update acceptance contract passed.");

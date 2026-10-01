@@ -19,7 +19,7 @@ function BackButton({
   href,
   label,
   size = "icon",
-  variant = "ghost",
+  variant,
   ...props
 }: BackButtonProps) {
   return (
@@ -29,7 +29,7 @@ function BackButton({
       render={<Link href={href} />}
       size={size}
       title={label}
-      variant={variant}
+      variant={variant ?? (size?.startsWith("icon") ? "quiet" : "outline")}
       {...props}
     >
       {children}

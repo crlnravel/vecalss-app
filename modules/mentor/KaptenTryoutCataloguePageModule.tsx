@@ -130,13 +130,11 @@ function TryoutCard({ item }: { item: TryoutItem }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <ReferenceStatusBadge
-              appearance="mentor"
               size="sm"
               status={item.status}
             />
             {item.isHidden ? (
               <ReferenceStatusBadge
-                appearance="mentor"
                 label="Disembunyikan"
                 size="sm"
                 status="blocked"
@@ -234,7 +232,7 @@ function KaptenTryoutCataloguePageModule({
               onClick={() => setCreateDialogOpen(true)}
               size="default"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Plus />
               Buat Tryout
@@ -275,7 +273,7 @@ function KaptenTryoutCataloguePageModule({
                     onClick={() => setCreateDialogOpen(true)}
                     size="default"
                     type="button"
-                    variant="brand"
+                    variant="default"
                   >
                     <Plus />
                     Buat Tryout pertama
@@ -293,7 +291,7 @@ function KaptenTryoutCataloguePageModule({
                   <Button
                     onClick={clearFilters}
                     size="default"
-                    variant="brandOutline"
+                    variant="outline"
                   >
                     Hapus filter
                   </Button>

@@ -1,4 +1,4 @@
-import type { EditorQuestion } from "@/modules/mentor/components/question-content-editor";
+import type { EditorQuestion } from "@/modules/mentor/components/question-content-editor-helpers";
 import type {
   TryoutQuestionChange,
   TryoutQuestionSnapshotDraft,

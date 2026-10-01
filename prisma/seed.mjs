@@ -22,6 +22,12 @@ const DEFAULT_ADMIN = {
   password: process.env.SEED_ADMIN_PASSWORD?.trim() || "Admin12345!",
 };
 
+const DEFAULT_DEVELOPER = {
+  email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
+  fullName: "Vecalss Developer",
+  password: process.env.SEED_DEVELOPER_PASSWORD?.trim() || "Developer12345!",
+};
+
 const DEFAULT_STUDENT = {
   email: process.env.SEED_STUDENT_EMAIL?.trim() || "student@vecalss.local",
   fullName: "Alya Ramadhani",
@@ -39,6 +45,17 @@ const DEFAULT_TUTOR = {
   fullName: "Nadia Prameswari",
   password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
 };
+
+const FIRST_LOGIN_TUTOR_PASSWORD =
+  process.env.SEED_FIRST_LOGIN_TUTOR_PASSWORD?.trim() || "TempTutor123!";
+
+const FIRST_LOGIN_TUTORS = [
+  { email: "davinaadindaui@gmail.com", fullName: "Davina" },
+  { email: "efatyas01@gmail.com", fullName: "Efaphras" },
+  { email: "nauvferry@gmail.com", fullName: "Nauval" },
+  { email: "nicholassaputratjandra@gmail.com", fullName: "Nicho" },
+  { email: "berliantheresiart@gmail.com", fullName: "Berli" },
+];
 
 const DEFAULT_AFFILIATOR = {
   email: process.env.SEED_AFFILIATOR_EMAIL?.trim() || "affiliator@vecalss.local",
@@ -1087,6 +1104,21 @@ async function main() {
     });
     await ensureNotificationPreference(client, adminUserId);
 
+    const developerUserId = await upsertUser(client, {
+      email: DEFAULT_DEVELOPER.email,
+      fullName: DEFAULT_DEVELOPER.fullName,
+      mustChangePassword: false,
+      passwordHash: await hashPassword(DEFAULT_DEVELOPER.password),
+      passwordUpdatedAt: new Date(),
+    });
+
+    await ensureRoleAssignment(client, {
+      assignedByUserId: adminUserId,
+      role: "developer",
+      userId: developerUserId,
+    });
+    await ensureNotificationPreference(client, developerUserId);
+
     await ensureAdminStudentPreviewFixture(client, { adminUserId });
 
     const studentUserId = await upsertUser(client, {
@@ -1156,6 +1188,31 @@ async function main() {
       headline: "Tutor SNBT · Pendamping kelas intensif",
       userId: tutorUserId,
     });
+
+    const firstLoginTutorPasswordHash = await hashPassword(FIRST_LOGIN_TUTOR_PASSWORD);
+    const firstLoginTutorUserIds = [];
+    for (const tutor of FIRST_LOGIN_TUTORS) {
+      const userId = await upsertUser(client, {
+        email: tutor.email,
+        fullName: tutor.fullName,
+        mustChangePassword: true,
+        passwordHash: firstLoginTutorPasswordHash,
+        passwordUpdatedAt: null,
+      });
+
+      await ensureRoleAssignment(client, {
+        assignedByUserId: adminUserId,
+        role: "tutor",
+        userId,
+      });
+      await ensureNotificationPreference(client, userId);
+      await upsertTutorProfile(client, {
+        bio: null,
+        headline: null,
+        userId,
+      });
+      firstLoginTutorUserIds.push(userId);
+    }
 
     const affiliatorUserId = await upsertUser(client, {
       email: DEFAULT_AFFILIATOR.email,
@@ -1241,6 +1298,13 @@ async function main() {
       cohortId,
       tutorId: tutorUserId,
     });
+    for (const tutorId of firstLoginTutorUserIds) {
+      await ensureTutorCohortAssignment(client, {
+        assignedByUserId: adminUserId,
+        cohortId,
+        tutorId,
+      });
+    }
 
     await seedMateriCatalogue(client, {
       authorUserId: tutorUserId,
@@ -1282,6 +1346,12 @@ async function main() {
         role: "admin",
       },
       {
+        email: DEFAULT_DEVELOPER.email,
+        loginPath: "/login",
+        password: DEFAULT_DEVELOPER.password,
+        role: "developer",
+      },
+      {
         email: DEFAULT_STUDENT.email,
         loginPath: "/login",
         password: DEFAULT_STUDENT.password,
@@ -1299,6 +1369,12 @@ async function main() {
         password: DEFAULT_TUTOR.password,
         role: "tutor",
       },
+      ...FIRST_LOGIN_TUTORS.map((tutor) => ({
+        email: tutor.email,
+        loginPath: "/login",
+        password: FIRST_LOGIN_TUTOR_PASSWORD,
+        role: "tutor (must change password)",
+      })),
       {
         email: DEFAULT_AFFILIATOR.email,
         loginPath: "/login",

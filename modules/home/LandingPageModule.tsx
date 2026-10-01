@@ -87,11 +87,11 @@ function Hero() {
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <ActionButtonLink href="/login" variant="onboarding">
+              <ActionButtonLink href="/login" variant="warning">
                 Mulai Belajar
                 <ArrowRight className="ml-1 size-4" />
               </ActionButtonLink>
-              <ActionButtonLink href="#program" variant="inverseOutline">
+              <ActionButtonLink href="#program" variant="inverse">
                 Lihat Program
               </ActionButtonLink>
             </div>
@@ -190,7 +190,7 @@ function LearningLoopSection() {
             Vecalss merangkai aktivitas belajar menjadi satu perjalanan yang
             bisa kamu lihat, jalani, dan ulangi dengan ritme yang lebih masuk akal.
           </p>
-          <ActionButtonLink className="mt-9" href="/login" variant="marketing">
+          <ActionButtonLink className="mt-9" href="/login" variant="default">
             Mulai dari sini
             <ArrowRight className="ml-1 size-4" />
           </ActionButtonLink>
@@ -411,7 +411,7 @@ function AlumniSection() {
           <ActionButtonLink
             href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
             target="_blank"
-            variant="marketing"
+            variant="default"
           >
             Lihat Top 90 dan alumni lainnya
             <ArrowUpRight className="ml-1 size-4" />
@@ -579,7 +579,7 @@ function FinalCTA() {
           <p className="mt-6 max-w-[38ch] text-base leading-7 text-voyage-sea-glass md:text-lg md:leading-8">
             Satu langkah kecil hari ini bisa membuat perjalananmu terasa lebih jelas.
           </p>
-          <ActionButtonLink className="mt-9" href="/login" variant="marketingOnDark">
+          <ActionButtonLink className="mt-9" href="/login" variant="inverse">
             Ikut Misi Belajar
             <ArrowRight className="ml-1 size-4" />
           </ActionButtonLink>

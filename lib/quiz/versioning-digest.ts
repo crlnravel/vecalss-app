@@ -199,6 +199,7 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
       const correctChoiceIds = question.correctChoiceIds?.length
         ? question.correctChoiceIds
         : [question.correctChoiceId];
+      const correctChoiceIdSet = new Set(correctChoiceIds);
       const isMultipleAnswer = question.questionType === "multiple_choice" || correctChoiceIds.length > 1;
       return {
         choices: question.choices.map((choice) => ({
@@ -209,7 +210,7 @@ function semanticKuisAssessmentDefinition(definition: KuisAssessmentDefinition) 
         correctChoiceIndices: isMultipleAnswer
           ? question.choices
             .map((choice, index) => ({ choice, index }))
-            .filter(({ choice }) => correctChoiceIds.includes(choice.id))
+            .filter(({ choice }) => correctChoiceIdSet.has(choice.id))
             .map(({ index }) => index)
           : undefined,
         difficulty: question.difficulty ?? "medium",

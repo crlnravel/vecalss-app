@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 
 import { FormNotice } from "./form-notice";
 import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
-import { INVALID_INVITE_MESSAGE } from "../invite-copy";
 
 function InvitePasswordSetupForm({ token }: { token: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  usePageStatusToast({ active: submitting, message: "Mengaktifkan akun…", variant: "info" });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,20 +45,28 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
       });
 
       if (!response.ok) {
-        setMessage("Undangan belum berhasil diproses. Coba lagi atau hubungi admin jika masalah berlanjut.");
+        showToast("Undangan belum berhasil diproses.", {
+          action: { label: "Coba lagi", onClick: () => formRef.current?.requestSubmit() },
+          description: "Coba lagi. Jika masalah berlanjut, hubungi admin.",
+          variant: "error",
+        });
         return;
       }
 
       window.location.assign("/login?notice=invite-completed");
     } catch {
-      setMessage("Koneksi bermasalah. Periksa koneksi lalu coba lagi.");
+      showToast("Koneksi bermasalah.", {
+        action: { label: "Coba lagi", onClick: () => formRef.current?.requestSubmit() },
+        description: "Periksa koneksi lalu coba lagi.",
+        variant: "error",
+      });
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className="space-y-5" onSubmit={handleSubmit} ref={formRef}>
       {message ? <FormNotice tone="danger">{message}</FormNotice> : null}
 
       <Field>
@@ -90,7 +101,7 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
         disabled={submitting}
         size="lg"
         type="submit"
-        variant="brand"
+        variant="default"
       >
         {submitting ? "Mengaktifkan akun..." : "Simpan kata sandi dan aktifkan akun"}
       </Button>

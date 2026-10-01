@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { AlertCircle, Target, UserRound, type AppIcon } from "@/lib/icons";
+import { Target, UserRound, type AppIcon } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +16,12 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   Field,
+  FieldError,
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
 import { useActionToast } from "@/components/ui/use-action-toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import type {
@@ -34,7 +36,6 @@ import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
-import { cn } from "@/lib/utils";
 
 type ProfileData = StudentProfile & {
   targetExamEvent: ExamEvent | null;
@@ -114,7 +115,8 @@ function SettingsPageModule({
   session: SessionContext;
   returnToHref?: string;
 }) {
-  const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
+  const [state, formAction, isPending] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
+  const formRef = useRef<HTMLFormElement>(null);
   const keepMessageInline = useActionToast(state);
   const [fullName, setFullName] = useState(() => session.user.fullName);
   const [targetExamEventId, setTargetExamEventId] = useState(() => profile.targetExamEventId ?? "");
@@ -161,6 +163,18 @@ function SettingsPageModule({
     setTargetMajorId(profile.targetMajorId ?? "");
   }
 
+  usePageStatusToast({
+    active: hasUnsavedChanges || isPending,
+    message: isPending ? "Menyimpan perubahan…" : "Ada perubahan yang belum disimpan",
+    variant: "info",
+    action: hasUnsavedChanges && !isPending
+      ? { label: "Simpan", onClick: () => formRef.current?.requestSubmit() }
+      : undefined,
+    cancel: hasUnsavedChanges && !isPending
+      ? { label: "Batal", onClick: handleResetChanges }
+      : undefined,
+  });
+
   return (
     <StudentWorkspaceShell
       activeLabel="Profil"
@@ -170,7 +184,7 @@ function SettingsPageModule({
       searchPlaceholder="Cari di profil..."
       session={session}
     >
-      <form action={formAction} className="space-y-8">
+      <form action={formAction} className="space-y-8" ref={formRef}>
         <ProfileFormContent>
         <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-voyage-ink">Profil</h1>
@@ -180,7 +194,7 @@ function SettingsPageModule({
                 nativeButton={false}
                 render={<Link href={returnToHref} />}
                 size="default"
-                variant="brandOutline"
+                variant="outline"
               >
                 Kembali
               </Button>
@@ -190,7 +204,7 @@ function SettingsPageModule({
               pendingLabel="Menyimpan…"
               size="default"
               type="submit"
-              variant="brand"
+              variant="default"
             >
               Simpan perubahan
             </SubmitButton>
@@ -221,17 +235,13 @@ function SettingsPageModule({
                   name="fullName"
                   required
                 />
-                {state.fieldErrors?.fullName ? (
-                  <p className="text-sm text-danger-700" id="profile-full-name-error">
-                    {state.fieldErrors.fullName}
-                  </p>
-                ) : null}
+                <FieldError error={state.fieldErrors?.fullName} id="profile-full-name-error" />
               </Field>
 
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="profile-email">Email</FieldLabel>
                 <FieldInput
-                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "bg-secondary-50 text-secondary-500")}
+                  className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   defaultValue={session.user.email}
                   id="profile-email"
                   readOnly
@@ -300,34 +310,6 @@ function SettingsPageModule({
           </ReferenceSurface>
         </ProfileSection>
 
-        {hasUnsavedChanges ? (
-          <div
-            aria-live="polite"
-            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)] transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-            role="status"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center text-[var(--voyage-forest)]">
-                <AlertCircle className="size-5" strokeWidth={2.2} />
-              </span>
-              <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
-            </div>
-            <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
-              <Button
-                className="w-32 justify-center text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-solid-bg"
-                onClick={handleResetChanges}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Batal
-              </Button>
-              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
-                Simpan
-              </SubmitButton>
-            </div>
-          </div>
-        ) : null}
         </ProfileFormContent>
       </form>
     </StudentWorkspaceShell>

@@ -123,14 +123,14 @@ function AdminStudentPreviewShell({
                     aria-current={bannerEditMode ? "page" : undefined}
                     nativeButton={false}
                     render={<Link href={bannerEditorHref} />}
-                    variant="ghost"
+                    variant="outline"
                   >
                     Ubah banner siswa
                   </Button>
                   <Button
                     nativeButton={false}
                     render={<Link href={adminExitHref} />}
-                    variant="brandOutline"
+                    variant="outline"
                   >
                     Kembali ke admin
                   </Button>

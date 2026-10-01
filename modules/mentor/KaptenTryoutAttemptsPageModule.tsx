@@ -10,7 +10,7 @@ import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { buildMentorTryoutAttemptHref, parseMentorTryoutContext } from "@/lib/navigation/canonical-context";
 import { liveStateLabels } from "@/lib/tryout/operations-projections";
 import { participantAttemptStateLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
-import { TryoutRefreshNotice, TryoutRefreshToolbar, useTryoutOperationsRefresh } from "@/modules/mentor/KaptenTryoutOperationsRefresh";
+import { TryoutRefreshToolbar, useTryoutOperationsRefresh } from "@/modules/mentor/KaptenTryoutOperationsRefresh";
 
 function formatRemaining(seconds: number | null) {
   if (seconds === null) return "—";
@@ -21,7 +21,7 @@ function formatRemaining(seconds: number | null) {
 
 function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperationsView }) {
   const searchParams = useSearchParams();
-  const { refreshMessage, refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
+  const { refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
   const liveByAttemptId = useMemo(() => new Map(view.live.flatMap((item) => item.attemptId ? [[item.attemptId, item] as const] : [])), [view.live]);
   const parentContext = useMemo(() => {
     const parsed = parseMentorTryoutContext(new URLSearchParams(searchParams.toString()));
@@ -40,8 +40,6 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
           updatedLabel={updatedLabel}
         />
       </header>
-      <TryoutRefreshNotice message={refreshMessage} onRetry={retryRefresh} />
-
       <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
         <Table className="min-w-[680px]">
           <caption className="sr-only">Daftar attempt peserta yang tercatat</caption>

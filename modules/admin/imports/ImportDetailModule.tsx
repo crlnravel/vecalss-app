@@ -27,7 +27,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -37,8 +37,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// The shared bottom-center Sonner surface is mounted by components/ui/sonner.tsx.
-import { toast } from "@/components/ui/toast";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { cn } from "@/lib/utils";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
@@ -263,11 +263,11 @@ function ImportSessionRecoveryNotice({
           nativeButton={false}
           render={<Link href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)} />}
           size="default"
-          variant="dangerOutline"
+          variant="destructive"
         >
            {kind === "expired" ? "Masuk lagi" : "Masuk sebagai admin"}
         </Button>
-         <Button onClick={onRefresh} size="default" variant="dangerOutline">Segarkan halaman</Button>
+         <Button onClick={onRefresh} size="default" variant="destructive">Segarkan halaman</Button>
       </div>
     </ReferenceSurface>
   );
@@ -390,10 +390,10 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
                 </TableCell>
                  <TableCell className="px-4 py-3.5 align-top text-secondary-600 sm:px-5">{row.operation === "create" ? "Buat" : row.operation === "update" ? "Perbarui profil" : "Tidak ada operasi"}</TableCell>
                 <TableCell className="px-4 py-3.5 align-top sm:px-5">
-                  <StudentBadge size="sm" tone={rowBadgeTone(copy.tone)}>
+                  <Badge size="sm" tone={rowBadgeTone(copy.tone)}>
                     {copy.icon}
                     {copy.label}
-                  </StudentBadge>
+                  </Badge>
                 </TableCell>
                 <TableCell className="max-w-[270px] px-4 py-3.5 align-top text-xs leading-5 text-secondary-600 sm:px-5">
                    {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} · ${handoffStatusLabel(row.handoffStatus)}` : "Siap untuk langkah berikutnya."}
@@ -469,7 +469,6 @@ type HandoffDeliveryState = {
   acknowledgeIntent: boolean;
   downloadedIds: Set<string>;
   downloadBusy: boolean;
-  message: string;
   reissueBusy: string | null;
   selectedRows: Set<string>;
   transferConfirmed: boolean;
@@ -478,12 +477,11 @@ type HandoffDeliveryState = {
 type HandoffDeliveryAction =
   | { type: "acknowledgeBusy"; value: boolean }
   | { type: "acknowledgeIntent"; value: boolean }
-  | { type: "acknowledgeSuccess"; message: string }
+  | { type: "acknowledgeSuccess" }
   | { type: "downloadBusy"; value: boolean }
-  | { type: "downloadSuccess"; ids: string[]; message: string }
-  | { type: "message"; value: string }
+  | { type: "downloadSuccess"; ids: string[] }
   | { type: "reissueBusy"; value: string | null }
-  | { type: "reissueSuccess"; message: string }
+  | { type: "reissueSuccess" }
   | { type: "selectPending"; ids: string[] }
   | { type: "toggleRow"; rowId: string }
   | { type: "transferConfirmed"; value: boolean };
@@ -493,7 +491,6 @@ const INITIAL_HANDOFF_DELIVERY_STATE: HandoffDeliveryState = {
   acknowledgeIntent: false,
   downloadedIds: new Set(),
   downloadBusy: false,
-  message: "",
   reissueBusy: null,
   selectedRows: new Set(),
   transferConfirmed: false,
@@ -514,7 +511,6 @@ function handoffDeliveryReducer(
         acknowledgeIntent: false,
         acknowledgeBusy: false,
         downloadedIds: new Set(),
-        message: action.message,
         selectedRows: new Set(),
         transferConfirmed: false,
       };
@@ -525,19 +521,15 @@ function handoffDeliveryReducer(
         ...state,
         acknowledgeIntent: false,
         downloadedIds: new Set(action.ids),
-        message: action.message,
         selectedRows: new Set(),
         transferConfirmed: false,
       };
-    case "message":
-      return { ...state, message: action.value };
     case "reissueBusy":
       return { ...state, reissueBusy: action.value };
     case "reissueSuccess":
       return {
         ...state,
         downloadedIds: new Set(),
-        message: action.message,
         reissueBusy: null,
         selectedRows: new Set(),
         transferConfirmed: false,
@@ -595,7 +587,6 @@ function createHandoffDeliveryHandlers({
   async function downloadFile() {
     if (!selectedIds.length || !acknowledgeIntent) return;
     dispatch({ type: "downloadBusy", value: true });
-    dispatch({ type: "message", value: "Menyiapkan file informasi akses…" });
     try {
       const response = await fetch("/api/admin/imports/" + encodeURIComponent(importId) + "/handoff-file", {
         body: JSON.stringify({ handoffIds: selectedIds }),
@@ -615,7 +606,7 @@ function createHandoffDeliveryHandlers({
           onSessionIssue(recovery);
           return;
         }
-        dispatch({ type: "message", value: apiErrorMessage(responseErrorCode(payload), "File informasi akses belum berhasil disiapkan. Segarkan halaman dan periksa status akses.") });
+        showToast(apiErrorMessage(responseErrorCode(payload), "File informasi akses belum berhasil disiapkan. Segarkan halaman dan periksa status akses."), { variant: "error" });
         return;
       }
       const file = await response.blob();
@@ -629,12 +620,12 @@ function createHandoffDeliveryHandlers({
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       dispatch({
         ids: selectedIds,
-        message: `File informasi akses untuk ${selectedIds.length} akun berhasil diunduh. Bagikan sekarang; nilainya tidak dapat ditampilkan lagi.`,
         type: "downloadSuccess",
       });
+      showToast(`File informasi akses untuk ${selectedIds.length} akun berhasil diunduh. Bagikan sekarang; nilainya tidak dapat ditampilkan lagi.`, { variant: "success" });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "File informasi akses belum berhasil diunduh. Periksa koneksi lalu coba lagi." });
+      showToast("File informasi akses belum berhasil diunduh. Periksa koneksi lalu coba lagi.", { variant: "error" });
     } finally {
       dispatch({ type: "downloadBusy", value: false });
     }
@@ -658,13 +649,14 @@ function createHandoffDeliveryHandlers({
         return;
       }
       if (!response.ok) {
-        dispatch({ type: "message", value: apiErrorMessage(responseErrorCode(payload), "Konfirmasi tidak dapat dicatat. Segarkan lalu coba lagi.") });
+        showToast(apiErrorMessage(responseErrorCode(payload), "Konfirmasi tidak dapat dicatat. Segarkan lalu coba lagi."), { variant: "error" });
         return;
       }
-      dispatch({ message: "Konfirmasi bahwa file sudah dibagikan berhasil dicatat.", type: "acknowledgeSuccess" });
+      dispatch({ type: "acknowledgeSuccess" });
+      showToast("Konfirmasi bahwa file sudah dibagikan berhasil dicatat.", { variant: "success" });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "Konfirmasi belum berhasil dicatat. Periksa koneksi lalu coba lagi." });
+      showToast("Konfirmasi belum berhasil dicatat. Periksa koneksi lalu coba lagi.", { variant: "error" });
     } finally {
       dispatch({ type: "acknowledgeBusy", value: false });
     }
@@ -672,7 +664,6 @@ function createHandoffDeliveryHandlers({
 
   async function reissueHandoff(handoffId: string) {
     dispatch({ type: "reissueBusy", value: handoffId });
-    dispatch({ type: "message", value: "Menyiapkan informasi akses pengganti…" });
     try {
       const response = await fetch("/api/admin/imports/" + encodeURIComponent(importId) + "/handoff-file/reissue", {
         body: JSON.stringify({ handoffId }),
@@ -687,13 +678,14 @@ function createHandoffDeliveryHandlers({
         return;
       }
       if (!response.ok) {
-        dispatch({ type: "message", value: apiErrorMessage(responseErrorCode(payload), "Informasi akses pengganti belum berhasil dibuat.") });
+        showToast(apiErrorMessage(responseErrorCode(payload), "Informasi akses pengganti belum berhasil dibuat."), { variant: "error" });
         return;
       }
-      dispatch({ message: "Informasi akses pengganti siap. Pilih akun di bawah, lalu unduh file yang baru.", type: "reissueSuccess" });
+      dispatch({ type: "reissueSuccess" });
+      showToast("Informasi akses pengganti siap. Pilih akun di bawah, lalu unduh file yang baru.", { variant: "success" });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "Informasi akses pengganti belum berhasil dibuat. Periksa koneksi lalu coba lagi." });
+      showToast("Informasi akses pengganti belum berhasil dibuat. Periksa koneksi lalu coba lagi.", { variant: "error" });
     } finally {
       dispatch({ type: "reissueBusy", value: null });
     }
@@ -755,14 +747,14 @@ function PendingHandoffRows({
     <div className="mt-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-secondary-900">Akses akun baru yang menunggu</p>
-        <Button className="text-xs" onClick={() => onSelectPending(pendingIds)} size="default" variant="reference">{selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua akun"}</Button>
+        <Button className="text-xs" onClick={() => onSelectPending(pendingIds)} size="default" variant="outline">{selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua akun"}</Button>
       </div>
-      <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
+      <div className="mt-2 divide-y divide-primary-100 rounded-card border border-primary-100">
         {pendingRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Pilih informasi akses untuk baris ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && onSelectRow(row.handoffId)} type="checkbox" />
             <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Baris {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-secondary-600">Kedaluwarsa {formatDate(row.handoffExpiresAt)}</span></span>
-            <StudentBadge size="sm" tone="attention">Menunggu</StudentBadge>
+            <Badge size="sm" tone="attention">Menunggu</Badge>
           </label>
         ))}
       </div>
@@ -770,7 +762,7 @@ function PendingHandoffRows({
         <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => onAcknowledgeIntentChange(event.target.checked)} type="checkbox" />
         <span>Saya akan membagikan file ini melalui kanal yang aman. Informasi akses yang dipilih tidak dapat ditampilkan lagi setelah diunduh.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!pendingRows.length || !acknowledgeIntent || downloadBusy} onClick={onDownload} type="button" variant="brand">
+      <Button className="mt-3" disabled={!pendingRows.length || !acknowledgeIntent || downloadBusy} onClick={onDownload} type="button" variant="default">
         <Download aria-hidden="true" size={16} />
         {downloadBusy ? "Menyiapkan file…" : `Unduh file untuk ${selectedRows.size} akun`}
       </Button>
@@ -815,7 +807,7 @@ function ReleasedHandoffRows({
               <span className="truncate">Baris {row.rowNumber} · {row.normalizedEmail}</span>
             </label>
             <span className="font-semibold">Sudah diunduh</span>
-            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="attentionOutline">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat akses baru"}</Button> : null}
+            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="warning">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat akses baru"}</Button> : null}
           </div>
         ))}
       </div>
@@ -823,7 +815,7 @@ function ReleasedHandoffRows({
         <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
         <span>Saya mengonfirmasi bahwa file informasi akses sudah diberikan kepada penerima melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="attentionOutline">
+      <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="warning">
         <Check aria-hidden="true" size={16} />
         {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi akses sudah dibagikan"}
       </Button>
@@ -842,7 +834,7 @@ function ExpiredHandoffRows({ onReissue, expiredRows, reissueBusy }: { onReissue
         {expiredRows.map((row) => (
           <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-student-status-danger-border bg-white/50 px-3 py-2" key={row.rowId}>
             <span className="truncate text-xs">Baris {row.rowNumber} · {row.normalizedEmail}</span>
-            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="dangerOutline">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat tautan baru"}</Button> : null}
+            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="destructive">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat tautan baru"}</Button> : null}
           </div>
         ))}
       </div>
@@ -875,7 +867,7 @@ function DownloadedHandoffNotice({
         <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
         <span>Saya mengonfirmasi bahwa file informasi akses sudah diberikan kepada penerima melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="brandOutline">
+      <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="outline">
         <Check aria-hidden="true" size={16} />
         {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi akses sudah dibagikan"}
       </Button>
@@ -890,7 +882,6 @@ function HandoffDeliveryActive({
   downloadBusy,
   downloadedIds,
   expiredRows,
-  message,
   method,
   onAcknowledge,
   onAcknowledgeIntentChange,
@@ -911,7 +902,6 @@ function HandoffDeliveryActive({
   downloadBusy: boolean;
   downloadedIds: Set<string>;
   expiredRows: ImportStatusDto["rows"];
-  message: string;
   method: HandoffMethod;
   onAcknowledge: () => void;
   onAcknowledgeIntentChange: (value: boolean) => void;
@@ -967,7 +957,6 @@ function HandoffDeliveryActive({
         releasedRows={releasedRows}
         transferConfirmed={transferConfirmed}
       />
-      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
     </ReferenceSurface>
   );
 }
@@ -999,6 +988,16 @@ function HandoffDeliveryPanel({
     selectedIds,
     transferConfirmed: state.transferConfirmed,
   });
+  const handoffBusy = state.downloadBusy || state.acknowledgeBusy || state.reissueBusy !== null;
+  usePageStatusToast({
+    active: handoffBusy,
+    message: state.downloadBusy
+      ? "Menyiapkan file informasi akses…"
+      : state.reissueBusy
+        ? "Menyiapkan informasi akses pengganti…"
+        : "Menyimpan konfirmasi pembagian akses…",
+    variant: "info",
+  });
 
   if (!method || handoffState === "not_applicable") return null;
   if (handoffState === "all_acknowledged") return <HandoffTerminalState acknowledged />;
@@ -1012,7 +1011,6 @@ function HandoffDeliveryPanel({
       downloadBusy={state.downloadBusy}
       downloadedIds={state.downloadedIds}
       expiredRows={expiredRows}
-      message={state.message}
       method={method}
       onAcknowledge={handlers.acknowledgeTransfer}
       onAcknowledgeIntentChange={(value) => dispatch({ type: "acknowledgeIntent", value })}
@@ -1033,8 +1031,8 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   const failedRows = importStatus.rows.filter((row) => row.status === "failed");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
   const [retryAll, setRetryAll] = useState(false);
+  usePageStatusToast({ active: busy, message: "Menjadwalkan ulang baris yang dipilih…", variant: "info" });
 
   if (!failedRows.length || (importStatus.status !== "failed" && importStatus.status !== "partial")) return null;
 
@@ -1050,7 +1048,6 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   async function retryRows() {
     if (!retryAll && !selectedRows.size) return;
     setBusy(true);
-     setMessage("Menjadwalkan ulang baris yang dipilih…");
     try {
       const body: Record<string, unknown> = {
         expectedGeneration: importStatus.dispatchGeneration,
@@ -1070,15 +1067,18 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
         return;
       }
       if (!response.ok) {
-         setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Baris gagal tidak dapat dimasukkan ke antrean."));
+        showToast(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Baris gagal tidak dapat dimasukkan ke antrean."), { variant: "error" });
         return;
       }
       setSelectedRows(new Set());
       setRetryAll(false);
       await onRefresh();
-       setMessage("Percobaan ulang dimulai. Status akan diperbarui setelah proses selesai.");
+      showToast("Percobaan ulang dimulai. Status akan diperbarui setelah proses selesai.", { variant: "success" });
     } catch {
-       setMessage("Permintaan coba ulang belum berhasil. Periksa koneksi lalu coba lagi.");
+      showToast("Permintaan coba ulang belum berhasil. Periksa koneksi lalu coba lagi.", {
+        action: { label: "Coba lagi", onClick: () => void retryRows() },
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -1091,9 +1091,9 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Tinjau baris gagal</h2>
            <p className="mt-1 text-sm leading-6 text-secondary-600">Coba ulang membantu jika kegagalannya hanya sementara. Jika data perlu diperbaiki, unggah file CSV baru lalu buat pratinjau lagi.</p>
         </div>
-         <StudentBadge size="sm" tone="danger">{failedRows.length} gagal</StudentBadge>
+         <Badge size="sm" tone="danger">{failedRows.length} gagal</Badge>
       </div>
-      <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
+      <div className="mt-4 divide-y divide-student-status-danger-border rounded-card border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Pilih baris ${row.rowNumber} untuk dicoba ulang`} checked={selectedRows.has(row.rowId)} className="size-4 accent-student-status-danger-solid-bg" onChange={() => toggleRow(row.rowId)} type="checkbox" />
@@ -1108,7 +1108,6 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
            {busy ? "Menjadwalkan ulang…" : retryAll ? "Coba ulang semua yang gagal" : `Coba ulang pilihan (${selectedRows.size})`}
         </Button>
       </div>
-      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
     </ReferenceSurface>
   );
 }
@@ -1119,10 +1118,8 @@ type ImportDetailViewProps = {
   cancelArmed: boolean;
   cancelBusy: boolean;
   cancelImport: () => Promise<void>;
-  cancelMessage: string;
   confirmBusy: boolean;
   confirmImport: () => Promise<void>;
-  confirmMessage: string;
   handoffMethod: HandoffMethod;
   heartbeatIsStale: boolean;
   importStatus: ImportStatusDto;
@@ -1141,13 +1138,13 @@ type ImportDetailViewProps = {
 function ImportDetailHeader({ copy, loadStatus, refreshing, status }: { copy: ReturnType<typeof statusCopy>; loadStatus: ImportStatusLoader; refreshing: boolean; status: string }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke daftar akun" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/admin/enrollment" />} size="icon" title="Kembali ke daftar akun" variant="ghost">
+      <Button aria-label="Kembali ke daftar akun" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/admin/enrollment" />} size="icon" title="Kembali ke daftar akun" variant="outline">
         <ChevronLeft aria-hidden="true" size={18} />
       </Button>
       <ReferencePageHeader
         actions={(
           <div className="flex flex-wrap items-center gap-2">
-            <Button aria-label="Segarkan status impor" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="reference">
+            <Button aria-label="Segarkan status impor" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="outline">
               <RefreshCw aria-hidden="true" size={15} />
               {refreshing ? "Memperbarui…" : "Segarkan status"}
             </Button>
@@ -1230,23 +1227,27 @@ function ImportConfirmationCounts({ counts }: { counts: ImportStatusDto["counts"
   );
 }
 
-function ImportDraftActions({ canConfirm, cancelArmed, cancelBusy, cancelImport, cancelMessage, confirmBusy, confirmImport, confirmMessage, onCancelArmedChange }: { canConfirm: boolean } & Pick<ImportDetailViewProps, "cancelArmed" | "cancelBusy" | "cancelImport" | "cancelMessage" | "confirmBusy" | "confirmImport" | "confirmMessage" | "onCancelArmedChange">) {
+function ImportDraftActions({ canConfirm, cancelArmed, cancelBusy, cancelImport, confirmBusy, confirmImport, onCancelArmedChange }: { canConfirm: boolean } & Pick<ImportDetailViewProps, "cancelArmed" | "cancelBusy" | "cancelImport" | "confirmBusy" | "confirmImport" | "onCancelArmedChange">) {
+  usePageStatusToast({
+    active: cancelBusy || confirmBusy,
+    message: cancelBusy ? "Membatalkan draf impor…" : "Menyiapkan impor akun…",
+    variant: "info",
+  });
+
   return (
     <>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button onClick={() => void cancelImport()} type="button" variant="dangerOutline"><X aria-hidden="true" size={16} />{cancelArmed ? "Konfirmasi pembatalan draf" : "Batalkan draf"}</Button>
-          {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="ghost">Jangan batalkan</Button> : null}
-          {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Membatalkan…" : cancelMessage}</p> : null}
+          <Button onClick={() => void cancelImport()} type="button" variant="destructive"><X aria-hidden="true" size={16} />{cancelArmed ? "Konfirmasi pembatalan draf" : "Batalkan draf"}</Button>
+          {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="outline">Jangan batalkan</Button> : null}
         </div>
-        <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Memulai impor…" : "Mulai impor akun"}</Button>
+        <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="default"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Memulai impor…" : "Mulai impor akun"}</Button>
       </div>
-      {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
     </>
   );
 }
 
-function ImportDraftContent({ canConfirm, cancelArmed, cancelBusy, cancelImport, cancelMessage, confirmBusy, confirmImport, confirmMessage, handoffMethod, importStatus, invalidRows, onCancelArmedChange, onHandoffMethodChange }: { canConfirm: boolean; invalidRows: ImportStatusDto["rows"] } & Pick<ImportDetailViewProps, "cancelArmed" | "cancelBusy" | "cancelImport" | "cancelMessage" | "confirmBusy" | "confirmImport" | "confirmMessage" | "handoffMethod" | "importStatus" | "onCancelArmedChange" | "onHandoffMethodChange">) {
+function ImportDraftContent({ canConfirm, cancelArmed, cancelBusy, cancelImport, confirmBusy, confirmImport, handoffMethod, importStatus, invalidRows, onCancelArmedChange, onHandoffMethodChange }: { canConfirm: boolean; invalidRows: ImportStatusDto["rows"] } & Pick<ImportDetailViewProps, "cancelArmed" | "cancelBusy" | "cancelImport" | "confirmBusy" | "confirmImport" | "handoffMethod" | "importStatus" | "onCancelArmedChange" | "onHandoffMethodChange">) {
   return (
     <>
       <ImportRowTable importStatus={importStatus} />
@@ -1261,7 +1262,7 @@ function ImportDraftContent({ canConfirm, cancelArmed, cancelBusy, cancelImport,
         <ImportInvalidRowsNotice count={invalidRows.length} />
         <ImportHandoffMethodOptions handoffMethod={handoffMethod} onHandoffMethodChange={onHandoffMethodChange} />
         <ImportConfirmationCounts counts={importStatus.counts} />
-        <ImportDraftActions canConfirm={canConfirm} cancelArmed={cancelArmed} cancelBusy={cancelBusy} cancelImport={cancelImport} cancelMessage={cancelMessage} confirmBusy={confirmBusy} confirmImport={confirmImport} confirmMessage={confirmMessage} onCancelArmedChange={onCancelArmedChange} />
+        <ImportDraftActions canConfirm={canConfirm} cancelArmed={cancelArmed} cancelBusy={cancelBusy} cancelImport={cancelImport} confirmBusy={confirmBusy} confirmImport={confirmImport} onCancelArmedChange={onCancelArmedChange} />
       </ReferenceSurface>
     </>
   );
@@ -1302,10 +1303,8 @@ function ImportDetailView({
   cancelArmed,
   cancelBusy,
   cancelImport,
-  cancelMessage,
   confirmBusy,
   confirmImport,
-  confirmMessage,
   handoffMethod,
   heartbeatIsStale,
   importStatus,
@@ -1330,13 +1329,12 @@ function ImportDetailView({
       <ImportStatusBanner importStatus={importStatus} />
       <ImportProgressPanel importStatus={importStatus} />
       <ImportSummaryCard importStatus={importStatus} />
-      {importStatus.status === "draft" ? <ImportDraftContent canConfirm={canConfirm} cancelArmed={cancelArmed} cancelBusy={cancelBusy} cancelImport={cancelImport} cancelMessage={cancelMessage} confirmBusy={confirmBusy} confirmImport={confirmImport} confirmMessage={confirmMessage} handoffMethod={handoffMethod} importStatus={importStatus} invalidRows={invalidRows} onCancelArmedChange={onCancelArmedChange} onHandoffMethodChange={onHandoffMethodChange} /> : <ImportResultContent copy={copy} importStatus={importStatus} loadStatus={loadStatus} onSessionIssueChange={onSessionIssueChange} />}
+      {importStatus.status === "draft" ? <ImportDraftContent canConfirm={canConfirm} cancelArmed={cancelArmed} cancelBusy={cancelBusy} cancelImport={cancelImport} confirmBusy={confirmBusy} confirmImport={confirmImport} handoffMethod={handoffMethod} importStatus={importStatus} invalidRows={invalidRows} onCancelArmedChange={onCancelArmedChange} onHandoffMethodChange={onHandoffMethodChange} /> : <ImportResultContent copy={copy} importStatus={importStatus} loadStatus={loadStatus} onSessionIssueChange={onSessionIssueChange} />}
     </div>
   );
 }
 type ImportDetailActionSetters = {
   setConfirmBusy: (busy: boolean) => void;
-  setConfirmMessage: (message: string) => void;
   setPollError: (hasError: boolean) => void;
   setSessionIssue: (issue: "expired" | "forbidden" | null) => void;
 };
@@ -1356,7 +1354,6 @@ function useImportDetailActions({
 }) {
   const {
     setConfirmBusy,
-    setConfirmMessage,
     setPollError,
     setSessionIssue,
   } = setters;
@@ -1364,7 +1361,6 @@ function useImportDetailActions({
   const confirmImport = useCallback(async () => {
     if (!canConfirm) return;
     setConfirmBusy(true);
-     setConfirmMessage("Menyiapkan impor akun…");
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importId)}/confirm`, {
         body: JSON.stringify({ handoffMethod }),
@@ -1381,20 +1377,18 @@ function useImportDetailActions({
       }
       if (!response.ok) {
          const message = apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Impor belum berhasil dimulai. Segarkan halaman lalu coba lagi.");
-        setConfirmMessage(message);
-         toast.error("Impor massal belum berhasil dimulai", { description: message });
+        showToast("Impor massal belum berhasil dimulai", { description: message, variant: "error" });
         return;
       }
-       setConfirmMessage("Impor dimulai. Status akan diperbarui otomatis sampai proses selesai.");
+      showToast("Impor dimulai. Status akan diperbarui otomatis sampai proses selesai.", { variant: "success" });
       await loadStatus();
     } catch {
        const message = "Impor belum berhasil dimulai. Periksa koneksi lalu coba lagi.";
-      setConfirmMessage(message);
-       toast.error("Impor belum berhasil dimulai", { description: message });
+      showToast("Impor belum berhasil dimulai", { description: message, variant: "error" });
     } finally {
       setConfirmBusy(false);
     }
-  }, [canConfirm, handoffMethod, importId, loadStatus, setConfirmBusy, setConfirmMessage, setPollError, setSessionIssue]);
+  }, [canConfirm, handoffMethod, importId, loadStatus, setConfirmBusy, setPollError, setSessionIssue]);
 
   return { confirmImport };
 }
@@ -1403,9 +1397,7 @@ type ImportDetailState = {
   activeSince: number | null;
   cancelArmed: boolean;
   cancelBusy: boolean;
-  cancelMessage: string;
   confirmBusy: boolean;
-  confirmMessage: string;
   handoffMethod: HandoffMethod;
   importStatus: ImportStatusDto;
   lastFetchedAt: number;
@@ -1417,9 +1409,7 @@ type ImportDetailState = {
 type ImportDetailAction =
   | { type: "cancelArmed"; value: boolean }
   | { type: "cancelBusy"; value: boolean }
-  | { type: "cancelMessage"; value: string }
   | { type: "confirmBusy"; value: boolean }
-  | { type: "confirmMessage"; value: string }
   | { type: "handoffMethod"; value: HandoffMethod }
   | { type: "pollError"; value: boolean }
   | { type: "refreshFinished" }
@@ -1436,12 +1426,8 @@ function importDetailReducer(
       return { ...state, cancelArmed: action.value };
     case "cancelBusy":
       return { ...state, cancelBusy: action.value };
-    case "cancelMessage":
-      return { ...state, cancelMessage: action.value };
     case "confirmBusy":
       return { ...state, confirmBusy: action.value };
-    case "confirmMessage":
-      return { ...state, confirmMessage: action.value };
     case "handoffMethod":
       return { ...state, handoffMethod: action.value };
     case "pollError":
@@ -1473,9 +1459,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     activeSince: isImportPollingStatus(importStatus.status) ? Date.now() : null,
     cancelArmed: false,
     cancelBusy: false,
-    cancelMessage: "",
     confirmBusy: false,
-    confirmMessage: "",
     handoffMethod: importStatus.handoffMethod ?? "invite_link",
     importStatus,
     lastFetchedAt: Date.now(),
@@ -1487,9 +1471,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     activeSince,
     cancelArmed,
     cancelBusy,
-    cancelMessage,
     confirmBusy,
-    confirmMessage,
     handoffMethod,
     importStatus,
     lastFetchedAt,
@@ -1676,7 +1658,6 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     loadStatus,
     setters: {
       setConfirmBusy: (value) => dispatch({ type: "confirmBusy", value }),
-      setConfirmMessage: (value) => dispatch({ type: "confirmMessage", value }),
       setPollError: (value) => dispatch({ type: "pollError", value }),
       setSessionIssue: (value) => dispatch({ type: "sessionIssue", value }),
     },
@@ -1688,7 +1669,6 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       return;
     }
     dispatch({ type: "cancelBusy", value: true });
-     dispatch({ type: "cancelMessage", value: "Membatalkan draf…" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/cancel`, {
         cache: "no-store",
@@ -1703,15 +1683,15 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
         return;
       }
       if (!response.ok) {
-         dispatch({ type: "cancelMessage", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Draf belum berhasil dibatalkan. Segarkan halaman lalu coba lagi.") });
+        showToast(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Draf belum berhasil dibatalkan. Segarkan halaman lalu coba lagi."), { variant: "error" });
         return;
       }
       dispatch({ type: "cancelArmed", value: false });
-       dispatch({ type: "cancelMessage", value: "Draf dibatalkan. Belum ada akun yang diubah." });
+      showToast("Draf dibatalkan. Belum ada akun yang diubah.", { variant: "success" });
       await loadStatus();
       router.refresh();
     } catch {
-       dispatch({ type: "cancelMessage", value: "Draf belum berhasil dibatalkan. Periksa koneksi lalu coba lagi." });
+      showToast("Draf belum berhasil dibatalkan. Periksa koneksi lalu coba lagi.", { variant: "error" });
     } finally {
       dispatch({ type: "cancelBusy", value: false });
     }
@@ -1722,10 +1702,8 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       cancelArmed={cancelArmed}
       cancelBusy={cancelBusy}
       cancelImport={cancelImport}
-      cancelMessage={cancelMessage}
       confirmBusy={confirmBusy}
       confirmImport={confirmImport}
-      confirmMessage={confirmMessage}
       handoffMethod={handoffMethod}
       heartbeatIsStale={heartbeatIsStale}
       importStatus={importStatus}

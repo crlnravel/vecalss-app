@@ -52,7 +52,7 @@ function HandoffDeliveryNotice({
   }
 
   return (
-    <div className="space-y-3 rounded-3xl border border-primary-200 bg-primary-50 p-4 text-sm text-secondary-800">
+    <div className="space-y-3 rounded-card border border-primary-200 bg-primary-50 p-4 text-sm text-secondary-800">
        <p className="font-medium">Informasi akses sekali pakai</p>
       <p className="break-all font-mono text-xs leading-6">{secret}</p>
       <p className="text-xs leading-5 text-secondary-600">
@@ -70,13 +70,13 @@ function HandoffDeliveryNotice({
             <input className="mt-1" name="confirmation" required type="checkbox" value="acknowledge" />
              <span>Saya mengonfirmasi bahwa informasi akses ini sudah diberikan kepada penerima.<FieldRequiredMark /></span>
           </label>
-          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">
+          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="outline">
              {pending ? "Menyimpan…" : "Konfirmasi pemberian akses"}
           </Button>
         </form>
       ) : null}
       {acknowledgement.status === "error" ? (
-        <div className="space-y-3 rounded-2xl border border-student-status-danger-border bg-white/60 p-3 text-xs leading-5 text-secondary-700">
+        <div className="space-y-3 rounded-card border border-student-status-danger-border bg-white/60 p-3 text-xs leading-5 text-secondary-700">
           <p>
              Informasi akses ini perlu diperiksa sebelum dibagikan. Tautannya mungkin sudah kedaluwarsa atau diganti; periksa detail akun sebelum membagikannya.
           </p>
@@ -85,7 +85,7 @@ function HandoffDeliveryNotice({
               nativeButton={false}
               render={<Link href={recoveryHref} />}
               size="sm"
-              variant="brandOutline"
+              variant="outline"
             >
                Buka detail akun
             </Button>
@@ -107,7 +107,7 @@ function HandoffDeliveryNotice({
                 onClick={onRecovery}
                 size="sm"
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               >
                  Tutup setelah tindak lanjut direncanakan
               </Button>

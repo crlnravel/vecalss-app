@@ -186,7 +186,7 @@ function ParticipantTryoutWorkspace({
             <span className="sr-only">Cari tryout</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
-              className="h-12 rounded-2xl border-primary-100 bg-primary-50/60 pl-11 shadow-none"
+              className="pl-11"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari tryout…"
               value={query}
@@ -296,7 +296,7 @@ function ParticipantTryoutWorkspace({
                           className:
                             "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)] sm:h-11",
                           size: "default",
-                          variant: "brand",
+                          variant: "default",
                         })}
                         href={href}
                       >
@@ -321,7 +321,7 @@ function ParticipantTryoutWorkspace({
                       setFilter("all");
                       setQuery("");
                     }}
-                    variant="brandOutline"
+                    variant="outline"
                   >
                     <RefreshCw /> Reset pencarian
                   </Button>

@@ -193,7 +193,7 @@ function StudentPdfPreviewCanvas({
       <FileText aria-hidden="true" className="size-9 text-[var(--voyage-muted-ink)]" />
       <p className="font-semibold text-[var(--voyage-muted-ink)]">PDF belum dapat ditampilkan.</p>
       <p className="max-w-[48ch] leading-6">{unavailableMessage}</p>
-      {isManaged ? <Button className="mt-1" onClick={onRetry} size="default" variant="brandOutline"><RefreshCw className="size-4" />Coba lagi</Button> : null}
+      {isManaged ? <Button className="mt-1" onClick={onRetry} size="default" variant="outline"><RefreshCw className="size-4" />Coba lagi</Button> : null}
     </div>
   );
 }
@@ -228,19 +228,19 @@ function StudentPdfPreviewActions({
       {completionReady ? completionAction : null}
       <div aria-label="Aksi dokumen PDF" className="flex shrink-0 items-center gap-1" role="group">
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Buka PDF" nativeButton={false} render={<a aria-label="Buka PDF" href={previewUrl ?? ""} rel="noreferrer" target="_blank" />} size="icon-lg" title="Buka PDF" variant="brandOutline" />}>
+          <TooltipTrigger render={<Button aria-label="Buka PDF" nativeButton={false} render={<a aria-label="Buka PDF" href={previewUrl ?? ""} rel="noreferrer" target="_blank" />} size="icon-lg" title="Buka PDF" variant="outline" />}>
             <ExternalLink aria-hidden="true" className="size-5" />
           </TooltipTrigger>
           <TooltipContent>Buka PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Unduh PDF" nativeButton={false} render={<a aria-label="Unduh PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Unduh PDF" variant="brandOutline" />}>
+          <TooltipTrigger render={<Button aria-label="Unduh PDF" nativeButton={false} render={<a aria-label="Unduh PDF" download={documentName} href={downloadUrl ?? previewUrl ?? ""} />} size="icon-lg" title="Unduh PDF" variant="outline" />}>
             <Download aria-hidden="true" className="size-5" />
           </TooltipTrigger>
           <TooltipContent>Unduh PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="brandOutline" />}>
+          <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="outline" />}>
             {isFullscreen ? <Minimize2 aria-hidden="true" className="size-5" /> : <Expand aria-hidden="true" className="size-5" />}
           </TooltipTrigger>
           <TooltipContent>{isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}</TooltipContent>

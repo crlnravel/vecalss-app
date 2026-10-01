@@ -11,12 +11,12 @@ function LoadingBlock({ className }: { className: string }) {
 
 function AdminLoading() {
   return (
-    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div aria-busy="true" aria-label="Memuat dashboard admin" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+    <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
+      <div aria-busy="true" aria-label="Memuat dashboard admin" className="flex min-h-svh w-full bg-transparent text-secondary-900 lg:gap-2">
         <AdminPortalNav activeSection="overview" />
 
-        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
+        <SidebarInset className="min-h-svh min-w-0 !bg-transparent lg:rounded-3xl">
+          <header className="sticky top-0 z-20 rounded-control bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0 lg:hidden" />
               <div className="flex min-w-0 flex-1 items-center gap-3">

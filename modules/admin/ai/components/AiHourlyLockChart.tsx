@@ -11,7 +11,7 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
   return (
     <section
       aria-labelledby="ai-hourly-lock-chart-heading"
-      className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+      className="rounded-card border border-primary-100 bg-white p-6 shadow-sm"
     >
       <div className="flex flex-col justify-between gap-3 border-b border-primary-50 pb-4 sm:flex-row sm:items-center">
         <div className="min-w-0">
@@ -26,7 +26,7 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
         {earlyExhaustionAlert.status !== "normal" && (
           <div
             aria-live="polite"
-            className="flex min-w-0 items-center gap-2 rounded-2xl border border-warning-200 bg-warning-50 px-3.5 py-2 text-xs text-warning-900"
+            className="flex min-w-0 items-center gap-2 rounded-card border border-warning-200 bg-warning-50 px-3.5 py-2 text-xs text-warning-900"
             role="status"
           >
             <AlertTriangle className="size-4 shrink-0 text-warning-700" />

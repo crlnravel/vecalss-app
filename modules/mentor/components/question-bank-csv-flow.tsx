@@ -26,6 +26,7 @@ import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   toQuestionBankCsvDraftPayload,
   type QuestionBankCsvDraftQuestion,
@@ -250,33 +251,24 @@ function CsvFilePicker({
 }
 
 function CsvFileSummary({ preview }: { preview: CsvPreview }) {
+  const isLoading = preview.status === "loading";
+  usePageStatusToast({
+    active: isLoading,
+    message: "Memeriksa file dan menyiapkan ringkasan soal…",
+    variant: "info",
+  });
+
   if (preview.status === "idle") return null;
-  if (preview.status === "loading") {
-    return (
-      <div
-        aria-label="Memeriksa file soal"
-        aria-live="polite"
-        className="rounded-2xl border border-primary-100 bg-primary-50/50 px-4 py-3 text-sm text-primary-950"
-        data-csv-preview-status="loading"
-        role="status"
-      >
-        Memeriksa file dan menyiapkan ringkasan soal…
-      </div>
-    );
-  }
+  if (preview.status === "loading") return null;
   if (preview.status === "valid") {
     return (
       <div
-        aria-live="polite"
         className="flex min-w-0 items-start gap-3 rounded-2xl border border-primary-200 bg-primary-50/70 px-4 py-3 text-sm text-primary-950"
         data-csv-preview-status="valid"
-        role="status"
       >
         <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
         <div className="min-w-0">
-          <p className="font-semibold">
-            {preview.rowCount} soal siap ditinjau.
-          </p>
+          <p className="font-semibold">{preview.rowCount} soal</p>
           <p className="mt-1 break-words text-primary-900/80">
             {preview.fileName} · pratinjau tidak menyimpan atau mengubah Bank
             Soal.
@@ -412,18 +404,13 @@ function QuestionBankCsvDraftStatus({
     <div
       className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-primary-100 py-3"
       data-question-bank-csv-draft-status="true"
-      role="status"
     >
-      <div className="flex min-w-0 items-center gap-2 text-sm text-secondary-700">
-        <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-student-status-success-fg" />
-        <p>File siap disimpan bersama Bank Soal.</p>
-      </div>
       <Button
         disabled={disabled}
         onClick={onRemove}
         size="sm"
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         Hapus file
       </Button>
@@ -488,7 +475,7 @@ function QuestionBankCsvDraftImportControl({
         disabled={disabled}
         onClick={() => setOpen(true)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
         Impor dari CSV
@@ -541,7 +528,7 @@ function QuestionBankCsvDraftImportControl({
             <Button
               onClick={() => handleOpenChange(false)}
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Batal
             </Button>
@@ -549,7 +536,7 @@ function QuestionBankCsvDraftImportControl({
               disabled={disabled || !canApply}
               onClick={applyDraft}
               type="button"
-              variant="brand"
+              variant="default"
             >
               Gunakan soal ini
             </Button>
@@ -582,7 +569,7 @@ function QuestionBankCsvImportControl({
         disabled={disabled || !editLease}
         onClick={() => setOpen(true)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
         Unggah file CSV
@@ -781,61 +768,7 @@ function QuestionBankCsvImportDialog({
 
           <CsvFileSummary preview={preview} />
 
-          <Field>
-            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>
-              Cara memasukkan soal
-            </FieldLabel>
-            <RadioGroup
-              aria-label="Cara memasukkan soal"
-              className="grid gap-3 sm:grid-cols-2"
-              disabled={disabled || isApplying}
-              onValueChange={(value) => setMode(value as QuestionBankCsvMode)}
-              value={mode}
-            >
-              <label
-                className={cn(
-                  REFERENCE_CONTROL_CLASS_NAMES.choice,
-                  "items-start",
-                )}
-                htmlFor="question-bank-csv-mode-append"
-              >
-                <RadioGroupItem
-                  id="question-bank-csv-mode-append"
-                  value="append"
-                />
-                <span className="min-w-0">
-                  <span className="block font-semibold text-secondary-900">
-                    Tambahkan
-                  </span>
-                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
-                    Soal yang sudah ada tetap dipertahankan, lalu soal dari file
-                    ditambahkan.
-                  </span>
-                </span>
-              </label>
-              <label
-                className={cn(
-                  REFERENCE_CONTROL_CLASS_NAMES.choice,
-                  "items-start",
-                )}
-                htmlFor="question-bank-csv-mode-overwrite"
-              >
-                <RadioGroupItem
-                  id="question-bank-csv-mode-overwrite"
-                  value="overwrite"
-                />
-                <span className="min-w-0">
-                  <span className="block font-semibold text-secondary-900">
-                    Timpa semua
-                  </span>
-                  <span className="mt-1 block text-sm leading-5 text-secondary-600">
-                    Isi Bank Soal akan mengikuti file. Judul dan deskripsi tetap
-                    sama.
-                  </span>
-                </span>
-              </label>
-            </RadioGroup>
-          </Field>
+          <CsvImportModeField disabled={disabled || isApplying} mode={mode} onModeChange={(value) => setMode(value)} />
 
           <div className="rounded-2xl border border-primary-100 bg-primary-50/40 px-4 py-3 text-sm leading-6 text-secondary-700">
             <p className="font-semibold text-secondary-900">
@@ -870,7 +803,7 @@ function QuestionBankCsvImportDialog({
             disabled={isApplying}
             onClick={() => closeDialog(false)}
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             Batal
           </Button>
@@ -880,7 +813,7 @@ function QuestionBankCsvImportDialog({
             disabled={!canApply}
             onClick={() => void apply()}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying
               ? "Menerapkan…"
@@ -904,6 +837,28 @@ function QuestionBankCsvImportDialog({
         {content}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CsvImportModeField({ disabled, mode, onModeChange }: {
+  disabled: boolean;
+  mode: QuestionBankCsvMode;
+  onModeChange: (value: QuestionBankCsvMode) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Cara memasukkan soal</FieldLabel>
+      <RadioGroup aria-label="Cara memasukkan soal" className="grid gap-3 sm:grid-cols-2" disabled={disabled} onValueChange={(value) => onModeChange(value as QuestionBankCsvMode)} value={mode}>
+        <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-append">
+          <RadioGroupItem id="question-bank-csv-mode-append" value="append" />
+          <span className="min-w-0"><span className="block font-semibold text-secondary-900">Tambahkan</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Soal yang sudah ada tetap dipertahankan, lalu soal dari file ditambahkan.</span></span>
+        </label>
+        <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "items-start")} htmlFor="question-bank-csv-mode-overwrite">
+          <RadioGroupItem id="question-bank-csv-mode-overwrite" value="overwrite" />
+          <span className="min-w-0"><span className="block font-semibold text-secondary-900">Timpa semua</span><span className="mt-1 block text-sm leading-5 text-secondary-600">Isi Bank Soal akan mengikuti file. Judul dan deskripsi tetap sama.</span></span>
+        </label>
+      </RadioGroup>
+    </Field>
   );
 }
 
@@ -1009,7 +964,7 @@ function QuestionBankCsvExportAction({
         disabled={disabled || isExporting}
         onClick={() => void exportCsv()}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Download data-icon="inline-start" />
         {isExporting ? "Menyiapkan file…" : "Unduh soal"}

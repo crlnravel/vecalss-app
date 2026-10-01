@@ -52,6 +52,7 @@ async function updateBannerMakerAction(
   previousState: BannerMakerFormState,
   _formData: FormData,
 ): Promise<BannerMakerFormState> {
+  void _formData;
   await requireAdminSession();
   try {
     assertLegacyBannerWritesRetired();

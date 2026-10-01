@@ -2,7 +2,12 @@
 
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldInput,
+  FieldLabel,
+} from "@/components/ui/field";
 import { useActionToast } from "@/components/ui/use-action-toast";
 
 import { changePasswordAction } from "../actions";
@@ -27,8 +32,14 @@ function ChangePasswordForm() {
       ) : null}
 
       <Field>
-        <FieldLabel htmlFor="change-password">Kata sandi baru</FieldLabel>
+        <FieldLabel htmlFor="change-password" required>
+          Kata sandi baru
+        </FieldLabel>
         <FieldInput
+          aria-describedby={
+            state.fieldErrors?.password ? "change-password-error" : undefined
+          }
+          aria-invalid={Boolean(state.fieldErrors?.password)}
           autoComplete="new-password"
           id="change-password"
           name="password"
@@ -36,31 +47,37 @@ function ChangePasswordForm() {
           required
           type="password"
         />
-        <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
-        {state.fieldErrors?.password ? (
-          <p className="text-sm text-danger-700">
-            {state.fieldErrors.password}
-          </p>
-        ) : null}
+        <p className="text-sm text-secondary-600">
+          {PASSWORD_REQUIREMENTS_COPY}
+        </p>
+        <FieldError
+          error={state.fieldErrors?.password}
+          id="change-password-error"
+        />
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="change-password-confirmation">
+        <FieldLabel htmlFor="change-password-confirmation" required>
           Konfirmasi kata sandi
         </FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="change-password-confirmation"
+          aria-describedby={
+            state.fieldErrors?.confirmPassword
+              ? "change-password-confirmation-error"
+              : undefined
+          }
+          aria-invalid={Boolean(state.fieldErrors?.confirmPassword)}
           name="confirmPassword"
           placeholder="Ulangi kata sandi baru"
           required
           type="password"
         />
-        {state.fieldErrors?.confirmPassword ? (
-          <p className="text-sm text-danger-700">
-            {state.fieldErrors.confirmPassword}
-          </p>
-        ) : null}
+        <FieldError
+          error={state.fieldErrors?.confirmPassword}
+          id="change-password-confirmation-error"
+        />
       </Field>
 
       <SubmitButton
@@ -68,9 +85,9 @@ function ChangePasswordForm() {
         pendingLabel="Menyimpan kata sandi..."
         size="lg"
         type="submit"
-        variant="brand"
+        variant="default"
       >
-        Simpan kata sandi baru
+        Simpan
       </SubmitButton>
     </form>
   );

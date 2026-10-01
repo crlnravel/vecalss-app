@@ -70,12 +70,14 @@ typography:
     lineHeight: 1
     letterSpacing: "0.08em"
 rounded:
+  indicator: "4px"
+  detail: "8px"
   sm: "12px"
-  compact: "16px"
+  compact: "20px"
   md: "20px"
   lg: "32px"
   xl: "36px"
-  pill: "999px"
+  pill: "9999px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -98,38 +100,10 @@ components:
     rounded: "{rounded.sm}"
     padding: "12px 16px"
     height: "44px"
-  button-marketing:
-    backgroundColor: "{colors.voyage-deep}"
-    textColor: "{colors.surface}"
-    typography: "{typography.action}"
-    rounded: "{rounded.pill}"
-    padding: "16px 28px"
-    height: "56px"
-  button-marketing-compact:
-    backgroundColor: "{colors.voyage-deep}"
-    textColor: "{colors.surface}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
-    padding: "10px 20px"
-    height: "44px"
-  button-onboarding:
+  button-warning:
     backgroundColor: "{colors.warm-sun}"
     textColor: "{colors.warm-sun-ink}"
     typography: "{typography.action}"
-    rounded: "{rounded.pill}"
-    padding: "14px 24px"
-    height: "52px"
-  button-learning-primary:
-    backgroundColor: "{colors.voyage-forest}"
-    textColor: "{colors.surface}"
-    typography: "{typography.action}"
-    rounded: "{rounded.md}"
-    padding: "12px 20px"
-    height: "48px"
-  button-learning-attention:
-    backgroundColor: "{colors.warm-sun}"
-    textColor: "{colors.warm-sun-ink}"
-    typography: "{typography.body}"
     rounded: "{rounded.sm}"
     padding: "12px 16px"
     height: "44px"
@@ -258,12 +232,22 @@ to conflict, the root tokens and the most specific interaction rule win.
   as “Tryout Workspace.”
 - Back controls return exactly one level to the immediate parent and never skip
   to a grandparent or broad catalogue.
-- Use exactly two tab variants: compact content-sized filter pills and
-  full-width equal-width line tabs.
+- Use one specialty sunken tab treatment, with content-sized filters or
+  equal-width peer navigation. Generic filled and underline tab styles are retired.
 - Use the shared custom `DropdownMenu` family instead of native dropdowns in
   ordinary product UI.
-- Use the shared bottom-center Sonner surface for transient success and failure;
-  keep ordinary fields and static data quiet unless they need attention.
+- Use the shared top-center Sonner surface for notification alerts and dynamic
+  page status, including unsaved changes, saving, and edit-lock notices. Inline
+  status text and page-local notification banners are retired. Keep field
+  validation, blocking recovery content, and confirmation dialogs in place.
+- Use one tactile Button family and one app-wide Badge based on the former
+  StudentBadge treatment. Badges are always sunken; flat depth and the active
+  tone are retired. Do not create audience-specific alternatives.
+- All field controls use the sunken `/settings` treatment. Field labels use
+  Manrope; values use Plus Jakarta Sans. Show field validation through the
+  shared accessible tooltip treatment, retaining its programmatic error text.
+- Use the semantic radius tokens from Foundations rather than arbitrary
+  route-local corners or a rem-scaled radius formula.
 - Prefer icon-only controls with shared tooltips for familiar compact utilities;
   keep visible text for primary, ambiguous, or consequential actions.
 - Use the approved operational table references and avoid horizontal scrolling

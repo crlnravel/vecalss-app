@@ -211,7 +211,11 @@ async function authenticateUser(
     const hasSupportedRole = options.requiredRole
       ? activeRoles.includes(options.requiredRole)
       : activeRoles.some(
-        (role) => role === RoleName.admin || role === RoleName.tutor || role === RoleName.student || role === RoleName.affiliator,
+        (role) => role === RoleName.admin
+          || role === RoleName.tutor
+          || role === RoleName.student
+          || role === RoleName.affiliator
+          || role === RoleName.developer,
       );
 
     if (
@@ -723,7 +727,9 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
       ? "tutor" as const
       : activeRoles.some((assignment) => assignment.role === RoleName.affiliator)
         ? "affiliator" as const
-        : "student" as const;
+        : activeRoles.some((assignment) => assignment.role === RoleName.developer)
+          ? "developer" as const
+          : "student" as const;
 
     // Do not spend bcrypt work on invalid, expired, or terminal bearer tokens.
     const passwordHash = await hashPassword(nextPassword);

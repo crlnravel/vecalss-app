@@ -17,7 +17,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -101,10 +101,10 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
       <VideoThumbnail video={video} />
       <div className="flex min-h-[13.5rem] flex-1 flex-col p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <StudentBadge size="xs" tone="category">
+          <Badge size="xs" tone="category">
             {video.subtest}
-          </StudentBadge>
-          {video.isNew ? <StudentBadge size="xs" tone="attention">Baru</StudentBadge> : null}
+          </Badge>
+          {video.isNew ? <Badge size="xs" tone="attention">Baru</Badge> : null}
         </div>
 
         <h3 className="mt-3 text-lg leading-tight font-extrabold tracking-[-0.03em] text-voyage-ink">
@@ -227,7 +227,7 @@ function VideoGalleryPageModule({
           ) : (
             <ReferenceEmptyState
               action={videos.length > 0 ? (
-                <Button onClick={() => { setActiveFilter("Semua"); setSearchQuery(""); }} size="sm" variant="brandOutline">
+                <Button onClick={() => { setActiveFilter("Semua"); setSearchQuery(""); }} size="sm" variant="outline">
                   Lihat semua video
                 </Button>
               ) : undefined}

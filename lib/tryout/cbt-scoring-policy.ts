@@ -111,7 +111,8 @@ function parseIrt(value: RecordValue, itemIds?: readonly string[]): CbtIrt2plCon
   if (itemIds) {
     const expected = [...new Set(itemIds)];
     const actual = itemParameters.map((parameter) => parameter.itemId);
-    if (expected.length !== actual.length || expected.some((id) => !actual.includes(id))) {
+    const actualIds = new Set(actual);
+    if (expected.length !== actual.length || expected.some((id) => !actualIds.has(id))) {
       throw new Error("Parameter IRT harus mencakup tepat seluruh soal dalam urutan CBT.");
     }
   }

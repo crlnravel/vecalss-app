@@ -391,7 +391,7 @@ function TryoutDetailHero({
   return (
     <section
       aria-labelledby="tryout-information"
-      className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
+      className="overflow-hidden rounded-card bg-white shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
     >
       <div className="relative isolate overflow-hidden bg-[var(--voyage-deep)]">
         <Image
@@ -486,7 +486,7 @@ function TryoutDetailAction({
   if (model.actionLabel === "Daftar Tryout") {
     return <ParticipantTryoutEnrollmentPanel initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} returnToHref={returnToHref} sessionId={model.summarySession?.id ?? sessionId} tryoutId={tryout.id} universities={universities} />;
   }
-  return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "brand" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
+  return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "default" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
 }
 
 function ParticipantTryoutDetailContent({

@@ -16,7 +16,7 @@ type ActiveMetric = Extract<SemanticMetric<number | string>, { state: "available
 
 function SuppressedMetricCard({ className, metric, title }: Omit<AiMetricCardProps, "metric"> & { metric: SuppressedMetric }) {
   return (
-    <div className={cn("flex flex-col rounded-2xl border border-primary-100 bg-white p-4 shadow-xs", className)}>
+    <div className={cn("flex flex-col rounded-card border border-primary-100 bg-white p-4 shadow-xs", className)}>
       <span className="text-xs font-semibold text-secondary-600">{title}</span>
       <div className="mt-3 flex items-center gap-2 text-secondary-500">
         <ShieldCheck className="size-4.5 shrink-0 text-primary-700" />
@@ -29,7 +29,7 @@ function SuppressedMetricCard({ className, metric, title }: Omit<AiMetricCardPro
 
 function UnavailableMetricCard({ className, title }: AiMetricCardProps) {
   return (
-    <div className={cn("flex flex-col rounded-2xl border border-primary-100 bg-white p-4 shadow-xs", className)}>
+    <div className={cn("flex flex-col rounded-card border border-primary-100 bg-white p-4 shadow-xs", className)}>
       <span className="text-xs font-semibold text-secondary-600">{title}</span>
       <p className="mt-3 text-lg font-bold text-secondary-400">—</p>
       <p className="mt-1 text-xs text-secondary-500">Data belum tersedia untuk periode ini</p>
@@ -66,7 +66,7 @@ function ActiveMetricCard({ className, metric, subCaption, title }: Omit<AiMetri
   const displayVal = metric.formattedValue ?? (typeof metric.value === "number" ? metric.value.toLocaleString("id-ID") : String(metric.value));
 
   return (
-    <div className={cn("flex flex-col rounded-2xl border border-primary-100 bg-white p-4 shadow-xs transition-all motion-reduce:transition-none hover:border-primary-200", className)}>
+    <div className={cn("flex flex-col rounded-card border border-primary-100 bg-white p-4 shadow-xs transition-all motion-reduce:transition-none hover:border-primary-200", className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-secondary-600">{title}</span>
         <MetricCoverageBadge metric={metric} />

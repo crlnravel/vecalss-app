@@ -54,9 +54,9 @@ function UniversityPicker({
           aria-haspopup="listbox"
           render={
             <Button
-              className="h-12 w-full justify-between rounded-xl px-4 text-left"
+              className="h-12 w-full justify-between  px-4 text-left"
               type="button"
-              variant="context"
+              variant="outline"
             />
           }
         >
@@ -74,7 +74,7 @@ function UniversityPicker({
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari universitas target"
-              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              className="pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari universitas…"
               value={query}
@@ -85,12 +85,12 @@ function UniversityPicker({
               matchingUniversities.map((item) => (
                 <Button
                   aria-selected={item.id === selectedUniversityId}
-                  className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+                  className="h-auto justify-start  px-3 py-2.5 text-left"
                   key={item.id}
                   onClick={() => onSelectUniversity(item.id)}
                   role="option"
                   type="button"
-                  variant={item.id === selectedUniversityId ? "contextSelected" : "ghost"}
+                  variant={item.id === selectedUniversityId ? "default" : "outline"}
                 >
                   <span className="min-w-0 flex-1 truncate">{item.name}</span>
                   {item.id === selectedUniversityId ? <Check className="text-primary-700" /> : null}
@@ -141,9 +141,9 @@ function MajorPicker({
           disabled={disabled}
           render={
             <Button
-              className="h-12 w-full justify-between rounded-xl px-4 text-left"
+              className="h-12 w-full justify-between  px-4 text-left"
               type="button"
-              variant="context"
+              variant="outline"
             />
           }
         >
@@ -161,7 +161,7 @@ function MajorPicker({
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari jurusan target"
-              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              className="pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari jurusan…"
               value={query}
@@ -172,12 +172,12 @@ function MajorPicker({
               matchingMajors.map((item) => (
                 <Button
                   aria-selected={item.id === selectedMajorId}
-                  className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+                  className="h-auto justify-start  px-3 py-2.5 text-left"
                   key={item.id}
                   onClick={() => onSelectMajor(item.id)}
                   role="option"
                   type="button"
-                  variant={item.id === selectedMajorId ? "contextSelected" : "ghost"}
+                  variant={item.id === selectedMajorId ? "default" : "outline"}
                 >
                   <span className="min-w-0 flex-1 truncate">{item.name}</span>
                   {item.id === selectedMajorId ? <Check className="text-primary-700" /> : null}
@@ -215,7 +215,7 @@ function EnrollmentConfirmationDialog({
           <AlertDialogTitle>Konfirmasi pendaftaran</AlertDialogTitle>
         </AlertDialogHeader>
 
-        <dl className="grid gap-4 rounded-2xl border border-primary-100 p-4">
+        <dl className="grid gap-4 rounded-card border border-primary-100 p-4">
           <div className="grid gap-1">
             <dt className="text-sm text-secondary-500">Universitas target</dt>
             <dd className="font-semibold text-secondary-900">{university?.name}</dd>
@@ -228,7 +228,7 @@ function EnrollmentConfirmationDialog({
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
-          <Button disabled={busy} onClick={onConfirm} type="button" variant="brand">
+          <Button disabled={busy} onClick={onConfirm} type="button" variant="default">
             {busy ? (
               <>
                 <LoaderCircle className="animate-spin" />
@@ -424,7 +424,7 @@ function ParticipantTryoutEnrollmentPanel({
           onClick={handleOpenConfirmation}
           size="lg"
           type="button"
-          variant="brand"
+          variant="default"
         >
           Daftar Sekarang
           <ArrowRight />

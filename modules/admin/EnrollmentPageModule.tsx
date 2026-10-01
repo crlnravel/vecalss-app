@@ -1,8 +1,4 @@
-import Link from "next/link";
 
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { EnrollmentHandoff, ExamEvent, Major, StudentProfile, University, User, UserStatus } from "@/generated/prisma/client";
 import {
   buildDirectoryQuery,
@@ -17,7 +13,8 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 import { AddStudentDialog } from "./components/add-student-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
-import { StudentPageSizeSelect } from "./components/student-page-size-select";
+import { ReuiDirectoryFooter } from "./components/reui-directory-grid";
+import styles from "./components/reui-directory-grid.module.css";
 import { StudentDirectoryTable } from "./components/student-directory-table";
 import { studentStatusTone } from "./student-status";
 
@@ -55,29 +52,6 @@ const errorMessages: Record<string, string> = {
   "update-failed": "Akun siswa tidak dapat diperbarui. Silakan coba lagi.",
 };
 
-type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
-
-function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
-  if (pageCount <= 7) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1);
-  }
-
-  const visiblePages = new Set([1, pageCount, page - 1, page, page + 1]);
-  const sortedPages = [...visiblePages]
-    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= pageCount)
-    .sort((left, right) => left - right);
-  const items: PaginationItem[] = [];
-
-  sortedPages.forEach((pageNumber, index) => {
-    if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
-      items.push(pageNumber > page ? "ellipsis-after" : "ellipsis-before");
-    }
-    items.push(pageNumber);
-  });
-
-  return items;
-}
-
 function withDemoQuery(query: string, demo: boolean) {
   if (!demo) {
     return query;
@@ -113,37 +87,6 @@ function toStudentDirectoryRow(student: EnrolledStudent) {
   };
 }
 
-function DirectoryPagination({
-  page,
-  pageCount,
-  pageHref,
-  paginationItems,
-}: {
-  page: number;
-  pageCount: number;
-  pageHref: (page: number) => string;
-  paginationItems: PaginationItem[];
-}) {
-  if (pageCount <= 1) return null;
-
-  return (
-    <nav aria-label="Halaman direktori siswa" className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} dari {pageCount}</span>
-      <div className="flex min-w-0 items-center gap-0.5">
-        {page > 1 ? <Link aria-label="Halaman direktori siswa sebelumnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
-        <ol className="flex items-center gap-0.5">
-          {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
-            <li key={item}><span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>
-          ) : (
-            <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: item === page ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800" : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800", size: "icon-sm", variant: item === page ? "brand" : "ghost" })} href={pageHref(item)}>{item}</Link></li>
-          ))}
-        </ol>
-        {page < pageCount ? <Link aria-label="Halaman direktori siswa berikutnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
-      </div>
-    </nav>
-  );
-}
-
 function EnrollmentNotices({
   demo,
   error,
@@ -177,81 +120,6 @@ function EnrollmentNotices({
         </FormNotice>
       ) : null}
     </>
-  );
-}
-
-function EnrollmentDirectorySurface({
-  addedFrom,
-  addedTo,
-  backQuery,
-  demo,
-  direction,
-  directoryQuery,
-  focus,
-  isEmptyDirectory,
-  page,
-  pageCount,
-  pageHref,
-  pageSize,
-  paginationItems,
-  search,
-  sort,
-  statusFilters,
-  students,
-  total,
-  visibleEnd,
-  visibleStart,
-}: {
-  addedFrom: string | null;
-  addedTo: string | null;
-  backQuery: string;
-  demo: boolean;
-  direction: DirectorySortDirection;
-  directoryQuery: string;
-  focus?: string | null;
-  isEmptyDirectory: boolean;
-  page: number;
-  pageCount: number;
-  pageHref: (page: number) => string;
-  pageSize: DirectoryPageSize;
-  paginationItems: PaginationItem[];
-  search: string;
-  sort: DirectorySortKey | null;
-  statusFilters: UserStatus[];
-  students: EnrolledStudent[];
-  total: number;
-  visibleEnd: number;
-  visibleStart: number;
-}) {
-  return (
-    <ReferenceSurface as="section" aria-label="Direktori siswa" className="overflow-hidden">
-      <StudentDirectoryTable
-        backQuery={backQuery}
-        dataQuery={directoryQuery}
-        direction={direction}
-        focus={focus ?? null}
-        isEmptyDirectory={isEmptyDirectory}
-        key={directoryQuery}
-        search={search}
-        sort={sort}
-        addedFrom={addedFrom}
-        addedTo={addedTo}
-        demo={demo}
-        pageSize={pageSize}
-        statusFilters={statusFilters}
-        students={students.map(toStudentDirectoryRow)}
-      />
-
-      <div className="flex flex-col gap-3 border-t border-primary-100/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <p className="text-xs tabular-nums text-secondary-600">
-            <span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}
-          </p>
-          <StudentPageSizeSelect pageSize={pageSize} query={backQuery} />
-        </div>
-        <DirectoryPagination page={page} pageCount={pageCount} pageHref={pageHref} paginationItems={paginationItems} />
-      </div>
-    </ReferenceSurface>
   );
 }
 
@@ -292,16 +160,9 @@ function EnrollmentPageModule({
   students: EnrolledStudent[];
   total: number;
 }) {
-  const pageHref = (nextPage: number) => {
-    const query = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: null, page: nextPage, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
-    return query ? `/admin/enrollment${query}` : "/admin/enrollment";
-  };
   const directoryQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: focus ?? null, page, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
   const backQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: null, page, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
   const isEmptyDirectory = total === 0 && !search && !statusFilters.length && !addedFrom && !addedTo;
-  const visibleStart = students.length ? (page - 1) * pageSize + 1 : 0;
-  const visibleEnd = Math.min(page * pageSize, (page - 1) * pageSize + students.length);
-  const paginationItems = getPaginationItems(page, pageCount);
 
   return (
     <PortalShell
@@ -318,40 +179,18 @@ function EnrollmentPageModule({
           targetId={focus ? `student-${focus}` : null}
         />
 
-        <ReferencePageHeader
-          actions={<AddStudentDialog examEvents={examEvents} />}
-          id="students-heading"
-          tabIndex={-1}
-           title="Siswa"
-        />
-
         <p aria-live="polite" className="sr-only" id="student-directory-announcement">
            {focus ? "Kembali ke baris siswa yang dipilih di direktori." : ""}
         </p>
         <EnrollmentNotices demo={demo} error={error} notice={notice} />
 
-        <EnrollmentDirectorySurface
-          addedFrom={addedFrom}
-          addedTo={addedTo}
-          backQuery={backQuery}
-          demo={demo}
-          direction={direction}
-          directoryQuery={directoryQuery}
-          focus={focus}
-          isEmptyDirectory={isEmptyDirectory}
-          page={page}
-          pageCount={pageCount}
-          pageHref={pageHref}
-          pageSize={pageSize}
-          paginationItems={paginationItems}
-          search={search}
-          sort={sort}
-          statusFilters={statusFilters}
-          students={students}
-          total={total}
-          visibleEnd={visibleEnd}
-          visibleStart={visibleStart}
-        />
+        <section aria-label="Direktori siswa" className={`${styles.root} ${styles.surface}`} id="students-heading" tabIndex={-1}>
+          <StudentDirectoryTable addedFrom={addedFrom} addedTo={addedTo} backQuery={backQuery} dataQuery={directoryQuery}
+            demo={demo} direction={direction} focus={focus ?? null} isEmptyDirectory={isEmptyDirectory} key={directoryQuery}
+            pageSize={pageSize} search={search} sort={sort} statusFilters={statusFilters} students={students.map(toStudentDirectoryRow)} total={total}
+            actions={<><AddStudentDialog examEvents={examEvents} initialMode="bulk" /><AddStudentDialog examEvents={examEvents} /></>} />
+          <ReuiDirectoryFooter basePath="/admin/enrollment" query={backQuery} page={page} pageCount={pageCount} pageSize={pageSize} total={total} visibleCount={students.length} />
+        </section>
       </div>
     </PortalShell>
   );

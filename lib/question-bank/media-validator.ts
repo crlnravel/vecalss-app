@@ -273,9 +273,10 @@ async function lockAndValidateKaptenBankImages(
   input: BankImageLockInput,
 ) {
   const assetIds = [...new Set(input.assetIds.filter((id): id is string => Boolean(id)))].sort();
+  const assetIdSet = new Set(assetIds);
   const pendingAssetIds = [...new Set(input.attemptOwnedPendingAssetIds ?? [])].sort();
   const pendingIdsAreValid = pendingAssetIds.every(
-    (id) => UUID_PATTERN.test(id) && assetIds.includes(id),
+    (id) => UUID_PATTERN.test(id) && assetIdSet.has(id),
   );
   if (
     assetIds.some((id) => !UUID_PATTERN.test(id))

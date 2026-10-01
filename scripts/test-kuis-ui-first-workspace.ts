@@ -15,8 +15,12 @@ const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, pick
   readFile(`${root}/lib/quiz/repository.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizResultsPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizSubmissionPageModule.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenQuizCataloguePageModules.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenQuizDashboardPageModule.tsx`, "utf8"),
 ]);
+assert.match(detail, /breadcrumbParent=\{\{ href: returnHref, label: "Daftar kuis" \}\}/u, "detail returns to the filtered dashboard");
+assert.match(detail, /returnTo: returnHref/u, "tab navigation preserves dashboard context");
+assert.match(quizCatalogue, /useReactTable/u, "the quiz dashboard uses the headless grid");
+const inventory = await readFile(`${root}/modules/mentor/components/quiz-question-inventory.tsx`, "utf8");
 const actions = await readFile(`${root}/modules/mentor/quiz-actions.ts`, "utf8");
 
 // Guard client-visible Kuis surfaces. Legacy source identifiers may remain in
@@ -28,19 +32,15 @@ for (const [label, source] of [["detail route", detailRoute], ["editor route", e
 }
 
 assert.match(detailRoute, /searchParams: Promise/u, "detail route must accept a deep-linked tab");
-assert.match(detail, /const subjectHref = subject\s*\?\s*`\/mentor\/quiz\/subject\/\$\{subject\.slug\}`\s*:\s*"\/mentor\/quiz";/u, "detail back navigation must derive the subject route");
-assert.match(detail, /render=\{<Link href=\{subjectHref\} \/>\}/u, "detail back navigation must target the subject route");
 assert.match(detail, /breadcrumbLabel="Detail Kuis"/u, "detail breadcrumb must use the detail label");
-assert.match(detail, /breadcrumbParent=\{\s*subject\s*\?\s*\{\s*href:\s*subjectHref,\s*label:\s*subject\.code\s*\}\s*:\s*undefined\s*\}/u, "detail breadcrumb must include the subject parent");
 assert.match(detail, /value="preview"/u, "detail must expose Preview Soal");
-assert.match(detail, /value="preview"[\s\S]*?>\s*Soal\s*<\/FullWidthLineTabsTrigger>/u, "detail must label the question tab Soal");
+assert.match(detail, /value="preview"[\s\S]*?>\s*Soal\s*<\/FullWidthTabsTrigger>/u, "detail must label the question tab Soal");
 assert.match(detail, /value="hasil"/u, "detail must expose Hasil");
-assert.match(detail, /value="hasil"[\s\S]*?>\s*Hasil\s*<\/FullWidthLineTabsTrigger>/u, "Hasil tab must remain text-only");
+assert.match(detail, /value="hasil"[\s\S]*?>\s*Hasil\s*<\/FullWidthTabsTrigger>/u, "Hasil tab must remain text-only");
 assert.match(detail, /value="pengaturan"/u, "detail must expose Pengaturan");
-assert.match(detail, /router\.push\(`\/mentor\/quiz\/\$\{quiz\.id\}\?tab=\$\{next\}`/u, "detail tab selection must preserve URL history");
 assert.match(detail, /Edit soal/u, "detail must expose the dedicated editor action");
 assert.match(editorRoute, /KaptenQuizEditorPageModule/u, "editor route must render the dedicated editor");
-assert.match(editor, /Daftar soal/u, "editor must expose a question inventory");
+assert.match(inventory, /Daftar soal/u, "editor must expose a question inventory");
 assert.match(editor, /QuestionBankPickerDialog/u, "editor must expose reusable Bank Soal selection");
 assert.match(editor, /Tambah soal dari Bank Soal/u, "editor must expose the Bank Soal primary add action");
 assert.match(editor, /Bank Soal:/u, "editor must label its source Bank Soal beneath the add action");
@@ -53,7 +53,8 @@ assert.match(editor, /Belum ada soal di Kuis ini/u, "empty editor state must exp
 assert.match(editor, /Tambah soal dari Bank Soal/u, "empty editor state must offer the Bank Soal picker");
 assert.doesNotMatch(editor, /data-source-update-review|Tinjau perubahan|Terima ke draf|Perlu ditinjau/u, "published Bank Soal revisions must not render a manual review card");
 assert.match(editor, /autoAppliedUpdateKeysRef/u, "published Bank Soal revisions must be applied automatically");
-assert.match(editor, /Pindah soal/u, "editor must reorder questions");
+assert.match(editor, /reorderQuestion/u, "editor must reorder questions");
+assert.match(inventory, /aria-label=\{`Pindah soal \$\{index \+ 1\}`\}/u, "inventory must name its accessible reorder handle");
 assert.match(editor, /Hapus soal/u, "editor must delete questions");
 assert.doesNotMatch(editor, /function QuestionForm|Edit soal|quiz-preview-toggle|MediaPickerDialog|Tampilan penulis/u, "Kuis must not expose a local question editor or preview toggle");
 assert.match(editor, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u, "editor must guard unsaved navigation");
@@ -61,7 +62,7 @@ assert.match(editor, /function hasQuizDraftContent\(/u, "quiz exit guarding must
 assert.match(editor, /useState\(\s*mode === "create" && hasQuizDraftContent\(initialForm\)\s*,?\s*\)/u, "empty create quizzes must not start with an unsaved-change guard");
 assert.match(editor, /setHasUnsavedChanges\(\s*mode === "create" \? hasQuizDraftContent\(nextForm\) : true\s*,?\s*\)/u, "create-mode exit guarding must clear when its fields are emptied");
 assert.match(editor, /isSaving \? "Membuat…" : "Buat"/u, "create quiz action must use creation copy");
-assert.match(editor, /aria-label="Buat"[\s\S]*?variant="brand"/u, "create quiz action must use the primary button variant");
+assert.match(editor, /aria-label="Buat"[\s\S]*?variant="default"/u, "create quiz action must use the primary button variant");
 assert.match(editor, /<ChevronLeft\s*\/>\s*Kembali ke daftar/u, "create quiz back action must return to the Kuis catalogue");
 assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
 assert.match(editor, /min-h-14 shrink-0 flex-wrap items-center/u, "full-page editor must expose the Bank Soal-style top header");
@@ -70,7 +71,7 @@ assert.match(editor, /function QuizMobileInventory\(/u, "quiz editor must use th
 assert.match(editor, /id="quiz-inventory-title"[\s\S]*?>\s*Inventori soal/u, "quiz inventory must use the Bank Soal inventory heading");
 assert.match(editor, /QuestionPreview/u, "quiz editor must show a read-only question preview");
 assert.doesNotMatch(editor, /<div className="h-5 w-px bg-primary-100" \/>/u, "quiz header must not render a divider beside the title");
-assert.match(editor, /aria-label="Simpan"[\s\S]*?variant="brand"/u, "quiz save must remain a primary action");
+assert.match(editor, /aria-label="Simpan"[\s\S]*?variant="default"/u, "quiz save must remain a primary action");
 assert.match(editor, /Preview Soal/u, "editor must label the read-only question preview");
 assert.match(editor, /Perubahan Kuis tersimpan/u, "editor must provide save feedback");
 assert.match(picker, /selectedQuestions/u, "Bank Soal picker must retain pending selection across server pages");
@@ -85,7 +86,7 @@ assert.match(picker, /Semua soal yang saat ini dipilih di Kuis akan dibatalkan/u
 assert.match(picker, /effectiveExistingQuestionIds/u, "source-bank changes must exclude the previous selections from the next import");
 assert.doesNotMatch(picker, /Sudah ditambahkan/u, "question picker must not render the removed added-status badge");
 assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");
-assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil`/u, "legacy results route must redirect to Hasil");
+assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil/u, "legacy results route must redirect to Hasil");
 assert.match(results, /function KaptenQuizResultsContent/u, "results must have embeddable content");
 assert.doesNotMatch(results, /Bagian hasil Kuis|Peserta|Statistik|StatisticsPanel|Distribusi nilai|Peta skor|recharts/u, "Hasil must remain one results view without participant/statistics tabs or aggregate statistics");
 assert.doesNotMatch(results, /Lihat pengiriman jawaban dan buka detail submisi tanpa meninggalkan detail Kuis/u, "Hasil must not include the removed helper copy");
@@ -95,7 +96,7 @@ assert.match(detail, /QuizQuestionCard/u, "question list must render authored qu
 assert.match(detail, /questions\.map\(\(question, index\)/u, "question list must preserve authored question order");
 assert.match(detail, /Pembahasan/u, "question cards must render authored explanations");
 assert.match(detail, /<h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">\s*Daftar Soal\s*<\/h2>/u, "Kuis preview must show the question-list heading");
-assert.match(detail, /<MentorBadge className="font-bold" size="xs" tone="category">[\s\S]*?\{questions\.length\} Soal/u, "Kuis preview must show the live question count");
+assert.match(detail, /<Badge className="font-bold" size="(?:xs|sm)" tone="category">[\s\S]*?\{questions\.length\} Soal/u, "Kuis preview must show the live question count");
 assert.match(detail, /data-quiz-preview-header="true"[\s\S]*?Daftar Soal[\s\S]*?Edit soal/u, "Kuis preview must align the question heading with its edit action");
 assert.doesNotMatch(detail, /Metadata ini hanya berlaku untuk Kuis mandiri ini|Perubahan akan divalidasi lagi oleh server saat disimpan/u, "settings must not include implementation helper copy");
 assert.doesNotMatch(detail, /Susunan soal di percobaan ulang|Ulas pembahasan|Jawaban benar/u, "removed Kuis settings sections must not render");
@@ -120,21 +121,9 @@ assert.match(detail, /aria-label="Ubah judul Kuis"/u, "Kuis title metadata must 
 assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description metadata must use an inline edit affordance");
 assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
 assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untuk\s+menambahkan\./u, "Kuis metadata must show the editable empty-description copy");
-assert.match(detail, /<MentorBadge size="xs" tone="category">[\s\S]*?\{subject\s*\?\s*`\$\{subject\.code\} · \$\{subject\.name\}`\s*:\s*value\}[\s\S]*?<\/MentorBadge>/u, "Kuis metadata must use the Bank Soal subject chip sizing");
+assert.match(detail, /<strong className="text-sm font-bold text-voyage-ink">[\s\S]*?\{subject\s*\?[\s\S]*?:\s*value\}[\s\S]*?<\/strong>/u, "Kuis metadata must show its subject as bold text");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.match(detail, /Arsipkan Kuis[\s\S]*updateStandaloneQuizLifecycleAction/u, "Kuis detail must expose its archive lifecycle action");
-assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");
-assert.match(quizCatalogue, /grid min-w-0 gap-4 p-5/u, "quiz rows must use Tryout-style card sizing");
-assert.match(quizCatalogue, /<span className="mt-0\.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">/u, "quiz rows must use the Tryout-style icon treatment");
-assert.match(quizCatalogue, /<ListChecks aria-hidden="true" className="size-5" \/>/u, "quiz rows must show the quiz icon");
-assert.match(quizCatalogue, /<h2 className="truncate text-base font-semibold text-secondary-900">/u, "quiz row titles must use Tryout-style sizing");
-assert.match(quizCatalogue, /<div className="mt-1 flex flex-wrap items-center gap-2">/u, "quiz row badges must sit beneath the title");
-assert.match(quizCatalogue, /<ReferenceStatusBadge[\s\S]*?appearance="mentor"[\s\S]*?size="sm"[\s\S]*?status=\{quiz\.status\}[\s\S]*?\/>/u, "quiz row badges must use Tryout-style sizing");
-assert.match(quizCatalogue, /aria-label=\{`Buka \$\{quiz\.title\}`\}/u, "quiz rows must provide a direct open action");
-assert.match(quizCatalogue, /<ChevronRight\s+aria-hidden/u, "quiz rows must use the Tryout-style trailing chevron");
-assert.doesNotMatch(quizCatalogue, /<Archive|>Arsipkan<|>Pulihkan</u, "subject catalogue must not expose archive lifecycle actions");
-assert.doesNotMatch(quizCatalogue, /Lihat hasil siswa|aria-label="Edit quiz"|Aksi untuk \$\{quiz\.title\}|<Ellipsis/u, "quiz rows must not expose row-level action controls");
-assert.doesNotMatch(quizCatalogue, /<span>\{quiz\.primaryMetric\}<\/span>|quizDateFormatter/u, "quiz rows must not repeat metadata below the title");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");

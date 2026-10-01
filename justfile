@@ -160,6 +160,25 @@ _local-services: _ensure-deps
       exit 1
     fi
 
+# Start only PostgreSQL for local workflows that do not need Redis or Obscura.
+_local-postgres: _ensure-deps
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose -f docker-compose.dev.yml up -d postgres
+    ready=0
+    for attempt in {1..60}; do
+      if docker compose -f docker-compose.dev.yml exec -T postgres pg_isready -U vecalss -d vecalss_dev >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 2
+    done
+    if [[ "$ready" != 1 ]]; then
+      docker compose -f docker-compose.dev.yml ps postgres
+      echo 'Local PostgreSQL did not become ready.' >&2
+      exit 1
+    fi
+
 # Reset/migrate/seed PostgreSQL and clear disposable local Redis databases 0/15.
 local-reset: local-env _local-services _resource-status
     #!/usr/bin/env bash
@@ -206,6 +225,20 @@ local-seed: local-env _local-services _resource-status
     export DATABASE_URL='postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public'
     set +e
     ./_harness/resource-guard.sh run -- rtk pnpm exec node prisma/seed.mjs 2>&1 \
+      | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
+    command_status=${PIPESTATUS[0]}
+    set -e
+    exit "$command_status"
+
+# Add repeatable, clearly labeled stress records to the local demo database.
+# Override LOCAL_HUGE_SEED_STUDENTS / LOCAL_HUGE_SEED_MODULES to change the
+# requested rows per group (10,000 each by default). This does not reset data.
+local-huge-seed: local-env _local-postgres _resource-status
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export DATABASE_URL='postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public'
+    set +e
+    ./_harness/resource-guard.sh run -- rtk pnpm exec node prisma/seed-huge.mjs 2>&1 \
       | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
     command_status=${PIPESTATUS[0]}
     set -e

@@ -45,6 +45,7 @@ async function updateStudentBannersAction(
   previousState: FormState,
   _formData: FormData,
 ): Promise<FormState> {
+  void _formData;
   await requireAdminSession();
   return retiredLegacyBannerState(previousState);
 }
@@ -58,6 +59,7 @@ async function updateAdminStudentPreviewBannersAction(
   previousState: FormState,
   _formData: FormData,
 ): Promise<FormState> {
+  void _formData;
   try {
     await requireAdminStudentPreviewContext();
     return retiredLegacyBannerState(previousState);

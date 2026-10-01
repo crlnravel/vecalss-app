@@ -565,6 +565,7 @@ async function assertEditLease(
     await acquireResourceBoundary(tx, prepared);
     await assertResourceAccessible(tx, prepared, prepared.holderUserId);
     const serverNow = await databaseNow(tx);
+    // react-doctor-disable-next-line server-sequential-independent-await -- read time and lease state from the same transaction snapshot.
     const current = await readLease(tx, prepared);
     if (!current || current.holderUserId !== prepared.holderUserId || current.generation !== prepared.generation || !sameDigest(current.tokenDigest, digestLeaseToken(prepared.token))) {
       throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
@@ -622,6 +623,7 @@ async function withTransientEditLeases<T>(
     }> = [];
 
     for (const prepared of resources) {
+      // react-doctor-disable-next-line async-await-in-loop -- acquire resource claims in canonical order to prevent deadlocks.
       await acquireResourceBoundary(tx, prepared);
       await assertResourceAccessible(tx, prepared, prepared.holderUserId);
       const serverNow = await databaseNow(tx);
@@ -673,6 +675,7 @@ async function withTransientEditLeases<T>(
     // The generated proofs are deliberately asserted before callback control
     // reaches any family repository row lock or write.
     for (const claim of claims) {
+      // react-doctor-disable-next-line async-await-in-loop -- revalidate each lease in the same deterministic order as acquisition.
       const serverNow = await databaseNow(tx);
       const current = await readLease(tx, claim.resource);
       if (
@@ -687,8 +690,12 @@ async function withTransientEditLeases<T>(
       }
     }
 
-    const result = await callback(resources.map(({ holderUserId: _holderUserId, ...resource }) => resource));
+    const result = await callback(resources.map(({ holderUserId: _holderUserId, ...resource }) => {
+      void _holderUserId;
+      return resource;
+    }));
     for (const claim of claims) {
+      // react-doctor-disable-next-line async-await-in-loop -- release every claim after the callback in canonical order.
       const serverNow = await databaseNow(tx);
       await tx.$executeRaw`
         UPDATE "edit_leases"

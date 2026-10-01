@@ -24,6 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
@@ -62,12 +64,16 @@ function CourseLearningPathPageModule({
     state.nextLesson?.id ?? state.lessons[state.lessons.length - 1]?.id;
 
   const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const pendingLesson = state.lessons.find((lesson) => lesson.id === pendingLessonId);
+  usePageStatusToast({
+    active: pendingLessonId !== null,
+    message: pendingLesson ? `Membuka materi ${pendingLesson.title}…` : "Memperbarui progres materi…",
+    variant: "info",
+  });
 
   const handleSkip = async (lesson: CourseLesson) => {
     if (pendingLessonId) return;
     setPendingLessonId(lesson.id);
-    setFeedback(null);
 
     try {
       const response = await fetch(`/api/courses/${encodeURIComponent(course.slug)}/${encodeURIComponent(lesson.id)}/progress`, {
@@ -91,7 +97,10 @@ function CourseLearningPathPageModule({
         throw new Error(typeof payload?.error === "string" ? payload.error : "Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.");
       }
     } catch {
-      setFeedback("Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.");
+      showToast("Progres materi belum berhasil diperbarui. Periksa koneksi lalu coba lagi.", {
+        action: { label: "Coba lagi", onClick: () => void handleSkip(lesson) },
+        variant: "error",
+      });
     } finally {
       setPendingLessonId(null);
     }
@@ -121,16 +130,6 @@ function CourseLearningPathPageModule({
           {state.lessons.length > 0 ? (
             <div className="relative">
               <LearningRoad lessonCount={state.lessons.length} />
-
-              {feedback ? (
-                <p
-                  aria-live="polite"
-                  className="relative z-20 mx-auto mb-4 max-w-xl rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-center text-sm font-semibold leading-6 text-student-status-danger-fg"
-                  role="status"
-                >
-                  {feedback}
-                </p>
-              ) : null}
 
               <ol className="relative z-10 m-0 list-none p-0">
                 {state.lessons.map((lesson, index) => {
@@ -392,7 +391,7 @@ function LearningPathStageDetails({ isLocked, lesson, onSkip, pending }: { isLoc
   return (
     <>
       {lesson.optionalVideo && !isLocked ? <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm"><a className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30" href={lesson.optionalVideo.mediaUrl} rel="noreferrer" target="_blank"><Video className="size-3.5" /> Video opsional <ExternalLink className="size-3" /></a></div> : null}
-      {isLocked ? <Button className="mt-3 sm:text-sm" disabled={pending} onClick={onSkip} size="learningAttention" type="button" variant="learningAttention">{pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}</Button> : null}
+      {isLocked ? <Button className="mt-3 sm:text-sm" disabled={pending} onClick={onSkip} size="default" type="button" variant="warning">{pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}</Button> : null}
     </>
   );
 }

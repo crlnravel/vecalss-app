@@ -45,14 +45,14 @@ function StudentPageSizeSelect({
 
   return (
     <div className="inline-flex items-center gap-2 text-xs text-secondary-600">
-       <span>Baris per halaman</span>
+      <span>Baris per halaman</span>
       <DropdownMenu>
         <DropdownMenuTrigger
-           aria-label="Baris per halaman"
-          render={<Button className="h-8 min-w-16 justify-between rounded-lg border-primary-100 bg-white px-2 text-xs font-semibold text-secondary-800 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
+          aria-label="Baris per halaman"
+          render={<Button className="min-w-16 justify-between" size="sm" variant="outline" />}
         >
           <span>{pageSize}</span>
-          <ChevronDown aria-hidden="true" className="size-3.5 text-secondary-500" />
+          <ChevronDown aria-hidden="true" className="size-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-(--anchor-width)">
           <DropdownMenuRadioGroup onValueChange={handleChange} value={String(pageSize)}>

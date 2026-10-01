@@ -798,7 +798,10 @@ async function applyQuestionBankRowsInTransaction(
     if (input.failureAfterRow === rowIndex + 1) {
       throw new Error("Injected late CSV failure.");
     }
-    if (input.onRowApplied) await input.onRowApplied(rowIndex + 1);
+    if (input.onRowApplied) {
+      // react-doctor-disable-next-line async-await-in-loop -- preserve row order and deterministic late-failure injection.
+      await input.onRowApplied(rowIndex + 1);
+    }
   }
 
   const omitted = input.mode === "overwrite"

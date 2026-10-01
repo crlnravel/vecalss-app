@@ -10,12 +10,12 @@ function LoadingBlock({ className }: { className: string }) {
 
 export default function PackageLoading() {
   return (
-    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div aria-busy="true" aria-label="Memuat Paket Soal" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+    <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
+      <div aria-busy="true" aria-label="Memuat Paket Soal" className="flex min-h-svh w-full bg-transparent text-secondary-900 lg:gap-2">
         <MentorSidebar activeLabel="Paket Soal" appearance="reference" />
 
-        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
+        <SidebarInset className="min-h-svh min-w-0 !bg-transparent lg:rounded-3xl">
+          <header className="sticky top-0 z-20 rounded-control bg-voyage-canvas/90 backdrop-blur-xl lg:top-6 lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0" />
               <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">

@@ -72,7 +72,7 @@ function ResetPasswordPageModule({
             Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru untuk
             mengatur ulang kata sandi.
           </FormNotice>
-          <Link className={buttonVariants({ size: "lg", variant: "brand" })} href={copy.requestNewLinkHref}>
+          <Link className={buttonVariants({ size: "lg", variant: "default" })} href={copy.requestNewLinkHref}>
             Minta tautan baru
           </Link>
         </div>

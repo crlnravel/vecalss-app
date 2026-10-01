@@ -106,7 +106,7 @@ function CreateAffiliatorForm({ embedded = false }: { embedded?: boolean } = {})
       </div>
 
       <div className="flex justify-start md:justify-end">
-        <SubmitButton pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">
+        <SubmitButton pendingLabel="Membuat akun..." size="lg" type="submit" variant="default">
           Buat akun affiliator
         </SubmitButton>
       </div>

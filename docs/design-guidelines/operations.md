@@ -41,7 +41,8 @@ references before creating a new table shell:
 | `/admin/kapten` | Kapten directory | Search/status filtering, sortable columns, clickable rows with a detail sheet, status treatment, and pagination. |
 | `/mentor/quiz/question-bank` | Kapten Bank Soal catalogue | Folder and bank rows in one grid, breadcrumb/header actions, subject/category/status filters, sorting, row action menus, and dense-column overflow. |
 
-- **Frame:** Render the table inside the approved white `rounded-2xl`
+- **Density:** Shared `Table density="compact"` applies exact 4px vertical padding only to its direct body cells. Default density keeps shared spacing. Header, footer, horizontal padding, row states and nested tables retain their own geometry; callers choose density instead of local cell-padding overrides.
+- **Frame:** Render the table inside the approved white `rounded-card` (12px)
   surface. Use `DataTable` for the toolbar, filter chips, sortable header,
   row states, empty state, and responsive overflow; use `Table` primitives for
   semantic markup.
@@ -173,7 +174,9 @@ client-side server-state synchronization to manage.
   unless the immediate feedback prevents a costly mistake.
 - **Make state perceivable:** Invalid fields need `aria-invalid`, a stable
   `aria-describedby` reference, and an adjacent readable error. Submission
-  progress and completion need a visible label plus an `aria-live` region.
+  progress can remain in the action's pending label; dynamic page status uses
+  the shared persistent Sonner hook and completion uses a Sonner outcome. Do
+  not add a separate inline status sentence or duplicate live region.
 - **Do not fake persistence:** TanStack Form may manage a local prototype state,
   but a production submit must hand off to a Next.js Server Action or route
   handler and render the server result. Never present a local acknowledgement
@@ -189,3 +192,9 @@ client-side server-state synchronization to manage.
   marquees, and illustration-led sections should stay with native links,
   existing primitives, or focused local state. A library is justified by the
   interaction model, not by the presence of a component.
+
+## Sortable lists
+
+Use the shared `Sortable`, `SortableItem`, and `SortableHandle` primitives for
+user-controlled row ordering. Follow the [sortable usage guide](sortable.md)
+for composition, keyboard behavior, disabled states, and persistence boundaries.

@@ -7,7 +7,6 @@ import {
   Sparkles,
 } from "@/lib/icons";
 
-import { Badge } from "@/components/ui/badge";
 import { ActionButtonLink } from "@/modules/home/components/home-primitives";
 import { faqItems } from "@/modules/home/data";
 import { HomeFooter } from "@/modules/home/components/home-footer";
@@ -48,9 +47,9 @@ export default function FaqPageModule() {
           <div className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,0.98fr)_minmax(360px,0.72fr)] md:items-end md:gap-16 md:py-[72px]">
               <div>
-                <Badge size="card" variant="mint">
+                <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
                   FAQ
-                </Badge>
+                </p>
 
                 <h1 className="mt-7 max-w-[840px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
                   Temukan jawaban sebelum memilih program belajar.
@@ -63,7 +62,7 @@ export default function FaqPageModule() {
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
                   <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
-                  <ActionButtonLink href="/#about" variant="marketingOutline">
+                  <ActionButtonLink href="/#about" variant="outline">
                     Tentang Vecalss
                   </ActionButtonLink>
                 </div>
@@ -116,9 +115,9 @@ export default function FaqPageModule() {
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid gap-10 md:grid-cols-[300px_minmax(0,1fr)] md:gap-16">
             <aside className="rounded-5xl bg-[color-mix(in_oklab,var(--warning-50)_72%,transparent)] p-6 shadow-[0_22px_58px_-44px_color-mix(in_oklab,var(--voyage-ink)_16%,transparent)] md:sticky md:top-8 md:self-start">
-              <Badge size="section" variant="accent">
+              <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
                 Pertanyaan umum
-              </Badge>
+              </p>
               <h2 className="mt-6 text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Jawaban yang kamu cari.
               </h2>
@@ -190,7 +189,7 @@ export default function FaqPageModule() {
 
             <div className="relative flex flex-col gap-4 sm:flex-row md:flex-col">
               <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
-              <ActionButtonLink href="/#about" variant="inverseOutline">
+              <ActionButtonLink href="/#about" variant="inverse">
                 Tentang Vecalss
               </ActionButtonLink>
             </div>

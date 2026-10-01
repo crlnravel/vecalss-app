@@ -15,6 +15,7 @@ import {
   Upload,
 } from "@/lib/icons";
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -58,19 +59,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { cn } from "@/lib/utils";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
@@ -431,14 +425,14 @@ function createQuestionBankCatalogueColumns({
           >
             {row.bank.subjectCoverage.length ? (
               row.bank.subjectCoverage.map((subject) => (
-                <MentorBadge
+                <Badge
                   className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[8rem]"
                   key={subject}
-                  size="compact"
+                  size="xs"
                   tone="category"
                 >
                   {subject}
-                </MentorBadge>
+                </Badge>
               ))
             ) : (
               <span className="text-sm text-secondary-400">—</span>
@@ -462,14 +456,14 @@ function createQuestionBankCatalogueColumns({
           >
             {(row.bank.materiCoverage ?? []).length ? (
               (row.bank.materiCoverage ?? []).map((materi) => (
-                <MentorBadge
+                <Badge
                   className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[12rem]"
                   key={materi}
-                  size="compact"
+                  size="xs"
                   tone="category"
                 >
                   {materi}
-                </MentorBadge>
+                </Badge>
               ))
             ) : (
               <span className="text-sm text-secondary-400">—</span>
@@ -838,7 +832,7 @@ function QuestionBankFolderDialog({
             disabled={isApplying}
             onClick={onClose}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Batal
           </Button>
@@ -849,7 +843,7 @@ function QuestionBankFolderDialog({
             }
             onClick={onSubmit}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying ? "Menyimpan…" : "Simpan"}
           </Button>
@@ -934,7 +928,7 @@ function QuestionBankMoveDialog({
             disabled={isApplying}
             onClick={onClose}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Batal
           </Button>
@@ -942,7 +936,7 @@ function QuestionBankMoveDialog({
             disabled={isApplying}
             onClick={onSubmit}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying ? "Memindahkan…" : "Pindahkan"}
           </Button>
@@ -1008,7 +1002,7 @@ function QuestionBankLifecycleConfirmationDialog({
           <AlertDialogAction
             disabled={isApplying}
             onClick={onConfirm}
-            variant={pendingConfirmation ? "destructive" : "brand"}
+            variant={pendingConfirmation ? "destructive" : "default"}
           >
             {isApplying
               ? "Memproses…"
@@ -1389,7 +1383,6 @@ function getQuestionBankCatalogueViewModel({
   flatFolders,
   folders,
   initialPageSize,
-  initialPurpose,
   initialSearch,
   initialTotal,
   page,
@@ -1398,7 +1391,6 @@ function getQuestionBankCatalogueViewModel({
   flatFolders: Array<{ depth: number; folder: FolderNode }>;
   folders: FolderNode[];
   initialPageSize: number;
-  initialPurpose: QuestionBankPurpose;
   initialSearch: string;
   initialTotal: number;
   page: number;
@@ -1410,7 +1402,7 @@ function getQuestionBankCatalogueViewModel({
       : selectedFolder === null
         ? findFolder(folders, null)
         : null;
-  const rootLabel = questionBankNavigationLabel(initialPurpose);
+  const rootLabel = "#";
   const currentPath =
     selectedFolder === ROOT_FOLDER
       ? [{ id: null, name: rootLabel }]
@@ -1506,6 +1498,16 @@ function useQuestionBankCatalogueState({
   const [bankMoveId, setBankMoveId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(initialCreateDialogOpen);
 
+  useEffect(() => {
+    function syncCreateDialogWithHistory() {
+      const values = new URLSearchParams(window.location.search).getAll("create");
+      setCreateDialogOpen(values.length === 1 && values[0] === "1");
+    }
+
+    window.addEventListener("popstate", syncCreateDialogWithHistory);
+    return () => window.removeEventListener("popstate", syncCreateDialogWithHistory);
+  }, []);
+
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const {
     childFolders,
@@ -1520,7 +1522,6 @@ function useQuestionBankCatalogueState({
     flatFolders,
     folders,
     initialPageSize,
-    initialPurpose,
     initialSearch,
     initialTotal,
     page,
@@ -1775,17 +1776,10 @@ function QuestionBankCataloguePageContent({
   state: QuestionBankCatalogueState;
 }) {
   const {
-    activeFilters,
     applyLifecycle,
     bankMoveId,
-    catalogueColumns,
-    catalogueRowContextMenu,
-    catalogueRows,
-    clearFiltersHref,
     createDialogOpen,
-    currentFolder,
     flatFolders,
-    folderBreadcrumb,
     folderCreateLabel,
     folderCreateParentId,
     folderDialog,
@@ -1794,16 +1788,10 @@ function QuestionBankCataloguePageContent({
     folderParentId,
     folders,
     isApplying,
-    isCataloguePending,
-    isGlobalSearch,
     moveBankToFolder,
-    navigateCatalogue,
     openFolderCreate,
-    openFolderManage,
-    openCatalogueRow,
     pendingConfirmation,
     pendingLifecycle,
-    resetPage,
     selectedBank,
     selectedCategories,
     selectedFolder,
@@ -1814,24 +1802,19 @@ function QuestionBankCataloguePageContent({
     setFolderError,
     setFolderName,
     setFolderParentId,
-    setPage,
     setPendingConfirmation,
     setPendingLifecycle,
-    setSelectedSubjects,
-    setStatusFilter,
     statusFilter,
     submitFolderDialog,
-    totalPages,
     visiblePage,
   } = state;
-  const router = useRouter();
   const lifecycleCopy = getQuestionBankLifecycleCopy(pendingLifecycle?.action);
   const pageTitle = questionBankNavigationLabel(initialPurpose);
 
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);
     if (!open && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("create")) {
-      router.replace(questionBankHref({
+      window.history.replaceState(null, "", questionBankHref({
         categories: selectedCategories,
         folder: selectedFolder,
         page: visiblePage,
@@ -1840,7 +1823,7 @@ function QuestionBankCataloguePageContent({
         sort: initialSort,
         status: statusFilter,
         subjects: selectedSubjects,
-      }), { scroll: false });
+      }));
     }
   }
 
@@ -1855,7 +1838,7 @@ function QuestionBankCataloguePageContent({
               size="icon-sm"
               title={folderCreateLabel}
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               <FolderPlus />
             </Button>
@@ -1863,7 +1846,8 @@ function QuestionBankCataloguePageContent({
               aria-label="Buat Soal"
               onClick={() => {
                 setCreateDialogOpen(true);
-                router.push(questionBankCreateHref({
+                // Opening a local dialog must not remount the server catalogue.
+                window.history.pushState(null, "", questionBankCreateHref({
                   categories: selectedCategories,
                   folder: selectedFolder,
                   page: visiblePage,
@@ -1872,12 +1856,12 @@ function QuestionBankCataloguePageContent({
                   sort: initialSort,
                   status: statusFilter,
                   subjects: selectedSubjects,
-                }), { scroll: false });
+                }));
               }}
               size="sm"
               title="Buat Bank"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Plus />
               Buat Bank
@@ -1887,148 +1871,7 @@ function QuestionBankCataloguePageContent({
         title={pageTitle}
       />
 
-      <div className="min-w-0">
-        <MentorCatalogueTable
-          breadcrumb={folderBreadcrumb}
-          caption="Daftar folder dan bank soal"
-          clearFiltersHref={clearFiltersHref}
-          columns={catalogueColumns}
-          emptyState={
-            <div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center">
-              <LibraryBig className="size-7 text-primary-300" />
-              <h2 className="mt-3 font-semibold text-secondary-900">
-                {isGlobalSearch
-                  ? "Tidak ada hasil pencarian"
-                  : "Belum ada item di lokasi ini"}
-              </h2>
-              <p className="mt-1 text-sm font-normal leading-6 text-secondary-600">
-                Buat bank soal atau folder baru untuk mulai mengisi ruang ini.
-              </p>
-              {/* {!isGlobalSearch ? ( */}
-              {/*   <div className="mt-5 flex flex-wrap items-center justify-center gap-2"> */}
-              {/*     <Button */}
-              {/*       nativeButton={false} */}
-              {/*       render={ */}
-              {/*         <Link */}
-              {/*           href={questionBankCreateHref({ */}
-              {/*             folder: selectedFolder, */}
-              {/*             purpose: initialPurpose, */}
-              {/*           })} */}
-              {/*         /> */}
-              {/*       } */}
-              {/*       size="sm" */}
-              {/*       type="button" */}
-              {/*       variant="brand" */}
-              {/*     > */}
-              {/*       <Plus /> */}
-              {/*       Buat bank soal */}
-              {/*     </Button> */}
-              {/*     <Button */}
-              {/*       onClick={() => openFolderCreate(folderCreateParentId)} */}
-              {/*       size="sm" */}
-              {/*       type="button" */}
-              {/*       variant="brandOutline" */}
-              {/*     > */}
-              {/*       <FolderPlus /> */}
-              {/*       {folderCreateLabel} */}
-              {/*     </Button> */}
-              {/*   </div> */}
-              {/* ) : null} */}
-            </div>
-          }
-          filterPanel={
-            <QuestionBankCatalogueFilterPanel
-              navigateCatalogue={navigateCatalogue}
-              resetPage={resetPage}
-              selectedSubjects={selectedSubjects}
-              setSelectedSubjects={setSelectedSubjects}
-              setStatusFilter={setStatusFilter}
-              statusFilter={statusFilter}
-            />
-          }
-          filters={activeFilters}
-          getRowId={(row) =>
-            row.kind === "folder"
-              ? `folder-${row.folder.id ?? row.folder.name}`
-              : `bank-${row.bank.id}`
-          }
-          isLoading={isCataloguePending}
-          loadingLabel="Memuat bank soal…"
-          onRowClick={openCatalogueRow}
-          rowContextMenu={catalogueRowContextMenu}
-          rows={catalogueRows}
-          search={{
-            action: "/mentor/quiz/question-bank",
-            clearHref: questionBankHref({
-              categories: selectedCategories,
-              folder: selectedFolder,
-              page: 1,
-              purpose: initialPurpose,
-              sort: initialSort,
-              status: statusFilter,
-              subjects: selectedSubjects,
-            }),
-            hiddenFields: {
-              purpose: initialPurpose,
-              ...(selectedFolder !== ROOT_FOLDER
-                ? {
-                    folder:
-                      selectedFolder === null ? "unfiled" : selectedFolder,
-                  }
-                : {}),
-              ...(selectedCategories.length
-                ? { category: selectedCategories }
-                : {}),
-              ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}),
-              ...(statusFilter ? { status: statusFilter } : {}),
-              ...(initialSort !== "updated" ? { sort: initialSort } : {}),
-            },
-            label: "Cari bank soal",
-            placeholder: "Cari judul, folder, subject, atau materi…",
-            value: initialSearch,
-          }}
-          tableClassName="min-w-0"
-          wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
-        />
-        {initialTotal ? (
-          <nav
-            aria-label="Paginasi bank soal"
-            className="flex items-center justify-center gap-2 pt-2"
-          >
-            <Button
-              aria-label="Halaman sebelumnya"
-              disabled={visiblePage === 1}
-              onClick={() => {
-                const next = Math.max(1, visiblePage - 1);
-                setPage(next);
-                navigateCatalogue({ page: next });
-              }}
-              size="icon-sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <ChevronRight className="rotate-180" />
-            </Button>
-            <span className="text-sm text-secondary-500">
-              Halaman {visiblePage} dari {totalPages}
-            </span>
-            <Button
-              aria-label="Halaman berikutnya"
-              disabled={visiblePage === totalPages}
-              onClick={() => {
-                const next = Math.min(totalPages, visiblePage + 1);
-                setPage(next);
-                navigateCatalogue({ page: next });
-              }}
-              size="icon-sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <ChevronRight />
-            </Button>
-          </nav>
-        ) : null}
-      </div>
+      <QuestionBankCatalogueTableSection initialPurpose={initialPurpose} initialSearch={initialSearch} initialSort={initialSort} initialTotal={initialTotal} state={state} />
 
       {createDialogOpen ? (
         <KaptenQuestionBankBuilderPageModule
@@ -2091,6 +1934,71 @@ function QuestionBankCataloguePageContent({
         open={Boolean(pendingLifecycle || pendingConfirmation)}
         pendingConfirmation={pendingConfirmation}
       />
+    </div>
+  );
+}
+
+function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, initialSort, initialTotal, state }: {
+  initialPurpose: QuestionBankPurpose;
+  initialSearch: string;
+  initialSort: BankSortMode;
+  initialTotal: number;
+  state: QuestionBankCatalogueState;
+}) {
+  const {
+    activeFilters, catalogueColumns, catalogueRowContextMenu, catalogueRows,
+    clearFiltersHref, folderBreadcrumb, isCataloguePending, isGlobalSearch,
+    navigateCatalogue, openCatalogueRow, resetPage, selectedCategories,
+    selectedFolder, selectedSubjects, setPage, setSelectedSubjects,
+    setStatusFilter, statusFilter, totalPages, visiblePage,
+  } = state;
+  return (
+    <div className="min-w-0">
+      <MentorCatalogueTable
+        breadcrumb={folderBreadcrumb}
+        caption="Daftar folder dan bank soal"
+        clearFiltersHref={clearFiltersHref}
+        columns={catalogueColumns}
+        emptyState={
+          <div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center">
+            <LibraryBig className="size-7 text-primary-300" />
+            <h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2>
+            <p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>
+          </div>
+        }
+        filterPanel={<QuestionBankCatalogueFilterPanel navigateCatalogue={navigateCatalogue} resetPage={resetPage} selectedSubjects={selectedSubjects} setSelectedSubjects={setSelectedSubjects} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
+        filters={activeFilters}
+        getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
+        isLoading={isCataloguePending}
+        loadingLabel="Memuat bank soal…"
+        onRowClick={openCatalogueRow}
+        rowContextMenu={catalogueRowContextMenu}
+        rows={catalogueRows}
+        search={{
+          action: "/mentor/quiz/question-bank",
+          clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, sort: initialSort, status: statusFilter, subjects: selectedSubjects }),
+          hiddenFields: {
+            purpose: initialPurpose,
+            ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}),
+            ...(selectedCategories.length ? { category: selectedCategories } : {}),
+            ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}),
+            ...(statusFilter ? { status: statusFilter } : {}),
+            ...(initialSort !== "updated" ? { sort: initialSort } : {}),
+          },
+          label: "Cari bank soal",
+          placeholder: "Cari judul, folder, subject, atau materi…",
+          value: initialSearch,
+        }}
+        tableClassName="min-w-0"
+        wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
+      />
+      {initialTotal ? (
+        <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2">
+          <Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button>
+          <span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span>
+          <Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight /></Button>
+        </nav>
+      ) : null}
     </div>
   );
 }

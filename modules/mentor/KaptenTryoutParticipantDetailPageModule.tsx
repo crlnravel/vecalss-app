@@ -252,7 +252,7 @@ function ParticipantActionsPanel({
                 <Button
                   disabled={!auditReason.trim() || busy}
                   onClick={() => void handleApprove()}
-                  variant="brand"
+                  variant="default"
                 >
                   <Check data-icon="inline-start" />
                   Setujui
@@ -271,7 +271,7 @@ function ParticipantActionsPanel({
               <Button
                 disabled={!auditReason.trim() || !selectedSessionId || busy}
                 onClick={() => void handleAssign()}
-                variant="brand"
+                variant="default"
               >
                 <Link2 data-icon="inline-start" />
                 Tugaskan sesi
@@ -417,12 +417,12 @@ function KaptenTryoutParticipantDetailPageModule({
       {embedded ? null : <div className="flex min-w-0 items-start gap-3">
         <Button
           aria-label="Kembali ke daftar peserta Tryout"
-          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          className="mt-1 shrink-0"
           nativeButton={false}
           render={<Link href={`/mentor/tryout/${initial.id}?workspace=participants`} />}
           size="icon"
           title="Kembali ke daftar peserta Tryout"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>

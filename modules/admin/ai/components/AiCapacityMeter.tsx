@@ -14,7 +14,7 @@ export function AiCapacityMeter({ capacity }: { capacity: SystemCapacityMetrics 
   ];
 
   return (
-    <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+    <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
         <div>
           <h2 className="text-base font-bold text-secondary-950">Kapasitas & Headroom Sistem Vera AI</h2>

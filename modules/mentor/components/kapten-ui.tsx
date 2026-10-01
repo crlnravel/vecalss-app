@@ -202,7 +202,7 @@ function QuickCreateMenu({ label }: { label?: string } = {}) {
             size={hasLabel ? "sm" : "icon"}
             title={label ?? "Buat cepat"}
             type="button"
-            variant={hasLabel ? "brand" : "brandOutline"}
+            variant={hasLabel ? "default" : "outline"}
           />
         }
       >
@@ -243,7 +243,7 @@ function PaginationControls({
         className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
         size="icon-sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <ChevronLeft />
       </Button>
@@ -257,7 +257,7 @@ function PaginationControls({
         className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none"
         size="icon-sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <ChevronRight />
       </Button>
@@ -285,12 +285,12 @@ function PaginationLinks({
           nativeButton={false}
           render={<Link href={previousHref} />}
           size="icon-sm"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>
       ) : (
-        <Button aria-label="Halaman sebelumnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="ghost">
+        <Button aria-label="Halaman sebelumnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="outline">
           <ChevronLeft />
         </Button>
       )}
@@ -304,12 +304,12 @@ function PaginationLinks({
           nativeButton={false}
           render={<Link href={nextHref} />}
           size="icon-sm"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronRight />
         </Button>
       ) : (
-        <Button aria-label="Halaman berikutnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="ghost">
+        <Button aria-label="Halaman berikutnya" className="size-[44px] min-h-[44px] min-w-[44px] motion-reduce:transition-none" disabled size="icon-sm" type="button" variant="outline">
           <ChevronRight />
         </Button>
       )}
@@ -419,7 +419,7 @@ function EmptyState({
         className="mt-5 min-h-[44px] motion-reduce:transition-none"
         render={<Link href={href} />}
         size="default"
-        variant="brand"
+        variant="default"
       >
         <Plus />
         {actionLabel}

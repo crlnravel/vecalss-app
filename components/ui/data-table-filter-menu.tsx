@@ -83,7 +83,7 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
                 aria-haspopup="dialog"
                 aria-pressed={pinnedFilterId === filter.id}
                 className={cn(
-                  "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left text-sm text-secondary-800 transition-colors motion-reduce:transition-none",
+                  "flex min-h-11 w-full items-center justify-between gap-3 rounded-control px-2.5 py-2 text-left text-sm text-secondary-800 transition-colors motion-reduce:transition-none",
                   "hover:bg-primary-50 hover:text-secondary-900 focus-visible:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
                   isActive && "bg-primary-50/80 text-secondary-900",
                 )}
@@ -114,14 +114,14 @@ function DataTableFilterMenu({ children, filters }: DataTableFilterMenuProps) {
               {isActive ? (
                 <div
                   aria-label={`${filter.label} filter`}
-                  className="mt-1 w-full rounded-2xl border border-primary-100 bg-white p-3 text-secondary-900 shadow-[0_16px_36px_-22px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] outline-none lg:absolute lg:right-full lg:top-0 lg:mt-0 lg:mr-2 lg:w-72"
+                  className="mt-1 w-full rounded-control border border-primary-100 bg-white p-3 text-secondary-900 shadow-[0_16px_36px_-22px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] outline-none lg:absolute lg:right-full lg:top-0 lg:mt-0 lg:mr-2 lg:w-72"
                   id={panelId}
                   onMouseEnter={() => {
                     clearCloseTimeout();
                     setActiveFilterId(filter.id);
                   }}
                   onMouseLeave={() => scheduleClose(filter.id)}
-                  role="dialog"
+                  role="group"
                 >
                   {filter.content}
                 </div>

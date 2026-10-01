@@ -561,6 +561,7 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
     toolCallDigest: input.toolCallDigest,
     toolResultDigest: parsedResult.resultDigest,
   }));
+  const truncatedOrdinalSet = new Set(allocationResult.truncatedOrdinals);
   const blocks: PreparedContextBlock[] = normalizedSources.map((source, index) => {
     const sourceAllocation = allocationResult.allocation[index] ?? { citationKey: source.citationKey, evidenceSegments: [], truncated: true };
     const sourceType: Exclude<VeraContextSourceType, "document"> = source.kind === "materi" ? "material" : "practice";
@@ -575,7 +576,7 @@ export function prepareAutomaticContextPack(input: AutomaticContextPackInput): P
       contentDigest: source.releaseMetadata.versionDigest,
       content,
       redacted: content !== source.evidenceSegments.join("\n\n"),
-      truncated: sourceAllocation.truncated || allocationResult.truncatedOrdinals.includes(index + 1),
+      truncated: sourceAllocation.truncated || truncatedOrdinalSet.has(index + 1),
     };
   });
   const providerToolResult = createContextToolResult({

@@ -10,7 +10,7 @@ import {
   Pencil,
   X,
 } from "@/lib/icons";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 
 import {
   AlertDialog,
@@ -39,11 +39,11 @@ import {
   FieldTextarea,
 } from "@/components/ui/field";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
 import { Input } from "@/components/ui/input";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
@@ -67,6 +67,7 @@ import {
   ResourceEditLockProvider,
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 
 type QuizDetailTab = "preview" | "hasil" | "pengaturan";
 
@@ -120,11 +121,13 @@ function QuizSourceSummary({ quiz }: { quiz: KaptenQuiz }) {
 }
 
 function QuizPreview({
+  returnHref,
   quizId,
   questions,
   subjectCode,
 }: {
   quizId: string;
+  returnHref: string;
   questions: QuizQuestionSnapshot[];
   subjectCode: string;
 }) {
@@ -138,16 +141,21 @@ function QuizPreview({
           <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
             Daftar Soal
           </h2>
-          <MentorBadge className="font-bold" size="xs" tone="category">
+          <Badge className="font-bold" size="sm" tone="category">
             {questions.length} Soal
-          </MentorBadge>
+          </Badge>
         </div>
         <Button
-          className="shrink-0"
+          className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]"
           nativeButton={false}
-          render={<Link href={`/mentor/quiz/${quizId}/editor`} />}
+          size="xs"
+          render={
+            <Link
+              href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`}
+            />
+          }
           type="button"
-          variant="brand"
+          variant="default"
         >
           <FilePenLine />
           Edit soal
@@ -159,9 +167,13 @@ function QuizPreview({
             action={
               <Button
                 nativeButton={false}
-                render={<Link href={`/mentor/quiz/${quizId}/editor`} />}
+                render={
+                  <Link
+                    href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`}
+                  />
+                }
                 size="sm"
-                variant="brand"
+                variant="default"
               >
                 <FilePenLine />
                 Tulis soal pertama
@@ -210,17 +222,17 @@ function QuizQuestionCard({
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Subjek
             </span>
-            <MentorBadge size="xs" tone="category">
+            <strong className="text-[12px] font-bold text-voyage-ink">
               {subjectCode}
-            </MentorBadge>
+            </strong>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Kesulitan
             </span>
-            <MentorBadge size="xs" tone="category">
+            <Badge size="xs" tone="category">
               Sedang
-            </MentorBadge>
+            </Badge>
           </div>
         </div>
       </div>
@@ -361,7 +373,7 @@ function QuizTitleField({
         onClick={save}
         size="sm"
         type="button"
-        variant="brand"
+        variant="default"
       >
         <Check />
         Simpan
@@ -371,7 +383,7 @@ function QuizTitleField({
         onClick={cancel}
         size="sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <X />
         Batal
@@ -385,15 +397,15 @@ function QuizTitleField({
       {!disabled ? (
         <Button
           aria-label="Ubah judul Kuis"
-          className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
+          className="mt-1 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
           onClick={() => {
             setDraft(value);
             setEditing(true);
           }}
-          size="icon-sm"
+          size="icon"
           title="Ubah judul Kuis"
           type="button"
-          variant="ghost"
+          variant="quiet"
         >
           <Pencil className="size-4" />
         </Button>
@@ -429,15 +441,15 @@ function QuizDescriptionField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah deskripsi Kuis"
-            className="size-7 text-secondary-400 hover:text-secondary-900"
+            className="text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
             }}
-            size="icon-sm"
+            size="icon"
             title="Ubah deskripsi Kuis"
             type="button"
-            variant="ghost"
+            variant="quiet"
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -463,7 +475,7 @@ function QuizDescriptionField({
               }}
               size="sm"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Check /> Simpan
             </Button>
@@ -472,7 +484,7 @@ function QuizDescriptionField({
               onClick={cancel}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X /> Batal
             </Button>
@@ -518,15 +530,15 @@ function QuizSubjectField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah subjek Kuis"
-            className="size-7 text-secondary-400 hover:text-secondary-900"
+            className="text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
             }}
-            size="icon-sm"
+            size="icon"
             title="Ubah subjek Kuis"
             type="button"
-            variant="ghost"
+            variant="quiet"
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -555,7 +567,7 @@ function QuizSubjectField({
               }}
               size="sm"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Check /> Simpan
             </Button>
@@ -564,7 +576,7 @@ function QuizSubjectField({
               onClick={cancel}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X /> Batal
             </Button>
@@ -572,9 +584,9 @@ function QuizSubjectField({
         </div>
       ) : (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <MentorBadge size="xs" tone="category">
-            {subject ? `${subject.code} · ${subject.name}` : value}
-          </MentorBadge>
+          <strong className="text-sm font-bold text-voyage-ink">
+            {subject ? subject.name : value}
+          </strong>
         </div>
       )}
     </div>
@@ -643,33 +655,7 @@ function QuizSettings({
   onSave: () => void;
   onSetHidden?: (isHidden: boolean) => Promise<boolean>;
 }) {
-  const [archiveConfirmationOpen, setArchiveConfirmationOpen] = useState(false);
-  const scheduleError =
-    form.opensAt &&
-    form.closesAt &&
-    new Date(form.closesAt) <= new Date(form.opensAt)
-      ? "Waktu tutup harus setelah waktu buka."
-      : null;
-  const durationError =
-    form.durationMinutes !== null &&
-    (!Number.isInteger(form.durationMinutes) || form.durationMinutes < 1)
-      ? "Durasi harus berupa jumlah menit positif atau dikosongkan untuk tanpa batas."
-      : null;
-  const attemptsOptions = [
-    ...(form.attemptsAllowed !== null &&
-    ![1, 3, 5].includes(form.attemptsAllowed)
-      ? [
-          {
-            label: `${form.attemptsAllowed} kali`,
-            value: String(form.attemptsAllowed),
-          },
-        ]
-      : []),
-    { label: "1 kali", value: "1" },
-    { label: "3 kali", value: "3" },
-    { label: "5 kali", value: "5" },
-    { label: "Tanpa batas", value: "unlimited" },
-  ];
+  const { durationError, scheduleError } = getQuizSettingsErrors(form);
 
   return (
     <div className="grid gap-6">
@@ -712,6 +698,9 @@ function QuizSettings({
               value={form.closesAt}
             />
           </Field>
+          <p className="text-sm leading-6 text-secondary-600 sm:col-span-2">
+            Jika dikosongkan, maka kuis terbuka seterusnya
+          </p>
           <Field>
             <FieldLabel
               className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -788,12 +777,54 @@ function QuizSettings({
           }
           onClick={onSave}
           type="button"
-          variant="brand"
+          variant="default"
         >
           {isSaving ? "Menyimpan…" : "Simpan"}
         </Button>
       </ReferenceSurface>
 
+      <QuizLifecycleSettings
+        disabled={disabled}
+        isHidden={isHidden}
+        isSaving={isSaving}
+        onArchive={onArchive}
+        onSetHidden={onSetHidden}
+      />
+    </div>
+  );
+}
+
+function getQuizSettingsErrors(form: SettingsForm) {
+  const scheduleError =
+    form.opensAt &&
+    form.closesAt &&
+    new Date(form.closesAt) <= new Date(form.opensAt)
+      ? "Waktu tutup harus setelah waktu buka."
+      : null;
+  const durationError =
+    form.durationMinutes !== null &&
+    (!Number.isInteger(form.durationMinutes) || form.durationMinutes < 1)
+      ? "Durasi harus berupa jumlah menit positif atau dikosongkan untuk tanpa batas."
+      : null;
+  return { durationError, scheduleError };
+}
+
+function QuizLifecycleSettings({
+  disabled,
+  isHidden,
+  isSaving,
+  onArchive,
+  onSetHidden,
+}: {
+  disabled: boolean;
+  isHidden: boolean;
+  isSaving: boolean;
+  onArchive?: () => Promise<boolean>;
+  onSetHidden?: (isHidden: boolean) => Promise<boolean>;
+}) {
+  const [archiveConfirmationOpen, setArchiveConfirmationOpen] = useState(false);
+  return (
+    <>
       {onArchive || onSetHidden ? (
         <ReferenceSurface
           as="section"
@@ -804,82 +835,142 @@ function QuizSettings({
             <h2 className="text-lg font-semibold text-secondary-900">
               Administrasi
             </h2>
-            {onSetHidden ? (
-              <AdministrationActionRow
-                action={isHidden ? "Tampilkan Kuis" : "Sembunyikan Kuis"}
-                description={
-                  isHidden
-                    ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat memulai pengerjaan baru."
-                    : "Kuis tidak muncul di katalog siswa dan tidak menerima pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."
-                }
-              >
-                <Button
-                  aria-busy={isSaving}
-                  disabled={disabled || isSaving}
-                  onClick={() => void onSetHidden(!isHidden)}
-                  type="button"
-                  variant="brandOutline"
-                >
-                  {isHidden ? "Tampilkan lagi" : "Sembunyikan"}
-                </Button>
-              </AdministrationActionRow>
-            ) : null}
-            <div>
-              {onArchive ? (
-                <AdministrationActionRow
-                  action="Arsipkan Kuis"
-                  description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa."
-                >
-                  <Button
-                    aria-busy={isSaving}
-                    disabled={disabled || isSaving}
-                    onClick={() => setArchiveConfirmationOpen(true)}
-                    type="button"
-                    variant="dangerOutline"
-                  >
-                    <Archive />
-                    Arsipkan{" "}
-                  </Button>
-                </AdministrationActionRow>
-              ) : null}
-            </div>
+            <QuizVisibilityAction
+              disabled={disabled}
+              isHidden={isHidden}
+              isSaving={isSaving}
+              onSetHidden={onSetHidden}
+            />
+            <QuizArchiveAction
+              disabled={disabled}
+              isSaving={isSaving}
+              onArchiveRequested={() => setArchiveConfirmationOpen(true)}
+              onArchive={onArchive}
+            />
           </div>
         </ReferenceSurface>
       ) : null}
-
-      <AlertDialog
+      <QuizArchiveConfirmation
+        isOpen={archiveConfirmationOpen}
+        isSaving={isSaving}
+        onArchive={onArchive}
         onOpenChange={(open) => {
           if (!isSaving) setArchiveConfirmationOpen(open);
         }}
-        open={archiveConfirmationOpen}
+        onSuccess={() => setArchiveConfirmationOpen(false)}
+      />
+    </>
+  );
+}
+
+function QuizVisibilityAction({
+  disabled,
+  isHidden,
+  isSaving,
+  onSetHidden,
+}: {
+  disabled: boolean;
+  isHidden: boolean;
+  isSaving: boolean;
+  onSetHidden?: (isHidden: boolean) => Promise<boolean>;
+}) {
+  if (!onSetHidden) return null;
+  return (
+    <AdministrationActionRow
+      action={isHidden ? "Tampilkan Kuis" : "Sembunyikan Kuis"}
+      description={
+        isHidden
+          ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat melihat kuis ini."
+          : "Sembunyikan kuis dari siswa. Siswa yang sudah mulai mengerjakan tetap dapat melanjutkan, dan hasil pengerjaan tetap tersimpan."
+      }
+    >
+      <Button
+        aria-busy={isSaving}
+        disabled={disabled || isSaving}
+        onClick={() => void onSetHidden(!isHidden)}
+        type="button"
+        variant="outline"
       >
-        <AlertDialogContent pending={isSaving} variant="danger">
-          <AlertDialogHeader>
-            <AlertDialogMedia variant="danger">
-              <Archive />
-            </AlertDialogMedia>
-            <AlertDialogTitle>Arsipkan Kuis?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan
-              tetap tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isSaving}
-              onClick={async (event) => {
-                event.preventDefault();
-                if (await onArchive?.()) setArchiveConfirmationOpen(false);
-              }}
-              variant="destructive"
-            >
-              {isSaving ? "Mengarsipkan…" : "Arsipkan Kuis"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {isHidden ? <EyeIcon /> : <EyeSlashIcon />}
+        {isHidden ? "Tampilkan" : "Sembunyikan"}
+      </Button>
+    </AdministrationActionRow>
+  );
+}
+
+function QuizArchiveAction({
+  disabled,
+  isSaving,
+  onArchiveRequested,
+  onArchive,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+  onArchiveRequested: () => void;
+  onArchive?: () => Promise<boolean>;
+}) {
+  if (!onArchive) return null;
+  return (
+    <AdministrationActionRow
+      action="Arsipkan Kuis"
+      description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa."
+    >
+      <Button
+        aria-busy={isSaving}
+        disabled={disabled || isSaving}
+        onClick={onArchiveRequested}
+        type="button"
+        variant="destructive"
+      >
+        <Archive />
+        Arsipkan
+      </Button>
+    </AdministrationActionRow>
+  );
+}
+
+function QuizArchiveConfirmation({
+  isOpen,
+  isSaving,
+  onArchive,
+  onOpenChange,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  isSaving: boolean;
+  onArchive?: () => Promise<boolean>;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  async function confirmArchive(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (await onArchive?.()) onSuccess();
+  }
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={isOpen}>
+      <AlertDialogContent pending={isSaving} variant="danger">
+        <AlertDialogHeader>
+          <AlertDialogMedia variant="danger">
+            <Archive />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Arsipkan Kuis?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan tetap
+            tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isSaving}
+            onClick={confirmArchive}
+            variant="destructive"
+          >
+            {isSaving ? "Mengarsipkan…" : "Arsipkan Kuis"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -888,12 +979,14 @@ function KaptenQuizDetailPageContent({
   initialQuiz,
   initialResults,
   initialTab = "preview",
+  returnHref = "/mentor/quiz",
   session,
 }: {
   initialQuestions: QuizQuestionSnapshot[];
   initialQuiz: KaptenQuiz;
   initialResults: KaptenQuizResultsData;
   initialTab?: QuizDetailTab;
+  returnHref?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
@@ -917,7 +1010,10 @@ function KaptenQuizDetailPageContent({
       return;
     const next = value as QuizDetailTab;
     setActiveTab(next);
-    router.push(`/mentor/quiz/${quiz.id}?tab=${next}`, { scroll: false });
+    router.push(
+      `/mentor/quiz/${quiz.id}?${new URLSearchParams({ tab: next, returnTo: returnHref })}`,
+      { scroll: false },
+    );
   }
 
   async function saveSettings() {
@@ -1044,18 +1140,11 @@ function KaptenQuizDetailPageContent({
     }
   }
 
-  const subject = kaptenSubjects.find((item) => item.code === quiz.subjectCode);
-  const subjectHref = subject
-    ? `/mentor/quiz/subject/${subject.slug}`
-    : "/mentor/quiz";
-
   return (
     <MentorWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel="Detail Kuis"
-      breadcrumbParent={
-        subject ? { href: subjectHref, label: subject.code } : undefined
-      }
+      breadcrumbParent={{ href: returnHref, label: "Daftar kuis" }}
       contentElement="div"
       mainClassName="max-w-[1500px] gap-7"
       session={session}
@@ -1082,28 +1171,29 @@ function KaptenQuizDetailPageContent({
           onValueChange={changeTab}
           value={activeTab}
         >
-          <FullWidthLineTabsList aria-label="Bagian detail Kuis">
-            <FullWidthLineTabsTrigger
+          <FullWidthTabsList aria-label="Bagian detail Kuis">
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="preview"
             >
               Soal
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="hasil"
             >
               Hasil
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="pengaturan"
             >
               Pengaturan
-            </FullWidthLineTabsTrigger>
-          </FullWidthLineTabsList>
+            </FullWidthTabsTrigger>
+          </FullWidthTabsList>
           <TabsContent className="m-0 space-y-4" value="preview">
             <QuizPreview
+              returnHref={returnHref}
               quizId={quiz.id}
               questions={questions}
               subjectCode={quiz.subjectCode ?? "PU"}
@@ -1139,6 +1229,7 @@ function KaptenQuizDetailPageModule(props: {
   initialQuiz: KaptenQuiz;
   initialResults: KaptenQuizResultsData;
   initialTab?: QuizDetailTab;
+  returnHref?: string;
   session: SessionContext;
 }) {
   return (

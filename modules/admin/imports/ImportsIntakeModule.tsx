@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { FieldRequiredMark } from "@/components/ui/field";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { FileUploadSlot } from "@/components/ui/file-upload-slot";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -80,7 +83,7 @@ function selectImportFile(nextFile: File | null, fileInputRef: React.RefObject<H
   if (!nextFile) return;
   if (!nextFile.name.toLowerCase().endsWith(".csv")) {
     resetImportFileSelectionState(fileInputRef, setFile);
-    setFeedback({ message: "Pilih file sebelum mengunggah.", tone: "error" });
+    setFeedback({ message: "Pilih file CSV yang sesuai dengan templat.", tone: "error" });
     return;
   }
   setFile(nextFile);
@@ -115,7 +118,6 @@ async function submitImportPreview({
 
   setBusy(true);
   onBusyChange?.(true);
-  setFeedback({ message: "Mengunggah file dan memeriksa isinya…", tone: "info" });
   try {
     const body = new FormData();
     body.append("template", templateVersion);
@@ -134,7 +136,6 @@ async function submitImportPreview({
     });
     if (initialRecovery) {
       setSessionIssue(initialRecovery);
-      setFeedback({ message: initialRecovery === "expired" ? "Sesi admin sudah berakhir. Masuk lagi untuk melanjutkan penambahan daftar." : "Akun ini tidak memiliki izin untuk menambahkan daftar.", tone: "error" });
       return;
     }
     if (!response.ok) {
@@ -147,10 +148,9 @@ async function submitImportPreview({
       });
       if (recovery) {
         setSessionIssue(recovery);
-        setFeedback({ message: recovery === "expired" ? "Sesi admin sudah berakhir. Masuk lagi untuk melanjutkan penambahan daftar." : "Akun ini tidak memiliki izin untuk menambahkan daftar.", tone: "error" });
         return;
       }
-      setFeedback({ message: readPreviewError(errorCode), tone: "error" });
+      showToast(readPreviewError(errorCode), { variant: "error" });
       return;
     }
 
@@ -160,7 +160,7 @@ async function submitImportPreview({
       ? (payload as { draft?: { importId?: unknown } }).draft
       : null;
     if (!draft || typeof draft.importId !== "string") {
-      setFeedback({ message: "Pratinjau belum berhasil dimuat. Segarkan halaman lalu coba lagi.", tone: "error" });
+      showToast("Pratinjau belum berhasil dimuat. Segarkan halaman lalu coba lagi.", { variant: "error" });
       return;
     }
 
@@ -168,7 +168,7 @@ async function submitImportPreview({
     routerPush("/admin/imports/" + encodeURIComponent(draft.importId));
   } catch {
     setSessionIssue(null);
-    setFeedback({ message: "File belum berhasil diproses. Belum ada akun yang diubah; periksa koneksi lalu coba lagi.", tone: "error" });
+    showToast("File belum berhasil diproses. Belum ada akun yang diubah; periksa koneksi lalu coba lagi.", { variant: "error" });
   } finally {
     setBusy(false);
     onBusyChange?.(false);
@@ -190,9 +190,9 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
   return (
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
       <div className="flex items-center gap-1.5">
-        <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih jenis akun<FieldRequiredMark /></label>
+        <label className={`block ${fieldLabelClassName}`} htmlFor="import-role">1. Pilih jenis akun<FieldRequiredMark /></label>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-xs" type="button" variant="ghost" />}>
+          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-sm" type="button" variant="outline" />}>
             <CircleHelp aria-hidden="true" size={15} />
           </TooltipTrigger>
           <TooltipContent>Satu file hanya boleh berisi data untuk satu jenis akun.</TooltipContent>
@@ -218,7 +218,7 @@ function ImportTemplateDownload({ showRoleSelect, template }: { showRoleSelect: 
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
       <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Unduh templat daftar" : "1. Unduh templat daftar"}</p>
       <p className="mt-1 text-xs leading-5 text-secondary-500">Gunakan templat ini untuk menambahkan daftar {template.label}.</p>
-      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh templat" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="reference">
+      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh templat" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="outline">
         <ArrowDownToLine aria-hidden="true" size={16} />
         Unduh templat
       </Button>
@@ -259,11 +259,11 @@ function ImportFileUpload({
         />
       </div>
       <p className="sr-only" id="roster-upload-help">Pilih file atau letakkan file di sini. Isinya akan diperiksa sebelum impor dimulai.</p>
-      <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
+      <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="default">
         <FileUp aria-hidden="true" size={17} />
         {busy ? "Mengunggah…" : "Unggah"}
       </Button>
-      <p aria-live="polite" className={cn("mt-3 min-h-5 text-xs leading-5", feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600")} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p>
+      {feedback.message ? <p aria-live="polite" className={cn("mt-3 text-xs leading-5", feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600")} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p> : null}
     </ReferenceSurface>
   );
 }
@@ -279,10 +279,10 @@ function ImportSessionIssueNotice({ sessionIssue }: { sessionIssue: "expired" | 
       <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke halaman penambahan akun." : "Masuk dengan akun admin yang aktif atau kembali ke beranda admin."}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="dangerOutline">
+        <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="destructive">
           {expired ? "Masuk lagi" : "Kembali ke beranda admin"}
         </Button>
-        <Button onClick={() => window.location.reload()} size="default" variant="dangerOutline">Segarkan halaman</Button>
+        <Button onClick={() => window.location.reload()} size="default" variant="destructive">Segarkan halaman</Button>
       </div>
     </ReferenceSurface>
   );
@@ -302,13 +302,18 @@ function ImportsIntakeModule({
   const [feedback, setFeedback] = useState<{ message: string; tone: "error" | "info" }>({ message: "", tone: "info" });
   const [sessionIssue, setSessionIssue] = useState<"expired" | "forbidden" | null>(null);
   const template = templateForRole[role];
+  usePageStatusToast({
+    active: busy,
+    message: "Mengunggah file dan memeriksa isinya…",
+    variant: "info",
+  });
 
   const resetFile = () => resetImportFileSelectionState(fileInputRef, setFile);
   const handleRoleChange = (nextRole: ImportRole) => {
     if (nextRole === role) return;
     setRole(nextRole);
     resetFile();
-    setFeedback({ message: "Jenis akun diubah menjadi " + templateForRole[nextRole].label + ". Pilih file baru yang sesuai dengan templat ini.", tone: "info" });
+    setFeedback({ message: "", tone: "info" });
   };
   const handleFileSelection = (nextFile: File | null) => {
     if (!nextFile) {

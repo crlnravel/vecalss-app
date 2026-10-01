@@ -96,7 +96,8 @@ export function parseReportConfig(value: unknown): AiPolicyReportConfig {
   assertObject(value, "reportConfig");
   const requiredKeys = ["unitLimit", "requestLimit", "minimumGroupSize", "maxRangeDays"] as const;
   const allowedKeys = [...requiredKeys, "automaticContextPromotion"] as const;
-  const unknown = Object.keys(value).filter((key) => !allowedKeys.includes(key as (typeof allowedKeys)[number]));
+  const allowedKeySet = new Set<string>(allowedKeys);
+  const unknown = Object.keys(value).filter((key) => !allowedKeySet.has(key));
   const missing = requiredKeys.filter((key) => !Object.prototype.hasOwnProperty.call(value, key));
   if (unknown.length || missing.length) {
     throw new AiPolicyError("invalid_policy", "reportConfig memiliki kunci yang tidak lengkap atau tidak dikenal.", 422, { unknown, missing });

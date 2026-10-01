@@ -37,6 +37,21 @@ type PendingNavigation =
   | { destination: string; kind: "route" }
   | { kind: "history" };
 
+type NavigationConfirmCopy = {
+  cancelLabel: string;
+  confirmLabel: string;
+  description: string;
+  title: string;
+};
+
+const DEFAULT_NAVIGATION_CONFIRM_COPY: NavigationConfirmCopy = {
+  cancelLabel: "Batal",
+  confirmLabel: "Keluar",
+  description:
+    "Perubahan yang belum disimpan akan hilang jika Anda meninggalkan halaman ini.",
+  title: "Keluar dari editor?",
+};
+
 const mentorRootHrefByLabel: Record<string, string> = {
   Dashboard: "/mentor/dashboard",
   Materi: "/mentor/materi",
@@ -47,15 +62,18 @@ const mentorRootHrefByLabel: Record<string, string> = {
   "Bank Soal Tryout": "/mentor/quiz/question-bank?purpose=tryout",
   Tryout: "/mentor/tryout",
   Media: "/mentor/media",
+  Laporan: "/mentor/report",
   Pengaturan: "/mentor/settings",
 };
 
 function MentorNavigationConfirmDialog({
+  copy,
   onCancel,
   onConfirm,
   onOpenChange,
   open,
 }: {
+  copy: NavigationConfirmCopy;
   onCancel: () => void;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
@@ -69,11 +87,10 @@ function MentorNavigationConfirmDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle className="font-semibold text-secondary-900">
-            Keluar dari editor?
+            {copy.title}
           </AlertDialogTitle>
           <AlertDialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
-            Perubahan yang belum disimpan akan hilang jika Anda meninggalkan
-            halaman ini.
+            {copy.description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -82,10 +99,10 @@ function MentorNavigationConfirmDialog({
             type="button"
             variant="destructive"
           >
-            Keluar
+            {copy.confirmLabel}
           </AlertDialogAction>
           <AlertDialogCancel onClick={onCancel} type="button">
-            Batal
+            {copy.cancelLabel}
           </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -184,15 +201,21 @@ function useMentorNavigationGuard({
         return;
       }
 
+      const destinationPath = `${destination.pathname}${destination.search}${destination.hash}`;
       const canLeave = onNavigateAwayRef.current?.() ?? true;
       if (canLeave) {
+        if (hasHistoryGuardRef.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          consumeSyntheticEntry(() => router.push(destinationPath));
+        }
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
       requestConfirmation({
-        destination: `${destination.pathname}${destination.search}${destination.hash}`,
+        destination: destinationPath,
         kind: "route",
       });
     }
@@ -200,19 +223,25 @@ function useMentorNavigationGuard({
     document.addEventListener("click", handleWorkspaceNavigation, true);
     return () =>
       document.removeEventListener("click", handleWorkspaceNavigation, true);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    if (!shouldGuardNavigation) {
-      hasHistoryGuardRef.current = false;
-      return;
+    if (shouldGuardNavigation && !hasHistoryGuardRef.current) {
+      window.history.pushState(window.history.state, "", window.location.href);
+      hasHistoryGuardRef.current = true;
     }
-
-    window.history.pushState(window.history.state, "", window.location.href);
-    hasHistoryGuardRef.current = true;
 
     function handleHistoryTraversal() {
       const pendingRouteContinuation = pendingRouteContinuationRef.current;
+      if (
+        !hasHistoryGuardRef.current &&
+        !pendingRouteContinuation &&
+        !restoreSyntheticEntryRef.current &&
+        !allowHistoryTraversalRef.current
+      ) {
+        return;
+      }
+
       if (pendingRouteContinuation) {
         pendingRouteContinuationRef.current = null;
         hasHistoryGuardRef.current = false;
@@ -283,7 +312,7 @@ function MentorWorkspaceHeader({
       className={cn(
         "sticky top-0 z-20 backdrop-blur-xl",
         sidebarAppearance === "reference"
-          ? "mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border"
+          ? "mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] rounded-control bg-voyage-canvas/90 md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:border"
           : "border-b border-primary-100/80 bg-[var(--voyage-canvas)]/90",
       )}
     >
@@ -339,7 +368,7 @@ function MentorWorkspaceHeader({
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
             <Input
               aria-label={searchPlaceholder}
-              className="h-auto min-h-[44px] rounded-full border-primary-100 bg-white pl-10 shadow-sm motion-reduce:transition-none"
+              className="pl-10"
               placeholder={searchPlaceholder}
             />
           </div>
@@ -359,6 +388,7 @@ function MentorWorkspaceShell({
   children,
   contentElement: ContentElement = "main",
   mainClassName,
+  navigationConfirmCopy = {},
   onNavigateAway,
   searchPlaceholder = "Cari konten, Kuis, Tryout, atau media...",
   session,
@@ -372,6 +402,7 @@ function MentorWorkspaceShell({
   children: ReactNode;
   contentElement?: "div" | "main";
   mainClassName?: string;
+  navigationConfirmCopy?: Partial<NavigationConfirmCopy>;
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
@@ -382,6 +413,10 @@ function MentorWorkspaceShell({
 }) {
   const rootHref = mentorRootHrefByLabel[activeLabel] ?? "/mentor/dashboard";
   const isRootPage = breadcrumbLabel === activeLabel;
+  const resolvedNavigationConfirmCopy = {
+    ...DEFAULT_NAVIGATION_CONFIRM_COPY,
+    ...navigationConfirmCopy,
+  };
   const {
     confirmPendingNavigation,
     dismissConfirmation,
@@ -394,24 +429,25 @@ function MentorWorkspaceShell({
   return (
     <>
       <SidebarProvider
-        className={sidebarAppearance === "reference" ? "!bg-voyage-canvas lg:gap-2 lg:p-6" : undefined}
+        className={cn(
+          "workspace-page-canvas",
+          sidebarAppearance === "reference" ? "lg:gap-2 lg:p-6" : undefined,
+        )}
       >
         <div
           className={cn(
             "flex min-h-svh w-full text-secondary-900",
-            sidebarAppearance === "reference"
-              ? "bg-voyage-canvas lg:gap-2"
-              : "bg-[var(--voyage-canvas)]",
+            sidebarAppearance === "reference" ? "lg:gap-2" : undefined,
           )}
         >
           <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />
 
           <SidebarInset
             className={cn(
-              "min-w-0",
+              "min-w-0 !bg-transparent",
               sidebarAppearance === "reference"
-                ? "min-h-svh bg-voyage-canvas lg:rounded-3xl"
-                : "bg-transparent",
+                ? "min-h-svh lg:rounded-3xl"
+                : undefined,
             )}
           >
             <MentorWorkspaceHeader
@@ -440,6 +476,7 @@ function MentorWorkspaceShell({
       </SidebarProvider>
 
       <MentorNavigationConfirmDialog
+        copy={resolvedNavigationConfirmCopy}
         onCancel={dismissConfirmation}
         onConfirm={confirmPendingNavigation}
         onOpenChange={(isOpen) => {

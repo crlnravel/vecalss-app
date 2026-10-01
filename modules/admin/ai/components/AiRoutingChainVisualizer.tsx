@@ -12,7 +12,7 @@ export function AiRoutingChainVisualizer({ routes }: { routes: CapabilityRouting
         return (
           <div
             key={capability}
-            className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm"
+            className="rounded-card border border-primary-100 bg-white p-6 shadow-sm"
           >
             <div className="flex min-w-0 flex-col justify-between gap-2 border-b border-primary-50 pb-4 sm:flex-row sm:items-center">
               <div className="min-w-0">
@@ -64,7 +64,7 @@ export function AiRoutingChainVisualizer({ routes }: { routes: CapabilityRouting
             </div>
 
             {/* Observed Behavior (Last 24 Hours) */}
-            <div className="mt-5 rounded-2xl bg-secondary-50/70 p-4">
+            <div className="mt-5 rounded-card bg-secondary-50/70 p-4">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-secondary-800">Observasi Penyelesaian Aktual (24 Jam Terakhir)</span>
                 <span className="text-secondary-500">

@@ -11,12 +11,12 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useEffect, useReducer, useState, type ReactNode } from "react";
+import { useReducer, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import {
   ContextMenuContent,
@@ -163,13 +163,13 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
       href={buildMateriSubjectHref(subject.slug)}
     >
       <div className="flex items-start gap-4">
-        <MentorBadge
+        <Badge
           className="bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]"
           size="sm"
           tone="category"
         >
           {subjectCategory}
-        </MentorBadge>
+        </Badge>
       </div>
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-secondary-900">
         {subject.code}
@@ -200,10 +200,6 @@ function KaptenMateriPageModule({
     initialCreateDialogOpen,
   );
 
-  useEffect(() => {
-    setCreateDialogOpen(initialCreateDialogOpen);
-  }, [initialCreateDialogOpen]);
-
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);
     if (!open && initialCreateDialogOpen) {
@@ -227,7 +223,7 @@ function KaptenMateriPageModule({
                 onClick={() => setCreateDialogOpen(true)}
                 size="default"
                 type="button"
-                variant="brand"
+                variant="default"
               >
                 <Plus />
                 Buat Materi
@@ -537,7 +533,7 @@ function MateriSubjectCatalogueEmptyState({
           className="mt-5"
           render={<Link href={clearFiltersHref} />}
           size="default"
-          variant="brandOutline"
+          variant="outline"
         >
           Reset filter
         </Button>
@@ -570,7 +566,7 @@ function MateriCreateDialogTrigger({
         onClick={() => setOpen(true)}
         size="default"
         type="button"
-        variant="brand"
+        variant="default"
       >
         {children}
       </Button>
@@ -646,7 +642,6 @@ function MateriSubjectCatalogueScreen({
     {
       cell: (lesson) => (
         <ReferenceStatusBadge
-          appearance="mentor"
           size="sm"
           status={lesson.status}
         />

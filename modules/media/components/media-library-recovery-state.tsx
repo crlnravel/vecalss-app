@@ -1,6 +1,6 @@
+import type { ReactNode } from "react";
 import { AlertCircle, FileImage, ImageOff, RefreshCw, Search, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { cn } from "@/lib/utils";
 
 type MediaLibraryRecoveryKind = "empty" | "error" | "filtered" | "storage";
@@ -30,9 +30,8 @@ function getRecoveryCopy(kind: MediaLibraryRecoveryKind, mediaLabel: string, err
   return { Icon, isFiltered, isStorageUnavailable, title, description };
 }
 
-function MediaLibraryRecoveryActions({
+function getMediaRecoveryActions({
   isFiltered,
-  isPicker,
   isStorageUnavailable,
   kind,
   mediaName,
@@ -42,7 +41,24 @@ function MediaLibraryRecoveryActions({
   showUploadAction = true,
 }: {
   isFiltered: boolean;
-  isPicker: boolean;
+  isStorageUnavailable: boolean;
+  kind: MediaLibraryRecoveryKind;
+  mediaName: string;
+  onClear?: () => void;
+  onRetry?: () => void;
+  onUpload?: () => void;
+  showUploadAction?: boolean;
+}): ReactNode[] {
+  const actions: ReactNode[] = [];
+  if (isFiltered && onClear) actions.push(<Button key="clear" onClick={onClear} variant="outline">Hapus pencarian/filter</Button>);
+  if (isStorageUnavailable && onRetry) actions.push(<Button key="retry-storage" onClick={onRetry} variant="outline"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "error" && onRetry) actions.push(<Button key="retry-error" onClick={onRetry} variant="default"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "empty" && showUploadAction && onUpload) actions.push(<Button key="upload" onClick={onUpload} variant="default"><Upload data-icon="inline-start" />Unggah {mediaName}</Button>);
+  return actions;
+}
+
+function MediaLibraryRecoveryActions(props: {
+  isFiltered: boolean;
   isStorageUnavailable: boolean;
   kind: MediaLibraryRecoveryKind;
   mediaName: string;
@@ -51,20 +67,11 @@ function MediaLibraryRecoveryActions({
   onUpload?: () => void;
   showUploadAction?: boolean;
 }) {
-  const hasRecoveryAction =
-    (isFiltered && Boolean(onClear)) ||
-    (isStorageUnavailable && Boolean(onRetry)) ||
-    (kind === "error" && Boolean(onRetry)) ||
-    (kind === "empty" && showUploadAction && Boolean(onUpload));
-
-  if (!hasRecoveryAction) return null;
-
+  const actions = getMediaRecoveryActions(props);
+  if (!actions.length) return null;
   return (
     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-      {isFiltered && onClear ? <Button onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button> : null}
-      {isStorageUnavailable && onRetry ? <Button onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "error" && onRetry ? <Button onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button> : null}
-      {kind === "empty" && showUploadAction && onUpload ? <Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Unggah {mediaName}</Button> : null}
+      {actions}
     </div>
   );
 }
@@ -72,7 +79,6 @@ function MediaLibraryRecoveryActions({
 function MediaLibraryRecoveryState({
   className,
   errorMessage,
-  isPicker = false,
   kind,
   mediaLabel,
   onClear,
@@ -82,7 +88,6 @@ function MediaLibraryRecoveryState({
 }: {
   className?: string;
   errorMessage?: string | null;
-  isPicker?: boolean;
   kind: MediaLibraryRecoveryKind;
   mediaLabel: string;
   onClear?: () => void;
@@ -97,7 +102,7 @@ function MediaLibraryRecoveryState({
   return (
     <section
       aria-label={title}
-      className={cn("flex min-h-[16rem] flex-col items-center justify-center px-5 py-10 text-center", !isPlainEmptyState && "rounded-3xl border border-dashed border-primary-200 bg-primary-50/25", className)}
+      className={cn("flex min-h-[16rem] flex-col items-center justify-center px-5 py-10 text-center", !isPlainEmptyState && "rounded-card border border-dashed border-primary-200 bg-primary-50/25", className)}
       role={kind === "error" ? "alert" : "status"}
     >
       <div className={cn("mb-4 flex size-12 items-center justify-center rounded-2xl", kind === "error" ? "bg-student-status-danger-bg text-student-status-danger-fg" : isStorageUnavailable ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-primary-50 text-primary-700")}>
@@ -105,7 +110,7 @@ function MediaLibraryRecoveryState({
       </div>
       <h2 className="text-base font-semibold text-secondary-900">{title}</h2>
       <p className="mt-2 max-w-[44ch] text-sm leading-6 text-secondary-600">{description}</p>
-      <MediaLibraryRecoveryActions isFiltered={isFiltered} isPicker={isPicker} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} showUploadAction={showUploadAction} />
+      <MediaLibraryRecoveryActions isFiltered={isFiltered} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} showUploadAction={showUploadAction} />
     </section>
   );
 }

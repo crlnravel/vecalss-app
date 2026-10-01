@@ -525,13 +525,15 @@ and then verify the source tree before making an implementation decision.
 
 ## Versioned Kuis editor boundary (2026-09-12)
 
+- The stable Kuis lifecycle is `published` or `archived`; migration
+  `20260927110000_publish_standalone_quizzes_by_default` sets the default to
+  `published`, converts old root drafts, and adds a database check constraint.
+  Drafts belong to `StandaloneQuizVersion`, not the quiz lifecycle.
 - The default Kuis runtime uses lazy snapshot activation: a published Kuis
-  remains editable, saves accumulate in the mutable next draft, and the
+  remains editable, saves accumulate in its mutable next version, and the
   currently active snapshot remains immutable until a later student start
-  activates the changed definition.
-- Kapten source-revision acceptance therefore permits draft and published Kuis
-  records and blocks only archived records. The editor labels the action
-  `Terima ke draf` and explains that the running release keeps its snapshot.
+  activates the changed definition. Source-revision acceptance writes to that
+  mutable version and is blocked only for archived Kuis.
 - The old `Jadikan draf` / `Gunakan Duplicate` rejection is a legacy fallback
   only when `KUIS_VERSIONING_CUTOVER=disabled`; it is not part of the default
   versioned path.

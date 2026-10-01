@@ -62,7 +62,7 @@ function DialogContent({
         aria-busy={pending || undefined}
         data-variant={variant}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100svh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-5xl border bg-popover p-6 text-ui-sm text-popover-foreground shadow-[0_24px_80px_-36px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] ring-1 ring-foreground/5 duration-150 outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 sm:max-w-md dark:ring-foreground/10",
+          "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100svh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-panel border bg-popover p-6 text-ui-sm text-popover-foreground shadow-[0_24px_80px_-36px_color-mix(in_oklab,var(--voyage-deep)_38%,transparent)] ring-1 ring-foreground/5 duration-150 outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 sm:max-w-md dark:ring-foreground/10",
           modalVariantClasses[variant],
           className,
         )}
@@ -76,7 +76,7 @@ function DialogContent({
               <Button
                 className="absolute right-4 top-4"
                 size="icon"
-                variant="ghost"
+                variant="quiet"
               />
             }
           >
@@ -118,7 +118,7 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="brandOutline" />}>
+        <DialogPrimitive.Close render={<Button variant="outline" />}>
           Tutup
         </DialogPrimitive.Close>
       )}

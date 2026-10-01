@@ -136,6 +136,24 @@ async function requireAffiliatorSession({
   return session;
 }
 
+async function requireDeveloperSession({
+  allowMustChangePassword = false,
+}: {
+  allowMustChangePassword?: boolean;
+} = {}) {
+  const session = await requireSession(getLoginPathForAudience("developer"));
+
+  if (!hasRole(session, RoleName.developer)) {
+    redirect(getDefaultHomePath(session.user));
+  }
+
+  if (!allowMustChangePassword && session.user.mustChangePassword) {
+    redirect("/change-password");
+  }
+
+  return session;
+}
+
 function redirectToAuthorizedHome(user: AuthenticatedUser) {
   redirect(getDefaultHomePath(user));
 }
@@ -163,6 +181,7 @@ export {
   requireAdminSession,
   requireAdminReadOnlySession,
   requireAffiliatorSession,
+  requireDeveloperSession,
   requireSession,
   requireStudentSession,
   requireTutorSession,

@@ -254,6 +254,7 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
       select: { id: true, status: true },
       where: { id: parsed.tryoutId },
     });
+    // react-doctor-disable-next-line server-sequential-independent-await -- both records are re-read after shared transaction locks.
     const sourceSession = await tx.tryoutDeliverySession.findUnique({
       select: {
         availableFrom: true,

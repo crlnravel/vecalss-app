@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { quizDashboardReturnHref } from "@/modules/mentor/quiz-dashboard-contract";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
@@ -153,7 +154,9 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
 function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
   const isSubmitted = attempt.status !== "in_progress";
   const router = useRouter();
-  const href = `/mentor/quiz/${quizId}/results/${attempt.id}`;
+  const searchParams = useSearchParams();
+  const returnHref = quizDashboardReturnHref(searchParams.get("returnTo"));
+  const href = `/mentor/quiz/${quizId}/results/${attempt.id}?returnTo=${encodeURIComponent(returnHref)}`;
 
   function navigateToAttempt() {
     router.push(href);
@@ -171,8 +174,8 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
           href={href}
           onClick={(event) => event.stopPropagation()}
         >
-          <Avatar className="size-9 border border-primary-100 bg-primary-50">
-            <AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">
+          <Avatar size="default">
+            <AvatarFallback>
               {initials(attempt.student.name)}
             </AvatarFallback>
           </Avatar>
@@ -193,7 +196,6 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
       </TableCell>
       <TableCell className="px-4 py-4">
         <ReferenceStatusBadge
-          appearance="mentor"
           label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"}
           size="xs"
           status={isSubmitted ? "completed" : "in_progress"}

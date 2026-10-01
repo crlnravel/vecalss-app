@@ -1,0 +1,165 @@
+"use client";
+
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { ToastOnMount } from "@/components/ui/toast-on-mount";
+import { showToast, toast, type ToastVariant } from "@/components/ui/toast";
+import { useActionToast } from "@/components/ui/use-action-toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
+
+const toastVariants: Array<{ value: ToastVariant; label: string }> = [
+  { value: "default", label: "Default" },
+  { value: "success", label: "Berhasil" },
+  { value: "error", label: "Gagal" },
+  { value: "info", label: "Info" },
+  { value: "warning", label: "Peringatan" },
+];
+
+type ActionToastDemoState = {
+  fieldErrors?: Record<string, string | undefined>;
+  message?: string;
+  status: "error" | "idle" | "success";
+};
+
+function ActionToastPreview() {
+  const [state, setState] = useState<ActionToastDemoState>({ status: "idle" });
+  const keepMessageInline = useActionToast(state);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-secondary-800">useActionToast · idle, sukses, error</p>
+        <p className="mt-1 text-xs leading-5 text-secondary-600">
+          Hook tidak mengirim toast saat idle. Kesalahan isian tetap ditampilkan dekat formulir.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={() => setState({ message: "Contoh perubahan berhasil disimpan.", status: "success" })}
+          type="button"
+          variant="default"
+        >
+          Simulasikan sukses
+        </Button>
+        <Button
+          onClick={() => setState({ message: "Contoh perubahan belum tersimpan. Coba lagi.", status: "error" })}
+          type="button"
+          variant="destructive"
+        >
+          Simulasikan gagal
+        </Button>
+        <Button
+          onClick={() => setState({ fieldErrors: { nama: "Nama perlu diisi." }, message: "Periksa isian nama.", status: "error" })}
+          type="button"
+          variant="outline"
+        >
+          Simulasikan error isian
+        </Button>
+      </div>
+      {keepMessageInline ? (
+        <p aria-live="polite" className="text-sm font-medium text-student-status-danger-fg" role="alert">
+          {state.fieldErrors?.nama ?? state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PageStatusToastPreview() {
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  usePageStatusToast({
+    active: dirty || saving,
+    action: dirty
+      ? saving
+        ? undefined
+        : { label: "Simpan draf", onClick: () => setSaving(true) }
+      : undefined,
+    cancel: dirty
+      ? saving
+        ? { label: "Batalkan simpan", onClick: () => setSaving(false) }
+        : { label: "Buang perubahan", onClick: () => { setDirty(false); setSaving(false); } }
+      : undefined,
+    message: saving ? "Menyimpan draf…" : "Ada perubahan yang belum disimpan.",
+    variant: saving ? "info" : "warning",
+  });
+
+  return (
+    <div className="space-y-3 border-t border-voyage-soft-border pt-5">
+      <div>
+        <p className="text-sm font-semibold text-secondary-800">usePageStatusToast · status halaman persisten</p>
+        <p className="mt-1 text-xs leading-5 text-secondary-600">
+          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan atau batalkan simpanan. Pemberitahuan yang perlu tindakan tetap di bagian atas selama statusnya berlaku.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={dirty} onClick={() => { setDirty(true); setSaving(false); }} type="button" variant="outline">
+          Tandai perubahan
+        </Button>
+        <Button disabled={!saving} onClick={() => { setDirty(false); setSaving(false); showToast("Contoh draf berhasil disimpan.", { variant: "success" }); }} type="button" variant="default">
+          Selesaikan simpanan
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function NotificationsPreview() {
+  const [mountKey, setMountKey] = useState(0);
+
+  return (
+    <div className="space-y-7">
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-semibold text-secondary-800">Sonner · showToast · semua tone</p>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">
+            Toaster sudah terpasang sekali di layout aplikasi. Notifikasi muncul di bagian bawah dengan tombol tutup di kanan atas. Tombol berikut hanya menampilkan pesan simulasi.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {toastVariants.map(({ value, label }) => (
+            <Button
+              key={value}
+              onClick={() => showToast(`Contoh notifikasi ${label.toLowerCase()}.`, { variant: value })}
+              type="button"
+              variant={value === "error" ? "destructive" : "outline"}
+            >
+              showToast · {label}
+            </Button>
+          ))}
+          <Button
+            onClick={() => toast.success("Contoh toast.success dari Sonner.")}
+            type="button"
+            variant="outline"
+          >
+            toast.success
+          </Button>
+        </div>
+      </div>
+
+      <ActionToastPreview />
+      <PageStatusToastPreview />
+
+      <div className="space-y-3 border-t border-voyage-soft-border pt-5">
+        <div>
+          <p className="text-sm font-semibold text-secondary-800">ToastOnMount · aman saat halaman dibuka</p>
+          <p className="mt-1 text-xs leading-5 text-secondary-600">
+            Komponen baru dipasang setelah tombol dipilih, jadi galeri tidak menampilkan notifikasi sendiri ketika dibuka.
+          </p>
+        </div>
+        <Button onClick={() => setMountKey((current) => current + 1)} type="button" variant="outline">
+          Pasang contoh notifikasi
+        </Button>
+        {mountKey > 0 ? (
+          <ToastOnMount
+            key={mountKey}
+            message="Contoh notifikasi saat komponen dipasang."
+            variant="info"
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}

@@ -74,7 +74,7 @@ function AuthShell({
               <p className="mt-4 text-lg leading-7 text-secondary-600">{description}</p>
             </div>
 
-            <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-8 md:py-8">
+            <div className="rounded-panel bg-white px-5 py-6 shadow-[0_22px_68px_-48px_color-mix(in_oklab,var(--voyage-deep)_48%,transparent)] md:px-8 md:py-8">
               {children}
             </div>
           </div>

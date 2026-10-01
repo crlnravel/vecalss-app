@@ -31,10 +31,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
+import { Badge } from "@/components/ui/badge";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
@@ -66,10 +66,7 @@ import {
 } from "@/modules/mentor/components/question-bank-csv-flow";
 import type { QuestionBankXlsxImportResult } from "@/modules/mentor/components/question-bank-xlsx-flow";
 import { QuestionBankImportControl } from "@/modules/mentor/components/question-bank-import-control";
-import {
-  ResourceAuthoringLockBanner,
-  type AuthoringLockState,
-} from "@/modules/mentor/components/resource-authoring-lock-banner";
+import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
 import type {
   BankQuestion,
   KaptenQuestionBank,
@@ -86,7 +83,7 @@ import {
 } from "@/modules/mentor/resource-edit-lock-provider";
 
 type ConfirmationRequest = {
-  actionVariant?: "brand" | "destructive";
+  actionVariant?: "default" | "destructive";
   confirmLabel: string;
   description: string;
   dialogVariant?: "default" | "info" | "warning" | "danger" | "success";
@@ -119,7 +116,7 @@ function QuestionBankStatusAction({
         onClick={() => void handleLifecycle("restore")}
         size="sm"
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload />
         {isSavingLifecycle ? "Memulihkan…" : "Pulihkan"}
@@ -131,13 +128,13 @@ function QuestionBankStatusAction({
     <Button
       aria-busy={isSavingLifecycle}
       aria-label="Arsipkan bank soal"
-      className="shadow-[0_4px_0_var(--student-status-danger-border),0_14px_28px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_48%,transparent)] hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--student-status-danger-border),0_18px_34px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_54%,transparent)] motion-safe:active:translate-y-px motion-safe:active:shadow-none motion-reduce:transform-none"
+      className=" hover:-translate-y-0.5  motion-safe:active:translate-y-px  motion-reduce:transform-none"
       data-question-bank-lifecycle-action="archive"
       disabled={isSavingLifecycle || isReadOnly}
       onClick={requestArchive}
       size="sm"
       type="button"
-      variant="dangerOutline"
+      variant="destructive"
     >
       <Archive />
       {isSavingLifecycle ? "Mengarsipkan…" : "Arsipkan"}
@@ -233,7 +230,7 @@ function QuestionBankArchiveSection({
               onClick={requestDelete}
               size="sm"
               type="button"
-              variant="dangerOutline"
+              variant="destructive"
             >
               <Trash2 />
               {isDeleting ? "Menghapus…" : "Hapus bank soal"}
@@ -316,11 +313,13 @@ function QuestionBankMetadataCard({
                 value={titleInput}
               />
               <Button
-                disabled={isSavingTitle || isMetadataLocked || !titleInput.trim()}
+                disabled={
+                  isSavingTitle || isMetadataLocked || !titleInput.trim()
+                }
                 onClick={() => void handleSaveTitle()}
                 size="sm"
                 type="button"
-                variant="brand"
+                variant="default"
               >
                 <Check />
                 Simpan
@@ -333,7 +332,7 @@ function QuestionBankMetadataCard({
                 }}
                 size="sm"
                 type="button"
-                variant="ghost"
+                variant="outline"
               >
                 <X />
                 Batal
@@ -355,14 +354,13 @@ function QuestionBankMetadataCard({
                   size="icon-sm"
                   title="Ubah judul bank soal"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Pencil className="size-4" />
                 </Button>
               ) : null}
             </div>
           )}
-
         </div>
 
         <div className="space-y-5">
@@ -391,7 +389,7 @@ function QuestionBankMetadataCard({
                   size="icon-sm"
                   title="Ubah deskripsi"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Pencil className="size-3.5" />
                 </Button>
@@ -417,7 +415,7 @@ function QuestionBankMetadataCard({
                     onClick={() => void handleSaveDescription()}
                     size="sm"
                     type="button"
-                    variant="brand"
+                    variant="default"
                   >
                     <Check />
                     Simpan
@@ -430,7 +428,7 @@ function QuestionBankMetadataCard({
                     }}
                     size="sm"
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                   >
                     <X />
                     Batal
@@ -470,9 +468,9 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {subjectCoverage.length > 0 ? (
                 subjectCoverage.map((code) => (
-                  <MentorBadge key={code} size="xs" tone="category">
+                  <Badge key={code} size="sm" tone="category">
                     {code}
-                  </MentorBadge>
+                  </Badge>
                 ))
               ) : (
                 <span className="text-xs text-secondary-400">
@@ -489,9 +487,9 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {materiCoverage.length > 0 ? (
                 materiCoverage.map((materi) => (
-                  <MentorBadge key={materi} size="xs" tone="category">
+                  <Badge key={materi} size="xs" tone="category">
                     {materi}
-                  </MentorBadge>
+                  </Badge>
                 ))
               ) : (
                 <span className="text-xs text-secondary-400">
@@ -533,10 +531,10 @@ function QuestionBankQuestionCard({
             {index + 1}
           </span>
           {hasIssues ? (
-            <MentorBadge className="gap-1" size="xs" tone="attention">
+            <Badge className="gap-1" size="xs" tone="attention">
               <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
               Perlu diperbaiki ({questionIssues.length})
-            </MentorBadge>
+            </Badge>
           ) : null}
         </div>
 
@@ -545,29 +543,29 @@ function QuestionBankQuestionCard({
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Subjek
             </span>
-            <MentorBadge size="xs" tone="category">
+            <Badge size="xs" tone="category">
               {question.subjectCode}
-            </MentorBadge>
+            </Badge>
           </div>
           {question.materi ? (
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0 text-xs font-semibold text-secondary-500">
                 Materi
               </span>
-              <MentorBadge
+              <Badge
                 className="max-w-[min(20rem,60vw)] truncate"
                 size="xs"
                 tone="category"
               >
                 {question.materi}
-              </MentorBadge>
+              </Badge>
             </div>
           ) : null}
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Kesulitan
             </span>
-            <MentorBadge
+            <Badge
               size="xs"
               tone={
                 question.difficulty === "easy"
@@ -582,7 +580,7 @@ function QuestionBankQuestionCard({
                 : question.difficulty === "hard"
                   ? "Sulit"
                   : "Sedang"}
-            </MentorBadge>
+            </Badge>
           </div>
         </div>
       </div>
@@ -702,7 +700,7 @@ function QuestionBankEditorButton({
       }
       size="default"
       type="button"
-      variant="brand"
+      variant="default"
     >
       <Pencil data-icon="inline-start" />
       Buka Editor
@@ -738,7 +736,9 @@ function QuestionBankQuestionsSection({
   editLease: import("@/lib/resource-edit-lock/types").EditLeaseProof | null;
   expectedRevision: number;
   isReadOnly: boolean;
-  onImport: (result: QuestionBankCsvImportResult | QuestionBankXlsxImportResult) => Promise<void> | void;
+  onImport: (
+    result: QuestionBankCsvImportResult | QuestionBankXlsxImportResult,
+  ) => Promise<void> | void;
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
@@ -750,9 +750,9 @@ function QuestionBankQuestionsSection({
             <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
               Daftar Soal
             </h2>
-            <MentorBadge className="font-bold" size="xs" tone="category">
+            <Badge className="font-bold" size="xs" tone="category">
               {questions.length} Soal
-            </MentorBadge>
+            </Badge>
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -860,8 +860,7 @@ function QuestionBankDetailContent({
   const router = useRouter();
   const resourceLock = useResourceEditLock();
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
-  const [activeTab, setActiveTab] =
-    useState<QuestionBankDetailTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<QuestionBankDetailTab>(initialTab);
   const [questions, setQuestions] = useState<BankQuestion[]>(initialQuestions);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -881,7 +880,6 @@ function QuestionBankDetailContent({
   const [readiness, setReadiness] = useState<QuestionBankReadiness>(
     initialReadiness ?? getQuestionBankReadinessFromDrafts(initialQuestions),
   );
-  const lockState: AuthoringLockState = resourceLock.state;
   const isReadOnly = !resourceLock.canEdit;
   const isMetadataLocked = bank.status === "archived" || isReadOnly;
 
@@ -910,10 +908,9 @@ function QuestionBankDetailContent({
     if (value !== "soal" && value !== "pengaturan") return;
     const next = value as QuestionBankDetailTab;
     setActiveTab(next);
-    router.push(
-      `/mentor/quiz/question-bank/${bank.id}?tab=${next}`,
-      { scroll: false },
-    );
+    router.push(`/mentor/quiz/question-bank/${bank.id}?tab=${next}`, {
+      scroll: false,
+    });
   }
 
   async function handleSaveTitle() {
@@ -1000,9 +997,7 @@ function QuestionBankDetailContent({
     }
   }
 
-  async function handleLifecycle(
-    operation: "archive" | "restore",
-  ) {
+  async function handleLifecycle(operation: "archive" | "restore") {
     if (isReadOnly) return;
     setIsSavingLifecycle(true);
     try {
@@ -1029,8 +1024,10 @@ function QuestionBankDetailContent({
       }[operation];
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
-    } catch (err) {
-      showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", { variant: "error" });
+    } catch {
+      showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", {
+        variant: "error",
+      });
     } finally {
       setIsSavingLifecycle(false);
     }
@@ -1052,8 +1049,10 @@ function QuestionBankDetailContent({
       router.replace(
         `/mentor/quiz/question-bank?purpose=${encodeURIComponent(bank.purpose ?? "quiz")}`,
       );
-    } catch (err) {
-      showToast("Bank soal tidak dapat dihapus. Coba lagi.", { variant: "error" });
+    } catch {
+      showToast("Bank soal tidak dapat dihapus. Coba lagi.", {
+        variant: "error",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -1085,8 +1084,132 @@ function QuestionBankDetailContent({
     });
   }
 
-  const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
+  return (
+    <QuestionBankDetailLayout
+      activeTab={activeTab}
+      bank={bank}
+      bankId={bankId}
+      changeTab={changeTab}
+      confirmationRequest={confirmationRequest}
+      descriptionInput={descriptionInput}
+      folderLabel={folderLabel}
+      formState={{
+        isEditingDescription,
+        isEditingTitle,
+        isLocked: isMetadataLocked,
+        isSavingDescription,
+        isSavingTitle,
+      }}
+      handleLifecycle={handleLifecycle}
+      handleSaveDescription={handleSaveDescription}
+      handleSaveTitle={handleSaveTitle}
+      isDeleting={isDeleting}
+      isReadOnly={isReadOnly}
+      isSavingLifecycle={isSavingLifecycle}
+      materiCoverage={materiCoverage}
+      onCloseConfirmation={() => setConfirmationRequest(null)}
+      onImport={async () => {
+        try {
+          const refreshed = await getQuestionBankForEditAction(bank.id);
+          if (refreshed) {
+            setBank(refreshed.bank as KaptenQuestionBank);
+            setQuestions(refreshed.questions as BankQuestion[]);
+            setReadiness(refreshed.readiness);
+            return;
+          }
+        } catch {
+          // The import already committed; refresh the authoritative route
+          // instead of turning a successful write into a retryable failure.
+        }
+        router.refresh();
+      }}
+      questionBankEditLease={resourceLock.proof}
+      questions={questions}
+      readiness={readiness}
+      requestArchive={requestArchive}
+      requestDelete={requestDelete}
+      resourceLock={resourceLock}
+      session={session}
+      setDescriptionInput={setDescriptionInput}
+      setIsEditingDescription={setIsEditingDescription}
+      setIsEditingTitle={setIsEditingTitle}
+      setTitleInput={setTitleInput}
+      subjectCoverage={subjectCoverage}
+      titleInput={titleInput}
+    />
+  );
+}
 
+function QuestionBankDetailLayout({
+  activeTab,
+  bank,
+  bankId,
+  changeTab,
+  confirmationRequest,
+  descriptionInput,
+  folderLabel,
+  formState,
+  handleLifecycle,
+  handleSaveDescription,
+  handleSaveTitle,
+  isDeleting,
+  isReadOnly,
+  isSavingLifecycle,
+  materiCoverage,
+  onCloseConfirmation,
+  onImport,
+  questionBankEditLease,
+  questions,
+  readiness,
+  requestArchive,
+  requestDelete,
+  resourceLock,
+  session,
+  setDescriptionInput,
+  setIsEditingDescription,
+  setIsEditingTitle,
+  setTitleInput,
+  subjectCoverage,
+  titleInput,
+}: {
+  activeTab: QuestionBankDetailTab;
+  bank: KaptenQuestionBank;
+  bankId: string;
+  changeTab: (value: string) => void;
+  confirmationRequest: ConfirmationRequest | null;
+  descriptionInput: string;
+  folderLabel: string;
+  formState: {
+    isEditingDescription: boolean;
+    isEditingTitle: boolean;
+    isLocked: boolean;
+    isSavingDescription: boolean;
+    isSavingTitle: boolean;
+  };
+  handleLifecycle: (operation: "archive" | "restore") => Promise<void>;
+  handleSaveDescription: () => Promise<void>;
+  handleSaveTitle: () => Promise<void>;
+  isDeleting: boolean;
+  isReadOnly: boolean;
+  isSavingLifecycle: boolean;
+  materiCoverage: string[];
+  onCloseConfirmation: () => void;
+  onImport: () => Promise<void>;
+  questionBankEditLease: ReturnType<typeof useResourceEditLock>["proof"];
+  questions: BankQuestion[];
+  readiness: QuestionBankReadiness;
+  requestArchive: () => void;
+  requestDelete: () => void;
+  resourceLock: ReturnType<typeof useResourceEditLock>;
+  session: SessionContext;
+  setDescriptionInput: (value: string) => void;
+  setIsEditingDescription: (value: boolean) => void;
+  setIsEditingTitle: (value: boolean) => void;
+  setTitleInput: (value: string) => void;
+  subjectCoverage: string[];
+  titleInput: string;
+}) {
+  const navigationLabel = questionBankNavigationLabel(bank.purpose ?? "quiz");
   return (
     <MentorWorkspaceShell
       activeLabel={navigationLabel}
@@ -1099,23 +1222,18 @@ function QuestionBankDetailContent({
     >
       <div className="space-y-8">
         <ResourceAuthoringLockBanner
-          hasLocalChanges={isEditingTitle || isEditingDescription}
+          hasLocalChanges={
+            formState.isEditingTitle || formState.isEditingDescription
+          }
           onRetry={resourceLock.retry}
           resourceLabel="Bank Soal"
-          state={lockState}
+          state={resourceLock.state}
         />
-
         <QuestionBankMetadataCard
           bank={bank}
           descriptionInput={descriptionInput}
           folderLabel={folderLabel}
-          formState={{
-            isEditingDescription,
-            isEditingTitle,
-            isLocked: isMetadataLocked,
-            isSavingDescription,
-            isSavingTitle,
-          }}
+          formState={formState}
           handleSaveDescription={handleSaveDescription}
           handleSaveTitle={handleSaveTitle}
           setDescriptionInput={setDescriptionInput}
@@ -1126,48 +1244,33 @@ function QuestionBankDetailContent({
           subjectCoverage={subjectCoverage}
           titleInput={titleInput}
         />
-
         <Tabs
           className="w-full min-w-0 gap-7"
           onValueChange={changeTab}
           value={activeTab}
         >
-          <FullWidthLineTabsList aria-label="Bagian detail Bank Soal">
-            <FullWidthLineTabsTrigger
+          <FullWidthTabsList aria-label="Bagian detail Bank Soal">
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="soal"
             >
               Soal
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="pengaturan"
             >
-              Administrasi
-            </FullWidthLineTabsTrigger>
-          </FullWidthLineTabsList>
+              Pengaturan
+            </FullWidthTabsTrigger>
+          </FullWidthTabsList>
           <TabsContent className="m-0" value="soal">
             <QuestionBankQuestionsSection
               bank={bank}
               bankId={bankId}
-              editLease={resourceLock.proof}
+              editLease={questionBankEditLease}
               expectedRevision={bank.revision ?? 1}
               isReadOnly={isReadOnly}
-              onImport={async () => {
-                try {
-                  const refreshed = await getQuestionBankForEditAction(bank.id);
-                  if (refreshed) {
-                    setBank(refreshed.bank as KaptenQuestionBank);
-                    setQuestions(refreshed.questions as BankQuestion[]);
-                    setReadiness(refreshed.readiness);
-                    return;
-                  }
-                } catch {
-                  // The import already committed; refresh the authoritative route
-                  // instead of turning a successful write into a retryable failure.
-                }
-                router.refresh();
-              }}
+              onImport={onImport}
               questions={questions}
               readiness={readiness}
             />
@@ -1185,10 +1288,9 @@ function QuestionBankDetailContent({
           </TabsContent>
         </Tabs>
       </div>
-
       <QuestionBankArchiveConfirmationDialog
         confirmationRequest={confirmationRequest}
-        onClose={() => setConfirmationRequest(null)}
+        onClose={onCloseConfirmation}
       />
     </MentorWorkspaceShell>
   );
@@ -1203,7 +1305,10 @@ function KaptenQuestionBankDetailPageModule(props: {
   session: SessionContext;
 }) {
   return (
-    <ResourceEditLockProvider resourceId={props.bankId} resourceType="question_bank">
+    <ResourceEditLockProvider
+      resourceId={props.bankId}
+      resourceType="question_bank"
+    >
       <QuestionBankDetailContent {...props} />
     </ResourceEditLockProvider>
   );

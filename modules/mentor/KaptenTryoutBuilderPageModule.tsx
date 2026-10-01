@@ -48,7 +48,7 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -396,6 +396,8 @@ function TryoutBannerHero({
     onChange(nextBannerMediaId);
     onSave?.();
   };
+  const openPicker = () => setPickerOpen(true);
+  const hasBanner = Boolean(bannerMediaId);
 
   return (
     <section
@@ -414,11 +416,7 @@ function TryoutBannerHero({
         </p>
       ) : null}
       <div
-        className={`group relative min-w-0 max-w-full overflow-hidden ${
-          presentation === "dialog"
-            ? `aspect-[2.4/1] min-h-48 rounded-2xl sm:min-h-56 ${bannerMediaId ? "border border-primary-100 bg-primary-50" : "border-2 border-dashed border-primary-200 bg-primary-50/35"}`
-            : "aspect-[6/1] min-h-40 rounded-3xl border border-primary-100 bg-primary-50 sm:min-h-48"
-        }`}
+        className={tryoutBannerFrameClassName(presentation, hasBanner)}
       >
         {bannerMediaId ? (
           <MediaAssetPreview
@@ -426,122 +424,20 @@ function TryoutBannerHero({
             assetId={bannerMediaId}
             className="absolute inset-0 min-h-0 min-w-0 w-full max-w-full [&_img]:object-cover"
           />
-        ) : presentation === "dialog" ? (
-          <button
-            aria-label="Pilih gambar banner Tryout"
-            aria-describedby="tryout-banner-upload-hint"
-            className="absolute inset-0 z-10 flex w-full flex-col items-center justify-center gap-3 px-5 text-center outline-none transition-[transform,background-color] hover:bg-primary-100/25 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-700/20 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none"
-            disabled={disabled}
-            onClick={() => setPickerOpen(true)}
-            type="button"
-          >
-            <span className="flex size-12 items-center justify-center rounded-full bg-primary-100 text-primary-900 sm:size-14">
-              <ImagePlus aria-hidden="true" className="size-6" />
-            </span>
-            <span className="text-sm leading-6 text-secondary-500">
-              Pilih gambar banner
-            </span>
-            <span
-              className="text-xs leading-5 text-secondary-500"
-              id="tryout-banner-upload-hint"
-            >
-              JPG, PNG, WebP, atau GIF · maks. 15 MB
-            </span>
-            <span className="text-sm font-semibold leading-6 text-primary-800 underline decoration-primary-300 underline-offset-4">
-              Telusuri file
-            </span>
-          </button>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-50 px-6 text-center text-secondary-600">
-            <ImagePlus
-              aria-hidden="true"
-              className={
-                presentation === "dialog"
-                  ? "size-10 text-primary-700"
-                  : "size-7 text-primary-700"
-              }
-            />
-            <span
-              className={`font-semibold ${presentation === "dialog" ? "text-xl" : "text-sm"}`}
-            >
-              Belum ada banner
-            </span>
-          </div>
+          <TryoutBannerPlaceholder
+            disabled={disabled}
+            onOpenPicker={openPicker}
+            presentation={presentation}
+          />
         )}
-        {bannerMediaId || presentation === "page" ? (
-          <>
-            <div
-              aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 transition-colors ${
-                presentation === "dialog"
-                  ? "bg-secondary-950/0 group-hover:bg-secondary-950/20 group-focus-within:bg-secondary-950/10"
-                  : "bg-secondary-950/20 group-hover:bg-secondary-950/30"
-              }`}
-            />
-            <TooltipProvider>
-              <div
-                className={`absolute z-20 flex items-center gap-2 ${
-                  presentation === "dialog"
-                    ? "right-3 top-3 sm:right-4 sm:top-4"
-                    : "right-4 top-4"
-                }`}
-              >
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label="Ubah banner Tryout"
-                        className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
-                          presentation === "dialog"
-                            ? "size-10 sm:size-11"
-                            : "size-11"
-                        }`}
-                        disabled={disabled}
-                        onClick={() => setPickerOpen(true)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      />
-                    }
-                  >
-                    <Pencil
-                      aria-hidden="true"
-                      className="size-4"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>Ubah banner Tryout</TooltipContent>
-                </Tooltip>
-                {bannerMediaId ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          aria-label="Hapus banner Tryout"
-                          className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${
-                            presentation === "dialog"
-                              ? "size-10 sm:size-11"
-                              : "size-11"
-                          }`}
-                          disabled={disabled}
-                          onClick={() => handleBannerChange(null)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        />
-                      }
-                    >
-                      <Trash2
-                        aria-hidden="true"
-                        className="size-4"
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>Hapus banner Tryout</TooltipContent>
-                  </Tooltip>
-                ) : null}
-              </div>
-            </TooltipProvider>
-          </>
-        ) : null}
+        <TryoutBannerActions
+          bannerMediaId={bannerMediaId}
+          disabled={disabled}
+          onChange={handleBannerChange}
+          onOpenPicker={openPicker}
+          presentation={presentation}
+        />
       </div>
       <TryoutBannerUploadDialog
         onOpenChange={setPickerOpen}
@@ -549,6 +445,134 @@ function TryoutBannerHero({
         open={pickerOpen && !disabled}
       />
     </section>
+  );
+}
+
+function tryoutBannerFrameClassName(
+  presentation: "dialog" | "page",
+  hasBanner: boolean,
+) {
+  if (presentation === "page") {
+    return "group relative min-w-0 max-w-full aspect-[6/1] min-h-40 overflow-hidden rounded-3xl border border-primary-100 bg-primary-50 sm:min-h-48";
+  }
+
+  const emptyClasses = hasBanner
+    ? "border border-primary-100 bg-primary-50"
+    : "border-2 border-dashed border-primary-200 bg-primary-50/35";
+  return `group relative min-w-0 max-w-full aspect-[2.4/1] min-h-48 overflow-hidden rounded-2xl sm:min-h-56 ${emptyClasses}`;
+}
+
+function TryoutBannerPlaceholder({
+  disabled,
+  onOpenPicker,
+  presentation,
+}: {
+  disabled: boolean;
+  onOpenPicker: () => void;
+  presentation: "dialog" | "page";
+}) {
+  if (presentation === "dialog") {
+    return (
+      <button
+        aria-label="Pilih gambar banner Tryout"
+        aria-describedby="tryout-banner-upload-hint"
+        className="absolute inset-0 z-10 flex w-full flex-col items-center justify-center gap-3 px-5 text-center outline-none transition-[transform,background-color] hover:bg-primary-100/25 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-primary-700/20 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none"
+        disabled={disabled}
+        onClick={onOpenPicker}
+        type="button"
+      >
+        <span className="flex size-12 items-center justify-center rounded-full bg-primary-100 text-primary-900 sm:size-14">
+          <ImagePlus aria-hidden="true" className="size-6" />
+        </span>
+        <span className="text-sm leading-6 text-secondary-500">
+          Pilih gambar banner
+        </span>
+        <span
+          className="text-xs leading-5 text-secondary-500"
+          id="tryout-banner-upload-hint"
+        >
+          JPG, PNG, WebP, atau GIF · maks. 15 MB
+        </span>
+        <span className="text-sm font-semibold leading-6 text-primary-800 underline decoration-primary-300 underline-offset-4">
+          Telusuri file
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-50 px-6 text-center text-secondary-600">
+      <ImagePlus aria-hidden="true" className="size-7 text-primary-700" />
+      <span className="text-sm font-semibold">Belum ada banner</span>
+    </div>
+  );
+}
+
+function TryoutBannerActions({
+  bannerMediaId,
+  disabled,
+  onChange,
+  onOpenPicker,
+  presentation,
+}: {
+  bannerMediaId?: string | null;
+  disabled: boolean;
+  onChange: (bannerMediaId: string | null) => void;
+  onOpenPicker: () => void;
+  presentation: "dialog" | "page";
+}) {
+  if (!bannerMediaId && presentation === "dialog") return null;
+  const position = presentation === "dialog"
+    ? "right-3 top-3 sm:right-4 sm:top-4"
+    : "right-4 top-4";
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 transition-colors ${presentation === "dialog" ? "bg-secondary-950/0 group-hover:bg-secondary-950/20 group-focus-within:bg-secondary-950/10" : "bg-secondary-950/20 group-hover:bg-secondary-950/30"}`}
+      />
+      <TooltipProvider>
+        <div className={`absolute z-20 flex items-center gap-2 ${position}`}>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Ubah banner Tryout"
+                  disabled={disabled}
+                  onClick={onOpenPicker}
+                  size="icon"
+                  type="button"
+                  variant="inverse"
+                />
+              }
+            >
+              <Pencil aria-hidden="true" className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>Ubah banner Tryout</TooltipContent>
+          </Tooltip>
+          {bannerMediaId ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="Hapus banner Tryout"
+                    disabled={disabled}
+                    onClick={() => onChange(null)}
+                    size="icon"
+                    type="button"
+                    variant="inverse"
+                  />
+                }
+              >
+                <Trash2 aria-hidden="true" className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>Hapus banner Tryout</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      </TooltipProvider>
+    </>
   );
 }
 
@@ -588,102 +612,157 @@ function TryoutTitleField({
 
   if (presentation === "dialog") {
     return (
-      <Field className="gap-3">
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="tryout-title"
-          required
-        >
-          Judul Tryout
-        </FieldLabel>
-        <FieldInput
-          className={REFERENCE_CONTROL_CLASS_NAMES.input}
-          disabled={disabled || isSaving}
-          id="tryout-title"
-          onChange={(event) => onChange(event.target.value)}
-          required
-          value={value}
-        />
-      </Field>
+      <TryoutTitleDialogInput
+        disabled={disabled}
+        isSaving={isSaving}
+        onChange={onChange}
+        value={value}
+      />
     );
   }
 
   if (editing) {
     return (
-      <div className="grid gap-2">
-        <FieldInput
-          autoFocus
-          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} font-semibold tracking-tight ${presentation === "dialog" ? "h-14 text-3xl sm:h-16 sm:text-4xl" : "h-12 text-2xl md:text-3xl"}`}
-          disabled={disabled || isSaving}
-          id="tryout-title"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              save();
-            } else if (event.key === "Escape") {
-              cancel();
-            }
-          }}
-          required
-          value={draft}
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={disabled || isSaving || !draft.trim()}
-            onClick={save}
-            size="sm"
-            type="button"
-            variant="brand"
-          >
-            <Check aria-hidden="true" />
-            Simpan
-          </Button>
-          <Button
-            disabled={disabled || isSaving}
-            onClick={cancel}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <X aria-hidden="true" />
-            Batal
-          </Button>
-        </div>
-      </div>
+      <TryoutTitleEditingForm
+        disabled={disabled}
+        draft={draft}
+        isSaving={isSaving}
+        onCancel={cancel}
+        onDraftChange={setDraft}
+        onSave={save}
+      />
     );
   }
 
   return (
-    <div className="group flex items-start gap-3">
-      <h2
-        className={`min-w-0 break-words font-semibold text-secondary-900 ${
-          presentation === "dialog"
-            ? "text-4xl leading-[1.08] tracking-[-0.035em] sm:text-5xl lg:text-6xl"
-            : "text-3xl tracking-tight md:text-4xl"
-        }`}
+    <TryoutTitleReadView
+      disabled={disabled}
+      onEdit={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      value={value}
+    />
+  );
+}
+
+function TryoutTitleDialogInput({
+  disabled,
+  isSaving,
+  onChange,
+  value,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+  onChange: (title: string) => void;
+  value: string;
+}) {
+  return (
+    <Field className="gap-3">
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="tryout-title"
+        required
       >
+        Judul Tryout
+      </FieldLabel>
+      <FieldInput
+        className={REFERENCE_CONTROL_CLASS_NAMES.input}
+        disabled={disabled || isSaving}
+        id="tryout-title"
+        onChange={(event) => onChange(event.target.value)}
+        required
+        value={value}
+      />
+    </Field>
+  );
+}
+
+function TryoutTitleEditingForm({
+  disabled,
+  draft,
+  isSaving,
+  onCancel,
+  onDraftChange,
+  onSave,
+}: {
+  disabled: boolean;
+  draft: string;
+  isSaving: boolean;
+  onCancel: () => void;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <FieldInput
+        autoFocus
+        className={`${REFERENCE_CONTROL_CLASS_NAMES.input} font-semibold tracking-tight h-12 text-2xl md:text-3xl`}
+        disabled={disabled || isSaving}
+        id="tryout-title"
+        onChange={(event) => onDraftChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onSave();
+          } else if (event.key === "Escape") {
+            onCancel();
+          }
+        }}
+        required
+        value={draft}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={disabled || isSaving || !draft.trim()}
+          onClick={onSave}
+          size="sm"
+          type="button"
+          variant="default"
+        >
+          <Check aria-hidden="true" />
+          Simpan
+        </Button>
+        <Button
+          disabled={disabled || isSaving}
+          onClick={onCancel}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <X aria-hidden="true" />
+          Batal
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TryoutTitleReadView({
+  disabled,
+  onEdit,
+  value,
+}: {
+  disabled: boolean;
+  onEdit: () => void;
+  value: string;
+}) {
+  return (
+    <div className="group flex items-start gap-3">
+      <h2 className="min-w-0 break-words text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">
         {value || "Tryout tanpa judul"}
       </h2>
       {!disabled ? (
         <Button
           aria-label="Ubah judul Tryout"
-          className={`shrink-0 text-secondary-400 opacity-70 hover:text-secondary-900 group-hover:opacity-100 ${
-            presentation === "dialog" ? "mt-2 size-10 sm:size-11" : "mt-1 size-8"
-          }`}
-          onClick={() => {
-            setDraft(value);
-            setEditing(true);
-          }}
-          size={presentation === "dialog" ? "icon" : "icon-sm"}
+          className="mt-1 size-8 shrink-0 text-secondary-400 opacity-70 hover:text-secondary-900 group-hover:opacity-100"
+          onClick={onEdit}
+          size="icon-sm"
           title="Ubah judul Tryout"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
-          <Pencil
-            aria-hidden="true"
-            className={presentation === "dialog" ? "size-5" : "size-4"}
-          />
+          <Pencil aria-hidden="true" className="size-4" />
         </Button>
       ) : null}
     </div>
@@ -721,100 +800,175 @@ function TryoutDescriptionField({
 
   if (presentation === "dialog") {
     return (
-      <Field className="gap-3">
-        <FieldLabel
-          className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-          htmlFor="tryout-description"
-        >
-          Deskripsi
-        </FieldLabel>
-        <FieldTextarea
-          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 resize-y`}
-          disabled={disabled || isSaving}
-          id="tryout-description"
-          onChange={(event) => onChange(event.target.value)}
-          value={value}
-        />
-      </Field>
+      <TryoutDescriptionDialogInput
+        disabled={disabled}
+        isSaving={isSaving}
+        onChange={onChange}
+        value={value}
+      />
     );
   }
 
   return (
+    <TryoutDescriptionPageField
+      disabled={disabled}
+      draft={draft}
+      editing={editing}
+      isSaving={isSaving}
+      onCancel={cancel}
+      onDraftChange={setDraft}
+      onEdit={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      onSave={save}
+      value={value}
+    />
+  );
+}
+
+function TryoutDescriptionDialogInput({
+  disabled,
+  isSaving,
+  onChange,
+  value,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+  onChange: (description: string) => void;
+  value: string;
+}) {
+  return (
+    <Field className="gap-3">
+      <FieldLabel
+        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+        htmlFor="tryout-description"
+      >
+        Deskripsi
+      </FieldLabel>
+      <FieldTextarea
+        className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 resize-y`}
+        disabled={disabled || isSaving}
+        id="tryout-description"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
+    </Field>
+  );
+}
+
+function TryoutDescriptionPageField({
+  disabled,
+  draft,
+  editing,
+  isSaving,
+  onCancel,
+  onDraftChange,
+  onEdit,
+  onSave,
+  value,
+}: {
+  disabled: boolean;
+  draft: string;
+  editing: boolean;
+  isSaving: boolean;
+  onCancel: () => void;
+  onDraftChange: (value: string) => void;
+  onEdit: () => void;
+  onSave: () => void;
+  value: string;
+}) {
+  return (
     <div>
       <div className="flex items-center gap-1.5">
-        <span
-          className={`font-semibold text-secondary-500 ${presentation === "dialog" ? "text-lg sm:text-xl" : "text-xs"}`}
-        >
+        <span className="text-xs font-semibold text-secondary-500">
           Deskripsi
         </span>
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah deskripsi Tryout"
-            className={`text-secondary-400 hover:text-secondary-900 ${presentation === "dialog" ? "size-9 sm:size-10" : "size-7"}`}
-            onClick={() => {
-              setDraft(value);
-              setEditing(true);
-            }}
-            size={presentation === "dialog" ? "icon" : "icon-sm"}
+            className="size-7 text-secondary-400 hover:text-secondary-900"
+            onClick={onEdit}
+            size="icon-sm"
             title="Ubah deskripsi Tryout"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
-            <Pencil
-              aria-hidden="true"
-              className={presentation === "dialog" ? "size-5" : "size-3.5"}
-            />
+            <Pencil aria-hidden="true" className="size-3.5" />
           </Button>
         ) : null}
       </div>
       {editing ? (
-        <div className="mt-2 grid gap-2">
-          <FieldTextarea
-            autoFocus
-            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} ${presentation === "dialog" ? "min-h-40 text-lg leading-7 sm:min-h-48 sm:text-xl" : "min-h-[110px] text-sm leading-6"}`}
-            disabled={disabled || isSaving}
-            id="tryout-description"
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Tuliskan deskripsi ringkas tentang Tryout ini…"
-            value={draft}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={disabled || isSaving}
-              onClick={save}
-              size="sm"
-              type="button"
-              variant="brand"
-            >
-              <Check aria-hidden="true" />
-              Simpan
-            </Button>
-            <Button
-              disabled={disabled || isSaving}
-              onClick={cancel}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <X aria-hidden="true" />
-              Batal
-            </Button>
-          </div>
-        </div>
+        <TryoutDescriptionEditingForm
+          disabled={disabled}
+          draft={draft}
+          isSaving={isSaving}
+          onCancel={onCancel}
+          onDraftChange={onDraftChange}
+          onSave={onSave}
+        />
       ) : (
-        <p
-          className={`mt-1 leading-7 ${presentation === "dialog" ? "text-lg text-secondary-600 sm:text-2xl sm:leading-9" : "text-sm text-secondary-700 leading-6"}`}
-        >
+        <p className="mt-1 text-sm leading-6 text-secondary-700">
           {value || (
-            <span
-              className={`italic ${presentation === "dialog" ? "text-secondary-500" : "text-secondary-400"}`}
-            >
+            <span className="italic text-secondary-400">
               Belum ada deskripsi untuk Tryout ini. Klik ikon pensil untuk
               menambahkan.
             </span>
           )}
         </p>
       )}
+    </div>
+  );
+}
+
+function TryoutDescriptionEditingForm({
+  disabled,
+  draft,
+  isSaving,
+  onCancel,
+  onDraftChange,
+  onSave,
+}: {
+  disabled: boolean;
+  draft: string;
+  isSaving: boolean;
+  onCancel: () => void;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="mt-2 grid gap-2">
+      <FieldTextarea
+        autoFocus
+        className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[110px] text-sm leading-6`}
+        disabled={disabled || isSaving}
+        id="tryout-description"
+        onChange={(event) => onDraftChange(event.target.value)}
+        placeholder="Tuliskan deskripsi ringkas tentang Tryout ini…"
+        value={draft}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={disabled || isSaving}
+          onClick={onSave}
+          size="sm"
+          type="button"
+          variant="default"
+        >
+          <Check aria-hidden="true" />
+          Simpan
+        </Button>
+        <Button
+          disabled={disabled || isSaving}
+          onClick={onCancel}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <X aria-hidden="true" />
+          Batal
+        </Button>
+      </div>
     </div>
   );
 }
@@ -874,8 +1028,42 @@ function TryoutIdentityPanel({
       value={draft.description}
     />
   );
-  const informationContent =
-    presentation === "dialog" ? (
+
+  return (
+    <>
+      <div className="grid min-w-0 w-full gap-6">
+        <TryoutIdentityInformation
+          bannerHero={bannerHero}
+          descriptionField={descriptionField}
+          presentation={presentation}
+          titleField={titleField}
+        />
+      </div>
+      {onCreate ? (
+        <TryoutIdentityCreateAction
+          disabled={saving}
+          onCreate={onCreate}
+          presentation={presentation}
+          title={draft.title}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function TryoutIdentityInformation({
+  bannerHero,
+  descriptionField,
+  presentation,
+  titleField,
+}: {
+  bannerHero: ReactNode;
+  descriptionField: ReactNode;
+  presentation: "dialog" | "page";
+  titleField: ReactNode;
+}) {
+  if (presentation === "dialog") {
+    return (
       <section
         aria-labelledby="tryout-basic-info-title"
         className="grid min-w-0 w-full max-w-full gap-5 sm:gap-6"
@@ -887,55 +1075,50 @@ function TryoutIdentityPanel({
         {descriptionField}
         {bannerHero}
       </section>
-    ) : (
-      <ReferenceSurface
-        aria-labelledby="tryout-basic-info-title"
-        as="section"
-        className="grid min-w-0 w-full max-w-full gap-7 overflow-hidden p-5 sm:p-7"
-      >
-        <h2 className="sr-only" id="tryout-basic-info-title">
-          Informasi Tryout
-        </h2>
-        {bannerHero}
-        {titleField}
-        {descriptionField}
-      </ReferenceSurface>
     );
+  }
 
   return (
-    <>
-      <div
-        className={
-          presentation === "dialog"
-            ? "grid min-w-0 w-full gap-6"
-            : "grid min-w-0 w-full gap-6"
-        }
-      >
-        {informationContent}
-      </div>
-      {onCreate ? (
-        <Button
-          aria-busy={saving}
-          aria-label="Buat Tryout"
-          className={
-            presentation === "dialog"
-              ? "w-full"
-              : "mt-4 w-full"
-          }
-          disabled={saving || !draft.title.trim()}
-          onClick={onCreate}
-          type="button"
-          variant={
-            presentation === "dialog" && !draft.title.trim()
-              ? "brandOutline"
-              : "brand"
-          }
-        >
-          <Save className={presentation === "dialog" ? "size-6" : undefined} />
-          {saving ? "Membuat…" : "Buat"}
-        </Button>
-      ) : null}
-    </>
+    <ReferenceSurface
+      aria-labelledby="tryout-basic-info-title"
+      as="section"
+      className="grid min-w-0 w-full max-w-full gap-7 overflow-hidden p-5 sm:p-7"
+    >
+      <h2 className="sr-only" id="tryout-basic-info-title">
+        Informasi Tryout
+      </h2>
+      {bannerHero}
+      {titleField}
+      {descriptionField}
+    </ReferenceSurface>
+  );
+}
+
+function TryoutIdentityCreateAction({
+  disabled,
+  onCreate,
+  presentation,
+  title,
+}: {
+  disabled: boolean;
+  onCreate: () => void;
+  presentation: "dialog" | "page";
+  title: string;
+}) {
+  const emptyTitle = !title.trim();
+  return (
+    <Button
+      aria-busy={disabled}
+      aria-label="Buat Tryout"
+      className={presentation === "dialog" ? "w-full" : "mt-4 w-full"}
+      disabled={disabled || emptyTitle}
+      onClick={onCreate}
+      type="button"
+      variant={presentation === "dialog" && emptyTitle ? "outline" : "default"}
+    >
+      <Save className={presentation === "dialog" ? "size-6" : undefined} />
+      {disabled ? "Membuat…" : "Buat"}
+    </Button>
   );
 }
 
@@ -1016,7 +1199,7 @@ function TryoutSavedQuestionList({
             const questionKey =
               "snapshotId" in question
                 ? question.snapshotId
-                : `${question.sourceQuestionId}-${index}`;
+                : question.sourceQuestionId;
             const difficulty = question.difficulty ?? "medium";
             const difficultyLabel =
               difficulty === "easy"
@@ -1043,12 +1226,12 @@ function TryoutSavedQuestionList({
                     {index + 1}
                   </span>
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                    <MentorBadge size="xs" tone="category">
+                    <Badge size="xs" tone="category">
                       {questionTypeLabel}
-                    </MentorBadge>
-                    <MentorBadge size="xs" tone="category">
+                    </Badge>
+                    <Badge size="xs" tone="category">
                       {difficultyLabel}
-                    </MentorBadge>
+                    </Badge>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-4">
@@ -1082,7 +1265,7 @@ function TryoutSavedQuestionList({
                           ("sourceQuestionOptionId" in option
                             ? option.sourceQuestionOptionId
                             : undefined) ||
-                          `${questionKey}-choice-${optionIndex}`;
+                          `${questionKey}-choice-${option.choiceKey ?? option.content}`;
 
                         return (
                           <div
@@ -1266,7 +1449,7 @@ function TryoutSubtestMetadataField({
               onClick={onSave}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <Check aria-hidden="true" />
             </Button>
@@ -1275,7 +1458,7 @@ function TryoutSubtestMetadataField({
               onClick={onCancel}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X aria-hidden="true" />
             </Button>
@@ -1286,7 +1469,7 @@ function TryoutSubtestMetadataField({
             onClick={onEdit}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil aria-hidden="true" />
           </Button>
@@ -1318,7 +1501,7 @@ function TryoutSubtestMetadataCard({
   );
   const [editingScoringMethod, setEditingScoringMethod] = useState(false);
   const [scoringMethodDraft, setScoringMethodDraft] = useState(
-    scoringMethodForSection(activeSection),
+    () => scoringMethodForSection(activeSection),
   );
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(
@@ -1536,6 +1719,14 @@ function TryoutSubtestEditor({
 }: TryoutSubtestEditorProps) {
   const packageBound = Boolean(activeSection.packageVersionId);
   const canEditQuestions = !readOnly && !draft.locked && !packageBound;
+  const view = tryoutSubtestEditorView({
+    activeDirectQuestions,
+    activeSection,
+    draft,
+    editorMode,
+    packageBound,
+    readOnly,
+  });
 
   const questionSourcePanel = (
     <TryoutQuestionSourcePanel
@@ -1581,7 +1772,7 @@ function TryoutSubtestEditor({
             : "grid min-w-0 gap-5"
         }
       >
-        {!editorMode ? (
+        {view.showMetadata ? (
           <TryoutSubtestMetadataCard
             activeSection={activeSection}
             draft={draft}
@@ -1591,66 +1782,114 @@ function TryoutSubtestEditor({
           />
         ) : null}
 
-        {editorMode || (packageBound && !readOnly)
-          ? questionSourcePanel
-          : null}
+        {view.showQuestionSource ? questionSourcePanel : null}
 
-        {!editorMode && !(packageBound && !readOnly) ? (
+        {view.showSavedQuestions ? (
           <TryoutSavedQuestionList
             activeDirectQuestions={activeDirectQuestions}
             activeSection={activeSection}
             action={
-              canEditQuestions && questionEditorHref ? (
-                <Button
-                  disabled={saving}
-                  nativeButton={false}
-                  onClick={(event) => {
-                    if (!dirty) return;
-                    event.preventDefault();
-                    void saveDraft().then((saved) => {
-                      if (saved)
-                        window.location.assign(questionEditorHref);
-                    });
-                  }}
-                  render={<Link href={questionEditorHref} />}
-                  type="button"
-                  variant="brand"
-                >
-                  <FilePenLine aria-hidden="true" />
-                  Edit Soal
-                </Button>
-              ) : null
+              <TryoutQuestionEditorAction
+                canEdit={canEditQuestions}
+                dirty={dirty}
+                href={questionEditorHref}
+                saveDraft={saveDraft}
+                saving={saving}
+              />
             }
           />
         ) : null}
 
-        {!editorMode &&
-        !readOnly &&
-        !draft.locked &&
-        scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
-        activeDirectQuestions.length > 0 ? (
-          <ReferenceSurface
-            className="flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-4 text-sm leading-6 text-secondary-700"
-            role="status"
-            variant="inset"
-          >
-            <CircleAlert
-              aria-hidden="true"
-              className="mt-1 size-4 shrink-0 text-primary-700"
-            />
-            <div>
-              <p className="font-semibold text-secondary-900">
-                Kalibrasi IRT belum tersedia
-              </p>
-              <p className="mt-1">
-                Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan
-                dengan IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
-              </p>
-            </div>
-          </ReferenceSurface>
+        {view.showIrtCalibrationNotice ? (
+          <TryoutIrtCalibrationNotice />
         ) : null}
       </div>
     </TooltipProvider>
+  );
+}
+
+function tryoutSubtestEditorView({
+  activeDirectQuestions,
+  activeSection,
+  draft,
+  editorMode,
+  packageBound,
+  readOnly,
+}: Pick<
+  TryoutSubtestEditorProps,
+  "activeDirectQuestions" | "activeSection" | "draft" | "editorMode" | "readOnly"
+> & { packageBound: boolean }) {
+  const canPublishWithIrt =
+    scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD;
+  return {
+    showIrtCalibrationNotice:
+      !editorMode &&
+      !readOnly &&
+      !draft.locked &&
+      canPublishWithIrt &&
+      activeDirectQuestions.length > 0,
+    showMetadata: !editorMode,
+    showQuestionSource: editorMode || (packageBound && !readOnly),
+    showSavedQuestions: !editorMode && !(packageBound && !readOnly),
+  };
+}
+
+function TryoutQuestionEditorAction({
+  canEdit,
+  dirty,
+  href,
+  saveDraft,
+  saving,
+}: {
+  canEdit: boolean;
+  dirty: boolean;
+  href?: string;
+  saveDraft: () => Promise<boolean>;
+  saving: boolean;
+}) {
+  if (!canEdit || !href) return null;
+  return (
+    <Button
+      disabled={saving}
+      nativeButton={false}
+      onClick={(event) => {
+        if (!dirty) return;
+        event.preventDefault();
+        void saveDraft().then((saved) => {
+          if (saved) window.location.assign(href);
+        });
+      }}
+      render={<Link href={href} />}
+      type="button"
+      variant="default"
+    >
+      <FilePenLine aria-hidden="true" />
+      Edit Soal
+    </Button>
+  );
+}
+
+function TryoutIrtCalibrationNotice() {
+  return (
+    <ReferenceSurface
+      className="flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-4 text-sm leading-6 text-secondary-700"
+      role="status"
+      variant="inset"
+    >
+      <CircleAlert
+        aria-hidden="true"
+        className="mt-1 size-4 shrink-0 text-primary-700"
+      />
+      <div>
+        <p className="font-semibold text-secondary-900">
+          Kalibrasi IRT belum tersedia
+        </p>
+        <p className="mt-1">
+          Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan dengan
+          IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
+        </p>
+      </div>
+    </ReferenceSurface>
   );
 }
 
@@ -1738,12 +1977,12 @@ function TryoutSubtestIndex({
               {href ? (
                 <Button
                   aria-label={actionLabel}
-                  className="group h-auto min-h-16 w-full justify-start rounded-2xl border border-primary-100 bg-white px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/60 sm:px-5"
+                  className="group h-auto min-h-16 w-full justify-start px-4 py-3 text-left sm:px-5"
                   disabled={saving}
                   nativeButton={false}
                   onClick={(event) => onOpenSubtest(section.subtest, event)}
                   render={<Link href={href} />}
-                  variant="ghost"
+                  variant="outline"
                 >
                   {content}
                   <ChevronRight
@@ -1754,10 +1993,10 @@ function TryoutSubtestIndex({
               ) : (
                 <Button
                   aria-label={actionLabel}
-                  className="group h-auto min-h-16 w-full justify-start rounded-2xl border border-primary-100 bg-white px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/60 sm:px-5"
+                  className="group h-auto min-h-16 w-full justify-start px-4 py-3 text-left sm:px-5"
                   disabled={saving}
                   onClick={() => onOpenSubtest(section.subtest)}
-                  variant="ghost"
+                  variant="outline"
                 >
                   {content}
                   <ChevronRight
@@ -1834,7 +2073,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving}
               onClick={onConfirmPublish}
-              variant="brand"
+              variant="default"
             >
               {saving ? "Menerbitkan…" : "Terbitkan"}
             </AlertDialogAction>
@@ -1862,7 +2101,7 @@ function TryoutLifecycleModals({
             <AlertDialogAction
               disabled={saving || draft.locked || hasActiveAttempt}
               onClick={onConfirmUnpublish}
-              variant="brand"
+              variant="default"
             >
               {saving ? "Memproses…" : "Jadikan draf"}
             </AlertDialogAction>
@@ -1888,7 +2127,7 @@ function TryoutLifecycleModals({
             <AlertDialogAction
               disabled={saving}
               onClick={onConfirmDuplicate}
-              variant="brand"
+              variant="default"
             >
               <Copy />
               {saving ? "Menyalin…" : "Buat salinan"}
@@ -1926,7 +2165,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving}
               onClick={onConfirmDiscard}
-              variant="brandOutline"
+              variant="outline"
             >
               Buang perubahan
             </Button>
@@ -1934,7 +2173,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving || !draft.title.trim()}
               onClick={onConfirmSaveDirty}
-              variant="brand"
+              variant="default"
             >
               <Save />
               Simpan dan lanjutkan
@@ -2805,6 +3044,127 @@ function useTryoutBuilderState({
   };
 }
 
+type TryoutBuilderState = ReturnType<typeof useTryoutBuilderState>;
+
+function TryoutQuestionEditorWorkspace({
+  activeSection,
+  id,
+  initialParent,
+  lifecycleModals,
+  renderSubtestEditor,
+  state,
+}: {
+  activeSection: TestDraft;
+  id: string;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  lifecycleModals: ReactNode;
+  renderSubtestEditor: (editorMode: boolean) => ReactNode;
+  state: TryoutBuilderState;
+}) {
+  const readOnly =
+    state.mode === "published" || state.draft.locked || state.editLocked;
+  const hasUncalibratedIrtQuestions =
+    !readOnly &&
+    scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
+    state.activeDirectQuestions.length > 0;
+
+  return (
+    <QuestionEditorPageShell marker="tryout">
+      <TryoutQuestionEditorHeader
+        backHref={tryoutSubtestDetailHref(
+          id,
+          activeSection.subtest,
+          initialParent?.id,
+        )}
+        dirty={state.dirty}
+        draftTitle={state.draft.title}
+        guardExternalNavigation={state.guardExternalNavigation}
+        readOnly={readOnly}
+        editLocked={state.editLocked}
+        saving={state.saving}
+        saveDraft={() => state.save("draft")}
+        subtest={activeSection.subtest}
+      />
+      <ResourceAuthoringLockBanner
+        hasLocalChanges={state.dirty}
+        onRetry={state.retryLock}
+        resourceLabel="Tryout"
+        state={state.lockState}
+      />
+      <div className="shrink-0 px-4 md:px-6">
+        <TryoutBuilderNotices error={state.error} />
+        {hasUncalibratedIrtQuestions ? (
+          <ReferenceSurface
+            className="mt-3 flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-3 text-sm leading-6 text-secondary-700"
+            role="status"
+            variant="inset"
+          >
+            <CircleAlert
+              aria-hidden="true"
+              className="mt-1 size-4 shrink-0 text-primary-700"
+            />
+            <div>
+              <p className="font-semibold text-secondary-900">
+                Kalibrasi IRT belum tersedia
+              </p>
+              <p className="mt-1">
+                Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan
+                dengan IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
+              </p>
+            </div>
+          </ReferenceSurface>
+        ) : null}
+      </div>
+      {renderSubtestEditor(true)}
+      {lifecycleModals}
+    </QuestionEditorPageShell>
+  );
+}
+
+function TryoutCreateDialogWorkspace({
+  discardConfirmationOpen,
+  dialogOpen,
+  error,
+  identityPanel,
+  onCloseAfterDiscard,
+  onDiscardOpenChange,
+  onOpenChange,
+  saving,
+}: {
+  discardConfirmationOpen: boolean;
+  dialogOpen?: boolean;
+  error: string | null;
+  identityPanel: ReactNode;
+  onCloseAfterDiscard: () => void;
+  onDiscardOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void;
+  saving: boolean;
+}) {
+  return (
+    <>
+      <Dialog onOpenChange={onOpenChange} open={Boolean(dialogOpen)}>
+        <DialogContent
+          className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8"
+          data-tryout-create-modal="true"
+          pending={saving}
+        >
+          <DialogHeader className="pr-12">
+            <DialogTitle>Buat Tryout</DialogTitle>
+          </DialogHeader>
+          <TryoutBuilderNotices error={error} />
+          {identityPanel}
+        </DialogContent>
+      </Dialog>
+      <UnsavedChangesConfirmationDialog
+        description="Perubahan Tryout yang belum disimpan akan hilang."
+        onDiscard={onCloseAfterDiscard}
+        onOpenChange={onDiscardOpenChange}
+        open={discardConfirmationOpen}
+      />
+    </>
+  );
+}
+
 function TryoutBuilderNotices({ error }: { error: string | null }) {
   return (
     <>
@@ -2825,6 +3185,7 @@ function TryoutQuestionEditorHeader({
   backHref,
   dirty,
   draftTitle,
+  editLocked,
   guardExternalNavigation,
   readOnly,
   saving,
@@ -2834,6 +3195,7 @@ function TryoutQuestionEditorHeader({
   backHref: string;
   dirty: boolean;
   draftTitle: string;
+  editLocked: boolean;
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   saveDraft: () => Promise<boolean>;
   readOnly: boolean;
@@ -2844,18 +3206,18 @@ function TryoutQuestionEditorHeader({
     backControl={<Button
       aria-label={`Kembali ke detail subtes ${subtest}`}
       className="shrink-0"
-      disabled={saving}
+      disabled={saving || editLocked}
       nativeButton={false}
       onClick={(event) => guardExternalNavigation(backHref, event)}
       render={<Link href={backHref} />}
       size="sm"
       type="button"
-      variant="ghost"
+      variant="outline"
     ><ChevronLeft aria-hidden="true" /></Button>}
     category={subtest}
     dirty={dirty}
     onSave={readOnly ? undefined : () => void saveDraft()}
-    saveDisabled={saving}
+    saveDisabled={saving || editLocked}
     saveId="tryout-save-button"
     saving={saving}
     title={draftTitle || "Tryout"}
@@ -2915,13 +3277,13 @@ function TryoutBuilderHeader({
       <div className="flex min-w-0 items-start gap-3">
         <Button
           aria-label={backLabel}
-          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          className="mt-1 shrink-0"
           nativeButton={false}
           onClick={(event) => guardExternalNavigation(backHref, event)}
           render={<Link href={backHref} />}
           size="icon"
           title={backLabel}
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>
@@ -2934,6 +3296,311 @@ function TryoutBuilderHeader({
         error={error}
       />
     </>
+  );
+}
+
+function TryoutWorkspaceContent({
+  activeWorkspace,
+  draft,
+  error,
+  hasActiveAttempt,
+  id,
+  initialParent,
+  initialSubtest,
+  mode,
+  onArchive,
+  onDelete,
+  onDuplicate,
+  onOpenSubtest,
+  onPublish,
+  onSetHidden,
+  onUnpublish,
+  operationsInitial,
+  renderSubtestEditor,
+  saving,
+}: {
+  activeWorkspace: TryoutWorkspaceTab;
+  draft: TryoutDraft;
+  error: string | null;
+  hasActiveAttempt: boolean;
+  id?: string;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  initialSubtest?: SubjectCode;
+  mode: WorkflowMode;
+  onArchive: () => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onOpenSubtest: (
+    subtest: SubjectCode,
+    event?: { preventDefault: () => void },
+  ) => void;
+  onPublish: () => void;
+  onSetHidden: (hidden: boolean) => void;
+  onUnpublish: () => void;
+  operationsInitial?: TryoutOperationsView & {
+    workflow?: CanonicalTryoutWorkflowProjection;
+  };
+  renderSubtestEditor: (editorMode: boolean) => ReactNode;
+  saving: boolean;
+}) {
+  if (initialSubtest) return renderSubtestEditor(false);
+
+  if (activeWorkspace === "subtests") {
+    return (
+      <TryoutSubtestIndex
+        draft={draft}
+        id={id}
+        onOpenSubtest={onOpenSubtest}
+        parentId={initialParent?.id}
+        readOnly={mode === "published" || draft.locked}
+        saving={saving}
+      />
+    );
+  }
+
+  if (activeWorkspace === "operations" && operationsInitial) {
+    return (
+      <ReferenceSurface
+        aria-labelledby="tryout-operations-title"
+        as="section"
+        className="mt-4 p-5 sm:p-7"
+      >
+        <h2
+          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
+          id="tryout-operations-title"
+        >
+          Operasional
+        </h2>
+        <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
+      </ReferenceSurface>
+    );
+  }
+
+  if (activeWorkspace === "participants" && operationsInitial) {
+    return (
+      <KaptenTryoutParticipantsPageModule
+        embedded
+        initial={operationsInitial}
+        parentId={initialParent?.id}
+      />
+    );
+  }
+
+  if (activeWorkspace === "settings") {
+    return (
+      <KaptenTryoutSettingsPageModule
+        draft={{
+          isHidden: draft.isHidden === true,
+          locked: draft.locked,
+          status: draft.status,
+          title: draft.title,
+        }}
+        error={error}
+        hasActiveAttempt={hasActiveAttempt}
+        onArchive={onArchive}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        onPublish={onPublish}
+        onSetHidden={onSetHidden}
+        onUnpublish={onUnpublish}
+        saving={saving}
+      />
+    );
+  }
+
+  return null;
+}
+
+function TryoutBuilderPageWorkspace({
+  activeWorkspace,
+  error,
+  guardExternalNavigation,
+  identityPanel,
+  id,
+  initialParent,
+  initialSubtest,
+  lifecycleModals,
+  mode,
+  onOpenSubtest,
+  onWorkspaceChange,
+  operationsInitial,
+  renderSubtestEditor,
+  state,
+  viewDraft,
+  viewSaving,
+}: {
+  activeWorkspace: TryoutWorkspaceTab;
+  error: string | null;
+  guardExternalNavigation: TryoutBuilderState["guardExternalNavigation"];
+  identityPanel: ReactNode;
+  id?: string;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  initialSubtest?: SubjectCode;
+  lifecycleModals: ReactNode;
+  mode: WorkflowMode;
+  onOpenSubtest: (
+    subtest: SubjectCode,
+    event?: { preventDefault: () => void },
+  ) => void;
+  onWorkspaceChange: (workspace: TryoutWorkspaceTab) => void;
+  operationsInitial?: TryoutOperationsView & {
+    workflow?: CanonicalTryoutWorkflowProjection;
+  };
+  renderSubtestEditor: (editorMode: boolean) => ReactNode;
+  state: TryoutBuilderState;
+  viewDraft: TryoutDraft;
+  viewSaving: boolean;
+}) {
+  return (
+    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+      {initialSubtest ? (
+        <TryoutBuilderNotices error={error} />
+      ) : (
+        <TryoutBuilderHeader
+          activeWorkspace={activeWorkspace}
+          draft={viewDraft}
+          error={error}
+          guardExternalNavigation={guardExternalNavigation}
+          id={id}
+          initialParent={initialParent}
+          onWorkspaceChange={onWorkspaceChange}
+        >
+          {identityPanel}
+        </TryoutBuilderHeader>
+      )}
+
+      {initialSubtest && id ? (
+        <div className="-mt-4 md:hidden">
+          <Button
+            className="px-0 text-sm text-secondary-600 hover:text-secondary-900"
+            nativeButton={false}
+            onClick={(event) =>
+              guardExternalNavigation(
+                tryoutSubtestListHref(id, initialParent?.id),
+                event,
+              )
+            }
+            render={<Link href={tryoutSubtestListHref(id, initialParent?.id)} />}
+            variant="outline"
+          >
+            Kembali ke daftar subtes
+          </Button>
+        </div>
+      ) : null}
+
+      {id ? (
+        <ResourceAuthoringLockBanner
+          hasLocalChanges={state.dirty}
+          onRetry={state.retryLock}
+          resourceLabel="Tryout"
+          state={state.lockState}
+        />
+      ) : null}
+
+      <TryoutWorkspaceContent
+        activeWorkspace={activeWorkspace}
+        draft={viewDraft}
+        error={error}
+        hasActiveAttempt={state.hasActiveAttempt}
+        id={id}
+        initialParent={initialParent}
+        initialSubtest={initialSubtest}
+        mode={mode}
+        onArchive={() => void state.archive()}
+        onDelete={() => void state.remove()}
+        onDuplicate={() => state.dispatch({ open: true, type: "setDuplicateOpen" })}
+        onOpenSubtest={onOpenSubtest}
+        onPublish={() => state.dispatch({ open: true, type: "setPublishOpen" })}
+        onSetHidden={(hidden) => void state.setTryoutVisibility(hidden)}
+        onUnpublish={() => state.dispatch({ open: true, type: "setUnpublishOpen" })}
+        operationsInitial={operationsInitial}
+        renderSubtestEditor={renderSubtestEditor}
+        saving={viewSaving}
+      />
+      {lifecycleModals}
+    </div>
+  );
+}
+
+function TryoutBuilderLifecycleDialogContent({
+  state,
+  viewDraft,
+  viewSaving,
+}: {
+  state: TryoutBuilderState;
+  viewDraft: TryoutDraft;
+  viewSaving: boolean;
+}) {
+  const {
+    dispatch,
+    discardDraft,
+    duplicate,
+    hasActiveAttempt,
+    pendingHrefRef,
+    publishOpen,
+    save,
+    saving,
+    unpublish,
+    unpublishOpen,
+    duplicateOpen,
+    dirtyNavigationOpen,
+  } = state;
+
+  return (
+    <TryoutLifecycleModals
+      dirtyNavigationOpen={dirtyNavigationOpen}
+      draft={viewDraft}
+      duplicateOpen={duplicateOpen}
+      hasActiveAttempt={hasActiveAttempt}
+      onCancelDirtyNavigation={() => {
+        pendingHrefRef.current = null;
+        dispatch({ open: false, type: "setDirtyNavigationOpen" });
+      }}
+      onConfirmDiscard={() => {
+        const href = pendingHrefRef.current;
+        discardDraft();
+        pendingHrefRef.current = null;
+        dispatch({ open: false, type: "setDirtyNavigationOpen" });
+        if (href) window.location.assign(href);
+      }}
+      onConfirmDuplicate={() => {
+        dispatch({ open: false, type: "setDuplicateOpen" });
+        void duplicate();
+      }}
+      onConfirmPublish={() => {
+        dispatch({ open: false, type: "setPublishOpen" });
+        void save("published");
+      }}
+      onConfirmSaveDirty={() => {
+        const href = pendingHrefRef.current;
+        void save("draft").then((ok) => {
+          if (ok && href) window.location.assign(href);
+          if (ok) {
+            pendingHrefRef.current = null;
+            dispatch({ open: false, type: "setDirtyNavigationOpen" });
+          }
+        });
+      }}
+      onConfirmUnpublish={() => {
+        dispatch({ open: false, type: "setUnpublishOpen" });
+        void unpublish();
+      }}
+      onOpenChangeDirtyNavigation={(open) => {
+        if (!saving) dispatch({ open, type: "setDirtyNavigationOpen" });
+      }}
+      onOpenChangeDuplicate={(open) => {
+        if (!saving) dispatch({ open, type: "setDuplicateOpen" });
+      }}
+      onOpenChangePublish={(open) => {
+        if (!saving) dispatch({ open, type: "setPublishOpen" });
+      }}
+      onOpenChangeUnpublish={(open) => {
+        if (!saving) dispatch({ open, type: "setUnpublishOpen" });
+      }}
+      publishOpen={publishOpen}
+      saving={viewSaving}
+      unpublishOpen={unpublishOpen}
+    />
   );
 }
 
@@ -2969,39 +3636,38 @@ function TryoutBuilderContent({
   };
 }) {
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
-  const [createDialogDirty, setCreateDialogDirty] = useState(false);
+  const createDialogDirtyRef = useRef(false);
   const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
     initialSubtest ? "subtests" : (initialWorkspace ?? "subtests"),
   );
+  const state = useTryoutBuilderState({
+    id,
+    initialDraft,
+    initialSubtest,
+    manualQuestionEditor: questionEditorMode,
+    initialSourceBanks,
+    initialSourceBankTotal,
+    operationsInitial,
+  });
   const {
     activeBrowseBank,
     activeDirectQuestions,
     activeSection,
     activeSourceQuestions,
-    archive,
     browseBankId,
     discardDraft,
-    dirtyNavigationOpen,
     dispatch,
     dirty,
     editLocked,
     draft,
-    duplicate,
-    duplicateOpen,
     error,
     guardExternalNavigation,
-    hasActiveAttempt,
     importQuestions,
     metadataSaving,
     mode,
-    pendingHrefRef,
-    publishOpen,
     save,
     saveMetadata,
-    setTryoutVisibility,
     saving,
-    lockState,
-    retryLock,
     sourceBankLoading,
     sourceBankPage,
     sourceBankSearch,
@@ -3014,20 +3680,9 @@ function TryoutBuilderContent({
     moveQuestion,
     removeQuestion,
     updateQuestion,
-    unpublish,
-    remove,
-    unpublishOpen,
     updateDraft,
     update,
-  } = useTryoutBuilderState({
-    id,
-    initialDraft,
-    initialSubtest,
-    manualQuestionEditor: questionEditorMode,
-    initialSourceBanks,
-    initialSourceBankTotal,
-    operationsInitial,
-  });
+  } = state;
   const viewDraft = editLocked ? { ...draft, locked: true } : draft;
   const viewSaving = saving || editLocked;
   const viewMetadataSaving = metadataSaving || editLocked;
@@ -3036,7 +3691,7 @@ function TryoutBuilderContent({
   const updateIdentityDraft = (
     change: (current: TryoutDraft) => TryoutDraft,
   ) => {
-    if (isCreateDialog) setCreateDialogDirty(true);
+    if (isCreateDialog) createDialogDirtyRef.current = true;
     updateDraft(change);
   };
   const handleCreateDialogOpenChange = (open: boolean) => {
@@ -3045,7 +3700,7 @@ function TryoutBuilderContent({
       return;
     }
     if (viewSaving) return;
-    if (createDialogDirty) {
+    if (createDialogDirtyRef.current) {
       setDiscardConfirmationOpen(true);
       return;
     }
@@ -3053,7 +3708,7 @@ function TryoutBuilderContent({
   };
   const closeCreateDialogAfterDiscard = () => {
     discardDraft();
-    setCreateDialogDirty(false);
+    createDialogDirtyRef.current = false;
     setDiscardConfirmationOpen(false);
     onDialogOpenChange?.(false);
   };
@@ -3136,267 +3791,71 @@ function TryoutBuilderContent({
   };
 
   const lifecycleModals = (
-    <TryoutLifecycleModals
-      dirtyNavigationOpen={dirtyNavigationOpen}
-      draft={viewDraft}
-      duplicateOpen={duplicateOpen}
-      hasActiveAttempt={hasActiveAttempt}
-      onCancelDirtyNavigation={() => {
-        pendingHrefRef.current = null;
-        dispatch({ open: false, type: "setDirtyNavigationOpen" });
-      }}
-      onConfirmDiscard={() => {
-        const href = pendingHrefRef.current;
-        discardDraft();
-        pendingHrefRef.current = null;
-        dispatch({ open: false, type: "setDirtyNavigationOpen" });
-        if (href) window.location.assign(href);
-      }}
-      onConfirmDuplicate={() => {
-        dispatch({ open: false, type: "setDuplicateOpen" });
-        void duplicate();
-      }}
-      onConfirmPublish={() => {
-        dispatch({ open: false, type: "setPublishOpen" });
-        void save("published");
-      }}
-      onConfirmSaveDirty={() => {
-        const href = pendingHrefRef.current;
-        void save("draft").then((ok) => {
-          if (ok && href) window.location.assign(href);
-          if (ok) {
-            pendingHrefRef.current = null;
-            dispatch({ open: false, type: "setDirtyNavigationOpen" });
-          }
-        });
-      }}
-      onConfirmUnpublish={() => {
-        dispatch({ open: false, type: "setUnpublishOpen" });
-        void unpublish();
-      }}
-      onOpenChangeDirtyNavigation={(open) => {
-        if (!saving) dispatch({ open, type: "setDirtyNavigationOpen" });
-      }}
-      onOpenChangeDuplicate={(open) => {
-        if (!saving) dispatch({ open, type: "setDuplicateOpen" });
-      }}
-      onOpenChangePublish={(open) => {
-        if (!saving) dispatch({ open, type: "setPublishOpen" });
-      }}
-      onOpenChangeUnpublish={(open) => {
-        if (!saving) dispatch({ open, type: "setUnpublishOpen" });
-      }}
-      publishOpen={publishOpen}
-      saving={viewSaving}
-      unpublishOpen={unpublishOpen}
+    <TryoutBuilderLifecycleDialogContent
+      state={state}
+      viewDraft={viewDraft}
+      viewSaving={viewSaving}
     />
   );
 
   if (questionEditorMode && id && initialSubtest) {
-    const readOnly = mode === "published" || viewDraft.locked;
-    const hasUncalibratedIrtQuestions =
-      !readOnly &&
-      scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD &&
-      activeDirectQuestions.length > 0;
-
     return (
-      <QuestionEditorPageShell marker="tryout">
-        <TryoutQuestionEditorHeader
-          backHref={tryoutSubtestDetailHref(
-            id,
-            activeSection.subtest,
-            initialParent?.id,
-          )}
-          dirty={dirty}
-          draftTitle={viewDraft.title}
-          guardExternalNavigation={guardExternalNavigation}
-          readOnly={readOnly}
-          saving={viewSaving}
-          saveDraft={() => save("draft")}
-          subtest={activeSection.subtest}
-        />
-        <ResourceAuthoringLockBanner
-          hasLocalChanges={dirty}
-          onRetry={retryLock}
-          resourceLabel="Tryout"
-          state={lockState}
-        />
-        <div className="shrink-0 px-4 md:px-6">
-          <TryoutBuilderNotices
-            error={error}
-          />
-          {hasUncalibratedIrtQuestions ? (
-            <ReferenceSurface
-              className="mt-3 flex items-start gap-3 border border-primary-200 bg-primary-50/60 p-3 text-sm leading-6 text-secondary-700"
-              role="status"
-              variant="inset"
-            >
-              <CircleAlert
-                aria-hidden="true"
-                className="mt-1 size-4 shrink-0 text-primary-700"
-              />
-              <div>
-                <p className="font-semibold text-secondary-900">
-                  Kalibrasi IRT belum tersedia
-                </p>
-                <p className="mt-1">
-                  Draf tetap bisa disimpan, tetapi Tryout belum bisa diterbitkan
-                  dengan IRT. Pilih Poin tetap untuk melanjutkan ke publikasi.
-                </p>
-              </div>
-            </ReferenceSurface>
-          ) : null}
-        </div>
-        {renderSubtestEditor(true)}
-        {lifecycleModals}
-      </QuestionEditorPageShell>
+      <TryoutQuestionEditorWorkspace
+        activeSection={activeSection}
+        id={id}
+        initialParent={initialParent}
+        lifecycleModals={lifecycleModals}
+        renderSubtestEditor={renderSubtestEditor}
+        state={state}
+      />
     );
   }
 
   if (isCreateDialog) {
     return (
-      <>
-        <Dialog
-          onOpenChange={handleCreateDialogOpenChange}
-          open={Boolean(dialogOpen)}
-        >
-          <DialogContent
-            className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8"
-            data-tryout-create-modal="true"
-            pending={viewSaving}
-          >
-            <DialogHeader className="pr-12">
-              <DialogTitle>Buat Tryout</DialogTitle>
-            </DialogHeader>
-            <TryoutBuilderNotices
-              error={error}
-            />
-            {identityPanel}
-          </DialogContent>
-        </Dialog>
-        <UnsavedChangesConfirmationDialog
-          description="Perubahan Tryout yang belum disimpan akan hilang."
-          onDiscard={closeCreateDialogAfterDiscard}
-          onOpenChange={setDiscardConfirmationOpen}
-          open={discardConfirmationOpen}
-        />
-      </>
+      <TryoutCreateDialogWorkspace
+        discardConfirmationOpen={discardConfirmationOpen}
+        dialogOpen={dialogOpen}
+        error={error}
+        identityPanel={identityPanel}
+        onCloseAfterDiscard={closeCreateDialogAfterDiscard}
+        onDiscardOpenChange={setDiscardConfirmationOpen}
+        onOpenChange={handleCreateDialogOpenChange}
+        saving={viewSaving}
+      />
     );
   }
 
   return (
-    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      {initialSubtest ? (
-        <>
-          <TryoutBuilderNotices
-            error={error}
-          />
-        </>
-      ) : (
-        <TryoutBuilderHeader
-          activeWorkspace={activeWorkspace}
-          draft={viewDraft}
-          error={error}
-          guardExternalNavigation={guardExternalNavigation}
-          id={id}
-          initialParent={initialParent}
-          onWorkspaceChange={setActiveWorkspace}
-        >
-          {identityPanel}
-        </TryoutBuilderHeader>
-      )}
-
-      {initialSubtest && id && !questionEditorMode ? (
-        <div className="-mt-4 md:hidden">
-          <Button
-            className="px-0 text-sm text-secondary-600 hover:text-secondary-900"
-            nativeButton={false}
-            onClick={(event) =>
-              guardExternalNavigation(
-                tryoutSubtestListHref(id, initialParent?.id),
-                event,
-              )
-            }
-            render={
-              <Link href={tryoutSubtestListHref(id, initialParent?.id)} />
-            }
-            variant="ghost"
-          >
-            Kembali ke daftar subtes
-          </Button>
-        </div>
-      ) : null}
-
-      {id ? (
-        <ResourceAuthoringLockBanner
-          hasLocalChanges={dirty}
-          onRetry={retryLock}
-          resourceLabel="Tryout"
-          state={lockState}
-        />
-      ) : null}
-
-      {initialSubtest ? renderSubtestEditor(false) : activeWorkspace === "subtests" ? (
-        <TryoutSubtestIndex
-          draft={viewDraft}
-          id={id}
-          parentId={initialParent?.id}
-          onOpenSubtest={(subtest, event) => {
-            if (!id) {
-              void save("draft", "basics", subtest);
-              return;
-            }
-            if (event)
-              guardExternalNavigation(
-                tryoutSubtestDetailHref(id, subtest, initialParent?.id),
-                event,
-              );
-          }}
-          readOnly={mode === "published" || viewDraft.locked}
-          saving={viewSaving}
-        />
-      ) : activeWorkspace === "operations" && operationsInitial ? (
-        <ReferenceSurface
-          aria-labelledby="tryout-operations-title"
-          as="section"
-          className="mt-4 p-5 sm:p-7"
-        >
-          <h2
-            className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
-            id="tryout-operations-title"
-          >
-            Operasional
-          </h2>
-          <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
-        </ReferenceSurface>
-      ) : activeWorkspace === "participants" && operationsInitial ? (
-        <KaptenTryoutParticipantsPageModule
-          embedded
-          initial={operationsInitial}
-          parentId={initialParent?.id}
-        />
-      ) : activeWorkspace === "settings" ? (
-        <KaptenTryoutSettingsPageModule
-          draft={{
-            isHidden: viewDraft.isHidden === true,
-            locked: viewDraft.locked,
-            status: viewDraft.status,
-            title: viewDraft.title,
-          }}
-          error={error}
-          hasActiveAttempt={hasActiveAttempt}
-          onArchive={() => void archive()}
-          onDelete={() => void remove()}
-          onDuplicate={() => dispatch({ open: true, type: "setDuplicateOpen" })}
-          onPublish={() => dispatch({ open: true, type: "setPublishOpen" })}
-          onSetHidden={(isHidden) => void setTryoutVisibility(isHidden)}
-          onUnpublish={() => dispatch({ open: true, type: "setUnpublishOpen" })}
-          saving={viewSaving}
-        />
-      ) : null}
-
-      {lifecycleModals}
-    </div>
+    <TryoutBuilderPageWorkspace
+      activeWorkspace={activeWorkspace}
+      error={error}
+      guardExternalNavigation={guardExternalNavigation}
+      identityPanel={identityPanel}
+      id={id}
+      initialParent={initialParent}
+      initialSubtest={initialSubtest}
+      lifecycleModals={lifecycleModals}
+      mode={mode}
+      onOpenSubtest={(subtest, event) => {
+        if (!id) {
+          void save("draft", "basics", subtest);
+          return;
+        }
+        if (event) {
+          guardExternalNavigation(
+            tryoutSubtestDetailHref(id, subtest, initialParent?.id),
+            event,
+          );
+        }
+      }}
+      onWorkspaceChange={setActiveWorkspace}
+      operationsInitial={operationsInitial}
+      renderSubtestEditor={renderSubtestEditor}
+      state={state}
+      viewDraft={viewDraft}
+      viewSaving={viewSaving}
+    />
   );
 }
 

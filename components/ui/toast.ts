@@ -4,10 +4,12 @@ import { toast as sonnerToast, type ExternalToast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type ToastVariant = "default" | "error" | "info" | "success" | "warning";
+type ToastPlacement = "action" | "notification";
 
-type VecalssToastOptions = Omit<ExternalToast, "className"> & {
+type VecalssToastOptions = Omit<ExternalToast, "className" | "position"> & {
   className?: string;
   variant?: ToastVariant;
+  placement?: ToastPlacement;
 };
 
 const toastVariantClassNames: Record<ToastVariant, string> = {
@@ -18,7 +20,8 @@ const toastVariantClassNames: Record<ToastVariant, string> = {
   warning: "!border-student-status-attention-border !bg-student-status-attention-bg !text-student-status-attention-fg",
 };
 
-function showToast(message: ReactNode, { variant = "default", ...options }: VecalssToastOptions = {}) {
+function showToast(message: ReactNode, { variant = "default", placement, ...options }: VecalssToastOptions = {}) {
+  const resolvedPlacement = placement ?? (options.action || options.cancel ? "action" : "notification");
   const emit = variant === "success"
     ? sonnerToast.success
     : variant === "error"
@@ -31,9 +34,10 @@ function showToast(message: ReactNode, { variant = "default", ...options }: Veca
 
   return emit(message, {
     ...options,
+    position: resolvedPlacement === "action" ? "top-center" : "bottom-center",
     className: cn(toastVariantClassNames[variant], options.className),
   });
 }
 
 export { showToast, sonnerToast as toast, toastVariantClassNames };
-export type { ToastVariant, VecalssToastOptions };
+export type { ToastVariant, ToastPlacement, VecalssToastOptions };

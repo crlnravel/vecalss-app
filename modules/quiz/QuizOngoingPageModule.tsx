@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Flag,
   Minus,
   PenTool,
   Plus,
@@ -15,6 +14,8 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,6 @@ import {
   AssessmentAnnotationOverlay,
   AssessmentIconButton,
   AssessmentQuestionNavigation,
-  AssessmentUtilityPill,
   AssessmentWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
 import { AssessmentNavigationFooter } from "@/modules/assessment/AssessmentNavigationFooter";
@@ -93,7 +93,16 @@ function QuizOngoingPageModule({
   const [isAnnotationOpen, setIsAnnotationOpen] = useState(false);
   const [savingQuestions, setSavingQuestions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [submitBlocker, setSubmitBlocker] = useState<string | null>(null);
+  usePageStatusToast({
+    active: savingQuestions.length > 0 || isSubmitting,
+    message: isSubmitting
+      ? "Mengumpulkan kuis…"
+      : savingQuestions.length > 1
+        ? `Menyimpan ${savingQuestions.length} jawaban…`
+        : "Menyimpan jawaban…",
+    variant: "info",
+  });
   const toggleAnnotation = useCallback(
     () => setIsAnnotationOpen((open) => !open),
     [],
@@ -187,37 +196,45 @@ function QuizOngoingPageModule({
       return next;
     });
     setSavingQuestions((current) => [...current, currentQuestion]);
-    setMessage(null);
-    const response = await saveQuizAnswerAction(
-      attemptId,
-      currentQuizQuestion.id,
-      nextOptionIds,
-    );
-    setSavingQuestions((current) =>
-      current.filter((number) => number !== currentQuestion),
-    );
-    if (!response.ok) {
+    setSubmitBlocker(null);
+    let saveError: string | undefined;
+    try {
+      const response = await saveQuizAnswerAction(
+        attemptId,
+        currentQuizQuestion.id,
+        nextOptionIds,
+      );
+      if (!response.ok) saveError = response.message;
+    } catch (error) {
+      unstable_rethrow(error);
+      saveError = "Jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.";
+    } finally {
+      setSavingQuestions((current) =>
+        current.filter((number) => number !== currentQuestion),
+      );
+    }
+    if (saveError) {
       setSelectedAnswers((current) => {
         const next = { ...current };
         if (previousOptionIds.length) next[currentQuestion] = previousOptionIds;
         else delete next[currentQuestion];
         return next;
       });
-      setMessage(response.message);
+      showToast(saveError, { variant: "error" });
     }
   }
 
   async function submitQuiz() {
     if (savingQuestions.length) {
-      setMessage("Tunggu sampai jawaban tersimpan sebelum mengumpulkan kuis.");
+      setSubmitBlocker("Tunggu sampai jawaban tersimpan sebelum mengumpulkan kuis.");
       return;
     }
     setIsSubmitting(true);
-    setMessage(null);
+    setSubmitBlocker(null);
     try {
       const response = await submitQuizAction(attemptId);
       if (!response.ok) {
-        setMessage(response.message);
+        showToast(response.message, { variant: "error" });
         return;
       }
       router.push(
@@ -225,7 +242,7 @@ function QuizOngoingPageModule({
       );
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage("Kuis belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.");
+      showToast("Kuis belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.", { variant: "error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -238,7 +255,7 @@ function QuizOngoingPageModule({
       currentQuizQuestion={currentQuizQuestion}
       currentSelectedOptionKeys={currentSelectedOptionKeys}
       flaggedQuestionSet={flaggedQuestionSet}
-      message={message}
+      submitBlocker={savingQuestions.length ? submitBlocker : null}
       onExit={() => router.push(`/quiz/${subjectSlug}`)}
       onExitDialogChange={setIsExitDialogOpen}
       onGoToQuestion={goToQuestion}
@@ -276,7 +293,7 @@ type QuizOngoingScreenProps = {
   currentQuizQuestion: QuizAttempt["questions"][number] | undefined;
   currentSelectedOptionKeys: string[];
   flaggedQuestionSet: Set<number>;
-  message: string | null;
+  submitBlocker: string | null;
   onExit: () => void;
   onExitDialogChange: (open: boolean) => void;
   onGoToQuestion: (question: number) => void;
@@ -310,14 +327,13 @@ function QuizOngoingScreen({
   currentQuizQuestion,
   currentSelectedOptionKeys,
   flaggedQuestionSet,
-  message,
+  submitBlocker,
   onExit,
   onExitDialogChange,
   onGoToQuestion,
   onSelectAnswer,
   onSubmitDialogChange,
   onSubmitQuiz,
-  onToggleReport,
   onToggleAnnotation,
   onUpdateTextScale,
   quiz,
@@ -331,6 +347,7 @@ function QuizOngoingScreen({
   unansweredCount,
   viewState,
 }: QuizOngoingScreenProps) {
+  const currentSelectedOptionKeySet = new Set(currentSelectedOptionKeys);
   const questionMarkers = attempt.questions.map((question, index) => {
     const number = index + 1;
     const markerState: QuizAttemptNavState =
@@ -417,7 +434,7 @@ function QuizOngoingScreen({
                   key={option.key}
                   onClick={() => void onSelectAnswer(option.id)}
                   option={option}
-                  selected={currentSelectedOptionKeys.includes(option.id)}
+                  selected={currentSelectedOptionKeySet.has(option.id)}
                   selectionMode={
                     currentQuizQuestion?.questionType === "multiple_choice"
                       ? "multiple"
@@ -428,91 +445,26 @@ function QuizOngoingScreen({
               ))}
             </section>
           </div>
-          {message ? (
+          {submitBlocker ? (
             <p
               aria-live="polite"
               className="mt-3 text-sm font-medium text-student-status-danger-fg"
               role="status"
             >
-              {message}
+              {submitBlocker}
             </p>
           ) : null}
         </div>
       }
       dialog={
-        <>
-          <AlertDialog
-            onOpenChange={onExitDialogChange}
-            open={viewState.dialogOpen}
-          >
-            <AlertDialogContent variant="danger">
-              <AlertDialogHeader>
-                <AlertDialogMedia variant="danger">
-                  <AlertTriangle />
-                </AlertDialogMedia>
-                <AlertDialogTitle>Keluar dari kuis?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar
-                  sekarang dan kembali melanjutkan kuis ini nanti.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Kembali</AlertDialogCancel>
-                <AlertDialogAction onClick={onExit} variant="destructive">
-                  Keluar dari kuis
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <AlertDialog
-            onOpenChange={onSubmitDialogChange}
-            open={viewState.submitDialogOpen}
-          >
-            <AlertDialogContent
-              pending={viewState.submitting}
-              variant="warning"
-            >
-              <AlertDialogHeader>
-                <AlertDialogMedia variant="warning">
-                  <AlertTriangle />
-                </AlertDialogMedia>
-                <AlertDialogTitle>
-                  {unansweredCount
-                    ? "Masih ada soal yang belum terjawab"
-                    : "Kumpulkan kuis?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {unansweredCount ? (
-                    <>
-                      Kamu masih memiliki{" "}
-                      <strong className="text-secondary-900">
-                        {unansweredCount} soal belum terjawab
-                      </strong>
-                      . Periksa kembali sebelum mengumpulkan kuis.
-                    </>
-                  ) : (
-                    "Setelah dikumpulkan, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  disabled={viewState.submitting}
-                  variant="brandOutline"
-                >
-                  Kembali
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={viewState.submitting}
-                  onClick={onSubmitQuiz}
-                  variant="destructive"
-                >
-                  {viewState.submitting ? "Mengumpulkan…" : "Kumpulkan kuis"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
+        <QuizOngoingDialogs
+          onExit={onExit}
+          onExitDialogChange={onExitDialogChange}
+          onSubmitDialogChange={onSubmitDialogChange}
+          onSubmitQuiz={onSubmitQuiz}
+          unansweredCount={unansweredCount}
+          viewState={viewState}
+        />
       }
       exitControl={
         <Button
@@ -520,7 +472,7 @@ function QuizOngoingScreen({
           onClick={() => onExitDialogChange(true)}
           size="icon-sm"
           title="Keluar dari kuis"
-          variant="ghost"
+          variant="outline"
         >
           <X />
         </Button>
@@ -533,7 +485,7 @@ function QuizOngoingScreen({
             disabled={currentQuestion === 1}
             onClick={() => onGoToQuestion(currentQuestion - 1)}
             size="lg"
-            variant="brandOutline"
+            variant="outline"
           >
             <ChevronLeft />
             <span className="sr-only">Sebelumnya</span>
@@ -556,7 +508,7 @@ function QuizOngoingScreen({
               disabled={viewState.submitting || savingQuestionSet.size > 0}
               onClick={() => onSubmitDialogChange(true)}
               size="lg"
-              variant="brand"
+              variant="default"
             >
               Kumpulkan kuis
             </Button>
@@ -566,7 +518,7 @@ function QuizOngoingScreen({
               className="h-12 w-full justify-center"
               onClick={() => onGoToQuestion(currentQuestion + 1)}
               size="lg"
-              variant="brand"
+              variant="default"
             >
               <span className="sr-only">Selanjutnya</span>
               <ChevronRight />
@@ -602,6 +554,93 @@ function QuizOngoingScreen({
         />
       }
     />
+  );
+}
+
+function QuizOngoingDialogs({
+  onExit,
+  onExitDialogChange,
+  onSubmitDialogChange,
+  onSubmitQuiz,
+  unansweredCount,
+  viewState,
+}: Pick<
+  QuizOngoingScreenProps,
+  | "onExit"
+  | "onExitDialogChange"
+  | "onSubmitDialogChange"
+  | "onSubmitQuiz"
+  | "unansweredCount"
+  | "viewState"
+>) {
+  return (
+    <>
+      <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
+        <AlertDialogContent variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger">
+              <AlertTriangle />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Keluar dari kuis?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Jawaban yang sudah tersimpan tetap aman. Kamu bisa keluar sekarang
+              dan kembali melanjutkan kuis ini nanti.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Kembali</AlertDialogCancel>
+            <AlertDialogAction onClick={onExit} variant="destructive">
+              Keluar dari kuis
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        onOpenChange={onSubmitDialogChange}
+        open={viewState.submitDialogOpen}
+      >
+        <AlertDialogContent pending={viewState.submitting} variant="warning">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="warning">
+              <AlertTriangle />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {unansweredCount
+                ? "Masih ada soal yang belum terjawab"
+                : "Kumpulkan kuis?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {unansweredCount ? (
+                <>
+                  Kamu masih memiliki{" "}
+                  <strong className="text-secondary-900">
+                    {unansweredCount} soal belum terjawab
+                  </strong>
+                  . Periksa kembali sebelum mengumpulkan kuis.
+                </>
+              ) : (
+                "Setelah dikumpulkan, jawabanmu akan dikunci dan hasil kuis akan disiapkan."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={viewState.submitting}
+              variant="outline"
+            >
+              Kembali
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={viewState.submitting}
+              onClick={onSubmitQuiz}
+              variant="destructive"
+            >
+              {viewState.submitting ? "Mengumpulkan…" : "Kumpulkan kuis"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

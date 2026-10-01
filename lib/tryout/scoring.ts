@@ -100,7 +100,6 @@ function aggregateTryoutScores(scores: readonly number[]) {
 function materializeFrozenAnswers(
   items: readonly FrozenScoreItem[],
   answers: readonly FrozenSelectedAnswer[],
-  _selectedItemIds?: readonly string[] | null,
 ) {
   const deliveredItems = items;
   const itemById = new Map(deliveredItems.map((item) => [item.id, item]));

@@ -15,9 +15,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import {
   ArrowUpRight,
   Archive,
-  CalendarDays,
   ChartNoAxesColumnIncreasing,
-  Check,
   ChevronRight,
   FileQuestion,
   FileText,
@@ -27,7 +25,6 @@ import {
   LoaderCircle,
   Maximize2,
   MessageCircleMore,
-  NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -41,9 +38,9 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { StudentBadge } from "@/components/ui/student-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,11 +69,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -727,13 +723,14 @@ type VeraAiWorkspaceProps = {
   automaticContext: VeraAutomaticContextAuthority;
   automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
+  requestCancelable: boolean;
   draft: string;
   fullscreenArtifact: VeraStudioTool | null;
   fullscreenArtifactDetail: VeraBackendArtifactDetail | null;
   generatedArtifacts: VeraStudioTool[];
   generatedArtifactSummaries: VeraBackendArtifactSummary[];
   error: string | null;
-  notice: string | null;
+  recoveryStatus: string | null;
   progress: number | null;
   provisionalText: string | null;
   notificationFeed: StudentNotificationFeed;
@@ -770,13 +767,14 @@ function VeraAiWorkspace({
   automaticContext,
   automaticProgress,
   busy,
+  requestCancelable,
   draft,
   error,
   fullscreenArtifact,
   fullscreenArtifactDetail,
   generatedArtifacts,
   generatedArtifactSummaries,
-  notice,
+  recoveryStatus,
   notificationFeed,
   onCloseArtifact,
   onCloseFullscreen,
@@ -806,6 +804,25 @@ function VeraAiWorkspace({
   returnToHref,
 }: VeraAiWorkspaceProps) {
   const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
+  const recoveryMessage = recoveryStatus ?? error;
+  const noticeMessage = recoveryStatus
+    ? "Memulihkan permintaan Vera…"
+    : error
+      ? "Jawaban Vera belum berhasil dibuat."
+      : getVeraOperationStatusMessage(automaticProgress, progress);
+
+  usePageStatusToast({
+    active: busy || Boolean(recoveryMessage),
+    action: !busy && recoveryMessage
+      ? { label: error ? "Coba lagi" : "Periksa lagi", onClick: onRetry }
+      : undefined,
+    cancel: busy && requestCancelable
+      ? { label: "Batalkan", onClick: onCancelRequest }
+      : undefined,
+    description: recoveryMessage ?? undefined,
+    message: noticeMessage,
+    variant: busy ? "info" : error ? "error" : "warning",
+  });
 
   return (
     <div className="student-page-canvas vera-ai-motion min-h-svh text-secondary-900 md:h-svh md:overflow-hidden">
@@ -848,15 +865,7 @@ function VeraAiWorkspace({
                 }
                 value={workspaceTab}
               >
-                <VeraStatusBanner
-                  automaticProgress={automaticProgress}
-                  busy={busy}
-                  error={error}
-                  notice={notice}
-                  onCancel={onCancelRequest}
-                  onRetry={onRetry}
-                  progress={progress}
-                />
+                <VeraProgressIndicator automaticProgress={automaticProgress} progress={progress} />
                 <WorkspaceTabs onChange={onSetWorkspaceTab} />
                 <TabsContent
                   className="min-h-0 min-w-0 flex-1 overflow-hidden"
@@ -989,16 +998,19 @@ function useVeraAiModuleState({
     useState<VeraBackendArtifactDetail | null>(null);
   const [usage, setUsage] = useState<VeraBackendUsage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requestCancelable, setRequestCancelable] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [automaticProgress, setAutomaticProgress] =
     useState<VeraAutomaticContextProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [recoveryStatus, setRecoveryStatus] = useState<string | null>(null);
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
   const [lastFailed, setLastFailed] = useState<VeraRequestAttempt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestInFlightRef = useRef(false);
-  const conversationResolverRef = useRef(createVeraConversationResolver());
+  const [conversationResolver] = useState(() =>
+    createVeraConversationResolver(),
+  );
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ??
@@ -1161,18 +1173,6 @@ function useVeraAiModuleState({
     };
   }, [hydrate]);
 
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setNotice(null);
-    }, 4_500);
-
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
   function updateActiveSession(
     update: (current: StudySession) => StudySession,
     sessionId = activeSession.id,
@@ -1196,7 +1196,7 @@ function useVeraAiModuleState({
 
     setLastFailed(null);
     setError(null);
-    setNotice(null);
+    setRecoveryStatus(null);
     void loadConversation(nextSessionId).catch((caught) => {
       setError(veraErrorMessage(caught));
     });
@@ -1216,7 +1216,7 @@ function useVeraAiModuleState({
       return;
     }
 
-    void conversationResolverRef.current(null, createBackendConversation);
+    void conversationResolver(null, createBackendConversation);
   }
 
   function handleRenameSession(sessionId: string, nextTitle: string) {
@@ -1361,9 +1361,9 @@ function useVeraAiModuleState({
               : item,
           ),
         );
-        setNotice(
-          "Judul berubah di perangkat lain. Versi terbaru sudah dimuat.",
-        );
+        showToast("Judul berubah di perangkat lain. Versi terbaru sudah dimuat.", {
+          variant: "info",
+        });
       }
 
       setError(veraErrorMessage(caught));
@@ -1423,7 +1423,7 @@ function useVeraAiModuleState({
       );
       setSessions(nextSessions);
       if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
-      setNotice("Sesi diarsipkan.");
+      showToast("Sesi diarsipkan.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1456,7 +1456,7 @@ function useVeraAiModuleState({
             : item,
         ),
       );
-      setNotice("Sesi dipulihkan.");
+      showToast("Sesi dipulihkan.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1480,7 +1480,7 @@ function useVeraAiModuleState({
       const nextSessions = sessions.filter((item) => item.id !== sessionId);
       setSessions(nextSessions);
       if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
-      setNotice("Sesi dihapus.");
+      showToast("Sesi dihapus.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1518,7 +1518,7 @@ function useVeraAiModuleState({
     requestInFlightRef.current = true;
     let conversationId: string | null;
     try {
-      conversationId = await conversationResolverRef.current(
+      conversationId = await conversationResolver(
         activeSession.id || null,
         createBackendConversation,
       );
@@ -1546,9 +1546,10 @@ function useVeraAiModuleState({
     const automaticEnabled = isVeraAutomaticContextEnabled(automaticContext);
 
     abortRef.current = controller;
+    setRequestCancelable(true);
     setBusy(true);
     setError(null);
-    setNotice(null);
+    setRecoveryStatus(null);
     setLastFailed(null);
     setProvisionalText(kind === "chat" ? "" : null);
     setProgress(automaticEnabled ? null : toolId ? 5 : null);
@@ -1707,11 +1708,21 @@ function useVeraAiModuleState({
             ) {
               setProvisionalText(data.text);
             }
-            if (event === "message.committed") {
-              setNotice("Jawaban sudah tersimpan di sesi ini.");
+            if (event === "message.committed" && kind === "chat") {
+              setRecoveryStatus(null);
+              showToast("Jawaban sudah tersimpan di sesi ini.", {
+                id: `vera-completion-${clientRequestId}`,
+                variant: "success",
+              });
             }
             if (event === "artifact.ready") {
-              setNotice("Hasil Studio sudah tersimpan di sesi ini.");
+              setRecoveryStatus(null);
+              if (kind === "studio") {
+                showToast("Hasil Studio sudah tersimpan di sesi ini.", {
+                  id: `vera-completion-${clientRequestId}`,
+                  variant: "success",
+                });
+              }
               attempt.artifactId = data.artifactRevisionId ?? null;
               const artifactType = data.artifactType ?? null;
               if (isToolId(artifactType)) {
@@ -1727,6 +1738,7 @@ function useVeraAiModuleState({
             }
             if (event === "request.completed") {
               terminalSeen = true;
+              setRecoveryStatus(null);
               if (data.state === "failed") {
                 setError(
                   veraErrorMessage(new VeraRequestError("request_failed")),
@@ -1736,6 +1748,7 @@ function useVeraAiModuleState({
             }
             if (event === "request.failed") {
               terminalSeen = true;
+              setRecoveryStatus(null);
               if (automaticEnabled) {
                 setAutomaticProgress({ phase: "unavailable", progress: 100 });
               }
@@ -1747,7 +1760,7 @@ function useVeraAiModuleState({
               setLastFailed(attempt.requestId ? attempt : null);
             }
             if (event === "request.recovery_pending") {
-              setNotice(
+              setRecoveryStatus(
                 "Permintaan masih dipulihkan. Vera sedang memeriksa hasil tersimpan.",
               );
             }
@@ -1791,6 +1804,10 @@ function useVeraAiModuleState({
           await new Promise((resolve) => window.setTimeout(resolve, 250));
         }
 
+        if (finalStatus && isTerminalRequestState(finalStatus.state)) {
+          setRecoveryStatus(null);
+        }
+
         if (
           finalStatus &&
           ["failed", "rejected", "expired"].includes(finalStatus.state)
@@ -1802,7 +1819,7 @@ function useVeraAiModuleState({
           );
           setLastFailed(attempt.requestId ? attempt : null);
         } else if (!finalStatus || !isTerminalRequestState(finalStatus.state)) {
-          setNotice(
+          setRecoveryStatus(
             "Permintaan masih dipulihkan. Coba periksa kembali beberapa saat lagi.",
           );
         }
@@ -1820,7 +1837,7 @@ function useVeraAiModuleState({
       }
     } catch (caught) {
       if (controller.signal.aborted) {
-        setError(veraErrorMessage(new VeraRequestError("request_cancelled")));
+        setError(null);
         setLastFailed(null);
       } else {
         setError(veraErrorMessage(caught));
@@ -1828,6 +1845,7 @@ function useVeraAiModuleState({
       }
     } finally {
       abortRef.current = null;
+      setRequestCancelable(false);
       setBusy(false);
       setProgress(null);
       setAutomaticProgress(null);
@@ -1838,7 +1856,8 @@ function useVeraAiModuleState({
 
   function handleCancelRequest() {
     abortRef.current?.abort();
-    setNotice("Permintaan dibatalkan.");
+    setRecoveryStatus(null);
+    showToast("Permintaan dibatalkan.", { variant: "info" });
   }
 
   function handleRetry() {
@@ -1868,13 +1887,14 @@ function useVeraAiModuleState({
     automaticContext,
     automaticProgress,
     busy,
+    requestCancelable,
     draft,
     error: backendError ?? error,
     fullscreenArtifact,
     fullscreenArtifactDetail,
     generatedArtifacts,
     generatedArtifactSummaries: backendArtifacts,
-    notice,
+    recoveryStatus,
     notificationFeed,
     onCancelRequest: handleCancelRequest,
     onCloseArtifact: () => {
@@ -1925,99 +1945,44 @@ function VeraAiPageModule({
   return <VeraAiWorkspace {...workspaceProps} />;
 }
 
-function VeraStatusBanner({
+function getVeraOperationStatusMessage(
+  automaticProgress: VeraAutomaticContextProgress | null,
+  progress: number | null,
+) {
+  switch (automaticProgress?.phase) {
+    case "selecting":
+    case "retrieving":
+      return "Mencari sumber belajar…";
+    case "answering":
+      return "Menyusun jawaban Vera…";
+    case "complete":
+      return "Menyelesaikan jawaban Vera…";
+    case "no_match":
+    case "evidence_limited":
+      return "Merampungkan jawaban Vera…";
+    case "unavailable":
+      return "Menyelesaikan permintaan Vera…";
+    default:
+      return progress !== null
+        ? "Menyiapkan hasil Vera…"
+        : "Vera sedang memproses permintaan…";
+  }
+}
+
+function VeraProgressIndicator({
   automaticProgress,
-  busy,
-  error,
-  notice,
-  onCancel,
-  onRetry,
   progress,
 }: {
   automaticProgress: VeraAutomaticContextProgress | null;
-  busy: boolean;
-  error: string | null;
-  notice: string | null;
-  onCancel: () => void;
-  onRetry: () => void;
   progress: number | null;
 }) {
-  if (
-    !busy &&
-    !error &&
-    !notice &&
-    (!automaticProgress || automaticProgress.phase === "complete")
-  ) {
-    return null;
-  }
-
-  const automaticStatusText = automaticProgress
-    ? {
-        selecting: "Mencari sumber belajar…",
-        retrieving: "Mencari sumber belajar…",
-        answering: "Menyusun jawaban…",
-        complete: "Jawaban sudah tersimpan.",
-        no_match: "Tidak ada sumber belajar yang cocok.",
-        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
-        unavailable: "Sumber belajar belum tersedia.",
-      }[automaticProgress.phase]
-    : null;
-  const automaticPercent = automaticProgress?.progress;
-  const statusText =
-    error ??
-    notice ??
-    automaticStatusText ??
-    (progress !== null
-      ? `Vera sedang menyusun hasil… ${progress}%`
-      : "Vera sedang menyusun jawaban…");
+  const value = automaticProgress?.progress ?? progress;
+  if (value === null) return null;
 
   return (
-    <div
-      aria-live={error ? "assertive" : "polite"}
-      className={cn(
-        "mb-2 flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-xs font-medium",
-        error
-          ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
-          : "border-primary-100 bg-primary-50 text-primary-800",
-      )}
-      role={error ? "alert" : "status"}
-    >
-      <div className="min-w-0 flex-1">
-        <span className="block truncate">
-          {statusText}
-          {automaticPercent !== null && automaticPercent !== undefined
-            ? ` ${automaticPercent}%`
-            : ""}
-        </span>
-        {automaticPercent !== null && automaticPercent !== undefined ? (
-          <Progress
-            aria-label="Kemajuan pencarian sumber belajar"
-            className="mt-1 h-1.5"
-            value={automaticPercent}
-          />
-        ) : null}
-      </div>
-      {busy ? (
-        <Button
-          className="shrink-0 rounded-full"
-          onClick={onCancel}
-          size="default"
-          variant="outline"
-        >
-          <X data-icon="inline-start" />
-          Batalkan
-        </Button>
-      ) : error ? (
-        <Button
-          className="shrink-0 rounded-full"
-          onClick={onRetry}
-          size="default"
-          variant="outline"
-        >
-          <RotateCcw data-icon="inline-start" />
-          Coba lagi
-        </Button>
-      ) : null}
+    <div className="mb-2 flex items-center gap-2 px-1">
+      <Progress aria-label="Progres permintaan Vera" className="h-1.5 flex-1" value={value} />
+      <span aria-hidden="true" className="shrink-0 text-xs tabular-nums text-secondary-600">{Math.round(value)}%</span>
     </div>
   );
 }
@@ -2042,7 +2007,7 @@ function VeraDataStatePanel({
   return (
     <section
       aria-live={loading ? "polite" : "assertive"}
-      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
+      className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-card border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
       role={loading ? "status" : "alert"}
     >
       <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
@@ -2062,7 +2027,7 @@ function VeraDataStatePanel({
             "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server.")}
       </p>
       {!loading ? (
-        <Button className="mt-6 rounded-full" onClick={onRetry} variant="brand">
+        <Button className="mt-6 " onClick={onRetry} variant="default">
           <RotateCcw data-icon="inline-start" />
           Coba lagi
         </Button>
@@ -2089,7 +2054,7 @@ function VeraTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Link
           aria-label="Kembali ke konteks sebelumnya"
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2.5 rounded-control focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/40"
           href={returnToHref}
         >
           <Image
@@ -2112,22 +2077,21 @@ function VeraTopBar({
       <div className="ml-auto flex items-center gap-2">
         <Button
           aria-label="Buka sesi"
-          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm md:hidden"
+          className="md:hidden"
           onClick={onOpenSessionSidebar}
           size="icon"
           title="Sesi"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <MessageCircleMore aria-hidden="true" />
         </Button>
         <Button
           aria-label="Ke dashboard"
-          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm"
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon"
-          variant="ghost"
+          variant="outline"
         >
           <House />
         </Button>
@@ -2200,15 +2164,17 @@ const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> =
     month: "Bulan ini",
   };
 
+const VERA_USD_FORMATTER = new Intl.NumberFormat("en-US", {
+  currency: "USD",
+  maximumFractionDigits: 4,
+  style: "currency",
+});
+
 function formatVeraUsdMicros(value: string | undefined) {
   if (!value || !/^\d+$/.test(value)) return "—";
   const amount = Number(value) / 1_000_000;
   if (!Number.isFinite(amount)) return "—";
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    maximumFractionDigits: 4,
-    style: "currency",
-  }).format(amount);
+  return VERA_USD_FORMATTER.format(amount);
 }
 
 function formatVeraResetAt(
@@ -2250,9 +2216,9 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
                 ? "Penggunaan Vera belum tersedia"
                 : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`
             }
-            className="rounded-full px-2.5"
+            className=" px-2.5"
             size="default"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -2370,19 +2336,19 @@ function WorkspaceTabs({
 }) {
   return (
     <div className="shrink-0">
-      <FullWidthLineTabsList aria-label="Area kerja Vera">
-        <FullWidthLineTabsTrigger onClick={() => onChange("chat")} value="chat">
+      <FullWidthTabsList aria-label="Area kerja Vera">
+        <FullWidthTabsTrigger onClick={() => onChange("chat")} value="chat">
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
-        </FullWidthLineTabsTrigger>
-        <FullWidthLineTabsTrigger
+        </FullWidthTabsTrigger>
+        <FullWidthTabsTrigger
           onClick={() => onChange("studio")}
           value="studio"
         >
           <Sparkles data-icon="inline-start" />
           Studio
-        </FullWidthLineTabsTrigger>
-      </FullWidthLineTabsList>
+        </FullWidthTabsTrigger>
+      </FullWidthTabsList>
     </div>
   );
 }
@@ -2445,21 +2411,21 @@ function SessionSidebar({
       <div className="mt-7 flex flex-col items-center gap-2">
         <Button
           aria-label="Buat sesi baru"
-          className="rounded-xl"
+          className=""
           onClick={onNewSession}
           size="icon"
           title="Sesi baru"
-          variant="ghost"
+          variant="outline"
         >
           <Plus />
         </Button>
         <Button
           aria-label="Buka percakapan"
-          className="rounded-xl"
+          className=""
           onClick={() => onSetCollapsed(false)}
           size="icon"
           title="Daftar percakapan"
-          variant="ghost"
+          variant="outline"
         >
           <MessageCircleMore />
         </Button>
@@ -2467,6 +2433,11 @@ function SessionSidebar({
     </nav>
   );
 }
+
+type SessionPendingAction = {
+  kind: "archive" | "delete";
+  session: StudySession;
+} | null;
 
 function SessionPanel({
   activeSessionId,
@@ -2494,10 +2465,7 @@ function SessionPanel({
   const [showArchived, setShowArchived] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const [pendingAction, setPendingAction] = useState<{
-    kind: "archive" | "delete";
-    session: StudySession;
-  } | null>(null);
+  const [pendingAction, setPendingAction] = useState<SessionPendingAction>(null);
   const visibleSessions = sessions.filter((item) =>
     showArchived ? item.archivedAt !== null : item.archivedAt === null,
   );
@@ -2523,25 +2491,25 @@ function SessionPanel({
                 aria-label={
                   showArchived ? "Tampilkan sesi aktif" : "Buka arsip sesi"
                 }
-                className={cn("rounded-full", showArchived && "bg-primary-50")}
+                className={cn("", showArchived && "bg-primary-50")}
                 onClick={() => {
                   setShowArchived((current) => !current);
                   setEditingSessionId(null);
                 }}
                 size="icon"
                 title={showArchived ? "Sesi aktif" : "Arsip sesi"}
-                variant="ghost"
+                variant="outline"
               >
                 <Archive />
               </Button>
               {!showArchived ? (
                 <Button
                   aria-label="Buat sesi baru"
-                  className="rounded-full"
+                  className=""
                   onClick={onNewSession}
                   size="icon"
                   title="Sesi baru"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Plus />
                 </Button>
@@ -2549,10 +2517,10 @@ function SessionPanel({
               {onCollapse ? (
                 <Button
                   aria-label="Minimalkan sidebar sesi"
-                  className="rounded-full"
+                  className=""
                   onClick={onCollapse}
                   size="icon"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <PanelLeftClose />
                 </Button>
@@ -2565,184 +2533,256 @@ function SessionPanel({
         <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
           <div className="flex flex-col gap-1.5">
             {visibleSessions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
+              <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/50 px-3 py-5 text-center text-xs leading-5 text-secondary-500">
                 {showArchived
                   ? "Belum ada sesi yang diarsipkan."
                   : "Belum ada sesi. Buat sesi baru untuk mulai berbicara dengan Vera."}
               </div>
             ) : (
-              visibleSessions.map((item) => {
-                const active = item.id === activeSessionId;
-                const editing = editingSessionId === item.id;
-
-                return (
-                  <div
-                    className={cn(
-                      "group relative flex min-h-14 w-full items-center gap-1 rounded-2xl border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
-                      active
-                        ? "border-primary-200 bg-primary-50 text-primary-950"
-                        : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
-                      item.archivedAt !== null && "opacity-75",
-                    )}
-                    key={item.id}
-                  >
-                    {editing ? (
-                      <Input
-                        aria-label={`Judul sesi ${item.title}`}
-                        autoFocus
-                        className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
-                        onBlur={() => finishRename(item)}
-                        onChange={(event) => setDraftTitle(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            finishRename(item);
-                          }
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            setEditingSessionId(null);
-                          }
-                        }}
-                        value={draftTitle}
-                      />
-                    ) : (
-                      <button
-                        aria-current={active ? "page" : undefined}
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
-                        disabled={item.archivedAt !== null}
-                        onClick={() => onSelectSession(item.id)}
-                        type="button"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">
-                            {item.title}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-xs text-secondary-400">
-                          {item.updatedAt}
-                        </span>
-                      </button>
-                    )}
-
-                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                      {!showArchived ? (
-                        <>
-                          <Button
-                            aria-label={`Ubah judul sesi ${item.title}`}
-                            className="rounded-full"
-                            onClick={() => beginRename(item)}
-                            size="icon"
-                            title="Ubah judul"
-                            variant="ghost"
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            aria-label={`Arsipkan ${item.title}`}
-                            className="rounded-full"
-                            onClick={() =>
-                              setPendingAction({
-                                kind: "archive",
-                                session: item,
-                              })
-                            }
-                            size="icon"
-                            title="Arsipkan sesi"
-                            variant="ghost"
-                          >
-                            <Archive />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          aria-label={`Pulihkan ${item.title}`}
-                          className="rounded-full"
-                          onClick={() => onRestoreSession(item.id)}
-                          size="icon"
-                          title="Pulihkan sesi"
-                          variant="ghost"
-                        >
-                          <Archive />
-                        </Button>
-                      )}
-                      <Button
-                        aria-label={`Hapus ${item.title}`}
-                        className="rounded-full text-secondary-400 hover:text-destructive"
-                        onClick={() =>
-                          setPendingAction({ kind: "delete", session: item })
-                        }
-                        size="icon"
-                        title="Hapus sesi"
-                        variant="ghost"
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
+              visibleSessions.map((item) => (
+                <SessionListItem
+                  active={item.id === activeSessionId}
+                  draftTitle={draftTitle}
+                  editing={editingSessionId === item.id}
+                  item={item}
+                  key={item.id}
+                  onArchive={() => setPendingAction({ kind: "archive", session: item })}
+                  onBeginRename={() => beginRename(item)}
+                  onDelete={() => setPendingAction({ kind: "delete", session: item })}
+                  onDraftTitleChange={setDraftTitle}
+                  onFinishRename={() => finishRename(item)}
+                  onRestore={() => onRestoreSession(item.id)}
+                  onSelect={() => onSelectSession(item.id)}
+                  onStopRename={() => setEditingSessionId(null)}
+                  showArchived={showArchived}
+                />
+              ))
             )}
           </div>
         </div>
       </WorkspacePanel>
 
-      <AlertDialog
+      <SessionActionDialog
+        onArchive={onArchiveSession}
+        onDelete={onDeleteSession}
         onOpenChange={(open) => {
           if (!open) setPendingAction(null);
         }}
-        open={pendingAction !== null}
-      >
-        <AlertDialogContent
-          size="sm"
-          variant={pendingAction?.kind === "delete" ? "danger" : "default"}
-        >
-          <AlertDialogHeader>
-            <AlertDialogMedia
-              variant={pendingAction?.kind === "delete" ? "danger" : "default"}
-            >
-              {pendingAction?.kind === "delete" ? <Trash2 /> : <Archive />}
-            </AlertDialogMedia>
-            <AlertDialogTitle>
-              {pendingAction?.kind === "delete"
-                ? "Hapus sesi ini?"
-                : "Arsipkan sesi ini?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingAction?.kind === "delete"
-                ? "Sesi akan dihapus dan tidak dapat dipulihkan setelah proses penghapusan selesai."
-                : "Sesi akan dipindahkan ke arsip. Kamu dapat memulihkannya kapan saja."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingAction(null)}>
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const action = pendingAction;
-                setPendingAction(null);
-                if (!action) return;
-                if (action.kind === "delete")
-                  onDeleteSession(action.session.id);
-                else onArchiveSession(action.session.id);
-              }}
-              variant={
-                pendingAction?.kind === "delete" ? "destructive" : "default"
-              }
-            >
-              {pendingAction?.kind === "delete" ? (
-                <Trash2 data-icon="inline-start" />
-              ) : (
-                <Archive data-icon="inline-start" />
-              )}
-              {pendingAction?.kind === "delete"
-                ? "Hapus sesi"
-                : "Arsipkan sesi"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onPendingActionChange={setPendingAction}
+        pendingAction={pendingAction}
+      />
     </>
+  );
+}
+
+function SessionListItem({
+  active,
+  draftTitle,
+  editing,
+  item,
+  onArchive,
+  onBeginRename,
+  onDelete,
+  onDraftTitleChange,
+  onFinishRename,
+  onRestore,
+  onSelect,
+  onStopRename,
+  showArchived,
+}: {
+  active: boolean;
+  draftTitle: string;
+  editing: boolean;
+  item: StudySession;
+  onArchive: () => void;
+  onBeginRename: () => void;
+  onDelete: () => void;
+  onDraftTitleChange: (title: string) => void;
+  onFinishRename: () => void;
+  onRestore: () => void;
+  onSelect: () => void;
+  onStopRename: () => void;
+  showArchived: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "group relative flex min-h-14 w-full items-center gap-1 rounded-control border px-2 py-2 transition-all duration-200 motion-reduce:transition-none",
+        active
+          ? "border-primary-200 bg-primary-50 text-primary-950"
+          : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
+        item.archivedAt !== null && "opacity-75",
+      )}
+    >
+      {editing ? (
+        <Input
+          aria-label={`Judul sesi ${item.title}`}
+          autoFocus
+          className="min-w-0 flex-1"
+          onBlur={onFinishRename}
+          onChange={(event) => onDraftTitleChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onFinishRename();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onStopRename();
+            }
+          }}
+          value={draftTitle}
+        />
+      ) : (
+        <button
+          aria-current={active ? "page" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+          disabled={item.archivedAt !== null}
+          onClick={onSelect}
+          type="button"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">
+              {item.title}
+            </span>
+          </span>
+          <span className="shrink-0 text-xs text-secondary-400">
+            {item.updatedAt}
+          </span>
+        </button>
+      )}
+      <SessionListItemActions
+        item={item}
+        onArchive={onArchive}
+        onBeginRename={onBeginRename}
+        onDelete={onDelete}
+        onRestore={onRestore}
+        showArchived={showArchived}
+      />
+    </div>
+  );
+}
+
+function SessionListItemActions({
+  item,
+  onArchive,
+  onBeginRename,
+  onDelete,
+  onRestore,
+  showArchived,
+}: {
+  item: StudySession;
+  onArchive: () => void;
+  onBeginRename: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
+  showArchived: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      {showArchived ? (
+        <Button
+          aria-label={`Pulihkan ${item.title}`}
+          className=""
+          onClick={onRestore}
+          size="icon"
+          title="Pulihkan sesi"
+          variant="outline"
+        >
+          <Archive />
+        </Button>
+      ) : (
+        <>
+          <Button
+            aria-label={`Ubah judul sesi ${item.title}`}
+            className=""
+            onClick={onBeginRename}
+            size="icon"
+            title="Ubah judul"
+            variant="outline"
+          >
+            <Pencil />
+          </Button>
+          <Button
+            aria-label={`Arsipkan ${item.title}`}
+            className=""
+            onClick={onArchive}
+            size="icon"
+            title="Arsipkan sesi"
+            variant="outline"
+          >
+            <Archive />
+          </Button>
+        </>
+      )}
+      <Button
+        aria-label={`Hapus ${item.title}`}
+        className=" text-secondary-400 hover:text-destructive"
+        onClick={onDelete}
+        size="icon"
+        title="Hapus sesi"
+        variant="outline"
+      >
+        <Trash2 />
+      </Button>
+    </div>
+  );
+}
+
+function SessionActionDialog({
+  onArchive,
+  onDelete,
+  onOpenChange,
+  onPendingActionChange,
+  pendingAction,
+}: {
+  onArchive: (sessionId: string) => void;
+  onDelete: (sessionId: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onPendingActionChange: (action: SessionPendingAction) => void;
+  pendingAction: SessionPendingAction;
+}) {
+  const isDelete = pendingAction?.kind === "delete";
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={pendingAction !== null}>
+      <AlertDialogContent size="sm" variant={isDelete ? "danger" : "default"}>
+        <AlertDialogHeader>
+          <AlertDialogMedia variant={isDelete ? "danger" : "default"}>
+            {isDelete ? <Trash2 /> : <Archive />}
+          </AlertDialogMedia>
+          <AlertDialogTitle>
+            {isDelete ? "Hapus sesi ini?" : "Arsipkan sesi ini?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {isDelete
+              ? "Sesi akan dihapus dan tidak dapat dipulihkan setelah proses penghapusan selesai."
+              : "Sesi akan dipindahkan ke arsip. Kamu dapat memulihkannya kapan saja."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onPendingActionChange(null)}>
+            Batal
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const action = pendingAction;
+              onPendingActionChange(null);
+              if (!action) return;
+              if (action.kind === "delete") onDelete(action.session.id);
+              else onArchive(action.session.id);
+            }}
+            variant={isDelete ? "destructive" : "default"}
+          >
+            {isDelete ? (
+              <Trash2 data-icon="inline-start" />
+            ) : (
+              <Archive data-icon="inline-start" />
+            )}
+            {isDelete ? "Hapus sesi" : "Arsipkan sesi"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -2779,7 +2819,6 @@ function ChatWorkspace({
           {provisionalText !== null ||
           (automaticContextEnabled && busy && automaticProgress !== null) ? (
             <ProvisionalMessageCard
-              automaticProgress={automaticProgress}
               body={provisionalText ?? ""}
             />
           ) : null}
@@ -2840,22 +2879,23 @@ function automaticSourceReleaseLabel(releasedAt: string | null) {
 }
 
 function StreamingAnswerText({ content }: { content: string }) {
+  const tokens = Array.from(content.matchAll(/\s+|\S+/gu), (match) => ({
+    start: match.index ?? 0,
+    text: match[0],
+  }));
   return (
     <span className="vera-streaming-text">
-      {content
-        .split(/(\s+)/u)
-        .filter(Boolean)
-        .map((part, index) => {
-          if (/^\s+$/u.test(part)) {
-            return <span key={`space-${index}`}>{part}</span>;
+      {tokens.map(({ start, text }) => {
+          if (/^\s+$/u.test(text)) {
+            return <span key={`space-${start}`}>{text}</span>;
           }
 
           return (
             <span
               className="vera-stream-word motion-reduce:animate-none"
-              key={`word-${index}`}
+              key={`word-${start}`}
             >
-              {part}
+              {text}
             </span>
           );
         })}
@@ -2873,7 +2913,24 @@ function MessageCard({ message }: { message: VeraMessage }) {
   const evidenceLabel = committedAutomaticRequest
     ? automaticEvidenceLabel(message.requestEvidenceState)
     : null;
-  const stateNotice = [
+  const stateNotice = getVeraMessageStateNotice(message);
+
+  if (isStudent) {
+    return <VeraStudentMessage message={message} stateNotice={stateNotice} />;
+  }
+
+  return (
+    <VeraAssistantMessage
+      committedAutomaticRequest={committedAutomaticRequest}
+      evidenceLabel={evidenceLabel}
+      message={message}
+      stateNotice={stateNotice}
+    />
+  );
+}
+
+function getVeraMessageStateNotice(message: VeraMessage) {
+  return [
     message.contentState && message.contentState !== "encrypted"
       ? `Konten: ${formatVeraState(message.contentState)}`
       : null,
@@ -2886,35 +2943,44 @@ function MessageCard({ message }: { message: VeraMessage }) {
   ]
     .filter(Boolean)
     .join(" · ");
+}
 
-  if (isStudent) {
-    return (
-      <Bubble align="end" className="max-w-[84%]">
-        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
-          <p>{message.body}</p>
-          {stateNotice ? (
-            <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
-          ) : null}
-          <p className="mt-1.5 text-right text-xs text-white/60">
-            {message.createdAt}
-          </p>
-        </BubbleContent>
-      </Bubble>
-    );
-  }
+function VeraStudentMessage({
+  message,
+  stateNotice,
+}: {
+  message: VeraMessage;
+  stateNotice: string;
+}) {
+  return (
+    <Bubble align="end" className="max-w-[84%]">
+      <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
+        <p>{message.body}</p>
+        {stateNotice ? (
+          <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
+        ) : null}
+        <p className="mt-1.5 text-right text-xs text-white/60">
+          {message.createdAt}
+        </p>
+      </BubbleContent>
+    </Bubble>
+  );
+}
 
+function VeraAssistantMessage({
+  committedAutomaticRequest,
+  evidenceLabel,
+  message,
+  stateNotice,
+}: {
+  committedAutomaticRequest: boolean;
+  evidenceLabel: string | null;
+  message: VeraMessage;
+  stateNotice: string;
+}) {
   return (
     <article className="flex items-start gap-3.5">
-      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
-        <Image
-          alt=""
-          aria-hidden="true"
-          className="size-10 object-contain"
-          height={40}
-          src="/brand/mascot-vecalss.png"
-          width={40}
-        />
-      </span>
+      <VeraMascotAvatar />
       <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
@@ -2926,98 +2992,140 @@ function MessageCard({ message }: { message: VeraMessage }) {
         <BubbleContent className="mt-2 max-w-[68ch] text-base leading-7 text-secondary-700">
           <p>{message.body}</p>
         </BubbleContent>
-        {evidenceLabel ? (
-          <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
-            {evidenceLabel}
-          </p>
-        ) : null}
-        {committedAutomaticRequest ? (
-          <details className="mt-3 max-w-[68ch] rounded-2xl border border-primary-100 bg-primary-50/35 px-3 py-2">
-            <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
-              Sumber yang dipakai
-            </summary>
-            {message.requestSources && message.requestSources.length > 0 ? (
-              <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
-                {message.requestSources.map((source) => {
-                  const releaseLabel = automaticSourceReleaseLabel(
-                    source.releasedAt,
-                  );
-
-                  return (
-                    <li
-                      className="flex items-start gap-2 text-sm text-secondary-700"
-                      key={source.citationKey}
-                    >
-                      <FileText
-                        className="mt-0.5 size-3.5 shrink-0 text-primary-700"
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0">
-                        <span className="block font-medium text-secondary-900">
-                          {source.title}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-secondary-500">
-                          {[automaticSourceKindLabel(source.kind), releaseLabel]
-                            .filter(Boolean)
-                            .join(" • ")}
-                        </span>
-                        {source.limitations.length > 0 ? (
-                          <span className="mt-0.5 block text-xs text-primary-800">
-                            Terbatas: {source.limitations.join(", ")}
-                          </span>
-                        ) : null}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="mt-2 border-t border-primary-100 pt-2 text-xs leading-5 text-secondary-600">
-                Ringkasan sumber belum tersedia untuk permintaan ini.
-              </p>
-            )}
-          </details>
-        ) : null}
-        {message.requestContextMode !== "automatic" &&
-        (!message.requestSources || message.requestSources.length === 0) &&
-        message.citations &&
-        message.citations.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {message.citations.map((citation) => (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/70 px-2.5 py-1 text-xs font-medium text-primary-800"
-                key={citation}
-              >
-                <FileText className="size-3" aria-hidden="true" />
-                {citation}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <VeraAutomaticMessageEvidence
+          enabled={committedAutomaticRequest}
+          evidenceLabel={evidenceLabel}
+          sources={message.requestSources}
+        />
+        <VeraManualCitations
+          citations={message.citations}
+          requestContextMode={message.requestContextMode}
+          requestSources={message.requestSources}
+        />
       </Bubble>
     </article>
   );
 }
 
+function VeraMascotAvatar() {
+  return (
+    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
+      <Image
+        alt=""
+        aria-hidden="true"
+        className="size-10 object-contain"
+        height={40}
+        src="/brand/mascot-vecalss.png"
+        width={40}
+      />
+    </span>
+  );
+}
+
+function VeraAutomaticMessageEvidence({
+  enabled,
+  evidenceLabel,
+  sources,
+}: {
+  enabled: boolean;
+  evidenceLabel: string | null;
+  sources: VeraMessage["requestSources"];
+}) {
+  if (!enabled) return null;
+  return (
+    <>
+      {evidenceLabel ? (
+        <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
+          {evidenceLabel}
+        </p>
+      ) : null}
+      <details className="mt-3 max-w-[68ch] rounded-card border border-primary-100 bg-primary-50/35 px-3 py-2">
+        <summary className="cursor-pointer list-inside text-sm font-semibold text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40">
+          Sumber yang dipakai
+        </summary>
+        {sources && sources.length > 0 ? (
+          <ul className="mt-2 flex flex-col gap-2 border-t border-primary-100 pt-2">
+            {sources.map((source) => (
+              <VeraMessageSource key={source.citationKey} source={source} />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 border-t border-primary-100 pt-2 text-xs leading-5 text-secondary-600">
+            Ringkasan sumber belum tersedia untuk permintaan ini.
+          </p>
+        )}
+      </details>
+    </>
+  );
+}
+
+function VeraMessageSource({
+  source,
+}: {
+  source: NonNullable<VeraMessage["requestSources"]>[number];
+}) {
+  const releaseLabel = automaticSourceReleaseLabel(source.releasedAt);
+  return (
+    <li className="flex items-start gap-2 text-sm text-secondary-700">
+      <FileText
+        className="mt-0.5 size-3.5 shrink-0 text-primary-700"
+        aria-hidden="true"
+      />
+      <span className="min-w-0">
+        <span className="block font-medium text-secondary-900">
+          {source.title}
+        </span>
+        <span className="mt-0.5 block text-xs text-secondary-500">
+          {[automaticSourceKindLabel(source.kind), releaseLabel]
+            .filter(Boolean)
+            .join(" • ")}
+        </span>
+        {source.limitations.length > 0 ? (
+          <span className="mt-0.5 block text-xs text-primary-800">
+            Terbatas: {source.limitations.join(", ")}
+          </span>
+        ) : null}
+      </span>
+    </li>
+  );
+}
+
+function VeraManualCitations({
+  citations,
+  requestContextMode,
+  requestSources,
+}: {
+  citations: VeraMessage["citations"];
+  requestContextMode: VeraMessage["requestContextMode"];
+  requestSources: VeraMessage["requestSources"];
+}) {
+  if (
+    requestContextMode === "automatic" ||
+    requestSources?.length ||
+    !citations?.length
+  ) {
+    return null;
+  }
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {citations.map((citation) => (
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/70 px-2.5 py-1 text-xs font-medium text-primary-800"
+          key={citation}
+        >
+          <FileText className="size-3" aria-hidden="true" />
+          {citation}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ProvisionalMessageCard({
-  automaticProgress,
   body,
 }: {
-  automaticProgress: VeraAutomaticContextProgress | null;
   body: string;
 }) {
-  const progressLabel = automaticProgress
-    ? {
-        selecting: "Mencari sumber belajar…",
-        retrieving: "Mencari sumber belajar…",
-        answering: "Menyusun jawaban…",
-        complete: "Jawaban sudah tersimpan.",
-        no_match: "Tidak ada sumber belajar yang cocok.",
-        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
-        unavailable: "Sumber belajar belum tersedia.",
-      }[automaticProgress.phase]
-    : null;
-
   return (
     <article className="flex items-start gap-3.5">
       <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
@@ -3033,18 +3141,16 @@ function ProvisionalMessageCard({
       <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
-          <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
+          <LoaderCircle aria-label="Vera sedang menyiapkan jawaban" className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" role="img" />
         </div>
-        <BubbleContent
-          aria-live="polite"
-          className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
-        >
-          {body ? (
+        {body ? (
+          <BubbleContent
+            aria-live="polite"
+            className="mt-2 max-w-[68ch] rounded-card border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
+          >
             <StreamingAnswerText content={body} />
-          ) : (
-            progressLabel || "Vera sedang menyusun jawaban…"
-          )}
-        </BubbleContent>
+          </BubbleContent>
+        ) : null}
       </Bubble>
     </article>
   );
@@ -3071,10 +3177,10 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
+        <div className="flex items-center gap-2 rounded-field border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
-            className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
+            className="min-w-0 flex-1"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             placeholder="Tanyakan konsep, soal, atau langkah belajarmu…"
@@ -3083,7 +3189,7 @@ function ChatComposer({
           {busy ? (
             <Button
               aria-label="Batalkan permintaan Vera"
-              className="rounded-full"
+              className=""
               onClick={onCancel}
               size="icon"
               type="button"
@@ -3094,11 +3200,11 @@ function ChatComposer({
           ) : (
             <Button
               aria-label="Kirim pertanyaan ke Vera"
-              className="rounded-full"
+              className=""
               disabled={!draft.trim()}
               size="icon"
               type="submit"
-              variant="brand"
+              variant="default"
             >
               <SendHorizontal />
             </Button>
@@ -3137,10 +3243,10 @@ function StudioPanel({
           action={
             <Button
               aria-label="Perbesar dokumen"
-              className="rounded-full"
+              className=""
               onClick={() => onExpandArtifact(activeArtifact.id)}
               size="icon"
-              variant="ghost"
+              variant="outline"
             >
               <Maximize2 />
             </Button>
@@ -3206,7 +3312,7 @@ function StudioPanel({
                 />
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 p-4 text-center">
+              <div className="rounded-card border border-dashed border-primary-200 bg-primary-50/50 p-4 text-center">
                 <Sparkles className="mx-auto size-5 text-primary-600" />
                 <p className="mt-2 text-sm font-semibold text-secondary-800">
                   Belum ada hasil
@@ -3243,7 +3349,7 @@ function StudioToolRow({
 
   return (
     <button
-      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 motion-reduce:transition-none hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="group flex min-h-14 w-full items-center gap-3 rounded-control border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 motion-reduce:transition-none hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onGenerate}
       type="button"
     >
@@ -3275,7 +3381,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-control border border-primary-100 bg-white p-3 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_62%,transparent)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
@@ -3329,7 +3435,7 @@ function StudioArtifactDocument({
       </div>
 
       {backendArtifact ? (
-        <dl className="mt-4 grid gap-2 rounded-2xl border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
+        <dl className="mt-4 grid gap-2 rounded-card border border-primary-100 bg-primary-50/45 p-3 text-xs text-secondary-600 sm:grid-cols-3">
           <div>
             <dt className="font-semibold text-secondary-500">Siklus</dt>
             <dd className="mt-1 text-secondary-800">
@@ -3356,7 +3462,7 @@ function StudioArtifactDocument({
       ) : (
         <div
           aria-live="polite"
-          className="mt-6 rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-5 text-sm leading-6 text-secondary-600"
+          className="mt-6 rounded-card border border-dashed border-primary-200 bg-primary-50/45 px-4 py-5 text-sm leading-6 text-secondary-600"
           role="status"
         >
           Dokumen hasil belum tersedia dari server.
@@ -3441,7 +3547,7 @@ function FullscreenArtifactDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-[2rem] border border-primary-100 bg-white p-0 sm:max-w-none"
+        className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-panel border border-primary-100 bg-white p-0 sm:max-w-none"
         showCloseButton={false}
         variant="info"
       >
@@ -3460,10 +3566,9 @@ function FullscreenArtifactDialog({
             </div>
             <Button
               aria-label="Tutup Vera Studio"
-              className="rounded-full border-0"
               onClick={() => onOpenChange(false)}
               size="icon"
-              variant="ghost"
+              variant="quiet"
             >
               <X />
             </Button>
@@ -3490,7 +3595,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-panel border border-learning-card-border bg-white shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:h-full",
         className,
       )}
     >
@@ -3514,11 +3619,11 @@ function PanelHeader({
         {closeAction ? (
           <Button
             aria-label="Tutup dokumen"
-            className="-ml-1 rounded-full border-0"
+            className="-ml-1"
             onClick={closeAction}
             size="icon"
             title="Tutup dokumen"
-            variant="ghost"
+            variant="quiet"
           >
             <X />
           </Button>

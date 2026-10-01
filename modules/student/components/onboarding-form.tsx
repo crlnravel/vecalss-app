@@ -13,6 +13,7 @@ import {
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { useActionToast } from "@/components/ui/use-action-toast";
 import {
   ReferenceSelect,
@@ -32,7 +33,6 @@ const ONBOARDING_SELECT_CLASS_NAMES = {
   icon: "text-[var(--voyage-forest)]",
   item: "data-[highlighted]:bg-[var(--voyage-sea-glass)] data-[highlighted]:text-secondary-900 data-[selected]:bg-[var(--voyage-sea-glass)] data-[selected]:text-secondary-900",
   popup: "border-secondary-200 text-secondary-800 shadow-none",
-  trigger: "border-secondary-200 bg-white text-secondary-800 shadow-none hover:border-secondary-200 hover:bg-voyage-surface focus-visible:border-[var(--voyage-forest)] focus-visible:ring-[var(--voyage-sea-glass)] data-popup-open:border-[var(--voyage-forest)] data-popup-open:ring-[var(--voyage-sea-glass)]",
 } as const;
 
 type OnboardingSelectProps = Omit<ReferenceSelectProps, "classNames">;
@@ -141,9 +141,9 @@ function ChoiceCard({
 function SkipOnboardingButton({ children }: { children: React.ReactNode }) {
   return (
     <form action={skipOnboardingAction}>
-      <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 underline-offset-4 transition hover:text-secondary-600 hover:underline motion-reduce:transition-none" type="submit">
+      <Button size="default" type="submit" variant="outline">
         {children}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -197,14 +197,16 @@ function OnboardingForm({
         {step > 0 ? (
           <>
             <StepProgress step={step} />
-            <button
+            <Button
               aria-label="Kembali ke langkah sebelumnya"
-              className="mt-5 grid size-11 place-items-center rounded-full text-secondary-600 transition hover:bg-voyage-surface focus-visible:outline-3 focus-visible:outline-[var(--voyage-leaf)] motion-reduce:transition-none"
+              className="mt-5"
               onClick={() => setStep((current) => Math.max(0, current - 1))}
+              size="icon"
               type="button"
+              variant="outline"
             >
               <ArrowLeft size={23} weight="bold" />
-            </button>
+            </Button>
           </>
         ) : null}
 
@@ -220,7 +222,7 @@ function OnboardingForm({
             <p className="mt-5 max-w-sm text-base leading-7 text-voyage-muted-ink">
               Jawab beberapa pertanyaan singkat supaya Vecalss bisa menyiapkan arah belajar yang pas buatmu.
             </p>
-            <Button className="mt-9 w-full max-w-sm" onClick={() => setStep(1)} size="onboarding" type="button" variant="onboarding">
+            <Button className="mt-9 w-full max-w-sm" onClick={() => setStep(1)} size="lg" type="button" variant="warning">
               Atur target belajar <ArrowRight size={19} weight="bold" />
             </Button>
             <div className="mt-5"><SkipOnboardingButton>Atur nanti</SkipOnboardingButton></div>
@@ -244,7 +246,7 @@ function OnboardingForm({
               {examEvents.length === 0 ? <p className="rounded-2xl border border-dashed border-secondary-300 p-4 text-sm text-voyage-muted-ink">Pilihan ujian belum tersedia. Kamu tetap bisa mengatur target kampus dan jurusan.</p> : null}
             </div>
             <div className="mt-8 flex flex-col items-center gap-4">
-              <Button className="w-full" disabled={!canAdvanceFromTargets} onClick={() => setStep(2)} size="onboarding" type="button" variant="onboarding">
+              <Button className="w-full" disabled={!canAdvanceFromTargets} onClick={() => setStep(2)} size="lg" type="button" variant="warning">
                 Lanjut <ArrowRight size={18} weight="bold" />
               </Button>
               <SkipOnboardingButton>Atur nanti</SkipOnboardingButton>
@@ -258,12 +260,12 @@ function OnboardingForm({
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
               <div><h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Pilih kampus dan jurusan tujuan</h1><p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Belum yakin? Pilih nanti. Kamu bisa mengubah target ini di Profil.</p></div>
             </div>
-            <label className="mt-9 block text-sm font-bold text-secondary-800" htmlFor="university">Pilih kampus</label>
+            <label className={`${fieldLabelClassName} mt-9 block`} htmlFor="university">Pilih kampus</label>
             <div className="relative mt-2">
               <MapPin className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--voyage-forest)]" size={20} weight="duotone" />
               <OnboardingSelect
                 aria-label="Pilih kampus"
-                className="h-14 pl-11"
+                className="pl-11"
                 id="university"
                 onValueChange={chooseUniversity}
                 options={[
@@ -277,10 +279,10 @@ function OnboardingForm({
                 value={universityId}
               />
             </div>
-            <label className="mt-6 block text-sm font-bold text-secondary-800" htmlFor="major">Jurusan tujuan</label>
+            <label className={`${fieldLabelClassName} mt-6 block`} htmlFor="major">Jurusan tujuan</label>
             <OnboardingSelect
               aria-label="Jurusan tujuan"
-              className="mt-2 h-14"
+              className="mt-2"
               id="major"
               onValueChange={setMajorId}
               options={[
@@ -295,8 +297,8 @@ function OnboardingForm({
             />
             {chosenUniversity ? <p className="mt-3 text-sm text-voyage-muted-ink">Keren, <span className="font-bold text-secondary-800">{chosenUniversity.shortName ?? chosenUniversity.name}</span> masuk daftar tujuanmu.</p> : null}
             <div className="mt-9 flex flex-col items-center gap-4">
-              <Button className="w-full" onClick={() => setStep(3)} size="onboarding" type="button" variant="onboarding">Lanjut <ArrowRight size={18} weight="bold" /></Button>
-              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 transition hover:text-secondary-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--voyage-leaf)] motion-reduce:transform-none motion-reduce:transition-none" onClick={() => setStep(3)} type="button">Lanjut tanpa memilih</button>
+              <Button className="w-full" onClick={() => setStep(3)} size="lg" type="button" variant="warning">Lanjut <ArrowRight size={18} weight="bold" /></Button>
+              <Button onClick={() => setStep(3)} size="default" type="button" variant="outline">Lanjut tanpa memilih</Button>
             </div>
           </section>
         ) : null}
@@ -314,8 +316,8 @@ function OnboardingForm({
               <input name="targetExamEventId" type="hidden" value={examId} />
               <input name="targetUniversityId" type="hidden" value={universityId} />
               <input name="targetMajorId" type="hidden" value={majorId} />
-              <Button className="w-full" size="onboarding" type="submit" variant="onboarding">Mulai belajar <ArrowRight size={19} weight="bold" /></Button>
-              <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-secondary-500 hover:text-secondary-600" formAction={skipOnboardingAction} type="submit">Lewati target belajar</button>
+              <Button className="w-full" size="lg" type="submit" variant="warning">Mulai belajar <ArrowRight size={19} weight="bold" /></Button>
+              <Button formAction={skipOnboardingAction} size="default" type="submit" variant="outline">Lewati target belajar</Button>
             </form>
           </section>
         ) : null}

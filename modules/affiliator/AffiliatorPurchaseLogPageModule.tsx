@@ -6,7 +6,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -54,9 +54,9 @@ function ConversionLogRow({ conversion }: { conversion: AffiliatorConversionLog 
         </time>
       </TableCell>
       <TableCell className="px-4 py-3.5 sm:px-5">
-        <StudentBadge size="sm" tone="success">
+        <Badge size="sm" tone="success">
           Berhasil
-        </StudentBadge>
+        </Badge>
       </TableCell>
     </TableRow>
   );
@@ -131,7 +131,7 @@ function ConversionLogPagination({
       <nav aria-label="Halaman riwayat pembelian" className="flex items-center gap-2">
         {page > 1 ? (
           <Link
-            className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })}
+            className={buttonVariants({ className: "min-h-11", size: "sm", variant: "outline" })}
             href={pageHref(page - 1)}
           >
             Sebelumnya
@@ -145,7 +145,7 @@ function ConversionLogPagination({
         </span>
         {page < pageCount ? (
           <Link
-            className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })}
+            className={buttonVariants({ className: "min-h-11", size: "sm", variant: "outline" })}
             href={pageHref(page + 1)}
           >
             Berikutnya

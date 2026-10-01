@@ -8,7 +8,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 
 type Detail = {
   items: Array<{ difficulty: string; options: Array<{ choiceKey: string; content: string; isCorrect: boolean }>; pointValue: number; prompt: string; sortOrder: number }>;
@@ -22,9 +22,9 @@ type Detail = {
 function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
   return (
     <div className="space-y-5">
-      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="outline"><ChevronLeft /></Button>
       <ReferencePageHeader
-        actions={<MentorBadge size="sm" tone="category">{packageReleaseLabel(detail.versionNo)}</MentorBadge>}
+        actions={<Badge size="sm" tone="category">{packageReleaseLabel(detail.versionNo)}</Badge>}
         title={detail.packageTitle}
       />
       <ReferenceSurface as="section" aria-label="Ringkasan versi" className="p-5 sm:p-7">
@@ -36,7 +36,7 @@ function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
       </ReferenceSurface>
       <ReferenceSurface as="section" aria-labelledby="package-version-questions-heading" className="p-5 sm:p-7">
         <ReferenceSectionHeading
-          action={<MentorBadge aria-label={`${detail.items.length} soal`} size="xs" tone="category">{detail.items.length} soal</MentorBadge>}
+          action={<Badge aria-label={`${detail.items.length} soal`} size="xs" tone="category">{detail.items.length} soal</Badge>}
           id="package-version-questions-heading"
           title="Soal"
         />

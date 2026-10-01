@@ -75,7 +75,7 @@ function StudentPasswordForm({
 
         <AlertDialogFooter>
           <AlertDialogCancel type="button">Batal</AlertDialogCancel>
-          <SubmitButton pendingLabel="Memperbarui…" type="submit" variant="brand">
+          <SubmitButton pendingLabel="Memperbarui…" type="submit" variant="default">
             Simpan kata sandi
           </SubmitButton>
         </AlertDialogFooter>
@@ -98,7 +98,7 @@ function StudentPasswordDialog({
       <Button
         onClick={() => setOpen(true)}
         size="default"
-        variant="ghost"
+        variant="outline"
       >
          Ubah kata sandi
       </Button>

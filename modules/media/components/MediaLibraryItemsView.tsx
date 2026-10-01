@@ -56,7 +56,7 @@ function getRecoveryKind(error: string | null, snapshot: MediaLibrarySnapshot | 
 }
 
 function MediaLibraryLoadingState({ driveAssetGridStyle, isDrive, isMinimalGallery }: Pick<MediaLibraryItemsViewProps, "driveAssetGridStyle"> & { isDrive: boolean; isMinimalGallery: boolean }) {
-  return <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && "grid", isMinimalGallery && "grid grid-cols-2 p-0")} style={isDrive && !isMinimalGallery ? driveAssetGridStyle : undefined}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && "h-44")} key={index} />)}</div>;
+  return <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && "grid", isMinimalGallery && "grid grid-cols-2 p-0")} style={isDrive && !isMinimalGallery ? driveAssetGridStyle : undefined}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-card", isDrive && "h-44")} key={index} />)}</div>;
 }
 
 function MediaLibraryFolderSection({
@@ -99,23 +99,43 @@ function MediaLibraryAssetRows({
   return (
     <div>
       {visibleAssets.map((asset) => (
-        <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", !isDrive && "border-t border-primary-100", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
+        <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", !isDrive && "border-t border-primary-100", isDrive && viewMode === "list" && "min-h-16 rounded-card border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
           <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16")} onClick={() => void actions.handlePreview(asset)} type="button">
             <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800">{isPdfMimeType(asset.mimeType) ? <FileText className="size-7" /> : asset.thumbnailUrl ?? asset.previewUrl ? <NextImage alt="" className="size-full object-cover" fill loading="lazy" sizes="3rem" src={asset.thumbnailUrl ?? asset.previewUrl ?? ""} unoptimized /> : <FileImage className="size-5" />}</span>
             <span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className="mt-1 block text-xs text-secondary-500 md:hidden">{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span>
           </button>
           <span className="hidden text-sm text-secondary-500 md:block">{formatMediaBytes(asset.sizeBytes)}</span>
           <span className="hidden text-sm text-secondary-500 md:block">{asset.width && asset.height ? `${asset.width} × ${asset.height}` : "—"}</span>
-          <div className="hidden items-center gap-2 text-sm text-secondary-500 md:flex"><span>{getItemDate(asset.updatedAt)}</span>{isPicker ? <Button onClick={() => actions.onSelect?.(asset)} size="sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}>{selectedAssetId === asset.id ? "Dipilih" : "Pilih"}<ChevronRight data-icon="inline-end" /></Button> : null}</div>
-          {isPicker ? <Button aria-label={`Pilih ${asset.name}`} className="md:hidden" onClick={() => actions.onSelect?.(asset)} size="icon-sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}><ChevronRight /></Button> : <div>{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>}
+          <div className="hidden items-center gap-2 text-sm text-secondary-500 md:flex"><span>{getItemDate(asset.updatedAt)}</span>{isPicker ? <Button onClick={() => actions.onSelect?.(asset)} size="sm" variant={selectedAssetId === asset.id ? "default" : "outline"}>{selectedAssetId === asset.id ? "Dipilih" : "Pilih"}<ChevronRight data-icon="inline-end" /></Button> : null}</div>
+          {isPicker ? <Button aria-label={`Pilih ${asset.name}`} className="md:hidden" onClick={() => actions.onSelect?.(asset)} size="icon-sm" variant={selectedAssetId === asset.id ? "default" : "outline"}><ChevronRight /></Button> : <div>{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>}
         </div>
       ))}
     </div>
   );
 }
 
-function MediaLibraryAssetPagination({ activeAssetPage, assetPageCount, isReference, setAssetPage }: Pick<MediaLibraryItemsViewProps, "activeAssetPage" | "assetPageCount" | "setAssetPage"> & { isReference: boolean }) {
-  return <div className="flex flex-wrap items-center justify-between gap-4 pt-4 text-xs text-secondary-500"><div className="flex items-center gap-2"><Button aria-label="Jumlah entri per halaman" className="h-8 gap-1.5 rounded-md px-2.5" size="sm" variant={isReference ? "reference" : "brandOutline"}>10<ChevronDown className="size-3.5" /></Button><span>Entri per halaman</span></div><div className="flex items-center gap-1"><Button aria-label="Halaman sebelumnya" disabled={activeAssetPage <= 1} onClick={() => setAssetPage((page: number) => Math.max(1, page - 1))} size="icon-sm" variant="ghost"><ChevronLeft /></Button><Button aria-current="page" className="size-8 rounded-md" size="icon-sm" variant={isReference ? "reference" : "brandOutline"}>{activeAssetPage}</Button><Button aria-label="Halaman berikutnya" disabled={activeAssetPage >= assetPageCount} onClick={() => setAssetPage((page: number) => Math.min(assetPageCount, page + 1))} size="icon-sm" variant="ghost"><ChevronRight /></Button></div></div>;
+function MediaLibraryAssetPagination({ activeAssetPage, assetPageCount, setAssetPage }: Pick<MediaLibraryItemsViewProps, "activeAssetPage" | "assetPageCount" | "setAssetPage">) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 pt-4 text-xs text-secondary-500">
+      <div className="flex items-center gap-2">
+        <Button aria-label="Jumlah entri per halaman" size="sm" variant="outline">
+          10<ChevronDown className="size-3.5" />
+        </Button>
+        <span>Entri per halaman</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button aria-label="Halaman sebelumnya" disabled={activeAssetPage <= 1} onClick={() => setAssetPage((page: number) => Math.max(1, page - 1))} size="icon-sm" variant="outline">
+          <ChevronLeft />
+        </Button>
+        <Button aria-current="page" size="icon-sm" variant="default">
+          {activeAssetPage}
+        </Button>
+        <Button aria-label="Halaman berikutnya" disabled={activeAssetPage >= assetPageCount} onClick={() => setAssetPage((page: number) => Math.min(assetPageCount, page + 1))} size="icon-sm" variant="outline">
+          <ChevronRight />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function MediaLibraryAssetSection({
@@ -141,7 +161,7 @@ function MediaLibraryAssetSection({
       {isDrive ? <div className="flex items-center justify-between gap-3 pt-1"><h2 className="text-sm font-semibold text-secondary-900">{isReference ? `Aset (${allVisibleAssets.length})` : "Semua media"}</h2>{!isReference ? <span className="text-xs text-secondary-500">{allVisibleAssets.length}</span> : null}</div> : null}
       {!(isDrive && viewMode === "grid") ? <div className={cn("hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid", isDrive && viewMode === "list" && "px-4")}><span>Nama</span><span>Ukuran</span><span>Dimensi</span><span>Diperbarui</span><span /></div> : null}
       {isDrive && viewMode === "grid" ? <div className="grid gap-3" style={driveAssetGridStyle}>{visibleAssets.map(renderDriveAsset)}</div> : <MediaLibraryAssetRows actions={actions} isDrive={isDrive} isPicker={isPicker} renderItemMenu={renderItemMenu} selectedAssetId={selectedAssetId} viewMode={viewMode} visibleAssets={visibleAssets} />}
-      {isDrive ? <MediaLibraryAssetPagination activeAssetPage={activeAssetPage} assetPageCount={assetPageCount} isReference={isReference} setAssetPage={setAssetPage} /> : null}
+      {isDrive ? <MediaLibraryAssetPagination activeAssetPage={activeAssetPage} assetPageCount={assetPageCount} setAssetPage={setAssetPage} /> : null}
     </section>
   );
 }
@@ -198,7 +218,7 @@ export function MediaLibraryItemsView({
   visibleAssets,
   visibleFolders,
 }: MediaLibraryItemsViewProps) {
-  const { isDrive, isLoading, isMinimalGallery, isPicker, isReference } = flags;
+  const { isDrive, isLoading, isMinimalGallery, isReference } = flags;
   const { driveAsset: renderDriveAsset } = itemRenderers;
 
   const clearFilters = () => {
@@ -213,7 +233,6 @@ export function MediaLibraryItemsView({
     <MediaLibraryRecoveryState
       className={isReference ? "mx-5 flex-1 md:mx-8" : undefined}
       errorMessage={error}
-      isPicker={isPicker}
       kind={recoveryKind}
       mediaLabel={mediaLabel}
       onClear={clearFilters}

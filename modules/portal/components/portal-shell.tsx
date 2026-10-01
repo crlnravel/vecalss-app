@@ -34,6 +34,7 @@ const adminSectionLabels = {
   overview: "Dashboard",
   "student-banners": "Editor banner",
   students: "Siswa",
+  "table-demo": "Demo tabel",
 } as const;
 
 const adminSectionRootHrefs = {
@@ -48,6 +49,7 @@ const adminSectionRootHrefs = {
   overview: "/admin",
   "student-banners": "/admin/student-banners",
   students: "/admin/enrollment",
+  "table-demo": "/admin/table-demo",
 } as const;
 
 function PortalShell({
@@ -59,7 +61,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs" | "table-demo";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -73,14 +75,14 @@ function PortalShell({
     const rootHref = adminSectionRootHrefs[activeSection];
     const isRootPage = title === activeLabel;
     return (
-      <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-        <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+      <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
+        <div className="flex min-h-svh w-full bg-transparent text-secondary-900 lg:gap-2">
           <AdminPortalNav activeSection={activeSection} />
 
-          <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
+          <SidebarInset className="min-h-svh min-w-0 !bg-transparent lg:rounded-3xl">
             <header
               aria-label="Header workspace Admin"
-              className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border"
+              className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] rounded-control bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:border"
             >
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
                 <SidebarTrigger
@@ -151,7 +153,7 @@ function PortalShell({
               </div>
                 <form action={logoutAction}>
                 <input name="audience" type="hidden" value={audience} />
-                <Button size="default" type="submit" variant="brandOutline">
+                <Button size="default" type="submit" variant="outline">
                   Log out
                 </Button>
               </form>

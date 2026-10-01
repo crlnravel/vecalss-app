@@ -14,7 +14,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import { saveReusableQuestionPackageMetadataAction } from "@/modules/mentor/tryout-actions";
 import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
@@ -53,9 +53,9 @@ function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: Pa
   return (
     <div className="space-y-5">
       <ResourceAuthoringLockBanner hasLocalChanges={description !== initialMetadata.description || title !== initialMetadata.title} onRetry={resourceLock.retry} resourceLabel="Paket Soal" state={resourceLock.state} />
-      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="outline"><ChevronLeft /></Button>
       <ReferencePageHeader
-        actions={<Button disabled={saving || !resourceLock.canEdit} onClick={() => void save()} size="sm" variant="reference"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
+        actions={<Button disabled={saving || !resourceLock.canEdit} onClick={() => void save()} size="sm" variant="outline"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
         title="Edit Paket Soal"
       />
       <ReferenceSurface as="section" aria-labelledby="package-metadata-heading" className="grid gap-6 p-5 sm:p-7">
@@ -73,7 +73,7 @@ function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: Pa
         <ReferenceSurface className="p-4" variant="inset">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <div><dt className="text-secondary-500">Bank</dt><dd className="mt-1 font-semibold text-secondary-900">{initialMetadata.sourceBankName}</dd></div>
-            <div><dt className="text-secondary-500">Subtes</dt><dd className="mt-1"><MentorBadge size="sm" tone="category">{initialMetadata.subtest}</MentorBadge></dd></div>
+            <div><dt className="text-secondary-500">Subtes</dt><dd className="mt-1"><Badge size="sm" tone="category">{initialMetadata.subtest}</Badge></dd></div>
           </dl>
         </ReferenceSurface>
       </ReferenceSurface>

@@ -1,5 +1,75 @@
 # Session Progress Log
 
+## Bank Soal create dialog (2026-10-01)
+
+- Independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings; browser verification is still unperformed.
+
+- [x] `f46b489`: use native history to open/close the create modal without server catalogue navigation; synchronize Back/Forward.
+- [x] Suppress persistent unsaved/saving notice in create modal as explicitly requested; preserve creation outcomes and page editor notices.
+- [x] Callback regression failed before fix and passed afterward; `test:mentor-bank-soal-lock-csv-ui`, focused ESLint and diff-check pass.
+- Verification: existing `test:mentor-bank-soal-catalogue-context-menu` fails on a stale caller-level column-visibility assertion already absent in HEAD. Repository lint and production compilation pass; verify stops on unrelated `scripts/test-mentor-teaching-subject.ts:6` fixture missing `QuizDashboardRow.creator`. Dashboard owner notified. Browser UI not verified (Obscura unavailable, ego-browser approval not requested). Both independent reviews are clear. Three guarded launch groups used; no agent-owned process remains.
+
+## Primitive standardization and ReUI Avatars (2026-10-01)
+
+- [x] Updated the design contract before Luna/max implementation: semantic radii, tactile Buttons, one app Badge, specialty sunken Tabs, and Sonner notification outcomes.
+- [x] Shared primitives (`a64f5ba`) and app consumers (`778adf6`) committed. Report commit `9a9457d` contains the agreed primitive hunks in its three shared UI files.
+- [x] Standardized ReUI Avatar composition and navbar account controls. Independent coverage review has no remaining findings.
+- [x] Catalogue and Avatar guidelines committed in `b4297f6`; final standards and coverage reviews have no remaining findings. The exact 20px audit Avatar correction stays with its owner's pending commit.
+- Verification: SSR state/disabled-anchor contract passes; shared/catalogue focused lint passes. Final broader lint and TypeScript still fail on recorded baseline issues. No production build, computed-style, or browser result is claimed. Six guarded launch groups used; no agent-owned process remains.
+
+
+## Admin directory green surface refinement (2026-10-01)
+
+- [x] Added green-tinted background, padded rounded border and existing Vecalss color tokens to all three admin directories without changing components or behavior.
+- [x] Static palette/CSS/wrapper checks and `git diff --check` pass. No browser or package checks rerun for this styling-only change.
+
+## ReUI admin directory tables (2026-10-01)
+
+- [x] Replaced student, Kapten, and affiliator table UI with the user-requested isolated ReUI preview styling; source commit `4383d3f`.
+- [x] Approved desktop/mobile browser checks exercised sorting/search/pagination/filters/previews/add/import controls and closed the browser session.
+- [x] Focused ESLint and enrollment contract pass. Full verification/typechecking and the operations contract remain blocked by existing unrelated failures (see current handoff).
+- [ ] Consume independent Standards/Spec review replies when delivered.
+
+## Bank Soal settings tab label (2026-09-30)
+
+- [x] Renamed the Bank Soal detail tab from “Administrasi” to “Pengaturan”; the section heading and contents remain unchanged.
+- [x] Committed as `f60f802`. The scoped `git diff --check` passed; no tests or browser checks were run.
+
+## React Doctor cleanup (2026-09-30)
+
+- [x] Reduced the initial React Doctor baseline from 220 findings across 940
+  files (score 64) to 18, then addressed the remaining component-size,
+  complexity, ref-render, collection-lookup, and effect lifecycle findings
+  through component extraction, `Set` lookups, a lazy resolver initializer,
+  cleanup, and narrowly explained rule suppressions where the effect is
+  intentional.
+- [x] Fixed the final XLSX flow findings by splitting upload progress logic,
+  using regular callbacks for UI events, and making effect dependencies
+  explicit. Kept the preview/revision keyed impact request effect, which aborts
+  obsolete requests, with a focused explanation for its intentional fetch.
+- [x] Final React Doctor 0.9.14 scan covered 945 files and reported 0 errors,
+  0 warnings, and 0 diagnostics. `git diff --check` passes.
+- [x] After the user explicitly authorized bypassing the blocked resource guard,
+  ran the cached React Doctor CLI directly. No tests, builds, or browser checks
+  were run at that stage.
+- [x] Checked 46 focused scripts after the user requested tests: 24 passed and
+  22 failed. The sandbox initially blocked `tsx` local IPC sockets with EPERM;
+  rerunning outside the sandbox allowed the scripts to execute. No build or
+  browser checks were run.
+- [ ] Review the 19 source-contract failures against the extracted component
+  and helper structure. Also investigate `test:banner-media-safety`'s ordering
+  assertion, update the stale fixture in `test:tryout-seed-release-guards`,
+  and rerun `test:mentor-report` after confirming the local test database has
+  the `mentor_reports` table.
+
+## Mentor Report and Developer inbox (2026-09-29)
+
+- [x] Added a protected Mentor Report form, database persistence, optional private attachment storage, and a separate Developer role with report table and detail pages.
+- [x] Applied migration `20260929103000_add_mentor_reports` to the explicit local `vecalss_dev` database, generated Prisma client, and created only the local Developer QA account. Staging was not migrated.
+- [x] Guarded `test:mentor-report`, focused ESLint, and `git diff --check` pass. Approved browser QA on port 5024 passed submission with and without an attachment, list/detail navigation, byte-identical attachment download, Tutor/Developer access boundaries, and 390px layout. The temporary server and worktree were removed.
+- [x] Source committed as `3856e1d` on `dev`. Full repository TypeScript still has 26 pre-existing diagnostics outside the report feature; the branch's commit hook skipped exhaustive checks.
+
+
 ## Vera AI streaming answer reveal (2026-09-25)
 
 - [x] Added a live answer treatment inspired by Beautiful UI's Streaming Text:
@@ -1055,3 +1125,13 @@ Live refresh/polling. AS-08 remains closed.
   unrelated unstaged `modules/mentor/KaptenTryoutWorkspaceHeader.tsx:148`
   `react/jsx-key` error; no Tryout/CAT or other agent-owned files were changed
   for this handoff.
+
+## Developer component catalogue (2026-10-01)
+
+- [x] Committed the isolated catalogue in `d2fe796`: Developer-only `/developer/components`, current account-menu boundary, report/components navigation, 30 searchable groups and a 65-source inventory.
+- [x] Three exact Luna/max workers extracted controls, surfaces, and computed token references; independent coverage review confirmed the complete inventory and resolved its dashboard variant finding.
+- [x] Applied standards findings: keyboard-accessible context menu, exact 44px reaction target, real isolated Sidebar variations and ReferenceDashboard composition.
+- [x] Final standards follow-up disables collapse triggers and omits the rail for static Sidebar mode; its section description now matches the isolated preview.
+- [x] Final guarded focused ESLint and staged whitespace checks pass. Full TypeScript reports no errors in the catalogue or MentorBadge change.
+- [ ] Repository-wide verification remains blocked outside this scope: prior `pnpm verify` stopped on unrelated mentor lint errors; final TypeScript still reports unrelated assessment, upload-slot, and student-preview diagnostics. Production build is unverified.
+- [ ] Browser QA is unverified: Obscura CDP was unavailable, and interactive ego-browser inspection requires route/role/checklist approval. No agent-owned server remains.

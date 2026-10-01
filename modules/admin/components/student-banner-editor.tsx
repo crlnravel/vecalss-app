@@ -222,7 +222,7 @@ function BannerPreviewPanel({
   return (
     <section
       aria-label="Pratinjau banner siswa"
-      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
+      className="overflow-hidden rounded-card border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)]"
     >
       <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
         <div>
@@ -236,7 +236,7 @@ function BannerPreviewPanel({
             Menggunakan teks dari formulir saat ini.
           </p>
         </div>
-        <Button onClick={onClose} size="sm" type="button" variant="ghost">
+        <Button onClick={onClose} size="sm" type="button" variant="outline">
           Tutup pratinjau
         </Button>
       </div>
@@ -244,7 +244,7 @@ function BannerPreviewPanel({
       <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-2">
         {bannerDefinitions.map(({ icon: Icon, key, label, route }) => (
           <article
-            className="rounded-2xl border border-primary-100 bg-white p-5 shadow-sm"
+            className="rounded-card border border-primary-100 bg-white p-5 shadow-sm"
             key={key}
           >
             <div className="flex items-center justify-between gap-3">
@@ -319,7 +319,7 @@ function StudentBannerConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} variant="brand">
+          <AlertDialogAction onClick={onConfirm} variant="default">
             {pendingConfirmation.confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -358,7 +358,7 @@ function StudentBannerEditorHeader({
           nativeButton={false}
           render={<Link href={previewHref} />}
           size="sm"
-          variant="ghost"
+          variant="outline"
         >
           Tutup editor
         </Button>
@@ -406,7 +406,7 @@ function StudentBannerSavePanel({
             onClick={onPreview}
             size="lg"
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Pratinjau
           </Button>
@@ -416,7 +416,7 @@ function StudentBannerSavePanel({
             size="lg"
             type="submit"
             value="save-draft"
-            variant="brandOutline"
+            variant="outline"
           >
             Simpan draf
           </BannerSubmitButton>
@@ -427,7 +427,7 @@ function StudentBannerSavePanel({
             size="lg"
             type="submit"
             value="publish"
-            variant="brand"
+            variant="default"
           >
             {canPublish ? "Terbitkan" : "Simpan draf sebelum menerbitkan"}
           </BannerSubmitButton>
@@ -452,7 +452,7 @@ function StudentBannerEditorFeedback({
     <>
       {!canPublish ? (
         <p
-          className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800"
+          className="rounded-card border border-warning-200 bg-warning-50 px-4 py-3 text-sm font-medium text-warning-800"
           data-testid="student-banner-publish-gating"
         >
           {publishBlockedCopy}
@@ -461,7 +461,7 @@ function StudentBannerEditorFeedback({
       {state.status === "error" && state.message && hasFieldErrors ? (
         <p
           aria-live="assertive"
-          className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg"
+          className="rounded-card border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm font-medium text-student-status-danger-fg"
           data-testid="student-banner-error"
           role="alert"
         >
@@ -601,7 +601,6 @@ function BannerEditorCard({
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
             aria-label="Judul"
-            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}

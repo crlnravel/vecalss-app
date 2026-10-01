@@ -12,6 +12,7 @@ import {
   type SetStateAction,
 } from "react";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   allMediaMimeTypes,
   imageMediaMimeTypes,
@@ -60,24 +61,26 @@ function useMediaLibraryUploads({
   scope,
   setError,
   setIsDragging,
-  setNotice,
 }: {
   acceptedMimeTypeSet: ReadonlySet<SupportedMediaMimeType>;
   fileInputRef: RefObject<HTMLInputElement | null>;
   folderId: string | null;
   mediaLabel: string;
-  refreshLibrary: (message?: string) => void;
+  refreshLibrary: () => void;
   scope: MediaScope;
   setError: (value: string | null) => void;
   setIsDragging: (dragging: boolean) => void;
-  setNotice: (value: string | null) => void;
 }) {
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
+  usePageStatusToast({
+    active: uploadStatus !== null,
+    message: "Mengunggah media…",
+    variant: "info",
+  });
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setError(null);
-    setNotice(null);
 
     const uploadNext = async (index: number): Promise<boolean> => {
       const file = files[index];
@@ -116,11 +119,15 @@ function useMediaLibraryUploads({
           width: dimensions.width,
         });
       } catch (uploadError) {
-        setError(
+        showToast(
           getMediaErrorMessage(
             uploadError,
             `${mediaLabel[0]?.toUpperCase() ?? "M"}${mediaLabel.slice(1)} belum berhasil diunggah. Periksa koneksi lalu coba lagi.`,
           ),
+          {
+            action: { label: "Coba lagi", onClick: () => void handleFiles(files.slice(index)) },
+            variant: "error",
+          },
         );
         setUploadStatus(null);
         return false;
@@ -162,7 +169,6 @@ function createMediaLibraryMutationHandlers({
   refreshLibrary,
   scope,
   setEditingItem,
-  setError,
   setFolderDialogOpen,
   setMoveRequest,
   setMutationPending,
@@ -179,10 +185,9 @@ function createMediaLibraryMutationHandlers({
   moveTargetId: string;
   mutationPending: MediaMutation | null;
   newFolderName: string;
-  refreshLibrary: (message?: string) => void;
+  refreshLibrary: () => void;
   scope: MediaScope;
   setEditingItem: (value: EditableItem | null) => void;
-  setError: (value: string | null) => void;
   setFolderDialogOpen: (value: boolean) => void;
   setMoveRequest: (value: MoveRequest | null) => void;
   setMutationPending: (value: MediaMutation | null) => void;
@@ -194,10 +199,10 @@ function createMediaLibraryMutationHandlers({
   const runMutation = async (mutation: MediaMutation, body: Record<string, unknown>, successMessage: string) => {
     if (mutationPending) return false;
     setMutationPending(mutation);
-    setError(null);
     try {
       await postMediaAction(scope, { ...body, ...(editLease ? { editLease } : {}) });
-      refreshLibrary(successMessage);
+      showToast(successMessage, { variant: "success" });
+      refreshLibrary();
       return true;
     } finally {
       setMutationPending(null);
@@ -211,7 +216,10 @@ function createMediaLibraryMutationHandlers({
         setNewFolderName("");
       }
     } catch (mutationError) {
-      setError(getMediaErrorMessage(mutationError, "Folder belum berhasil dibuat. Periksa koneksi lalu coba lagi."));
+      showToast(getMediaErrorMessage(mutationError, "Folder belum berhasil dibuat. Periksa koneksi lalu coba lagi."), {
+        action: { label: "Coba lagi", onClick: () => void handleCreateFolder() },
+        variant: "error",
+      });
     }
   };
 
@@ -228,7 +236,10 @@ function createMediaLibraryMutationHandlers({
         "Nama diperbarui.",
       )) setEditingItem(null);
     } catch (mutationError) {
-      setError(getMediaErrorMessage(mutationError, "Nama belum berhasil diperbarui. Periksa koneksi lalu coba lagi."));
+      showToast(getMediaErrorMessage(mutationError, "Nama belum berhasil diperbarui. Periksa koneksi lalu coba lagi."), {
+        action: { label: "Coba lagi", onClick: () => void handleRename() },
+        variant: "error",
+      });
     }
   };
 
@@ -245,7 +256,10 @@ function createMediaLibraryMutationHandlers({
         "Item dipindahkan.",
       )) setMoveRequest(null);
     } catch (mutationError) {
-      setError(getMediaErrorMessage(mutationError, "Item belum berhasil dipindahkan. Periksa koneksi lalu coba lagi."));
+      showToast(getMediaErrorMessage(mutationError, "Item belum berhasil dipindahkan. Periksa koneksi lalu coba lagi."), {
+        action: { label: "Coba lagi", onClick: () => void handleMove() },
+        variant: "error",
+      });
     }
   };
 
@@ -261,7 +275,10 @@ function createMediaLibraryMutationHandlers({
         "Item dimasukkan ke Sampah.",
       )) setTrashRequest(null);
     } catch (mutationError) {
-      setError(getMediaErrorMessage(mutationError, "Item belum berhasil dimasukkan ke Sampah. Periksa koneksi lalu coba lagi."));
+      showToast(getMediaErrorMessage(mutationError, "Item belum berhasil dimasukkan ke Sampah. Periksa koneksi lalu coba lagi."), {
+        action: { label: "Coba lagi", onClick: () => void handleTrash() },
+        variant: "error",
+      });
     }
   };
 
@@ -272,7 +289,10 @@ function createMediaLibraryMutationHandlers({
       const payload = await readJson<{ previewUrl: string }>(response);
       setPreviewAsset((current) => current?.id === asset.id ? { ...asset, previewUrl: payload.previewUrl } : current);
     } catch (previewError) {
-      setError(getMediaErrorMessage(previewError, "Pratinjau media belum berhasil dibuka. Periksa koneksi lalu coba lagi."));
+      showToast(getMediaErrorMessage(previewError, "Pratinjau media belum berhasil dibuka. Periksa koneksi lalu coba lagi."), {
+        action: { label: "Coba lagi", onClick: () => void handlePreview(asset) },
+        variant: "error",
+      });
     }
   };
 
@@ -324,14 +344,12 @@ function useMediaLibraryData({
   mimeTypesQueryString,
   query,
   scope,
-  setNotice,
   shouldFilterMimeTypes,
 }: {
   folderId: string | null;
   mimeTypesQueryString: string;
   query: string;
   scope: MediaScope;
-  setNotice: (value: string | null) => void;
   shouldFilterMimeTypes: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<MediaLibrarySnapshot | null>(null);
@@ -373,10 +391,9 @@ function useMediaLibraryData({
     };
   }, [loadLibrary, query, refreshVersion]);
 
-  const refreshLibrary = useCallback((message?: string) => {
-    if (message) setNotice(message);
+  const refreshLibrary = useCallback(() => {
     setRefreshVersion((value) => value + 1);
-  }, [setNotice]);
+  }, []);
 
   return { error, refreshLibrary, setError, snapshot, isLoading: loadingRequestId !== null };
 }
@@ -412,7 +429,6 @@ function MediaLibrary({
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
@@ -439,7 +455,6 @@ function MediaLibrary({
     mimeTypesQueryString,
     query,
     scope,
-    setNotice,
     shouldFilterMimeTypes,
   });
 
@@ -452,7 +467,6 @@ function MediaLibrary({
     scope,
     setError,
     setIsDragging,
-    setNotice,
   });
 
   const openRename = (item: EditableItem) => {
@@ -496,7 +510,6 @@ function MediaLibrary({
             refreshLibrary,
             scope,
             setEditingItem,
-            setError,
             setFolderDialogOpen,
             setMoveRequest,
             setMutationPending,
@@ -555,7 +568,6 @@ function MediaLibrary({
                 mutationPending={mutationPending}
                 mutationsDisabled={leaseEnabled && !resourceLock.canEdit}
                 newFolderName={newFolderName}
-                notice={notice}
                 previewAsset={previewAsset}
                 query={query}
                 searchInput={searchInput}

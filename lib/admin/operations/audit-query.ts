@@ -10,6 +10,8 @@ const AUDIT_LOG_TARGET_TYPES = [
 
 const DEFAULT_AUDIT_LOG_SORT = "time" as const;
 const DEFAULT_AUDIT_LOG_DIRECTION = "desc" as const;
+const AUDIT_LOG_RANGES = ["all", "24h", "7d", "30d"] as const;
+type AuditLogRange = (typeof AUDIT_LOG_RANGES)[number];
 const MAX_AUDIT_LOG_PAGE = 1_000;
 const MAX_AUDIT_LOG_QUERY_LENGTH = 120;
 
@@ -19,6 +21,7 @@ type AuditLogTargetType = (typeof AUDIT_LOG_TARGET_TYPES)[number];
 type AuditLogParamValue = string | string[] | undefined | null;
 
 type AuditLogParamsInput = {
+  range?: AuditLogParamValue;
   direction?: AuditLogParamValue;
   page?: AuditLogParamValue;
   q?: AuditLogParamValue;
@@ -27,6 +30,7 @@ type AuditLogParamsInput = {
 };
 
 type AuditLogParams = {
+  range: AuditLogRange;
   direction: AuditLogSortDirection;
   invalid: boolean;
   page: number;
@@ -36,6 +40,7 @@ type AuditLogParams = {
 };
 
 type AuditLogQueryOptions = {
+  range?: AuditLogRange;
   direction?: AuditLogSortDirection;
   page?: number;
   query?: string;
@@ -57,6 +62,11 @@ function readSingle(value: AuditLogParamValue) {
 
 function parseAuditLogParams(input: AuditLogParamsInput): AuditLogParams {
   let invalid = false;
+  const rawRange = readSingle(input.range);
+  const range: AuditLogRange = AUDIT_LOG_RANGES.includes(rawRange.value as AuditLogRange)
+    ? rawRange.value as AuditLogRange
+    : "all";
+  invalid ||= rawRange.invalid || (rawRange.value !== null && !AUDIT_LOG_RANGES.includes(rawRange.value as AuditLogRange));
   const rawQuery = readSingle(input.q);
   const query = rawQuery.value?.trim() ?? "";
   if (rawQuery.invalid || query.length > MAX_AUDIT_LOG_QUERY_LENGTH) {
@@ -120,6 +130,7 @@ function parseAuditLogParams(input: AuditLogParamsInput): AuditLogParams {
   }
 
   return {
+    range,
     direction,
     invalid,
     page,
@@ -130,6 +141,7 @@ function parseAuditLogParams(input: AuditLogParamsInput): AuditLogParams {
 }
 
 function buildAuditLogQuery({
+  range = "all",
   direction = DEFAULT_AUDIT_LOG_DIRECTION,
   page = 1,
   query = "",
@@ -138,6 +150,8 @@ function buildAuditLogQuery({
 }: AuditLogQueryOptions = {}) {
   const params = new URLSearchParams();
   const normalizedQuery = query.trim();
+
+  if (range !== "all") params.set("range", range);
 
   if (normalizedQuery) {
     params.set("q", normalizedQuery);
@@ -162,7 +176,14 @@ function buildAuditLogQuery({
   return queryString ? `?${queryString}` : "";
 }
 
+function auditLogRangeStart(range: AuditLogRange, now = new Date()): Date | null {
+  const days = { all: 0, "24h": 1, "7d": 7, "30d": 30 }[range];
+  return days ? new Date(now.getTime() - days * 86_400_000) : null;
+}
+
 export {
+  AUDIT_LOG_RANGES,
+  auditLogRangeStart,
   AUDIT_LOG_SORT_KEYS,
   AUDIT_LOG_TARGET_TYPES,
   DEFAULT_AUDIT_LOG_DIRECTION,
@@ -171,6 +192,7 @@ export {
   parseAuditLogParams,
 };
 export type {
+  AuditLogRange,
   AuditLogParams,
   AuditLogParamsInput,
   AuditLogQueryOptions,

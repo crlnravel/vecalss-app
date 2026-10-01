@@ -5,7 +5,8 @@ import { ArrowDown, ArrowUp, AlertTriangle, ChevronDown, Plus, Save, Trash2 } fr
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { ReferenceStatusBadge } from "@/components/dashboard/reference-dashboard-primitives";
 import { cn } from "@/lib/utils";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 
@@ -38,17 +38,22 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
   saving: boolean;
   title: string;
 }) {
+  usePageStatusToast({
+    active: dirty || saving,
+    message: saving ? "Menyimpan perubahan…" : "Ada perubahan yang belum disimpan",
+    variant: "info",
+  });
+
   return <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
     <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
       {backControl}
       <div className="flex min-w-0 items-center gap-2.5">
         <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{title}</h1>
-        {dirty ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}
-        {category ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{category}</MentorBadge> : null}
+        {category ? <Badge className="hidden sm:inline-flex" size="xs" tone="category">{category}</Badge> : null}
       </div>
     </div>
     {onSave ? <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
-      <Button aria-busy={saving} aria-label="Simpan" disabled={saveDisabled} id={saveId} onClick={onSave} size="sm" title="Simpan perubahan" type="button" variant="brand"><Save aria-hidden="true" />{saving ? "Menyimpan…" : "Simpan"}</Button>
+      <Button aria-busy={saving} aria-label="Simpan" disabled={saveDisabled} id={saveId} onClick={onSave} size="sm" title="Simpan perubahan" type="button" variant="default"><Save aria-hidden="true" />{saving ? "Menyimpan…" : "Simpan"}</Button>
     </div> : null}
   </header>;
 }
@@ -94,7 +99,7 @@ export function EditorQuestionInventory(props: InventoryProps) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           {addVisible ? (
-            <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled || addDisabled} id={`${idPrefix}-desktop-add-bank-question`} onClick={onAdd} size="sm" type="button" variant="brandOutline">
+            <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled || addDisabled} id={`${idPrefix}-desktop-add-bank-question`} onClick={onAdd} size="sm" type="button" variant="outline">
               <Plus /><span className="hidden lg:inline">Tambah Soal</span>
             </Button>
           ) : null}
@@ -111,12 +116,12 @@ export function EditorQuestionInventory(props: InventoryProps) {
                 <li className={cn("group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors", isActive ? "border-primary-200 bg-primary-50" : issueCount > 0 ? "border-warning-300 bg-warning-50/70 hover:border-warning-400 hover:bg-warning-50" : "hover:border-primary-100 hover:bg-primary-50/60")} key={question.id}>
                   <button aria-current={isActive ? "true" : undefined} aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`} className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200" id={`${idPrefix}-question-select-${question.id}`} onClick={() => onSelect(question.id)} type="button">
                     <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900"><span className="min-w-0 flex-1 truncate">{index + 1}. {question.prompt || "Soal tanpa pertanyaan"}</span></span>
-                    {issueCount > 0 ? <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5"><MentorBadge aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`} className="size-7 justify-center !px-0 !py-0" role="img" size="xs" title={`Soal ${index + 1} memiliki ${issueCount} masalah`} tone="attention"><AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" /></MentorBadge></span> : null}
+                    {issueCount > 0 ? <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5"><Badge aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`} className="size-7 justify-center !px-0 !py-0" role="img" size="xs" title={`Soal ${index + 1} memiliki ${issueCount} masalah`} tone="attention"><AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" /></Badge></span> : null}
                   </button>
                   <div className="flex shrink-0 items-center gap-0.5">
-                    <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button>
-                    <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button>
-                    <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button>
+                    <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="outline"><ArrowUp className="size-3.5" /></Button>
+                    <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="outline"><ArrowDown className="size-3.5" /></Button>
+                    <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="outline"><Trash2 className="size-3.5" /></Button>
                   </div>
                 </li>
               );
@@ -137,7 +142,7 @@ export function EditorMobileInventory(props: InventoryProps) {
     <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 shadow-xs md:hidden">
       <div className="flex items-center gap-2">
         <DropdownMenu>
-          <DropdownMenuTrigger aria-label="Pilih soal yang sedang ditinjau" id={`${idPrefix}-mobile-question-picker-trigger`} render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "min-w-0 flex-1")} disabled={questions.length === 0} type="button" variant="reference" />}>
+          <DropdownMenuTrigger aria-label="Pilih soal yang sedang ditinjau" id={`${idPrefix}-mobile-question-picker-trigger`} render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "min-w-0 flex-1")} disabled={questions.length === 0} type="button" variant="outline" />}>
             <span className="min-w-0 truncate">{activeQuestion ? `${activeIndex + 1}. ${activeQuestion.prompt || "Soal tanpa pertanyaan"}` : "Belum ada soal"}</span>
             <ChevronDown className="size-4 shrink-0 text-secondary-400" />
           </DropdownMenuTrigger>
@@ -149,16 +154,16 @@ export function EditorMobileInventory(props: InventoryProps) {
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          {addVisible ? <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled || addDisabled} id={`${idPrefix}-mobile-add-bank-question`} onClick={onAdd} size="default" type="button" variant="brandOutline"><Plus /><span className="hidden sm:inline">Tambah Soal</span></Button> : null}
+          {addVisible ? <Button aria-label="Tambah soal dari Bank Soal" disabled={disabled || addDisabled} id={`${idPrefix}-mobile-add-bank-question`} onClick={onAdd} size="default" type="button" variant="outline"><Plus /><span className="hidden sm:inline">Tambah Soal</span></Button> : null}
           <SourceBankLink href={sourceBankHref} title={sourceBankTitle} />
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500"><span>{countLabel}</span>{incompleteCount > 0 ? <span className="font-semibold text-warning-900">{incompleteCount} perlu diperbaiki</span> : null}</div>
         {activeQuestion ? <div className="flex shrink-0 items-center gap-1">
-          <Button aria-label={`Pindah soal ${activeIndex + 1} ke atas`} disabled={disabled || activeIndex <= 0} onClick={() => onMove(activeQuestion.id, "up")} size="icon" title="Pindah ke atas" type="button" variant="ghost"><ArrowUp aria-hidden="true" /></Button>
-          <Button aria-label={`Pindah soal ${activeIndex + 1} ke bawah`} disabled={disabled || activeIndex >= questions.length - 1} onClick={() => onMove(activeQuestion.id, "down")} size="icon" title="Pindah ke bawah" type="button" variant="ghost"><ArrowDown aria-hidden="true" /></Button>
-          <Button aria-label={`Hapus soal ${activeIndex + 1}`} disabled={disabled} onClick={() => onDelete(activeQuestion.id)} size="icon" title="Hapus soal" type="button" variant="ghost"><Trash2 aria-hidden="true" /></Button>
+          <Button aria-label={`Pindah soal ${activeIndex + 1} ke atas`} disabled={disabled || activeIndex <= 0} onClick={() => onMove(activeQuestion.id, "up")} size="icon" title="Pindah ke atas" type="button" variant="outline"><ArrowUp aria-hidden="true" /></Button>
+          <Button aria-label={`Pindah soal ${activeIndex + 1} ke bawah`} disabled={disabled || activeIndex >= questions.length - 1} onClick={() => onMove(activeQuestion.id, "down")} size="icon" title="Pindah ke bawah" type="button" variant="outline"><ArrowDown aria-hidden="true" /></Button>
+          <Button aria-label={`Hapus soal ${activeIndex + 1}`} disabled={disabled} onClick={() => onDelete(activeQuestion.id)} size="icon" title="Hapus soal" type="button" variant="outline"><Trash2 aria-hidden="true" /></Button>
         </div> : null}
       </div>
     </div>

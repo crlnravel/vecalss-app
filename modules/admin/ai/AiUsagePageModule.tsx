@@ -136,7 +136,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         {error && (
           <div
             aria-live="assertive"
-            className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
+            className="flex flex-wrap items-center gap-3 rounded-card border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg"
             role="alert"
           >
             <AlertCircle className="size-5 shrink-0 text-danger-600" />
@@ -147,7 +147,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
               onClick={() => void loadUsage()}
               size="sm"
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Coba lagi
             </Button>
@@ -155,15 +155,15 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
         )}
 
         {isLoading && !data ? (
-          <div aria-live="polite" className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm" role="status">
+          <div aria-live="polite" className="grid gap-4 rounded-card border border-primary-100 bg-white p-5 shadow-sm" role="status">
             <div className="h-5 w-56 animate-pulse rounded bg-secondary-100 motion-reduce:animate-none" />
-            <div className="h-36 animate-pulse rounded-2xl bg-secondary-50 motion-reduce:animate-none" />
+            <div className="h-36 animate-pulse rounded-card bg-secondary-50 motion-reduce:animate-none" />
             <p className="text-sm text-secondary-600">Memuat ringkasan penggunaan dari sumber admin…</p>
           </div>
         ) : null}
 
         {!isLoading && !data && !error ? (
-          <div aria-live="polite" className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
+          <div aria-live="polite" className="rounded-card border border-dashed border-primary-200 bg-primary-50/40 px-5 py-8 text-center" role="status">
             <p className="text-sm font-semibold text-secondary-900">Belum ada data penggunaan</p>
             <p className="mt-1 text-sm text-secondary-600">Segarkan untuk meminta snapshot pada periode yang dipilih.</p>
           </div>
@@ -183,7 +183,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
             <span className="font-semibold text-secondary-500">Periode</span>
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button type="button" variant="reference" size="sm" className="h-auto min-h-[44px] gap-1.5 rounded-xl text-xs font-bold" />}
+                render={<Button type="button" variant="outline" size="sm" className="h-auto min-h-[44px] gap-1.5  text-xs font-bold" />}
               >
                 {PERIOD_LABELS[period]}
                 <ChevronDown className="size-3.5 text-secondary-400" />
@@ -205,7 +205,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
           <div className="space-y-6">
             <AiHourlyLockChart quotaHealth={data.quotaHealth} />
 
-            <section className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+            <section className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-1 border-b border-primary-50 pb-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                 <div>
                   <h2 className="text-base font-bold text-secondary-950">Pemakaian menurut fitur</h2>
@@ -216,7 +216,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
               </div>
 
               {data.items.length === 0 ? (
-                <div className="mt-6 rounded-2xl border border-dashed border-primary-100 bg-primary-50/40 px-4 py-8 text-center">
+                <div className="mt-6 rounded-card border border-dashed border-primary-100 bg-primary-50/40 px-4 py-8 text-center">
                   <p className="text-sm font-bold text-secondary-950">Belum ada pemakaian pada periode ini</p>
                   <p className="mt-1 text-xs text-secondary-500">Coba pilih rentang waktu yang lebih panjang.</p>
                 </div>
@@ -249,7 +249,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                     ))}
                   </div>
 
-                  <div className="mt-8 overflow-x-auto rounded-2xl border border-primary-100">
+                  <div className="mt-8 overflow-x-auto rounded-card border border-primary-100">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-primary-50/40">
@@ -283,13 +283,13 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
               )}
             </section>
 
-            <section className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
+            <section className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
               <div className="border-b border-primary-50 pb-4">
                 <h2 className="text-base font-bold text-secondary-950">Perkiraan biaya</h2>
                 <p className="mt-1 text-xs text-secondary-500">Semua angka ditampilkan dalam rupiah agar mudah dibandingkan dengan anggaran bulanan.</p>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-4 rounded-2xl bg-primary-50/40 p-4 sm:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-4 rounded-card bg-primary-50/40 p-4 sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-secondary-500">Bulan ini</p>
                   <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatAiCurrency(data.cost.spendMtdIdr)}</p>
@@ -308,7 +308,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                 </div>
               </div>
 
-              <div className="mt-6 overflow-x-auto rounded-2xl border border-primary-100">
+              <div className="mt-6 overflow-x-auto rounded-card border border-primary-100">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-primary-50/40">

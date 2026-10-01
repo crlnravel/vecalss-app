@@ -329,6 +329,8 @@ function validateHeader(header: readonly string[]) {
     return issue("structural", "header_invalid");
   }
   const expected = [...QUESTION_BANK_CSV_HEADER];
+  const expectedSet = new Set<string>(expected);
+  const headerSet = new Set(header);
   const seen = new Set<string>();
   const reason = header.some((name) => {
     if (seen.has(name)) return true;
@@ -336,9 +338,9 @@ function validateHeader(header: readonly string[]) {
     return false;
   })
     ? "duplicate"
-    : header.some((name) => !expected.includes(name as (typeof QUESTION_BANK_CSV_HEADER)[number]))
+    : header.some((name) => !expectedSet.has(name))
       ? "unknown"
-      : expected.some((name) => !header.includes(name))
+      : expected.some((name) => !headerSet.has(name))
         ? "missing"
         : header.some((name, index) => name !== expected[index])
           ? "reordered"
@@ -418,6 +420,7 @@ function validateRow(
   const optionCount = optionsRaw.filter(([, content]) => content.trim()).length;
 
   const correctOptions = raw.correct_options!.trim().split("|").map((token) => token.trim().toUpperCase());
+  const correctOptionSet = new Set(correctOptions);
   if (!raw.correct_options!.trim()
     || correctOptions.some((token) => !/^[A-E]$/u.test(token))
     || new Set(correctOptions).size !== correctOptions.length
@@ -444,7 +447,7 @@ function validateRow(
   const normalizedOptions: QuestionBankCsvOption[] = optionsRaw.slice(0, optionCount).map(([label, content], index) => ({
     assetId: media[`option${label}MediaAssetId` as keyof typeof media] ?? null,
     content,
-    isCorrect: correctOptions.includes(label),
+    isCorrect: correctOptionSet.has(label),
     label: label as QuestionBankCsvOption["label"],
     sortOrder: index,
   }));
@@ -566,12 +569,13 @@ function optionsFromSerializableRow(row: QuestionBankCsvSerializableRow): Questi
     ["D", row.optionD ?? "", row.optionDMediaAssetId ?? null],
     ["E", row.optionE ?? "", row.optionEMediaAssetId ?? null],
   ] as const;
+  const correctOptions = new Set(row.correctOptions ?? []);
   return values
     .filter(([, content]) => content.trim())
     .map(([label, content, assetId], sortOrder) => ({
       assetId,
       content,
-      isCorrect: row.correctOptions?.includes(label) ?? false,
+      isCorrect: correctOptions.has(label),
       label: label as QuestionBankCsvOption["label"],
       sortOrder,
     }));

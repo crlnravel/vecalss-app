@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, CircleAlert, CircleHelp, ShieldCheck } from "@/lib/icons";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -33,7 +32,7 @@ function OperationalPageHeader({
           nativeButton={false}
           render={<Link href={backHref} />}
           size="icon"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>
@@ -48,17 +47,6 @@ function OperationalPageHeader({
       </div>
       {trailing}
     </header>
-  );
-}
-
-function OperationNotice({ message, tone = "default" }: { message: string | null; tone?: "default" | "error" }) {
-  if (!message) return null;
-  return (
-    <Alert className="mt-5" role={tone === "error" ? "alert" : "status"} variant={tone === "error" ? "destructive" : "default"}>
-      {tone === "error" ? <CircleAlert aria-hidden="true" /> : null}
-      <AlertTitle>Status operasi</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
   );
 }
 
@@ -128,7 +116,7 @@ function HelpTooltip({ content, label }: { content: string; label: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<Button aria-label={label} size="icon-xs" type="button" variant="ghost" />}>
+        <TooltipTrigger render={<Button aria-label={label} size="icon-sm" type="button" variant="outline" />}>
           <CircleHelp />
         </TooltipTrigger>
         <TooltipContent>{content}</TooltipContent>
@@ -211,7 +199,6 @@ export {
   HelpFieldLabel,
   HelpTooltip,
   OperationalPageHeader,
-  OperationNotice,
   OptionSet,
 };
 export type { AssessmentReleaseSummary };

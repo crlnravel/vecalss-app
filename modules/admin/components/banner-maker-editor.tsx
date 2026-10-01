@@ -8,7 +8,9 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type RefObject,
 } from "react";
+import { useFormStatus } from "react-dom";
 
 import {
   ReferenceSelect,
@@ -27,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandMark } from "@/modules/home/components/home-primitives";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   ArrowLeft,
   ArrowDown,
@@ -149,7 +152,7 @@ function IconAction({
             onClick={onClick}
             size="icon-sm"
             type="button"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -170,13 +173,13 @@ function ColorInput({
   value: string;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+    <label className="flex items-center justify-between gap-3 rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
       <span className="text-sm font-medium text-secondary-700">{label}</span>
       <span className="flex items-center gap-2">
         <span className="font-mono text-ui-xs font-semibold uppercase text-secondary-500">{value}</span>
         <input
           aria-label={label}
-          className="size-9 cursor-pointer rounded-xl border border-white bg-transparent p-0.5 shadow-sm"
+          className="size-9 cursor-pointer rounded-field border border-white bg-transparent p-0.5 shadow-sm"
           onChange={(event) => onChange(event.target.value.toUpperCase())}
           type="color"
           value={value}
@@ -199,12 +202,12 @@ function BackgroundControls({
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-primary-50 p-1" role="group" aria-label="Jenis latar">
+      <div className="grid grid-cols-3 gap-1.5 rounded-control bg-primary-50 p-1" role="group" aria-label="Jenis latar">
         {backgroundModes.map((mode) => (
           <button
             aria-pressed={background.type === mode.type}
             className={cn(
-              "min-h-10 rounded-xl px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
+              "min-h-10 rounded-control px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20",
               background.type === mode.type
                 ? "bg-white text-primary-800 shadow-sm"
                 : "text-secondary-500 hover:bg-white/70 hover:text-secondary-800",
@@ -242,7 +245,7 @@ function BackgroundControls({
             onChange={(to) => onChange({ ...background, to })}
             value={background.to}
           />
-          <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+          <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
             <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
               <span>Arah gradasi</span>
               <span className="font-mono text-xs text-secondary-500">{background.angle}°</span>
@@ -263,7 +266,7 @@ function BackgroundControls({
       {background.type === "image" ? (
         <div className="space-y-2.5">
           {background.assetId && assetUrls[background.assetId] ? (
-            <div className="overflow-hidden rounded-2xl border border-primary-100 bg-primary-50">
+            <div className="overflow-hidden rounded-card border border-primary-100 bg-primary-50">
               <div className="relative aspect-[2.2]">
                 <Image
                   alt={assetUrls[background.assetId].name}
@@ -286,12 +289,12 @@ function BackgroundControls({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 px-4 py-5 text-center">
+            <div className="rounded-field border border-dashed border-primary-200 bg-primary-50/50 px-4 py-5 text-center">
               <ImageOff aria-hidden="true" className="mx-auto size-6 text-primary-600" />
               <p className="mt-2 text-xs leading-5 text-secondary-500">Pilih gambar.</p>
             </div>
           )}
-          <Button onClick={onPickImage} size="sm" type="button" variant="brandOutline">
+          <Button onClick={onPickImage} size="sm" type="button" variant="outline">
             <ImagePlus data-icon="inline-start" />
             {background.assetId ? "Ganti gambar" : "Pilih gambar"}
           </Button>
@@ -378,7 +381,7 @@ function FrameControls({
           />
         </Field>
       </div>
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Radius</span>
           <span className="font-mono text-ui-xs text-secondary-500">{frame.radius}px</span>
@@ -393,7 +396,7 @@ function FrameControls({
           value={frame.radius}
         />
       </label>
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Padding</span>
           <span className="font-mono text-ui-xs text-secondary-500">{frame.padding}px</span>
@@ -408,7 +411,7 @@ function FrameControls({
           value={frame.padding}
         />
       </label>
-      <label className="flex min-h-11 items-center gap-2.5 rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5 text-sm font-medium text-secondary-700">
+      <label className="flex min-h-11 items-center gap-2.5 rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5 text-sm font-medium text-secondary-700">
         <input
           aria-label="Snap ke padding"
           checked={frame.snapToPadding}
@@ -485,7 +488,7 @@ function LayerInspector({
               <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`${idPrefix}-layer-color`}>Warna</FieldLabel>
               <input
                 aria-label="Warna teks"
-                className="h-11 w-full cursor-pointer rounded-2xl border border-primary-100 bg-primary-50/70 p-1"
+                className="h-11 w-full cursor-pointer rounded-field border border-primary-100 bg-primary-50/70 p-1"
                 id={`${idPrefix}-layer-color`}
                 onChange={(event) => onChange({ ...layer, color: event.target.value.toUpperCase() })}
                 type="color"
@@ -599,7 +602,7 @@ function LayerInspector({
         </Field>
       </div>
 
-      <label className="block rounded-2xl border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
+      <label className="block rounded-field border border-primary-100/80 bg-primary-50/55 px-3 py-2.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium text-secondary-700">
           <span>Opasitas</span>
           <span className="font-mono text-xs text-secondary-500">{Math.round(layer.opacity * 100)}%</span>
@@ -653,7 +656,7 @@ function LayerList({
     <div className="space-y-2">
       {visibleLayers.length === 0 ? (
         <ReferenceEmptyState
-          className="min-h-32 rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-4 py-5"
+          className="min-h-32 rounded-card border border-dashed border-primary-200 bg-primary-50/35 px-4 py-5"
           description="Tambahkan layer."
           icon={Plus}
           title="Belum ada layer"
@@ -814,7 +817,7 @@ function AssetPickerPanel({
               {mode === "background" ? "Pilih gambar latar" : "Impor gambar"}
             </h2>
           </div>
-          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon" type="button" variant="quiet">
             <X />
           </Button>
         </div>
@@ -952,22 +955,22 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
 
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <Link aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin">
+      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="icon-sm" variant="inverse">
         <ArrowLeft aria-hidden="true" className="size-5" />
-      </Link>
+      </Button>
       <div className="flex min-w-0 items-center gap-2">
         <span className="hidden sm:block"><BrandMark compact /></span>
         <h1 className="whitespace-nowrap text-base font-semibold">Editor banner</h1>
       </div>
       <label className="order-last w-full min-w-0 sm:order-none sm:ml-3 sm:w-auto sm:max-w-72 sm:flex-1">
         <span className="sr-only">Nama banner</span>
-        <Input aria-label="Nama banner" className="h-11 rounded-xl border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/70 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
+        <Input aria-label="Nama banner" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
       </label>
       <div className="ml-auto flex items-center gap-2">
-        <SubmitButton aria-label="Simpan draf" className="min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10" name="intent" pendingLabel="Menyimpan…" size="sm" type="submit" value="save-draft" variant="inverseOutline">
+        <SubmitButton aria-label="Simpan draf" name="intent" pendingLabel="Menyimpan…" type="submit" value="save-draft" variant="inverse">
           <Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span>
         </SubmitButton>
-        <SubmitButton aria-label="Rilis banner" className="min-h-11 rounded-xl border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" name="intent" pendingLabel="Merilis…" size="sm" type="submit" value="publish" variant="brand">
+        <SubmitButton aria-label="Rilis banner" name="intent" pendingLabel="Merilis…" type="submit" value="publish" variant="default">
           <SendHorizontal data-icon="inline-start" /><span>Rilis</span>
         </SubmitButton>
         <StudentAccountMenu audience="admin" session={session} />
@@ -1016,7 +1019,7 @@ function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEd
             <IconAction ariaLabel={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} className={cn("size-11", controller.showGuides && "bg-primary-50 text-primary-800")} onClick={actions.toggleGuides} pressed={controller.showGuides}><Eye /></IconAction>
           </div>
         </TooltipProvider>
-        <p className="text-xs font-medium text-secondary-600" role="status">{controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</p>
+        {controller.savedHasUnpublishedChanges ? <p className="text-xs font-medium text-secondary-600">Draf belum dirilis</p> : null}
       </div>
       <div className="flex flex-1 flex-col">
         <section aria-label="Area kerja banner" className="flex min-h-72 flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:py-12 xl:px-8">
@@ -1032,6 +1035,37 @@ function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEd
   );
 }
 
+function BannerMakerEditorPageStatus({
+  dirty,
+  formRef,
+}: {
+  dirty: boolean;
+  formRef: RefObject<HTMLFormElement | null>;
+}) {
+  const { data, pending } = useFormStatus();
+  const isPublishing = data?.get("intent") === "publish";
+
+  usePageStatusToast({
+    active: dirty || pending,
+    action: dirty && !pending
+      ? {
+          label: "Simpan draf",
+          onClick: () => {
+            const form = formRef.current;
+            const submitter = form?.querySelector<HTMLButtonElement>('button[name="intent"][value="save-draft"]');
+            if (form && submitter) form.requestSubmit(submitter);
+          },
+        }
+      : undefined,
+    message: pending
+      ? isPublishing ? "Menerbitkan banner…" : "Menyimpan perubahan banner…"
+      : "Perubahan banner belum disimpan.",
+    variant: pending ? "info" : "warning",
+  });
+
+  return null;
+}
+
 function BannerMakerEditorPropertiesSidebar({ controller }: { controller: BannerMakerEditorController }) {
   return <aside aria-label="Edit elemen" className="hidden w-72 shrink-0 overflow-y-auto border-l border-primary-100 bg-white lg:block"><div className="sticky top-0 z-10 flex min-h-16 items-center border-b border-primary-100 bg-white px-4"><h2 className="text-sm font-semibold text-secondary-900">Edit banner</h2></div><div className="p-4"><BannerMakerEditorProperties controller={controller} idPrefix="desktop" /></div></aside>;
 }
@@ -1041,11 +1075,12 @@ function BannerMakerEditorWorkspace({ controller }: { controller: BannerMakerEdi
 }
 
 function BannerMakerEditorForm({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
-  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorWorkspace controller={controller} /></form>;
+  const formRef = useRef<HTMLFormElement>(null);
+  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit} ref={formRef}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorPageStatus dirty={controller.isDirty} formRef={formRef} /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorWorkspace controller={controller} /></form>;
 }
 
 function BannerMakerEditorShell({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
-  return <div className="relative h-svh min-h-[38rem] overflow-hidden bg-voyage-canvas text-secondary-900"><BannerMakerEditorForm controller={controller} session={session} />{controller.pickerMode ? <AssetPickerPanel mode={controller.pickerMode} onClose={controller.actions.closePicker} onSelect={controller.actions.handleAssetSelected} selectedAssetId={controller.selectedPickerAssetId} /> : null}</div>;
+  return <div className="relative h-svh min-h-[38rem] overflow-hidden workspace-page-canvas text-secondary-900"><BannerMakerEditorForm controller={controller} session={session} />{controller.pickerMode ? <AssetPickerPanel mode={controller.pickerMode} onClose={controller.actions.closePicker} onSelect={controller.actions.handleAssetSelected} selectedAssetId={controller.selectedPickerAssetId} /> : null}</div>;
 }
 
 function BannerMakerEditor({ action, assetUrls: initialAssetUrls, design: initialDesign, hasUnpublishedChanges, session, version: initialVersion }: BannerMakerEditorProps) {
@@ -1061,7 +1096,6 @@ export {
   BannerMakerEditor,
   EditorPropertiesPanel,
   LayerList,
-  createBannerMakerEditorActions,
 };
 export type {
   BannerMakerAction,

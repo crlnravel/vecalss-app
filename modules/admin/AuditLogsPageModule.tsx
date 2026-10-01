@@ -1,484 +1,224 @@
 "use client";
 
+import { Collapsible } from "@base-ui/react/collapsible";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import type { ReactNode } from "react";
 
-import {
-  ReferencePageHeader,
-  ReferenceSurface,
-} from "@/components/dashboard/reference-dashboard-primitives";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
-import { DataTableFilterMenu, type DataTableFilterMenuItem } from "@/components/ui/data-table-filter-menu";
-import type { SessionContext } from "@/lib/auth/types";
-import {
-  AUDIT_LOG_TARGET_TYPES,
-  buildAuditLogQuery,
-  DEFAULT_AUDIT_LOG_DIRECTION,
-  DEFAULT_AUDIT_LOG_SORT,
-  type AuditLogSortDirection,
-  type AuditLogSortKey,
-  type AuditLogTargetType,
-} from "@/lib/admin/operations/audit-query";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { AUDIT_LOG_RANGES, buildAuditLogQuery, type AuditLogRange, type AuditLogTargetType } from "@/lib/admin/operations/audit-query";
 import type { AdminAuditLogEntry } from "@/lib/admin/operations/service";
+import type { SessionContext } from "@/lib/auth/types";
+import { CalendarDays, ChevronDown, ChevronRight, Download, FileText, History, Settings, ShieldAlert, Upload, Users } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
+import { auditActionLabel, auditEventStatus, auditPageCsv, auditRangeLabels, auditReferenceLabel, auditTargetLabel, auditTargetLabels, formatAuditTime, groupAuditEntries } from "./audit-log-presentation";
 import { CopyValueButton } from "./components/copy-value-button";
 
-const auditDateFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-  year: "numeric",
-});
+const categoryTabs: { label: string; value: AuditLogTargetType | null }[] = [
+  { label: "Semua", value: null },
+  { label: "Pengguna", value: "user" },
+  { label: "Cohort", value: "cohort" },
+  { label: "Undangan", value: "enrollment_handoff" },
+  { label: "Impor", value: "enrollment_import" },
+  { label: "Hasil impor", value: "enrollment_import_row" },
+  { label: "Sistem", value: "system_config" },
+];
 
-const auditTimeFormatter = new Intl.DateTimeFormat("id-ID", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
-
-const auditTargetTypeLabels: Record<AuditLogTargetType, string> = {
-  cohort: "Cohort",
-  enrollment_handoff: "Handoff enrollment",
-  enrollment_import: "Import enrollment",
-  enrollment_import_row: "Baris import enrollment",
-  system_config: "Konfigurasi sistem",
-  user: "Pengguna",
-};
-
-const AUDIT_LOGS_EMPTY_STATE = (
-  <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
-    <div className="max-w-xl">
-       <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">Tidak ada event audit yang cocok dengan filter ini.</h3>
-       <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Coba pencarian atau filter target lain untuk menemukan event yang tercatat.</p>
-    </div>
-  </div>
-);
-
-function humanizeAuditValue(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replaceAll(".", " · ")
-    .replace(/\b[a-z]/g, (character) => character.toUpperCase());
+function auditHref({ page = 1, query = "", range, targetType }: { page?: number; query?: string; range: AuditLogRange; targetType: AuditLogTargetType | null }) {
+  return `/admin/audit-logs${buildAuditLogQuery({ page, query, range, targetType })}`;
 }
 
-function formatAuditDate(value: string) {
-  return auditDateFormatter.format(new Date(value));
-}
-
-function formatAuditTime(value: string) {
-  return auditTimeFormatter.format(new Date(value));
-}
-
-function formatAuditTimestamp(value: string) {
-  return `${formatAuditDate(value)} · ${formatAuditTime(value)}`;
-}
-
-function formatTargetType(value: string | null) {
-  if (!value) {
-     return "Target belum tercatat";
-  }
-
-  return auditTargetTypeLabels[value as AuditLogTargetType] ?? humanizeAuditValue(value);
-}
-
-function displayId(value: string) {
-  if (value.length <= 24) {
-    return value;
-  }
-
-  return `${value.slice(0, 10)}…${value.slice(-8)}`;
-}
-
-function auditLogHref({
-  direction,
-  page,
-  query,
-  sort,
-  targetType,
-}: {
-  direction: AuditLogSortDirection;
-  page: number;
-  query: string;
-  sort: AuditLogSortKey | null;
-  targetType: AuditLogTargetType | null;
-}) {
-  const queryString = buildAuditLogQuery({ direction, page, query, sort, targetType });
-  return queryString ? `/admin/audit-logs${queryString}` : "/admin/audit-logs";
-}
-
-function auditSearchHiddenFields({
-  direction,
-  sort,
-  targetType,
-}: {
-  direction: AuditLogSortDirection;
-  sort: AuditLogSortKey;
-  targetType: AuditLogTargetType | null;
-}) {
-  return {
-    ...(targetType ? { targetType } : {}),
-    ...(sort !== DEFAULT_AUDIT_LOG_SORT || direction !== DEFAULT_AUDIT_LOG_DIRECTION
-      ? {
-          direction,
-          sort,
-        }
-      : {}),
-  };
-}
-
-function AuditFilterPanel({
-  direction,
-  query,
-  sort,
-  targetType,
-}: {
-  direction: AuditLogSortDirection;
-  query: string;
-  sort: AuditLogSortKey;
-  targetType: AuditLogTargetType | null;
-}) {
-  const router = useRouter();
-  const [draftTargetType, setDraftTargetType] = useState<AuditLogTargetType | null>(targetType);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextHref = auditLogHref({
-      direction,
-      page: 1,
-      query,
-      sort,
-      targetType: draftTargetType,
-    });
-
-    router.replace(nextHref, { scroll: false });
-  }
-
+function AuditField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <form onSubmit={handleSubmit}>
-      <DataTableFilterMenu
-        filters={[
-          {
-            content: (
-              <fieldset className="grid gap-0">
-                <legend className="sr-only">Target</legend>
-                <label className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60">
-                  <input
-                    className="size-3.5 accent-primary-700"
-                    checked={draftTargetType === null}
-                    name="targetType"
-                    onChange={() => setDraftTargetType(null)}
-                    type="radio"
-                    value="all"
-                  />
-                  <span>Semua target</span>
-                </label>
-                {AUDIT_LOG_TARGET_TYPES.map((value) => (
-                  <label
-                    className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 text-sm font-medium text-secondary-800 transition-colors hover:bg-primary-50/60 focus-within:bg-primary-50/60"
-                    key={value}
-                  >
-                    <input
-                      className="size-3.5 accent-primary-700"
-                      checked={draftTargetType === value}
-                      name="targetType"
-                      onChange={() => setDraftTargetType(value)}
-                      type="radio"
-                      value={value}
-                    />
-                    <span>{auditTargetTypeLabels[value]}</span>
-                  </label>
-                ))}
-              </fieldset>
-            ),
-            id: "target-type",
-            label: "Target",
-            summary: draftTargetType
-              ? auditTargetTypeLabels[draftTargetType]
-              : "Semua target",
-          } satisfies DataTableFilterMenuItem,
-        ]}
-      >
-        <div className="flex w-full items-center gap-1.5 pt-4 pb-1">
-          <Link
-            className={cn(
-              buttonVariants({ size: "sm", variant: "ghost" }),
-              "min-w-0 flex-1",
-            )}
-            href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
-          >
-            Hapus filter
-          </Link>
-          <Button className="min-w-28 flex-none" size="sm" type="submit" variant="brand">
-            Terapkan
-          </Button>
-        </div>
-      </DataTableFilterMenu>
-    </form>
-  );
-}
-
-function DetailField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">{label}</dt>
-      <dd className="mt-1 break-words text-sm leading-6 text-secondary-800">{value}</dd>
+    <div className="min-w-0 space-y-0.5">
+      <dt className="text-xs text-secondary-600">{label}</dt>
+      <dd className="break-words text-sm font-medium leading-5 text-secondary-900 [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
 
-function AuditLogDetailDialog({
-  audit,
-  onClose,
-}: {
-  audit: AdminAuditLogEntry | null;
-  onClose: () => void;
-}) {
-  const targetId = audit?.targetType === "user" ? null : audit?.targetId ?? null;
+function EventIcon({ entry }: { entry: AdminAuditLogEntry }) {
+  const Icon = auditEventStatus(entry.action).tone === "danger" ? ShieldAlert
+    : entry.targetType === "user" || entry.targetType === "cohort" ? Users
+    : entry.targetType === "system_config" ? Settings
+    : entry.targetType?.startsWith("enrollment_import") ? Upload : FileText;
+  return <Icon aria-hidden="true" className="size-3.5" />;
+}
+
+function AuditTimelineEvent({ entry, defaultOpen }: { entry: AdminAuditLogEntry; defaultOpen: boolean }) {
+  const title = auditActionLabel(entry.action);
+  const status = auditEventStatus(entry.action);
+  const actorName = entry.actorId ? entry.actorName : "Sistem";
+  const initials = actorName.trim().split(/\s+/u).slice(0, 2).map(word => word[0]).join("").toUpperCase();
 
   return (
-    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(audit)}>
-      <DialogContent className="max-h-[min(720px,calc(100svh-2rem))] max-w-lg overflow-x-hidden overflow-y-auto p-0" variant="default">
-        {audit ? (
-          <>
-            <DialogHeader className="min-w-0 border-b border-primary-100 px-5 py-5 pr-14 sm:px-6">
-              {targetId ? (
-                <div className="min-w-0">
-                 <p className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">ID target</p>
-                  <div className="mt-1 flex min-w-0 items-center gap-2">
-                    <code className="min-w-0 flex-1 break-all font-mono text-xs leading-5 text-secondary-700" title={targetId}>{displayId(targetId)}</code>
-                 <CopyValueButton ariaLabel="Salin ID target" iconOnly value={targetId} />
-                  </div>
-                </div>
-              ) : null}
-              <DialogTitle className="break-words text-xl tracking-[-0.03em]">{humanizeAuditValue(audit.action)}</DialogTitle>
-              <DialogDescription className="break-words">
-                 Tercatat pada {formatAuditTimestamp(audit.occurredAt)}.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="min-w-0 px-5 py-6 sm:px-6">
-              <dl className="grid min-w-0 gap-5">
-                 <DetailField label="Waktu" value={formatAuditTimestamp(audit.occurredAt)} />
-                 <DetailField label="Pengguna" value={audit.actorEmail ? `${audit.actorName} · ${audit.actorEmail}` : audit.actorName} />
-                <DetailField label="Target" value={formatTargetType(audit.targetType)} />
-                 <DetailField label="Alamat IP" value={audit.ipAddress ?? "Belum tercatat"} />
-              </dl>
+    <li className="group/event relative min-w-0 pb-6 pl-10 last:pb-0" data-audit-event={entry.id}>
+      <span aria-hidden="true" className="absolute bottom-1.5 left-3 top-7 w-px bg-primary-100 group-last/event:hidden" />
+      <span aria-hidden="true" className="absolute left-0 top-0 flex size-6 items-center justify-center rounded-full border border-primary-100 bg-white text-secondary-600">
+        <EventIcon entry={entry} />
+      </span>
+      <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
+        <h3 className="text-sm font-semibold leading-5 text-secondary-900">{title}</h3>
+        <Badge className="gap-1.5" size="xs" tone={status.tone}>
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+          {status.label}
+        </Badge>
+        <time className="text-xs tabular-nums text-secondary-600" dateTime={entry.occurredAt}>{formatAuditTime(entry.occurredAt)}</time>
+      </div>
+      <Collapsible.Root className="group/disclosure mt-2 overflow-hidden rounded-xl border border-primary-100 bg-secondary-50/60" defaultOpen={defaultOpen}>
+        <Collapsible.Trigger aria-label={`Buka atau tutup detail ${title}`} className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/30 motion-reduce:transition-none">
+          <span className="flex min-w-0 items-center gap-2">
+            <Avatar className="size-[20px]" aria-hidden="true">
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 truncate text-sm font-medium text-secondary-700" title={`${actorName}, ${auditTargetLabel(entry.targetType)}`}>
+              {actorName}, {auditTargetLabel(entry.targetType)}
+            </span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-secondary-600 transition-transform duration-200 group-data-open/disclosure:rotate-90 motion-reduce:transition-none" />
+        </Collapsible.Trigger>
+        <Collapsible.Panel>
+          <div className="space-y-3 rounded-xl border-t border-primary-100 bg-white px-3 py-3.5">
+            <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <AuditField label="Target">{auditTargetLabel(entry.targetType)}</AuditField>
+              <AuditField label="Pelaku">{entry.actorEmail ?? actorName}</AuditField>
+              <AuditField label="Alamat IP">{entry.ipAddress ?? "Belum tercatat"}</AuditField>
+              <AuditField label="Referensi target">
+                {entry.targetId ? <span className="font-mono text-xs">{auditReferenceLabel(entry.targetId)}</span> : "Belum tercatat"}
+              </AuditField>
+            </dl>
+            <p className="text-xs leading-5 text-secondary-600">Aktivitas {auditTargetLabels[entry.targetType as AuditLogTargetType]?.toLowerCase() ?? "ini"} dicatat atas nama {actorName}.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-primary-100 pt-2.5">
+              <span className="min-w-0 max-w-full truncate rounded-md border border-primary-100 px-1.5 py-0.5 font-mono text-xs text-secondary-600">{auditReferenceLabel(entry.id)}</span>
+              <CopyValueButton ariaLabel="Salin referensi aktivitas" label="Salin referensi" value={entry.id} />
             </div>
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          </div>
+        </Collapsible.Panel>
+      </Collapsible.Root>
+    </li>
   );
 }
 
-function AuditUserDetailDialog({
-  onClose,
-  user,
-}: {
-  onClose: () => void;
-  user: Pick<AdminAuditLogEntry, "actorEmail" | "actorId" | "actorName"> | null;
-}) {
-  return (
-    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(user)}>
-      <DialogContent className="max-h-[min(640px,calc(100svh-2rem))] max-w-md overflow-x-hidden overflow-y-auto p-0" variant="default">
-        {user ? (
-          <>
-            <DialogHeader className="min-w-0 border-b border-primary-100 px-5 py-5 pr-14 sm:px-6">
-              <DialogTitle className="break-words text-xl tracking-[-0.03em]">{user.actorName}</DialogTitle>
-               <DialogDescription>Pengguna yang tercatat dalam riwayat audit ini.</DialogDescription>
-            </DialogHeader>
-            <div className="min-w-0 px-5 py-6 sm:px-6">
-              <dl className="grid min-w-0 gap-5">
-                 <DetailField label="Nama" value={user.actorName} />
-                 <DetailField label="Email" value={user.actorEmail ?? "Email belum tercatat"} />
-                {user.actorId ? (
-                  <div className="min-w-0">
-                     <dt className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">ID pengguna</dt>
-                    <dd className="mt-1 flex min-w-0 items-center gap-2">
-                      <code className="min-w-0 flex-1 break-all font-mono text-xs leading-5 text-secondary-700" title={user.actorId}>{displayId(user.actorId)}</code>
-                       <CopyValueButton ariaLabel="Salin ID pengguna" iconOnly value={user.actorId} />
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            </div>
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AuditLogsPageModule({
-  direction,
-  entries,
-  page,
-  pageCount,
-  pageSize,
-  query,
-  session,
-  sort,
-  targetType,
-  total,
-}: {
-  direction: AuditLogSortDirection;
+type AuditLogsPageProps = {
   entries: AdminAuditLogEntry[];
+  now: string;
   page: number;
   pageCount: number;
   pageSize: number;
   query: string;
+  range: AuditLogRange;
   session: SessionContext;
-  sort: AuditLogSortKey;
   targetType: AuditLogTargetType | null;
   total: number;
-}) {
-  const [selectedAudit, setSelectedAudit] = useState<AdminAuditLogEntry | null>(null);
-  const [selectedUser, setSelectedUser] = useState<Pick<AdminAuditLogEntry, "actorEmail" | "actorId" | "actorName"> | null>(null);
+};
+
+function AuditLogsPageModule({ entries, now, page, pageCount, pageSize, query, range, session, targetType, total }: AuditLogsPageProps) {
+  const router = useRouter();
+  const groups = groupAuditEntries(entries, now);
   const visibleStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const visibleEnd = Math.min(total, page * pageSize);
-  const clearSearchHref = auditLogHref({ direction, page: 1, query: "", sort, targetType });
-  const clearTargetHref = auditLogHref({ direction, page: 1, query, sort, targetType: null });
-  const clearFiltersHref = auditLogHref({ direction, page: 1, query: "", sort, targetType: null });
-  const filters: DataTableFilter[] = targetType
-    ? [{ href: clearTargetHref, id: "targetType", label: "Target", value: auditTargetTypeLabels[targetType] }]
-    : [];
 
-  const columns: DataTableColumn<AdminAuditLogEntry>[] = [
-    {
-      cell: (entry) => (
-        <span className="block min-w-0 truncate font-semibold text-secondary-900" title={humanizeAuditValue(entry.action)}>
-          {humanizeAuditValue(entry.action)}
-        </span>
-      ),
-      headerClassName: "w-[45%] rounded-l-xl",
-      id: "event",
-      label: "Event",
-      sortKey: "event",
-      width: 45,
-    },
-    {
-      cell: (entry) => (
-        <time className="block min-w-0 truncate text-secondary-700" dateTime={entry.occurredAt} title={formatAuditTimestamp(entry.occurredAt)}>
-          {formatAuditTimestamp(entry.occurredAt)}
-        </time>
-      ),
-      cellClassName: "text-secondary-700",
-      headerClassName: "w-[30%]",
-      id: "time",
-       label: "Waktu",
-      sortKey: "time",
-      width: 30,
-    },
-    {
-      cell: (entry) => entry.actorId ? (
-        <Button
-          aria-label={`View user details for ${entry.actorName}`}
-          className="min-w-0 max-w-full justify-start overflow-hidden px-0 text-left font-semibold text-primary-700 hover:bg-transparent hover:text-primary-900 hover:underline"
-          onClick={() => setSelectedUser(entry)}
-          type="button"
-          variant="link"
-        >
-          <span className="block min-w-0 truncate">{entry.actorName}</span>
-        </Button>
-      ) : (
-        <span className="block min-w-0 truncate text-secondary-600" title="Automated event">System</span>
-      ),
-      cellClassName: "min-w-0",
-      headerClassName: "w-[25%] rounded-r-xl",
-      id: "user",
-       label: "Pengguna",
-      sortKey: "user",
-      width: 25,
-    },
-  ];
+  function exportPage() {
+    const url = URL.createObjectURL(new Blob([auditPageCsv(entries)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `riwayat-audit-halaman-${page}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   return (
-    <PortalShell
-      activeAdminSection="audit-logs"
-      audience="admin"
-       description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
-      session={session}
-       title="Riwayat audit"
-    >
-      <div className="space-y-8">
-        <ReferencePageHeader
-           title="Riwayat audit"
-        />
+    <PortalShell activeAdminSection="audit-logs" audience="admin" description="Periksa aktivitas yang tercatat di Vecalss." session={session} title="Riwayat audit">
+      <section aria-labelledby="audit-log-title" className="mx-auto w-full max-w-2xl">
+        <div className="mb-6 flex flex-col gap-4">
+          <header className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <h1 className="font-heading text-xl font-semibold tracking-tight text-secondary-900" id="audit-log-title">Riwayat audit</h1>
+              <p className="text-sm leading-5 text-secondary-600">{total.toLocaleString("id-ID")} aktivitas tercatat di Vecalss</p>
+            </div>
+            <div className="flex max-w-full flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline" />} aria-label={`Rentang waktu: ${auditRangeLabels[range]}`}>
+                  <CalendarDays aria-hidden="true" className="size-4" />
+                  {auditRangeLabels[range]}
+                  <ChevronDown aria-hidden="true" className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuRadioGroup value={range} onValueChange={value => router.push(auditHref({ query, range: value as AuditLogRange, targetType }), { scroll: false })}>
+                    {AUDIT_LOG_RANGES.map(value => <DropdownMenuRadioItem closeOnClick key={value} value={value}>{auditRangeLabels[value]}</DropdownMenuRadioItem>)}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button disabled={!entries.length} onClick={exportPage} title={`Unduh ${entries.length} aktivitas di halaman ini`} type="button" variant="default">
+                <Download aria-hidden="true" className="size-4" />
+                Ekspor halaman
+              </Button>
+            </div>
+          </header>
+          <div className="min-w-0 overflow-x-auto [scrollbar-width:thin]">
+            <nav aria-label="Filter jenis aktivitas" className="flex min-w-full w-max items-center gap-6 border-b border-primary-100">
+              {categoryTabs.map(tab => (
+                <Link
+                  aria-current={targetType === tab.value ? "page" : undefined}
+                  className={cn("inline-flex min-h-11 shrink-0 items-center border-b-2 border-transparent px-1 text-sm font-medium whitespace-nowrap text-secondary-600 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/30 motion-reduce:transition-none", targetType === tab.value && "border-primary-800 text-primary-900")}
+                  href={auditHref({ query, range, targetType: tab.value })}
+                  key={tab.value ?? "all"}
+                  prefetch={false}
+                  scroll={false}
+                >{tab.label}</Link>
+              ))}
+            </nav>
+          </div>
+        </div>
 
-        <ReferenceSurface as="section" aria-label="Riwayat audit" className="overflow-hidden">
-          <DataTable
-             caption="Event administrasi yang tercatat"
-            clearFiltersHref={clearFiltersHref}
-            columns={columns}
-            emptyState={AUDIT_LOGS_EMPTY_STATE}
-            filterPanel={
-              <AuditFilterPanel
-                direction={direction}
-                key={`${targetType ?? "all"}:${query}:${sort}:${direction}`}
-                query={query}
-                sort={sort}
-                targetType={targetType}
-              />
-            }
-            filters={filters}
-            getRowId={(entry) => entry.id}
-            onRowClick={setSelectedAudit}
-            rowProps={(entry) => ({
-               "aria-label": `Buka detail ${humanizeAuditValue(entry.action)}`,
-              "data-audit-row": "true",
-              tabIndex: -1,
-            })}
-            rows={entries}
-            search={{
-              action: "/admin/audit-logs",
-              clearHref: clearSearchHref,
-              hiddenFields: auditSearchHiddenFields({ direction, sort, targetType }),
-               label: "Cari riwayat audit",
-               placeholder: "Cari event, pengguna, atau ID…",
-              value: query,
-            }}
-            sort={{
-              direction,
-              href: (nextSortKey, nextDirection) => auditLogHref({
-                direction: nextDirection,
-                page: 1,
-                query,
-                sort: nextSortKey as AuditLogSortKey | null,
-                targetType,
-              }),
-              key: sort,
-            }}
-            tableClassName="w-full min-w-0"
-          />
+        {query ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-2 text-sm text-secondary-600">
+            <p className="min-w-0 break-words">Hasil pencarian: <span className="font-medium text-secondary-900">{query}</span></p>
+            <Link className={buttonVariants({ variant: "outline" })} href={auditHref({ range, targetType })}>Hapus pencarian</Link>
+          </div>
+        ) : null}
 
-          {pageCount > 1 ? (
-            <footer className="flex flex-col gap-3 border-t border-primary-100 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <p className="text-xs text-secondary-600">Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}</p>
-              <nav aria-label="Halaman riwayat audit" className="flex items-center gap-2">
-                 {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Sebelumnya</Link> : null}
-                 <span aria-current="page" className="inline-flex min-h-11 items-center rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Halaman {page} dari {pageCount}</span>
-                 {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Berikutnya</Link> : null}
+        {groups.length ? (
+          <div className="space-y-6">
+            {groups.map(group => (
+              <section aria-labelledby={`audit-date-${group.key}`} className="space-y-4" key={group.key}>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-600" id={`audit-date-${group.key}`}>{group.label}</h2>
+                <ol aria-label={`Aktivitas ${group.label}`}>
+                  {group.entries.map(entry => <AuditTimelineEvent defaultOpen={entries.indexOf(entry) < 2} entry={entry} key={entry.id} />)}
+                </ol>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-12 text-center" role="status">
+            <History aria-hidden="true" className="size-7 text-primary-700" />
+            <h2 className="mt-4 text-base font-semibold text-secondary-900">Belum ada aktivitas{range !== "all" || targetType || query ? " yang cocok" : " tercatat"}.</h2>
+            <p className="mt-1 max-w-sm text-sm leading-6 text-secondary-600">{range !== "all" || targetType || query ? "Coba rentang waktu atau jenis aktivitas lain." : "Aktivitas akan muncul di sini setelah tercatat."}</p>
+            {range !== "all" || targetType || query ? <Link className={buttonVariants({ className: "mt-4", variant: "outline" })} href="/admin/audit-logs">Lihat semua aktivitas</Link> : null}
+          </div>
+        )}
+
+        {total > 0 ? (
+          <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4">
+            <p className="text-xs text-secondary-600">Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}</p>
+            {pageCount > 1 ? (
+              <nav aria-label="Halaman riwayat audit" className="flex flex-wrap items-center gap-2">
+                {page > 1 ? <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={auditHref({ page: page - 1, query, range, targetType })}>Sebelumnya</Link> : null}
+                <span className="text-xs text-secondary-600">{page} / {pageCount}</span>
+                {page < pageCount ? <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={auditHref({ page: page + 1, query, range, targetType })}>Berikutnya</Link> : null}
               </nav>
-            </footer>
-          ) : null}
-        </ReferenceSurface>
-      </div>
-
-      <AuditLogDetailDialog audit={selectedAudit} onClose={() => setSelectedAudit(null)} />
-      <AuditUserDetailDialog onClose={() => setSelectedUser(null)} user={selectedUser} />
+            ) : null}
+          </footer>
+        ) : null}
+      </section>
     </PortalShell>
   );
 }

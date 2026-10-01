@@ -101,7 +101,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
           {committedPhotoSrc ? (
             <AvatarImage alt="Foto profil" src={committedPhotoSrc} />
           ) : null}
-          <AvatarFallback className="bg-[linear-gradient(135deg,var(--primary-100)_0%,var(--primary-300)_100%)] text-2xl font-semibold text-primary-800 transition duration-200 group-hover/photo:brightness-[0.72] group-focus-within/photo:brightness-[0.72]">
+          <AvatarFallback className="text-2xl transition duration-200 group-hover/photo:brightness-[0.72] group-focus-within/photo:brightness-[0.72]">
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -134,7 +134,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
           aria-label="Hapus foto"
           size="icon-sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Trash2 className="size-4" />
         </Button>
@@ -166,7 +166,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                   {draftPhotoSrc ? (
                     <AvatarImage alt="Pratinjau foto profil" src={draftPhotoSrc} />
                   ) : null}
-                  <AvatarFallback className="bg-[linear-gradient(135deg,var(--primary-100)_0%,var(--primary-300)_100%)] text-lg font-semibold text-primary-800">
+                  <AvatarFallback className="text-lg">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -196,7 +196,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                 onClick={() => fileInputRef.current?.click()}
                 size="sm"
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               >
                 <Upload className="size-4" />
                 Pilih file
@@ -207,7 +207,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                 onClick={handleSavePhoto}
                 size="sm"
                 type="button"
-                variant="brand"
+                variant="default"
               >
                 Gunakan foto ini
               </Button>

@@ -100,7 +100,9 @@ export function useDestinationEditorController({
   const [persistedDesign, setPersistedDesign] = useState<BannerDesign | null>(initialRequiresSave ? null : initialDesign);
   const [assetUrls, setAssetUrls] = useState(snapshot.assetUrls);
   const [revision, setRevision] = useState(snapshot.currentRevision);
-  const [source, setSource] = useState<BannerSourceDescriptor | null>(bootstrapSource(snapshot.bootstrap));
+  const [source, setSource] = useState<BannerSourceDescriptor | null>(
+    () => bootstrapSource(snapshot.bootstrap),
+  );
   const [requiresSave, setRequiresSave] = useState(initialRequiresSave);
   const [hasSavedDraft, setHasSavedDraft] = useState(snapshot.hasSavedDraft);
   const [savedHasUnpublishedChanges, setSavedHasUnpublishedChanges] = useState(snapshot.hasUnpublishedChanges);

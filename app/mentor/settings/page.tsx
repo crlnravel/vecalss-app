@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { getKaptenSettings } from "@/modules/mentor/settings-actions";
-import { KaptenSettingsPageModule } from "@/modules/mentor/KaptenContentPageModules";
+import { KaptenSettingsPageModule } from "@/modules/mentor/KaptenSettingsPageModule";
 
 export const metadata: Metadata = {
   title: "Pengaturan Kapten | Vecalss LMS",

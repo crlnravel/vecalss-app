@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "fix-bank-soal-create-dialog",
+      "name": "Stable and quiet Bank Soal create dialog",
+      "description": "Open the create dialog without catalogue navigation and suppress persistent page-status notices while filling it.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "f46b489; callback/history/status regression red before fix and green after, lock/import contracts and focused lint pass. Repository lint/compile pass; full verify blocked by unrelated teaching-subject fixture missing creator. Browser UI unverified; independent standards and behavior reviews complete with no actionable findings."
+    },
+    {
       "id": "feat-001",
       "name": "Project Setup",
       "description": "Confirm the project can install dependencies and run verification",
@@ -295,6 +303,40 @@
       "dependencies": ["feat-035"],
       "status": "complete",
       "evidence": "4444d77; live provisional answer words resolve from a soft blur with a quiet caret; final answers and SSE behavior remain unchanged, and reduced-motion disables the animation. Automatic-context-enabled learners continue to see committed source summaries instead of manual context selection; free development keeps the manual Konteks fallback because its automatic retrieval gate is off. Guarded test:vera-auto-context-ui, focused ESLint, full ./init.sh, and git diff --check pass; browser verification was not run as requested."
+    },
+    {
+      "id": "feat-038",
+      "name": "Mentor Report and Developer Inbox",
+      "description": "Save Mentor bug reports with optional private attachments and provide a separate Developer report table and full detail view",
+      "dependencies": ["feat-001"],
+      "status": "complete",
+      "evidence": "3856e1d; explicit-local migration and Prisma generation, guarded test:mentor-report and focused ESLint pass. Approved local browser QA passed form submissions, table/detail navigation, byte-identical attachment download, role restrictions, and 390px layout. Staging migration/account provisioning and repository-wide build remain pending."
+    },
+    {
+      "id": "feat-039",
+      "name": "ReUI Admin Directory Tables",
+      "description": "Apply the live base data grid 6 table visual language to student, Kapten, and affiliator directories with independent markup/styles and existing real operations.",
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "complete",
+      "evidence": "4383d3f; focused ESLint and admin enrollment contract pass; authorized desktop/mobile browser checks pass for core controls. Global verification has pre-existing blockers; independent reviews pending."
+    },
+    {
+      "id": "feat-040",
+      "name": "Developer Component and Token Catalogue",
+      "description": "Provide a Developer-only searchable catalogue of existing shared primitives, variants, source references, and live computed design tokens.",
+      "dependencies": ["feat-038"],
+      "status": "complete",
+      "evidence": "d2fe796 established the catalogue; primitive standardization reduces the supported inventory to 60 sources. Luna extraction and independent coverage review completed. Focused catalogue ESLint and diff-check pass; full TypeScript has no catalogue diagnostics but fails outside scope. Full verify stops on unrelated lint errors; production build and browser QA remain unverified."
+    },
+    {
+      "id": "feat-041",
+      "name": "Canonical Primitives and ReUI Avatars",
+      "description": "Standardize semantic radii, tactile Buttons, app-wide Badge, specialty Tabs, Sonner notification outcomes and ReUI Avatar composition across the app and developer catalogue.",
+      "dependencies": ["feat-040"],
+      "status": "complete",
+      "evidence": "2f11bd1 design contract; a64f5ba shared primitives; 778adf6 app consumers; 9a9457d agreed report primitive hunks; b4297f6 catalogue and Avatar guidelines. SSR state/disabled-anchor contract and shared/catalogue focused lint pass; independent standards and coverage reviews clear. Exact 20px audit correction is reviewed and applied in its owner's pending redesign. Global lint/types remain blocked by baseline errors; browser/build unverified."
     }
   ]
 }

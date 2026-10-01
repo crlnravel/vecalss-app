@@ -106,13 +106,17 @@ the configured project copy is `_harness/resource-guard.sh`.
 
 ### Browser usage and verification policy
 
-- **`ego-browser` is the mandatory priority choice:** All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or anything that uses a web browser **must be done through `ego-browser` (`ego-lite`) as the priority choice**. Do not use built-in browsers, external browser extensions, or ad hoc headless automation.
-- **Always ask for explicit user permission before performing any verification or action using a browser:**
-  When requesting permission, the agent must specify:
-  1. **Route(s):** The exact route(s) or URLs to check.
-  2. **Role:** The user role or session state (e.g. Kapten, Voyager, Admin).
-  3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.
-- Do not proceed with browser verification without explicit user approval.
+- **Dual-browser strategy (`ego-browser` vs `obscura`):**
+  - **`ego-browser` (`ego-lite`) is dedicated to tests requiring user/human interaction:** All interactive UI/UX inspection, visual audits with the user, or flows requiring manual user intervention must use `ego-browser`.
+  - **Always ask for explicit user permission before performing any verification or action using `ego-browser`:**
+    When requesting permission, the agent must specify:
+    1. **Route(s):** The exact route(s) or URLs to check.
+    2. **Role:** The user role or session state (e.g. Kapten, Voyager, Admin).
+    3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.
+    Do not proceed with `ego-browser` verification without explicit user approval.
+  - **`obscura` is dedicated to automated, headless, and Playwright tests:** Use for automated test runs, DOM assertions, smoke tests, background verifications, and Playwright suites.
+  - **Obscura chosen over Chrome for Playwright:** Choose Obscura over Chrome/Chromium for headless automation (`chromium.connectOverCDP()`). Connect via CDP on port `9222`. Obscura runs autonomously under the resource guard.
+  - Read [`docs/agent-obscura-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-obscura-guide.md) and [`docs/agent-app-testing-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-app-testing-guide.md) for the complete reference.
 
 ### Testing and seeded credentials policy
 
@@ -158,6 +162,7 @@ To prevent cognitive overload, conflicting guidance, and prompt bloat, agent ski
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
 - App testing & seeded login → `docs/agent-app-testing-guide.md`
+- Automated headless testing & Playwright (Obscura) → `docs/agent-obscura-guide.md`
 - Database & environments guide → `docs/database-environments.md`
 - Copywriting & Indonesian content → `.agents/skills-library/domain/tutur-humanizer/SKILL.md` and `_harness/routing.md`
 - CPU/process budget and guarded launches → `.agents/skills/agent-resource-guard/SKILL.md` and `_harness/resource-guard.sh`

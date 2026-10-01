@@ -50,9 +50,21 @@ function getAffiliatorHomePath(user: AuthenticatedUser) {
   return "/affiliator/dashboard";
 }
 
+function getDeveloperHomePath(user: AuthenticatedUser) {
+  if (user.mustChangePassword) {
+    return "/change-password";
+  }
+
+  return "/developer/reports";
+}
+
 function getDefaultHomePath(user: AuthenticatedUser) {
   if (user.roles.includes(RoleName.admin)) {
     return "/admin";
+  }
+
+  if (user.roles.includes(RoleName.developer)) {
+    return getDeveloperHomePath(user);
   }
 
   if (user.roles.includes(RoleName.affiliator)) {
@@ -73,6 +85,7 @@ function getDefaultHomePath(user: AuthenticatedUser) {
 export {
   getDefaultHomePath,
   getAffiliatorHomePath,
+  getDeveloperHomePath,
   getLoginPathForAudience,
   getSafeAdminReturnPath,
   getStudentHomePath,

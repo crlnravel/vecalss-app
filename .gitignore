@@ -19,6 +19,9 @@
 /test-results/
 /.playwright-cli/
 /output/playwright/
+/obscura
+/obscura-worker
+*.tar.gz
 
 # next.js
 /.next/

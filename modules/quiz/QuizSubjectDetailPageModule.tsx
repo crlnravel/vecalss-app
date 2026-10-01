@@ -9,7 +9,7 @@ import {
 
 import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -56,13 +56,13 @@ function QuizSubjectDetailPageModule({
           <div className="relative z-10 grid gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="max-w-[42rem]">
               <div className="flex items-center gap-2">
-                <StudentBadge
+                <Badge
                   className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]`}
                   size="sm"
                   tone="category"
                 >
                   {subject.code}
-                </StudentBadge>
+                </Badge>
               </div>
               <h1 className="mt-6 max-w-[20ch] font-display text-4xl leading-[1.05] font-extrabold tracking-[-0.04em] text-balance md:text-5xl">
                 {subject.description}
@@ -73,22 +73,22 @@ function QuizSubjectDetailPageModule({
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3 text-sm font-bold">
-                <StudentBadge
+                <Badge
                   className={QUIZ_BADGE_CLASS_NAME}
                   size="md"
                   tone="neutral"
                 >
                   <ListChecks className="size-4 text-primary-700" />
                   {subject.quizzes.length} paket
-                </StudentBadge>
-                <StudentBadge
+                </Badge>
+                <Badge
                   className={QUIZ_BADGE_CLASS_NAME}
                   size="md"
                   tone="neutral"
                 >
                   <BookOpenCheck className="size-4 text-primary-700" />
                   {totalQuestions} soal
-                </StudentBadge>
+                </Badge>
               </div>
             </div>
 
@@ -138,7 +138,7 @@ function QuizSubjectDetailPageModule({
                   nativeButton={false}
                   render={<Link href="/quiz" />}
                   size="sm"
-                  variant="brandOutline"
+                  variant="outline"
                 >
                   Lihat subjek lain
                 </Button>
@@ -165,37 +165,37 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
 
         <div className="mt-3 flex flex-wrap gap-2">
           {quiz.duration ? (
-            <StudentBadge
+            <Badge
               className={QUIZ_BADGE_CLASS_NAME}
               size="sm"
               tone="neutral"
             >
               <Clock3 className="size-4" />
               {quiz.duration}
-            </StudentBadge>
+            </Badge>
           ) : null}
-          <StudentBadge
+          <Badge
             className={QUIZ_BADGE_CLASS_NAME}
             size="sm"
             tone="neutral"
           >
             <ListChecks className="size-4" />
             {quiz.questionCount} soal
-          </StudentBadge>
-          <StudentBadge
+          </Badge>
+          <Badge
             className={QUIZ_BADGE_CLASS_NAME}
             size="sm"
             tone="category"
           >
             {quiz.difficulty}
-          </StudentBadge>
-          <StudentBadge
+          </Badge>
+          <Badge
             className={QUIZ_BADGE_CLASS_NAME}
             size="sm"
             tone={quizStatusTone(quiz.status)}
           >
             {quizStatusLabel(quiz.status)}
-          </StudentBadge>
+          </Badge>
         </div>
 
         <Button
@@ -208,8 +208,8 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
                 : `/quiz/${subject.slug}/${quiz.slug}`}
             />
           }
-          size="learning"
-          variant="learning"
+          size="lg"
+          variant="default"
         >
           {hasReviewableResult ? "Cek hasil" : quiz.isCompleted ? "Lihat detail" : "Kerjakan"}
           <ArrowUpRight className="size-4" data-icon="inline-end" />

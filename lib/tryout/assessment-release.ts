@@ -455,7 +455,6 @@ function sourceReadinessIssues(
     sourceQuestionRevisionId: string;
     sourceRevisionProvenance?: QuestionRevisionProvenance | null;
   },
-  allowMultipleChoice = true,
 ) {
   if (!source) {
     return [resolutionBlocker("stale_candidate", "Soal kandidat tidak lagi ditemukan.", {
@@ -929,7 +928,7 @@ async function resolveAndMaterializeAssemblies(
           sourceQuestionId: item.sourceQuestionId,
           sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
           sourceRevisionProvenance: item.sourceRevisionProvenance,
-        }, true);
+        });
         if (itemBlockers.length) {
           invalidSourceIds.push(item.sourceQuestionId);
           blockers.push(...itemBlockers.map((blocker) => ({
@@ -1007,7 +1006,7 @@ async function resolveAndMaterializeAssemblies(
     const invalidBlockers: AssessmentReleaseResolutionBlocker[] = [];
     const validSources: ReleaseSourceRecord[] = [];
     for (const source of scopedSources) {
-      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds, undefined, true);
+      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds);
       if (blockers.length) {
         invalidSourceIds.push(source.id);
         invalidBlockers.push(...blockers.map((blocker) => ({
@@ -1114,11 +1113,13 @@ async function resolveAndMaterializeAssemblies(
 
   const tryoutSectionById = new Map(tryout.sections.map((section) => [section.id, section]));
   for (const resolution of resolutions) {
+    // react-doctor-disable-next-line async-await-in-loop -- replace each section's item set before writing its snapshots.
     await tx.tryoutItem.deleteMany({ where: { tryoutSectionId: resolution.sectionId } });
     await tx.tryoutSection.update({ where: { id: resolution.sectionId }, data: { questionCount: resolution.snapshots.length } });
     const version = versionById.get(tryoutSectionById.get(resolution.sectionId)?.packageVersionId ?? "");
     if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia saat membuat bridge fisik.", { sectionId: resolution.sectionId });
     for (const [index, snapshot] of resolution.snapshots.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- item order and bridge identity are fixed by the release snapshot.
       const item = await tx.tryoutItem.create({
         data: {
           difficulty: snapshot.difficulty,

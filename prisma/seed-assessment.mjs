@@ -2053,6 +2053,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     for (const [itemIndex, item] of answerableItems.entries()) {
       const chooseCorrect = itemIndex < correctCount;
       const selected = item.options.find((option) => option.isCorrect === chooseCorrect) ?? item.options[0];
+      // react-doctor-disable-next-line async-await-in-loop -- fixture answers are inserted in the published item order.
       await client.query(
         `INSERT INTO tryout_answers (
            attempt_id, attempt_test_run_id, tryout_id, tryout_item_id,
@@ -2153,8 +2154,10 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
     seedQuizzes(client, { bankId: quizBankId, questions: quizQuestions, studentIds, subtestIds, tutorId }),
     seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
   ]);
-  const draftTryoutId = await seedDraftTryout(client, { examEventId, subtestIds, tutorId, versionIds });
-  const assessmentRelease = await upsertAssessmentRelease(client, { tryoutId, tutorId });
+  const [draftTryoutId, assessmentRelease] = await Promise.all([
+    seedDraftTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
+    upsertAssessmentRelease(client, { tryoutId, tutorId }),
+  ]);
   const sessions = await seedTryoutOperations(client, { assessmentRelease, studentIds, tryoutId, tutorId });
   return { bankIds: { quiz: quizBankId, tryout: tryoutBankId }, draftTryoutId, questionCount: quizQuestions.length + tryoutQuestions.length, quizQuestionCount: quizQuestions.length, tryoutQuestionCount: tryoutQuestions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
 }

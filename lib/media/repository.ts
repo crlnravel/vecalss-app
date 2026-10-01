@@ -314,12 +314,14 @@ async function prepareMediaFolderMutation(
 ) {
   await assertKaptenMediaLease(tx, scope, "media_folder", rootFolderId, lease);
   const ancestry = await readActiveFolderAncestry(scope, rootFolderId, tx);
+  // react-doctor-disable-next-line server-sequential-independent-await -- both ancestry and subtree reads use the same locked transaction connection.
   const subtreeIds = await getFolderSubtreeIds(scope, rootFolderId, tx);
-  const destinationIds = [...new Set(additionalFolderIds)].filter((id) => !subtreeIds.includes(id));
+  const subtreeIdSet = new Set(subtreeIds);
+  const destinationIds = [...new Set(additionalFolderIds)].filter((id) => !subtreeIdSet.has(id));
   await lockMediaFolderRows(tx, scope, [...subtreeIds, ...destinationIds]);
 
   const rereadSubtreeIds = await getFolderSubtreeIds(scope, rootFolderId, tx);
-  if (rereadSubtreeIds.length !== subtreeIds.length || rereadSubtreeIds.some((id) => !subtreeIds.includes(id))) {
+  if (rereadSubtreeIds.length !== subtreeIds.length || rereadSubtreeIds.some((id) => !subtreeIdSet.has(id))) {
     throw new MediaServiceError("Struktur folder berubah saat diproses. Coba lagi.", 409);
   }
 
@@ -748,11 +750,12 @@ const renameQuestionBankMediaFolderIfUnchanged = async ({
     if (!current || current.name !== safeExpectedName) return { renamed: false };
 
     const subtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
+    const subtreeIdSet = new Set(subtreeIds);
     await lockMediaFolderRows(tx, "kapten", subtreeIds);
     const rereadSubtreeIds = await getFolderSubtreeIds("kapten", folderId, tx);
     if (
       rereadSubtreeIds.length !== subtreeIds.length
-      || rereadSubtreeIds.some((id) => !subtreeIds.includes(id))
+      || rereadSubtreeIds.some((id) => !subtreeIdSet.has(id))
     ) {
       return { renamed: false };
     }
@@ -948,6 +951,7 @@ const moveMediaAsset = async ({
     const asset = await assertAsset(scope, assetId, [MediaAssetState.ready], tx);
     if (asset.trashedAt) throw new MediaServiceError("Gambar tidak ditemukan.", 404);
     const sourceAncestry = await readActiveFolderAncestry(scope, asset.folderId, tx);
+    // react-doctor-disable-next-line server-sequential-independent-await -- the source and destination paths are read under the same transaction before locking both.
     const destinationAncestry = await readActiveFolderAncestry(scope, safeFolderId, tx);
     await lockMediaFolderRows(tx, scope, [...sourceAncestry, ...destinationAncestry]);
     await lockMediaAssetRows(tx, scope, [], assetId);

@@ -10,11 +10,10 @@ import {
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import {
   buildAdminStudentPreviewQuizRoute,
-  buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
 import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 import type { StudentBannerVariables } from "@/lib/student/banner-content";
@@ -57,9 +56,9 @@ function availabilityTone(availability: AdminPreviewQuizAvailability) {
 
 function AvailabilityBadge({ availability }: { availability: AdminPreviewQuizAvailability }) {
   return (
-    <StudentBadge className="bg-white/75 text-xs" size="md" tone={availabilityTone(availability)}>
+    <Badge className="text-xs" size="md" tone={availabilityTone(availability)}>
       {availability.label}
-    </StudentBadge>
+    </Badge>
   );
 }
 
@@ -128,7 +127,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
     <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
       <QuizPreviewHeader banner={banner} variables={bannerVariables} />
 
-      <div className="flex items-center gap-3 rounded-2xl border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
+      <div className="flex items-center gap-3 rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] px-4 py-3 text-sm leading-6 text-secondary-700">
         <span className="font-bold text-[var(--voyage-warm-sun-ink)]">Khusus pratinjau</span>
         <span>Kuis ditampilkan untuk memeriksa pengalaman siswa. Pratinjau ini tidak membuat pengerjaan, jawaban, atau nilai.</span>
       </div>
@@ -175,7 +174,7 @@ function AdminStudentPreviewQuizCatalogueSurface({
           ))}
         </div>
       ) : (
-        <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
+        <Card className="rounded-card border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
             <CardDescription>Kuis yang sudah diterbitkan akan muncul di sini.</CardDescription>
@@ -213,7 +212,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
           </div>
         </section>
       ) : (
-        <Card className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
+        <Card className="rounded-card border border-dashed border-primary-200 bg-primary-50/35 py-12 text-center shadow-none">
           <CardHeader>
             <CardTitle>Belum ada kuis terbit</CardTitle>
             <CardDescription>Belum ada kuis yang diterbitkan untuk subtes ini.</CardDescription>
@@ -226,7 +225,7 @@ function AdminStudentPreviewQuizSubjectSurface({ subject }: { subject: AdminPrev
 
 function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary; subjectSlug: string }) {
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,var(--voyage-sea-glass-wash)_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_52%,transparent)]">
+    <article className="group relative flex flex-col overflow-hidden rounded-card border border-primary-200 bg-[linear-gradient(180deg,var(--voyage-sea-glass-wash)_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_52%,transparent)]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-18%] top-0 h-36 rounded-[50%] bg-white/65 blur-3xl" />
       <div className="relative z-10 flex flex-col p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -246,8 +245,8 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
           className="mt-6 w-full justify-center"
           nativeButton={false}
           render={<Link href={buildAdminStudentPreviewQuizRoute(subjectSlug, quiz.slug)} />}
-          size="learning"
-          variant="learning"
+          size="lg"
+          variant="default"
         >
           Lihat kuis
           <ArrowUpRight className="size-4" data-icon="inline-end" />
@@ -270,7 +269,7 @@ function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuiz
       </div>
       <QuizSchedule availability={quiz.availability} />
 
-      <Card className="rounded-[2rem] border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
+      <Card className="rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
           <CardTitle className="text-lg">Hanya untuk pratinjau</CardTitle>
           <CardDescription>Jawaban dan hasil kuis tidak tersedia di pratinjau admin. Membuka halaman ini tidak membuat pengerjaan siswa.</CardDescription>
@@ -289,7 +288,7 @@ function AdminStudentPreviewQuizDetailSurface({ quiz }: { quiz: AdminPreviewQuiz
 
 function QuizQuestionCard({ question }: { question: AdminPreviewQuizQuestion }) {
   return (
-    <Card className="rounded-[2rem] border border-primary-100 bg-white shadow-none">
+    <Card className="rounded-card border border-primary-100 bg-white shadow-none">
       <CardHeader>
         <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Soal {question.displayOrder}</p>
         <CardTitle className="text-lg leading-7 text-secondary-900">{question.prompt}</CardTitle>
@@ -299,7 +298,7 @@ function QuizQuestionCard({ question }: { question: AdminPreviewQuizQuestion }) 
         {question.choices.length > 0 ? (
           <ol className="grid gap-3" aria-label={`Pilihan soal ${question.displayOrder}`}>
             {question.choices.map((choice) => (
-              <li className="flex items-start gap-3 rounded-2xl border border-secondary-200 bg-secondary-50/50 px-4 py-3 text-sm leading-6 text-secondary-700" key={choice.key}>
+              <li className="flex items-start gap-3 rounded-card border border-secondary-200 bg-secondary-50/50 px-4 py-3 text-sm leading-6 text-secondary-700" key={choice.key}>
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-800">{choice.key}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block">{choice.text}</span>

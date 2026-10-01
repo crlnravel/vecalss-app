@@ -117,7 +117,7 @@ function QuestionBankImportControl({
               }}
               size="icon"
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               <Upload aria-hidden="true" />
             </Button>

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FieldRequiredMark } from "@/components/ui/field";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { useActionToast } from "@/components/ui/use-action-toast";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus } from "@/generated/prisma/client";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -69,7 +69,7 @@ function HandoffControls({
   return (
     <div className="space-y-4 text-sm text-secondary-700">
       <div className="flex flex-wrap items-center gap-2">
-        <StudentBadge size="sm" tone={statusTone(status)}>{formatStatus(status)}</StudentBadge>
+        <Badge size="sm" tone={statusTone(status)}>{formatStatus(status)}</Badge>
         <span className="text-secondary-600">{formatMethod(method)}</span>
       </div>
       {expiresAt ? (
@@ -85,7 +85,7 @@ function HandoffControls({
       {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
       {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
-        <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
+        <p className="rounded-card border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
            Informasi akses dari impor belum bisa dibuat ulang di sini. Nilai akses yang dibuat saat impor hanya ditampilkan sekali.
         </p>
       ) : state.status !== "success" || !state.handoffId ? (
@@ -95,7 +95,7 @@ function HandoffControls({
             <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reissue" />
             <span>Saya memahami bahwa tindakan ini akan membatalkan akses saat ini dan membuat akses baru.<FieldRequiredMark /></span>
           </label>
-           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Menyiapkan akses baru…" : "Buat ulang akses"}</Button>
+           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="outline">{pending ? "Menyiapkan akses baru…" : "Buat ulang akses"}</Button>
         </form>
       ) : null}
     </div>

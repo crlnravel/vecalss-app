@@ -5,7 +5,6 @@ import {
   TimerReset,
 } from "@/lib/icons";
 
-import { Badge } from "@/components/ui/badge";
 import { ActionButtonLink } from "@/modules/home/components/home-primitives";
 import { HomeFooter } from "@/modules/home/components/home-footer";
 import { MarketingHeader } from "@/modules/home/components/marketing-header";
@@ -87,9 +86,9 @@ export default function AboutPageModule() {
           <div className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.72fr)] md:items-center md:gap-14 md:py-[72px]">
               <div>
-                <Badge size="card" variant="accent">
+                <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
                   Tentang Vecalss
-                </Badge>
+                </p>
 
                 <h1 className="mt-7 max-w-[850px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
                   Persiapan masuk PTN terasa lebih terarah bersama Vecalss.
@@ -102,7 +101,7 @@ export default function AboutPageModule() {
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
                   <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
-                  <ActionButtonLink href="/faq" variant="marketingOutline">
+                  <ActionButtonLink href="/faq" variant="outline">
                     Baca FAQ
                   </ActionButtonLink>
                 </div>
@@ -163,9 +162,9 @@ export default function AboutPageModule() {
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid gap-10 md:grid-cols-[0.36fr_0.64fr] md:items-start md:gap-14">
             <div className="md:sticky md:top-8">
-              <Badge size="section" variant="mint">
+              <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
                 Kenapa Vecalss?
-              </Badge>
+              </p>
               <h2 className="mt-6 max-w-[390px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Persiapan ujian terasa lebih terarah.
               </h2>
@@ -206,9 +205,9 @@ export default function AboutPageModule() {
           <div className="border-t border-secondary-900/15">
             <div className="grid gap-5 py-8 md:grid-cols-[0.36fr_0.64fr] md:gap-14 md:py-11">
               <div>
-                <Badge size="section" variant="accent">
+                <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
                   Cara belajar
-                </Badge>
+                </p>
               </div>
               <div>
                 <h2 className="max-w-[760px] text-4xl leading-[1.1] font-medium text-black md:text-6xl">

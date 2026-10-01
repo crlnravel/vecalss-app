@@ -8,7 +8,7 @@ import {
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { FieldRequiredMark } from "@/components/ui/field";
+import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
+import { FieldError, FieldRequiredMark } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto, PolicySection } from "@/lib/admin/ai-policy/contracts";
 import {
@@ -95,6 +97,25 @@ function resultPreview(payload: unknown): AiPolicyImpactPreviewDto | null {
     : null;
 }
 
+function arePolicyValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || left === null || typeof right !== "object" || right === null) return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => arePolicyValuesEqual(value, right[index]));
+  }
+
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(rightRecord, key)
+      && arePolicyValuesEqual(leftRecord[key], rightRecord[key]));
+}
+
 function AiPolicyMetadataSummary({ metadata }: { metadata: AiPolicyMetadataDto }) {
   return (
     <>
@@ -133,11 +154,10 @@ function AiPolicyTypedControls({
   canGovern,
   canPolicy,
   dailyLimit,
-  dirtySectionLabel,
+  dailyLimitError,
   dirtySections,
   draft,
   editDraft,
-  markDirty,
   quotaConfig,
   reportConfig,
   retentionConfig,
@@ -153,11 +173,10 @@ function AiPolicyTypedControls({
   canGovern: boolean;
   canPolicy: boolean;
   dailyLimit: string;
-  dirtySectionLabel: string;
+  dailyLimitError: string | null;
   dirtySections: Set<PolicySection>;
   draft: AiPolicyBundleDto;
   editDraft: () => void;
-  markDirty: (section: PolicySection) => void;
   quotaConfig: AiPolicyBundleDto["quotaConfig"];
   reportConfig: AiPolicyBundleDto["reportConfig"];
   retentionConfig: AiPolicyBundleDto["retentionConfig"];
@@ -179,10 +198,11 @@ function AiPolicyTypedControls({
             {["free", "trial", "starter", "pro"].map((plan) => <span className="rounded-full border border-primary-100 bg-white px-3 py-1" key={plan}>{AI_PLAN_LABELS[plan] ?? plan}: kebijakan server</span>)}
           </div>
         </div>
-        <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
+        <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`} htmlFor="policy-daily-limit">
           Unit quota harian<FieldRequiredMark />
-          <input className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} required type="number" value={dailyLimit} />
+          <input aria-describedby={dailyLimitError ? "policy-daily-limit-error" : undefined} aria-invalid={Boolean(dailyLimitError)} className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} required type="number" value={dailyLimit} />
         </label>
+        <FieldError error={dailyLimitError ?? undefined} id="policy-daily-limit-error" />
       </ReferenceSurface>
 
       <ReferenceSurface className="rounded-2xl p-4" variant="inset">
@@ -198,9 +218,9 @@ function AiPolicyTypedControls({
             <ReferenceSurface className="rounded-2xl p-3" key={mode} variant="inset">
               <p className="text-sm font-semibold text-secondary-900">{formatAiFeatureLabel(mode)}</p>
               <div className="mt-2 grid gap-2">
-                <label className="grid gap-1 text-xs text-secondary-600">Batas input<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas input`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "inputBound", num); }} required type="number" value={values.inputBound} /></label>
-                <label className="grid gap-1 text-xs text-secondary-600">Batas output<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas output`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "hardOutputCap", num); }} required type="number" value={values.hardOutputCap} /></label>
-                <label className="grid gap-1 text-xs text-secondary-600">Batas reservasi<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas reservasi`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "reservationBound", num); }} required type="number" value={values.reservationBound} /></label>
+                <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-1`}>Batas input<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas input`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canPolicy} min={1000} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "inputBound", num); }} required type="number" value={values.inputBound} /></label>
+                <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-1`}>Batas output<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas output`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canPolicy} min={256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "hardOutputCap", num); }} required type="number" value={values.hardOutputCap} /></label>
+                <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-1`}>Batas reservasi<FieldRequiredMark /><input aria-label={`${formatAiFeatureLabel(mode)} — batas reservasi`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canPolicy} min={1256} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) updateModeConfig(mode, "reservationBound", num); }} required type="number" value={values.reservationBound} /></label>
               </div>
             </ReferenceSurface>
           ))}
@@ -210,15 +230,15 @@ function AiPolicyTypedControls({
       <div className="grid gap-4 md:grid-cols-2">
         <ReferenceSurface className="rounded-2xl p-4" variant="inset">
           <p className="text-sm font-bold text-secondary-900">Penyelesaian</p>
-          <label className="mt-3 grid gap-2 text-sm text-secondary-700">Usia maksimum menunggu (menit)<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={30} max={360} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: num } : current); } }} required type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
+          <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} mt-3 grid gap-2`}>Usia maksimum menunggu (menit)<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canGovern} min={30} max={360} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: num } : current); }} required type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
         </ReferenceSurface>
         <ReferenceSurface className="rounded-2xl p-4" variant="inset">
           <p className="text-sm font-bold text-secondary-900">Anggaran laporan / lonjakan</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm text-secondary-700">Unit / 24 jam<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: num } : current); } }} required type="number" value={reportConfig.unitLimit} /></label>
-            <label className="grid gap-2 text-sm text-secondary-700">Diterima / 10 menit<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: num } : current); } }} required type="number" value={reportConfig.requestLimit} /></label>
-            <label className="grid gap-2 text-sm text-secondary-700">Kelompok minimum (tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
-            <label className="grid gap-2 text-sm text-secondary-700">Rentang maksimum (hari, tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
+            <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`}>Unit / 24 jam<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) setReportConfig((current) => current ? { ...current, unitLimit: num } : current); }} required type="number" value={reportConfig.unitLimit} /></label>
+            <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`}>Diterima / 10 menit<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { const num = event.currentTarget.valueAsNumber; if (Number.isFinite(num)) setReportConfig((current) => current ? { ...current, requestLimit: num } : current); }} required type="number" value={reportConfig.requestLimit} /></label>
+            <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`}>Kelompok minimum (tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
+            <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`}>Rentang maksimum (hari, tetap)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
           </div>
         </ReferenceSurface>
       </div>
@@ -236,14 +256,13 @@ function AiPolicyTypedControls({
             ["operationalMetadataTtlDays", "Metadata operasional (hari)"],
             ["activeArtifactEvidenceTtlDays", "Bukti artefak aktif (hari)"],
           ] as const).map(([field, label]) => (
-            <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} required type="number" value={retentionConfig[field] ?? ""} /></label>
+            <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`} key={field}>{label}<FieldRequiredMark /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} disabled={!canGovern} min={1} onChange={(event) => { setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} required type="number" value={retentionConfig[field] ?? ""} /></label>
           ))}
         </div>
       </ReferenceSurface>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-secondary-500">Bagian berubah: {dirtySectionLabel}</p>
-        <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="reference">Simpan bagian kebijakan</Button>
+      <div className="flex justify-end">
+        <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="outline">Simpan bagian kebijakan</Button>
       </div>
     </div>
   );
@@ -269,7 +288,7 @@ function AiPolicyAuditHistory({
           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Riwayat versi</h2>
           <p className="mt-1 text-sm text-secondary-600">Riwayat audit tanpa isi konten; setiap transisi menyimpan aktor, digest, alasan, dan status.</p>
         </div>
-        <Button disabled={busy} onClick={onRefresh} type="button" variant="reference">Muat ulang metadata</Button>
+        <Button disabled={busy} onClick={onRefresh} type="button" variant="outline">Muat ulang metadata</Button>
       </div>
       <div className="mt-5 hidden overflow-hidden sm:block">
         <Table className="table-fixed border-collapse text-left text-sm">
@@ -289,7 +308,7 @@ function AiPolicyAuditHistory({
                 <TableCell className="px-3 py-4 text-secondary-700">{formatAiPolicyState(item.state)}</TableCell>
                 <TableCell className="px-3 py-4 text-secondary-700">{formatDate(item.effectiveAt)}</TableCell>
                 <TableCell className="max-w-xs whitespace-normal px-3 py-4 text-secondary-600">{item.reason ?? "—"}</TableCell>
-                <TableCell className="px-3 py-4 text-secondary-700"><span>{item.lastAction ? formatAiPolicyAction(item.lastAction) : "—"}</span>{item.state !== "active" && item.state !== "scheduled" ? null : <Button className="ml-3 h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Pulihkan versi</Button>}</TableCell>
+                <TableCell className="px-3 py-4 text-secondary-700"><span>{item.lastAction ? formatAiPolicyAction(item.lastAction) : "—"}</span>{item.state !== "active" && item.state !== "scheduled" ? null : <Button className="ml-3 h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="outline">Pulihkan versi</Button>}</TableCell>
               </TableRow>
             )) : <TableRow className="hover:bg-transparent"><TableCell className="px-3 py-8 text-secondary-600" colSpan={5}>Belum ada bundle yang tersimpan.</TableCell></TableRow>}
           </TableBody>
@@ -303,7 +322,7 @@ function AiPolicyAuditHistory({
                 <p className="break-all text-sm font-semibold text-secondary-900">{item.bundleVersion}</p>
                 <p className="mt-1 text-xs text-secondary-600">{formatAiPolicyState(item.state)} · {formatDate(item.effectiveAt)}</p>
               </div>
-              {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Pulihkan versi</Button>}
+              {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="outline">Pulihkan versi</Button>}
             </div>
             <dl className="mt-3 grid gap-2 text-xs">
               <div><dt className="text-secondary-500">Alasan</dt><dd className="mt-1 break-words text-secondary-700">{item.reason ?? "—"}</dd></div>
@@ -320,6 +339,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
   const [metadata, setMetadata] = useState(initialMetadata);
   const [draft, setDraft] = useState<AiPolicyBundleDto | null>(null);
   const [dailyLimit, setDailyLimit] = useState("");
+  const [dailyLimitError, setDailyLimitError] = useState<string | null>(null);
   const [quotaConfig, setQuotaConfig] = useState<AiPolicyBundleDto["quotaConfig"] | null>(null);
   const [settlementConfig, setSettlementConfig] = useState<AiPolicyBundleDto["settlementConfig"] | null>(null);
   const [reportConfig, setReportConfig] = useState<AiPolicyBundleDto["reportConfig"] | null>(null);
@@ -332,7 +352,6 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
   const [reason, setReason] = useState("");
   const [targetReference, setTargetReference] = useState("");
   const [requestedUpperBound, setRequestedUpperBound] = useState("");
-  const [dirtySections, setDirtySections] = useState<Set<PolicySection>>(() => new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const canGovern = metadata.capabilities.includes("canManageAiGovernance");
@@ -341,16 +360,36 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     ? metadata.capabilities.map(formatAiCapabilityLabel).join(" · ")
     : "Hanya metadata", [metadata.capabilities]);
 
-  function markDirty(section: PolicySection) {
-    setDirtySections((current) => {
-      const next = new Set(current);
-      next.add(section);
-      return next;
-    });
-  }
+  const dirtySections = useMemo(() => {
+    const changed = new Set<PolicySection>();
+    if (!draft) return changed;
+
+    const normalizedDailyLimit = Number(dailyLimit);
+    if (
+      !quotaConfig
+      || !arePolicyValuesEqual(quotaConfig, draft.quotaConfig)
+      || !Number.isSafeInteger(normalizedDailyLimit)
+      || normalizedDailyLimit !== draft.quotaConfig.defaultDailyLimit
+    ) changed.add("quota");
+    if (!settlementConfig || !arePolicyValuesEqual(settlementConfig, draft.settlementConfig)) changed.add("settlement");
+    if (!reportConfig || !arePolicyValuesEqual(reportConfig, draft.reportConfig)) changed.add("report");
+    if (!retentionConfig || !arePolicyValuesEqual(retentionConfig, draft.retentionConfig)) changed.add("retention");
+    return changed;
+  }, [dailyLimit, draft, quotaConfig, reportConfig, retentionConfig, settlementConfig]);
+
+  const dirtySectionLabel = dirtySections.size
+    ? [...dirtySections].map(formatAiPolicySection).join(", ")
+    : "";
+
+  usePageStatusToast({
+    active: busy || dirtySections.size > 0,
+    message: busy
+      ? "Memproses perubahan kebijakan…"
+      : `Bagian kebijakan berubah: ${dirtySectionLabel}.`,
+    variant: busy ? "info" : "warning",
+  });
 
   function updateModeConfig(mode: string, field: "inputBound" | "hardOutputCap" | "reservationBound", value: number) {
-    markDirty("quota");
     setQuotaConfig((current) => {
       if (!current || !current.modes[mode]) return current;
       return { ...current, modes: { ...current.modes, [mode]: { ...current.modes[mode], [field]: value } } };
@@ -362,21 +401,17 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     if (bundle) {
       setDraft(bundle);
       setDailyLimit(String(bundle.quotaConfig.defaultDailyLimit));
+      setDailyLimitError(null);
       setQuotaConfig(bundle.quotaConfig);
       setSettlementConfig(bundle.settlementConfig);
       setReportConfig(bundle.reportConfig);
       setRetentionConfig(bundle.retentionConfig);
-      setDirtySections(new Set());
       setEffectiveAt(bundle.effectiveAt.slice(0, 16));
     }
     const impact = resultPreview(payload);
     if (impact) setPreview(impact);
     return bundle;
   }
-
-  const dirtySectionLabel = dirtySections.size
-    ? [...dirtySections].map(formatAiPolicySection).join(", ")
-    : "tidak ada";
 
   async function refresh() {
     const response = await fetch("/api/admin/ai-policy", { cache: "no-store" });
@@ -386,6 +421,18 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     }
     const payload = await response.json();
     setMetadata(payload.metadata);
+  }
+
+  async function refreshAfterMutation() {
+    try {
+      await refresh();
+    } catch {
+      showToast("Perubahan sudah diproses. Data kebijakan terbaru belum dapat dimuat.", {
+        action: { label: "Muat ulang", onClick: () => window.location.reload() },
+        description: "Muat ulang halaman untuk memeriksa hasilnya.",
+        variant: "warning",
+      });
+    }
   }
 
   async function createDraft() {
@@ -398,10 +445,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       });
       applyBundlePayload(payload);
       setReason("");
-      setMessage("Draf lengkap dibuat. Lanjutkan dengan mengedit bagian, memvalidasi, memeriksa pratinjau dampak, lalu meminta persetujuan operator kedua.");
-      await refresh();
+      showToast("Draf lengkap dibuat. Lanjutkan dengan mengedit bagian, memvalidasi, memeriksa pratinjau dampak, lalu meminta persetujuan operator kedua.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Draf kebijakan belum berhasil dibuat. Coba lagi atau segarkan halaman.");
+      showToast("Draf kebijakan belum berhasil dibuat. Coba lagi atau segarkan halaman.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -413,9 +460,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     if (dirtySections.has("quota")) {
       const nextLimit = Number(dailyLimit);
       if (!Number.isSafeInteger(nextLimit)) {
-        setMessage("Batas kuota harian harus berupa bilangan bulat.");
+        setDailyLimitError("Batas kuota harian harus berupa bilangan bulat.");
         return;
       }
+      setDailyLimitError(null);
       if (!quotaConfig) {
         setMessage("Snapshot kebijakan kuota belum lengkap.");
         return;
@@ -439,10 +487,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         patch,
       }, "PATCH");
       applyBundlePayload(payload);
-      setMessage("Perubahan bagian tersimpan ke draf.");
-      await refresh();
+      showToast("Perubahan bagian tersimpan ke draf.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Perubahan pada draf belum berhasil disimpan. Coba lagi atau muat ulang draf.");
+      showToast("Perubahan pada draf belum berhasil disimpan. Coba lagi atau muat ulang draf.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -458,10 +506,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         expectedRevision: draft.revision,
       });
       applyBundlePayload(payload);
-      setMessage("Draf tervalidasi. Siap untuk pratinjau dampak dan persetujuan operator kedua.");
-      await refresh();
+      showToast("Draf tervalidasi. Siap untuk pratinjau dampak dan persetujuan operator kedua.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Draf belum berhasil divalidasi. Periksa statusnya lalu coba lagi.");
+      showToast("Draf belum berhasil divalidasi. Periksa statusnya lalu coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -484,9 +532,9 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         } : undefined,
       });
       applyBundlePayload(payload);
-      setMessage(`Pratinjau ${scope === "aggregate" ? "agregat" : "kategori"} selesai dibuat.`);
+      showToast(`Pratinjau ${scope === "aggregate" ? "agregat" : "kategori"} selesai dibuat.`, { variant: "success" });
     } catch {
-      setMessage("Pratinjau dampak belum berhasil dibuat. Coba lagi.");
+      showToast("Pratinjau dampak belum berhasil dibuat. Coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -504,10 +552,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf disetujui. Siap dijadwalkan dengan stempel waktu UTC yang valid.");
-      await refresh();
+      showToast("Draf disetujui. Siap dijadwalkan dengan stempel waktu UTC yang valid.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Persetujuan draf belum berhasil diproses. Periksa status draf sebelum mencoba lagi.");
+      showToast("Persetujuan draf belum berhasil diproses. Periksa status draf sebelum mencoba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -526,10 +574,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf berhasil dijadwalkan.");
-      await refresh();
+      showToast("Draf berhasil dijadwalkan.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Jadwal penerapan draf belum berhasil disimpan. Periksa status draf lalu coba lagi.");
+      showToast("Jadwal penerapan draf belum berhasil disimpan. Periksa status draf lalu coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -546,10 +594,15 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       const bundle = applyBundlePayload(payload);
-      setMessage(bundle ? "Kebijakan yang jatuh tempo berhasil diaktifkan." : "Tidak ada kebijakan jatuh tempo yang diaktifkan.");
-      await refresh();
+      showToast(
+        bundle
+          ? "Kebijakan yang jatuh tempo berhasil diaktifkan."
+          : "Tidak ada kebijakan jatuh tempo yang diaktifkan.",
+        { variant: bundle ? "success" : "info" },
+      );
+      await refreshAfterMutation();
     } catch {
-      setMessage("Kebijakan yang sudah jatuh tempo belum berhasil diaktifkan. Periksa statusnya lalu coba lagi.");
+      showToast("Kebijakan yang sudah jatuh tempo belum berhasil diaktifkan. Periksa statusnya lalu coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -564,10 +617,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf pemulihan dibuat sebagai snapshot baru; riwayat lama tetap tidak berubah.");
-      await refresh();
+      showToast("Draf pemulihan dibuat sebagai snapshot baru; riwayat lama tetap tidak berubah.", { variant: "success" });
+      await refreshAfterMutation();
     } catch {
-      setMessage("Draf pemulihan belum berhasil dibuat. Periksa riwayat kebijakan lalu coba lagi.");
+      showToast("Draf pemulihan belum berhasil dibuat. Periksa riwayat kebijakan lalu coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -586,9 +639,9 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       setTargetReference("");
       setRequestedUpperBound("");
       setReason("");
-      setMessage("Serah-terima retensi diterima sebagai menunggu. Tenggat dan siklus hidup belum berubah; T11 tetap menjadi pemilik commit.");
+      showToast("Serah-terima retensi diterima sebagai menunggu. Tenggat dan siklus hidup belum berubah; T11 tetap menjadi pemilik commit.", { variant: "success" });
     } catch {
-      setMessage("Permintaan serah-terima retensi belum berhasil dibuat. Periksa detailnya lalu coba lagi.");
+      showToast("Permintaan serah-terima retensi belum berhasil dibuat. Periksa detailnya lalu coba lagi.", { variant: "error" });
     } finally {
       setBusy(false);
     }
@@ -596,6 +649,8 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
 
   return {
     activateDraft,
+    dailyLimitError,
+    clearDailyLimitError: () => setDailyLimitError(null),
     approveDraft,
     busy,
     canGovern,
@@ -603,12 +658,10 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     capabilitySummary,
     createDraft,
     dailyLimit,
-    dirtySectionLabel,
     dirtySections,
     draft,
     editDraft,
     effectiveAt,
-    markDirty,
     message,
     metadata,
     preview,
@@ -626,7 +679,6 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
     rollbackBundle,
     scheduleDraft,
     setDailyLimit,
-    setDirtySections,
     setEffectiveAt,
     setMessage,
     setPreviewFrom,
@@ -662,9 +714,9 @@ function AiPolicyScopeSection({ state, requestConfirmation }: { state: AiPolicyP
       </div>
       {metadata.canMutate ? (
         <div className="mt-6 border-t border-primary-100 pt-5">
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan<FieldRequiredMark /></label>
+          <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} block`} htmlFor="policy-reason">Alasan perubahan<FieldRequiredMark /></label>
           <textarea
-            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y rounded-2xl`}
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y`}
             id="policy-reason"
             maxLength={500}
             onChange={(event) => setReason(event.target.value)}
@@ -681,7 +733,7 @@ function AiPolicyScopeSection({ state, requestConfirmation }: { state: AiPolicyP
               createDraft,
             )}
             type="button"
-            variant="brand"
+            variant="default"
           >
             Buat draf lengkap
           </Button>
@@ -705,7 +757,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           validateDraft,
         )}
         type="button"
-        variant="brand"
+        variant="default"
       >Validasi draf</Button>
       <Button
         disabled={busy || draft.state !== "pending_approval"}
@@ -715,7 +767,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           () => void previewDraft("categorical"),
         )}
         type="button"
-        variant="reference"
+        variant="outline"
       >Pratinjau dampak</Button>
       <Button
         disabled={busy || draft.state !== "pending_approval"}
@@ -725,7 +777,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           approveDraft,
         )}
         type="button"
-        variant="reference"
+        variant="outline"
       >Setujui (operator kedua)</Button>
     </div>
   );
@@ -740,10 +792,10 @@ function AiPolicyAggregatePreview({ state, requestConfirmation }: { state: AiPol
       <div className="grid gap-2">
         <p className="text-sm font-semibold text-secondary-800">Rentang pratinjau agregat<FieldRequiredMark /></p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" required type="date" value={previewFrom} />
-          <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" required type="date" value={previewTo} />
+          <input aria-label="Awal rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" required type="date" value={previewFrom} />
+          <input aria-label="Akhir rentang pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" required type="date" value={previewTo} />
         </div>
-        <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} required value={previewTimezone} />
+        <input aria-label="Zona waktu IANA pratinjau" className={`${REFERENCE_CONTROL_CLASS_NAMES.input}`} onChange={(event) => setPreviewTimezone(event.target.value)} required value={previewTimezone} />
         <Button
           disabled={busy || !previewFrom || !previewTo}
           onClick={() => requestConfirmation(
@@ -752,7 +804,7 @@ function AiPolicyAggregatePreview({ state, requestConfirmation }: { state: AiPol
             () => void previewDraft("aggregate"),
           )}
           type="button"
-          variant="reference"
+          variant="outline"
         >Jalankan pratinjau agregat</Button>
       </div>
       <div className="text-xs leading-5 text-secondary-600">
@@ -768,7 +820,7 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
 
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-      <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
+      <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} grid gap-2`} htmlFor="policy-effective-at">
         Waktu berlaku (lokal browser → UTC)<FieldRequiredMark />
         <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} required type="datetime-local" value={effectiveAt} />
       </label>
@@ -781,7 +833,7 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
             scheduleDraft,
           )}
           type="button"
-          variant="brand"
+          variant="default"
         >Jadwalkan</Button>
         <Button
           disabled={busy || draft.state !== "scheduled"}
@@ -791,7 +843,7 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
             activateDraft,
           )}
           type="button"
-          variant="reference"
+          variant="outline"
         >Aktifkan yang jatuh tempo</Button>
       </div>
     </div>
@@ -810,7 +862,7 @@ function AiPolicyPreviewStatus({ preview }: { preview: AiPolicyImpactPreviewDto 
 }
 
 function AiPolicyLifecyclePanel({ state, requestConfirmation }: { state: AiPolicyPageState; requestConfirmation: PolicyConfirmationRequester }) {
-  const { busy, canGovern, canPolicy, dailyLimit, dirtySectionLabel, dirtySections, draft, editDraft, markDirty, preview, quotaConfig, reportConfig, retentionConfig, setDailyLimit, setQuotaConfig, setReportConfig, setRetentionConfig, setSettlementConfig, settlementConfig, updateModeConfig } = state;
+  const { busy, canGovern, canPolicy, dailyLimit, dailyLimitError, dirtySections, draft, editDraft, preview, quotaConfig, reportConfig, retentionConfig, setDailyLimit, setQuotaConfig, setReportConfig, setRetentionConfig, setSettlementConfig, settlementConfig, updateModeConfig } = state;
   if (!draft) return null;
 
   return (
@@ -828,15 +880,14 @@ function AiPolicyLifecyclePanel({ state, requestConfirmation }: { state: AiPolic
           canGovern={canGovern}
           canPolicy={canPolicy}
           dailyLimit={dailyLimit}
-          dirtySectionLabel={dirtySectionLabel}
+          dailyLimitError={dailyLimitError}
           dirtySections={dirtySections}
           draft={draft}
           editDraft={editDraft}
-          markDirty={markDirty}
           quotaConfig={quotaConfig}
           reportConfig={reportConfig}
           retentionConfig={retentionConfig}
-          setDailyLimit={setDailyLimit}
+          setDailyLimit={(value) => { setDailyLimit(value); state.clearDailyLimitError(); }}
           setQuotaConfig={setQuotaConfig}
           setReportConfig={setReportConfig}
           setRetentionConfig={setRetentionConfig}
@@ -862,9 +913,9 @@ function AiPolicyRetentionSection({ state, requestConfirmation }: { state: AiPol
       <p className="mt-2 text-sm leading-6 text-secondary-600">Permintaan perpanjangan hanya dicatat sebagai menunggu. Tidak ada tenggat, siklus hidup, klaim penghapusan, atau tindakan kunci yang berubah di Sprint 4.</p>
       {canGovern ? (
         <div className="mt-5 space-y-3">
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target<FieldRequiredMark /></label>
+          <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} block`} htmlFor="retention-target">Referensi target<FieldRequiredMark /></label>
           <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/referensi tanpa isi" required value={targetReference} />
-          <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)<FieldRequiredMark /></label>
+          <label className={`${REFERENCE_FIELD_LABEL_CLASS_NAME} block`} htmlFor="retention-bound">Batas waktu yang diminta (UTC)<FieldRequiredMark /></label>
           <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" required value={requestedUpperBound} />
           <Button
             disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()}
@@ -874,7 +925,7 @@ function AiPolicyRetentionSection({ state, requestConfirmation }: { state: AiPol
               requestRetentionExtension,
             )}
             type="button"
-            variant="reference"
+            variant="outline"
           >Kirim serah-terima untuk ditinjau</Button>
         </div>
       ) : <ReferenceSurface className="mt-5 p-4 text-sm text-secondary-600" variant="inset">Kapabilitas tata kelola diperlukan untuk membuat serah-terima. Tidak ada tombol pengganti atau bypass.</ReferenceSurface>}
@@ -910,7 +961,7 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={state.busy}>Batal</AlertDialogCancel>
-            <AlertDialogAction disabled={state.busy} onClick={confirmPendingAction} variant="brand">Konfirmasi dan jalankan</AlertDialogAction>
+            <AlertDialogAction disabled={state.busy} onClick={confirmPendingAction} variant="default">Konfirmasi dan jalankan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -928,12 +979,12 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
         </div>
         <AiPolicyRetentionSection requestConfirmation={requestConfirmation} state={state} />
       </section>
-      {state.message ? <ReferenceSurface aria-live="polite" className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">{state.message}</ReferenceSurface> : null}
+      <FieldError error={state.message ?? undefined} id="ai-policy-validation-error" />
       <AiPolicyAuditHistory
         busy={state.busy}
         canPolicy={state.canPolicy}
         history={state.metadata.history}
-        onRefresh={() => void state.refresh().catch(() => state.setMessage("Riwayat kebijakan belum berhasil dimuat. Segarkan halaman lalu coba lagi."))}
+        onRefresh={() => void state.refresh().catch(() => showToast("Riwayat kebijakan belum berhasil dimuat. Segarkan halaman lalu coba lagi.", { variant: "error" }))}
         rollbackBundle={requestRollback}
       />
       <p className="text-sm text-secondary-600">Butuh konteks operasional lain? Kembali ke <Link className="font-bold text-primary-800 underline decoration-primary-200 underline-offset-4" href="/admin">dashboard admin</Link>.</p>

@@ -20,7 +20,6 @@ import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-pri
 import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
-  OperationNotice,
   OptionSet,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
@@ -59,7 +58,6 @@ function KaptenTryoutPolicyPageModule({
   const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(initialDefaultReleasePolicy);
   const [pendingAdmissionMode, setPendingAdmissionMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
   const tryoutHref = `/mentor/tryout/${initial.id}?workspace=operations`;
 
   const admissionChanged = admissionMode !== initialAdmissionMode;
@@ -80,24 +78,23 @@ function KaptenTryoutPolicyPageModule({
 
   const handleSave = async () => {
     if (!admissionChanged && !releaseChanged) {
-      setNotice({
-        message: mode === "create"
+      showToast(
+        mode === "create"
           ? "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya."
           : "Tidak ada perubahan untuk disimpan.",
-        tone: "default",
-      });
+        { variant: "info" },
+      );
       onNext?.();
       return;
     }
 
     if (mode === "create") {
-      setNotice({ message: "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya.", tone: "default" });
+      showToast("Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya.", { variant: "info" });
       onNext?.();
       return;
     }
 
     setBusy(true);
-    setNotice(null);
     try {
       if (admissionChanged) {
         const admission = await configureTryoutAdmissionAction(
@@ -151,8 +148,6 @@ function KaptenTryoutPolicyPageModule({
         description={initial.title}
         title="Kebijakan Tryout"
       />}
-      <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
-
       <div className={`${embedded ? "" : "mt-5"} grid gap-5 lg:grid-cols-2`}>
         <ReferenceSurface as="section" aria-label="Akses peserta" className="p-5 sm:p-6">
           <OptionSet
@@ -191,7 +186,7 @@ function KaptenTryoutPolicyPageModule({
         </ReferenceSurface>
       </div>
       <div className="mt-5 flex justify-end">
-        <Button disabled={busy} onClick={() => void handleSave()} variant="reference">
+        <Button disabled={busy} onClick={() => void handleSave()} variant="outline">
           {busy ? "Menyimpan…" : "Selanjutnya"}
         </Button>
       </div>
@@ -212,7 +207,7 @@ function KaptenTryoutPolicyPageModule({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmAdmissionMode} variant="brand">
+            <AlertDialogAction onClick={confirmAdmissionMode} variant="default">
               Konfirmasi perubahan
             </AlertDialogAction>
           </AlertDialogFooter>

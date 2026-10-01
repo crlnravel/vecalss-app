@@ -21,8 +21,12 @@ Use this file before introducing a new pattern or visual exception.
   compact filters and equal-width tabs for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
   and action lists instead of reaching for browser-native dropdowns.
-- **Do** use the shared bottom-center Sonner toast for transient success and
-  failure feedback, with its `success` and `error` variants.
+- **Do** use the shared bottom-center Sonner toast for every notification
+  alert; keep field validation, blocking recovery content, and confirmation
+  decisions in their proper task context.
+- **Do** use a persistent, lifecycle-managed Sonner notice for unsaved changes,
+  saving and edit locks. Clear it on resolution and navigation; never duplicate
+  it as inline page status text or a custom fixed bar.
 - **Do** default to silence for flawless entries, reserving status color and
   iconography for attention states or meaningful user-triggered outcomes.
 - **Do** use a quiet centered empty-state placeholder and offer only actions
@@ -31,12 +35,12 @@ Use this file before introducing a new pattern or visual exception.
   utilities, while keeping visible text for primary or ambiguous actions.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
-- **Do** choose the button family from the surface: pill for marketing and
-  onboarding, compact rounded controls for workspace/admin, and tactile
-  larger-corner controls for learning progress.
-- **Do** use the shared elevated primary action in workspace, Mentor, Admin,
-  and Affiliator surfaces; keep secondary and navigation controls visually
-  quieter.
+- **Do** use one tactile Button family and the 12px control radius everywhere;
+  keep secondary actions quieter through tone and contrast.
+- **Do** use the app-wide Badge based on the former StudentBadge treatment,
+  with shared semantic tones and sizes across every audience.
+- **Do** use named semantic radius utilities instead of arbitrary corners or
+  audience-specific component geometry.
 - **Do** use a red asterisk for mandatory field labels and omit `(optional)`
   helper text; no asterisk communicates an optional field.
 - **Do** use the pale, green-outlined tooltip treatment for shared tooltips and
@@ -66,8 +70,8 @@ Use this file before introducing a new pattern or visual exception.
   needs to span the full available width.
 - **Don't** use a raw `<select>` or one-off dropdown implementation when the
   shared custom dropdown primitive can express the interaction.
-- **Don't** build a page-local in-content toast for transient operation results
-  when the shared bottom-center Sonner toast can communicate them.
+- **Don't** use the retired inline Alert family or build page-local banners
+  for notification outcomes; Sonner is the only notification alert surface.
 - **Don't** add “Normal,” “Valid,” “Healthy,” or green checkmarks to routine
   fields, rows, or static data just to prove that nothing is wrong.
 - **Don't** add disabled, irrelevant, or decorative action buttons to an empty
@@ -80,8 +84,8 @@ Use this file before introducing a new pattern or visual exception.
   empty, error, unavailable, or not-found messages.
 - **Don't** remove the tactile hover, focus, and press cues from interactive
   learning controls without replacing them with an equally clear state signal.
-- **Don't** use marketing pills as the default shape for admin, Kapten, or
-  student workspace actions.
+- **Don't** reintroduce flat, marketing, onboarding, or audience-specific
+  Button or Badge families, or generic filled/underline tab styles.
 - **Don't** use a solid dark-green tooltip background or create a route-local
   tooltip style that bypasses the shared green-outlined treatment.
 - **Don't** make a secondary action look like a primary by mixing strong dark

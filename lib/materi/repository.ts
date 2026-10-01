@@ -484,12 +484,14 @@ async function reorderMateriSubject(subjectSlug: string, orderedCodes: string[],
 
         const maxSequence = Math.max(0, ...current.map((lesson) => lesson.sequenceNo));
         for (const [index, lesson] of current.entries()) {
+          // react-doctor-disable-next-line async-await-in-loop -- two-phase sequence updates must stay ordered inside the transaction.
           await tx.module.update({
             where: { code: lesson.code },
             data: { sequenceNo: maxSequence + current.length + index + 1 },
           });
         }
         for (const [index, code] of orderedCodes.entries()) {
+          // react-doctor-disable-next-line async-await-in-loop -- assign unique sequence numbers in the submitted order.
           await tx.module.update({
             where: { code },
             data: { sequenceNo: index + 1, updatedByUserId: tutorId },
@@ -606,6 +608,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     const modules = await tx.module.findMany({ where: { topicId: { in: topics.map((topic) => topic.id) } }, orderBy: [{ sequenceNo: "asc" }, { code: "asc" }], select: { code: true, sequenceNo: true, topicId: true } });
     const max = Math.max(0, ...modules.map((lesson) => Math.abs(lesson.sequenceNo)));
     for (const [index, lesson] of modules.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- move each row to a distinct temporary slot before assigning the final order.
       await tx.module.update({
         where: { code: lesson.code },
         data: { sequenceNo: max + modules.length + index + 1 },
@@ -651,6 +654,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
 
     for (const orderedCodes of orders.values()) {
       for (const [index, moduleCode] of orderedCodes.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- deterministic order writes avoid collisions and preserve the requested layout.
         await tx.module.update({
           where: { code: moduleCode },
           data: { sequenceNo: index + 1, updatedByUserId: tutorId },
@@ -669,6 +673,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     });
     const maxSort = Math.max(0, ...allAssets.map((asset) => Math.abs(asset.sortOrder)));
     for (const [index, asset] of allAssets.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- reserve collision-free positions before changing role-specific assets.
       await tx.moduleAsset.update({
         where: { id: asset.id },
         data: { sortOrder: maxSort + allAssets.length + index + 100 },
@@ -734,6 +739,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     if (video && duplicateVideoAssets.length) await tx.moduleAsset.deleteMany({ where: { id: { in: duplicateVideoAssets.map((asset) => asset.id) } } });
     for (const asset of allAssets) {
       if (roleAssets.some((role) => role.id === asset.id)) continue;
+      // react-doctor-disable-next-line async-await-in-loop -- restore untouched asset order after the temporary move phase.
       await tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: asset.sortOrder } });
     }
   });

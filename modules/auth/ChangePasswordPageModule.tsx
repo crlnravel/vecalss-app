@@ -5,7 +5,6 @@ function ChangePasswordPageModule() {
   return (
     <AuthShell
       description="Perbarui kata sandi sementara sebelum melanjutkan."
-      eyebrow="Akses pertama"
       title="Buat kata sandi baru"
     >
       <ChangePasswordForm />

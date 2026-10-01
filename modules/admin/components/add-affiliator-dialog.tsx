@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { Plus } from "@/lib/icons";
 
 import { CreateAffiliatorForm } from "./create-affiliator-form";
 
@@ -15,15 +14,16 @@ function AddAffiliatorDialog() {
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger
         render={
-          <button
+          <Button
             aria-label="Tambah affiliator"
-            className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
+            size="sm"
             title="Tambah affiliator"
             type="button"
+            variant="default"
           />
         }
       >
-        <Plus aria-hidden="true" size={18} />
+        Tambah affiliator
       </DialogTrigger>
 
       <DialogContent

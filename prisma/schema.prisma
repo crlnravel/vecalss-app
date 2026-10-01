@@ -25,8 +25,23 @@ enum RoleName {
   tutor
   admin
   affiliator
+  developer
 
   @@map("role_name")
+}
+
+enum MentorReportFeature {
+  dashboard
+  materi
+  video
+  kuis
+  bank_soal_kuis
+  tryout
+  bank_soal_tryout
+  media
+  profile
+
+  @@map("mentor_report_feature")
 }
 
 enum KaptenVideoSubtest {
@@ -1306,6 +1321,7 @@ model User {
   loginAttempts                          LoginAttempt[]
   roleAssignments                        RoleAssignment[]                 @relation("UserRoles")
   assignedRolesBy                        RoleAssignment[]                 @relation("RolesAssignedBy")
+  mentorReports                          MentorReport[]
   studentProfile                         StudentProfile?                  @relation("StudentProfileAccount")
   enrolledStudents                       StudentProfile[]                 @relation("EnrolledBy")
   tutorProfile                           TutorProfile?
@@ -1498,6 +1514,38 @@ model RoleAssignment {
   @@map("role_assignments")
 }
 
+model MentorReport {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId    String                  @map("author_id") @db.Uuid
+  title       String                  @db.VarChar(160)
+  feature     MentorReportFeature
+  url         String                  @db.VarChar(2048)
+  description String                  @db.Text
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  attachments MentorReportAttachment[]
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([authorId, createdAt])
+  @@index([createdAt])
+  @@map("mentor_reports")
+}
+
+model MentorReportAttachment {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId    String      @map("report_id") @db.Uuid
+  storageKey  String      @map("storage_key") @db.Text
+  fileName    String      @map("file_name") @db.VarChar(255)
+  contentType String      @map("content_type") @db.VarChar(100)
+  sizeBytes   Int         @map("size_bytes")
+  sortOrder   Int         @default(0) @map("sort_order")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  report      MentorReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, sortOrder])
+  @@map("mentor_report_attachments")
+}
+
 /// One-time invite or temporary-password handoff for an enrolled account.
 /// The secret is only ever stored as a hash (invite links) or an encrypted
 /// envelope that is crypto-shredded on release/completion.
@@ -1651,15 +1699,18 @@ model StudentProfile {
 }
 
 model TutorProfile {
-  userId    String   @id @map("user_id") @db.Uuid
-  headline  String?  @db.VarChar(160)
-  bio       String?  @db.Text
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  userId              String   @id @map("user_id") @db.Uuid
+  headline            String?  @db.VarChar(160)
+  bio                 String?  @db.Text
+  teachingSubjectCode String?  @map("teaching_subject_code") @db.VarChar(40)
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+  teachingSubject Subtest?  @relation(fields: [teachingSubjectCode], references: [code], onDelete: SetNull)
 
+  @@index([teachingSubjectCode])
   @@map("tutor_profiles")
 }
 
@@ -1804,6 +1855,7 @@ model Subtest {
   reusableQuestionPackageVersionItems ReusableQuestionPackageVersionItem[]
   tryoutScoreBreakdowns               TryoutScoreBreakdown[]
   subtestPerformances                 StudentSubtestPerformance[]
+  teachingProfiles                    TutorProfile[]
 
   @@map("subtests")
 }

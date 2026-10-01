@@ -40,6 +40,8 @@ const AUTHORING_WRITER_REGISTRY = [
   { name: "bulkUnpublishMateriLessons", source: "lib/materi/repository.ts", classification: "transient", resource: "materi:{code}[]", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 7] },
   { name: "reorderMateriSubject", source: "lib/materi/repository.ts", classification: "transient", resource: "materi-subject:{subjectSlug}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 7] },
 
+  { name: "manageMentorDashboardQuiz", source: "lib/quiz/mentor-dashboard-repository.ts", classification: "transient", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },
+
   // Standalone Kuis definition and source writers. Runtime attempt writers
   // remain system/deferred and are listed below as distinct entries.
   { name: "saveStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },

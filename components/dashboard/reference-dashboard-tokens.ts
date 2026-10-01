@@ -1,3 +1,9 @@
+import {
+  fieldControlClassName,
+  fieldLabelClassName,
+} from "@/components/ui/field-constants";
+import { cn } from "@/lib/utils";
+
 /**
  * Semantic class contracts for the extracted reference dashboard language.
  *
@@ -8,13 +14,13 @@
  */
 const REFERENCE_SURFACE_CLASS_NAMES = {
   inset:
-    "rounded-3xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]",
+    "rounded-card border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]",
   raised:
-    "rounded-4xl border border-primary-100 bg-white [--reference-surface-border:var(--primary-100)] shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent),0_22px_42px_-28px_color-mix(in_oklab,var(--voyage-forest)_24%,transparent)]",
+    "rounded-card border border-primary-100 bg-white [--reference-surface-border:var(--primary-100)] shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_38%,transparent),0_22px_42px_-28px_color-mix(in_oklab,var(--voyage-forest)_24%,transparent)]",
   tactile:
-    "rounded-4xl border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-sea-glass),0_18px_36px_-26px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent)]",
+    "rounded-card border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-sea-glass),0_18px_36px_-26px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent)]",
   tactileActive:
-    "rounded-4xl border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-deep-hover),0_20px_38px_-26px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)]",
+    "rounded-card border border-primary-100 bg-white shadow-[0_6px_0_var(--voyage-deep-hover),0_20px_38px_-26px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)]",
   raisedInteractive:
     "transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)] focus-within:border-primary-300 focus-within:shadow-[0_1px_0_color-mix(in_oklab,var(--reference-surface-border)_94%,transparent),0_18px_34px_-18px_color-mix(in_oklab,var(--voyage-forest)_46%,transparent),0_28px_56px_-28px_color-mix(in_oklab,var(--voyage-forest)_34%,transparent)]",
   raisedStableInteractive:
@@ -33,18 +39,22 @@ const REFERENCE_INTERACTION_CLASS_NAMES = {
     "transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)] motion-safe:focus-visible:-translate-y-1 motion-safe:focus-visible:shadow-[0_9px_0_var(--voyage-deep-hover),0_26px_48px_-30px_color-mix(in_oklab,var(--voyage-forest)_68%,transparent)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:focus-visible:translate-y-0",
 } as const;
 
-const REFERENCE_FIELD_LABEL_CLASS_NAME =
-  "text-xs font-semibold leading-7 tracking-[0.04em] text-secondary-600";
+const REFERENCE_FIELD_LABEL_CLASS_NAME = fieldLabelClassName;
 
 const REFERENCE_CONTROL_CLASS_NAMES = {
-  input:
-    "min-h-11 w-full rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
-  select:
-    "flex min-h-11 min-w-0 w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-left text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 data-popup-open:border-primary-500/65 data-popup-open:ring-4 data-popup-open:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
-  choice:
-    "flex min-h-11 min-w-0 w-full items-center gap-3 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-within:border-primary-500/65 focus-within:ring-4 focus-within:ring-primary-700/15 has-[[data-checked]]:border-primary-500/65 has-[[data-checked]]:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-55",
-  file:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium text-secondary-900 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary-200 hover:bg-primary-50/90 focus-visible:border-primary-500/65 focus-visible:ring-4 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55",
+  input: fieldControlClassName,
+  select: cn(
+    fieldControlClassName,
+    "flex items-center justify-between gap-3 overflow-hidden text-left font-medium hover:border-primary-200 hover:bg-primary-50/90 data-popup-open:border-primary-500/65 data-popup-open:ring-3 data-popup-open:ring-primary-700/15",
+  ),
+  choice: cn(
+    fieldControlClassName,
+    "flex items-center gap-3 hover:border-primary-200 hover:bg-primary-50/90 focus-within:border-primary-500/65 focus-within:ring-3 focus-within:ring-primary-700/15 has-[[data-checked]]:border-primary-500/65 has-[[data-checked]]:bg-primary-50",
+  ),
+  file: cn(
+    fieldControlClassName,
+    "inline-flex w-fit items-center justify-center gap-2 font-medium hover:border-primary-200 hover:bg-primary-50/90",
+  ),
 } as const;
 
 const REFERENCE_NAV_CLASS_NAMES = {
@@ -63,13 +73,13 @@ const REFERENCE_ICON_TONE_CLASS_NAMES = {
 
 const REFERENCE_STATUS_TONE_CLASS_NAMES = {
   archived: "neutral",
-  active: "active",
+  active: "info",
   blocked: "danger",
   completed: "success",
   danger: "danger",
   done: "success",
   draft: "neutral",
-  in_progress: "active",
+  in_progress: "info",
   info: "info",
   need_help: "attention",
   neutral: "neutral",

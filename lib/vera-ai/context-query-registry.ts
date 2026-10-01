@@ -84,8 +84,12 @@ function normalizeTerm(value: string): string {
 export function tokenizeContextQuery(query: string): string[] {
   const normalized = normalizeTerm(query);
   const terms: string[] = [];
+  const seenTerms = new Set<string>();
   for (const term of normalized.split(/\s+/u)) {
-    if (term && !terms.includes(term)) terms.push(term);
+    if (term && !seenTerms.has(term)) {
+      seenTerms.add(term);
+      terms.push(term);
+    }
     if (terms.length === VERA_CONTEXT_REGISTRY_MAX_TERMS) break;
   }
   return terms;
@@ -145,11 +149,12 @@ export function rankContextCandidates(
     .map((candidate) => {
       const title = normalizeTerm(candidate.title);
       const topic = normalizeTerm(candidate.topic ?? "");
+      const topicTerms = new Set(topic.split(/\s+/u));
       const metadata = candidateMetadata(candidate);
       const metadataTerms = new Set(metadata.split(/\s+/u).filter(Boolean));
       const exactTitle = title === normalizedQuery;
       const titlePrefix = !exactTitle && Boolean(normalizedQuery) && title.startsWith(normalizedQuery);
-      const topicTermScore = terms.reduce((score, term) => score + Number(topic.split(/\s+/u).includes(term)), 0);
+      const topicTermScore = terms.reduce((score, term) => score + Number(topicTerms.has(term)), 0);
       const metadataTermScore = terms.reduce((score, term) => score + Number(metadataTerms.has(term)), 0);
       return { candidate, exactTitle, titlePrefix, topicTermScore, metadataTermScore };
     })

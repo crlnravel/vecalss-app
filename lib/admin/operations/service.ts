@@ -8,10 +8,12 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import type {
+  AuditLogRange,
   AuditLogSortDirection,
   AuditLogSortKey,
   AuditLogTargetType,
 } from "./audit-query";
+import { auditLogRangeStart } from "./audit-query";
 import { parseDirectoryParams } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
 
@@ -329,6 +331,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
 }
 
 async function getAdminAuditLogPage({
+  range = "all",
   direction = "desc",
   page = 1,
   pageSize = AUDIT_LOG_PAGE_SIZE,
@@ -336,6 +339,7 @@ async function getAdminAuditLogPage({
   sort = "time",
   targetType,
 }: {
+  range?: AuditLogRange;
   direction?: AuditLogSortDirection;
   page?: number;
   pageSize?: number;
@@ -344,6 +348,7 @@ async function getAdminAuditLogPage({
   targetType?: AuditLogTargetType | null;
 } = {}): Promise<AdminAuditLogPage> {
   const safePageSize = Math.min(Math.max(Math.trunc(pageSize) || AUDIT_LOG_PAGE_SIZE, 1), 50);
+  const rangeStart = auditLogRangeStart(range);
   const normalizedQuery = query?.trim() ?? "";
   const searchFilters: Prisma.AuditLogWhereInput[] = normalizedQuery
     ? [
@@ -359,6 +364,7 @@ async function getAdminAuditLogPage({
   }
 
   const where: Prisma.AuditLogWhereInput = {
+    ...(rangeStart ? { occurredAt: { gte: rangeStart } } : {}),
     ...(targetType ? { targetType } : {}),
     ...(searchFilters.length ? { OR: searchFilters } : {}),
   };

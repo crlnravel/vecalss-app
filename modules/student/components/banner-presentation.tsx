@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
@@ -127,15 +128,18 @@ function BannerPresentation({
     >
       <div aria-hidden="true" className="absolute inset-0" style={backgroundStyle(design.background)} />
       {design.background.type === "image" ? (
-        <img
+        <Image
           alt=""
           aria-hidden="true"
           className="absolute inset-0 size-full object-cover"
+          fill
           key={`${generation}:background:${assets[design.background.assetId]?.src ?? ""}`}
           onError={handleImageError(generation)}
           ref={bindImageError(generation)}
+          sizes="100vw"
           src={assets[design.background.assetId]?.src ?? ""}
           style={getBannerImagePaint("background")}
+          unoptimized
         />
       ) : null}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(1,76,56,0.42),rgba(23,107,77,0.08))]" />
@@ -146,15 +150,18 @@ function BannerPresentation({
         if (layer.type === "image") {
           const source = assets[layer.assetId]?.src ?? "";
           return (
-            <img
+            <Image
               alt=""
               aria-hidden="true"
               className="absolute object-contain"
+              fill
               key={`${generation}:layer:${layer.id}:${source}`}
               onError={handleImageError(generation)}
               ref={bindImageError(generation)}
+              sizes="100vw"
               src={source}
               style={layerStyle}
+              unoptimized
             />
           );
         }

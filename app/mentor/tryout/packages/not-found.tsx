@@ -3,6 +3,7 @@ import { TypedRouteState } from "@/components/ui/typed-route-state";
 export default function ArchivedTryoutPackagesNotFound() {
   return (
     <TypedRouteState
+      className="workspace-page-canvas"
       context="Buat dan kelola Tryout langsung dari ruang Tryout Kapten."
       description="Paket Tryout adalah rute lama dan sudah dipensiunkan. Tautan lama ini tidak membuka atau mengubah paket apa pun."
       kind="archived"

@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
+  type RefObject,
 } from "react";
 
 import {
@@ -20,9 +21,7 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  FileImage,
   ImageOff,
-  PenTool,
   Trash2,
 } from "@/lib/icons";
 import {
@@ -117,12 +116,6 @@ function backgroundStyle(background: BannerBackground, hasImageSource = false): 
 function layerLabel(layer: BannerLayer) {
   if (layer.type === "text") return layer.text || "Teks kosong";
   return layer.alt || "Gambar";
-}
-
-function LayerIcon({ layer }: { layer: BannerLayer }) {
-  return layer.type === "text"
-    ? <PenTool aria-hidden="true" className="size-4" />
-    : <FileImage aria-hidden="true" className="size-4" />;
 }
 
 export function LayerContextMenu({
@@ -323,12 +316,15 @@ export function BannerCanvas({
       <div className="pointer-events-none absolute inset-0" style={backgroundStyle(design.background, Boolean(backgroundImageUrl))} />
       {backgroundImageUrl ? (
         <>
-          <img
+          <Image
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full object-cover"
+            fill
+            sizes="100vw"
             src={backgroundImageUrl}
             style={getBannerImagePaint("background")}
+            unoptimized
           />
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(1,76,56,0.42),rgba(23,107,77,0.08))]" />
         </>
@@ -350,126 +346,101 @@ export function BannerCanvas({
         </>
       ) : null}
 
-      {design.layers.map((layer) => {
-        const imageUrl = layer.type === "image" ? assetUrls[layer.assetId]?.url : null;
-        const layerStyle: CSSProperties = getBannerLayerLayout(layer);
-
-        const isEditingText = layer.type === "text" && editingTextLayerId === layer.id;
-        const textStyle: CSSProperties = layer.type === "text"
-          ? {
-              ...getBannerTextPaint(layer, geometry),
-              boxSizing: "border-box",
-              fontSize: `${layer.fontSize * geometry.scale}px`,
-              padding: `${geometry.textInset}px`,
-            }
-          : {};
-
-        if (isEditingText && layer.type === "text") {
-          return (
-            <div
-              aria-label="Edit teks banner"
-              aria-multiline="true"
-              autoFocus
-              className="absolute z-20 flex min-w-0 items-center overflow-hidden border border-white bg-transparent leading-[1.05] outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-              contentEditable
-              key={layer.id}
-              onBlur={() => setEditingTextLayerId(null)}
-              onInput={(event) => {
-                const editor = event.currentTarget;
-                const text = editor.textContent ?? "";
-                const nextText = text.slice(0, BANNER_MAX_TEXT_LENGTH);
-                if (nextText !== text) {
-                  editor.textContent = nextText;
-                  const selection = window.getSelection();
-                  selection?.selectAllChildren(editor);
-                  selection?.collapseToEnd();
-                }
-                updateLayer(layer.id, (current) => current.type === "text" ? { ...current, text: nextText } : current);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setEditingTextLayerId(null);
-                }
-              }}
-              onPointerDown={(event) => event.stopPropagation()}
-              ref={editingTextRef}
-              role="textbox"
-              style={{ ...layerStyle, ...textStyle }}
-              suppressContentEditableWarning
-              tabIndex={0}
-            >
-              {layer.text}
-            </div>
-          );
-        }
-
-        const layerIndex = design.layers.findIndex((item) => item.id === layer.id);
-
-        return (
-          <LayerContextMenu
-            key={layer.id}
-            moveAvailability={{
-              back: layerIndex > 0,
-              down: layerIndex > 0,
-              front: layerIndex < design.layers.length - 1,
-              up: layerIndex < design.layers.length - 1,
-            }}
-            onDelete={() => onDeleteLayer(layer.id)}
-            onMoveBack={() => onMoveToBack(layer.id)}
-            onMoveDown={() => onMoveLayer(layer.id, "down")}
-            onMoveFront={() => onMoveToFront(layer.id)}
-            onMoveUp={() => onMoveLayer(layer.id, "up")}
-            trigger={
-              <button
-                aria-label={`Pilih ${layerLabel(layer)}${layer.type === "text" ? ". Klik dua kali atau tekan Enter untuk edit teks." : ""}`}
-                aria-pressed={selectedLayerId === layer.id}
-                className={cn(
-                  "absolute z-10 flex min-w-0 cursor-grab items-center overflow-hidden rounded-none border border-transparent text-left outline-none transition-shadow active:cursor-grabbing",
-                  selectedLayerId === layer.id ? "border-white" : "focus-visible:ring-2 focus-visible:ring-white/90",
-                  layer.type === "text" ? "break-words" : "justify-center",
-                )}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelect(layer.id);
-                }}
-                onContextMenu={() => onSelect(layer.id)}
-                onDoubleClick={() => {
-                  if (layer.type === "text") setEditingTextLayerId(layer.id);
-                }}
-                onKeyDown={(event) => onLayerKeyDown(event, layer)}
-                onPointerDown={(event) => onLayerPointerDown(event, layer)}
-                style={{ ...layerStyle, boxSizing: "border-box" }}
-                type="button"
-              >
-                {layer.type === "image" ? (
-                  imageUrl ? (
-                    <Image
-                      alt={layer.alt || "Gambar banner"}
-                      className="object-contain"
-                      fill
-                      sizes="100vw"
-                      src={imageUrl}
-                      style={getBannerImagePaint("layer")}
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/60 bg-black/15 text-white/80">
-                      <ImageOff aria-hidden="true" className="size-5" />
-                      <span className="text-ui-xs font-semibold">Gambar tidak tersedia</span>
-                    </span>
-                  )
-                ) : (
-                  <span className="block w-full whitespace-pre-wrap leading-[1.05]" style={textStyle}>
-                    {layer.text}
-                  </span>
-                )}
-              </button>
-            }
-          />
-        );
-      })}
+      {design.layers.map((layer) => <BannerCanvasLayer assetUrls={assetUrls} design={design} editingTextLayerId={editingTextLayerId} editingTextRef={editingTextRef} geometry={geometry} key={layer.id} layer={layer} onDeleteLayer={onDeleteLayer} onLayerKeyDown={onLayerKeyDown} onLayerPointerDown={onLayerPointerDown} onMoveLayer={onMoveLayer} onMoveToBack={onMoveToBack} onMoveToFront={onMoveToFront} onSelect={onSelect} selectedLayerId={selectedLayerId} setEditingTextLayerId={setEditingTextLayerId} updateLayer={updateLayer} />)}
     </div>
+  );
+}
+
+function BannerCanvasLayer({ assetUrls, design, editingTextLayerId, editingTextRef, geometry, layer, onDeleteLayer, onLayerKeyDown, onLayerPointerDown, onMoveLayer, onMoveToBack, onMoveToFront, onSelect, selectedLayerId, setEditingTextLayerId, updateLayer }: {
+  assetUrls: Record<string, BannerAssetView>;
+  design: BannerDesign;
+  editingTextLayerId: string | null;
+  editingTextRef: RefObject<HTMLDivElement | null>;
+  geometry: ReturnType<typeof calculateBannerGeometry>;
+  layer: BannerLayer;
+  onDeleteLayer: (id: string) => void;
+  onLayerKeyDown: (event: KeyboardEvent<HTMLButtonElement>, layer: BannerLayer) => void;
+  onLayerPointerDown: (event: PointerEvent<HTMLButtonElement>, layer: BannerLayer) => void;
+  onMoveLayer: (id: string, direction: "down" | "up") => void;
+  onMoveToBack: (id: string) => void;
+  onMoveToFront: (id: string) => void;
+  onSelect: (id: string | null) => void;
+  selectedLayerId: string | null;
+  setEditingTextLayerId: (id: string | null) => void;
+  updateLayer: (id: string, updater: (layer: BannerLayer) => BannerLayer) => void;
+}) {
+  const imageUrl = layer.type === "image" ? assetUrls[layer.assetId]?.url : null;
+  const layerStyle: CSSProperties = getBannerLayerLayout(layer);
+  const isEditingText = layer.type === "text" && editingTextLayerId === layer.id;
+  const textStyle: CSSProperties = layer.type === "text"
+    ? { ...getBannerTextPaint(layer, geometry), boxSizing: "border-box", fontSize: `${layer.fontSize * geometry.scale}px`, padding: `${geometry.textInset}px` }
+    : {};
+
+  if (isEditingText && layer.type === "text") {
+    return (
+      <div
+        aria-label="Edit teks banner"
+        aria-multiline="true"
+        autoFocus
+        className="absolute z-20 flex min-w-0 items-center overflow-hidden border border-white bg-transparent leading-[1.05] outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        contentEditable
+        onBlur={() => setEditingTextLayerId(null)}
+        onInput={(event) => {
+          const editor = event.currentTarget;
+          const text = editor.textContent ?? "";
+          const nextText = text.slice(0, BANNER_MAX_TEXT_LENGTH);
+          if (nextText !== text) {
+            editor.textContent = nextText;
+            const selection = window.getSelection();
+            selection?.selectAllChildren(editor);
+            selection?.collapseToEnd();
+          }
+          updateLayer(layer.id, (current) => current.type === "text" ? { ...current, text: nextText } : current);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setEditingTextLayerId(null);
+          }
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        ref={editingTextRef}
+        role="textbox"
+        style={{ ...layerStyle, ...textStyle }}
+        suppressContentEditableWarning
+        tabIndex={0}
+      >
+        {layer.text}
+      </div>
+    );
+  }
+
+  const layerIndex = design.layers.findIndex((item) => item.id === layer.id);
+  return (
+    <LayerContextMenu
+      moveAvailability={{ back: layerIndex > 0, down: layerIndex > 0, front: layerIndex < design.layers.length - 1, up: layerIndex < design.layers.length - 1 }}
+      onDelete={() => onDeleteLayer(layer.id)}
+      onMoveBack={() => onMoveToBack(layer.id)}
+      onMoveDown={() => onMoveLayer(layer.id, "down")}
+      onMoveFront={() => onMoveToFront(layer.id)}
+      onMoveUp={() => onMoveLayer(layer.id, "up")}
+      trigger={
+        <button
+          aria-label={`Pilih ${layerLabel(layer)}${layer.type === "text" ? ". Klik dua kali atau tekan Enter untuk edit teks." : ""}`}
+          aria-pressed={selectedLayerId === layer.id}
+          className={cn("absolute z-10 flex min-w-0 cursor-grab items-center overflow-hidden rounded-none border border-transparent text-left outline-none transition-shadow active:cursor-grabbing", selectedLayerId === layer.id ? "border-white" : "focus-visible:ring-2 focus-visible:ring-white/90", layer.type === "text" ? "break-words" : "justify-center")}
+          onClick={(event) => { event.stopPropagation(); onSelect(layer.id); }}
+          onContextMenu={() => onSelect(layer.id)}
+          onDoubleClick={() => { if (layer.type === "text") setEditingTextLayerId(layer.id); }}
+          onKeyDown={(event) => onLayerKeyDown(event, layer)}
+          onPointerDown={(event) => onLayerPointerDown(event, layer)}
+          style={{ ...layerStyle, boxSizing: "border-box" }}
+          type="button"
+        >
+          {layer.type === "image" ? imageUrl ? <Image alt={layer.alt || "Gambar banner"} className="object-contain" fill sizes="100vw" src={imageUrl} style={getBannerImagePaint("layer")} unoptimized /> : <span className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/60 bg-black/15 text-white/80"><ImageOff aria-hidden="true" className="size-5" /><span className="text-ui-xs font-semibold">Gambar tidak tersedia</span></span> : <span className="block w-full whitespace-pre-wrap leading-[1.05]" style={textStyle}>{layer.text}</span>}
+        </button>
+      }
+    />
   );
 }

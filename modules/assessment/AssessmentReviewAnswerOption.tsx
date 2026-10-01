@@ -27,7 +27,7 @@ function AssessmentReviewAnswerOption({
   return (
     <div
       className={cn(
-        "flex w-full items-start gap-4 rounded-3xl border bg-white px-4 py-4 text-left sm:px-5",
+		"flex w-full items-start gap-4 rounded-card border bg-white px-4 py-4 text-left sm:px-5",
         isCorrect &&
           "border-student-status-success-border bg-student-status-success-bg",
         isIncorrectSelection &&

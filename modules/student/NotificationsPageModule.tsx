@@ -11,7 +11,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { StudentNotificationDetail } from "@/lib/notifications/service";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
@@ -45,9 +45,9 @@ function NotificationEntry({
             {item.title}
           </p>
           {item.unread ? (
-            <StudentBadge size="xs" tone="attention">
+            <Badge size="xs" tone="attention">
               Belum dibaca
-            </StudentBadge>
+            </Badge>
           ) : null}
         </div>
         <p className="mt-1 text-sm leading-6 text-secondary-600">
@@ -120,7 +120,7 @@ function NotificationsPageModule({
               disabled={!hasUnread}
               size="default"
               type="submit"
-              variant="brandOutline"
+              variant="outline"
             >
               Tandai semua sebagai dibaca
             </Button>

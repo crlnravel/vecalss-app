@@ -1,14 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
 type SectionHeadingProps = {
   description: string;
   label: string;
-  tone?: "accent" | "mint";
 };
 
 type NavigationDotsProps = {
@@ -20,25 +18,20 @@ type NavigationDotsProps = {
 
 type ActionButtonLinkProps = Omit<React.ComponentProps<typeof Link>, "className"> & {
   className?: string;
-  variant?:
-    | "inverseOutline"
-    | "marketing"
-    | "marketingOnDark"
-    | "marketingOutline"
-    | "onboarding";
+  variant?: "default" | "outline" | "destructive" | "warning" | "inverse";
 };
 
 function ActionButtonLink({
   children,
   className,
-  variant = "marketing",
+  variant = "default",
   ...props
 }: ActionButtonLinkProps) {
   return (
     <Link
       className={buttonVariants({
         variant,
-        size: "marketing",
+        size: "lg",
         className,
       })}
       {...props}
@@ -124,19 +117,12 @@ function NavigationDots({
 function SectionHeading({
   label,
   description,
-  tone = "accent",
 }: SectionHeadingProps) {
   return (
     <div className="flex w-full flex-col gap-5 px-4 md:px-0">
-      <div className="flex">
-        <Badge
-          className="rounded-full px-4 py-2 font-display text-ui-xs tracking-[0.26em] uppercase md:text-ui-sm"
-          size="card"
-          variant={tone === "mint" ? "mint" : "accent"}
-        >
-          {label}
-        </Badge>
-      </div>
+      <p className="font-display text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
+        {label}
+      </p>
       <p className="max-w-[62ch] font-heading text-3xl leading-[1.08] text-secondary-900 md:text-5xl">
         {description}
       </p>

@@ -27,6 +27,7 @@ import {
   type QuestionAnswerMode,
 } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
+import { asQuizOwnedQuestion } from "@/lib/quiz/question-ownership";
 import {
   draftRevisionMatches,
   isStandaloneQuizVersioningCutoverEnabled,
@@ -42,7 +43,6 @@ import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import {
   assertAuthoringEditLease,
   type AuthoringEditLease,
-  withTransientAuthoringEditLeases,
 } from "@/lib/serialization/authoring-lease";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type {
@@ -113,6 +113,8 @@ type SaveStandaloneQuizInput = {
   opensAt: string;
   publishRequestId?: string | null;
   questions: QuizQuestionSnapshot[];
+  /** Persist independent quiz copies, atomically detaching any existing bank/assembly binding. */
+  questionOwnership?: "quiz";
   retryDelaySeconds?: number | null;
   reviewTiming?: QuizReviewTiming;
   scorePolicy?: QuizScorePolicy;
@@ -597,11 +599,12 @@ function latestReadySourceUpdate(
   const correctChoiceIds = choices
     .filter((_, index) => revision.options[index]?.isCorrect)
     .map((choice) => choice.id);
+  const correctChoiceIdSet = new Set(correctChoiceIds);
   const answerKey = validateAnswerKey(
     answerMode,
     choices.map((choice) => ({
       id: choice.id,
-      isCorrect: correctChoiceIds.includes(choice.id),
+      isCorrect: correctChoiceIdSet.has(choice.id),
     })),
   );
   if (!answerKey.ok) return null;
@@ -1119,12 +1122,13 @@ function validateForPublication(
       const correctChoiceIds =
         question.correctChoiceIds ??
         (question.correctChoiceId ? [question.correctChoiceId] : []);
+      const correctChoiceIdSet = new Set(correctChoiceIds);
       const answerKey = answerMode
         ? validateAnswerKey(
             answerMode,
             question.choices.map((choice) => ({
               id: choice.id,
-              isCorrect: correctChoiceIds.includes(choice.id),
+              isCorrect: correctChoiceIdSet.has(choice.id),
             })),
           )
         : null;
@@ -1274,6 +1278,7 @@ function snapshotMatchesStoredBankItem(
   const persistedSnapshot = toSnapshot(persisted);
   const submittedCorrectIds = correctChoiceIdsForSnapshot(submitted);
   const persistedCorrectIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+  const persistedCorrectIdSet = new Set(persistedCorrectIds);
   return (
     submitted.prompt === persistedSnapshot.prompt &&
     submitted.promptMediaAssetId === persistedSnapshot.promptMediaAssetId &&
@@ -1295,9 +1300,7 @@ function snapshotMatchesStoredBankItem(
       );
     }) &&
     submittedCorrectIds.length === persistedCorrectIds.length &&
-    submittedCorrectIds.every((choiceId) =>
-      persistedCorrectIds.includes(choiceId),
-    )
+    submittedCorrectIds.every((choiceId) => persistedCorrectIdSet.has(choiceId))
   );
 }
 
@@ -1371,18 +1374,20 @@ async function writeStandaloneQuizItems(
           ...submitted,
           choices,
         });
+        const correctChoiceIdSet = new Set(correctChoiceIds);
         const answerMode = answerModeForSnapshot(submitted);
         const answerKey = validateAnswerKey(
           answerMode,
           choices.map((choice) => ({
             id: choice.id,
-            isCorrect: correctChoiceIds.includes(choice.id),
+            isCorrect: correctChoiceIdSet.has(choice.id),
           })),
         );
         if (!answerKey.ok)
           throw new QuizValidationError(
             "Kunci jawaban Kuis lokal tidak valid.",
           );
+        // react-doctor-disable-next-line async-await-in-loop -- persist the submitted questions in their displayed order within one transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: difficultyForSnapshot(submitted),
@@ -1470,6 +1475,7 @@ async function writeStandaloneQuizItems(
   for (const [index, { existing }] of selectedItems.entries()) {
       const persistedSnapshot = toSnapshot(existing);
       const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+      // react-doctor-disable-next-line async-await-in-loop -- stable sortOrder and source lineage are written in one transaction.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: existing.difficulty,
@@ -1552,18 +1558,20 @@ async function writeStandaloneQuizVersionItems(
           ...submitted,
           choices,
         });
+        const correctChoiceIdSet = new Set(correctChoiceIds);
         const answerMode = answerModeForSnapshot(submitted);
         const answerKey = validateAnswerKey(
           answerMode,
           choices.map((choice) => ({
             id: choice.id,
-            isCorrect: correctChoiceIds.includes(choice.id),
+            isCorrect: correctChoiceIdSet.has(choice.id),
           })),
         );
         if (!answerKey.ok)
           throw new QuizValidationError(
             "Kunci jawaban Kuis lokal tidak valid.",
           );
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the submitted order when rebuilding the local question set.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: difficultyForSnapshot(submitted),
@@ -1647,6 +1655,7 @@ async function writeStandaloneQuizVersionItems(
     for (const [index, { existing }] of selectedItems.entries()) {
         const persistedSnapshot = toSnapshot(existing);
         const correctChoiceIds = correctChoiceIdsForSnapshot(persistedSnapshot);
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the source question order in the transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: existing.difficulty,
@@ -1739,6 +1748,7 @@ async function writeStandaloneQuizVersionMaterializedItems(
     where: { quizVersionId: input.quizVersionId },
   });
   for (const [index, question] of input.questions.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- materialized questions are persisted in their versioned order.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: question.difficulty,
@@ -1832,6 +1842,7 @@ async function cloneStandaloneQuizVersionItems(
     where: { quizVersionId: input.quizVersionId },
   });
   for (const [index, source] of input.sourceItems.entries()) {
+      // react-doctor-disable-next-line async-await-in-loop -- copied questions and options retain their source order.
       const item = await tx.standaloneQuizItem.create({
         data: {
           difficulty: source.difficulty,
@@ -2069,11 +2080,11 @@ async function saveStandaloneQuizVersioned(
     const currentVersion = draft ?? active;
     const currentMode = sourceModeForQuiz(currentVersion ?? record ?? {});
     if (record) {
-      if (currentMode === "assembly")
+      if (currentMode === "assembly" && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Kuis yang terikat assembly harus diubah melalui perintah attachment atau pelepasan khusus.",
         );
-      if (requestedMode !== currentMode)
+      if (requestedMode !== currentMode && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Perubahan mode sumber Kuis harus memakai perintah transisi khusus.",
         );
@@ -2252,6 +2263,12 @@ async function saveStandaloneQuizVersioned(
         sourceBankId,
         state: StandaloneQuizVersionState.draft,
         title: metadata.title,
+        ...(input.questionOwnership === "quiz" ? {
+          assemblyDefinitionDigest: null,
+          assemblyMode: null,
+          assemblyPackageVersionId: null,
+          assemblySeed: null,
+        } : {}),
       },
       include: quizVersionItemsInclude,
     });
@@ -2341,6 +2358,11 @@ async function saveStandaloneQuiz(
   input: SaveStandaloneQuizInput,
   tutorId: string,
 ) {
+  if (input.questionOwnership !== undefined && input.questionOwnership !== "quiz")
+    throw new QuizValidationError("Soal Kuis belum dapat disimpan. Muat ulang halaman lalu coba lagi.");
+  if (input.questionOwnership === "quiz") {
+    input = { ...input, sourceMode: "local", sourceBankId: null, questions: input.questions.map(asQuizOwnedQuestion) };
+  }
   if (isStandaloneQuizVersioningCutoverEnabled())
     return saveStandaloneQuizVersioned(input, tutorId);
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka");
@@ -2405,11 +2427,11 @@ async function saveStandaloneQuiz(
       );
     if (current) {
       const currentMode = sourceModeForQuiz(current);
-      if (currentMode === "assembly")
+      if (currentMode === "assembly" && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Kuis yang terikat assembly harus diubah melalui perintah attachment atau pelepasan khusus.",
         );
-      if (requestedMode !== currentMode)
+      if (requestedMode !== currentMode && input.questionOwnership !== "quiz")
         throw new QuizValidationError(
           "Perubahan mode sumber Kuis harus memakai perintah transisi khusus.",
         );
@@ -2478,7 +2500,13 @@ async function saveStandaloneQuiz(
           description: input.description.trim() || null,
           durationSeconds,
           opensAt,
-          sourceBankId: current?.sourceBankId ?? null,
+          sourceBankId: input.questionOwnership === "quiz" ? null : current?.sourceBankId ?? null,
+          ...(input.questionOwnership === "quiz" ? {
+            assemblyDefinitionDigest: null,
+            assemblyMode: null,
+            assemblyPackageVersionId: null,
+            assemblySeed: null,
+          } : {}),
           status: ContentStatus.published,
           subtestId: requestedSubtest.id,
           title: input.title.trim() || "Kuis Baru",
@@ -2492,7 +2520,7 @@ async function saveStandaloneQuiz(
       questions: input.questions,
       quizId: id!,
       requestedSubtestId: requestedSubtest.id,
-      sourceBankId: current?.sourceBankId ?? null,
+      sourceBankId: input.questionOwnership === "quiz" ? null : current?.sourceBankId ?? null,
     });
     const saved = await tx.standaloneQuiz.findUniqueOrThrow({
       where: { id },
@@ -2674,6 +2702,7 @@ async function transitionStandaloneQuizSourceMode(
       // This is the only command allowed to clear lineage. The copied prompt,
       // options, order, and media remain exactly where the author placed them.
       for (const item of record.items) {
+        // react-doctor-disable-next-line async-await-in-loop -- update the parent item before clearing lineage on its options.
         await tx.standaloneQuizItem.update({
           where: { id: item.id },
           data: {
@@ -2684,6 +2713,7 @@ async function transitionStandaloneQuizSourceMode(
           },
         });
         for (const option of item.options) {
+          // react-doctor-disable-next-line async-await-in-loop -- update each option after its parent, preserving transaction order.
           await tx.standaloneQuizItemOption.update({
             where: { id: option.id },
             data: {
@@ -2715,6 +2745,7 @@ async function transitionStandaloneQuizSourceMode(
     });
     await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.quizId } });
     for (const [index, question] of materialized.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- preserve stable assessment item ordering during transactional writes.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,
@@ -3536,6 +3567,7 @@ async function attachStandaloneQuizAssembly(
     );
     await tx.standaloneQuizItem.deleteMany({ where: { quizId } });
     for (const [index, question] of materialization.items.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- preserve the assembly's canonical question order in the transaction.
         const item = await tx.standaloneQuizItem.create({
           data: {
             difficulty: question.difficulty,
@@ -3754,6 +3786,42 @@ async function detachStandaloneQuizAssembly(
     return toKaptenQuiz(saved);
   });
 }
+/** Lightweight catalogue metadata; only compare content for quizzes with both a live and editing definition. */
+export async function getMentorQuizCatalogueRecords(tutorId: string, client: Prisma.TransactionClient = prisma) {
+  const records = await client.standaloneQuiz.findMany({
+    where: { createdByUserId: tutorId },
+    select: {
+      id: true, title: true, status: true, isHidden: true, updatedAt: true,
+      subtest: { select: { code: true, name: true } },
+      _count: { select: { items: { where: { quizVersionId: null } } } },
+      versions: { where: { state: { in: ["active", "draft"] } }, select: {
+        id: true, state: true, title: true, _count: { select: { items: true } },
+      } },
+    },
+  });
+  const versioning = isStandaloneQuizVersioningCutoverEnabled();
+  const comparisonIds = versioning ? records.filter(record => record.versions.some(v => v.state === "active") && record.versions.some(v => v.state === "draft")).flatMap(record => record.versions.map(v => v.id)) : [];
+  const versions = comparisonIds.length ? await client.standaloneQuizVersion.findMany({
+    where: { id: { in: comparisonIds } }, include: quizVersionItemsInclude,
+  }) : [];
+  const definitions = new Map(versions.map(version => [version.id, version]));
+  return records.map(record => {
+    const active = record.versions.find(v => v.state === "active");
+    const draft = record.versions.find(v => v.state === "draft");
+    const activeDefinition = active && definitions.get(active.id);
+    const draftDefinition = draft && definitions.get(draft.id);
+    return {
+      id: record.id, title: record.title, editingTitle: draft?.title ?? record.title,
+      subjectCode: record.subtest.code, subjectName: record.subtest.name,
+      questionCount: versioning ? (active ?? draft)?._count.items ?? record._count.items : record._count.items,
+      publication: record.status === "archived" ? "archived" as const : "published" as const,
+      isHidden: record.isHidden,
+      hasUnpublishedChanges: Boolean(activeDefinition && draftDefinition && assessmentVersionChanged(activeDefinition, draftDefinition)),
+      updatedAt: record.updatedAt.toISOString(),
+    };
+  });
+}
+
 async function getMentorStandaloneQuizzes(tutorId: string) {
   if (isStandaloneQuizVersioningCutoverEnabled()) {
     const records = await prisma.standaloneQuiz.findMany({
@@ -4065,7 +4133,7 @@ async function getAvailableStandaloneQuiz(
     slug,
     subtest: { code: subjectCode },
   });
-  return quiz?.questionCount ? quiz : null;
+  return quiz?.items.length ? quiz : null;
 }
 class QuizAttemptValidationError extends Error {}
 
@@ -5602,7 +5670,7 @@ async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
     studentAvailabilityWhere(now),
     { updatedAt: "desc" },
   );
-  return quizzes.filter((quiz) => quiz.questionCount > 0);
+  return quizzes.filter((quiz) => quiz.items.length > 0);
 }
 
 export {

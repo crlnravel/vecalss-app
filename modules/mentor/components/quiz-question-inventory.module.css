@@ -1,0 +1,49 @@
+.inventory {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  padding: 20px 16px;
+  background: #fff;
+  color: #171717;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.heading { min-width: 0; }
+.heading h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }
+.heading p { margin: 2px 0 0; color: #737373; font-size: 12px; line-height: 18px; }
+
+.source { margin: 8px 0 0; overflow: hidden; color: #737373; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.source a { color: #171717; }
+.source a:hover { text-decoration: underline; }
+.navigation { flex: 1; min-height: 0; margin-top: 16px; }
+.list { display: flex; flex-direction: column; gap: 8px; height: 100%; margin: 0; padding: 2px; overflow-y: auto; list-style: none; }
+.row {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+.row[data-active] { background: #fafafa; border-color: #a3a3a3; }
+.row[data-dragging] { outline: 2px solid #737373; outline-offset: 1px; }
+.select { font-size: 12px; line-height: 16px; text-align: left; }
+.number { min-width: 12px; flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.row[data-incomplete] .number { color: #92400e; }
+.prompt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { padding: 16px 8px; color: #737373; }
+.mobile { flex-shrink: 0; border-bottom: 1px solid #e5e5e5; background: #fff; color: #171717; }
+.mobile summary { padding: 12px 16px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.mobile summary span { margin-left: 8px; color: #737373; font-size: 12px; font-weight: 400; }
+.mobile summary:focus-visible { outline: 2px solid #737373; outline-offset: -2px; }
+.mobileContent { height: min(38dvh, 320px); }
+.mobileContent .inventory { padding-top: 8px; }

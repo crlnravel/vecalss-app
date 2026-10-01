@@ -58,12 +58,6 @@ function KaptenTryoutSettingsPageModule({
 }) {
   const [pendingAction, setPendingAction] =
     useState<AdministrationAction | null>(null);
-  const isPublished = draft.status === "published";
-  const canDelete = !isPublished && !draft.locked;
-  const canDraft = isPublished && !draft.locked && !hasActiveAttempt;
-  const draftDisabledReason = draft.locked
-    ? "Tryout sudah terkunci karena peserta telah mulai mengerjakan. Buat draf perubahan untuk menyiapkan versi baru."
-    : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf.";
 
   const confirmAction = () => {
     if (pendingAction === "archive") onArchive();
@@ -85,150 +79,92 @@ function KaptenTryoutSettingsPageModule({
           Administrasi
         </h2>
 
-        {error ? (
-          <p
-            className="rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-600"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
-
-        <div>
-          {!isPublished && !draft.locked ? (
-            <AdministrationActionRow
-              action="Terbitkan Tryout"
-              description="Terbitkan Tryout setelah judul, bagian, dan soal sudah siap."
-            >
-              <Button
-                aria-busy={saving}
-                disabled={saving}
-                onClick={onPublish}
-                type="button"
-                variant="brand"
-              >
-                <Upload aria-hidden="true" />
-                {saving ? "Menerbitkan…" : "Terbitkan"}
-              </Button>
-            </AdministrationActionRow>
-          ) : null}
-          {isPublished ? (
-            <AdministrationActionRow
-              action="Jadikan draf"
-              description={
-                canDraft
-                  ? "Kembalikan Tryout ke draf sebelum ada peserta yang mulai mengerjakan."
-                  : draftDisabledReason
-              }
-            >
-              <Button
-                disabled={saving || !canDraft}
-                onClick={onUnpublish}
-                title={
-                  canDraft
-                    ? "Kembalikan Tryout ke draf"
-                    : draftDisabledReason
-                }
-                type="button"
-                variant="brandOutline"
-              >
-                <FilePenLine />
-                Jadikan draf
-              </Button>
-            </AdministrationActionRow>
-          ) : null}
-          {isPublished ? (
-            <AdministrationActionRow
-              action={draft.isHidden ? "Tampilkan Tryout" : "Sembunyikan Tryout"}
-              description={
-                draft.isHidden
-                  ? "Tampilkan kembali Tryout di katalog siswa agar siswa dapat mendaftar atau memulai pengerjaan baru."
-                  : "Tryout tidak muncul di katalog siswa dan tidak menerima pendaftaran atau pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."
-              }
-            >
-              <Button
-                disabled={saving}
-                onClick={() => onSetHidden(!draft.isHidden)}
-                type="button"
-                variant="brandOutline"
-              >
-                {draft.isHidden ? (
-                  <Eye aria-hidden="true" />
-                ) : (
-                  <EyeOff aria-hidden="true" />
-                )}
-                {draft.isHidden ? "Tampilkan lagi" : "Sembunyikan"}
-              </Button>
-            </AdministrationActionRow>
-          ) : null}
-          {isPublished || draft.locked ? (
-            <AdministrationActionRow
-              action="Buat draf perubahan"
-              description="Buat salinan draf untuk menyiapkan perubahan tanpa mengubah Tryout yang sedang terbit."
-            >
-              <Button
-                disabled={saving}
-                onClick={onDuplicate}
-                type="button"
-                variant="brandOutline"
-              >
-                <Copy />
-                Buat draf perubahan
-              </Button>
-            </AdministrationActionRow>
-          ) : null}
-          <AdministrationActionRow
-            action="Arsipkan Tryout"
-            description="Sembunyikan Tryout dari daftar aktif tanpa menghapusnya."
-          >
-            <Button
-              disabled={saving}
-              onClick={() => setPendingAction("archive")}
-              type="button"
-              variant="dangerOutline"
-            >
-              <Archive />
-              Arsipkan Tryout
-            </Button>
-          </AdministrationActionRow>
-          {canDelete ? (
-            <AdministrationActionRow
-              action="Hapus Tryout"
-              description="Hapus Tryout beserta soal dan pengaturannya secara permanen."
-            >
-              <Button
-                disabled={saving}
-                onClick={() => setPendingAction("delete")}
-                type="button"
-                variant="dangerOutline"
-              >
-                <Trash2 />
-                Hapus Tryout
-              </Button>
-            </AdministrationActionRow>
-          ) : null}
-        </div>
+        {error ? <p className="rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-600" role="alert">{error}</p> : null}
+        <TryoutAdministrationActionRows draft={draft} hasActiveAttempt={hasActiveAttempt} onArchive={() => setPendingAction("archive")} onDelete={() => setPendingAction("delete")} onDuplicate={onDuplicate} onPublish={onPublish} onSetHidden={onSetHidden} onUnpublish={onUnpublish} saving={saving} />
       </ReferenceSurface>
 
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open && !saving) setPendingAction(null);
-        }}
-        open={Boolean(pendingAction)}
+      <TryoutActionConfirmationDialog draftTitle={draft.title} onConfirm={confirmAction} onOpenChange={(open) => { if (!open && !saving) setPendingAction(null); }} pendingAction={pendingAction} saving={saving} />
+    </>
+  );
+}
+
+function TryoutAdministrationActionRows({ draft, hasActiveAttempt, onArchive, onDelete, onDuplicate, onPublish, onSetHidden, onUnpublish, saving }: {
+  draft: { isHidden: boolean; locked: boolean; status: "draft" | "published" };
+  hasActiveAttempt: boolean;
+  onArchive: () => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onPublish: () => void;
+  onSetHidden: (isHidden: boolean) => void;
+  onUnpublish: () => void;
+  saving: boolean;
+}) {
+  const isPublished = draft.status === "published";
+  const canDelete = !isPublished && !draft.locked;
+  const canDraft = isPublished && !draft.locked && !hasActiveAttempt;
+  const draftDisabledReason = draft.locked
+    ? "Tryout sudah terkunci karena peserta telah mulai mengerjakan. Buat draf perubahan untuk menyiapkan versi baru."
+    : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf.";
+  return (
+    <div>
+      {!isPublished && !draft.locked ? <AdministrationActionRow action="Terbitkan Tryout" description="Terbitkan Tryout setelah judul, bagian, dan soal sudah siap."><Button aria-busy={saving} disabled={saving} onClick={onPublish} type="button" variant="default"><Upload aria-hidden="true" />{saving ? "Menerbitkan…" : "Terbitkan"}</Button></AdministrationActionRow> : null}
+      {isPublished ? <PublishedTryoutActions canDraft={canDraft} draft={draft} draftDisabledReason={draftDisabledReason} onSetHidden={onSetHidden} onUnpublish={onUnpublish} saving={saving} /> : null}
+      {isPublished || draft.locked ? <AdministrationActionRow action="Buat draf perubahan" description="Buat salinan draf untuk menyiapkan perubahan tanpa mengubah Tryout yang sedang terbit."><Button disabled={saving} onClick={onDuplicate} type="button" variant="outline"><Copy />Buat draf perubahan</Button></AdministrationActionRow> : null}
+      <AdministrationActionRow action="Arsipkan Tryout" description="Sembunyikan Tryout dari daftar aktif tanpa menghapusnya."><Button disabled={saving} onClick={onArchive} type="button" variant="destructive"><Archive />Arsipkan Tryout</Button></AdministrationActionRow>
+      {canDelete ? <AdministrationActionRow action="Hapus Tryout" description="Hapus Tryout beserta soal dan pengaturannya secara permanen."><Button disabled={saving} onClick={onDelete} type="button" variant="destructive"><Trash2 />Hapus Tryout</Button></AdministrationActionRow> : null}
+    </div>
+  );
+}
+
+function PublishedTryoutActions({ canDraft, draft, draftDisabledReason, onSetHidden, onUnpublish, saving }: {
+  canDraft: boolean;
+  draft: { isHidden: boolean; locked: boolean; status: "draft" | "published" };
+  draftDisabledReason: string;
+  onSetHidden: (isHidden: boolean) => void;
+  onUnpublish: () => void;
+  saving: boolean;
+}) {
+  return (
+    <>
+      <AdministrationActionRow action="Jadikan draf" description={canDraft ? "Kembalikan Tryout ke draf sebelum ada peserta yang mulai mengerjakan." : draftDisabledReason}>
+        <Button disabled={saving || !canDraft} onClick={onUnpublish} title={canDraft ? "Kembalikan Tryout ke draf" : draftDisabledReason} type="button" variant="outline"><FilePenLine />Jadikan draf</Button>
+      </AdministrationActionRow>
+      <AdministrationActionRow
+        action={draft.isHidden ? "Tampilkan Tryout" : "Sembunyikan Tryout"}
+        description={draft.isHidden ? "Tampilkan kembali Tryout di katalog siswa agar siswa dapat mendaftar atau memulai pengerjaan baru." : "Tryout tidak muncul di katalog siswa dan tidak menerima pendaftaran atau pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."}
       >
+        <Button disabled={saving} onClick={() => onSetHidden(!draft.isHidden)} type="button" variant="outline">
+          {draft.isHidden ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
+          {draft.isHidden ? "Tampilkan lagi" : "Sembunyikan"}
+        </Button>
+      </AdministrationActionRow>
+    </>
+  );
+}
+
+function TryoutActionConfirmationDialog({ draftTitle, onConfirm, onOpenChange, pendingAction, saving }: {
+  draftTitle: string;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  pendingAction: AdministrationAction | null;
+  saving: boolean;
+}) {
+  const isArchive = pendingAction === "archive";
+  return (
+      <AlertDialog onOpenChange={onOpenChange} open={Boolean(pendingAction)}>
         <AlertDialogContent pending={saving} variant="danger">
           <AlertDialogHeader>
             <AlertDialogMedia variant="danger">
-              {pendingAction === "archive" ? <Archive /> : <Trash2 />}
+              {isArchive ? <Archive /> : <Trash2 />}
             </AlertDialogMedia>
             <AlertDialogTitle>
-              {pendingAction === "archive"
+              {isArchive
                 ? "Arsipkan Tryout?"
                 : "Hapus Tryout?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction === "archive"
-                ? `“${draft.title}” akan dipindahkan ke arsip dan tidak tersedia untuk akses baru.`
+              {isArchive
+                ? `“${draftTitle}” akan dipindahkan ke arsip dan tidak tersedia untuk akses baru.`
                 : "Tryout draf dan seluruh konfigurasi soalnya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -238,20 +174,19 @@ function KaptenTryoutSettingsPageModule({
               disabled={saving}
               onClick={(event) => {
                 event.preventDefault();
-                confirmAction();
+                onConfirm();
               }}
               variant="destructive"
             >
               {saving
                 ? "Memproses…"
-                : pendingAction === "archive"
+                : isArchive
                   ? "Arsipkan"
                   : "Hapus Tryout"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
   );
 }
 

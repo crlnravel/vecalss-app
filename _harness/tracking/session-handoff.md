@@ -1,5 +1,94 @@
 # Session Handoff
 
+## Bank Soal create dialog (2026-10-01)
+
+- Follow-up: independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings. Review artifacts: epic `bank-soal-create-dialog/behavior-review` and `bank-soal-create-dialog/standards-review`.
+
+- User requested that Buat Bank open without refreshing/closing the dialog and that filling the create dialog produce no floating Sonner status notice.
+- `f46b489` updates only Bank Soal catalogue/builder and a callback regression. Native history retains catalogue query context without server remount; popstate synchronizes Back/Forward. Create-modal persistent status is suppressed; save outcomes and full-page editor status are preserved.
+- Guarded `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`: red before fix, green afterward. `pnpm test:mentor-bank-soal-lock-csv-ui`, focused `pnpm exec eslint` on all three files, and diff-check pass.
+- `pnpm test:mentor-bank-soal-catalogue-context-menu` fails on a pre-existing stale caller-level `showColumnVisibility={false}` assertion. `pnpm verify` passes lint/compile, then fails at `scripts/test-mentor-teaching-subject.ts:6` because its fixture lacks `QuizDashboardRow.creator`; dashboard owner notified.
+- Browser UI unverified: Obscura endpoint unavailable; ego-browser approval not requested. Three guarded launch groups used; own process exited and shared lock released.
+- Independent Luna/max standards and behavior reviews from agents `5b918078` and `ae268ded` are complete with no actionable findings. Intent, evidence and reviews live in epic artifact `bank-soal-create-dialog`.
+- Other dashboard, design and primitive changes remain with their existing owners. Main task received explicit user approval for `gpt-6.1-sol`; reviews use project-default exact Luna/max.
+
+## Primitive standardization and ReUI Avatars (2026-10-01)
+
+- Design contract committed before delegation in `2f11bd1`; shared primitives in `a64f5ba`; product consumers in `778adf6`. Separate report commit `9a9457d` includes the approved canonical hunks in FileUploadSlot, MentorReport, and DeveloperReportDetail.
+- Canonical contracts: seven semantic pixel radii; five tactile Button variants at 40/44/48px; one tone/size/depth Badge; sunken Tabs and FullWidthTabs; Sonner notification outcomes. Field validation, blocking recovery, progress and confirmation remain contextual.
+- ReUI Avatar sizes are 24/32/40px. All navbar audiences use a 40px Avatar in a named 44px circular outline account button; existing switch/logout actions remain. The audit actor's agreed 20px exception uses an explicit pixel utility.
+- Catalogue now documents 60 supported sources, canonical variations, multi-file slots and explicitly simulated Avatar presence. Grouped commentable artifacts live in `developer-component-catalogue`; decisions and reviews live in `primitive-standardization` under the epic artifacts directory.
+- SSR Avatar/Tabs state callbacks and rendered disabled-anchor semantics pass. Shared/catalogue focused lint passes. Final 193-file lint fails only at three recorded baseline errors; application TypeScript remains blocked outside the migrated APIs. Full verify stopped before build; browser and computed CSS remain unverified.
+- Six guarded launch groups used. No further package/browser launch is authorized within that budget; no agent-owned server, worker or browser remains. Normal commits used the existing dev hook, which naturally skips exhaustive pre-commit checks; no hook was bypassed or altered.
+- Catalogue/documentation commit: `b4297f6`. Final standards and coverage reviews are clear. Preserve unrelated audit, quiz lifecycle, bank catalogue root-label, mentor shell, justfile and seed changes. The review-confirmed 20px audit Avatar correction remains with its owner's pending redesign.
+
+
+## Current refinement — Admin directory green surfaces (2026-10-01)
+
+- User asked for greenish background, padding, rounded border and Vecalss styling, while retaining the current components.
+- Added Sea-Glass Wash outer surfaces with 24px desktop / 16px mobile padding, 20px corners and Soft Border on student/Kapten/affiliator directories. Applied existing green text, primary action, focus and hover tokens. Table implementation and behavior remain unchanged.
+- Source commits: `13371ef` and the following token/brief correction commit.
+- Verification: scoped palette-variable, CSS-balance and wrapper checks pass; `git diff --check` passes. Browser/full suites were not rerun for this styling-only refinement. Existing full-verification blockers from the prior handoff remain.
+- No Node/package launches, background processes or component replacements. Unrelated worktree changes preserved.
+
+## Current handoff — ReUI admin directory tables (2026-10-01)
+
+- Objective: match the linked ReUI Members table on `/admin/enrollment`, `/admin/kapten`, and `/admin/affiliators` using independent table markup/styles.
+- Completed: compact Inter toolbar/table/footer; name/avatar cells and hover actions; dot statuses; neutral separators; sorting/search/filter/page controls. Existing student/Kapten server queries, previews, account actions, import/add dialogs remain wired. Affiliator uses its already-loaded records for controls. No new runtime dependencies.
+- Commit: `4383d3f` on `dev`. All unrelated dirty files remain unstaged and unchanged by this task.
+- Verification: Focused ESLint: pass. test:admin-enrollment: pass. test:admin-operations: fails on an existing assertion in scripts/test-admin-operations-contract.ts:23 expecting removed Admin dashboard operationKeys. Full pnpm verify: fails before build on four existing mentor ESLint errors. Full tsc --noEmit: fails in existing assessment, mentor, student preview, upload-slot, and other unrelated files; no errors in changed directory files.
+- Browser: user-approved ego-browser Admin session. Desktop/mobile screenshots captured at 1440×1000 and 390×844. Confirmed 14px Inter, 32px headers, 53px rows; student search/sort/pagination/status/date filters, student/Kapten previews, Kapten status filter, affiliator sort/empty search, and all add/import triggers. No records created/deleted. Browser TaskSpace 4 finished and closed. Student/Kapten document widths equal 390; affiliator reports 432 while the screenshot and element inspection show no visible element outside its grid. This remains a measurement limitation.
+- Evidence: `/tmp/reui-final-browser.log`, `/tmp/reui-browser-check.log`, `/tmp/reui-final-lint.log`, `/tmp/reui-types.log`, `/tmp/reui-verify.log`, `/tmp/admin-{enrollment,kapten,affiliators}-final-{desktop,mobile}.png`.
+- Decisions: live deployed preview differs from current GitHub demo. Live preview governs; isolated light reference styling within light admin portal. User’s 1-to-1 instruction intentionally overrides table token/shared-primitive rules; DESIGN.md stays unchanged. Initials stand in for unavailable portrait data; no demo billing/auth claims or unsupported account operations.
+- Permissions: user approved gpt-6.1-sol for this task, ego-browser reference/admin routes and checklist, and up to 12 normal guarded launches. No emergency mode or bypass was used; no agent-owned server was started.
+- Review: two independent Luna/max review agents were requested for Standards and Spec; their replies have not yet arrived at this handoff.
+- Next: address the independent reviews when delivered. Global verification needs the pre-existing repository errors resolved separately.
+
+## Current handoff — Bank Soal tab label (2026-09-30)
+
+- Objective: change the Bank Soal detail tab title from “Administrasi” to “Pengaturan”.
+- Completed: updated only the tab trigger label in `modules/mentor/KaptenQuestionBankDetailPageModule.tsx`; the `pengaturan` tab value, section heading, and contents remain unchanged.
+- Commit: `f60f802` (`Rename Bank Soal settings tab`).
+- Verification: scoped `git diff --check` passed. No tests or browser checks were run.
+- Next: none for this request.
+
+## Previous handoff — React Doctor cleanup (2026-09-30)
+
+- Objective: clear all React Doctor diagnostics across the application.
+- Source work: the scan baseline of 220 findings across 940 files (score 64)
+  was reduced to zero through focused component and hook refactors, collection
+  lookup improvements, and explained suppressions for intentional effect-based
+  synchronization.
+- Final verification: React Doctor 0.9.14 scanned 945 files and reported 0
+  errors, 0 warnings, and 0 diagnostics. `git diff --check` passes.
+- The normal guard and its approved emergency attempt were blocked by host
+  load. After the user explicitly authorized bypassing it, the cached CLI ran
+  directly and completed the scan.
+- Tests: 46 focused scripts were attempted after the user asked to check them;
+  24 passed and 22 failed. The initial sandboxed run was blocked because `tsx`
+  could not create its local IPC socket (`EPERM`). The rerun outside the
+  sandbox executed the scripts.
+- Failure groups: 19 source-contract assertions still expect inline component
+  markup or helper names; `test:banner-media-safety` fails its R2 HEAD/finalize
+  ordering assertion; `test:tryout-seed-release-guards` has a fixture that
+  lacks the stable direct snapshot IDs and carries source lineage required by
+  the validator; `test:mentor-report` cannot connect because the configured
+  database does not contain the `mentor_reports` table. No build or browser
+  checks were run.
+- Next: review/update the source-contract tests against the extracted
+  components, fix the Tryout fixture, investigate banner ordering, and rerun
+  the report test after confirming the local test database schema.
+
+## Current handoff — Mentor Report and Developer inbox (2026-09-29)
+
+- Objective: let Mentors submit bug reports with an optional attachment and let a separate Developer role review every report in a table and detail view.
+- Completed: commit `3856e1d` on `dev` adds `/mentor/report`, `/developer/reports`, `/developer/reports/[reportId]`, Developer auth/seed integration, report persistence and private attachment download. Migration `20260929103000_add_mentor_reports` was applied only to the explicit local `vecalss_dev` database. A local Developer QA account was created without resetting shared fixtures.
+- Verification: guarded `test:mentor-report`, focused ESLint, and `git diff --check` pass. Approved ego-browser QA on temporary port 5024 confirmed required form fields, successful plain and attachment submissions, table and full detail navigation, byte-identical attachment download, role redirects and Tutor download denial, and no document overflow at 390px. The temporary server/worktree were removed.
+- Limit: full repository `tsc --noEmit` has 26 existing diagnostics outside report code. The `dev` branch commit hook skipped exhaustive checks, so a full production build remains unverified for this change. Staging has not received the new migration or Developer seed account.
+- Operational note: resource-guard status exposes process command arguments, including an unrelated Figma credential observed during QA. The credential was not repeated here; rotate it if the logs are shared, and redact command arguments in the guard output.
+- Next: before staging use, deploy the new migration and provision a Developer account there; run the repository-wide verification gate after the unrelated TypeScript errors are resolved.
+
+
 ## Current handoff — Vera AI streaming answer reveal (2026-09-25)
 
 - Objective: give Vera's live answer text a polished streaming treatment based
@@ -1239,3 +1328,14 @@
   outside this unit and must not be reset or staged with it.
 - Next step: fix the Tryout workspace header key in its owning workstream,
   then rerun the repository-wide verify gate before a release claim.
+
+## Current handoff — Developer component catalogue (2026-10-01)
+
+- Implementation: `dev` / `d2fe796`, with 16 explicitly staged catalogue files. Other agents' dirty mentor/admin/upload files were preserved.
+- Intent and decisions: [Catalogue brief](/Users/ravel/.traycer/epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/developer-component-catalogue/index.md).
+- The committed shell uses `accountUser={id,email,fullName}`, preserving the separate account-switching follow-up. `activePage` defaults to reports; components selects its navigation and breadcrumb.
+- Both `?preview=sidebar` and `?preview=dashboard` branches authenticate before rendering. Tokens read the shipped CSS/classes rather than duplicating values or migrating global styles.
+- Verification: guarded focused ESLint pass; staged diff-check pass; full TypeScript exit 2 with zero catalogue/developer/mentor-badge diagnostics. Full verify previously stopped on unrelated mentor lint errors. Final logs: `/tmp/vecalss-catalogue-lint-final.log`, `/tmp/vecalss-catalogue-types-with-previews.log`.
+- Independent Luna coverage review confirmed 65 sources and 30 section mappings; its P2 linked/interactive dashboard examples are resolved. Standards review fixes are applied; final confirmation was requested asynchronously.
+- Runtime/browser QA and a production build remain unverified. Obscura was unavailable, and ego-browser requires explicit approval for `/developer/components` as Developer, including desktop/mobile, search/categories, computed tokens, keyboard/overlay controls, and sidebar/dashboard previews.
+- Next: run approved browser QA and rerun the production gate after the unrelated repository blockers are resolved. No main-owned Node processes remain.

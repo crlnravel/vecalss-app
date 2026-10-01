@@ -115,7 +115,10 @@ async function acquireDomainMutexes(
   tx: SerializationTransaction,
   keys: readonly string[],
 ) {
-  for (const key of orderedUnique(keys)) await acquireDomainMutex(tx, key);
+  for (const key of orderedUnique(keys)) {
+    // react-doctor-disable-next-line async-await-in-loop -- advisory locks must be acquired in canonical order.
+    await acquireDomainMutex(tx, key);
+  }
 }
 
 async function acquireEditKey(
@@ -133,7 +136,10 @@ async function acquireEditKeys(
   const canonicalKeys = orderedUnique(
     keys.map(({ resourceId, resourceType }) => `${resourceType}:${resourceId}`),
   );
-  for (const key of canonicalKeys) await acquireAdvisoryLock(tx, key, LOCK_LEVEL.edit);
+  for (const key of canonicalKeys) {
+    // react-doctor-disable-next-line async-await-in-loop -- edit locks use a deterministic order to prevent deadlocks.
+    await acquireAdvisoryLock(tx, key, LOCK_LEVEL.edit);
+  }
 }
 
 /**
@@ -177,6 +183,7 @@ async function lockOrderedRows(
 ) {
   for (const key of orderedUnique(keys)) {
     assertLockOrder(tx, level, key);
+    // react-doctor-disable-next-line async-await-in-loop -- sequential row locks preserve the transaction's global lock order.
     await lockOne(tx, key);
   }
 }

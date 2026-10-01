@@ -127,7 +127,7 @@ function CreateStudentFormFields({
         />
       </div>
       <div className="mt-5 flex justify-start md:justify-end">
-        <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">Buat akun siswa</SubmitButton>
+        <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Membuat akun..." size="lg" type="submit" variant="default">Buat akun siswa</SubmitButton>
       </div>
     </div>
   );

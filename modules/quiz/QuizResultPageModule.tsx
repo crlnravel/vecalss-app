@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Flag,
   CircleX,
   House,
   RefreshCw,
@@ -15,10 +14,9 @@ import {
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import {
-  AssessmentUtilityPill,
   AssessmentResultNavigation,
   AssessmentResultWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
@@ -152,7 +150,7 @@ function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
         className="mt-6"
         href={`/quiz/${subjectSlug}`}
         label="Kembali ke daftar kuis"
-        variant="brand"
+        variant="default"
       >
         <ArrowLeft />
       </BackButton>
@@ -181,7 +179,7 @@ function QuizResultHeaderActions({
             className="inline-flex"
             disabled={isRestarting}
             onClick={onRestart}
-            variant="brandOutline"
+            variant="outline"
           >
             <RefreshCw />
             <span className="hidden sm:inline">
@@ -196,7 +194,7 @@ function QuizResultHeaderActions({
         nativeButton={false}
         render={<Link href="/quiz" />}
         title="Kembali ke menu kuis"
-        variant="brand"
+        variant="default"
       >
         <House />
         Menu
@@ -283,9 +281,7 @@ function QuizResultQuestionCard({
   isCorrect,
   onNext,
   onPrevious,
-  onToggleReport,
   question,
-  reported,
   result,
   readingTextClass,
   selectedOptions,
@@ -295,9 +291,7 @@ function QuizResultQuestionCard({
   isCorrect: boolean;
   onNext: () => void;
   onPrevious: () => void;
-  onToggleReport: () => void;
   question: QuizResultQuestion;
-  reported: boolean;
   result: QuizResult;
   readingTextClass: string;
   selectedOptions: QuizResultQuestion["options"];
@@ -325,6 +319,7 @@ function QuizResultQuestionCard({
       ? "Jawaban tersimpan"
       : "Tidak dijawab";
   const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const selectedOptionIdSet = new Set(selectedOptionIds);
   return (
     <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
@@ -334,16 +329,10 @@ function QuizResultQuestionCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* <AssessmentUtilityPill */}
-          {/*   active={reported} */}
-          {/*   icon={Flag} */}
-          {/*   label="Tandai untuk ditinjau" */}
-          {/*   onClick={onToggleReport} */}
-          {/* /> */}
-          <StudentBadge size="md" tone={badgeTone}>
+          <Badge size="md" tone={badgeTone}>
             {badgeIcon}
             {badgeLabel}
-          </StudentBadge>
+          </Badge>
         </div>
       </div>
       <div
@@ -358,7 +347,7 @@ function QuizResultQuestionCard({
             correct={option.correct}
             key={option.id}
             label={option.key}
-            selected={selectedOptionIds.includes(option.id)}
+            selected={selectedOptionIdSet.has(option.id)}
             text={option.text}
             textClassName={readingTextClass}
           />
@@ -375,13 +364,13 @@ function QuizResultQuestionCard({
         <Button
           disabled={currentQuestion === 1}
           onClick={onPrevious}
-          variant="brandOutline"
+          variant="outline"
         >
           <ArrowLeft />
           <span className="hidden sm:inline">Sebelumnya</span>
         </Button>
         {currentQuestion < result.totalQuestions ? (
-          <Button onClick={onNext} variant="brand">
+          <Button onClick={onNext} variant="default">
             <span className="hidden sm:inline">Selanjutnya</span>
             <ArrowRight />
           </Button>
@@ -405,7 +394,6 @@ function QuizResultPageModule({
   const router = useRouter();
   const restartRequestIdRef = useRef<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(1);
-  const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<string | null>(null);
   const isAttemptLimitReached =
@@ -414,14 +402,6 @@ function QuizResultPageModule({
   const resultStatLabelClassName = "font-bold tracking-[0.14em] uppercase";
   const readingTextClass = "text-lg leading-[1.85]";
   const explanationTextClass = "text-base leading-7";
-
-  function toggleReport() {
-    setReportedQuestions((current) =>
-      current.includes(currentQuestion)
-        ? current.filter((number) => number !== currentQuestion)
-        : [...current, currentQuestion],
-    );
-  }
 
   async function restartQuiz() {
     if (isRestarting) return;
@@ -460,8 +440,9 @@ function QuizResultPageModule({
   const question = result.questions[currentQuestion - 1];
   if (!question) return null;
   const selectedOptionIds = selectedOptionIdsForQuestion(question);
+  const selectedOptionIdSet = new Set(selectedOptionIds);
   const selectedOptions = question.options.filter((option) =>
-    selectedOptionIds.includes(option.id),
+    selectedOptionIdSet.has(option.id),
   );
   const isCorrect = result.correctnessAvailable && isQuestionCorrect(question);
   const markers = buildQuizResultMarkers(result, currentQuestion);
@@ -511,9 +492,7 @@ function QuizResultPageModule({
           isCorrect={isCorrect}
           onNext={() => setCurrentQuestion((number) => number + 1)}
           onPrevious={() => setCurrentQuestion((number) => number - 1)}
-          onToggleReport={toggleReport}
           question={question}
-          reported={reportedQuestions.includes(currentQuestion)}
           result={result}
           readingTextClass={readingTextClass}
           selectedOptions={selectedOptions}

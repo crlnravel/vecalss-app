@@ -25,11 +25,11 @@ function StudentRowSkeleton() {
 
 export default function EnrollmentLoading() {
   return (
-    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div aria-busy="true" aria-label="Memuat daftar siswa" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+    <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
+      <div aria-busy="true" aria-label="Memuat daftar siswa" className="flex min-h-svh w-full bg-transparent text-secondary-900 lg:gap-2">
         <AdminPortalNav activeSection="students" />
 
-        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
+        <SidebarInset className="min-h-svh min-w-0 !bg-transparent lg:rounded-3xl">
           <AdminLoadingHeader />
 
           <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">

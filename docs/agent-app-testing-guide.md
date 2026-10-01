@@ -17,10 +17,10 @@ This guide defines how AI agents and automated workflows should test the Vecalss
    - **No backups or snapshots are required:** Do not waste effort creating `.dump` files or archival tables before deleting dev data.
    - Whenever you need to restore the standard baseline data, run `./_harness/resource-guard.sh run -- rtk pnpm db:seed`.
 
-3. **`ego-browser` is the Priority Choice for All Browser Operations:**
-   - **All browser usage, browser testing, UI/UX inspection, verification, or anything requiring a browser MUST be done through `ego-browser` (`ego-lite`) as the priority choice.**
-   - Do not use built-in generic browsers, standalone Playwright/Puppeteer instances, or other browser tools when `ego-browser` is available.
-   - Always request explicit user permission before launching `ego-browser`, specifying the target route(s), role, and checklist.
+3. **Dual Browser Strategy (`ego-browser` vs `obscura`):**
+   - **`ego-browser` (`ego-lite`) for User Interaction:** Dedicated priority choice for browser testing that **requires human/user interaction**, visual inspection with the user, or live review. Always request explicit user permission before launching `ego-browser`, specifying the target route(s), role, and checklist.
+   - **`obscura` for Automated & Playwright Testing:** Dedicated headless browser engine for all **automated, headless, and Playwright tests**. Choose Obscura over Chrome/Chromium (`chromium.connectOverCDP('http://127.0.0.1:9222')`). Runs autonomously under the resource guard without requiring user confirmation.
+   - Read the complete reference: [`docs/agent-obscura-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-obscura-guide.md).
 
 4. **Guarded Commands:**
    - All Node, script, and test execution commands must be wrapped with `./_harness/resource-guard.sh run -- rtk <command>`.
@@ -34,6 +34,7 @@ All seeded accounts authenticate through `http://localhost:5023/login`.
 | Role / Persona | Email | Password | Default Redirect | Purpose / Test Scope |
 |---|---|---|---|---|
 | **Admin** | `admin@vecalss.local` | `Admin12345!` | `/admin` | Administration, student enrollment, question bank governance, notification broadcasting, operations |
+| **Developer** | `developer@vecalss.local` | `Developer12345!` | `/developer/reports` | Developer-only report inbox and report details |
 | **Kapten (Tutor)** | `tutor@vecalss.local` | `Tutor12345!` | `/mentor/dashboard` | Mentor workspaces, question bank authoring, tryout package assembly, learning material management |
 | **Voyager (Student - Active)** | `student@vecalss.local` | `Student12345!` | `/dashboard` | Primary student learning journey, module courses (`/courses`), quizzes (`/quiz`), tryout exam delivery (`/tryout`), Vera AI assistant (`/vera-ai`), account settings (`/settings`) |
 | **Student (New / Onboarding)** | `newstudent@vecalss.local` | `TempStudent123!` | `/onboarding` (or `/change-password`) | First-time onboarding flow, compulsory password reset flow, initial diagnostic flows |
@@ -119,13 +120,13 @@ docker compose -f docker-compose.dev.yml ps
 ```
 The server runs at `http://localhost:5023`. Note: keep a maximum of one dev server instance running, and shut it down before handoff.
 
-### Step 4: Browser Verification & Usage (`ego-browser` as Priority Choice)
+### Step 4: Browser Verification & Testing (Dual Strategy)
 
+#### Option 4A: `ego-browser` (When User Interaction / Live Review is Needed)
 > [!IMPORTANT]
-> **Priority Choice: `ego-browser`**
-> All browser usage, browser testing, UI/UX visual inspection, end-to-end verification, or anything requiring a web browser **MUST be done through `ego-browser` (`ego-lite`) as the priority choice**. Do not substitute with built-in browsers or third-party automation tools.
+> **Requires Explicit User Permission First**
+> Use `ego-browser` (`ego-lite`) when verification requires human interaction, live visual inspection with the user, or complex user-driven UI audits.
 
-When conducting browser testing or verification:
 1. **Always ask for explicit user permission first** before launching `ego-browser`:
    - Specify:
      - **Route(s):** e.g., `/login`, `/dashboard`, `/mentor/dashboard`
@@ -134,6 +135,22 @@ When conducting browser testing or verification:
 2. Once approved, launch `ego-browser` and navigate to `http://localhost:5023/login`.
 3. Submit the corresponding seeded credentials for that role.
 4. Verify the automatic redirect to the appropriate portal and perform your test checklist.
+
+#### Option 4B: `obscura` (Automated Headless & Playwright Testing)
+> [!TIP]
+> **Autonomous Execution**
+> Use `obscura` for automated, non-interactive, headless browser testing and Playwright test suites. Obscura is preferred over Chrome/Chromium. No user confirmation is required.
+
+1. Ensure the Obscura server is running:
+   ```bash
+   rtk pnpm obscura:status
+   # If down, start with: pnpm obscura:serve
+   ```
+2. Run automated browser tests using Playwright connected via CDP (`lib/testing/obscura.ts`):
+   ```bash
+   ./_harness/resource-guard.sh run -- rtk pnpm test:obscura-smoke
+   ```
+3. Read [`docs/agent-obscura-guide.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/docs/agent-obscura-guide.md) for code recipes, fixtures, and CDP APIs.
 
 ### Step 5: Automated Domain Tests
 Select the named test script relevant to the feature being tested:

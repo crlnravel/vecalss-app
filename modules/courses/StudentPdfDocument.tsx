@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -85,13 +86,14 @@ function StudentPdfDocument({ file, fullscreen = false, onError, onReady, title 
               />
             ))}
             {visiblePageCount < numPages ? (
-              <button
-                className="min-h-11 rounded-xl border border-[var(--voyage-sea-glass)] bg-white px-4 py-2 text-sm font-semibold text-[var(--voyage-muted-ink)] outline-none hover:bg-[var(--voyage-sea-glass-wash)] focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30"
+              <Button
                 onClick={() => setVisiblePageCount((count) => Math.min(numPages, count + PAGE_BATCH_SIZE))}
+                size="default"
                 type="button"
+                variant="outline"
               >
                 Tampilkan halaman berikutnya ({Math.min(PAGE_BATCH_SIZE, numPages - visiblePageCount)})
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}

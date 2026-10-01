@@ -705,6 +705,7 @@ async function readVersionForResponse(tx: Prisma.TransactionClient, versionId: s
   return tx.reusableQuestionPackageVersion.findUnique({ where: { id: versionId }, include: versionInclude });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retired writer retained for repository boundary invariants.
 async function saveAssemblyDraft(input: SaveAssemblyDraftInput, actorId: string, options: AssemblyActorOptions = {}) {
   const definition = validateAssemblyDefinitionShape(input);
   const isAdmin = options.isAdmin === true;
@@ -825,6 +826,7 @@ async function saveAssemblyDraft(input: SaveAssemblyDraftInput, actorId: string,
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retired writer retained for repository boundary invariants.
 async function readyAssemblyDraft(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
   return prisma.$transaction(async (tx) => {
     const packageRecord = await assertEditablePackage(tx, packageId, actorId, options.isAdmin === true);

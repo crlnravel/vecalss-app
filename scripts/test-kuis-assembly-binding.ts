@@ -93,7 +93,7 @@ assert.match(resultsPage, /redirect\(.*tab=hasil/u);
 assert.match(detailModule, /Preview Soal/u);
 assert.match(detailModule, /Hasil/u);
 assert.match(detailModule, /Pengaturan/u);
-assert.match(detailModule, /FullWidthLineTabsList/u);
+assert.match(detailModule, /FullWidthTabsList/u);
 assert.match(detailModule, /KaptenQuizResultsContent/u);
 assert.match(detailModule, /\/editor/u);
 assert.match(editorModule, /QuestionInventory/u);
