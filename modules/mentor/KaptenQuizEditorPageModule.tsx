@@ -72,12 +72,11 @@ import {
   type QuestionMediaTarget as QuizQuestionMediaTarget,
 } from "@/modules/mentor/components/question-content-editor-helpers";
 import {
-  EditorMobileInventory,
-  EditorQuestionInventory,
   QuestionEditorHeader,
   QuestionEditorPageShell,
   QuestionEditorWorkspace,
 } from "@/modules/mentor/components/question-editor-workspace";
+import { QuizMobileInventory, QuizQuestionInventory } from "@/modules/mentor/components/quiz-question-inventory";
 import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import {
@@ -400,7 +399,23 @@ function useQuizEditorQuestionListActions({
     [editorDisabled, form, markChanged, setForm],
   );
 
-  return { moveQuestion, removeQuestion };
+  const reorderQuestion = useCallback(
+    (questionId: string, targetId: string) => {
+      if (editorDisabled || questionId === targetId) return;
+      const from = form.questions.findIndex((question) => question.id === questionId);
+      const to = form.questions.findIndex((question) => question.id === targetId);
+      if (from < 0 || to < 0) return;
+      const questions = [...form.questions];
+      const [moved] = questions.splice(from, 1);
+      questions.splice(to, 0, moved);
+      const nextForm = { ...form, questions };
+      setForm(nextForm);
+      markChanged(nextForm);
+    },
+    [editorDisabled, form, markChanged, setForm],
+  );
+
+  return { moveQuestion, removeQuestion, reorderQuestion };
 }
 
 function useQuizEditorPersistence({
@@ -933,9 +948,9 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
 
   return (
     <QuestionEditorWorkspace
-      inventory={<EditorQuestionInventory {...inventoryProps} />}
+      inventory={<QuizQuestionInventory {...inventoryProps} onReorder={state.questionActions.reorderQuestion} />}
       mainId="quiz-question-editor-main"
-      mobileInventory={<EditorMobileInventory {...inventoryProps} />}
+      mobileInventory={<QuizMobileInventory {...inventoryProps} onReorder={state.questionActions.reorderQuestion} />}
     >
       <QuizQuestionAreaMain bankPickerDisabled={bankPickerDisabled} state={state} />
     </QuestionEditorWorkspace>
