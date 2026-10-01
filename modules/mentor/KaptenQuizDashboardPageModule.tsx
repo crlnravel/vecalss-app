@@ -4,7 +4,6 @@ import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -37,7 +36,6 @@ import {
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
-  type RowSelectionState,
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -127,30 +125,6 @@ function GridMenu({
     </DropdownMenu>
   );
 }
-function GridCheckbox({
-  checked,
-  mixed = false,
-  onChange,
-  label,
-  disabled = false,
-}: {
-  checked: boolean;
-  mixed?: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <Checkbox
-      aria-label={label}
-      checked={checked}
-      indeterminate={mixed}
-      disabled={disabled}
-      onCheckedChange={onChange}
-    />
-  );
-}
-
 export function KaptenQuizDashboardPageModule({
   session,
   result,
@@ -168,7 +142,6 @@ export function KaptenQuizDashboardPageModule({
 
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [selection, setSelection] = useState<RowSelectionState>({});
   const [createOpen, setCreateOpen] = useState(initialCreateDialogOpen);
   const [archiving, setArchiving] = useState<QuizDashboardRow | null>(null);
   const [saving, setSaving] = useState(false);
@@ -178,7 +151,6 @@ export function KaptenQuizDashboardPageModule({
   const returnHref = quizDashboardHref(query);
   function navigate(patch: Partial<QuizDashboardQuery>) {
     if (pending || saving) return;
-    setSelection({});
     startTransition(() =>
       router.push(quizDashboardHref({ ...query, page: 1, ...patch }), {
         scroll: false,
@@ -203,13 +175,6 @@ export function KaptenQuizDashboardPageModule({
           : action === "show"
             ? "ditampilkan"
             : "diarsipkan";
-      setSelection(
-        Object.fromEntries(
-          response.failed
-            .filter((item) => item.id)
-            .map((item) => [item.id, true]),
-        ),
-      );
       const failures = response.failed.map(
         (item) =>
           `${result.rows.find((row) => row.id === item.id)?.title ?? "Kuis"}: ${item.message}`,
@@ -250,31 +215,6 @@ export function KaptenQuizDashboardPageModule({
   const isNumeric = (id: string) =>
     ["questionCount", "completedAttempts", "averageScore"].includes(id);
   const columns: ColumnDef<QuizDashboardRow>[] = [
-    {
-      id: "select",
-      size: 48,
-      enableHiding: false,
-      enableSorting: false,
-      header: ({ table }) => (
-        <GridCheckbox
-          checked={table.getIsAllPageRowsSelected()}
-          mixed={table.getIsSomePageRowsSelected()}
-          onChange={(checked) => table.toggleAllPageRowsSelected(checked)}
-          label="Pilih semua kuis di halaman ini"
-          disabled={
-            saving || !result.rows.some((row) => row.publication !== "archived")
-          }
-        />
-      ),
-      cell: ({ row }) => (
-        <GridCheckbox
-          checked={row.getIsSelected()}
-          onChange={(checked) => row.toggleSelected(checked)}
-          label={`Pilih ${row.original.title}`}
-          disabled={!row.getCanSelect() || saving}
-        />
-      ),
-    },
     {
       accessorKey: "title",
       size: 350,
@@ -421,11 +361,9 @@ export function KaptenQuizDashboardPageModule({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     state: {
-      rowSelection: selection,
       pagination: { pageIndex: query.page - 1, pageSize: query.pageSize },
     },
-    onRowSelectionChange: setSelection,
-    enableRowSelection: (row) => row.original.publication !== "archived",
+    enableRowSelection: false,
     manualPagination: true,
     enableSorting: false,
     manualFiltering: true,
@@ -697,11 +635,7 @@ export function KaptenQuizDashboardPageModule({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="bg-voyage-surface"
-                  data-state={row.getIsSelected() ? "selected" : undefined}
-                >
+                <TableRow key={row.id} className="bg-voyage-surface">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}

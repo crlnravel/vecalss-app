@@ -215,14 +215,14 @@
   .table {
     min-width: 990px;
   }
-  .table :is(th, td):nth-child(2) {
+  .table :is(th, td):first-child {
     position: sticky;
     left: 0;
     background: inherit;
     z-index: 1;
     box-shadow: 1px 0 var(--voyage-soft-border);
   }
-  .table th:nth-child(2) {
+  .table th:first-child {
     z-index: 2;
   }
 }
