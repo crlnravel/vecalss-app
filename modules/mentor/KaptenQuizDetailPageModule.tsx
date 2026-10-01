@@ -399,7 +399,7 @@ function QuizTitleField({
           size="icon-sm"
           title="Ubah judul Kuis"
           type="button"
-          variant="outline"
+          variant="quiet"
         >
           <Pencil className="size-4" />
         </Button>
@@ -443,7 +443,7 @@ function QuizDescriptionField({
             size="icon-sm"
             title="Ubah deskripsi Kuis"
             type="button"
-            variant="outline"
+            variant="quiet"
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -532,7 +532,7 @@ function QuizSubjectField({
             size="icon-sm"
             title="Ubah subjek Kuis"
             type="button"
-            variant="outline"
+            variant="quiet"
           >
             <Pencil className="size-3.5" />
           </Button>
