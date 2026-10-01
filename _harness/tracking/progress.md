@@ -2,12 +2,12 @@
 
 ## Bank Soal create dialog (2026-10-01)
 
-- Independent behavior review (`ae268ded`) found no actionable correctness or spec issues. Standards review remains pending; browser verification is still unperformed.
+- Independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings; browser verification is still unperformed.
 
 - [x] `f46b489`: use native history to open/close the create modal without server catalogue navigation; synchronize Back/Forward.
 - [x] Suppress persistent unsaved/saving notice in create modal as explicitly requested; preserve creation outcomes and page editor notices.
 - [x] Callback regression failed before fix and passed afterward; `test:mentor-bank-soal-lock-csv-ui`, focused ESLint and diff-check pass.
-- Verification: existing `test:mentor-bank-soal-catalogue-context-menu` fails on a stale caller-level column-visibility assertion already absent in HEAD. Repository lint and production compilation pass; verify stops on unrelated `scripts/test-mentor-teaching-subject.ts:6` fixture missing `QuizDashboardRow.creator`. Dashboard owner notified. Browser UI not verified (Obscura unavailable, ego-browser approval not requested). Independent review replies pending. Three guarded launch groups used; no agent-owned process remains.
+- Verification: existing `test:mentor-bank-soal-catalogue-context-menu` fails on a stale caller-level column-visibility assertion already absent in HEAD. Repository lint and production compilation pass; verify stops on unrelated `scripts/test-mentor-teaching-subject.ts:6` fixture missing `QuizDashboardRow.creator`. Dashboard owner notified. Browser UI not verified (Obscura unavailable, ego-browser approval not requested). Both independent reviews are clear. Three guarded launch groups used; no agent-owned process remains.
 
 ## Primitive standardization and ReUI Avatars (2026-10-01)
 

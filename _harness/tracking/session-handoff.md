@@ -2,14 +2,14 @@
 
 ## Bank Soal create dialog (2026-10-01)
 
-- Follow-up: independent behavior review (`ae268ded`) is complete with no actionable findings; standards review (`5b918078`) remains pending. Review artifact: epic `bank-soal-create-dialog/behavior-review`.
+- Follow-up: independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings. Review artifacts: epic `bank-soal-create-dialog/behavior-review` and `bank-soal-create-dialog/standards-review`.
 
 - User requested that Buat Bank open without refreshing/closing the dialog and that filling the create dialog produce no floating Sonner status notice.
 - `f46b489` updates only Bank Soal catalogue/builder and a callback regression. Native history retains catalogue query context without server remount; popstate synchronizes Back/Forward. Create-modal persistent status is suppressed; save outcomes and full-page editor status are preserved.
 - Guarded `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`: red before fix, green afterward. `pnpm test:mentor-bank-soal-lock-csv-ui`, focused `pnpm exec eslint` on all three files, and diff-check pass.
 - `pnpm test:mentor-bank-soal-catalogue-context-menu` fails on a pre-existing stale caller-level `showColumnVisibility={false}` assertion. `pnpm verify` passes lint/compile, then fails at `scripts/test-mentor-teaching-subject.ts:6` because its fixture lacks `QuizDashboardRow.creator`; dashboard owner notified.
 - Browser UI unverified: Obscura endpoint unavailable; ego-browser approval not requested. Three guarded launch groups used; own process exited and shared lock released.
-- Independent Luna/max standards and behavior reviews are pending from agents `5b918078` and `ae268ded`; they will reply asynchronously. Intent, evidence and reviews live in epic artifact `bank-soal-create-dialog`.
+- Independent Luna/max standards and behavior reviews from agents `5b918078` and `ae268ded` are complete with no actionable findings. Intent, evidence and reviews live in epic artifact `bank-soal-create-dialog`.
 - Other dashboard, design and primitive changes remain with their existing owners. Main task received explicit user approval for `gpt-6.1-sol`; reviews use project-default exact Luna/max.
 
 ## Primitive standardization and ReUI Avatars (2026-10-01)

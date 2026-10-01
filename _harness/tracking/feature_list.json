@@ -6,7 +6,7 @@
       "description": "Open the create dialog without catalogue navigation and suppress persistent page-status notices while filling it.",
       "dependencies": [],
       "status": "complete",
-      "evidence": "f46b489; callback/history/status regression red before fix and green after, lock/import contracts and focused lint pass. Repository lint/compile pass; full verify blocked by unrelated teaching-subject fixture missing creator. Browser UI unverified; independent reviews pending."
+      "evidence": "f46b489; callback/history/status regression red before fix and green after, lock/import contracts and focused lint pass. Repository lint/compile pass; full verify blocked by unrelated teaching-subject fixture missing creator. Browser UI unverified; independent standards and behavior reviews complete with no actionable findings."
     },
     {
       "id": "feat-001",
