@@ -16,6 +16,7 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import type { QuizDashboardMutation } from "@/lib/quiz/mentor-dashboard-repository";
+import { UserCardPopover } from "@/components/ui/user-card-popover";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -89,6 +90,7 @@ const columnLabels: Record<string, string> = {
   completedAttempts: "Pengerjaan",
   averageScore: "Rata-rata",
   publication: "Status",
+  creator: "Pembuat",
   updatedAt: "Perubahan Terakhir",
 };
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
@@ -127,7 +129,7 @@ function GridMenu({
         render={
           <Button
             variant={className === styles.iconButton ? "quiet" : "outline"}
-            size={className === styles.iconButton ? "icon-sm" : "sm"}
+            size={className === styles.iconButton ? "icon-sm" : "xs"}
           />
         }
         className={className}
@@ -252,7 +254,7 @@ export function KaptenQuizDashboardPageModule({
   const columns: ColumnDef<QuizDashboardRow>[] = [
     {
       id: "select",
-      size: 28,
+      size: 40,
       header: ({ table }) => (
         <Checkbox
           aria-label="Pilih semua kuis di halaman ini"
@@ -335,6 +337,11 @@ export function KaptenQuizDashboardPageModule({
       ),
     },
     {
+      accessorKey: "creator",
+      size: 88,
+      cell: ({ row }) => <UserCardPopover {...row.original.creator} />,
+    },
+    {
       accessorKey: "updatedAt",
       size: 180,
       cell: ({ row }) => (
@@ -369,6 +376,7 @@ export function KaptenQuizDashboardPageModule({
           {row.original.publication !== "archived" && (
             <>
               <DropdownMenuItem
+                size="sm"
                 disabled={pending || saving}
                 onClick={() =>
                   mutate(
@@ -381,6 +389,7 @@ export function KaptenQuizDashboardPageModule({
                 {row.original.isHidden ? "Tampilkan" : "Sembunyikan"}
               </DropdownMenuItem>
               <DropdownMenuItem
+                size="sm"
                 variant="destructive"
                 disabled={saving}
                 onClick={() =>
@@ -397,6 +406,7 @@ export function KaptenQuizDashboardPageModule({
             </>
           )}
           <DropdownMenuItem
+            size="sm"
             variant="destructive"
             disabled={pending || saving}
             onClick={() =>
@@ -541,11 +551,15 @@ export function KaptenQuizDashboardPageModule({
                 </>
               }
             >
-              <DropdownMenuItem onClick={() => navigate({ subject: "all" })}>
+              <DropdownMenuItem
+                size="sm"
+                onClick={() => navigate({ subject: "all" })}
+              >
                 Semua subtes
               </DropdownMenuItem>
               {subjects.map((subject) => (
                 <DropdownMenuItem
+                  size="sm"
                   key={subject.code}
                   onClick={() => navigate({ subject: subject.code })}
                 >
@@ -574,6 +588,7 @@ export function KaptenQuizDashboardPageModule({
               }
             >
               <DropdownMenuItem
+                size="sm"
                 onClick={() =>
                   navigate({ status: "", hidden: false, changed: false })
                 }
@@ -582,6 +597,7 @@ export function KaptenQuizDashboardPageModule({
               </DropdownMenuItem>
               {Object.entries(publicationLabels).map(([value, label]) => (
                 <DropdownMenuItem
+                  size="sm"
                   key={value}
                   onClick={() =>
                     navigate({
@@ -606,6 +622,7 @@ export function KaptenQuizDashboardPageModule({
                 trigger={<MoreHorizontal size={16} />}
               >
                 <DropdownMenuItem
+                  size="sm"
                   disabled={hasArchivedSelection || pending || saving}
                   onClick={() => mutate(selectedIds, "hide")}
                 >
@@ -613,6 +630,7 @@ export function KaptenQuizDashboardPageModule({
                   Sembunyikan
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  size="sm"
                   disabled={hasArchivedSelection || pending || saving}
                   onClick={() =>
                     setConfirmation({
@@ -627,6 +645,7 @@ export function KaptenQuizDashboardPageModule({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  size="sm"
                   variant="destructive"
                   disabled={pending || saving}
                   onClick={() =>
@@ -728,7 +747,7 @@ export function KaptenQuizDashboardPageModule({
                     <TableHead
                       key={header.id}
                       scope="col"
-                      className={`${fieldLabelClassName} text-[12px] ${header.column.id === "select" ? "px-0" : ""}`}
+                      className={`${fieldLabelClassName} text-[12px] ${header.column.id === "select" ? styles.selectionCell : header.column.id === "title" ? styles.titleCell : ""}`}
                       data-numeric={isNumeric(header.column.id)}
                       title={
                         header.column.id === "completedAttempts"
@@ -759,7 +778,11 @@ export function KaptenQuizDashboardPageModule({
                     <TableCell
                       key={cell.id}
                       className={
-                        cell.column.id === "select" ? "px-0" : undefined
+                        cell.column.id === "select"
+                          ? styles.selectionCell
+                          : cell.column.id === "title"
+                            ? styles.titleCell
+                            : undefined
                       }
                       data-numeric={isNumeric(cell.column.id)}
                     >
@@ -835,6 +858,7 @@ export function KaptenQuizDashboardPageModule({
             >
               {[6, 10, 20, 50].map((size) => (
                 <DropdownMenuItem
+                  size="sm"
                   key={size}
                   onClick={() => navigate({ pageSize: size })}
                 >

@@ -339,6 +339,11 @@ export const primitiveInventory = [
   { source: "components/ui/mode-card-tabs.tsx", category: "navigation", kind: "component", demoId: "specialty-tabs" },
   { source: "components/ui/pagination.tsx", category: "navigation", kind: "component", demoId: "breadcrumbs-pagination" },
   { source: "components/ui/popover.tsx", category: "surfaces", kind: "component", demoId: "popovers-tooltips" },
+  {
+    source: "components/ui/user-card-popover.tsx", category: "surfaces", kind: "component", demoId: "popovers-tooltips",
+    relatedSources: ["components/ui/avatar.tsx", "components/ui/popover.tsx", "components/ui/button.tsx"],
+    defaultNotes: { content: "Avatar membuka kartu nama dan subjek opsional. Tanpa tanda verifikasi atau kehadiran; foto yang tidak tersedia memakai inisial.", trigger: "Avatar 32px dalam tombol quiet 44px; nama 14px dan subjek 12px. Lebar kartu mengikuti isi dan batas viewport." },
+  },
   { source: "components/ui/progress.tsx", category: "feedback", kind: "component", demoId: "progress-skeleton" },
   { source: "components/ui/radio-group.tsx", category: "forms", kind: "component", demoId: "choice-controls" },
   { source: "components/ui/radio-pill-group.tsx", category: "forms", kind: "component", demoId: "choice-controls" },

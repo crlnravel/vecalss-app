@@ -1,5 +1,7 @@
 "use client";
 
+import { UserCardPopover } from "@/components/ui/user-card-popover";
+
 import { useState, type ReactNode } from "react";
 
 import { AccordionList } from "@/components/ui/accordion";
@@ -346,6 +348,9 @@ export function PopoversTooltipsPreview() {
   return (
     <TooltipProvider>
       <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <UserCardPopover name="Nadia Prameswari" subject="Penalaran Umum" />
+        <UserCardPopover name="Aditya Pratama" subject="Pengetahuan dan Pemahaman Umum" />
+        <UserCardPopover name="Kapten Vecalss" />
         <Popover>
           <PopoverTrigger render={<Button type="button" variant="outline" />}>
             Periode: {period}

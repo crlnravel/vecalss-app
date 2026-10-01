@@ -50,8 +50,8 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
   {
     id: "popovers-tooltips",
     title: "Popover & Tooltip",
-    description: "Popover pilihan periode dan tooltip dengan posisi berbeda, memakai primitive bersama.",
-    sources: ["components/ui/popover.tsx", "components/ui/tooltip.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts"],
+    description: "Kartu pengguna lewat avatar (nama dan subjek), pilihan periode, serta tooltip dengan posisi berbeda.",
+    sources: ["components/ui/user-card-popover.tsx", "components/ui/avatar.tsx", "components/ui/popover.tsx", "components/ui/tooltip.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts"],
     preview: <PopoversTooltipsPreview />,
   },
   {

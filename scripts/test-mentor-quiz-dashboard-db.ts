@@ -115,6 +115,16 @@ async function run() {
         }
         const rows = await getMentorQuizDashboardRows(tutor.id, tx);
         const result = rows.find((row) => row.id === quiz.id)!;
+        assert.equal(result.creator.name, tutor.fullName);
+        assert.equal(result.creator.avatarSrc, tutor.avatarUrl);
+        const profile = await tx.tutorProfile.findUnique({
+          where: { userId: tutor.id },
+          select: { teachingSubject: { select: { name: true } } },
+        });
+        assert.equal(
+          result.creator.subject,
+          profile?.teachingSubject?.name ?? null,
+        );
         assert.equal(result.publication, "published");
         assert.equal(result.isHidden, true);
         assert.equal(result.hasUnpublishedChanges, true);

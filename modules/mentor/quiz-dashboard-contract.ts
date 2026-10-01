@@ -5,6 +5,7 @@ export type QuizDashboardRow = {
   editingTitle: string;
   subjectCode: string;
   subjectName: string;
+  creator: { name: string; avatarSrc: string | null; subject: string | null };
   questionCount: number;
   completedAttempts: number;
   averageScore: number | null;

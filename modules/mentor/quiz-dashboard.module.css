@@ -72,7 +72,6 @@
 }
 .viewport {
   width: 100%;
-  padding-inline: 20px;
   overflow-x: auto;
   contain: layout paint;
   overscroll-behavior-x: contain;
@@ -87,6 +86,13 @@
   text-align: left;
   font-size: 14px;
   line-height: 20px;
+}
+.selectionCell {
+  padding-left: 20px;
+  padding-right: 0;
+}
+.titleCell {
+  padding-left: 8px;
 }
 .table :is(th, td)[data-numeric="true"] {
   text-align: right;
@@ -197,9 +203,11 @@
   .canvas {
     padding: 16px !important;
   }
-  .viewport,
   .chips {
     padding-inline: 16px;
+  }
+  .selectionCell {
+    padding-left: 16px;
   }
   .toolbar {
     padding: 12px 16px;

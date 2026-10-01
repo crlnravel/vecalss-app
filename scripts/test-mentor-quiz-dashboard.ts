@@ -16,6 +16,7 @@ const row = (
   editingTitle: `Kuis ${id}`,
   subjectCode: "PU",
   subjectName: "Penalaran Umum",
+  creator: { name: "Kapten", avatarSrc: null, subject: "Penalaran Umum" },
   questionCount: 3,
   completedAttempts: 0,
   averageScore: null,

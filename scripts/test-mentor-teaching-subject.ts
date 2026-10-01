@@ -5,6 +5,7 @@ import { parseQuizDashboardQuery, queryQuizDashboard, quizDashboardHref, quizDas
 
 const rows: QuizDashboardRow[] = ["PU", "PK"].map((subjectCode) => ({
   id: subjectCode, title: subjectCode, editingTitle: subjectCode,
+  creator: { name: "Kapten", avatarSrc: null, subject: null },
   subjectCode, subjectName: subjectCode, questionCount: 1, completedAttempts: 0,
   averageScore: null, publication: "published", isHidden: false,
   hasUnpublishedChanges: false, updatedAt: "2026-10-01T00:00:00.000Z",

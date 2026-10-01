@@ -14,7 +14,7 @@ export async function getMentorQuizDashboardRows(
   tutorId: string,
   client: Prisma.TransactionClient = prisma,
 ): Promise<QuizDashboardRow[]> {
-  const [records, summaries] = await Promise.all([
+  const [records, summaries, creator] = await Promise.all([
     getMentorQuizCatalogueRecords(tutorId, client),
     client.$queryRaw<
       { quizId: string; completed: bigint; average: number | null }[]
@@ -36,10 +36,25 @@ export async function getMentorQuizDashboardRows(
       SELECT quiz_id AS "quizId", SUM(completed)::bigint AS completed, AVG(final_score)::float8 AS average
       FROM participation_scores GROUP BY quiz_id
     `),
+    client.user.findUniqueOrThrow({
+      where: { id: tutorId },
+      select: {
+        fullName: true,
+        avatarUrl: true,
+        tutorProfile: {
+          select: { teachingSubject: { select: { name: true } } },
+        },
+      },
+    }),
   ]);
   const byQuiz = new Map(summaries.map((summary) => [summary.quizId, summary]));
   return records.map((record) => ({
     ...record,
+    creator: {
+      name: creator.fullName,
+      avatarSrc: creator.avatarUrl,
+      subject: creator.tutorProfile?.teachingSubject?.name ?? null,
+    },
     completedAttempts: Number(byQuiz.get(record.id)?.completed ?? 0),
     averageScore: byQuiz.get(record.id)?.average ?? null,
   }));
