@@ -22,6 +22,8 @@ The login email is account information. It is not editable here because it is th
 
 There is no settings search and no disabled account-ID input. The local navigation becomes a horizontal pair on compact screens; rows stack their labels above values and controls.
 
+Each section has one outer border, with horizontal separators between its header, rows, and actions. Row labels share one typography style. Section subtitles and redundant field explanations are omitted; only the email editing limitation and account-ID guidance remain as smaller supporting text beside their values.
+
 ## User interactions and states
 
 - Editing the name marks the draft dirty and displays **Ada perubahan yang belum disimpan**.

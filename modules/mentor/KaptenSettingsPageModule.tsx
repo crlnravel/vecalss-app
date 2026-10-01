@@ -2,10 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import {
-  REFERENCE_CONTROL_CLASS_NAMES,
-  REFERENCE_FIELD_LABEL_CLASS_NAME,
-} from "@/components/dashboard/reference-dashboard-tokens";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,36 +16,35 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import { saveKaptenSettingsAction } from "@/modules/mentor/settings-actions";
 import type { KaptenSettings } from "@/modules/mentor/settings-types";
 
+const SETTINGS_LABEL_CLASS_NAME = "text-sm font-medium leading-6 text-voyage-ink";
+
 function SettingsPanel({
   children,
-  description,
   id,
   title,
 }: {
   children: ReactNode;
-  description: string;
   id: string;
   title: string;
 }) {
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 scroll-mt-28 rounded-2xl border border-voyage-soft-border bg-voyage-surface" id={id}>
-      <header className="px-5 py-4">
-        <h2 className="text-sm font-semibold text-voyage-ink" id={`${id}-title`}>{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-voyage-muted-ink">{description}</p>
+      <header className="border-b border-voyage-soft-border px-5 py-4">
+        <h2 className="text-sm font-semibold leading-6 text-voyage-ink" id={`${id}-title`}>{title}</h2>
       </header>
       {children}
     </section>
   );
 }
 
-function AccountRow({ children, description, title }: { children: ReactNode; description: string; title: string }) {
+function AccountRow({ children, description, title }: { children: ReactNode; description?: string; title: string }) {
   return (
     <div className="grid min-w-0 gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
-      <dt>
-        <span className="text-sm font-medium text-voyage-ink">{title}</span>
-        <span className="mt-1 block text-sm leading-6 text-voyage-muted-ink">{description}</span>
-      </dt>
-      <dd className="min-w-0 text-sm leading-6 text-voyage-ink">{children}</dd>
+      <dt className={SETTINGS_LABEL_CLASS_NAME}>{title}</dt>
+      <dd className="min-w-0 text-sm leading-6 text-voyage-ink">
+        {children}
+        {description ? <p className="mt-1 text-xs leading-5 text-voyage-muted-ink">{description}</p> : null}
+      </dd>
     </div>
   );
 }
@@ -159,41 +155,35 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
         </nav>
 
         <div className="grid min-w-0 gap-4">
-          <SettingsPanel description="Kelola nama yang ditampilkan di akun Anda." id="profil" title="Profil">
+          <SettingsPanel id="profil" title="Profil">
             <form aria-busy={saving} onSubmit={handleSubmit}>
-              <div className="mx-1 overflow-hidden rounded-xl border border-voyage-soft-border">
-                <Field className="grid gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
-                  <div>
-                    <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-profile-name" required>Nama profil</FieldLabel>
-                    <p className="mt-1 text-sm leading-6 text-voyage-muted-ink" id="kapten-profile-name-help">Nama ini juga tampil di menu akun.</p>
+              <Field className="grid gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
+                <FieldLabel className={SETTINGS_LABEL_CLASS_NAME} htmlFor="kapten-profile-name" required>Nama profil</FieldLabel>
+                <FieldInput
+                  aria-describedby={error?.field === "profileName" ? "kapten-profile-name-error" : undefined}
+                  aria-invalid={error?.field === "profileName"}
+                  autoComplete="name"
+                  className={REFERENCE_CONTROL_CLASS_NAMES.input}
+                  disabled={saving}
+                  id="kapten-profile-name"
+                  maxLength={160}
+                  name="profileName"
+                  onChange={(event) => { setProfileName(event.target.value); setStatus("idle"); setError(null); }}
+                  required
+                  value={profileName}
+                />
+                {error?.field === "profileName" ? (
+                  <div className="sm:col-start-2">
+                    <FieldError error={error.message} id="kapten-profile-name-error" />
                   </div>
-                  <FieldInput
-                    aria-describedby={error?.field === "profileName" ? "kapten-profile-name-help kapten-profile-name-error" : "kapten-profile-name-help"}
-                    aria-invalid={error?.field === "profileName"}
-                    autoComplete="name"
-                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
-                    disabled={saving}
-                    id="kapten-profile-name"
-                    maxLength={160}
-                    name="profileName"
-                    onChange={(event) => { setProfileName(event.target.value); setStatus("idle"); setError(null); }}
-                    required
-                    value={profileName}
-                  />
-                  {error?.field === "profileName" ? (
-                    <div className="sm:col-start-2">
-                      <FieldError error={error.message} id="kapten-profile-name-error" />
-                    </div>
-                  ) : null}
-                </Field>
-                <dl className="border-t border-voyage-soft-border">
-                  <AccountRow description="Digunakan untuk masuk ke akun Anda." title="Email login">
-                    <span className="break-all">{savedSettings.email}</span>
-                  </AccountRow>
-                </dl>
-                <p className="border-t border-voyage-soft-border px-5 py-4 text-sm leading-6 text-voyage-muted-ink">Email login belum dapat diubah dari halaman ini.</p>
-              </div>
-              <footer className="flex flex-wrap items-center justify-end gap-4 px-4 py-4">
+                ) : null}
+              </Field>
+              <dl className="border-t border-voyage-soft-border">
+                <AccountRow description="Email login tidak dapat diubah di sini." title="Email login">
+                  <span className="break-all">{savedSettings.email}</span>
+                </AccountRow>
+              </dl>
+              <footer className="flex flex-wrap items-center justify-end gap-4 border-t border-voyage-soft-border px-5 py-4">
                 <div className="mr-auto min-w-0 flex-1 basis-full text-sm leading-6 sm:basis-auto">
                   {error && !error.field ? <p className="text-student-status-danger-fg" role="alert">{error.message}</p> : (
                     <p aria-live="polite" className={status === "saved" && !dirty ? "flex items-center gap-2 text-voyage-deep" : "text-voyage-muted-ink"}>
@@ -208,9 +198,9 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
             </form>
           </SettingsPanel>
 
-          <SettingsPanel description="Detail akun Anda di Vecalss." id="informasi-akun" title="Informasi akun">
-            <dl className="mx-1 mb-1 divide-y divide-voyage-soft-border overflow-hidden rounded-xl border border-voyage-soft-border">
-              <AccountRow description="Peran Anda dalam ruang kerja Vecalss." title="Peran akun">Kapten</AccountRow>
+          <SettingsPanel id="informasi-akun" title="Informasi akun">
+            <dl className="divide-y divide-voyage-soft-border">
+              <AccountRow title="Peran akun">Kapten</AccountRow>
               <AccountRow description="Sertakan ID ini saat melaporkan kendala akun." title="ID akun">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="min-w-0 flex-1 break-all select-all">{savedSettings.userId}</span>
