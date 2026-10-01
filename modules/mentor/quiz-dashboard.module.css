@@ -107,13 +107,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.sort {
-  padding-inline: 0;
-}
-.sort svg {
-  width: 12px;
-  height: 12px;
-}
 .iconButton {
   flex-shrink: 0;
 }

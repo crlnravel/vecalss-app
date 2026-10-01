@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDown, Funnel } from "@phosphor-icons/react";
+import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,8 +42,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
   Archive,
   Check,
   ChevronDown,
@@ -115,11 +113,7 @@ function GridMenu({
       <DropdownMenuTrigger
         render={
           <Button
-            variant={
-              className === styles.iconButton || className === styles.sort
-                ? "quiet"
-                : "outline"
-            }
+            variant={className === styles.iconButton ? "quiet" : "outline"}
             size={className === styles.iconButton ? "icon-sm" : "sm"}
           />
         }
@@ -252,8 +246,6 @@ export function KaptenQuizDashboardPageModule({
       setSaving(false);
     }
   }
-  const isActiveSort = (id: string) =>
-    query.sort === id || (id === "title" && query.sort === "updatedAt");
   const isNumeric = (id: string) =>
     ["questionCount", "completedAttempts", "averageScore"].includes(id);
   const columns: ColumnDef<QuizDashboardRow>[] = [
@@ -429,13 +421,12 @@ export function KaptenQuizDashboardPageModule({
     getRowId: (row) => row.id,
     state: {
       rowSelection: selection,
-      sorting: [{ id: query.sort, desc: query.direction === "desc" }],
       pagination: { pageIndex: query.page - 1, pageSize: query.pageSize },
     },
     onRowSelectionChange: setSelection,
     enableRowSelection: (row) => row.original.publication !== "archived",
     manualPagination: true,
-    manualSorting: true,
+    enableSorting: false,
     manualFiltering: true,
     pageCount: result.pageCount,
     autoResetPageIndex: false,
@@ -688,15 +679,6 @@ export function KaptenQuizDashboardPageModule({
                       key={header.id}
                       scope="col"
                       data-numeric={isNumeric(header.column.id)}
-                      aria-sort={
-                        header.column.getCanSort()
-                          ? isActiveSort(header.column.id)
-                            ? query.direction === "asc"
-                              ? "ascending"
-                              : "descending"
-                            : "none"
-                          : undefined
-                      }
                       title={
                         header.column.id === "completedAttempts"
                           ? "Jumlah pengerjaan yang sudah selesai"
@@ -705,73 +687,11 @@ export function KaptenQuizDashboardPageModule({
                             : undefined
                       }
                     >
-                      {header.column.getCanSort() ? (
-                        <GridMenu
-                          className={styles.sort}
-                          label={`Urutkan ${columnLabels[header.column.id]}`}
-                          trigger={
-                            <>
-                              {columnLabels[header.column.id]}
-                              {isActiveSort(header.column.id) ? (
-                                query.direction === "desc" ? (
-                                  <ArrowDown />
-                                ) : (
-                                  <ArrowUp />
-                                )
-                              ) : (
-                                <CaretUpDown />
-                              )}
-                            </>
-                          }
-                        >
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigate({
-                                sort: header.column
-                                  .id as QuizDashboardQuery["sort"],
-                                direction: "asc",
-                              })
-                            }
-                          >
-                            <ArrowUp />
-                            Urutkan naik
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigate({
-                                sort: header.column
-                                  .id as QuizDashboardQuery["sort"],
-                                direction: "desc",
-                              })
-                            }
-                          >
-                            <ArrowDown />
-                            Urutkan turun
-                          </DropdownMenuItem>
-                          {header.column.id === "title" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  navigate({
-                                    sort: "updatedAt",
-                                    direction: "desc",
-                                  })
-                                }
-                              >
-                                <ArrowDown />
-                                Terakhir diubah
-                                {query.sort === "updatedAt" && <Check />}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </GridMenu>
-                      ) : (
+                      {columnLabels[header.column.id] ??
                         flexRender(
                           header.column.columnDef.header,
                           header.getContext(),
-                        )
-                      )}
+                        )}
                     </TableHead>
                   ))}
                 </TableRow>
