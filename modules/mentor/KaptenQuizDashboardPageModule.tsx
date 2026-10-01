@@ -3,6 +3,7 @@
 import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -88,6 +89,7 @@ const columnLabels: Record<string, string> = {
   completedAttempts: "Pengerjaan",
   averageScore: "Rata-rata",
   publication: "Status",
+  updatedAt: "Perubahan Terakhir",
 };
 const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -245,7 +247,7 @@ export function KaptenQuizDashboardPageModule({
   const columns: ColumnDef<QuizDashboardRow>[] = [
     {
       id: "select",
-      size: 48,
+      size: 28,
       header: ({ table }) => (
         <Checkbox
           aria-label="Pilih semua kuis di halaman ini"
@@ -279,19 +281,6 @@ export function KaptenQuizDashboardPageModule({
           >
             {row.original.title}
           </Link>
-          <span className={styles.secondary}>
-            Diperbarui{" "}
-            <time
-              dateTime={row.original.updatedAt}
-              title={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
-              aria-label={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
-            >
-              {dateFormatter.format(new Date(row.original.updatedAt))}
-            </time>
-            {row.original.hasUnpublishedChanges && (
-              <span className={styles.change}> · Ada perubahan</span>
-            )}
-          </span>
         </>
       ),
     },
@@ -336,6 +325,26 @@ export function KaptenQuizDashboardPageModule({
           </Badge>
           {row.original.isHidden && (
             <span className={styles.secondary}>Disembunyikan</span>
+          )}
+        </>
+      ),
+    },
+    {
+      accessorKey: "updatedAt",
+      size: 180,
+      cell: ({ row }) => (
+        <>
+          <time
+            dateTime={row.original.updatedAt}
+            title={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
+            aria-label={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
+          >
+            {dateFormatter.format(new Date(row.original.updatedAt))}
+          </time>
+          {row.original.hasUnpublishedChanges && (
+            <span className={`${styles.secondary} ${styles.change}`}>
+              Ada perubahan
+            </span>
           )}
         </>
       ),
@@ -714,6 +723,7 @@ export function KaptenQuizDashboardPageModule({
                     <TableHead
                       key={header.id}
                       scope="col"
+                      className={`${fieldLabelClassName} text-[12px] ${header.column.id === "select" ? "px-0" : ""}`}
                       data-numeric={isNumeric(header.column.id)}
                       title={
                         header.column.id === "completedAttempts"
@@ -743,6 +753,9 @@ export function KaptenQuizDashboardPageModule({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
+                      className={
+                        cell.column.id === "select" ? "px-0" : undefined
+                      }
                       data-numeric={isNumeric(cell.column.id)}
                     >
                       {flexRender(
