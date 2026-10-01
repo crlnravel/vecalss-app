@@ -216,14 +216,14 @@ function AuditFilterPanel({
         <div className="flex w-full items-center gap-1.5 pt-4 pb-1">
           <Link
             className={cn(
-              buttonVariants({ size: "sm", variant: "ghost" }),
+              buttonVariants({ size: "sm", variant: "outline" }),
               "min-w-0 flex-1",
             )}
             href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
           >
             Hapus filter
           </Link>
-          <Button className="min-w-28 flex-none" size="sm" type="submit" variant="brand">
+          <Button className="min-w-28 flex-none" size="sm" type="submit" variant="default">
             Terapkan
           </Button>
         </div>
@@ -391,7 +391,7 @@ function AuditLogsPageModule({
           className="min-w-0 max-w-full justify-start overflow-hidden px-0 text-left font-semibold text-primary-700 hover:bg-transparent hover:text-primary-900 hover:underline"
           onClick={() => setSelectedUser(entry)}
           type="button"
-          variant="link"
+          variant="outline"
         >
           <span className="block min-w-0 truncate">{entry.actorName}</span>
         </Button>
@@ -470,9 +470,9 @@ function AuditLogsPageModule({
             <footer className="flex flex-col gap-3 border-t border-primary-100 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-xs text-secondary-600">Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}</p>
               <nav aria-label="Halaman riwayat audit" className="flex items-center gap-2">
-                 {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Sebelumnya</Link> : null}
+                 {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "outline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Sebelumnya</Link> : null}
                  <span aria-current="page" className="inline-flex min-h-11 items-center rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Halaman {page} dari {pageCount}</span>
-                 {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Berikutnya</Link> : null}
+                 {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "outline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Berikutnya</Link> : null}
               </nav>
             </footer>
           ) : null}

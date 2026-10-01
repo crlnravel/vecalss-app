@@ -153,7 +153,7 @@ function PortalShell({
               </div>
                 <form action={logoutAction}>
                 <input name="audience" type="hidden" value={audience} />
-                <Button size="default" type="submit" variant="brandOutline">
+                <Button size="default" type="submit" variant="outline">
                   Log out
                 </Button>
               </form>

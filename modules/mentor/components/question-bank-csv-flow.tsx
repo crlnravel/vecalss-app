@@ -423,7 +423,7 @@ function QuestionBankCsvDraftStatus({
         onClick={onRemove}
         size="sm"
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         Hapus file
       </Button>
@@ -488,7 +488,7 @@ function QuestionBankCsvDraftImportControl({
         disabled={disabled}
         onClick={() => setOpen(true)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
         Impor dari CSV
@@ -541,7 +541,7 @@ function QuestionBankCsvDraftImportControl({
             <Button
               onClick={() => handleOpenChange(false)}
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Batal
             </Button>
@@ -549,7 +549,7 @@ function QuestionBankCsvDraftImportControl({
               disabled={disabled || !canApply}
               onClick={applyDraft}
               type="button"
-              variant="brand"
+              variant="default"
             >
               Gunakan soal ini
             </Button>
@@ -582,7 +582,7 @@ function QuestionBankCsvImportControl({
         disabled={disabled || !editLease}
         onClick={() => setOpen(true)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
         Unggah file CSV
@@ -816,7 +816,7 @@ function QuestionBankCsvImportDialog({
             disabled={isApplying}
             onClick={() => closeDialog(false)}
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             Batal
           </Button>
@@ -826,7 +826,7 @@ function QuestionBankCsvImportDialog({
             disabled={!canApply}
             onClick={() => void apply()}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying
               ? "Menerapkan…"
@@ -977,7 +977,7 @@ function QuestionBankCsvExportAction({
         disabled={disabled || isExporting}
         onClick={() => void exportCsv()}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Download data-icon="inline-start" />
         {isExporting ? "Menyiapkan file…" : "Unduh soal"}

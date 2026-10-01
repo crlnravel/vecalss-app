@@ -54,7 +54,7 @@ function KaptenQuizSubmissionPageModule({
           }
           size="icon"
           title="Kembali ke hasil Kuis"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>

@@ -48,9 +48,9 @@ export function AiRefreshBar({
         disabled={isLoading}
         onClick={onRefresh}
         type="button"
-        variant="reference"
+        variant="outline"
         size="sm"
-        className="min-h-11 gap-1.5 rounded-xl px-3 text-xs font-semibold"
+        className="min-h-11 gap-1.5  px-3 text-xs font-semibold"
       >
         <RefreshCw className={cn("size-3.5", isLoading && "animate-spin motion-reduce:animate-none")} />
         <span>Segarkan</span>

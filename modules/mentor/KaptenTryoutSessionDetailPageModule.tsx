@@ -34,7 +34,7 @@ import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
 import { ChevronLeft } from "@/lib/icons";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
-import { HelpFieldLabel, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
 
 type Confirmation = "open" | null;
@@ -56,9 +56,9 @@ type SessionSchedule = { availableFrom: string; availableUntil: string };
 function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolean; delivery: DeliverySession; initial: TryoutOperationsView; onOpen: () => void }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}?workspace=operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="ghost"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
+      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}?workspace=operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="outline"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
       <ReferencePageHeader
-        actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="brand">Buka sesi</Button> : null}</div>}
+        actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="default">Buka sesi</Button> : null}</div>}
         className="min-w-0 flex-1"
         title={delivery.name}
       />
@@ -69,6 +69,7 @@ function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolea
 function SessionScheduleCard({
   onScheduleChange,
   onSave,
+  validationMessage,
   schedule,
   scheduleBusy,
   scheduleChanged,
@@ -85,6 +86,7 @@ function SessionScheduleCard({
   scheduleBusy: boolean;
   scheduleChanged: boolean;
   scheduleLocked: boolean;
+  validationMessage?: string | null;
   title?: string;
 }) {
   return (
@@ -100,21 +102,22 @@ function SessionScheduleCard({
           {title}
         </h3>
         {onOpen ? (
-          <Button disabled={openBusy} onClick={onOpen} variant="brand">
+          <Button disabled={openBusy} onClick={onOpen} variant="default">
             Buka sesi
           </Button>
         ) : null}
       </header>
       <div className="mt-6 grid gap-6">
         <div className="grid gap-5 text-sm md:grid-cols-2">
-          <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
-          <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." /><FieldInput aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
+          <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
+          <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
         </div>
+        {validationMessage ? <p className="text-sm text-student-status-danger-fg" id="session-detail-schedule-error" role="alert">{validationMessage}</p> : null}
         <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-sm">
             {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p> : null}
           </div>
-          <Button disabled={scheduleLocked || scheduleBusy || !scheduleChanged} onClick={onSave} variant="reference">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>
+          <Button disabled={scheduleLocked || scheduleBusy || !scheduleChanged} onClick={onSave} variant="outline">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>
         </div>
       </div>
     </section>
@@ -142,13 +145,13 @@ function SessionAttemptRow({ attempt, tryoutId }: { attempt: DeliverySession["at
   const completedRuns = attempt.runs.filter((run) => run.status === "sealed").length;
   const statusLabel = attemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
   const statusTone = ["scored", "submitted", "auto_submitted"].includes(attempt.attemptState) ? "bg-primary-700" : "bg-voyage-warm-sun";
-  return <TableRow className="border-primary-100 hover:bg-secondary-50/70"><TableCell className="px-4 py-3.5 sm:px-5"><span className="font-medium text-secondary-900">{attempt.student}</span></TableCell><TableCell className="px-4 py-3.5 text-secondary-700 sm:px-5">{completedRuns}/7</TableCell><TableCell className="px-4 py-3.5 font-medium text-secondary-900 sm:px-5">{attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}</TableCell><TableCell className="px-4 py-3.5 sm:px-5"><span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 rounded-full ${statusTone}`} />{statusLabel}</span></TableCell><TableCell className="px-4 py-3.5 text-right sm:px-5"><Button nativeButton={false} render={<Link href={`/mentor/tryout/${tryoutId}/operations/attempts/${attempt.id}`} />} size="sm" variant="ghost">Lihat</Button></TableCell></TableRow>;
+  return <TableRow className="border-primary-100 hover:bg-secondary-50/70"><TableCell className="px-4 py-3.5 sm:px-5"><span className="font-medium text-secondary-900">{attempt.student}</span></TableCell><TableCell className="px-4 py-3.5 text-secondary-700 sm:px-5">{completedRuns}/7</TableCell><TableCell className="px-4 py-3.5 font-medium text-secondary-900 sm:px-5">{attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}</TableCell><TableCell className="px-4 py-3.5 sm:px-5"><span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 rounded-full ${statusTone}`} />{statusLabel}</span></TableCell><TableCell className="px-4 py-3.5 text-right sm:px-5"><Button nativeButton={false} render={<Link href={`/mentor/tryout/${tryoutId}/operations/attempts/${attempt.id}`} />} size="sm" variant="outline">Lihat</Button></TableCell></TableRow>;
 }
 
 function SessionOpenDialog({ busy, onConfirm, onOpenChange, open }: { busy: boolean; onConfirm: () => void; onOpenChange: (open: boolean) => void; open: boolean }) {
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
-      <AlertDialogContent variant="info"><AlertDialogHeader><AlertDialogTitle>Buka sesi?</AlertDialogTitle><AlertDialogDescription>Peserta yang ditugaskan dapat mengakses sesi sesuai jadwal.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); onConfirm(); }} variant="brand">{busy ? "Memproses…" : "Buka sesi"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      <AlertDialogContent variant="info"><AlertDialogHeader><AlertDialogTitle>Buka sesi?</AlertDialogTitle><AlertDialogDescription>Peserta yang ditugaskan dapat mengakses sesi sesuai jadwal.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); onConfirm(); }} variant="default">{busy ? "Memproses…" : "Buka sesi"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
   );
 }
@@ -244,14 +247,14 @@ function KaptenTryoutSessionDetailPageModule({
   if (embedded) {
     return (
       <>
-        <OperationNotice message={validationNotice} />
         <SessionScheduleCard
           onSave={() => void handleScheduleSave()}
-          onScheduleChange={setSchedule}
+          onScheduleChange={(next) => { setSchedule(next); setValidationNotice(null); }}
           schedule={schedule}
           scheduleBusy={scheduleBusy}
           scheduleChanged={scheduleChanged}
           scheduleLocked={scheduleLocked}
+          validationMessage={validationNotice}
           onOpen={initial.status === "published" && delivery.status === "draft" ? () => setConfirmation("open") : undefined}
           openBusy={busy}
           title="Waktu akses peserta"
@@ -271,8 +274,7 @@ function KaptenTryoutSessionDetailPageModule({
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <SessionDetailHeader busy={busy} delivery={delivery} initial={initial} onOpen={() => setConfirmation("open")} />
-      <OperationNotice message={validationNotice} />
-      <SessionScheduleCard onSave={() => void handleScheduleSave()} onScheduleChange={setSchedule} schedule={schedule} scheduleBusy={scheduleBusy} scheduleChanged={scheduleChanged} scheduleLocked={scheduleLocked} />
+      <SessionScheduleCard onSave={() => void handleScheduleSave()} onScheduleChange={(next) => { setSchedule(next); setValidationNotice(null); }} schedule={schedule} scheduleBusy={scheduleBusy} scheduleChanged={scheduleChanged} scheduleLocked={scheduleLocked} validationMessage={validationNotice} />
       <SessionAttemptsTable delivery={delivery} tryoutId={initial.id} />
       <SessionOpenDialog busy={busy} onConfirm={() => void handleConfirm()} onOpenChange={(open) => { if (!open && !busy) setConfirmation(null); }} open={Boolean(confirmation)} />
     </main>

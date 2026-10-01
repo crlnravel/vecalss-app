@@ -31,10 +31,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
+import { Badge } from "@/components/ui/badge";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
@@ -83,7 +83,7 @@ import {
 } from "@/modules/mentor/resource-edit-lock-provider";
 
 type ConfirmationRequest = {
-  actionVariant?: "brand" | "destructive";
+  actionVariant?: "default" | "destructive";
   confirmLabel: string;
   description: string;
   dialogVariant?: "default" | "info" | "warning" | "danger" | "success";
@@ -116,7 +116,7 @@ function QuestionBankStatusAction({
         onClick={() => void handleLifecycle("restore")}
         size="sm"
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload />
         {isSavingLifecycle ? "Memulihkan…" : "Pulihkan"}
@@ -128,13 +128,13 @@ function QuestionBankStatusAction({
     <Button
       aria-busy={isSavingLifecycle}
       aria-label="Arsipkan bank soal"
-      className="shadow-[0_4px_0_var(--student-status-danger-border),0_14px_28px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_48%,transparent)] hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--student-status-danger-border),0_18px_34px_-22px_color-mix(in_oklab,var(--student-status-danger-fg)_54%,transparent)] motion-safe:active:translate-y-px motion-safe:active:shadow-none motion-reduce:transform-none"
+      className=" hover:-translate-y-0.5  motion-safe:active:translate-y-px  motion-reduce:transform-none"
       data-question-bank-lifecycle-action="archive"
       disabled={isSavingLifecycle || isReadOnly}
       onClick={requestArchive}
       size="sm"
       type="button"
-      variant="dangerOutline"
+      variant="destructive"
     >
       <Archive />
       {isSavingLifecycle ? "Mengarsipkan…" : "Arsipkan"}
@@ -230,7 +230,7 @@ function QuestionBankArchiveSection({
               onClick={requestDelete}
               size="sm"
               type="button"
-              variant="dangerOutline"
+              variant="destructive"
             >
               <Trash2 />
               {isDeleting ? "Menghapus…" : "Hapus bank soal"}
@@ -317,7 +317,7 @@ function QuestionBankMetadataCard({
                 onClick={() => void handleSaveTitle()}
                 size="sm"
                 type="button"
-                variant="brand"
+                variant="default"
               >
                 <Check />
                 Simpan
@@ -330,7 +330,7 @@ function QuestionBankMetadataCard({
                 }}
                 size="sm"
                 type="button"
-                variant="ghost"
+                variant="outline"
               >
                 <X />
                 Batal
@@ -352,7 +352,7 @@ function QuestionBankMetadataCard({
                   size="icon-sm"
                   title="Ubah judul bank soal"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Pencil className="size-4" />
                 </Button>
@@ -388,7 +388,7 @@ function QuestionBankMetadataCard({
                   size="icon-sm"
                   title="Ubah deskripsi"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Pencil className="size-3.5" />
                 </Button>
@@ -414,7 +414,7 @@ function QuestionBankMetadataCard({
                     onClick={() => void handleSaveDescription()}
                     size="sm"
                     type="button"
-                    variant="brand"
+                    variant="default"
                   >
                     <Check />
                     Simpan
@@ -427,7 +427,7 @@ function QuestionBankMetadataCard({
                     }}
                     size="sm"
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                   >
                     <X />
                     Batal
@@ -467,9 +467,9 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {subjectCoverage.length > 0 ? (
                 subjectCoverage.map((code) => (
-                  <MentorBadge key={code} size="xs" tone="category">
+                  <Badge key={code} size="xs" tone="category">
                     {code}
-                  </MentorBadge>
+                  </Badge>
                 ))
               ) : (
                 <span className="text-xs text-secondary-400">
@@ -486,9 +486,9 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {materiCoverage.length > 0 ? (
                 materiCoverage.map((materi) => (
-                  <MentorBadge key={materi} size="xs" tone="category">
+                  <Badge key={materi} size="xs" tone="category">
                     {materi}
-                  </MentorBadge>
+                  </Badge>
                 ))
               ) : (
                 <span className="text-xs text-secondary-400">
@@ -530,10 +530,10 @@ function QuestionBankQuestionCard({
             {index + 1}
           </span>
           {hasIssues ? (
-            <MentorBadge className="gap-1" size="xs" tone="attention">
+            <Badge className="gap-1" size="xs" tone="attention">
               <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
               Perlu diperbaiki ({questionIssues.length})
-            </MentorBadge>
+            </Badge>
           ) : null}
         </div>
 
@@ -542,29 +542,29 @@ function QuestionBankQuestionCard({
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Subjek
             </span>
-            <MentorBadge size="xs" tone="category">
+            <Badge size="xs" tone="category">
               {question.subjectCode}
-            </MentorBadge>
+            </Badge>
           </div>
           {question.materi ? (
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0 text-xs font-semibold text-secondary-500">
                 Materi
               </span>
-              <MentorBadge
+              <Badge
                 className="max-w-[min(20rem,60vw)] truncate"
                 size="xs"
                 tone="category"
               >
                 {question.materi}
-              </MentorBadge>
+              </Badge>
             </div>
           ) : null}
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Kesulitan
             </span>
-            <MentorBadge
+            <Badge
               size="xs"
               tone={
                 question.difficulty === "easy"
@@ -579,7 +579,7 @@ function QuestionBankQuestionCard({
                 : question.difficulty === "hard"
                   ? "Sulit"
                   : "Sedang"}
-            </MentorBadge>
+            </Badge>
           </div>
         </div>
       </div>
@@ -699,7 +699,7 @@ function QuestionBankEditorButton({
       }
       size="default"
       type="button"
-      variant="brand"
+      variant="default"
     >
       <Pencil data-icon="inline-start" />
       Buka Editor
@@ -747,9 +747,9 @@ function QuestionBankQuestionsSection({
             <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
               Daftar Soal
             </h2>
-            <MentorBadge className="font-bold" size="xs" tone="category">
+            <Badge className="font-bold" size="xs" tone="category">
               {questions.length} Soal
-            </MentorBadge>
+            </Badge>
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -1174,10 +1174,10 @@ function QuestionBankDetailLayout({
         <ResourceAuthoringLockBanner hasLocalChanges={formState.isEditingTitle || formState.isEditingDescription} onRetry={resourceLock.retry} resourceLabel="Bank Soal" state={resourceLock.state} />
         <QuestionBankMetadataCard bank={bank} descriptionInput={descriptionInput} folderLabel={folderLabel} formState={formState} handleSaveDescription={handleSaveDescription} handleSaveTitle={handleSaveTitle} setDescriptionInput={setDescriptionInput} setIsEditingDescription={setIsEditingDescription} setIsEditingTitle={setIsEditingTitle} setTitleInput={setTitleInput} materiCoverage={materiCoverage} subjectCoverage={subjectCoverage} titleInput={titleInput} />
         <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
-          <FullWidthLineTabsList aria-label="Bagian detail Bank Soal">
-            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="soal">Soal</FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger>
-          </FullWidthLineTabsList>
+          <FullWidthTabsList aria-label="Bagian detail Bank Soal">
+            <FullWidthTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="soal">Soal</FullWidthTabsTrigger>
+            <FullWidthTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthTabsTrigger>
+          </FullWidthTabsList>
           <TabsContent className="m-0" value="soal">
             <QuestionBankQuestionsSection bank={bank} bankId={bankId} editLease={questionBankEditLease} expectedRevision={bank.revision ?? 1} isReadOnly={isReadOnly} onImport={onImport} questions={questions} readiness={readiness} />
           </TabsContent>

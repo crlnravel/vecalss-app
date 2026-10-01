@@ -202,12 +202,12 @@ function MateriBuilderHeader({
     <div className="flex min-w-0 items-start gap-3">
       <Button
         aria-label="Kembali ke materi"
-        className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+        className="mt-1 shrink-0"
         nativeButton={false}
         render={<Link href={parentHref} />}
         size="icon"
         title="Kembali ke materi"
-        variant="ghost"
+        variant="outline"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Button>
@@ -256,7 +256,7 @@ function MateriUnsavedChangesBar({
           onClick={onReset}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           Batal
         </Button>
@@ -266,7 +266,7 @@ function MateriUnsavedChangesBar({
           onClick={onSave}
           size="sm"
           type="button"
-          variant="brand"
+          variant="default"
         >
           {isSaving ? "Menyimpan..." : "Simpan"}
         </Button>
@@ -298,7 +298,6 @@ function MateriBuilderPreview({
               {builderState.title || "Materi tanpa judul"}
             </p>
             <ReferenceStatusBadge
-              appearance="mentor"
               size="xs"
               status={status}
             />
@@ -307,7 +306,7 @@ function MateriBuilderPreview({
         <Button
           onClick={() => onPreviewChange(false)}
           type="button"
-          variant="reference"
+          variant="outline"
         >
           <ChevronLeft />
           Kembali ke editor
@@ -397,7 +396,7 @@ function MateriBasicsSection({
                     "h-12",
                     errors.subjectSlug && "border-student-status-danger-border",
                   )}
-                  variant="reference"
+                  variant="outline"
                 />
               }
             >
@@ -534,7 +533,7 @@ function MateriDocumentSection({
             onClick={onOpenPicker}
             size="sm"
             type="button"
-            variant="reference"
+            variant="outline"
           >
             {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
           </Button>
@@ -630,7 +629,7 @@ function MateriAdministrationSection({
       disabled={isPublishBlocked}
       onClick={onPublish}
       type="button"
-      variant="brand"
+      variant="default"
     >
       <Upload />
       {isSaving ? "Menerbitkan…" : "Terbitkan materi"}
@@ -682,7 +681,7 @@ function MateriAdministrationSection({
                 disabled={isLifecycleActionBlocked}
                 onClick={() => setIsArchiveDialogOpen(true)}
                 type="button"
-                variant="dangerOutline"
+                variant="destructive"
               >
                 <Archive />
                 {isSaving ? "Mengarsipkan…" : "Arsipkan materi"}
@@ -699,7 +698,7 @@ function MateriAdministrationSection({
                 disabled={isSaving}
                 onClick={onRestore}
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               >
                 <Upload />
                 {isSaving ? "Memulihkan…" : "Pulihkan materi"}
@@ -819,7 +818,7 @@ function MateriBuilderForm({
         className="w-full justify-center"
         disabled={isArchived || isSaving}
         type="submit"
-        variant="brand"
+        variant="default"
       >
         <Save />
         {isSaving ? "Menyimpan…" : "Simpan"}

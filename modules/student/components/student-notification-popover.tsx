@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 
 const EMPTY_NOTIFICATION_ITEMS: StudentNotificationItem[] = [];
@@ -31,7 +31,7 @@ function StudentNotificationPopover({
 
   if (renderedItems.length === 0) {
     return (
-      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon" variant="ghost">
+      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon" variant="outline">
         <Bell />
       </Button>
     );
@@ -46,19 +46,19 @@ function StudentNotificationPopover({
             className="relative"
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
         <Bell />
         {renderedUnreadCount > 0 ? (
-          <StudentBadge
+          <Badge
             className="absolute -top-1 -right-1 h-5 min-w-5 border-2 border-white px-1 text-ui-xs"
             size="xs"
             tone="attention"
           >
             {renderedUnreadCount}
-          </StudentBadge>
+          </Badge>
         ) : null}
       </PopoverTrigger>
 
@@ -84,9 +84,9 @@ function StudentNotificationPopover({
                     </p>
                     {item.unread ? (
                       <>
-                        <StudentBadge size="xs" tone="attention">
+                        <Badge size="xs" tone="attention">
                           Belum dibaca
-                        </StudentBadge>
+                        </Badge>
                         <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-student-status-attention-border" />
                       </>
                     ) : null}
@@ -123,7 +123,7 @@ function StudentNotificationPopover({
             className="min-h-11 h-auto w-auto justify-start px-3 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
             nativeButton={false}
             render={<Link href="/notifications" />}
-            variant="ghost"
+            variant="outline"
           >
             Lihat semua
           </Button>

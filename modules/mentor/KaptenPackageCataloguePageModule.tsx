@@ -125,9 +125,9 @@ function PackageRowAction({ item }: { item: PackageItem }) {
       className="mt-2 h-10 min-h-10 min-w-10 max-w-full p-0 sm:h-auto sm:min-h-6 sm:min-w-0 sm:px-2.5 sm:py-1 sm:text-left sm:whitespace-normal"
       nativeButton={false}
       render={<Link href={`/mentor/packages/${item.id}/versions/new`} />}
-      size="xs"
+      size="sm"
       title={label}
-      variant="brand"
+      variant="default"
     >
       <span className="hidden sm:inline">{label}</span>
       <ChevronRight />
@@ -159,15 +159,15 @@ function PackageCatalogueFilters({ navigateCatalogue, query, status, subtest }: 
 function PackageCatalogueEmptyState({ hasActiveConstraints, query }: { hasActiveConstraints: boolean; query: string }) {
   const title = query ? "Tidak ada Paket Soal yang cocok dengan pencarian ini." : hasActiveConstraints ? "Tidak ada Paket Soal yang cocok dengan filter ini." : "Belum ada Paket Soal.";
   const description = query ? "Coba kata kunci lain atau bersihkan pencarian untuk melihat semua Paket Soal." : hasActiveConstraints ? "Coba ubah filter atau bersihkan filter untuk melihat semua Paket Soal." : "Buat paket dari bank soal yang sudah siap dipakai.";
-  return <div className="mx-auto flex min-w-0 max-w-[calc(100vw-2rem)] flex-col items-center whitespace-normal py-2 text-center"><PackageCheck className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{title}</h2><p className="mt-1 max-w-[42ch] text-sm font-normal leading-6 text-secondary-600">{description}</p>{!hasActiveConstraints ? <Button className="mt-5" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button> : null}</div>;
+  return <div className="mx-auto flex min-w-0 max-w-[calc(100vw-2rem)] flex-col items-center whitespace-normal py-2 text-center"><PackageCheck className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{title}</h2><p className="mt-1 max-w-[42ch] text-sm font-normal leading-6 text-secondary-600">{description}</p>{!hasActiveConstraints ? <Button className="mt-5" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="default"><Plus />Buat Paket Soal</Button> : null}</div>;
 }
 
 function PackageCataloguePagination({ nextPageHref, page, previousPageHref, totalItems, totalPages }: { nextPageHref?: string; page: number; previousPageHref?: string; totalItems: number; totalPages: number }) {
   if (!totalItems) return null;
   return <nav aria-label="Paginasi paket soal" className="flex items-center justify-center gap-2 pt-2">
-    {previousPageHref ? <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="reference"><ChevronRight className="rotate-180" /></Button> : <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="reference"><ChevronRight className="rotate-180" /></Button>}
+    {previousPageHref ? <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button> : <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button>}
     <span aria-current="page" className="text-sm text-secondary-500">Halaman {page} dari {totalPages}</span>
-    {nextPageHref ? <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="reference"><ChevronRight /></Button> : <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="reference"><ChevronRight /></Button>}
+    {nextPageHref ? <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="outline"><ChevronRight /></Button> : <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="outline"><ChevronRight /></Button>}
   </nav>;
 }
 
@@ -207,7 +207,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
   return (
     <div className="space-y-8">
       <ReferencePageHeader
-        actions={<Button nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button>}
+        actions={<Button nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="default"><Plus />Buat Paket Soal</Button>}
         title="Paket Soal"
       />
       <PackageCatalogueContent isCataloguePending={isCataloguePending} items={items} navigateCatalogue={navigateCatalogue} page={page} query={query} status={status} subtest={subtest} totalItems={totalItems} totalPages={totalPages} />

@@ -14,7 +14,6 @@ import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import {
   HelpFieldLabel,
   OperationalPageHeader,
-  OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { createTryoutDeliverySessionAction } from "@/modules/mentor/tryout-actions";
 
@@ -42,30 +41,26 @@ function KaptenTryoutSessionCreatePageModule({
   const router = useRouter();
   const [session, setSession] = useState<SessionDraft>(emptySession);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
+  const [validation, setValidation] = useState<{ field: "name" | "schedule"; message: string } | null>(null);
   const sessionsHref = `/mentor/tryout/${initial.id}?workspace=operations&delivery=sessions`;
 
   const handleCreate = async () => {
-    if (
-      !session.name.trim() ||
-      !session.availableFrom ||
-      !session.availableUntil
-    ) {
-      setNotice({ message: "Lengkapi semua kolom wajib sebelum membuat sesi.", tone: "error" });
+    if (!session.name.trim()) {
+      setValidation({ field: "name", message: "Nama sesi wajib diisi." });
       return;
     }
     const availableFrom = parseTryoutDateTime(session.availableFrom);
     const availableUntil = parseTryoutDateTime(session.availableUntil);
     if (Number.isNaN(availableFrom.getTime()) || Number.isNaN(availableUntil.getTime())) {
-      setNotice({ message: "Waktu mulai dan selesai sesi tidak valid.", tone: "error" });
+      setValidation({ field: "schedule", message: "Waktu mulai dan selesai sesi tidak valid." });
       return;
     }
     if (availableUntil <= availableFrom) {
-      setNotice({ message: "Waktu selesai harus setelah waktu mulai.", tone: "error" });
+      setValidation({ field: "schedule", message: "Waktu selesai harus setelah waktu mulai." });
       return;
     }
     setBusy(true);
-    setNotice(null);
+    setValidation(null);
     try {
       const result = await createTryoutDeliverySessionAction(
         { ...session, rankingRule: "none", resultReleasePolicy: "inherit", tryoutId: initial.id },
@@ -98,35 +93,41 @@ function KaptenTryoutSessionCreatePageModule({
         divider={false}
         title="Buat sesi"
       />
-      <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
-
-      <ReferenceSurface as="section" className="mt-5 grid gap-6 p-5 sm:p-7">
+      <form className="mt-5" onSubmit={(event) => { event.preventDefault(); void handleCreate(); }}>
+      <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
         <h2 className="text-xl font-semibold text-secondary-900">Informasi sesi</h2>
         <div className="grid gap-6">
           <Field>
             <HelpFieldLabel htmlFor="session-name" label="Nama sesi" required />
             <FieldInput
-              aria-required="true"
+              aria-describedby={validation?.field === "name" ? "session-name-error" : undefined}
+              aria-invalid={validation?.field === "name" || undefined}
               className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`}
               id="session-name"
-              onChange={(event) =>
-                setSession({ ...session, name: event.target.value })
-              }
+              onChange={(event) => {
+                setSession({ ...session, name: event.target.value });
+                if (validation?.field === "name") setValidation(null);
+              }}
               placeholder="Contoh: Tryout Nasional Agustus"
+              required
               value={session.name}
             />
+            {validation?.field === "name" ? <p className="text-sm text-student-status-danger-fg" id="session-name-error" role="alert">{validation.message}</p> : null}
           </Field>
 
           <div className="grid gap-5 md:grid-cols-2">
             <Field>
               <HelpFieldLabel htmlFor="session-from" label="Mulai (WIB)" required />
               <FieldInput
-                aria-required="true"
+                aria-describedby={validation?.field === "schedule" ? "session-schedule-error" : undefined}
+                aria-invalid={validation?.field === "schedule" || undefined}
                 className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
                 id="session-from"
-                onChange={(event) =>
-                  setSession({ ...session, availableFrom: event.target.value })
-                }
+                onChange={(event) => {
+                  setSession({ ...session, availableFrom: event.target.value });
+                  if (validation?.field === "schedule") setValidation(null);
+                }}
+                required
                 type="datetime-local"
                 value={session.availableFrom}
               />
@@ -134,17 +135,21 @@ function KaptenTryoutSessionCreatePageModule({
             <Field>
               <HelpFieldLabel htmlFor="session-until" label="Selesai (WIB)" required />
               <FieldInput
-                aria-required="true"
+                aria-describedby={validation?.field === "schedule" ? "session-schedule-error" : undefined}
+                aria-invalid={validation?.field === "schedule" || undefined}
                 className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
                 id="session-until"
-                onChange={(event) =>
-                  setSession({ ...session, availableUntil: event.target.value })
-                }
+                onChange={(event) => {
+                  setSession({ ...session, availableUntil: event.target.value });
+                  if (validation?.field === "schedule") setValidation(null);
+                }}
+                required
                 type="datetime-local"
                 value={session.availableUntil}
               />
             </Field>
           </div>
+          {validation?.field === "schedule" ? <p className="text-sm text-student-status-danger-fg" id="session-schedule-error" role="alert">{validation.message}</p> : null}
 
           <div className="grid gap-3 md:grid-cols-2">
             <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]">
@@ -171,10 +176,11 @@ function KaptenTryoutSessionCreatePageModule({
         </div>
       </ReferenceSurface>
       <div className="mt-5 flex justify-end">
-        <Button disabled={busy} onClick={() => void handleCreate()} variant="reference">
+        <Button disabled={busy} type="submit" variant="outline">
           {busy ? "Membuat…" : "Buat sesi"}
         </Button>
       </div>
+      </form>
     </main>
   );
 }

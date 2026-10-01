@@ -257,7 +257,7 @@ function SourceBankList({
           onClick={(event) => guardExternalNavigation(href, event)}
           render={<Link href={href} />}
           size="sm"
-          variant="reference"
+          variant="outline"
         >
           Buka Bank Soal
         </Button>
@@ -322,12 +322,11 @@ function TryoutQuestionMediaField({
       )}
       <div className="flex flex-wrap gap-2">
         <Button
-          className={REFERENCE_CONTROL_CLASS_NAMES.file}
           disabled={disabled}
           id={fieldId}
           onClick={() => setPickerOpen(true)}
           size="sm"
-          variant="reference"
+          variant="outline"
         >
           <ImagePlus />
           {assetId ? "Ganti gambar" : "Pilih gambar"}
@@ -337,7 +336,7 @@ function TryoutQuestionMediaField({
             disabled={disabled}
             onClick={() => onChange(null)}
             size="sm"
-            variant="ghost"
+            variant="outline"
           >
             <Trash2 />
             Hapus gambar
@@ -522,7 +521,7 @@ function TryoutQuestionSnapshotHeader({
             onClick={() => onMove("up")}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <ArrowUp aria-hidden="true" />
           </Button>
@@ -532,7 +531,7 @@ function TryoutQuestionSnapshotHeader({
             onClick={() => onMove("down")}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <ArrowDown aria-hidden="true" />
           </Button>
@@ -542,7 +541,7 @@ function TryoutQuestionSnapshotHeader({
             onClick={onRemove}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Trash2 aria-hidden="true" />
           </Button>
@@ -715,7 +714,7 @@ function TryoutQuestionChoiceEditor({
           onClick={actions.addChoice}
           size="sm"
           type="button"
-          variant="reference"
+          variant="outline"
         >
           Tambah pilihan
         </Button>
@@ -814,7 +813,7 @@ function TryoutQuestionOptionCard({
             onClick={() => actions.moveChoice(choiceIndex, "up")}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <ArrowUp aria-hidden="true" />
           </Button>
@@ -824,7 +823,7 @@ function TryoutQuestionOptionCard({
             onClick={() => actions.moveChoice(choiceIndex, "down")}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <ArrowDown aria-hidden="true" />
           </Button>
@@ -859,7 +858,7 @@ function TryoutQuestionOptionCard({
           onClick={() => actions.removeChoice(option.snapshotOptionId)}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Trash2 />
           Hapus pilihan
@@ -1211,7 +1210,7 @@ function TryoutQuestionImportBankSelector({
             <Button
               className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full justify-between`}
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -1261,7 +1260,7 @@ function TryoutQuestionImportBankSelector({
               onClick={onBankPageNext}
               size="sm"
               type="button"
-              variant="reference"
+              variant="outline"
             >
               {sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}
             </Button>
@@ -1451,7 +1450,7 @@ function TryoutQuestionImportFooter({
         disabled={!canImport}
         onClick={onImport}
         type="button"
-        variant="brand"
+        variant="default"
       >
         {importing ? "Menambahkan…" : "Tambahkan"}
       </Button>
@@ -1542,7 +1541,7 @@ function TryoutQuestionImportDialog({
             onOpenChange(true);
           }}
           type="button"
-          variant="brand"
+          variant="default"
         >
           <Search aria-hidden="true" />
           Tambah dari Bank Soal
@@ -1875,7 +1874,7 @@ function TryoutQuestionWorkspaceEmptyState({
             : "Tambahkan soal dari Bank Soal untuk mulai menyusun subtes ini."}
         </p>
         {!hasSnapshots && canAdd ? (
-          <Button className="mt-5" onClick={onAdd} size="sm" type="button" variant="brand">
+          <Button className="mt-5" onClick={onAdd} size="sm" type="button" variant="default">
             <Plus aria-hidden="true" />Tambah dari Bank Soal
           </Button>
         ) : null}
@@ -1962,10 +1961,10 @@ function TryoutQuestionPanelView({
                 <li className="min-w-0" key={question.snapshotId}>
                   <Button
                     aria-current={question.snapshotId === currentSnapshotId ? "true" : undefined}
-                    className="h-auto min-h-12 w-full min-w-0 justify-start rounded-xl px-3 py-2 text-left"
+                    className="h-auto min-h-12 w-full min-w-0 justify-start  px-3 py-2 text-left"
                     onClick={() => onSelectSnapshot(question.snapshotId)}
                     type="button"
-                    variant={question.snapshotId === currentSnapshotId ? "contextSelected" : "ghost"}
+                    variant={question.snapshotId === currentSnapshotId ? "default" : "outline"}
                   >
                     <span className="mr-2 grid size-7 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
                       {index + 1}

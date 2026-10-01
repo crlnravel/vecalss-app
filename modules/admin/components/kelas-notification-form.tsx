@@ -79,7 +79,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
           <div className="flex items-center gap-1.5">
             <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-body" required>Pesan</FieldLabel>
             <Tooltip>
-              <TooltipTrigger render={<Button aria-label="Bantuan format pesan" className="text-secondary-500 hover:text-primary-800" size="icon-xs" type="button" variant="ghost" />}>
+              <TooltipTrigger render={<Button aria-label="Bantuan format pesan" className="text-secondary-500 hover:text-primary-800" size="icon-sm" type="button" variant="outline" />}>
                 <CircleHelp aria-hidden="true" />
               </TooltipTrigger>
               <TooltipContent>Markdown disuport</TooltipContent>
@@ -102,7 +102,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
       </div>
 
       <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-end">
-        <SubmitButton pendingLabel="Mengirim…" size="lg" type="submit" variant="brand">
+        <SubmitButton pendingLabel="Mengirim…" size="lg" type="submit" variant="default">
           Kirim
         </SubmitButton>
       </div>

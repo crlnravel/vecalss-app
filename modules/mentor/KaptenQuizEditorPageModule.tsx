@@ -887,7 +887,7 @@ function QuizEditHeader({
           onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}?returnTo=${encodeURIComponent(returnHref)}`)}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>
@@ -978,7 +978,7 @@ function QuizQuestionAreaMain({ bankPickerDisabled, state }: { bankPickerDisable
     return (
       <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" data-quiz-question-empty={hasQuestions ? undefined : "true"} variant="inset">
         <ReferenceEmptyState
-          action={!hasQuestions && !bankPickerDisabled ? <Button aria-label="Tambah soal dari Bank Soal" id="quiz-empty-state-add-bank-question" onClick={() => state.setQuestionBankPickerOpen(true)} size="sm" type="button" variant="brand"><Plus />Tambah dari Bank Soal</Button> : undefined}
+          action={!hasQuestions && !bankPickerDisabled ? <Button aria-label="Tambah soal dari Bank Soal" id="quiz-empty-state-add-bank-question" onClick={() => state.setQuestionBankPickerOpen(true)} size="sm" type="button" variant="default"><Plus />Tambah dari Bank Soal</Button> : undefined}
           description={content.description}
           icon={content.icon}
           title={content.title}
@@ -1185,12 +1185,12 @@ function QuizCreateHeader() {
     <div className="flex min-w-0 items-start gap-3">
       <Button
         aria-label="Kembali ke daftar Kuis"
-        className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+        className="mt-1 shrink-0"
         nativeButton={false}
         render={<Link href="/mentor/quiz" />}
         size="icon"
         title="Kembali ke daftar Kuis"
-        variant="ghost"
+        variant="outline"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Button>
@@ -1209,7 +1209,7 @@ function QuizCreateSubmitButton({ state }: { state: QuizEditorState }) {
         disabled={state.isSaving || state.editorDisabled}
         onClick={() => void state.persistence.saveQuiz()}
         type="button"
-        variant="brand"
+        variant="default"
       >
         <Save /> {state.isSaving ? "Membuat…" : "Buat"}
       </Button>
@@ -1418,7 +1418,7 @@ function QuizCreateDialogTrigger({
         onClick={() => setOpen(true)}
         size="default"
         type="button"
-        variant="brand"
+        variant="default"
       >
         {children}
       </Button>

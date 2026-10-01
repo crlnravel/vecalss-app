@@ -53,7 +53,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Field,
   FieldInput,
@@ -127,7 +127,7 @@ type QuestionRowRefs = {
 };
 
 type ConfirmationRequest = {
-  actionVariant?: "brand" | "destructive";
+  actionVariant?: "default" | "destructive";
   confirmLabel: string;
   description: string;
   dialogVariant?: "default" | "info" | "warning" | "danger" | "success";
@@ -242,7 +242,7 @@ function QuestionMediaAttachment({
           onClick={onReplace}
           size="sm"
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           <ImagePlus data-icon="inline-start" />
           Ganti
@@ -252,7 +252,7 @@ function QuestionMediaAttachment({
           onClick={onRemove}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <X data-icon="inline-start" />
           Lepas
@@ -580,7 +580,7 @@ function QuestionPromptField({
           }
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <ImagePlus data-icon="inline-start" />
           {questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
@@ -671,7 +671,7 @@ function QuestionAnswerModeField({
               data-question-field="correctChoice"
               id="question-answer-mode"
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -855,7 +855,7 @@ function QuestionChoiceControls({
         }
         size="icon-sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <ImagePlus />
       </Button>
@@ -865,7 +865,7 @@ function QuestionChoiceControls({
         onClick={() => onRemoveChoice(choice.id)}
         size="icon-sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <Trash2 />
       </Button>
@@ -1108,7 +1108,7 @@ function QuestionChoicesField({
           onClick={onAddChoice}
           size="sm"
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           <Plus />
           Tambah opsi
@@ -1157,7 +1157,7 @@ function QuestionSubtestField({
               data-question-field="subtest"
               id="question-subtest"
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -1242,7 +1242,7 @@ function QuestionMateriField({
               data-question-field="materi"
               id="question-materi"
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -1314,7 +1314,7 @@ function QuestionDifficultyField({
               className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
               id="question-difficulty"
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -1402,7 +1402,7 @@ function QuestionExplanationField({
           }
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <ImagePlus data-icon="inline-start" />
           {questionDraft.explanationMediaAssetId
@@ -1648,7 +1648,7 @@ function QuestionBankPreview({
           disabled={!previewChoiceIds.length}
           onClick={onSubmit}
           type="button"
-          variant="brand"
+          variant="default"
         >
           Kirim jawaban
         </Button>
@@ -1777,7 +1777,7 @@ function QuestionBankInventory({
           onClick={onAddQuestion}
           size="icon-sm"
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           <Plus />
         </Button>
@@ -1851,11 +1851,11 @@ function QuestionBankInventory({
                         </span>
                       </span>
                       <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                        <MentorBadge size="xs" tone="category">
+                        <Badge size="xs" tone="category">
                           {question.subjectCode}
-                        </MentorBadge>
+                        </Badge>
                         {hasIssues ? (
-                          <MentorBadge
+                          <Badge
                             aria-label={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
                             className="size-7 justify-center !px-0 !py-0"
                             role="img"
@@ -1867,7 +1867,7 @@ function QuestionBankInventory({
                               aria-hidden="true"
                               className="size-3.5 shrink-0"
                             />
-                          </MentorBadge>
+                          </Badge>
                         ) : null}
                       </span>
                     </button>
@@ -1881,7 +1881,7 @@ function QuestionBankInventory({
                       size="icon-sm"
                       tabIndex={isActive ? 0 : -1}
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -1937,7 +1937,7 @@ function QuestionBankMobileInventory({
                 )}
                 disabled={builderState.questions.length === 0}
                 type="button"
-                variant="reference"
+                variant="outline"
               />
             }
           >
@@ -1980,7 +1980,7 @@ function QuestionBankMobileInventory({
           onClick={onAddQuestion}
           size="icon-sm"
           type="button"
-          variant="reference"
+          variant="outline"
         >
           <Plus />
         </Button>
@@ -2096,7 +2096,7 @@ function QuestionBankEditorTitle({
           aria-label={`Kembali ke ${navigationLabel}`}
           size="icon-sm"
           title={`Kembali ke ${navigationLabel}`}
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>
@@ -2110,7 +2110,7 @@ function QuestionBankEditorTitle({
               className="mt-2 w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
               onClick={onFocusIssue}
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <AlertTriangle data-icon="inline-start" />
               Lihat masalah{" "}
@@ -2155,7 +2155,7 @@ function QuestionBankSaveAction({
       size={size}
       title={mode === "create" ? undefined : saveLabel}
       type="button"
-      variant={state.hasUnsavedChanges ? "brand" : "reference"}
+      variant={state.hasUnsavedChanges ? "default" : "outline"}
     >
       <Save />
       {mode === "create" ? saveLabel : "Simpan"}
@@ -2181,7 +2181,7 @@ function QuestionBankLifecycleMenu({
             aria-label="Aksi destruktif Bank Soal"
             size="icon-sm"
             type="button"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -2256,7 +2256,7 @@ function QuestionBankAutoSaveStatus({
           onClick={() => void actions.saveDraft()}
           size="sm"
           type="button"
-          variant="reference"
+          variant="outline"
         >
           Coba lagi
         </Button>
@@ -2459,7 +2459,7 @@ function QuestionBankEditWorkspaceHeader({
           onClick={() => actions.requestExit(detailHref)}
           size="icon-sm"
           title="Kembali ke detail bank soal"
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft />
         </Button>
@@ -2475,7 +2475,7 @@ function QuestionBankEditWorkspaceHeader({
               disabled
               size="icon-sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <LoaderCircle
                 aria-hidden="true"
@@ -2492,7 +2492,7 @@ function QuestionBankEditWorkspaceHeader({
             className="hidden h-7 px-2 text-xs font-semibold text-amber-900 underline-offset-4 hover:underline lg:flex"
             onClick={actions.focusFirstIssue}
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <AlertTriangle data-icon="inline-start" />
             Lihat masalah{" "}
@@ -2532,7 +2532,7 @@ function QuestionBankQuestionContent({
               onClick={actions.addQuestion}
               size="sm"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Plus />
               Tambah soal pertama
@@ -2720,7 +2720,7 @@ function QuestionBankCreateSheetSelection({
                 </span>
               </span>
               {completed ? (
-                <MentorBadge size="xs" tone="success">Sudah dibuat</MentorBadge>
+                <Badge size="xs" tone="success">Sudah dibuat</Badge>
               ) : null}
             </li>
           );
@@ -2732,7 +2732,7 @@ function QuestionBankCreateSheetSelection({
           disabled={isSaving}
           onClick={onClose}
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           Kembali
         </Button>
@@ -2741,7 +2741,7 @@ function QuestionBankCreateSheetSelection({
           disabled={isSaving || selectedPendingCount === 0}
           onClick={onCreate}
           type="button"
-          variant="brand"
+          variant="default"
         >
           {isSaving ? "Membuat…" : "Buat"}
         </Button>

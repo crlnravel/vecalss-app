@@ -7,7 +7,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Pencil } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
@@ -67,7 +67,7 @@ function packagePointsLabel(points: number) {
 }
 
 function PackageAvailabilityPill({ availability }: { availability: Hub["availability"] }) {
-  return <ReferenceStatusBadge appearance="mentor" label={availability === "ready" ? "Siap" : "Draf"} size="xs" status={availability} tone={availability === "ready" ? "success" : "attention"} />;
+  return <ReferenceStatusBadge label={availability === "ready" ? "Siap" : "Draf"} size="xs" status={availability} tone={availability === "ready" ? "success" : "attention"} />;
 }
 
 function PackageCompletionState({ hub }: { hub: Hub }) {
@@ -114,7 +114,7 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2 font-semibold text-secondary-900">
                       <span>{packageReleaseLabel(version.versionNo)}</span>
-                      {isActive ? <MentorBadge size="xs" tone="active">Versi aktif</MentorBadge> : null}
+                      {isActive ? <Badge size="xs" tone="active">Versi aktif</Badge> : null}
                     </span>
                     <span className="mt-1 block text-xs text-secondary-500">{packageDateFormatter.format(new Date(versionDate))} · {version.itemCount} soal</span>
                   </span>
@@ -135,10 +135,10 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="outline"><ChevronLeft /></Button>
 
       <ReferencePageHeader
-        actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge appearance="mentor" label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="reference"><Pencil /></Button></div>}
+        actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="outline"><Pencil /></Button></div>}
         title={hub.title}
       />
       <ReferenceSurface as="section" aria-label="Ringkasan Paket Soal" className="p-5 sm:p-7">
@@ -160,7 +160,7 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
           <h2 className="text-xl font-semibold text-secondary-900" id="package-actions-heading">Langkah berikutnya</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">{hub.availability === "draft" ? "Tinjau soal dan poin, lalu siapkan versi pertama." : hub.hasDraftChanges ? "Lanjutkan perubahan yang tersimpan." : "Edit soal dan poin untuk menyiapkan pembaruan."}</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button nativeButton={false} render={<Link href={editorHref} />} size="sm" variant="reference">{editorLabel}<ChevronRight /></Button>
+            <Button nativeButton={false} render={<Link href={editorHref} />} size="sm" variant="outline">{editorLabel}<ChevronRight /></Button>
           </div>
         </ReferenceSurface>
 

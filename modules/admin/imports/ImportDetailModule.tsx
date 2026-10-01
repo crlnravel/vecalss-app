@@ -27,7 +27,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -263,11 +263,11 @@ function ImportSessionRecoveryNotice({
           nativeButton={false}
           render={<Link href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)} />}
           size="default"
-          variant="dangerOutline"
+          variant="destructive"
         >
            {kind === "expired" ? "Masuk lagi" : "Masuk sebagai admin"}
         </Button>
-         <Button onClick={onRefresh} size="default" variant="dangerOutline">Segarkan halaman</Button>
+         <Button onClick={onRefresh} size="default" variant="destructive">Segarkan halaman</Button>
       </div>
     </ReferenceSurface>
   );
@@ -390,10 +390,10 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
                 </TableCell>
                  <TableCell className="px-4 py-3.5 align-top text-secondary-600 sm:px-5">{row.operation === "create" ? "Buat" : row.operation === "update" ? "Perbarui profil" : "Tidak ada operasi"}</TableCell>
                 <TableCell className="px-4 py-3.5 align-top sm:px-5">
-                  <StudentBadge size="sm" tone={rowBadgeTone(copy.tone)}>
+                  <Badge size="sm" tone={rowBadgeTone(copy.tone)}>
                     {copy.icon}
                     {copy.label}
-                  </StudentBadge>
+                  </Badge>
                 </TableCell>
                 <TableCell className="max-w-[270px] px-4 py-3.5 align-top text-xs leading-5 text-secondary-600 sm:px-5">
                    {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} · ${handoffStatusLabel(row.handoffStatus)}` : "Siap untuk langkah berikutnya."}
@@ -755,14 +755,14 @@ function PendingHandoffRows({
     <div className="mt-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-secondary-900">Akses akun baru yang menunggu</p>
-        <Button className="text-xs" onClick={() => onSelectPending(pendingIds)} size="default" variant="reference">{selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua akun"}</Button>
+        <Button className="text-xs" onClick={() => onSelectPending(pendingIds)} size="default" variant="outline">{selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua akun"}</Button>
       </div>
       <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
         {pendingRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Pilih informasi akses untuk baris ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && onSelectRow(row.handoffId)} type="checkbox" />
             <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Baris {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-secondary-600">Kedaluwarsa {formatDate(row.handoffExpiresAt)}</span></span>
-            <StudentBadge size="sm" tone="attention">Menunggu</StudentBadge>
+            <Badge size="sm" tone="attention">Menunggu</Badge>
           </label>
         ))}
       </div>
@@ -770,7 +770,7 @@ function PendingHandoffRows({
         <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => onAcknowledgeIntentChange(event.target.checked)} type="checkbox" />
         <span>Saya akan membagikan file ini melalui kanal yang aman. Informasi akses yang dipilih tidak dapat ditampilkan lagi setelah diunduh.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!pendingRows.length || !acknowledgeIntent || downloadBusy} onClick={onDownload} type="button" variant="brand">
+      <Button className="mt-3" disabled={!pendingRows.length || !acknowledgeIntent || downloadBusy} onClick={onDownload} type="button" variant="default">
         <Download aria-hidden="true" size={16} />
         {downloadBusy ? "Menyiapkan file…" : `Unduh file untuk ${selectedRows.size} akun`}
       </Button>
@@ -815,7 +815,7 @@ function ReleasedHandoffRows({
               <span className="truncate">Baris {row.rowNumber} · {row.normalizedEmail}</span>
             </label>
             <span className="font-semibold">Sudah diunduh</span>
-            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="attentionOutline">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat akses baru"}</Button> : null}
+            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="warning">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat akses baru"}</Button> : null}
           </div>
         ))}
       </div>
@@ -823,7 +823,7 @@ function ReleasedHandoffRows({
         <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
         <span>Saya mengonfirmasi bahwa file informasi akses sudah diberikan kepada penerima melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="attentionOutline">
+      <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="warning">
         <Check aria-hidden="true" size={16} />
         {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi akses sudah dibagikan"}
       </Button>
@@ -842,7 +842,7 @@ function ExpiredHandoffRows({ onReissue, expiredRows, reissueBusy }: { onReissue
         {expiredRows.map((row) => (
           <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-student-status-danger-border bg-white/50 px-3 py-2" key={row.rowId}>
             <span className="truncate text-xs">Baris {row.rowNumber} · {row.normalizedEmail}</span>
-            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="dangerOutline">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat tautan baru"}</Button> : null}
+            {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void onReissue(row.handoffId as string)} size="default" type="button" variant="destructive">{reissueBusy === row.handoffId ? "Menyiapkan…" : "Buat tautan baru"}</Button> : null}
           </div>
         ))}
       </div>
@@ -875,7 +875,7 @@ function DownloadedHandoffNotice({
         <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => onTransferConfirmedChange(event.target.checked)} type="checkbox" />
         <span>Saya mengonfirmasi bahwa file informasi akses sudah diberikan kepada penerima melalui kanal yang aman.<FieldRequiredMark /></span>
       </label>
-      <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="brandOutline">
+      <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={onAcknowledge} type="button" variant="outline">
         <Check aria-hidden="true" size={16} />
         {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi akses sudah dibagikan"}
       </Button>
@@ -1091,7 +1091,7 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Tinjau baris gagal</h2>
            <p className="mt-1 text-sm leading-6 text-secondary-600">Coba ulang membantu jika kegagalannya hanya sementara. Jika data perlu diperbaiki, unggah file CSV baru lalu buat pratinjau lagi.</p>
         </div>
-         <StudentBadge size="sm" tone="danger">{failedRows.length} gagal</StudentBadge>
+         <Badge size="sm" tone="danger">{failedRows.length} gagal</Badge>
       </div>
       <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
@@ -1141,13 +1141,13 @@ type ImportDetailViewProps = {
 function ImportDetailHeader({ copy, loadStatus, refreshing, status }: { copy: ReturnType<typeof statusCopy>; loadStatus: ImportStatusLoader; refreshing: boolean; status: string }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke daftar akun" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/admin/enrollment" />} size="icon" title="Kembali ke daftar akun" variant="ghost">
+      <Button aria-label="Kembali ke daftar akun" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/admin/enrollment" />} size="icon" title="Kembali ke daftar akun" variant="outline">
         <ChevronLeft aria-hidden="true" size={18} />
       </Button>
       <ReferencePageHeader
         actions={(
           <div className="flex flex-wrap items-center gap-2">
-            <Button aria-label="Segarkan status impor" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="reference">
+            <Button aria-label="Segarkan status impor" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="outline">
               <RefreshCw aria-hidden="true" size={15} />
               {refreshing ? "Memperbarui…" : "Segarkan status"}
             </Button>
@@ -1235,11 +1235,11 @@ function ImportDraftActions({ canConfirm, cancelArmed, cancelBusy, cancelImport,
     <>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button onClick={() => void cancelImport()} type="button" variant="dangerOutline"><X aria-hidden="true" size={16} />{cancelArmed ? "Konfirmasi pembatalan draf" : "Batalkan draf"}</Button>
-          {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="ghost">Jangan batalkan</Button> : null}
+          <Button onClick={() => void cancelImport()} type="button" variant="destructive"><X aria-hidden="true" size={16} />{cancelArmed ? "Konfirmasi pembatalan draf" : "Batalkan draf"}</Button>
+          {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="outline">Jangan batalkan</Button> : null}
           {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Membatalkan…" : cancelMessage}</p> : null}
         </div>
-        <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Memulai impor…" : "Mulai impor akun"}</Button>
+        <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="default"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Memulai impor…" : "Mulai impor akun"}</Button>
       </div>
       {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
     </>

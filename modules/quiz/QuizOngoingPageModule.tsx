@@ -456,7 +456,7 @@ function QuizOngoingScreen({
           onClick={() => onExitDialogChange(true)}
           size="icon-sm"
           title="Keluar dari kuis"
-          variant="ghost"
+          variant="outline"
         >
           <X />
         </Button>
@@ -469,7 +469,7 @@ function QuizOngoingScreen({
             disabled={currentQuestion === 1}
             onClick={() => onGoToQuestion(currentQuestion - 1)}
             size="lg"
-            variant="brandOutline"
+            variant="outline"
           >
             <ChevronLeft />
             <span className="sr-only">Sebelumnya</span>
@@ -492,7 +492,7 @@ function QuizOngoingScreen({
               disabled={viewState.submitting || savingQuestionSet.size > 0}
               onClick={() => onSubmitDialogChange(true)}
               size="lg"
-              variant="brand"
+              variant="default"
             >
               Kumpulkan kuis
             </Button>
@@ -502,7 +502,7 @@ function QuizOngoingScreen({
               className="h-12 w-full justify-center"
               onClick={() => onGoToQuestion(currentQuestion + 1)}
               size="lg"
-              variant="brand"
+              variant="default"
             >
               <span className="sr-only">Selanjutnya</span>
               <ChevronRight />
@@ -610,7 +610,7 @@ function QuizOngoingDialogs({
           <AlertDialogFooter>
             <AlertDialogCancel
               disabled={viewState.submitting}
-              variant="brandOutline"
+              variant="outline"
             >
               Kembali
             </AlertDialogCancel>

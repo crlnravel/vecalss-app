@@ -578,7 +578,7 @@ function ChapterSkillsSection() {
                       nativeButton={false}
                       render={<Link href="/quiz" />}
                       size="sm"
-                      variant="brand"
+                      variant="default"
                     >
                       Mulai latihan
                     </Button>
@@ -627,7 +627,7 @@ function RecentActivitySection() {
                 nativeButton={false}
                 render={<Link href="/courses" />}
                 size="sm"
-                variant="brand"
+                variant="default"
               >
                 Jelajahi materi
               </Button>

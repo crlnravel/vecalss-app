@@ -184,7 +184,7 @@ function RecoveryPanel({
       {bootstrap.recoveryOptions.length > 0 ? (
         <div className="mt-6 flex flex-wrap gap-2">
           {bootstrap.recoveryOptions.map((option) => (
-            <Button key={`${option.kind}:${option.source.sourceColumn}`} onClick={() => onChoose(option)} type="button" variant="brandOutline">
+            <Button key={`${option.kind}:${option.source.sourceColumn}`} onClick={() => onChoose(option)} type="button" variant="outline">
               {recoveryLabel(option)}
             </Button>
           ))}
@@ -226,8 +226,8 @@ function DestinationSwitchDialog({
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-wrap sm:justify-end">
           <AlertDialogCancel>Batal</AlertDialogCancel>
-          <Button onClick={onDiscard} type="button" variant="ghost">Buang dan beralih</Button>
-          <AlertDialogAction disabled={!canSave} onClick={onSave} variant="brand">Simpan dan beralih</AlertDialogAction>
+          <Button onClick={onDiscard} type="button" variant="outline">Buang dan beralih</Button>
+          <AlertDialogAction disabled={!canSave} onClick={onSave} variant="default">Simpan dan beralih</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -255,7 +255,7 @@ function PublishDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} variant="brand">Terbitkan {getBannerDestinationLabel(destination)}</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm} variant="default">Terbitkan {getBannerDestinationLabel(destination)}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -284,7 +284,7 @@ function DestinationEditorHeader({
   const label = getBannerDestinationLabel(destination);
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <Link aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin"><ArrowLeft aria-hidden="true" className="size-5" /></Link>
+      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="icon-sm" variant="inverse"><ArrowLeft aria-hidden="true" className="size-5" /></Button>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Editor banner</p>
         <h1 className="truncate text-base font-semibold">{label}</h1>
@@ -293,19 +293,19 @@ function DestinationEditorHeader({
         {draftPreviewHref ? (
           <Button
             aria-label={`Pratinjau draf ${label}`}
-            className="hidden min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10 sm:inline-flex"
+            className="hidden sm:inline-flex"
             nativeButton={false}
             render={<Link href={draftPreviewHref} />}
-            variant="inverseOutline"
+            variant="inverse"
           >
             <Eye data-icon="inline-start" />
             <span>Pratinjau draf</span>
           </Button>
         ) : null}
-        <Button aria-label={`Simpan draf ${label}`} className="min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10" disabled={!isDirty || isPending} onClick={onSave} type="button" variant="inverseOutline">
+        <Button aria-label={`Simpan draf ${label}`} disabled={!isDirty || isPending} onClick={onSave} type="button" variant="inverse">
           <Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span>
         </Button>
-        <Button aria-label={`Terbitkan ${label}`} className="min-h-11 rounded-xl border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" disabled={!canPublish || isPending} onClick={onPublish} type="button" variant="brand">
+        <Button aria-label={`Terbitkan ${label}`} disabled={!canPublish || isPending} onClick={onPublish} type="button" variant="default">
           <SendHorizontal data-icon="inline-start" /><span>Terbitkan</span>
         </Button>
         <StudentAccountMenu audience="admin" session={session} />
@@ -334,10 +334,10 @@ function DestinationEditorToolbar({ controller }: { controller: DestinationEdito
   return (
     <div className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-primary-100 bg-white px-3 py-2 sm:px-5">
       <div aria-label="Alat banner" className="flex items-center gap-1">
-        <Button aria-label="Tambahkan teks" className="size-11" disabled={!controller.canAddLayer || controller.isPending} onClick={actions.addTextLayer} size="icon" type="button" variant="ghost"><PenTool /></Button>
-        <Button aria-label="Impor gambar" className="size-11" disabled={!controller.canAddLayer || controller.isPending} onClick={actions.openImagePicker} size="icon" type="button" variant="ghost"><ImagePlus /></Button>
+        <Button aria-label="Tambahkan teks" className="size-11" disabled={!controller.canAddLayer || controller.isPending} onClick={actions.addTextLayer} size="icon" type="button" variant="outline"><PenTool /></Button>
+        <Button aria-label="Impor gambar" className="size-11" disabled={!controller.canAddLayer || controller.isPending} onClick={actions.openImagePicker} size="icon" type="button" variant="outline"><ImagePlus /></Button>
         <span aria-hidden="true" className="mx-2 h-5 w-px bg-primary-100" />
-        <Button aria-label={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} aria-pressed={controller.showGuides} className={controller.showGuides ? "size-11 bg-primary-50 text-primary-800" : "size-11"} disabled={controller.isPending} onClick={actions.toggleGuides} size="icon" type="button" variant="ghost"><Eye /></Button>
+        <Button aria-label={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} aria-pressed={controller.showGuides} className={controller.showGuides ? "size-11 bg-primary-50 text-primary-800" : "size-11"} disabled={controller.isPending} onClick={actions.toggleGuides} size="icon" type="button" variant="outline"><Eye /></Button>
       </div>
       <p className="text-xs font-medium text-secondary-600" role="status">
         {controller.isPending ? "Menyimpan perubahan…" : controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum diterbitkan" : "Banner aktif"}
@@ -356,7 +356,7 @@ function DestinationEditorWorkspace({ controller }: { controller: DestinationEdi
       <aside aria-label="Layer banner" className={controller.isLeftSidebarOpen ? "hidden w-64 shrink-0 flex-col border-r border-primary-100 bg-white md:flex xl:w-72" : "hidden w-14 shrink-0 border-r border-primary-100 bg-white md:flex"}>
         <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-primary-100 px-3">
           {controller.isLeftSidebarOpen ? <h2 className="text-sm font-semibold text-secondary-900">Layer</h2> : null}
-          <Button aria-label={controller.isLeftSidebarOpen ? "Ciutkan panel layer" : "Buka panel layer"} aria-pressed={controller.isLeftSidebarOpen} className="size-10" onClick={actions.toggleLeftSidebar} size="icon" type="button" variant="ghost">{controller.isLeftSidebarOpen ? <ArrowLeft /> : <ArrowLeft className="rotate-180" />}</Button>
+          <Button aria-label={controller.isLeftSidebarOpen ? "Ciutkan panel layer" : "Buka panel layer"} aria-pressed={controller.isLeftSidebarOpen} className="size-10" onClick={actions.toggleLeftSidebar} size="icon" type="button" variant="outline">{controller.isLeftSidebarOpen ? <ArrowLeft /> : <ArrowLeft className="rotate-180" />}</Button>
         </div>
         {controller.isLeftSidebarOpen ? <div className="min-h-0 flex-1 overflow-y-auto p-3"><LayerList design={design} onDeleteLayer={actions.deleteLayer} onDropLayer={actions.dropLayer} onMoveDown={(id) => actions.moveLayer(id, "down")} onMoveToBack={(id) => actions.moveLayerToEdge(id, "back")} onMoveToFront={(id) => actions.moveLayerToEdge(id, "front")} onMoveUp={(id) => actions.moveLayer(id, "up")} onSelect={(id) => actions.selectLayer(id)} selectedLayerId={controller.selectedLayerId} /></div> : null}
       </aside>

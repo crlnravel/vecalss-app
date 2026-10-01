@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertCircle, FileImage, ImageOff, RefreshCw, Search, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { cn } from "@/lib/utils";
 
 type MediaLibraryRecoveryKind = "empty" | "error" | "filtered" | "storage";
@@ -33,7 +32,6 @@ function getRecoveryCopy(kind: MediaLibraryRecoveryKind, mediaLabel: string, err
 
 function getMediaRecoveryActions({
   isFiltered,
-  isPicker,
   isStorageUnavailable,
   kind,
   mediaName,
@@ -43,7 +41,6 @@ function getMediaRecoveryActions({
   showUploadAction = true,
 }: {
   isFiltered: boolean;
-  isPicker: boolean;
   isStorageUnavailable: boolean;
   kind: MediaLibraryRecoveryKind;
   mediaName: string;
@@ -53,16 +50,15 @@ function getMediaRecoveryActions({
   showUploadAction?: boolean;
 }): ReactNode[] {
   const actions: ReactNode[] = [];
-  if (isFiltered && onClear) actions.push(<Button key="clear" onClick={onClear} variant="brandOutline">Hapus pencarian/filter</Button>);
-  if (isStorageUnavailable && onRetry) actions.push(<Button key="retry-storage" onClick={onRetry} variant="brandOutline"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
-  if (kind === "error" && onRetry) actions.push(<Button key="retry-error" onClick={onRetry} variant="brand"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
-  if (kind === "empty" && showUploadAction && onUpload) actions.push(<Button key="upload" className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} onClick={onUpload} variant="brand"><Upload data-icon="inline-start" />Unggah {mediaName}</Button>);
+  if (isFiltered && onClear) actions.push(<Button key="clear" onClick={onClear} variant="outline">Hapus pencarian/filter</Button>);
+  if (isStorageUnavailable && onRetry) actions.push(<Button key="retry-storage" onClick={onRetry} variant="outline"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "error" && onRetry) actions.push(<Button key="retry-error" onClick={onRetry} variant="default"><RefreshCw data-icon="inline-start" />Coba lagi</Button>);
+  if (kind === "empty" && showUploadAction && onUpload) actions.push(<Button key="upload" onClick={onUpload} variant="default"><Upload data-icon="inline-start" />Unggah {mediaName}</Button>);
   return actions;
 }
 
 function MediaLibraryRecoveryActions(props: {
   isFiltered: boolean;
-  isPicker: boolean;
   isStorageUnavailable: boolean;
   kind: MediaLibraryRecoveryKind;
   mediaName: string;
@@ -83,7 +79,6 @@ function MediaLibraryRecoveryActions(props: {
 function MediaLibraryRecoveryState({
   className,
   errorMessage,
-  isPicker = false,
   kind,
   mediaLabel,
   onClear,
@@ -93,7 +88,6 @@ function MediaLibraryRecoveryState({
 }: {
   className?: string;
   errorMessage?: string | null;
-  isPicker?: boolean;
   kind: MediaLibraryRecoveryKind;
   mediaLabel: string;
   onClear?: () => void;
@@ -116,7 +110,7 @@ function MediaLibraryRecoveryState({
       </div>
       <h2 className="text-base font-semibold text-secondary-900">{title}</h2>
       <p className="mt-2 max-w-[44ch] text-sm leading-6 text-secondary-600">{description}</p>
-      <MediaLibraryRecoveryActions isFiltered={isFiltered} isPicker={isPicker} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} showUploadAction={showUploadAction} />
+      <MediaLibraryRecoveryActions isFiltered={isFiltered} isStorageUnavailable={isStorageUnavailable} kind={kind} mediaName={mediaName} onClear={onClear} onRetry={onRetry} onUpload={onUpload} showUploadAction={showUploadAction} />
     </section>
   );
 }

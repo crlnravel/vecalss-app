@@ -76,10 +76,10 @@ function KaptenTryoutSessionPrimaryAction({
         aria-haspopup="dialog"
         disabled={disabled}
         onClick={handleOpen}
-        size="xs"
+        size="sm"
         title={disabled ? "Sesi harus aktif dan memiliki rilis konten." : undefined}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <ArrowUp aria-hidden="true" />
         Buat sesi utama
@@ -110,7 +110,7 @@ function KaptenTryoutSessionPrimaryAction({
                 event.preventDefault();
                 void handleConfirm();
               }}
-              variant="brand"
+              variant="default"
             >
               {busy ? "Memproses…" : "Buat sesi utama"}
             </AlertDialogAction>

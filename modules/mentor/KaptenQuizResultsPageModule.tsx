@@ -174,8 +174,8 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
           href={href}
           onClick={(event) => event.stopPropagation()}
         >
-          <Avatar className="size-9 border border-primary-100 bg-primary-50">
-            <AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">
+          <Avatar size="default">
+            <AvatarFallback>
               {initials(attempt.student.name)}
             </AvatarFallback>
           </Avatar>
@@ -196,7 +196,6 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
       </TableCell>
       <TableCell className="px-4 py-4">
         <ReferenceStatusBadge
-          appearance="mentor"
           label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"}
           size="xs"
           status={isSubmitted ? "completed" : "in_progress"}

@@ -92,7 +92,7 @@ function getLockBannerPresentation(state: AuthoringLockState, resourceLabel: str
 function LockRetryAction({ onRetry }: { onRetry?: () => void }) {
   if (!onRetry) return null;
   return (
-    <Button aria-label="Coba lagi" onClick={onRetry} size="sm" type="button" variant="brandOutline">
+    <Button aria-label="Coba lagi" onClick={onRetry} size="sm" type="button" variant="outline">
       <RefreshCw data-icon="inline-start" />
       Coba lagi
     </Button>

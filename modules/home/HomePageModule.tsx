@@ -106,7 +106,7 @@ function Hero() {
             className="landing-elevated-button mt-7 h-12 min-w-36 px-5 text-sm"
             href="https://linktr.ee/vecalss.academy"
             target="_blank"
-            variant="marketing"
+            variant="default"
           >
             Mulai belajar
             <ArrowRight className="ml-2 size-4" />
@@ -672,7 +672,7 @@ function LandingFooter() {
           <ActionButtonLink
             className="landing-elevated-button mt-7 h-12 px-5 text-sm"
             href="https://linktr.ee/vecalss.academy"
-            variant="marketing"
+            variant="default"
           >
             Mulai misimu
           </ActionButtonLink>

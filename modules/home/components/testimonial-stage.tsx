@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Star } from "@/lib/icons";
 
 import type { Testimonial } from "../data";
@@ -69,22 +70,24 @@ function TestimonialStage({ items }: { items: Testimonial[] }) {
       </div>
 
       <div className="home-testimonial-controls mt-1 flex items-center gap-3">
-        <button
+        <Button
           aria-label="Cerita sebelumnya"
-          className="landing-elevated-button landing-elevated-button-light flex size-11 items-center justify-center rounded-full border border-[var(--voyage-deep)]/16 bg-white text-[var(--voyage-deep)] transition-[border-color,transform] hover:-translate-x-0.5 hover:border-[var(--voyage-deep)]/35 active:translate-x-0"
           onClick={() => move(-1)}
+          size="icon"
           type="button"
+          variant="outline"
         >
-          <ChevronLeft aria-hidden="true" className="size-5" />
-        </button>
-        <button
+          <ChevronLeft aria-hidden="true" />
+        </Button>
+        <Button
           aria-label="Cerita berikutnya"
-          className="landing-elevated-button landing-elevated-button-light flex size-11 items-center justify-center rounded-full border border-[var(--voyage-deep)]/16 bg-white text-[var(--voyage-deep)] transition-[border-color,transform] hover:translate-x-0.5 hover:border-[var(--voyage-deep)]/35 active:translate-x-0"
           onClick={() => move(1)}
+          size="icon"
           type="button"
+          variant="outline"
         >
-          <ChevronRight aria-hidden="true" className="size-5" />
-        </button>
+          <ChevronRight aria-hidden="true" />
+        </Button>
       </div>
     </div>
   );

@@ -147,7 +147,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
               onClick={() => void loadUsage()}
               size="sm"
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Coba lagi
             </Button>
@@ -183,7 +183,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
             <span className="font-semibold text-secondary-500">Periode</span>
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button type="button" variant="reference" size="sm" className="h-auto min-h-[44px] gap-1.5 rounded-xl text-xs font-bold" />}
+                render={<Button type="button" variant="outline" size="sm" className="h-auto min-h-[44px] gap-1.5  text-xs font-bold" />}
               >
                 {PERIOD_LABELS[period]}
                 <ChevronDown className="size-3.5 text-secondary-400" />

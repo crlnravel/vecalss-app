@@ -149,7 +149,7 @@ function IconAction({
             onClick={onClick}
             size="icon-sm"
             type="button"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -291,7 +291,7 @@ function BackgroundControls({
               <p className="mt-2 text-xs leading-5 text-secondary-500">Pilih gambar.</p>
             </div>
           )}
-          <Button onClick={onPickImage} size="sm" type="button" variant="brandOutline">
+          <Button onClick={onPickImage} size="sm" type="button" variant="outline">
             <ImagePlus data-icon="inline-start" />
             {background.assetId ? "Ganti gambar" : "Pilih gambar"}
           </Button>
@@ -814,7 +814,7 @@ function AssetPickerPanel({
               {mode === "background" ? "Pilih gambar latar" : "Impor gambar"}
             </h2>
           </div>
-          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+          <Button aria-label="Tutup panel impor gambar" onClick={onClose} size="icon-sm" type="button" variant="outline">
             <X />
           </Button>
         </div>
@@ -952,9 +952,9 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
 
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <Link aria-label="Kembali ke dashboard admin" className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-white/35" href="/admin">
+      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="icon-sm" variant="inverse">
         <ArrowLeft aria-hidden="true" className="size-5" />
-      </Link>
+      </Button>
       <div className="flex min-w-0 items-center gap-2">
         <span className="hidden sm:block"><BrandMark compact /></span>
         <h1 className="whitespace-nowrap text-base font-semibold">Editor banner</h1>
@@ -964,10 +964,10 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
         <Input aria-label="Nama banner" className="h-11 rounded-xl border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/70 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
       </label>
       <div className="ml-auto flex items-center gap-2">
-        <SubmitButton aria-label="Simpan draf" className="min-h-11 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10" name="intent" pendingLabel="Menyimpan…" size="sm" type="submit" value="save-draft" variant="inverseOutline">
+        <SubmitButton aria-label="Simpan draf" name="intent" pendingLabel="Menyimpan…" type="submit" value="save-draft" variant="inverse">
           <Save data-icon="inline-start" /><span className="hidden sm:inline">Simpan</span>
         </SubmitButton>
-        <SubmitButton aria-label="Rilis banner" className="min-h-11 rounded-xl border-white/80 bg-white text-primary-800 hover:bg-white/90 focus-visible:border-white focus-visible:ring-white/45" name="intent" pendingLabel="Merilis…" size="sm" type="submit" value="publish" variant="brand">
+        <SubmitButton aria-label="Rilis banner" name="intent" pendingLabel="Merilis…" type="submit" value="publish" variant="default">
           <SendHorizontal data-icon="inline-start" /><span>Rilis</span>
         </SubmitButton>
         <StudentAccountMenu audience="admin" session={session} />

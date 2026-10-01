@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
@@ -78,7 +78,7 @@ function PreviewNavigation({ activeLabel = "Beranda" }: { activeLabel?: "Beranda
           key={href}
           nativeButton={false}
           render={<Link href={href} />}
-          variant={label === activeLabel ? "brand" : "brandOutline"}
+          variant={label === activeLabel ? "default" : "outline"}
         >
           {label}
         </Button>
@@ -399,7 +399,7 @@ function TryoutScheduleBadge({ status }: { status: AdminPreviewTryoutSchedule["s
         ? "info"
         : "neutral";
 
-  return <StudentBadge size="sm" tone={tone}>{tryoutScheduleLabels[status]}</StudentBadge>;
+  return <Badge size="sm" tone={tone}>{tryoutScheduleLabels[status]}</Badge>;
 }
 
 function TryoutScheduleLine({ session }: { session: AdminPreviewTryoutSchedule }) {

@@ -15,7 +15,7 @@ import {
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import {
   AssessmentUtilityPill,
@@ -152,7 +152,7 @@ function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
         className="mt-6"
         href={`/quiz/${subjectSlug}`}
         label="Kembali ke daftar kuis"
-        variant="brand"
+        variant="default"
       >
         <ArrowLeft />
       </BackButton>
@@ -181,7 +181,7 @@ function QuizResultHeaderActions({
             className="inline-flex"
             disabled={isRestarting}
             onClick={onRestart}
-            variant="brandOutline"
+            variant="outline"
           >
             <RefreshCw />
             <span className="hidden sm:inline">
@@ -196,7 +196,7 @@ function QuizResultHeaderActions({
         nativeButton={false}
         render={<Link href="/quiz" />}
         title="Kembali ke menu kuis"
-        variant="brand"
+        variant="default"
       >
         <House />
         Menu
@@ -341,10 +341,10 @@ function QuizResultQuestionCard({
           {/*   label="Tandai untuk ditinjau" */}
           {/*   onClick={onToggleReport} */}
           {/* /> */}
-          <StudentBadge size="md" tone={badgeTone}>
+          <Badge size="md" tone={badgeTone}>
             {badgeIcon}
             {badgeLabel}
-          </StudentBadge>
+          </Badge>
         </div>
       </div>
       <div
@@ -376,13 +376,13 @@ function QuizResultQuestionCard({
         <Button
           disabled={currentQuestion === 1}
           onClick={onPrevious}
-          variant="brandOutline"
+          variant="outline"
         >
           <ArrowLeft />
           <span className="hidden sm:inline">Sebelumnya</span>
         </Button>
         {currentQuestion < result.totalQuestions ? (
-          <Button onClick={onNext} variant="brand">
+          <Button onClick={onNext} variant="default">
             <span className="hidden sm:inline">Selanjutnya</span>
             <ArrowRight />
           </Button>

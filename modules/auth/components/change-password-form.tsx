@@ -68,7 +68,7 @@ function ChangePasswordForm() {
         pendingLabel="Menyimpan kata sandi..."
         size="lg"
         type="submit"
-        variant="brand"
+        variant="default"
       >
         Simpan kata sandi baru
       </SubmitButton>

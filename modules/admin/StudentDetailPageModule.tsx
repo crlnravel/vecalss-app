@@ -12,7 +12,7 @@ import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/re
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldRequiredMark } from "@/components/ui/field";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import type {
   ExamEvent,
   Major,
@@ -151,7 +151,7 @@ function StudentAccountSummary({ student }: { student: StudentDetail }) {
         </div>
         <div className="min-w-0 space-y-2 text-sm">
           <span className="font-medium text-secondary-900">Status</span>
-          <div className="flex min-h-[52px] items-center"><StudentBadge depth="sunken" size="md" tone={studentStatusTone(student.status)}>{formatStudentStatus(student.status)}</StudentBadge></div>
+          <div className="flex min-h-[52px] items-center"><Badge depth="sunken" size="md" tone={studentStatusTone(student.status)}>{formatStudentStatus(student.status)}</Badge></div>
         </div>
       </div>
     </DetailSection>
@@ -275,7 +275,7 @@ function StudentDetailFormBody({
       />
 
       <div className="flex justify-end">
-        <Button className="min-w-32" type="submit" variant="brand">Simpan perubahan</Button>
+        <Button className="min-w-32" type="submit" variant="default">Simpan perubahan</Button>
       </div>
     </StudentDetailForm>
   );
@@ -331,12 +331,12 @@ function StudentDetailPageModule({
           <nav aria-label="Navigasi siswa" className="shrink-0">
             <Button
               aria-label="Kembali ke siswa"
-              className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+              className="mt-1 shrink-0"
               nativeButton={false}
               render={<Link href={backHref} />}
               size="icon"
               title="Kembali ke siswa"
-              variant="ghost"
+              variant="outline"
             >
               <ChevronLeft aria-hidden="true" size={22} />
               <span className="sr-only">Kembali ke siswa</span>

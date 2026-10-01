@@ -56,7 +56,7 @@ function tryoutStatusTone(status: string): ReferenceStatusTone {
 function StatusBadge({ status }: { status: string }) {
   const label = statusLabels[status] ?? status.replace(/(^|[_\s-])(\p{L})/gu, (_, prefix: string, character: string) => `${prefix}${character.toLocaleUpperCase()}`);
 
-  return <ReferenceStatusBadge appearance="mentor" label={label} size="sm" status={status} tone={tryoutStatusTone(status)} />;
+  return <ReferenceStatusBadge label={label} size="sm" status={status} tone={tryoutStatusTone(status)} />;
 }
 
 export { StatusBadge };

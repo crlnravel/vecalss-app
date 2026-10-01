@@ -177,7 +177,7 @@ function StudentPreviewPanel({
                   className="cursor-pointer border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40"
                   size="icon"
                   type="button"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -197,7 +197,7 @@ function StudentPreviewPanel({
           <SheetDescription className="mt-1 truncate text-sm text-secondary-600">
             {student.email}
           </SheetDescription>
-          <Link className={buttonVariants({ className: "mt-5 w-full", size: "sm", variant: "brand" })} href={detailHref}>
+          <Link className={buttonVariants({ className: "mt-5 w-full", size: "sm", variant: "default" })} href={detailHref}>
              Buka detail
           </Link>
           <StudentAccountActions

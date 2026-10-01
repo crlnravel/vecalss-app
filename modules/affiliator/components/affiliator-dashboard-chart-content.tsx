@@ -116,10 +116,10 @@ function ChartFilterMenu({
         aria-label={label}
         render={
           <Button
-            className="h-auto min-h-11 max-w-full gap-1.5 rounded-xl px-3 text-xs font-semibold"
+            className="h-auto min-h-11 max-w-full gap-1.5  px-3 text-xs font-semibold"
             size="sm"
             type="button"
-            variant="reference"
+            variant="outline"
           />
         }
       >

@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import {
@@ -169,11 +168,13 @@ function StudentSearchSection({
             Mencari peserta…
           </div>
         ) : searchState === "error" ? (
-          <Alert className="border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--voyage-warm-sun-ink)]" role="alert">
-            <CircleAlert aria-hidden="true" />
-            <AlertTitle>Pencarian gagal</AlertTitle>
-            <AlertDescription>{searchError}</AlertDescription>
-          </Alert>
+          <div className="flex items-start gap-2 text-sm text-[var(--voyage-warm-sun-ink)]" role="alert">
+            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-semibold">Pencarian gagal</p>
+              <p>{searchError}</p>
+            </div>
+          </div>
         ) : searchState === "ready" && !students.length ? (
           <div className="rounded-xl border border-dashed border-primary-200 bg-white px-3 py-3 text-sm text-secondary-600">Belum ada akun student yang cocok.</div>
         ) : searchState === "idle" ? (
@@ -190,13 +191,14 @@ function StudentSearchSection({
               <li key={student.id}>
                 <Button
                   aria-selected={isActive}
-                  className={`min-h-12 w-full min-w-0 justify-between gap-3 rounded-2xl border px-3 py-2.5 text-left ${isActive ? "border-primary-400 bg-white ring-2 ring-primary-700/20" : "border-primary-100 bg-white hover:border-primary-300"}`}
+                  className="min-h-12 w-full min-w-0 justify-between gap-3 px-3 py-2.5 text-left"
+                  data-active={isActive || undefined}
                   disabled={busy}
                   id={`${searchResultsId}-${student.id}`}
                   onClick={() => onChooseStudent(student)}
                   role="option"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-semibold text-secondary-900">{student.displayName}</span>
@@ -225,9 +227,9 @@ function InvitationSelectedStudent({ selectedStudent }: { selectedStudent: Invit
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Student terpilih</p>
           <p className="mt-1 break-words font-semibold text-secondary-900">{selectedStudent.displayName}</p>
         </div>
-        <MentorBadge className="shrink-0" size="sm" tone={selectedStudent.admission?.status === "active" ? "success" : "attention"}>
+        <Badge className="shrink-0" size="sm" tone={selectedStudent.admission?.status === "active" ? "success" : "attention"}>
           {selectedStudent.admission ? admissionLabel(selectedStudent.admission.status) : "Baru"}
-        </MentorBadge>
+        </Badge>
       </div>
       <p className="text-xs leading-5 text-secondary-600">Pilihan sesi dan alasan audit akan dikirim bersama student ID ini.</p>
     </div>
@@ -238,7 +240,7 @@ function InvitationSelectedStudent({ selectedStudent }: { selectedStudent: Invit
 
 function InvitationSubmitButton({ busy, disabled, onSubmit }: { busy: boolean; disabled: boolean; onSubmit: () => void }) {
   return (
-    <Button className="min-h-11 w-full" disabled={busy || disabled} onClick={onSubmit} type="button" variant="reference">
+    <Button className="min-h-11 w-full" disabled={busy || disabled} onClick={onSubmit} type="button" variant="outline">
       {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : <SendHorizontal aria-hidden="true" />}
       {busy ? "Memproses undangan…" : "Kirim undangan"}
     </Button>

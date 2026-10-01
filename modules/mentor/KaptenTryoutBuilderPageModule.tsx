@@ -48,7 +48,7 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -525,7 +525,6 @@ function TryoutBannerActions({
   const position = presentation === "dialog"
     ? "right-3 top-3 sm:right-4 sm:top-4"
     : "right-4 top-4";
-  const buttonSize = presentation === "dialog" ? "size-10 sm:size-11" : "size-11";
 
   return (
     <>
@@ -540,12 +539,11 @@ function TryoutBannerActions({
               render={
                 <Button
                   aria-label="Ubah banner Tryout"
-                  className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${buttonSize}`}
                   disabled={disabled}
                   onClick={onOpenPicker}
                   size="icon"
                   type="button"
-                  variant="ghost"
+                  variant="inverse"
                 />
               }
             >
@@ -559,12 +557,11 @@ function TryoutBannerActions({
                 render={
                   <Button
                     aria-label="Hapus banner Tryout"
-                    className={`rounded-xl bg-white/95 text-secondary-900 shadow-sm hover:bg-white hover:text-secondary-900 ${buttonSize}`}
                     disabled={disabled}
                     onClick={() => onChange(null)}
                     size="icon"
                     type="button"
-                    variant="ghost"
+                    variant="inverse"
                   />
                 }
               >
@@ -721,7 +718,7 @@ function TryoutTitleEditingForm({
           onClick={onSave}
           size="sm"
           type="button"
-          variant="brand"
+          variant="default"
         >
           <Check aria-hidden="true" />
           Simpan
@@ -731,7 +728,7 @@ function TryoutTitleEditingForm({
           onClick={onCancel}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <X aria-hidden="true" />
           Batal
@@ -763,7 +760,7 @@ function TryoutTitleReadView({
           size="icon-sm"
           title="Ubah judul Tryout"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Pencil aria-hidden="true" className="size-4" />
         </Button>
@@ -895,7 +892,7 @@ function TryoutDescriptionPageField({
             size="icon-sm"
             title="Ubah deskripsi Tryout"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil aria-hidden="true" className="size-3.5" />
           </Button>
@@ -956,7 +953,7 @@ function TryoutDescriptionEditingForm({
           onClick={onSave}
           size="sm"
           type="button"
-          variant="brand"
+          variant="default"
         >
           <Check aria-hidden="true" />
           Simpan
@@ -966,7 +963,7 @@ function TryoutDescriptionEditingForm({
           onClick={onCancel}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <X aria-hidden="true" />
           Batal
@@ -1117,7 +1114,7 @@ function TryoutIdentityCreateAction({
       disabled={disabled || emptyTitle}
       onClick={onCreate}
       type="button"
-      variant={presentation === "dialog" && emptyTitle ? "brandOutline" : "brand"}
+      variant={presentation === "dialog" && emptyTitle ? "outline" : "default"}
     >
       <Save className={presentation === "dialog" ? "size-6" : undefined} />
       {disabled ? "Membuat…" : "Buat"}
@@ -1229,12 +1226,12 @@ function TryoutSavedQuestionList({
                     {index + 1}
                   </span>
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                    <MentorBadge size="xs" tone="category">
+                    <Badge size="xs" tone="category">
                       {questionTypeLabel}
-                    </MentorBadge>
-                    <MentorBadge size="xs" tone="category">
+                    </Badge>
+                    <Badge size="xs" tone="category">
                       {difficultyLabel}
-                    </MentorBadge>
+                    </Badge>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-4">
@@ -1452,7 +1449,7 @@ function TryoutSubtestMetadataField({
               onClick={onSave}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <Check aria-hidden="true" />
             </Button>
@@ -1461,7 +1458,7 @@ function TryoutSubtestMetadataField({
               onClick={onCancel}
               size="icon"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X aria-hidden="true" />
             </Button>
@@ -1472,7 +1469,7 @@ function TryoutSubtestMetadataField({
             onClick={onEdit}
             size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil aria-hidden="true" />
           </Button>
@@ -1864,7 +1861,7 @@ function TryoutQuestionEditorAction({
       }}
       render={<Link href={href} />}
       type="button"
-      variant="brand"
+      variant="default"
     >
       <FilePenLine aria-hidden="true" />
       Edit Soal
@@ -1980,12 +1977,12 @@ function TryoutSubtestIndex({
               {href ? (
                 <Button
                   aria-label={actionLabel}
-                  className="group h-auto min-h-16 w-full justify-start rounded-2xl border border-primary-100 bg-white px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/60 sm:px-5"
+                  className="group h-auto min-h-16 w-full justify-start px-4 py-3 text-left sm:px-5"
                   disabled={saving}
                   nativeButton={false}
                   onClick={(event) => onOpenSubtest(section.subtest, event)}
                   render={<Link href={href} />}
-                  variant="ghost"
+                  variant="outline"
                 >
                   {content}
                   <ChevronRight
@@ -1996,10 +1993,10 @@ function TryoutSubtestIndex({
               ) : (
                 <Button
                   aria-label={actionLabel}
-                  className="group h-auto min-h-16 w-full justify-start rounded-2xl border border-primary-100 bg-white px-4 py-3 text-left hover:border-primary-200 hover:bg-primary-50/60 sm:px-5"
+                  className="group h-auto min-h-16 w-full justify-start px-4 py-3 text-left sm:px-5"
                   disabled={saving}
                   onClick={() => onOpenSubtest(section.subtest)}
-                  variant="ghost"
+                  variant="outline"
                 >
                   {content}
                   <ChevronRight
@@ -2076,7 +2073,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving}
               onClick={onConfirmPublish}
-              variant="brand"
+              variant="default"
             >
               {saving ? "Menerbitkan…" : "Terbitkan"}
             </AlertDialogAction>
@@ -2104,7 +2101,7 @@ function TryoutLifecycleModals({
             <AlertDialogAction
               disabled={saving || draft.locked || hasActiveAttempt}
               onClick={onConfirmUnpublish}
-              variant="brand"
+              variant="default"
             >
               {saving ? "Memproses…" : "Jadikan draf"}
             </AlertDialogAction>
@@ -2130,7 +2127,7 @@ function TryoutLifecycleModals({
             <AlertDialogAction
               disabled={saving}
               onClick={onConfirmDuplicate}
-              variant="brand"
+              variant="default"
             >
               <Copy />
               {saving ? "Menyalin…" : "Buat salinan"}
@@ -2168,7 +2165,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving}
               onClick={onConfirmDiscard}
-              variant="brandOutline"
+              variant="outline"
             >
               Buang perubahan
             </Button>
@@ -2176,7 +2173,7 @@ function TryoutLifecycleModals({
               className="w-full"
               disabled={saving || !draft.title.trim()}
               onClick={onConfirmSaveDirty}
-              variant="brand"
+              variant="default"
             >
               <Save />
               Simpan dan lanjutkan
@@ -3211,7 +3208,7 @@ function TryoutQuestionEditorHeader({
       render={<Link href={backHref} />}
       size="sm"
       type="button"
-      variant="ghost"
+      variant="outline"
     ><ChevronLeft aria-hidden="true" /></Button>}
     category={subtest}
     dirty={dirty}
@@ -3276,13 +3273,13 @@ function TryoutBuilderHeader({
       <div className="flex min-w-0 items-start gap-3">
         <Button
           aria-label={backLabel}
-          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          className="mt-1 shrink-0"
           nativeButton={false}
           onClick={(event) => guardExternalNavigation(backHref, event)}
           render={<Link href={backHref} />}
           size="icon"
           title={backLabel}
-          variant="ghost"
+          variant="outline"
         >
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>
@@ -3480,7 +3477,7 @@ function TryoutBuilderPageWorkspace({
               )
             }
             render={<Link href={tryoutSubtestListHref(id, initialParent?.id)} />}
-            variant="ghost"
+            variant="outline"
           >
             Kembali ke daftar subtes
           </Button>

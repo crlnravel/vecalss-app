@@ -486,7 +486,7 @@ function TryoutDetailAction({
   if (model.actionLabel === "Daftar Tryout") {
     return <ParticipantTryoutEnrollmentPanel initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} returnToHref={returnToHref} sessionId={model.summarySession?.id ?? sessionId} tryoutId={tryout.id} universities={universities} />;
   }
-  return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "brand" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
+  return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "default" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
 }
 
 function ParticipantTryoutDetailContent({

@@ -68,7 +68,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
               disabled={isLoading}
               onClick={() => void loadProviders()}
               type="button"
-              variant="reference"
+              variant="outline"
               className="gap-2"
             >
               <RefreshCw className={cn("size-4 motion-reduce:animate-none", isLoading && "animate-spin")} />
@@ -84,7 +84,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
           <div aria-live="assertive" className="flex flex-wrap items-center gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">
             <AlertCircle className="size-5 shrink-0 text-danger-600" />
             <p className="min-w-0 flex-1">{error}</p>
-            <Button disabled={isLoading} onClick={() => void loadProviders()} size="default" type="button" variant="brandOutline">
+            <Button disabled={isLoading} onClick={() => void loadProviders()} size="default" type="button" variant="outline">
               Coba lagi
             </Button>
           </div>

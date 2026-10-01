@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Search, X } from "@/lib/icons";
 import { DIRECTORY_PAGE_SIZE_OPTIONS } from "@/lib/admin/operations/directory-page-constants";
 import styles from "./reui-directory-grid.module.css";
@@ -44,7 +46,7 @@ function ReuiDirectoryGrid<T>({ caption, title, total, actions, columns, rows, g
             <Search size={16} aria-hidden="true" />
             {Object.entries(search.hiddenFields ?? {}).flatMap(([key, value]) => (Array.isArray(value) ? value : [value]).map((item, index) => <input key={`${key}-${index}`} type="hidden" name={key} value={item} />))}
             <input name="q" aria-label={search.label ?? `Cari ${title}`} placeholder={search.placeholder ?? "Cari…"} defaultValue={search.onValueChange ? undefined : search.value} value={search.onValueChange ? search.value : undefined} onChange={search.onValueChange ? event => search.onValueChange?.(event.target.value) : undefined} key={search.onValueChange ? "local-search" : search.value} type="search" />
-            {search.value ? search.onValueChange ? <button className={styles.iconButton} type="button" aria-label="Hapus pencarian" onClick={() => search.onValueChange?.("")}><X size={14} /></button> : search.clearHref ? <Link className={styles.iconButton} aria-label="Hapus pencarian" href={search.clearHref}><X size={14} /></Link> : null : null}
+            {search.value ? search.onValueChange ? <Button aria-label="Hapus pencarian" onClick={() => search.onValueChange?.("")} size="icon-sm" type="button" variant="outline"><X size={14} /></Button> : search.clearHref ? <Link className={buttonVariants({ size: "icon-sm", variant: "outline" })} aria-label="Hapus pencarian" href={search.clearHref}><X size={14} /></Link> : null : null}
           </form> : null}
           {filterPanel}
           {actions}
@@ -83,8 +85,8 @@ function ReuiDirectoryMember({ name, email, onView, editHref }: { name: string; 
     <span className={styles.avatar} aria-hidden="true">{name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</span>
     <div className={styles.identity}><span className={styles.name} title={name}>{name}</span><span className={styles.username}>{email.split("@")[0]}</span></div>
     {onView || editHref ? <div className={styles.rowActions}>
-      {onView ? <button className={styles.iconButton} aria-label={`Lihat ${name}`} title={`Lihat ${name}`} onClick={onView} type="button"><Eye /></button> : null}
-      {editHref ? <Link className={styles.iconButton} aria-label={`Kelola ${name}`} title={`Kelola ${name}`} href={editHref}><Pencil /></Link> : null}
+      {onView ? <Button aria-label={`Lihat ${name}`} title={`Lihat ${name}`} onClick={onView} size="icon-sm" type="button" variant="outline"><Eye /></Button> : null}
+      {editHref ? <Link className={buttonVariants({ size: "icon-sm", variant: "outline" })} aria-label={`Kelola ${name}`} title={`Kelola ${name}`} href={editHref}><Pencil /></Link> : null}
     </div> : null}
   </div>;
 }
@@ -100,12 +102,12 @@ function ReuiDirectoryFilters({ basePath, query, statuses, multiple = false, dat
     router.replace(`${basePath}${params.size ? `?${params}` : ""}`, { scroll: false }); setOpen(false);
   }
   const labels: Record<string, string> = { active: "Aktif", disabled: "Nonaktif", locked: "Terkunci" };
-  return <Popover.Root open={open} onOpenChange={setOpen}><Popover.Trigger className={styles.button} aria-label="Filter akun">Filter<ChevronDown size={14} /></Popover.Trigger>
+  return <Popover.Root open={open} onOpenChange={setOpen}><Popover.Trigger className={buttonVariants({ size: "sm", variant: "outline" })} aria-label="Filter akun">Filter<ChevronDown size={14} /></Popover.Trigger>
     <Popover.Portal><Popover.Positioner className={styles.positioner} align="end" sideOffset={4}><Popover.Popup className={styles.popup}>
       <form className={styles.filterForm} action={basePath} method="get" onSubmit={apply}>
         <fieldset><legend>Status akun</legend>{Object.entries(labels).map(([value, label]) => <label key={value}><input type={multiple ? "checkbox" : "radio"} name="status" value={value} defaultChecked={statuses.includes(value)} />{label}</label>)}</fieldset>
         {dateRange ? <fieldset className={styles.dateFields}><legend>Ditambahkan</legend><label>Dari tanggal<input type="date" name="addedFrom" defaultValue={dateRange.from ?? ""} /></label><label>Sampai tanggal<input type="date" name="addedTo" defaultValue={dateRange.to ?? ""} /></label></fieldset> : null}
-        <div className={styles.filterActions}><Link className={styles.button} href={clearHref} onClick={() => setOpen(false)}>Hapus filter</Link><button className={styles.primaryButton} type="submit">Terapkan</button></div>
+        <div className={styles.filterActions}><Link className={buttonVariants({ size: "sm", variant: "outline" })} href={clearHref} onClick={() => setOpen(false)}>Hapus filter</Link><Button size="sm" type="submit" variant="default">Terapkan</Button></div>
       </form>
     </Popover.Popup></Popover.Positioner></Popover.Portal>
   </Popover.Root>;
@@ -123,11 +125,11 @@ function ReuiDirectoryFooter({ page, pageCount, pageSize, total, visibleCount, b
   function changePage(nextPage: number) { if (onPageChange) onPageChange(nextPage); else router.replace(href(nextPage), { scroll: false }); }
   const from = visibleCount ? (page - 1) * pageSize + 1 : 0;
   return <div className={`${styles.root} ${styles.footer}`}>
-    <div className={styles.sizeGroup}><span>Baris per halaman</span><Menu.Root><Menu.Trigger className={styles.button} aria-label="Baris per halaman">{pageSize}<ChevronDown size={14} /></Menu.Trigger><Menu.Portal><Menu.Positioner className={styles.positioner} align="start" sideOffset={4}><Menu.Popup className={styles.popup}>{DIRECTORY_PAGE_SIZE_OPTIONS.map(size => <Menu.Item key={size} className={styles.menuItem} onClick={() => { if (onSizeChange) onSizeChange(size); else router.replace(href(1, size), { scroll: false }); }}>{size}</Menu.Item>)}</Menu.Popup></Menu.Positioner></Menu.Portal></Menu.Root></div>
+    <div className={styles.sizeGroup}><span>Baris per halaman</span><Menu.Root><Menu.Trigger className={buttonVariants({ size: "sm", variant: "outline" })} aria-label="Baris per halaman">{pageSize}<ChevronDown size={14} /></Menu.Trigger><Menu.Portal><Menu.Positioner className={styles.positioner} align="start" sideOffset={4}><Menu.Popup className={styles.popup}>{DIRECTORY_PAGE_SIZE_OPTIONS.map(size => <Menu.Item key={size} className={styles.menuItem} onClick={() => { if (onSizeChange) onSizeChange(size); else router.replace(href(1, size), { scroll: false }); }}>{size}</Menu.Item>)}</Menu.Popup></Menu.Positioner></Menu.Portal></Menu.Root></div>
     <div className={styles.pagination}><span>{from} - {visibleCount ? from + visibleCount - 1 : 0} dari {total} akun</span>
-      {pageCount > 1 ? <nav className={styles.pageList} aria-label="Halaman direktori"><button className={styles.pageButton} type="button" disabled={page <= 1} aria-label="Halaman sebelumnya" onClick={() => changePage(page - 1)}><ChevronLeft size={16} /></button>
-        {pages.map((value, index) => <span key={value}>{index > 0 && value - pages[index - 1] > 1 ? <span className={styles.pageButton}>…</span> : null}<button className={styles.pageButton} type="button" aria-label={`Buka halaman ${value}`} aria-current={page === value ? "page" : undefined} onClick={() => changePage(value)}>{value}</button></span>)}
-        <button className={styles.pageButton} type="button" disabled={page >= pageCount} aria-label="Halaman berikutnya" onClick={() => changePage(page + 1)}><ChevronRight size={16} /></button>
+      {pageCount > 1 ? <nav className={styles.pageList} aria-label="Halaman direktori"><Button size="icon-sm" type="button" variant="outline" disabled={page <= 1} aria-label="Halaman sebelumnya" onClick={() => changePage(page - 1)}><ChevronLeft size={16} /></Button>
+        {pages.map((value, index) => <span key={value}>{index > 0 && value - pages[index - 1] > 1 ? <span className={styles.pageEllipsis}>…</span> : null}<Button className="min-w-8" size="sm" type="button" variant={page === value ? "default" : "outline"} aria-label={`Buka halaman ${value}`} aria-current={page === value ? "page" : undefined} onClick={() => changePage(value)}>{value}</Button></span>)}
+        <Button size="icon-sm" type="button" variant="outline" disabled={page >= pageCount} aria-label="Halaman berikutnya" onClick={() => changePage(page + 1)}><ChevronRight size={16} /></Button>
       </nav> : null}
     </div>
   </div>;

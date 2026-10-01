@@ -192,7 +192,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
       <div className="flex items-center gap-1.5">
         <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Pilih jenis akun<FieldRequiredMark /></label>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-xs" type="button" variant="ghost" />}>
+          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-sm" type="button" variant="outline" />}>
             <CircleHelp aria-hidden="true" size={15} />
           </TooltipTrigger>
           <TooltipContent>Satu file hanya boleh berisi data untuk satu jenis akun.</TooltipContent>
@@ -218,7 +218,7 @@ function ImportTemplateDownload({ showRoleSelect, template }: { showRoleSelect: 
     <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
       <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Unduh templat daftar" : "1. Unduh templat daftar"}</p>
       <p className="mt-1 text-xs leading-5 text-secondary-500">Gunakan templat ini untuk menambahkan daftar {template.label}.</p>
-      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh templat" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="reference">
+      <Button className="mt-4" nativeButton={false} render={<a aria-label="Unduh templat" download={template.fileName} href={"/api/admin/imports/templates/" + template.version} />} size="default" variant="outline">
         <ArrowDownToLine aria-hidden="true" size={16} />
         Unduh templat
       </Button>
@@ -259,7 +259,7 @@ function ImportFileUpload({
         />
       </div>
       <p className="sr-only" id="roster-upload-help">Pilih file atau letakkan file di sini. Isinya akan diperiksa sebelum impor dimulai.</p>
-      <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
+      <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="default">
         <FileUp aria-hidden="true" size={17} />
         {busy ? "Mengunggah…" : "Unggah"}
       </Button>
@@ -279,10 +279,10 @@ function ImportSessionIssueNotice({ sessionIssue }: { sessionIssue: "expired" | 
       <p className="mt-1">{expired ? "Masuk lagi untuk kembali ke halaman penambahan akun." : "Masuk dengan akun admin yang aktif atau kembali ke beranda admin."}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="dangerOutline">
+        <Button nativeButton={false} render={<Link href={expired ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />} size="default" variant="destructive">
           {expired ? "Masuk lagi" : "Kembali ke beranda admin"}
         </Button>
-        <Button onClick={() => window.location.reload()} size="default" variant="dangerOutline">Segarkan halaman</Button>
+        <Button onClick={() => window.location.reload()} size="default" variant="destructive">Segarkan halaman</Button>
       </div>
     </ReferenceSurface>
   );

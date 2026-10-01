@@ -3,10 +3,10 @@
 import { useActionState, useState } from "react";
 
 import type { ExamEvent } from "@/generated/prisma/client";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ModeCardTabs } from "@/components/ui/mode-card-tabs";
 import type { ModeCardTabItem } from "@/components/ui/mode-card-tabs";
-import styles from "./reui-directory-grid.module.css";
 import { UserPlus, Users } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
@@ -72,11 +72,12 @@ function AddStudentDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger
         render={
-          <button
-             aria-label={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
-            className={initialMode === "bulk" ? styles.button : styles.primaryButton}
-             title={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
+          <Button
+            aria-label={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
+            size="sm"
             type="button"
+            title={initialMode === "bulk" ? "Impor siswa" : "Tambah siswa"}
+            variant={initialMode === "bulk" ? "outline" : "default"}
           />
         }
       >

@@ -48,7 +48,7 @@ function QuestionMediaActions({
         size={compact ? "icon-sm" : "sm"}
         title={compact ? addLabel : undefined}
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <ImagePlus aria-hidden="true" />
         {compact ? (
@@ -67,7 +67,7 @@ function QuestionMediaActions({
           size={compact ? "icon-sm" : "sm"}
           title={compact ? removeLabel : undefined}
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <X aria-hidden="true" />
           {compact ? <span className="sr-only">{removeLabel}</span> : "Lepas"}
@@ -201,7 +201,7 @@ export function QuestionContentEditor({
           }}
           size="sm"
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           <Plus aria-hidden="true" />
           Tambah opsi
@@ -368,7 +368,7 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
           size="icon-sm"
           title={`Hapus opsi ${optionLabel}`}
           type="button"
-          variant="ghost"
+          variant="outline"
         ><Trash2 aria-hidden="true" /></Button>
       </div>
       {choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${optionLabel}`} assetId={choice.mediaAssetId} className="max-h-36 bg-white" /> : null}

@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { FieldRequiredMark } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto, PolicySection } from "@/lib/admin/ai-policy/contracts";
@@ -243,7 +244,7 @@ function AiPolicyTypedControls({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-secondary-500">Bagian berubah: {dirtySectionLabel}</p>
-        <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="reference">Simpan bagian kebijakan</Button>
+        <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="outline">Simpan bagian kebijakan</Button>
       </div>
     </div>
   );
@@ -269,7 +270,7 @@ function AiPolicyAuditHistory({
           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Riwayat versi</h2>
           <p className="mt-1 text-sm text-secondary-600">Riwayat audit tanpa isi konten; setiap transisi menyimpan aktor, digest, alasan, dan status.</p>
         </div>
-        <Button disabled={busy} onClick={onRefresh} type="button" variant="reference">Muat ulang metadata</Button>
+        <Button disabled={busy} onClick={onRefresh} type="button" variant="outline">Muat ulang metadata</Button>
       </div>
       <div className="mt-5 hidden overflow-hidden sm:block">
         <Table className="table-fixed border-collapse text-left text-sm">
@@ -289,7 +290,7 @@ function AiPolicyAuditHistory({
                 <TableCell className="px-3 py-4 text-secondary-700">{formatAiPolicyState(item.state)}</TableCell>
                 <TableCell className="px-3 py-4 text-secondary-700">{formatDate(item.effectiveAt)}</TableCell>
                 <TableCell className="max-w-xs whitespace-normal px-3 py-4 text-secondary-600">{item.reason ?? "—"}</TableCell>
-                <TableCell className="px-3 py-4 text-secondary-700"><span>{item.lastAction ? formatAiPolicyAction(item.lastAction) : "—"}</span>{item.state !== "active" && item.state !== "scheduled" ? null : <Button className="ml-3 h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Pulihkan versi</Button>}</TableCell>
+                <TableCell className="px-3 py-4 text-secondary-700"><span>{item.lastAction ? formatAiPolicyAction(item.lastAction) : "—"}</span>{item.state !== "active" && item.state !== "scheduled" ? null : <Button className="ml-3 h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="outline">Pulihkan versi</Button>}</TableCell>
               </TableRow>
             )) : <TableRow className="hover:bg-transparent"><TableCell className="px-3 py-8 text-secondary-600" colSpan={5}>Belum ada bundle yang tersimpan.</TableCell></TableRow>}
           </TableBody>
@@ -303,7 +304,7 @@ function AiPolicyAuditHistory({
                 <p className="break-all text-sm font-semibold text-secondary-900">{item.bundleVersion}</p>
                 <p className="mt-1 text-xs text-secondary-600">{formatAiPolicyState(item.state)} · {formatDate(item.effectiveAt)}</p>
               </div>
-              {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Pulihkan versi</Button>}
+              {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="outline">Pulihkan versi</Button>}
             </div>
             <dl className="mt-3 grid gap-2 text-xs">
               <div><dt className="text-secondary-500">Alasan</dt><dd className="mt-1 break-words text-secondary-700">{item.reason ?? "—"}</dd></div>
@@ -398,7 +399,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       });
       applyBundlePayload(payload);
       setReason("");
-      setMessage("Draf lengkap dibuat. Lanjutkan dengan mengedit bagian, memvalidasi, memeriksa pratinjau dampak, lalu meminta persetujuan operator kedua.");
+      showToast("Draf lengkap dibuat. Lanjutkan dengan mengedit bagian, memvalidasi, memeriksa pratinjau dampak, lalu meminta persetujuan operator kedua.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Draf kebijakan belum berhasil dibuat. Coba lagi atau segarkan halaman.");
@@ -439,7 +440,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         patch,
       }, "PATCH");
       applyBundlePayload(payload);
-      setMessage("Perubahan bagian tersimpan ke draf.");
+      showToast("Perubahan bagian tersimpan ke draf.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Perubahan pada draf belum berhasil disimpan. Coba lagi atau muat ulang draf.");
@@ -458,7 +459,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         expectedRevision: draft.revision,
       });
       applyBundlePayload(payload);
-      setMessage("Draf tervalidasi. Siap untuk pratinjau dampak dan persetujuan operator kedua.");
+      showToast("Draf tervalidasi. Siap untuk pratinjau dampak dan persetujuan operator kedua.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Draf belum berhasil divalidasi. Periksa statusnya lalu coba lagi.");
@@ -484,7 +485,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         } : undefined,
       });
       applyBundlePayload(payload);
-      setMessage(`Pratinjau ${scope === "aggregate" ? "agregat" : "kategori"} selesai dibuat.`);
+      showToast(`Pratinjau ${scope === "aggregate" ? "agregat" : "kategori"} selesai dibuat.`, { variant: "success" });
     } catch {
       setMessage("Pratinjau dampak belum berhasil dibuat. Coba lagi.");
     } finally {
@@ -504,7 +505,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf disetujui. Siap dijadwalkan dengan stempel waktu UTC yang valid.");
+      showToast("Draf disetujui. Siap dijadwalkan dengan stempel waktu UTC yang valid.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Persetujuan draf belum berhasil diproses. Periksa status draf sebelum mencoba lagi.");
@@ -526,7 +527,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf berhasil dijadwalkan.");
+      showToast("Draf berhasil dijadwalkan.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Jadwal penerapan draf belum berhasil disimpan. Periksa status draf lalu coba lagi.");
@@ -546,7 +547,12 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       const bundle = applyBundlePayload(payload);
-      setMessage(bundle ? "Kebijakan yang jatuh tempo berhasil diaktifkan." : "Tidak ada kebijakan jatuh tempo yang diaktifkan.");
+      showToast(
+        bundle
+          ? "Kebijakan yang jatuh tempo berhasil diaktifkan."
+          : "Tidak ada kebijakan jatuh tempo yang diaktifkan.",
+        { variant: bundle ? "success" : "info" },
+      );
       await refresh();
     } catch {
       setMessage("Kebijakan yang sudah jatuh tempo belum berhasil diaktifkan. Periksa statusnya lalu coba lagi.");
@@ -564,7 +570,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
         reason: reason.trim(),
       });
       applyBundlePayload(payload);
-      setMessage("Draf pemulihan dibuat sebagai snapshot baru; riwayat lama tetap tidak berubah.");
+      showToast("Draf pemulihan dibuat sebagai snapshot baru; riwayat lama tetap tidak berubah.", { variant: "success" });
       await refresh();
     } catch {
       setMessage("Draf pemulihan belum berhasil dibuat. Periksa riwayat kebijakan lalu coba lagi.");
@@ -586,7 +592,7 @@ function useAiPolicyPageState({ metadata: initialMetadata }: AiPolicyPageModuleP
       setTargetReference("");
       setRequestedUpperBound("");
       setReason("");
-      setMessage("Serah-terima retensi diterima sebagai menunggu. Tenggat dan siklus hidup belum berubah; T11 tetap menjadi pemilik commit.");
+      showToast("Serah-terima retensi diterima sebagai menunggu. Tenggat dan siklus hidup belum berubah; T11 tetap menjadi pemilik commit.", { variant: "success" });
     } catch {
       setMessage("Permintaan serah-terima retensi belum berhasil dibuat. Periksa detailnya lalu coba lagi.");
     } finally {
@@ -681,7 +687,7 @@ function AiPolicyScopeSection({ state, requestConfirmation }: { state: AiPolicyP
               createDraft,
             )}
             type="button"
-            variant="brand"
+            variant="default"
           >
             Buat draf lengkap
           </Button>
@@ -705,7 +711,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           validateDraft,
         )}
         type="button"
-        variant="brand"
+        variant="default"
       >Validasi draf</Button>
       <Button
         disabled={busy || draft.state !== "pending_approval"}
@@ -715,7 +721,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           () => void previewDraft("categorical"),
         )}
         type="button"
-        variant="reference"
+        variant="outline"
       >Pratinjau dampak</Button>
       <Button
         disabled={busy || draft.state !== "pending_approval"}
@@ -725,7 +731,7 @@ function AiPolicyLifecycleActions({ state, requestConfirmation }: { state: AiPol
           approveDraft,
         )}
         type="button"
-        variant="reference"
+        variant="outline"
       >Setujui (operator kedua)</Button>
     </div>
   );
@@ -752,7 +758,7 @@ function AiPolicyAggregatePreview({ state, requestConfirmation }: { state: AiPol
             () => void previewDraft("aggregate"),
           )}
           type="button"
-          variant="reference"
+          variant="outline"
         >Jalankan pratinjau agregat</Button>
       </div>
       <div className="text-xs leading-5 text-secondary-600">
@@ -781,7 +787,7 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
             scheduleDraft,
           )}
           type="button"
-          variant="brand"
+          variant="default"
         >Jadwalkan</Button>
         <Button
           disabled={busy || draft.state !== "scheduled"}
@@ -791,7 +797,7 @@ function AiPolicyScheduleControls({ state, requestConfirmation }: { state: AiPol
             activateDraft,
           )}
           type="button"
-          variant="reference"
+          variant="outline"
         >Aktifkan yang jatuh tempo</Button>
       </div>
     </div>
@@ -874,7 +880,7 @@ function AiPolicyRetentionSection({ state, requestConfirmation }: { state: AiPol
               requestRetentionExtension,
             )}
             type="button"
-            variant="reference"
+            variant="outline"
           >Kirim serah-terima untuk ditinjau</Button>
         </div>
       ) : <ReferenceSurface className="mt-5 p-4 text-sm text-secondary-600" variant="inset">Kapabilitas tata kelola diperlukan untuk membuat serah-terima. Tidak ada tombol pengganti atau bypass.</ReferenceSurface>}
@@ -910,7 +916,7 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={state.busy}>Batal</AlertDialogCancel>
-            <AlertDialogAction disabled={state.busy} onClick={confirmPendingAction} variant="brand">Konfirmasi dan jalankan</AlertDialogAction>
+            <AlertDialogAction disabled={state.busy} onClick={confirmPendingAction} variant="default">Konfirmasi dan jalankan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

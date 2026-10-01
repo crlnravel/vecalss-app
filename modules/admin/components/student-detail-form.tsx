@@ -123,11 +123,11 @@ function StudentDetailForm({
                 onClick={handleDiscard}
                 size="sm"
                 type="button"
-                variant="ghost"
+                variant="outline"
               >
                  Buang perubahan
               </Button>
-               <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
+               <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="default">
                  Simpan perubahan
               </SubmitButton>
             </div>

@@ -420,7 +420,7 @@ function QuestionBankSelector({
             <Button
               className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full justify-between`}
               type="button"
-              variant="reference"
+              variant="outline"
             />
           }
         >
@@ -558,7 +558,7 @@ function QuestionBankSelectionControls({
             onClick={onRetryCount}
             size="sm"
             type="button"
-            variant="reference"
+            variant="outline"
           >
             Coba lagi
           </Button>
@@ -623,7 +623,7 @@ function QuestionBankQuestionResults({
               onClick={onReload}
               size="sm"
               type="button"
-              variant="reference"
+              variant="outline"
             >
               Muat ulang daftar soal
             </Button>
@@ -970,7 +970,7 @@ function QuestionBankPickerDialog({
               })}
               onClick={() => void importQuestions()}
               type="button"
-              variant="brand"
+              variant="default"
             >
               {questionBankImportButtonLabel(importing)}
             </Button>

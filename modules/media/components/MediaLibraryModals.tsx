@@ -76,8 +76,8 @@ function CreateFolderDialog({ actions, folderDialogOpen, isMutationPending, muta
             <FieldInput autoFocus disabled={isMutationPending("create-folder")} id="new-media-folder" onChange={(event) => actions.setNewFolderName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleCreateFolder(); }} value={newFolderName} />
           </Field>
           <DialogFooter>
-            <Button disabled={isMutationPending("create-folder")} onClick={() => actions.setFolderDialogOpen(false)} variant="brandOutline">Batal</Button>
-            <Button disabled={!newFolderName.trim() || isMutationPending("create-folder")} onClick={() => void actions.handleCreateFolder()} variant="brand">{isMutationPending("create-folder") ? "Menyimpan…" : "Buat folder"}</Button>
+            <Button disabled={isMutationPending("create-folder")} onClick={() => actions.setFolderDialogOpen(false)} variant="outline">Batal</Button>
+            <Button disabled={!newFolderName.trim() || isMutationPending("create-folder")} onClick={() => void actions.handleCreateFolder()} variant="default">{isMutationPending("create-folder") ? "Menyimpan…" : "Buat folder"}</Button>
           </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -94,8 +94,8 @@ function RenameMediaDialog({ actions, editingItem, editingName, isMutationPendin
             <FieldInput autoFocus disabled={mutationsDisabled || isMutationPending("rename")} id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} />
           </Field>
           <DialogFooter>
-            <Button disabled={isMutationPending("rename")} onClick={() => actions.setEditingItem(null)} variant="brandOutline">Batal</Button>
-            <Button disabled={mutationsDisabled || !editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="brand">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button>
+            <Button disabled={isMutationPending("rename")} onClick={() => actions.setEditingItem(null)} variant="outline">Batal</Button>
+            <Button disabled={mutationsDisabled || !editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="default">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -123,8 +123,8 @@ function MoveMediaDialog({ actions, isMutationPending, moveRequest, moveTargetId
             />
           </Field>
           <DialogFooter>
-            <Button disabled={isMutationPending("move")} onClick={() => actions.setMoveRequest(null)} variant="brandOutline">Batal</Button>
-            <Button disabled={mutationsDisabled || isMutationPending("move")} onClick={() => void actions.handleMove()} variant="brand">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button>
+            <Button disabled={isMutationPending("move")} onClick={() => actions.setMoveRequest(null)} variant="outline">Batal</Button>
+            <Button disabled={mutationsDisabled || isMutationPending("move")} onClick={() => void actions.handleMove()} variant="default">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button>
           </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -162,8 +162,8 @@ function MediaPreviewDialog({ actions, isPicker, previewAsset }: Pick<MediaLibra
               <div className="flex w-full flex-col gap-4 p-4">
                 <iframe className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white" sandbox="" src={previewAsset.previewUrl} title={`Pratinjau ${previewAsset.name}`} />
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button nativeButton={false} render={<a aria-label="Buka PDF" href={previewAsset.previewUrl} rel="noreferrer" target="_blank" />} size="default" variant="brandOutline"><FileText className="size-4" />Buka PDF</Button>
-                  <Button nativeButton={false} render={<a aria-label="Unduh PDF" download={previewAsset.name} href={previewAsset.previewUrl} />} size="default" variant="brand">Unduh PDF</Button>
+                  <Button nativeButton={false} render={<a aria-label="Buka PDF" href={previewAsset.previewUrl} rel="noreferrer" target="_blank" />} size="default" variant="outline"><FileText className="size-4" />Buka PDF</Button>
+                  <Button nativeButton={false} render={<a aria-label="Unduh PDF" download={previewAsset.name} href={previewAsset.previewUrl} />} size="default" variant="default">Unduh PDF</Button>
                 </div>
               </div>
             ) : previewAsset?.previewUrl ? (
@@ -176,7 +176,7 @@ function MediaPreviewDialog({ actions, isPicker, previewAsset }: Pick<MediaLibra
           </div>
           {isPicker && previewAsset ? (
             <DialogFooter>
-              <Button onClick={() => actions.onSelect?.(previewAsset)} variant="brand">Pilih {isPdfMimeType(previewAsset.mimeType) ? "PDF" : "gambar"}</Button>
+              <Button onClick={() => actions.onSelect?.(previewAsset)} variant="default">Pilih {isPdfMimeType(previewAsset.mimeType) ? "PDF" : "gambar"}</Button>
             </DialogFooter>
           ) : null}
         </DialogContent>

@@ -175,7 +175,7 @@ function useMediaLibraryScreenState({
             aria-label={`Aksi untuk ${item.name}`}
             className="size-8"
             size="icon-sm"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -389,14 +389,14 @@ function useMediaLibraryScreenState({
             {isPicker ? (
               <Button
                 aria-label={`Pilih ${asset.name}`}
-                className="absolute right-2 bottom-2 z-10 bg-white/95 shadow-sm hover:bg-white"
+                className="absolute right-2 bottom-2 z-10"
                 onClick={(event) => {
                   event.stopPropagation();
                   actions.onSelect?.(asset);
                 }}
                 size="sm"
                 variant={
-                  selectedAssetId === asset.id ? "brand" : "brandOutline"
+                  selectedAssetId === asset.id ? "default" : "outline"
                 }
               >
                 {selectedAssetId === asset.id ? "Dipilih" : "Pilih"}
@@ -484,7 +484,6 @@ type MediaLibraryScreenProps = {
   mutationsDisabled?: boolean;
   mutationPending: MediaMutation | null;
   newFolderName: string;
-  notice: string | null;
   previewAsset: MediaAssetDto | null;
   query: string;
   searchInput: string;
@@ -696,7 +695,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           onClick={submitSearch}
           size="icon-sm"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Search />
         </Button>
@@ -709,7 +708,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
                 disabled={Boolean(uploadStatus)}
                 size="icon-sm"
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               />
             }
           >
@@ -762,7 +761,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
               ulang.
             </p>
           </div>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -776,7 +775,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           role="status"
         >
           <span>Penyimpanan media belum siap. Kamu belum bisa mengunggah media.</span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -871,7 +870,7 @@ function MediaLibraryReferenceToolbar({
             onClick={props.clearSelection}
             size="icon-sm"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <X />
           </Button>
@@ -911,7 +910,7 @@ function MediaLibraryWorkspaceStandardToolbar({
           <Button
             aria-label="Buat folder baru"
             onClick={() => actions.setFolderDialogOpen(true)}
-            variant="brandOutline"
+            variant="outline"
           >
             <FolderPlus />
             Folder baru
@@ -921,10 +920,9 @@ function MediaLibraryWorkspaceStandardToolbar({
           aria-label={
             uploadStatus ? `Mengunggah ${mediaLabel}` : `Unggah ${mediaLabel}`
           }
-          className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined}
           disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
           onClick={() => fileInputRef.current?.click()}
-          variant={isPicker ? "reference" : "brand"}
+          variant={isPicker ? "outline" : "default"}
         >
           {uploadStatus ? (
             <LoaderCircle className="animate-spin" />
@@ -978,7 +976,7 @@ function MediaLibraryWorkspaceNotices({
 }: {
   props: MediaLibraryScreenRenderProps;
 }) {
-  const { actions, error, isLoading, notice, snapshot } = props;
+  const { actions, error, isLoading, snapshot } = props;
 
   return (
     <>
@@ -991,16 +989,11 @@ function MediaLibraryWorkspaceNotices({
             Penyimpanan media belum siap. Unggah dan pratinjau belum tersedia.
             Coba lagi nanti atau hubungi admin jika masalah berlanjut.
           </span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
         </div>
-      ) : null}
-      {notice ? (
-        <p className="text-sm font-medium text-primary-800" role="status">
-          {notice}
-        </p>
       ) : null}
       {error && snapshot ? (
         <div
@@ -1008,7 +1001,7 @@ function MediaLibraryWorkspaceNotices({
           role="alert"
         >
           <span>{error}</span>
-          <Button onClick={actions.refreshLibrary} size="sm" variant="ghost">
+          <Button onClick={actions.refreshLibrary} size="sm" variant="outline">
             <RefreshCw data-icon="inline-start" />
             Coba lagi
           </Button>
@@ -1046,7 +1039,7 @@ function MediaLibraryReferenceHeader({
                       aria-label="Buat folder baru"
                       onClick={() => actions.setFolderDialogOpen(true)}
                       size="icon"
-                      variant="reference"
+                      variant="outline"
                     />
                   }
                 >
@@ -1064,7 +1057,7 @@ function MediaLibraryReferenceHeader({
               disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)}
               onClick={() => fileInputRef.current?.click()}
               size="sm"
-              variant="brand"
+              variant="default"
             >
               {uploadStatus ? (
                 <LoaderCircle className="animate-spin" />
@@ -1124,7 +1117,7 @@ function MediaLibraryDriveHeader({
                   aria-label="Buat folder baru"
                   onClick={() => actions.setFolderDialogOpen(true)}
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -1146,7 +1139,7 @@ function MediaLibraryDriveHeader({
                   }
                   onClick={() => fileInputRef.current?.click()}
                   size="icon"
-                  variant="brand"
+                  variant="default"
                 />
               }
             >
@@ -1234,7 +1227,7 @@ function MediaLibraryDriveControls({
                 <Button
                   aria-label="Urutkan media"
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >
@@ -1266,7 +1259,7 @@ function MediaLibraryDriveControls({
                 <Button
                   aria-label="Filter media"
                   size="icon"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               }
             >

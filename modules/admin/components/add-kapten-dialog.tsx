@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ModeCardTabs } from "@/components/ui/mode-card-tabs";
 import type { ModeCardTabItem } from "@/components/ui/mode-card-tabs";
-import styles from "./reui-directory-grid.module.css";
 import { UserPlus, Users } from "@/lib/icons";
 
 import { CreateKaptenForm } from "./create-kapten-form";
@@ -54,11 +54,12 @@ function AddKaptenDialog({ initialMode = "single" }: { initialMode?: AddKaptenMo
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger
         render={
-          <button
-             aria-label={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
-            className={initialMode === "bulk" ? styles.button : styles.primaryButton}
-             title={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
+          <Button
+            aria-label={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
+            size="sm"
             type="button"
+            title={initialMode === "bulk" ? "Impor Kapten" : "Tambah Kapten"}
+            variant={initialMode === "bulk" ? "outline" : "default"}
           />
         }
       >

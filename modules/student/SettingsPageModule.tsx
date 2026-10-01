@@ -180,7 +180,7 @@ function SettingsPageModule({
                 nativeButton={false}
                 render={<Link href={returnToHref} />}
                 size="default"
-                variant="brandOutline"
+                variant="outline"
               >
                 Kembali
               </Button>
@@ -190,7 +190,7 @@ function SettingsPageModule({
               pendingLabel="Menyimpan…"
               size="default"
               type="submit"
-              variant="brand"
+              variant="default"
             >
               Simpan perubahan
             </SubmitButton>
@@ -318,11 +318,11 @@ function SettingsPageModule({
                 onClick={handleResetChanges}
                 size="sm"
                 type="button"
-                variant="ghost"
+                variant="outline"
               >
                 Batal
               </Button>
-              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
+              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="default">
                 Simpan
               </SubmitButton>
             </div>

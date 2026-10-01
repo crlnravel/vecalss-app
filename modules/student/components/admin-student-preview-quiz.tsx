@@ -10,7 +10,7 @@ import {
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import {
   buildAdminStudentPreviewQuizRoute,
@@ -57,9 +57,9 @@ function availabilityTone(availability: AdminPreviewQuizAvailability) {
 
 function AvailabilityBadge({ availability }: { availability: AdminPreviewQuizAvailability }) {
   return (
-    <StudentBadge className="bg-white/75 text-xs" size="md" tone={availabilityTone(availability)}>
+    <Badge className="text-xs" size="md" tone={availabilityTone(availability)}>
       {availability.label}
-    </StudentBadge>
+    </Badge>
   );
 }
 
@@ -246,8 +246,8 @@ function QuizSummaryCard({ quiz, subjectSlug }: { quiz: AdminPreviewQuizSummary;
           className="mt-6 w-full justify-center"
           nativeButton={false}
           render={<Link href={buildAdminStudentPreviewQuizRoute(subjectSlug, quiz.slug)} />}
-          size="learning"
-          variant="learning"
+          size="lg"
+          variant="default"
         >
           Lihat kuis
           <ArrowUpRight className="size-4" data-icon="inline-end" />

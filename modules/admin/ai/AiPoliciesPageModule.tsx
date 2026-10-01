@@ -13,6 +13,7 @@ import {
 } from "@/lib/icons";
 import { ReferenceStatusBadge } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,7 +60,7 @@ function ActivePolicyView({
 
           <Button
             onClick={onOpenEditor}
-            variant="reference"
+            variant="outline"
             className="min-h-[44px] gap-2"
           >
             <Diff className="size-4" />
@@ -212,14 +213,14 @@ function PolicyActivationModal({
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
-            variant="reference"
+            variant="outline"
             onClick={() => setShowActivationModal(false)}
             disabled={isActivating}
           >
             Batal
           </Button>
           <Button
-            variant="brand"
+            variant="default"
             onClick={handleActivate}
             disabled={isActivating}
             className="gap-2"
@@ -471,7 +472,7 @@ function PolicyEditorView({
                   <Button
                     onClick={handleApprove}
                     type="button"
-                    variant="brand"
+                    variant="default"
                     className="flex-1"
                   >
                     Setujui Revisi (Admin C)
@@ -479,7 +480,7 @@ function PolicyEditorView({
                   <Button
                     onClick={() => setRevisionState("draft")}
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="text-student-status-danger-fg"
                   >
                     Tolak Draf
@@ -500,7 +501,7 @@ function PolicyEditorView({
                   <Button
                     onClick={() => setShowActivationModal(true)}
                     type="button"
-                    variant="brand"
+                    variant="default"
                     className="w-full gap-2"
                   >
                     <Zap className="size-4" />
@@ -562,7 +563,7 @@ function PolicyHistoryView() {
                 <TableCell className="p-3.5 whitespace-normal">Inisialisasi OpenRouter free provider fallback</TableCell>
                 <TableCell className="p-3.5">Admin B</TableCell>
                 <TableCell className="p-3.5 text-right">
-                  <Button className="min-h-[44px] text-xs text-primary-700" size="default" variant="ghost">
+                  <Button className="min-h-[44px] text-xs text-primary-700" size="default" variant="outline">
                     Rollback
                   </Button>
                 </TableCell>
@@ -582,7 +583,6 @@ type PolicyState = {
   showActivationModal: boolean;
   activationMode: "immediate" | "scheduled";
   isActivating: boolean;
-  actionNotice: string | null;
 };
 
 type PolicyAction =
@@ -593,8 +593,7 @@ type PolicyAction =
   | { type: "SET_MODAL_OPEN"; open: boolean }
   | { type: "SET_ACTIVATION_MODE"; mode: "immediate" | "scheduled" }
   | { type: "START_ACTIVATING" }
-  | { type: "FINISH_ACTIVATING" }
-  | { type: "DISMISS_NOTICE" };
+  | { type: "FINISH_ACTIVATING" };
 
 function policyReducer(state: PolicyState, action: PolicyAction): PolicyState {
   switch (action.type) {
@@ -605,7 +604,6 @@ function policyReducer(state: PolicyState, action: PolicyAction): PolicyState {
         ...state,
         activeTab: "editor",
         revisionState: "draft",
-        actionNotice: "Draf revisi baru dibuat. Silakan modifikasi parameter dan jalankan validasi & simulasi dampak.",
       };
     case "SET_REVISION_STATE":
       return { ...state, revisionState: action.state };
@@ -613,7 +611,6 @@ function policyReducer(state: PolicyState, action: PolicyAction): PolicyState {
       return {
         ...state,
         revisionState: "approved",
-        actionNotice: "Kebijakan VERA-POLICY-028 telah disetujui oleh Admin C (Independen). Siap untuk deployment.",
       };
     case "SET_MODAL_OPEN":
       return { ...state, showActivationModal: action.open };
@@ -628,10 +625,7 @@ function policyReducer(state: PolicyState, action: PolicyAction): PolicyState {
         showActivationModal: false,
         revisionState: "active",
         currentRevision: "VERA-POLICY-028",
-        actionNotice: "Kebijakan VERA-POLICY-028 berhasil diaktifkan ke seluruh sistem produksi!",
       };
-    case "DISMISS_NOTICE":
-      return { ...state, actionNotice: null };
     default:
       return state;
   }
@@ -656,7 +650,6 @@ export function AiPoliciesPageModule({
     showActivationModal: false,
     activationMode: "immediate",
     isActivating: false,
-    actionNotice: null,
   });
 
   const {
@@ -666,7 +659,6 @@ export function AiPoliciesPageModule({
     showActivationModal,
     activationMode,
     isActivating,
-    actionNotice,
   } = state;
 
   const loadPolicyMetadata = useCallback(async () => {
@@ -695,13 +687,26 @@ export function AiPoliciesPageModule({
 
   function handleApprove() {
     dispatch({ type: "APPROVE" });
+    showToast("Kebijakan VERA-POLICY-028 telah disetujui oleh Admin C (Independen). Siap untuk deployment.", {
+      variant: "success",
+    });
   }
 
   function handleActivate() {
     dispatch({ type: "START_ACTIVATING" });
     setTimeout(() => {
       dispatch({ type: "FINISH_ACTIVATING" });
+      showToast("Kebijakan VERA-POLICY-028 berhasil diaktifkan ke seluruh sistem produksi!", {
+        variant: "success",
+      });
     }, 1000);
+  }
+
+  function handleCreateDraft() {
+    dispatch({ type: "CREATE_DRAFT" });
+    showToast("Draf revisi baru dibuat. Silakan modifikasi parameter dan jalankan validasi & simulasi dampak.", {
+      variant: "info",
+    });
   }
 
   return (
@@ -726,9 +731,9 @@ export function AiPoliciesPageModule({
 
           <div className="flex items-center gap-2">
             <Button
-              onClick={() => dispatch({ type: "CREATE_DRAFT" })}
+              onClick={handleCreateDraft}
               type="button"
-              variant="brand"
+              variant="default"
               className="gap-2"
             >
               <Plus className="size-4" />
@@ -748,22 +753,6 @@ export function AiPoliciesPageModule({
           >
             <AlertTriangle className="size-5 shrink-0 text-danger-600" />
             <p>{error}</p>
-          </div>
-        )}
-
-        {actionNotice && (
-          <div aria-live="polite" className="flex items-center justify-between gap-3 rounded-2xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-900" role="status">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="size-5 shrink-0 text-primary-700" />
-              <span>{actionNotice}</span>
-            </div>
-            <button
-              onClick={() => dispatch({ type: "DISMISS_NOTICE" })}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-xs font-bold text-primary-700 transition-colors motion-reduce:transition-none hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
-              type="button"
-            >
-              Tutup
-            </button>
           </div>
         )}
 

@@ -60,24 +60,21 @@ function useMediaLibraryUploads({
   scope,
   setError,
   setIsDragging,
-  setNotice,
 }: {
   acceptedMimeTypeSet: ReadonlySet<SupportedMediaMimeType>;
   fileInputRef: RefObject<HTMLInputElement | null>;
   folderId: string | null;
   mediaLabel: string;
-  refreshLibrary: (message?: string) => void;
+  refreshLibrary: () => void;
   scope: MediaScope;
   setError: (value: string | null) => void;
   setIsDragging: (dragging: boolean) => void;
-  setNotice: (value: string | null) => void;
 }) {
   const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setError(null);
-    setNotice(null);
 
     const uploadNext = async (index: number): Promise<boolean> => {
       const file = files[index];
@@ -179,7 +176,7 @@ function createMediaLibraryMutationHandlers({
   moveTargetId: string;
   mutationPending: MediaMutation | null;
   newFolderName: string;
-  refreshLibrary: (message?: string) => void;
+  refreshLibrary: () => void;
   scope: MediaScope;
   setEditingItem: (value: EditableItem | null) => void;
   setError: (value: string | null) => void;
@@ -197,7 +194,8 @@ function createMediaLibraryMutationHandlers({
     setError(null);
     try {
       await postMediaAction(scope, { ...body, ...(editLease ? { editLease } : {}) });
-      refreshLibrary(successMessage);
+      showToast(successMessage, { variant: "success" });
+      refreshLibrary();
       return true;
     } finally {
       setMutationPending(null);
@@ -324,14 +322,12 @@ function useMediaLibraryData({
   mimeTypesQueryString,
   query,
   scope,
-  setNotice,
   shouldFilterMimeTypes,
 }: {
   folderId: string | null;
   mimeTypesQueryString: string;
   query: string;
   scope: MediaScope;
-  setNotice: (value: string | null) => void;
   shouldFilterMimeTypes: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<MediaLibrarySnapshot | null>(null);
@@ -373,10 +369,9 @@ function useMediaLibraryData({
     };
   }, [loadLibrary, query, refreshVersion]);
 
-  const refreshLibrary = useCallback((message?: string) => {
-    if (message) setNotice(message);
+  const refreshLibrary = useCallback(() => {
     setRefreshVersion((value) => value + 1);
-  }, [setNotice]);
+  }, []);
 
   return { error, refreshLibrary, setError, snapshot, isLoading: loadingRequestId !== null };
 }
@@ -412,7 +407,6 @@ function MediaLibrary({
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
@@ -439,7 +433,6 @@ function MediaLibrary({
     mimeTypesQueryString,
     query,
     scope,
-    setNotice,
     shouldFilterMimeTypes,
   });
 
@@ -452,7 +445,6 @@ function MediaLibrary({
     scope,
     setError,
     setIsDragging,
-    setNotice,
   });
 
   const openRename = (item: EditableItem) => {
@@ -555,7 +547,6 @@ function MediaLibrary({
                 mutationPending={mutationPending}
                 mutationsDisabled={leaseEnabled && !resourceLock.canEdit}
                 newFolderName={newFolderName}
-                notice={notice}
                 previewAsset={previewAsset}
                 query={query}
                 searchInput={searchInput}

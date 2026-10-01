@@ -41,7 +41,7 @@ assert.match(workspace, /function TryoutSubtestIndex[\s\S]*draft\.sections\.map/
 const subtestIndex = workspace.slice(workspace.indexOf("function TryoutSubtestIndex"), workspace.indexOf("function TryoutLifecycleModals"));
 assert.match(subtestIndex, /<span className="text-base font-semibold text-secondary-900">\s*\{subjectName\}\s*<\/span>/u, "subtest entries should show the subject name");
 assert.match(subtestIndex, /\{section\.subtest\} · \{questionCount\} soal/u, "subtest entries should show their code and question count");
-assert.doesNotMatch(subtestIndex, /MentorBadge|durationMinutes|scoringLabelForSection|statusLabel/u, "subtest entries should not show secondary metadata");
+assert.doesNotMatch(subtestIndex, /Badge|durationMinutes|scoringLabelForSection|statusLabel/u, "subtest entries should not show secondary metadata");
 assert.match(subtestIndex, /<ChevronRight/u, "subtest entries should expose a forward affordance");
 assert.match(workspace, /function tryoutSubtestEditorHref[\s\S]*\/soal\//u, "subtest rows must point to a nested editor route");
 assert.match(workspace, /initialSubtest\?: SubjectCode/u, "the builder must accept a selected subtest from the child route");
@@ -116,7 +116,7 @@ assert.doesNotMatch(operationsModule, /sesi aktif|peserta menunggu|Atur waktu bu
 assert.match(workspace, /updateTryoutMetadataAction[\s\S]*draftToSave\.description[\s\S]*draftToSave\.title/u, "published Overview must save the inline title and description");
 assert.match(workspace, /(?:disabled=\{mode === "draft" && draft\.locked\}|const identityDisabled = saving \|\| \(mode === "draft" && draft\.locked\);[\s\S]*disabled=\{identityDisabled\})/u, "published Overview metadata must remain editable when structure is locked");
 const identityPanel = workspace.slice(workspace.indexOf("function TryoutIdentityPanel"), workspace.indexOf("type TryoutSubtestEditorProps"));
-assert.match(identityPanel, /mode === "published"[\s\S]*className="w-full"[\s\S]*variant="brand"[\s\S]*metadataSaving \? "Menyimpan…" : "Simpan"/u, "published Overview must expose a full-width primary metadata save action");
+assert.match(identityPanel, /mode === "published"[\s\S]*className="w-full"[\s\S]*variant="default"[\s\S]*metadataSaving \? "Menyimpan…" : "Simpan"/u, "published Overview must expose a full-width primary metadata save action");
 assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");
 assert.match(workspace, /Jadikan draf/u, "published Tryout detail must label the unpublish action plainly");
 assert.match(workspace, /hasActiveAttempt/u, "unpublish affordance must reflect active student work in the mentor view");

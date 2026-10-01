@@ -41,9 +41,10 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,9 +75,9 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -733,7 +734,7 @@ type VeraAiWorkspaceProps = {
   generatedArtifacts: VeraStudioTool[];
   generatedArtifactSummaries: VeraBackendArtifactSummary[];
   error: string | null;
-  notice: string | null;
+  recoveryStatus: string | null;
   progress: number | null;
   provisionalText: string | null;
   notificationFeed: StudentNotificationFeed;
@@ -776,7 +777,7 @@ function VeraAiWorkspace({
   fullscreenArtifactDetail,
   generatedArtifacts,
   generatedArtifactSummaries,
-  notice,
+  recoveryStatus,
   notificationFeed,
   onCloseArtifact,
   onCloseFullscreen,
@@ -852,7 +853,7 @@ function VeraAiWorkspace({
                   automaticProgress={automaticProgress}
                   busy={busy}
                   error={error}
-                  notice={notice}
+                  recoveryStatus={recoveryStatus}
                   onCancel={onCancelRequest}
                   onRetry={onRetry}
                   progress={progress}
@@ -993,7 +994,7 @@ function useVeraAiModuleState({
   const [automaticProgress, setAutomaticProgress] =
     useState<VeraAutomaticContextProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [recoveryStatus, setRecoveryStatus] = useState<string | null>(null);
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
   const [lastFailed, setLastFailed] = useState<VeraRequestAttempt | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -1163,18 +1164,6 @@ function useVeraAiModuleState({
     };
   }, [hydrate]);
 
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setNotice(null);
-    }, 4_500);
-
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
   function updateActiveSession(
     update: (current: StudySession) => StudySession,
     sessionId = activeSession.id,
@@ -1198,7 +1187,7 @@ function useVeraAiModuleState({
 
     setLastFailed(null);
     setError(null);
-    setNotice(null);
+    setRecoveryStatus(null);
     void loadConversation(nextSessionId).catch((caught) => {
       setError(veraErrorMessage(caught));
     });
@@ -1363,9 +1352,9 @@ function useVeraAiModuleState({
               : item,
           ),
         );
-        setNotice(
-          "Judul berubah di perangkat lain. Versi terbaru sudah dimuat.",
-        );
+        showToast("Judul berubah di perangkat lain. Versi terbaru sudah dimuat.", {
+          variant: "info",
+        });
       }
 
       setError(veraErrorMessage(caught));
@@ -1425,7 +1414,7 @@ function useVeraAiModuleState({
       );
       setSessions(nextSessions);
       if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
-      setNotice("Sesi diarsipkan.");
+      showToast("Sesi diarsipkan.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1458,7 +1447,7 @@ function useVeraAiModuleState({
             : item,
         ),
       );
-      setNotice("Sesi dipulihkan.");
+      showToast("Sesi dipulihkan.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1482,7 +1471,7 @@ function useVeraAiModuleState({
       const nextSessions = sessions.filter((item) => item.id !== sessionId);
       setSessions(nextSessions);
       if (sessionId === activeSession.id) selectNextActiveSession(nextSessions);
-      setNotice("Sesi dihapus.");
+      showToast("Sesi dihapus.", { variant: "success" });
     } catch (caught) {
       setError(veraErrorMessage(caught));
     }
@@ -1550,7 +1539,7 @@ function useVeraAiModuleState({
     abortRef.current = controller;
     setBusy(true);
     setError(null);
-    setNotice(null);
+    setRecoveryStatus(null);
     setLastFailed(null);
     setProvisionalText(kind === "chat" ? "" : null);
     setProgress(automaticEnabled ? null : toolId ? 5 : null);
@@ -1709,11 +1698,21 @@ function useVeraAiModuleState({
             ) {
               setProvisionalText(data.text);
             }
-            if (event === "message.committed") {
-              setNotice("Jawaban sudah tersimpan di sesi ini.");
+            if (event === "message.committed" && kind === "chat") {
+              setRecoveryStatus(null);
+              showToast("Jawaban sudah tersimpan di sesi ini.", {
+                id: `vera-completion-${clientRequestId}`,
+                variant: "success",
+              });
             }
             if (event === "artifact.ready") {
-              setNotice("Hasil Studio sudah tersimpan di sesi ini.");
+              setRecoveryStatus(null);
+              if (kind === "studio") {
+                showToast("Hasil Studio sudah tersimpan di sesi ini.", {
+                  id: `vera-completion-${clientRequestId}`,
+                  variant: "success",
+                });
+              }
               attempt.artifactId = data.artifactRevisionId ?? null;
               const artifactType = data.artifactType ?? null;
               if (isToolId(artifactType)) {
@@ -1729,6 +1728,7 @@ function useVeraAiModuleState({
             }
             if (event === "request.completed") {
               terminalSeen = true;
+              setRecoveryStatus(null);
               if (data.state === "failed") {
                 setError(
                   veraErrorMessage(new VeraRequestError("request_failed")),
@@ -1738,6 +1738,7 @@ function useVeraAiModuleState({
             }
             if (event === "request.failed") {
               terminalSeen = true;
+              setRecoveryStatus(null);
               if (automaticEnabled) {
                 setAutomaticProgress({ phase: "unavailable", progress: 100 });
               }
@@ -1749,7 +1750,7 @@ function useVeraAiModuleState({
               setLastFailed(attempt.requestId ? attempt : null);
             }
             if (event === "request.recovery_pending") {
-              setNotice(
+              setRecoveryStatus(
                 "Permintaan masih dipulihkan. Vera sedang memeriksa hasil tersimpan.",
               );
             }
@@ -1793,6 +1794,10 @@ function useVeraAiModuleState({
           await new Promise((resolve) => window.setTimeout(resolve, 250));
         }
 
+        if (finalStatus && isTerminalRequestState(finalStatus.state)) {
+          setRecoveryStatus(null);
+        }
+
         if (
           finalStatus &&
           ["failed", "rejected", "expired"].includes(finalStatus.state)
@@ -1804,7 +1809,7 @@ function useVeraAiModuleState({
           );
           setLastFailed(attempt.requestId ? attempt : null);
         } else if (!finalStatus || !isTerminalRequestState(finalStatus.state)) {
-          setNotice(
+          setRecoveryStatus(
             "Permintaan masih dipulihkan. Coba periksa kembali beberapa saat lagi.",
           );
         }
@@ -1840,7 +1845,8 @@ function useVeraAiModuleState({
 
   function handleCancelRequest() {
     abortRef.current?.abort();
-    setNotice("Permintaan dibatalkan.");
+    setRecoveryStatus(null);
+    showToast("Permintaan dibatalkan.", { variant: "info" });
   }
 
   function handleRetry() {
@@ -1876,7 +1882,7 @@ function useVeraAiModuleState({
     fullscreenArtifactDetail,
     generatedArtifacts,
     generatedArtifactSummaries: backendArtifacts,
-    notice,
+    recoveryStatus,
     notificationFeed,
     onCancelRequest: handleCancelRequest,
     onCloseArtifact: () => {
@@ -1931,7 +1937,7 @@ function VeraStatusBanner({
   automaticProgress,
   busy,
   error,
-  notice,
+  recoveryStatus,
   onCancel,
   onRetry,
   progress,
@@ -1939,7 +1945,7 @@ function VeraStatusBanner({
   automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
   error: string | null;
-  notice: string | null;
+  recoveryStatus: string | null;
   onCancel: () => void;
   onRetry: () => void;
   progress: number | null;
@@ -1947,7 +1953,7 @@ function VeraStatusBanner({
   const hidden =
     !busy &&
     !error &&
-    !notice &&
+    !recoveryStatus &&
     (!automaticProgress || automaticProgress.phase === "complete");
   if (hidden) return null;
 
@@ -1955,7 +1961,7 @@ function VeraStatusBanner({
   const statusText = getVeraStatusText({
     automaticStatusText,
     error,
-    notice,
+    recoveryStatus,
     progress,
   });
   return (
@@ -1988,17 +1994,17 @@ function getVeraAutomaticStatusText(
 function getVeraStatusText({
   automaticStatusText,
   error,
-  notice,
+  recoveryStatus,
   progress,
 }: {
   automaticStatusText: string | null;
   error: string | null;
-  notice: string | null;
+  recoveryStatus: string | null;
   progress: number | null;
 }) {
   return (
     error ??
-    notice ??
+    recoveryStatus ??
     automaticStatusText ??
     (progress !== null
       ? `Vera sedang menyusun hasil… ${progress}%`
@@ -2071,7 +2077,7 @@ function VeraStatusBannerAction({
   if (busy) {
     return (
       <Button
-        className="shrink-0 rounded-full"
+        className="shrink-0 "
         onClick={onCancel}
         size="default"
         variant="outline"
@@ -2084,7 +2090,7 @@ function VeraStatusBannerAction({
   if (!error) return null;
   return (
     <Button
-      className="shrink-0 rounded-full"
+      className="shrink-0 "
       onClick={onRetry}
       size="default"
       variant="outline"
@@ -2135,7 +2141,7 @@ function VeraDataStatePanel({
             "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server.")}
       </p>
       {!loading ? (
-        <Button className="mt-6 rounded-full" onClick={onRetry} variant="brand">
+        <Button className="mt-6 " onClick={onRetry} variant="default">
           <RotateCcw data-icon="inline-start" />
           Coba lagi
         </Button>
@@ -2185,22 +2191,21 @@ function VeraTopBar({
       <div className="ml-auto flex items-center gap-2">
         <Button
           aria-label="Buka sesi"
-          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm md:hidden"
+          className="md:hidden"
           onClick={onOpenSessionSidebar}
           size="icon"
           title="Sesi"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <MessageCircleMore aria-hidden="true" />
         </Button>
         <Button
           aria-label="Ke dashboard"
-          className="rounded-full border border-primary-100 bg-white text-primary-900 shadow-sm"
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon"
-          variant="ghost"
+          variant="outline"
         >
           <House />
         </Button>
@@ -2325,9 +2330,9 @@ function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
                 ? "Penggunaan Vera belum tersedia"
                 : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`
             }
-            className="rounded-full px-2.5"
+            className=" px-2.5"
             size="default"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
@@ -2445,19 +2450,19 @@ function WorkspaceTabs({
 }) {
   return (
     <div className="shrink-0">
-      <FullWidthLineTabsList aria-label="Area kerja Vera">
-        <FullWidthLineTabsTrigger onClick={() => onChange("chat")} value="chat">
+      <FullWidthTabsList aria-label="Area kerja Vera">
+        <FullWidthTabsTrigger onClick={() => onChange("chat")} value="chat">
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
-        </FullWidthLineTabsTrigger>
-        <FullWidthLineTabsTrigger
+        </FullWidthTabsTrigger>
+        <FullWidthTabsTrigger
           onClick={() => onChange("studio")}
           value="studio"
         >
           <Sparkles data-icon="inline-start" />
           Studio
-        </FullWidthLineTabsTrigger>
-      </FullWidthLineTabsList>
+        </FullWidthTabsTrigger>
+      </FullWidthTabsList>
     </div>
   );
 }
@@ -2520,21 +2525,21 @@ function SessionSidebar({
       <div className="mt-7 flex flex-col items-center gap-2">
         <Button
           aria-label="Buat sesi baru"
-          className="rounded-xl"
+          className=""
           onClick={onNewSession}
           size="icon"
           title="Sesi baru"
-          variant="ghost"
+          variant="outline"
         >
           <Plus />
         </Button>
         <Button
           aria-label="Buka percakapan"
-          className="rounded-xl"
+          className=""
           onClick={() => onSetCollapsed(false)}
           size="icon"
           title="Daftar percakapan"
-          variant="ghost"
+          variant="outline"
         >
           <MessageCircleMore />
         </Button>
@@ -2600,25 +2605,25 @@ function SessionPanel({
                 aria-label={
                   showArchived ? "Tampilkan sesi aktif" : "Buka arsip sesi"
                 }
-                className={cn("rounded-full", showArchived && "bg-primary-50")}
+                className={cn("", showArchived && "bg-primary-50")}
                 onClick={() => {
                   setShowArchived((current) => !current);
                   setEditingSessionId(null);
                 }}
                 size="icon"
                 title={showArchived ? "Sesi aktif" : "Arsip sesi"}
-                variant="ghost"
+                variant="outline"
               >
                 <Archive />
               </Button>
               {!showArchived ? (
                 <Button
                   aria-label="Buat sesi baru"
-                  className="rounded-full"
+                  className=""
                   onClick={onNewSession}
                   size="icon"
                   title="Sesi baru"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <Plus />
                 </Button>
@@ -2626,10 +2631,10 @@ function SessionPanel({
               {onCollapse ? (
                 <Button
                   aria-label="Minimalkan sidebar sesi"
-                  className="rounded-full"
+                  className=""
                   onClick={onCollapse}
                   size="icon"
-                  variant="ghost"
+                  variant="outline"
                 >
                   <PanelLeftClose />
                 </Button>
@@ -2792,11 +2797,11 @@ function SessionListItemActions({
       {showArchived ? (
         <Button
           aria-label={`Pulihkan ${item.title}`}
-          className="rounded-full"
+          className=""
           onClick={onRestore}
           size="icon"
           title="Pulihkan sesi"
-          variant="ghost"
+          variant="outline"
         >
           <Archive />
         </Button>
@@ -2804,21 +2809,21 @@ function SessionListItemActions({
         <>
           <Button
             aria-label={`Ubah judul sesi ${item.title}`}
-            className="rounded-full"
+            className=""
             onClick={onBeginRename}
             size="icon"
             title="Ubah judul"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil />
           </Button>
           <Button
             aria-label={`Arsipkan ${item.title}`}
-            className="rounded-full"
+            className=""
             onClick={onArchive}
             size="icon"
             title="Arsipkan sesi"
-            variant="ghost"
+            variant="outline"
           >
             <Archive />
           </Button>
@@ -2826,11 +2831,11 @@ function SessionListItemActions({
       )}
       <Button
         aria-label={`Hapus ${item.title}`}
-        className="rounded-full text-secondary-400 hover:text-destructive"
+        className=" text-secondary-400 hover:text-destructive"
         onClick={onDelete}
         size="icon"
         title="Hapus sesi"
-        variant="ghost"
+        variant="outline"
       >
         <Trash2 />
       </Button>
@@ -3315,7 +3320,7 @@ function ChatComposer({
           {busy ? (
             <Button
               aria-label="Batalkan permintaan Vera"
-              className="rounded-full"
+              className=""
               onClick={onCancel}
               size="icon"
               type="button"
@@ -3326,11 +3331,11 @@ function ChatComposer({
           ) : (
             <Button
               aria-label="Kirim pertanyaan ke Vera"
-              className="rounded-full"
+              className=""
               disabled={!draft.trim()}
               size="icon"
               type="submit"
-              variant="brand"
+              variant="default"
             >
               <SendHorizontal />
             </Button>
@@ -3369,10 +3374,10 @@ function StudioPanel({
           action={
             <Button
               aria-label="Perbesar dokumen"
-              className="rounded-full"
+              className=""
               onClick={() => onExpandArtifact(activeArtifact.id)}
               size="icon"
-              variant="ghost"
+              variant="outline"
             >
               <Maximize2 />
             </Button>
@@ -3692,10 +3697,9 @@ function FullscreenArtifactDialog({
             </div>
             <Button
               aria-label="Tutup Vera Studio"
-              className="rounded-full border-0"
               onClick={() => onOpenChange(false)}
               size="icon"
-              variant="ghost"
+              variant="outline"
             >
               <X />
             </Button>
@@ -3746,11 +3750,11 @@ function PanelHeader({
         {closeAction ? (
           <Button
             aria-label="Tutup dokumen"
-            className="-ml-1 rounded-full border-0"
+            className="-ml-1"
             onClick={closeAction}
             size="icon"
             title="Tutup dokumen"
-            variant="ghost"
+            variant="outline"
           >
             <X />
           </Button>

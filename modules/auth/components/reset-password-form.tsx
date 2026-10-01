@@ -70,7 +70,7 @@ function ResetPasswordForm({
         >
           Kembali ke halaman masuk
         </Link>
-        <SubmitButton pendingLabel="Menyimpan kata sandi..." size="lg" type="submit" variant="brand">
+        <SubmitButton pendingLabel="Menyimpan kata sandi..." size="lg" type="submit" variant="default">
           Simpan kata sandi baru
         </SubmitButton>
       </div>

@@ -296,7 +296,7 @@ function ParticipantTryoutWorkspace({
                           className:
                             "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_color-mix(in_oklab,var(--voyage-deep)_35%,transparent)] sm:h-11",
                           size: "default",
-                          variant: "brand",
+                          variant: "default",
                         })}
                         href={href}
                       >
@@ -321,7 +321,7 @@ function ParticipantTryoutWorkspace({
                       setFilter("all");
                       setQuery("");
                     }}
-                    variant="brandOutline"
+                    variant="outline"
                   >
                     <RefreshCw /> Reset pencarian
                   </Button>

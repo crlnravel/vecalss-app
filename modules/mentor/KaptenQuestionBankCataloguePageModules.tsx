@@ -70,7 +70,7 @@ import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { cn } from "@/lib/utils";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
@@ -431,14 +431,14 @@ function createQuestionBankCatalogueColumns({
           >
             {row.bank.subjectCoverage.length ? (
               row.bank.subjectCoverage.map((subject) => (
-                <MentorBadge
+                <Badge
                   className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[8rem]"
                   key={subject}
-                  size="compact"
+                  size="xs"
                   tone="category"
                 >
                   {subject}
-                </MentorBadge>
+                </Badge>
               ))
             ) : (
               <span className="text-sm text-secondary-400">—</span>
@@ -462,14 +462,14 @@ function createQuestionBankCatalogueColumns({
           >
             {(row.bank.materiCoverage ?? []).length ? (
               (row.bank.materiCoverage ?? []).map((materi) => (
-                <MentorBadge
+                <Badge
                   className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[12rem]"
                   key={materi}
-                  size="compact"
+                  size="xs"
                   tone="category"
                 >
                   {materi}
-                </MentorBadge>
+                </Badge>
               ))
             ) : (
               <span className="text-sm text-secondary-400">—</span>
@@ -838,7 +838,7 @@ function QuestionBankFolderDialog({
             disabled={isApplying}
             onClick={onClose}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Batal
           </Button>
@@ -849,7 +849,7 @@ function QuestionBankFolderDialog({
             }
             onClick={onSubmit}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying ? "Menyimpan…" : "Simpan"}
           </Button>
@@ -934,7 +934,7 @@ function QuestionBankMoveDialog({
             disabled={isApplying}
             onClick={onClose}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Batal
           </Button>
@@ -942,7 +942,7 @@ function QuestionBankMoveDialog({
             disabled={isApplying}
             onClick={onSubmit}
             type="button"
-            variant="brand"
+            variant="default"
           >
             {isApplying ? "Memindahkan…" : "Pindahkan"}
           </Button>
@@ -1839,7 +1839,7 @@ function QuestionBankCataloguePageContent({
               size="icon-sm"
               title={folderCreateLabel}
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               <FolderPlus />
             </Button>
@@ -1861,7 +1861,7 @@ function QuestionBankCataloguePageContent({
               size="sm"
               title="Buat Bank"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Plus />
               Buat Bank
@@ -1994,9 +1994,9 @@ function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, init
       />
       {initialTotal ? (
         <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2">
-          <Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
+          <Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button>
           <span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span>
-          <Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
+          <Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight /></Button>
         </nav>
       ) : null}
     </div>

@@ -2332,7 +2332,7 @@ function XlsxThumbnailSection({
           disabled={isLoadingThumbnails || phase === "applying"}
           onClick={() => void flow.loadNextThumbnailPage()}
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           {isLoadingThumbnails ? "Memuat gambar…" : "Lihat gambar berikutnya"}
         </Button>
@@ -2350,7 +2350,7 @@ function XlsxImportFooter({
   if (phase === "complete") {
     return (
       <DialogFooter>
-        <Button onClick={() => handleOpenChange(false)} type="button" variant="brand">
+        <Button onClick={() => handleOpenChange(false)} type="button" variant="default">
           Selesai
         </Button>
       </DialogFooter>
@@ -2363,7 +2363,7 @@ function XlsxImportFooter({
         disabled={phase === "applying"}
         onClick={() => handleOpenChange(false)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         {isBusy ? "Batalkan" : "Batal"}
       </Button>
@@ -2371,7 +2371,7 @@ function XlsxImportFooter({
         disabled={!canApply || phase === "applying"}
         onClick={() => void flow.applyImport()}
         type="button"
-        variant="brand"
+        variant="default"
       >
         {xlsxApplyButtonLabel(phase, target, mode)}
       </Button>
@@ -2432,7 +2432,7 @@ function QuestionBankXlsxImportControl({
         disabled={disabled || !editLease}
         onClick={() => setOpen(true)}
         type="button"
-        variant="brandOutline"
+        variant="outline"
       >
         <Upload aria-hidden="true" data-icon="inline-start" />
         Impor Excel

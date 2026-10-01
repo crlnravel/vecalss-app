@@ -107,11 +107,11 @@ function TryoutAdministrationActionRows({ draft, hasActiveAttempt, onArchive, on
     : "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf.";
   return (
     <div>
-      {!isPublished && !draft.locked ? <AdministrationActionRow action="Terbitkan Tryout" description="Terbitkan Tryout setelah judul, bagian, dan soal sudah siap."><Button aria-busy={saving} disabled={saving} onClick={onPublish} type="button" variant="brand"><Upload aria-hidden="true" />{saving ? "Menerbitkan…" : "Terbitkan"}</Button></AdministrationActionRow> : null}
+      {!isPublished && !draft.locked ? <AdministrationActionRow action="Terbitkan Tryout" description="Terbitkan Tryout setelah judul, bagian, dan soal sudah siap."><Button aria-busy={saving} disabled={saving} onClick={onPublish} type="button" variant="default"><Upload aria-hidden="true" />{saving ? "Menerbitkan…" : "Terbitkan"}</Button></AdministrationActionRow> : null}
       {isPublished ? <PublishedTryoutActions canDraft={canDraft} draft={draft} draftDisabledReason={draftDisabledReason} onSetHidden={onSetHidden} onUnpublish={onUnpublish} saving={saving} /> : null}
-      {isPublished || draft.locked ? <AdministrationActionRow action="Buat draf perubahan" description="Buat salinan draf untuk menyiapkan perubahan tanpa mengubah Tryout yang sedang terbit."><Button disabled={saving} onClick={onDuplicate} type="button" variant="brandOutline"><Copy />Buat draf perubahan</Button></AdministrationActionRow> : null}
-      <AdministrationActionRow action="Arsipkan Tryout" description="Sembunyikan Tryout dari daftar aktif tanpa menghapusnya."><Button disabled={saving} onClick={onArchive} type="button" variant="dangerOutline"><Archive />Arsipkan Tryout</Button></AdministrationActionRow>
-      {canDelete ? <AdministrationActionRow action="Hapus Tryout" description="Hapus Tryout beserta soal dan pengaturannya secara permanen."><Button disabled={saving} onClick={onDelete} type="button" variant="dangerOutline"><Trash2 />Hapus Tryout</Button></AdministrationActionRow> : null}
+      {isPublished || draft.locked ? <AdministrationActionRow action="Buat draf perubahan" description="Buat salinan draf untuk menyiapkan perubahan tanpa mengubah Tryout yang sedang terbit."><Button disabled={saving} onClick={onDuplicate} type="button" variant="outline"><Copy />Buat draf perubahan</Button></AdministrationActionRow> : null}
+      <AdministrationActionRow action="Arsipkan Tryout" description="Sembunyikan Tryout dari daftar aktif tanpa menghapusnya."><Button disabled={saving} onClick={onArchive} type="button" variant="destructive"><Archive />Arsipkan Tryout</Button></AdministrationActionRow>
+      {canDelete ? <AdministrationActionRow action="Hapus Tryout" description="Hapus Tryout beserta soal dan pengaturannya secara permanen."><Button disabled={saving} onClick={onDelete} type="button" variant="destructive"><Trash2 />Hapus Tryout</Button></AdministrationActionRow> : null}
     </div>
   );
 }
@@ -127,13 +127,13 @@ function PublishedTryoutActions({ canDraft, draft, draftDisabledReason, onSetHid
   return (
     <>
       <AdministrationActionRow action="Jadikan draf" description={canDraft ? "Kembalikan Tryout ke draf sebelum ada peserta yang mulai mengerjakan." : draftDisabledReason}>
-        <Button disabled={saving || !canDraft} onClick={onUnpublish} title={canDraft ? "Kembalikan Tryout ke draf" : draftDisabledReason} type="button" variant="brandOutline"><FilePenLine />Jadikan draf</Button>
+        <Button disabled={saving || !canDraft} onClick={onUnpublish} title={canDraft ? "Kembalikan Tryout ke draf" : draftDisabledReason} type="button" variant="outline"><FilePenLine />Jadikan draf</Button>
       </AdministrationActionRow>
       <AdministrationActionRow
         action={draft.isHidden ? "Tampilkan Tryout" : "Sembunyikan Tryout"}
         description={draft.isHidden ? "Tampilkan kembali Tryout di katalog siswa agar siswa dapat mendaftar atau memulai pengerjaan baru." : "Tryout tidak muncul di katalog siswa dan tidak menerima pendaftaran atau pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."}
       >
-        <Button disabled={saving} onClick={() => onSetHidden(!draft.isHidden)} type="button" variant="brandOutline">
+        <Button disabled={saving} onClick={() => onSetHidden(!draft.isHidden)} type="button" variant="outline">
           {draft.isHidden ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
           {draft.isHidden ? "Tampilkan lagi" : "Sembunyikan"}
         </Button>

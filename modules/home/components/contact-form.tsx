@@ -219,9 +219,9 @@ function ContactForm() {
               <Button
                 className="w-full"
                 disabled={isSubmitting || !canSubmit}
-                size="marketing"
+                size="lg"
                 type="submit"
-                variant="marketing"
+                variant="default"
               >
                 {isSubmitting ? "Memeriksa isian…" : "Periksa isian"}
               </Button>

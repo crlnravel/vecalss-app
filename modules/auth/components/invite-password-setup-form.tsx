@@ -90,7 +90,7 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
         disabled={submitting}
         size="lg"
         type="submit"
-        variant="brand"
+        variant="default"
       >
         {submitting ? "Mengaktifkan akun..." : "Simpan kata sandi dan aktifkan akun"}
       </Button>

@@ -50,7 +50,7 @@ function AffiliatorReferralCodeCard({
         disabled={!isActive}
         onClick={() => void copyCode()}
         type="button"
-        variant="brandOutline"
+        variant="outline"
         size="sm"
       >
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}

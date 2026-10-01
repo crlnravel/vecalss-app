@@ -30,6 +30,7 @@ import {
   X,
 } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
+import { showToast } from "@/components/ui/toast";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MentorQuizCreateDialog } from "@/modules/mentor/KaptenQuizEditorPageModule";
 import { manageQuizDashboardAction } from "@/modules/mentor/quiz-dashboard-actions";
@@ -148,10 +149,7 @@ export function KaptenQuizDashboardPageModule({
   const [archiving, setArchiving] = useState<QuizDashboardRow | null>(null);
   const [saving, setSaving] = useState(false);
   const mutationInFlight = useRef(false);
-  const [feedback, setFeedback] = useState<{
-    message: string;
-    failures: string[];
-  } | null>(null);
+  const [feedback, setFeedback] = useState<string[] | null>(null);
   const query = result.query;
   const returnHref = quizDashboardHref(query);
   function navigate(patch: Partial<QuizDashboardQuery>) {
@@ -175,6 +173,11 @@ export function KaptenQuizDashboardPageModule({
     setFeedback(null);
     try {
       const response = await manageQuizDashboardAction(ids, action);
+      const actionLabel = action === "hide"
+        ? "disembunyikan"
+        : action === "show"
+          ? "ditampilkan"
+          : "diarsipkan";
       setSelection(
         Object.fromEntries(
           response.failed
@@ -182,21 +185,31 @@ export function KaptenQuizDashboardPageModule({
             .map((item) => [item.id, true]),
         ),
       );
-      setFeedback({
-        message: response.succeeded.length
-          ? `${response.succeeded.length} kuis berhasil ${action === "hide" ? "disembunyikan" : action === "show" ? "ditampilkan" : "diarsipkan"}.`
-          : "Perubahan belum berhasil disimpan.",
-        failures: response.failed.map(
-          (item) =>
-            `${result.rows.find((row) => row.id === item.id)?.title ?? "Kuis"}: ${item.message}`,
-        ),
-      });
+      const failures = response.failed.map(
+        (item) =>
+          `${result.rows.find((row) => row.id === item.id)?.title ?? "Kuis"}: ${item.message}`,
+      );
+      setFeedback(failures.length ? failures : null);
+      if (response.succeeded.length && failures.length) {
+        showToast(
+          `${response.succeeded.length} kuis berhasil ${actionLabel}; ${failures.length} belum berhasil. Lihat rincian di halaman.`,
+          { variant: "warning" },
+        );
+      } else if (response.succeeded.length) {
+        showToast(`${response.succeeded.length} kuis berhasil ${actionLabel}.`, {
+          variant: "success",
+        });
+      } else if (failures.length) {
+        showToast("Perubahan belum berhasil disimpan. Lihat rincian dan coba lagi.", {
+          variant: "error",
+        });
+      }
       if (response.succeeded.length) router.refresh();
       setArchiving(null);
     } catch {
-      setFeedback({
-        message: "Perubahan belum berhasil disimpan. Coba lagi.",
-        failures: [],
+      setFeedback(null);
+      showToast("Perubahan belum berhasil disimpan. Coba lagi.", {
+        variant: "error",
       });
     } finally {
       mutationInFlight.current = false;
@@ -687,14 +700,12 @@ export function KaptenQuizDashboardPageModule({
         {feedback && (
           <div className={styles.feedback} role="status">
             <div>
-              {feedback.message}
-              {feedback.failures.length > 0 && (
-                <ul>
-                  {feedback.failures.map((failure, index) => (
-                    <li key={index}>{failure}</li>
-                  ))}
-                </ul>
-              )}
+              <p>Kuis berikut belum berhasil diperbarui:</p>
+              <ul>
+                {feedback.map((failure, index) => (
+                  <li key={index}>{failure}</li>
+                ))}
+              </ul>
             </div>
             <button
               type="button"

@@ -8,11 +8,11 @@ import {
   Clipboard,
   LockKeyhole,
   MessageCircle,
-  Share2,
 } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -119,17 +119,16 @@ function CourseLessonPlayerModule({
 
       const nextAfterCompletion = getNextAvailableLesson(course, payload.snapshot);
       const updatedState = getCourseProgressState(course, payload.snapshot);
-      setFeedback({
-        tone: "success",
-        text: nextAfterCompletion
+      showToast(
+        nextAfterCompletion
           ? `Progres tersimpan. Materi berikutnya: ${nextAfterCompletion.title}.`
           : updatedState.completionPercentage === 100
             ? "Progres tersimpan. Semua materi di jalur ini sudah selesai."
             : "Progres tersimpan. Materi berikutnya belum tersedia.",
-      });
+        { variant: "success" },
+      );
     } catch {
       setFeedback({
-        tone: "error",
         text: "Status materi belum dapat diperbarui. Muat ulang halaman untuk memeriksa, lalu coba lagi jika belum berubah.",
       });
     } finally {
@@ -199,7 +198,7 @@ function LessonPlayer({
                   render={<Link href="/vera-ai" />}
                   size="icon"
                   title="Tanya Vera"
-                  variant="brandOutline"
+                  variant="outline"
                 />
               )}
             >
@@ -215,9 +214,9 @@ function LessonPlayer({
             )}
             disabled={isCompleted || pending}
             onClick={onComplete}
-            size="learning"
+            size="lg"
             type="button"
-            variant={isCompleted ? "learningComplete" : "learning"}
+            variant={isCompleted ? "default" : "default"}
           >
             {isCompleted ? (
               <CheckCircle2 className="size-5" data-icon="inline-start" />
@@ -242,8 +241,8 @@ function LessonPlayer({
           className="mx-auto mt-5"
           nativeButton={false}
           render={<Link href={`/courses/${course.slug}/${nextLesson.id}`} />}
-          size="learning"
-          variant="learning"
+          size="lg"
+          variant="default"
         >
           Buka materi berikutnya
           <ArrowLeft className="size-4 rotate-180" />
@@ -296,8 +295,8 @@ function LockedLessonState({
           className="mt-7"
           nativeButton={false}
           render={<Link href={`/courses/${course.slug}/${nextLesson.id}`} />}
-          size="learning"
-          variant="learning"
+          size="lg"
+          variant="default"
         >
           Lanjut ke Bagian yang tersedia
           <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
@@ -307,11 +306,8 @@ function LockedLessonState({
   );
 }
 
-type FeedbackTone = "error" | "neutral" | "success";
-
 type Feedback = {
   text: string;
-  tone: FeedbackTone;
 };
 
 function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
@@ -319,25 +315,16 @@ function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
     return null;
   }
 
-  const Icon =
-    feedback.tone === "success"
-      ? CheckCircle2
-      : feedback.tone === "error"
-        ? Clipboard
-        : Share2;
-
   return (
     <div
       aria-live="polite"
       className={cn(
         "mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm leading-6",
-        feedback.tone === "error"
-          ? "bg-student-status-danger-bg text-student-status-danger-fg"
-          : "bg-[var(--voyage-sea-glass-wash)] text-[var(--voyage-forest)]",
+        "bg-student-status-danger-bg text-student-status-danger-fg",
       )}
       role="status"
     >
-      <Icon className="mt-1 size-4 shrink-0" />
+      <Clipboard className="mt-1 size-4 shrink-0" />
       <span>{feedback.text}</span>
     </div>
   );

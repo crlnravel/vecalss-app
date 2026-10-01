@@ -86,11 +86,11 @@ function LoginForm({
       </div>
 
       <SubmitButton
-        className="min-h-[54px] w-full rounded-xl text-base font-semibold shadow-[0_16px_30px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]"
+        className="w-full"
         pendingLabel="Sedang masuk..."
         size="lg"
         type="submit"
-        variant="brand"
+        variant="default"
       >
         Masuk
       </SubmitButton>

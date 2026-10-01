@@ -51,7 +51,7 @@ export function MediaAssetPreview({
         nativeButton={false}
         render={<a aria-label="Buka PDF" href={previewUrl} rel="noreferrer" target="_blank" />}
         size="default"
-        variant="brandOutline"
+        variant="outline"
       >
         <FileText className="size-5" />
         Buka PDF
@@ -60,7 +60,7 @@ export function MediaAssetPreview({
         nativeButton={false}
         render={<a aria-label="Unduh PDF" download href={previewUrl} />}
         size="default"
-        variant="brand"
+        variant="default"
       >
         Unduh PDF
       </Button> : null}

@@ -26,7 +26,7 @@ import {
 
 function CreateButton({ href, label }: { href: string; label: string }) {
   return (
-    <Button render={<Link href={href} />} variant="brand">
+    <Button render={<Link href={href} />} variant="default">
       <Plus />
       {label}
     </Button>
@@ -164,7 +164,7 @@ function TryoutRow({ tryout }: { tryout: KaptenTryout }) {
           <p className="text-sm font-semibold text-secondary-900">
             {tryout.primaryMetric}
           </p>
-          <Button render={<Link href={tryout.href} />} size="default" variant="brandOutline">
+          <Button render={<Link href={tryout.href} />} size="default" variant="outline">
             Buka
           </Button>
         </div>

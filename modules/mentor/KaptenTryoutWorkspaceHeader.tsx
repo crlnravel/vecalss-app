@@ -104,13 +104,13 @@ function TryoutWorkspaceHeader({
             {showBackButton ? (
               <Button
                 aria-label={backLabel}
-                className="mt-1 min-h-11 min-w-11 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+                className="mt-1 shrink-0"
                 nativeButton={false}
                 onClick={(event) => handlePrimaryNavigation(event, backHref, onNavigate)}
                 render={<Link href={backHref} />}
                 size="icon"
                 title={backLabel}
-                variant="ghost"
+                variant="outline"
               >
                 <ChevronLeft aria-hidden="true" className="size-5" />
               </Button>
@@ -127,10 +127,9 @@ function TryoutWorkspaceHeader({
                         render={(
                           <Button
                             aria-label="Konfigurasi Tryout terkunci"
-                            className="size-8 rounded-full text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
-                            size="icon"
+                            size="icon-sm"
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                           />
                         )}
                       >

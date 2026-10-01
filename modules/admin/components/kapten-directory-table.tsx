@@ -9,7 +9,6 @@ import {
   REFERENCE_CONTROL_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { ReuiDirectoryGrid, ReuiDirectoryMember, ReuiDirectoryFilters, type ReuiDirectoryColumn, type ReuiDirectoryFilter } from "./reui-directory-grid";
 import styles from "./reui-directory-grid.module.css";
 import { FieldRequiredMark } from "@/components/ui/field";
@@ -111,7 +110,7 @@ function KaptenDetailPanel({
               {getInitials(kapten.fullName)}
             </span>
             <SheetClose
-              render={<Button className="text-secondary-900 hover:text-primary-700" size="icon" type="button" variant="reference" />}
+              render={<Button className="text-secondary-900 hover:text-primary-700" size="icon" type="button" variant="outline" />}
             >
               <XIcon />
                <span className="sr-only">Tutup</span>
@@ -134,7 +133,7 @@ function KaptenDetailPanel({
                <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
             </div>
             <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Bio</span><textarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
-           <div className="flex justify-end"><Button type="submit" variant="brand">Simpan perubahan</Button></div>
+           <div className="flex justify-end"><Button type="submit" variant="default">Simpan perubahan</Button></div>
           </form>
 
           <ReferenceSurface as="section" aria-labelledby={`kapten-state-${kapten.id}`} className="mt-7 p-4 sm:p-5" variant="inset">
@@ -159,7 +158,7 @@ function KaptenDetailPanel({
                     <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reactivate" />
                     <span>Saya memahami bahwa pemulihan tidak mengembalikan sesi atau handoff lama.<FieldRequiredMark /></span>
                   </label>
-                   <button className={buttonVariants({ variant: "brandOutline" })} type="submit">Pulihkan</button>
+                  <Button size="sm" type="submit" variant="outline">Pulihkan</Button>
                 </form>
               ) : (
                  <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">Akun ini memerlukan pemulihan manual sebelum status enrollment dapat diubah.</p>

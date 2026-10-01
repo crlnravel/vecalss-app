@@ -110,7 +110,7 @@ function TryoutRefreshToolbar({
         disabled={refreshState === "refreshing"}
         onClick={onRefresh}
         size="sm"
-        variant="brandOutline"
+        variant="outline"
       >
         <RefreshCw className={refreshState === "refreshing" ? "animate-spin" : undefined} data-icon="inline-start" />
         Perbarui data

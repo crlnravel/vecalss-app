@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarDays, ChevronRight } from "@/lib/icons";
 
 import { Card } from "@/components/ui/card";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyDescription,
@@ -71,9 +71,9 @@ function KaptenTryoutSessionsPageModule({
                         <StatusBadge status={session.status} />
                       </div>
                       <div className="flex shrink-0 items-center justify-end sm:pl-2 sm:pr-1">
-                        <MentorBadge size="sm" tone={sessionReady ? "success" : "attention"}>
+                        <Badge size="sm" tone={sessionReady ? "success" : "attention"}>
                           Sesi utama
-                        </MentorBadge>
+                        </Badge>
                       </div>
                       <Link
                         aria-label={`Buka sesi ${session.name}`}

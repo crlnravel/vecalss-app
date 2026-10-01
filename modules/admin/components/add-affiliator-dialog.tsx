@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import styles from "./reui-directory-grid.module.css";
 
 import { CreateAffiliatorForm } from "./create-affiliator-form";
 
@@ -14,11 +14,12 @@ function AddAffiliatorDialog() {
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger
         render={
-          <button
+          <Button
             aria-label="Tambah affiliator"
-            className={styles.primaryButton}
+            size="sm"
             title="Tambah affiliator"
             type="button"
+            variant="default"
           />
         }
       >

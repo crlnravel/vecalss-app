@@ -39,11 +39,11 @@ import {
   FieldTextarea,
 } from "@/components/ui/field";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
 import { Input } from "@/components/ui/input";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
@@ -140,16 +140,16 @@ function QuizPreview({
           <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
             Daftar Soal
           </h2>
-          <MentorBadge className="font-bold" size="xs" tone="category">
+          <Badge className="font-bold" size="xs" tone="category">
             {questions.length} Soal
-          </MentorBadge>
+          </Badge>
         </div>
         <Button
           className="shrink-0"
           nativeButton={false}
           render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
           type="button"
-          variant="brand"
+          variant="default"
         >
           <FilePenLine />
           Edit soal
@@ -163,7 +163,7 @@ function QuizPreview({
                 nativeButton={false}
                 render={<Link href={`/mentor/quiz/${quizId}/editor?returnTo=${encodeURIComponent(returnHref)}`} />}
                 size="sm"
-                variant="brand"
+                variant="default"
               >
                 <FilePenLine />
                 Tulis soal pertama
@@ -212,17 +212,17 @@ function QuizQuestionCard({
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Subjek
             </span>
-            <MentorBadge size="xs" tone="category">
+            <Badge size="xs" tone="category">
               {subjectCode}
-            </MentorBadge>
+            </Badge>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-xs font-semibold text-secondary-500">
               Kesulitan
             </span>
-            <MentorBadge size="xs" tone="category">
+            <Badge size="xs" tone="category">
               Sedang
-            </MentorBadge>
+            </Badge>
           </div>
         </div>
       </div>
@@ -363,7 +363,7 @@ function QuizTitleField({
         onClick={save}
         size="sm"
         type="button"
-        variant="brand"
+        variant="default"
       >
         <Check />
         Simpan
@@ -373,7 +373,7 @@ function QuizTitleField({
         onClick={cancel}
         size="sm"
         type="button"
-        variant="ghost"
+        variant="outline"
       >
         <X />
         Batal
@@ -395,7 +395,7 @@ function QuizTitleField({
           size="icon-sm"
           title="Ubah judul Kuis"
           type="button"
-          variant="ghost"
+          variant="outline"
         >
           <Pencil className="size-4" />
         </Button>
@@ -439,7 +439,7 @@ function QuizDescriptionField({
             size="icon-sm"
             title="Ubah deskripsi Kuis"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -465,7 +465,7 @@ function QuizDescriptionField({
               }}
               size="sm"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Check /> Simpan
             </Button>
@@ -474,7 +474,7 @@ function QuizDescriptionField({
               onClick={cancel}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X /> Batal
             </Button>
@@ -528,7 +528,7 @@ function QuizSubjectField({
             size="icon-sm"
             title="Ubah subjek Kuis"
             type="button"
-            variant="ghost"
+            variant="outline"
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -557,7 +557,7 @@ function QuizSubjectField({
               }}
               size="sm"
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Check /> Simpan
             </Button>
@@ -566,7 +566,7 @@ function QuizSubjectField({
               onClick={cancel}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <X /> Batal
             </Button>
@@ -574,9 +574,9 @@ function QuizSubjectField({
         </div>
       ) : (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <MentorBadge size="xs" tone="category">
+          <Badge size="xs" tone="category">
             {subject ? `${subject.code} · ${subject.name}` : value}
-          </MentorBadge>
+          </Badge>
         </div>
       )}
     </div>
@@ -764,7 +764,7 @@ function QuizSettings({
           }
           onClick={onSave}
           type="button"
-          variant="brand"
+          variant="default"
         >
           {isSaving ? "Menyimpan…" : "Simpan"}
         </Button>
@@ -827,7 +827,7 @@ function QuizVisibilityAction({ disabled, isHidden, isSaving, onSetHidden }: {
       action={isHidden ? "Tampilkan Kuis" : "Sembunyikan Kuis"}
       description={isHidden ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat memulai pengerjaan baru." : "Kuis tidak muncul di katalog siswa dan tidak menerima pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."}
     >
-      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={() => void onSetHidden(!isHidden)} type="button" variant="brandOutline">{isHidden ? "Tampilkan lagi" : "Sembunyikan"}</Button>
+      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={() => void onSetHidden(!isHidden)} type="button" variant="outline">{isHidden ? "Tampilkan lagi" : "Sembunyikan"}</Button>
     </AdministrationActionRow>
   );
 }
@@ -841,7 +841,7 @@ function QuizArchiveAction({ disabled, isSaving, onArchiveRequested, onArchive }
   if (!onArchive) return null;
   return (
     <AdministrationActionRow action="Arsipkan Kuis" description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa.">
-      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={onArchiveRequested} type="button" variant="dangerOutline"><Archive />Arsipkan</Button>
+      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={onArchiveRequested} type="button" variant="destructive"><Archive />Arsipkan</Button>
     </AdministrationActionRow>
   );
 }
@@ -1070,26 +1070,26 @@ function KaptenQuizDetailPageContent({
           onValueChange={changeTab}
           value={activeTab}
         >
-          <FullWidthLineTabsList aria-label="Bagian detail Kuis">
-            <FullWidthLineTabsTrigger
+          <FullWidthTabsList aria-label="Bagian detail Kuis">
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="preview"
             >
               Soal
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="hasil"
             >
               Hasil
-            </FullWidthLineTabsTrigger>
-            <FullWidthLineTabsTrigger
+            </FullWidthTabsTrigger>
+            <FullWidthTabsTrigger
               className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
               value="pengaturan"
             >
               Pengaturan
-            </FullWidthLineTabsTrigger>
-          </FullWidthLineTabsList>
+            </FullWidthTabsTrigger>
+          </FullWidthTabsList>
           <TabsContent className="m-0 space-y-4" value="preview">
             <QuizPreview
               returnHref={returnHref}

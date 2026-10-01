@@ -135,7 +135,7 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
     >
       <ReferencePageHeader title="Pengaturan" />
       <div className="flex min-w-0 items-center gap-4">
-        <Avatar className="!size-14"><AvatarFallback className="bg-voyage-sea-glass-wash text-lg font-semibold text-voyage-deep">{initials}</AvatarFallback></Avatar>
+        <Avatar className="!size-14"><AvatarFallback className="text-lg">{initials}</AvatarFallback></Avatar>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="break-words text-xl font-semibold leading-7 text-voyage-ink">{savedSettings.profileName}</p>

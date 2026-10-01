@@ -68,7 +68,7 @@ function ForgotPasswordForm({
         >
           Kembali ke halaman masuk
         </Link>
-        <SubmitButton pendingLabel="Menyiapkan tautan..." size="lg" type="submit" variant="brand">
+        <SubmitButton pendingLabel="Menyiapkan tautan..." size="lg" type="submit" variant="default">
           Minta tautan pengaturan ulang
         </SubmitButton>
       </div>

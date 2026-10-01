@@ -59,7 +59,7 @@ function ActivityPanel({
           nativeButton={false}
           render={<Link href="/admin/audit-logs" />}
           size="default"
-          variant="ghost"
+          variant="outline"
         >
           Lihat selengkapnya
         </Button>

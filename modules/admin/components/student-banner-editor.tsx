@@ -236,7 +236,7 @@ function BannerPreviewPanel({
             Menggunakan teks dari formulir saat ini.
           </p>
         </div>
-        <Button onClick={onClose} size="sm" type="button" variant="ghost">
+        <Button onClick={onClose} size="sm" type="button" variant="outline">
           Tutup pratinjau
         </Button>
       </div>
@@ -319,7 +319,7 @@ function StudentBannerConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} variant="brand">
+          <AlertDialogAction onClick={onConfirm} variant="default">
             {pendingConfirmation.confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -358,7 +358,7 @@ function StudentBannerEditorHeader({
           nativeButton={false}
           render={<Link href={previewHref} />}
           size="sm"
-          variant="ghost"
+          variant="outline"
         >
           Tutup editor
         </Button>
@@ -406,7 +406,7 @@ function StudentBannerSavePanel({
             onClick={onPreview}
             size="lg"
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Pratinjau
           </Button>
@@ -416,7 +416,7 @@ function StudentBannerSavePanel({
             size="lg"
             type="submit"
             value="save-draft"
-            variant="brandOutline"
+            variant="outline"
           >
             Simpan draf
           </BannerSubmitButton>
@@ -427,7 +427,7 @@ function StudentBannerSavePanel({
             size="lg"
             type="submit"
             value="publish"
-            variant="brand"
+            variant="default"
           >
             {canPublish ? "Terbitkan" : "Simpan draf sebelum menerbitkan"}
           </BannerSubmitButton>

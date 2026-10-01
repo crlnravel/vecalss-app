@@ -139,7 +139,7 @@ function PreviewPlaceholder({
               key={href}
               nativeButton={false}
               render={<Link href={href} />}
-              variant={label === surface.activeLabel ? "brand" : "brandOutline"}
+              variant={label === surface.activeLabel ? "default" : "outline"}
             >
               {label}
             </Button>

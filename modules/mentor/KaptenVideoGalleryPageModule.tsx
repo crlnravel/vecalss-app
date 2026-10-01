@@ -55,7 +55,7 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { MentorBadge } from "@/components/ui/mentor-badge";
+import { Badge } from "@/components/ui/badge";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
@@ -155,9 +155,9 @@ function KaptenVideoCard({
         <VideoPreview video={video} />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-2">
-            <MentorBadge size="sm" tone="category">
+            <Badge size="sm" tone="category">
               {video.subtest}
-            </MentorBadge>
+            </Badge>
             <span className="text-xs font-medium text-secondary-500">
               {video.subject}
             </span>
@@ -180,7 +180,7 @@ function KaptenVideoCard({
               onClick={() => onEdit(video)}
               size="sm"
               type="button"
-              variant="reference"
+              variant="outline"
             >
               <FilePenLine aria-hidden="true" />
               Edit video
@@ -191,7 +191,7 @@ function KaptenVideoCard({
                 <a aria-label="Lihat di YouTube" href={video.youtubeUrl} rel="noreferrer" target="_blank" />
               }
               size="sm"
-              variant="ghost"
+              variant="outline"
             >
               <ArrowUpRight aria-hidden="true" />
               Lihat di YouTube
@@ -201,7 +201,7 @@ function KaptenVideoCard({
               onClick={() => onArchive(video, !video.isArchived)}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               {video.isArchived ? (
                 <RotateCcw aria-hidden="true" />
@@ -216,7 +216,7 @@ function KaptenVideoCard({
               onClick={() => onDelete(video)}
               size="sm"
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <Trash2 aria-hidden="true" />
               Hapus
@@ -315,7 +315,7 @@ function VideoEditorDialog({
                 className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
                 disabled={isPending}
                 id="kapten-video-subtest"
-                render={<Button type="button" variant="reference" />}
+                render={<Button type="button" variant="outline" />}
               >
                 <span>{draft.subtest}</span>
                 <ChevronDown
@@ -371,7 +371,7 @@ function VideoEditorDialog({
               className="min-h-14 w-full"
               disabled={isPending}
               type="submit"
-              variant="brand"
+              variant="default"
             >
               {isPending ? "Menyimpan…" : isEditing ? "Simpan perubahan" : "Tambah video"}
             </Button>
@@ -601,7 +601,7 @@ function KaptenVideoGalleryPageModule({
               disabled={isPending}
               onClick={openCreate}
               type="button"
-              variant="brand"
+              variant="default"
             >
               <Plus aria-hidden="true" />
               Tambah video
@@ -704,7 +704,7 @@ function VideoCollection({ hasArchivedVideos, hasVideosInCurrentCollection, isPe
   const emptyState = getVideoEmptyState(hasVideosInCurrentCollection, hasArchivedVideos, showArchivedVideos);
   return (
     <ReferenceSurface className="border-learning-card-border" variant="raised">
-      <ReferenceEmptyState action={!hasVideosInCurrentCollection ? <Button disabled={isPending} onClick={onCreate} size="sm" variant="brand">Tambah video</Button> : undefined} description={emptyState.description} icon={Video} title={emptyState.title} />
+      <ReferenceEmptyState action={!hasVideosInCurrentCollection ? <Button disabled={isPending} onClick={onCreate} size="sm" variant="default">Tambah video</Button> : undefined} description={emptyState.description} icon={Video} title={emptyState.title} />
     </ReferenceSurface>
   );
 }

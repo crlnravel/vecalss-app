@@ -70,7 +70,7 @@ function HandoffDeliveryNotice({
             <input className="mt-1" name="confirmation" required type="checkbox" value="acknowledge" />
              <span>Saya mengonfirmasi bahwa informasi akses ini sudah diberikan kepada penerima.<FieldRequiredMark /></span>
           </label>
-          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">
+          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="outline">
              {pending ? "Menyimpan…" : "Konfirmasi pemberian akses"}
           </Button>
         </form>
@@ -85,7 +85,7 @@ function HandoffDeliveryNotice({
               nativeButton={false}
               render={<Link href={recoveryHref} />}
               size="sm"
-              variant="brandOutline"
+              variant="outline"
             >
                Buka detail akun
             </Button>
@@ -107,7 +107,7 @@ function HandoffDeliveryNotice({
                 onClick={onRecovery}
                 size="sm"
                 type="button"
-                variant="brandOutline"
+                variant="outline"
               >
                  Tutup setelah tindak lanjut direncanakan
               </Button>

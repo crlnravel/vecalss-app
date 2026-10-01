@@ -3,6 +3,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { useMemo, useState } from "react";
 
+import { buttonVariants } from "@/components/ui/button-variants";
 import { ChevronDown } from "@/lib/icons";
 import type { AffiliatorDirectoryItem } from "../AffiliatorPageModule";
 import { AddAffiliatorDialog } from "./add-affiliator-dialog";
@@ -47,7 +48,7 @@ function AffiliatorDirectoryTable({ affiliators }: { affiliators: Row[] }) {
       search={{ action: "/admin/affiliators", label: "Cari affiliator", placeholder: "Cari…", value: search, onValueChange: value => { setSearch(value); setPage(1); } }}
       sort={{ key: sort, direction, onChange: (key, nextDirection) => { setSort(key); setDirection(nextDirection); setPage(1); } }}
       actions={<AddAffiliatorDialog />}
-      filterPanel={<Menu.Root><Menu.Trigger className={styles.button} aria-label="Filter akun">Filter<ChevronDown size={14} /></Menu.Trigger><Menu.Portal><Menu.Positioner className={styles.positioner} align="end" sideOffset={4}><Menu.Popup className={styles.popup}><Menu.RadioGroup value={status} onValueChange={value => { setStatus(value); setPage(1); }}>{["all", "active", "disabled", "locked"].map(value => <Menu.RadioItem key={value} value={value} className={styles.menuItem}>{value === "all" ? "Semua status" : statusLabel(value)}</Menu.RadioItem>)}</Menu.RadioGroup></Menu.Popup></Menu.Positioner></Menu.Portal></Menu.Root>}
+      filterPanel={<Menu.Root><Menu.Trigger className={buttonVariants({ size: "sm", variant: "outline" })} aria-label="Filter akun">Filter<ChevronDown size={14} /></Menu.Trigger><Menu.Portal><Menu.Positioner className={styles.positioner} align="end" sideOffset={4}><Menu.Popup className={styles.popup}><Menu.RadioGroup value={status} onValueChange={value => { setStatus(value); setPage(1); }}>{["all", "active", "disabled", "locked"].map(value => <Menu.RadioItem key={value} value={value} className={styles.menuItem}>{value === "all" ? "Semua status" : statusLabel(value)}</Menu.RadioItem>)}</Menu.RadioGroup></Menu.Popup></Menu.Positioner></Menu.Portal></Menu.Root>}
       emptyState={<><strong>{affiliators.length ? "Tidak ada affiliator yang cocok" : "Belum ada akun affiliator"}</strong>{affiliators.length ? "Coba nama, email, atau filter lain." : "Tambahkan affiliator untuk membuat akun dan kode referral pertamanya."}</>}
     />
     <ReuiDirectoryFooter page={currentPage} pageCount={pageCount} pageSize={pageSize} total={filtered.length} visibleCount={visible.length} onPageChange={setPage} onSizeChange={size => { setPageSize(size); setPage(1); }} />

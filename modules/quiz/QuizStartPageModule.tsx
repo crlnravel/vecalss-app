@@ -175,9 +175,9 @@ function QuizStartActions({
   const startLabel = getQuizStartLabel(availability, isStarting);
   return (
     <div className="mt-8 flex flex-wrap gap-3">
-      {canStart ? <Button disabled={isStarting} onClick={onStart} size="lg" variant="brand">{startLabel}</Button> : null}
-      {availability.kind === "retry-wait" ? <Button onClick={onRefresh} size="lg" variant="brand">Perbarui status</Button> : null}
-      <Button disabled={isStarting} onClick={onBack} size="lg" variant="brandOutline">{canStart ? "Nanti dulu" : "Kembali ke daftar kuis"}</Button>
+      {canStart ? <Button disabled={isStarting} onClick={onStart} size="lg" variant="default">{startLabel}</Button> : null}
+      {availability.kind === "retry-wait" ? <Button onClick={onRefresh} size="lg" variant="default">Perbarui status</Button> : null}
+      <Button disabled={isStarting} onClick={onBack} size="lg" variant="outline">{canStart ? "Nanti dulu" : "Kembali ke daftar kuis"}</Button>
     </div>
   );
 }

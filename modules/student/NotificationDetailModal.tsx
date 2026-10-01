@@ -144,7 +144,7 @@ function NotificationDetailModal({
             className="mt-8 self-start"
             nativeButton={false}
             render={<a aria-label="Buka tautan Zoom" href={notification.href} rel="noreferrer" target="_blank" />}
-            variant="brand"
+            variant="default"
           >
             Buka tautan Zoom
             <ArrowUpRight aria-hidden="true" className="size-4" />
@@ -154,7 +154,7 @@ function NotificationDetailModal({
             className="mt-8 self-start"
             nativeButton={false}
             render={<Link href={notification.href} />}
-            variant="brand"
+            variant="default"
           >
             Buka ruang tunggu
           </Button>

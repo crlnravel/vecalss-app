@@ -85,7 +85,7 @@ function CopyValueButton({
       size={iconOnly ? "icon" : "default"}
       title={masked ? "Nilai tersamarkan tidak dapat disalin" : undefined}
       type="button"
-      variant={iconOnly ? "ghost" : "brandOutline"}
+      variant={iconOnly ? "outline" : "outline"}
     >
       {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
       <CopyValueButtonLabel copied={copied} copyBlocked={copyBlocked} iconOnly={iconOnly} label={label} masked={masked} />

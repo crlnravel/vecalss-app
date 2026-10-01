@@ -392,7 +392,7 @@ function LearningPathStageDetails({ isLocked, lesson, onSkip, pending }: { isLoc
   return (
     <>
       {lesson.optionalVideo && !isLocked ? <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm"><a className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[var(--voyage-leaf)]/30" href={lesson.optionalVideo.mediaUrl} rel="noreferrer" target="_blank"><Video className="size-3.5" /> Video opsional <ExternalLink className="size-3" /></a></div> : null}
-      {isLocked ? <Button className="mt-3 sm:text-sm" disabled={pending} onClick={onSkip} size="learningAttention" type="button" variant="learningAttention">{pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}</Button> : null}
+      {isLocked ? <Button className="mt-3 sm:text-sm" disabled={pending} onClick={onSkip} size="default" type="button" variant="warning">{pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}</Button> : null}
     </>
   );
 }
