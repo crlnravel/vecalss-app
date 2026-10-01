@@ -320,7 +320,15 @@
       "description": "Provide a Developer-only searchable catalogue of existing shared primitives, variants, source references, and live computed design tokens.",
       "dependencies": ["feat-038"],
       "status": "complete",
-      "evidence": "d2fe796; 65 shared source files mapped to 30 catalogue sections; Luna extraction and independent coverage review completed, review fixes applied. Guarded focused ESLint and staged diff-check pass; full TypeScript has no catalogue diagnostics but fails outside scope. Full verify stops on unrelated lint errors; production build and browser QA remain unverified."
+      "evidence": "d2fe796 established the catalogue; primitive standardization reduces the supported inventory to 60 sources. Luna extraction and independent coverage review completed. Focused catalogue ESLint and diff-check pass; full TypeScript has no catalogue diagnostics but fails outside scope. Full verify stops on unrelated lint errors; production build and browser QA remain unverified."
+    },
+    {
+      "id": "feat-041",
+      "name": "Canonical Primitives and ReUI Avatars",
+      "description": "Standardize semantic radii, tactile Buttons, app-wide Badge, specialty Tabs, Sonner notification outcomes and ReUI Avatar composition across the app and developer catalogue.",
+      "dependencies": ["feat-040"],
+      "status": "complete",
+      "evidence": "2f11bd1 design contract; a64f5ba shared primitives; 778adf6 app consumers; 9a9457d agreed report primitive hunks; b4297f6 catalogue and Avatar guidelines. SSR state/disabled-anchor contract and shared/catalogue focused lint pass; independent standards and coverage reviews clear. Exact 20px audit correction is reviewed and applied in its owner's pending redesign. Global lint/types remain blocked by baseline errors; browser/build unverified."
     }
   ]
 }

@@ -1,5 +1,14 @@
 # Session Progress Log
 
+## Primitive standardization and ReUI Avatars (2026-10-01)
+
+- [x] Updated the design contract before Luna/max implementation: semantic radii, tactile Buttons, one app Badge, specialty sunken Tabs, and Sonner notification outcomes.
+- [x] Shared primitives (`a64f5ba`) and app consumers (`778adf6`) committed. Report commit `9a9457d` contains the agreed primitive hunks in its three shared UI files.
+- [x] Standardized ReUI Avatar composition and navbar account controls. Independent coverage review has no remaining findings.
+- [x] Catalogue and Avatar guidelines committed in `b4297f6`; final standards and coverage reviews have no remaining findings. The exact 20px audit Avatar correction stays with its owner's pending commit.
+- Verification: SSR state/disabled-anchor contract passes; shared/catalogue focused lint passes. Final broader lint and TypeScript still fail on recorded baseline issues. No production build, computed-style, or browser result is claimed. Six guarded launch groups used; no agent-owned process remains.
+
+
 ## Admin directory green surface refinement (2026-10-01)
 
 - [x] Added green-tinted background, padded rounded border and existing Vecalss color tokens to all three admin directories without changing components or behavior.

@@ -1,5 +1,16 @@
 # Session Handoff
 
+## Primitive standardization and ReUI Avatars (2026-10-01)
+
+- Design contract committed before delegation in `2f11bd1`; shared primitives in `a64f5ba`; product consumers in `778adf6`. Separate report commit `9a9457d` includes the approved canonical hunks in FileUploadSlot, MentorReport, and DeveloperReportDetail.
+- Canonical contracts: seven semantic pixel radii; five tactile Button variants at 40/44/48px; one tone/size/depth Badge; sunken Tabs and FullWidthTabs; Sonner notification outcomes. Field validation, blocking recovery, progress and confirmation remain contextual.
+- ReUI Avatar sizes are 24/32/40px. All navbar audiences use a 40px Avatar in a named 44px circular outline account button; existing switch/logout actions remain. The audit actor's agreed 20px exception uses an explicit pixel utility.
+- Catalogue now documents 60 supported sources, canonical variations, multi-file slots and explicitly simulated Avatar presence. Grouped commentable artifacts live in `developer-component-catalogue`; decisions and reviews live in `primitive-standardization` under the epic artifacts directory.
+- SSR Avatar/Tabs state callbacks and rendered disabled-anchor semantics pass. Shared/catalogue focused lint passes. Final 193-file lint fails only at three recorded baseline errors; application TypeScript remains blocked outside the migrated APIs. Full verify stopped before build; browser and computed CSS remain unverified.
+- Six guarded launch groups used. No further package/browser launch is authorized within that budget; no agent-owned server, worker or browser remains. Normal commits used the existing dev hook, which naturally skips exhaustive pre-commit checks; no hook was bypassed or altered.
+- Catalogue/documentation commit: `b4297f6`. Final standards and coverage reviews are clear. Preserve unrelated audit, quiz lifecycle, bank catalogue root-label, mentor shell, justfile and seed changes. The review-confirmed 20px audit Avatar correction remains with its owner's pending redesign.
+
+
 ## Current refinement — Admin directory green surfaces (2026-10-01)
 
 - User asked for greenish background, padding, rounded border and Vecalss styling, while retaining the current components.

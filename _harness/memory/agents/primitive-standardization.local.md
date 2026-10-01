@@ -1,35 +1,45 @@
 # Primitive standardization handoff
 
-2026-10-01: User authorized planning, updating design guidelines and then
-Luna/max refactoring. Scope extends the developer catalogue into a canonical
-primitive system. Root plan lives in the epic primitive-standardization artifact;
-guidelines were updated before delegates started. DESIGN.md changes are directly
-authorized by the user's design-system update request.
+User authorized design-guideline updates before exact gpt-6-luna/max refactoring,
+plus ReUI Avatar standardization. Existing approval permits the main
+17a9c6ac-2a98-476d-8f3e-fbc358e247b9 to remain gpt-6.1-sol/high for this initiative.
+Role: Primitive standardization; claim 33f04d31-a2f6-4b69-b224-390fae786226.
 
-User answered alert scope: Sonner replaces every notification banner; field
-validation, blocking recovery content and confirmation dialogs remain in place.
-No browser verification approval exists for this refactor.
+## Delivery
 
-Role owner: 17a9c6ac-2a98-476d-8f3e-fbc358e247b9. Existing main model approval
-persists within this catalogue initiative. Workers verified exact codex
-gpt-6-luna/max. Boundaries:
+- 2f11bd1: settled design contract and focused guidelines.
+- a64f5ba: semantic pixel radii, tactile Button, canonical Badge and specialty
+  Tabs, Sonner styling, ReUI Avatar and state-contract regression.
+- 778adf6: product consumers and Sonner notification outcomes.
+- 9a9457d: separate report feature includes approved primitive hunks in
+  FileUploadSlot, MentorReport and DeveloperReportDetail; batch file selection
+  is backward compatible.
+- b4297f6: canonical developer catalogue, 60-source inventory and Avatar guide.
+- AuditLogsPageModule explicit size-[20px] correction remains with the audit
+  owner's unstaged redesign. Owner e03c19b3 was notified; do not blanket stage.
 
-- e473eef6: app/globals.css, components/ui, components/dashboard.
-- c4ef85ec: app excluding globals.css, modules excluding developer, scripts.
-- 53f6952f: modules/developer and grouped catalogue artifacts; no old reviews.
-- Parent: docs, integration, guarded validation, review, scoped commit/handoff.
+All workers handed off; no pending edits or launches. Standards and coverage
+reviews have no remaining findings, including the exact audit pixel correction.
+Grouped commentable catalogue artifacts and primitive-standardization decisions
+are under the epic artifacts root. Keep historical catalogue reviews intact.
 
-Workers may use static reads and patches only; no launches, staging, commits,
-or further delegation. Product owners notified: quiz dashboard748d7dfd,
-settings3c18bec9, audit e03c19b3, report7d7cfe27. Shared file-upload-slot is dirty;
-foundation worker must obtain release from17cd27a6 before editing it.
+## Verification limits
 
-Current-task guarded launches: 0. Budget is3/turn and6/task, one group at a
-time. Previous catalogue launch expansion is not reused for this wider refactor.
-Full application type/build checks had unrelated baseline failures during the
-catalogue task; distinguish those from new diagnostics. Browser remains gated.
+Six permitted guarded groups used; no more heavy launches without explicit
+budget expansion. SSR Avatar/Tabs state callbacks and rendered disabled-anchor
+semantics pass. Shared/catalogue focused lint passes. Final 193-file lint fails
+only at recorded MateriBuilder children, MateriCatalogue effect-state and XLSX
+immutability baseline errors; global TypeScript remains blocked in existing
+assessment/upload/preview/settings contracts, with no migrated API diagnostics.
+Full verify did not reach build. No browser, computed CSS or interactive keyboard
+result is claimed. No agent-owned server/worker/browser remains. Report QA ended
+its separate Obscura window, cleaned temporary resources and stalled at login.
 
-Once delegates report: inspect final APIs and remaining old imports/variants,
-coordinate retired deletion, run focused lint/types/contracts under guard,
-then independent Luna review. Preserve all unrelated dirty hunks; do not blanket
-stage product files that were already modified by others.
+Normal dev commits used the existing hook, which skips exhaustive checks on dev;
+no hook configuration was changed or bypassed. Preserve unrelated audit route/
+service/presentation, quiz lifecycle, bank rootLabel, mentor shell, justfile and
+seed changes. Latest source index is empty after b4297f6.
+
+Reviewers: standards 4bd4b155; coverage 3689bf53. Foundation e473eef6,
+consumers c4ef85ec, catalogue 53f6952f are exact Luna/max. Impeccable sidecar drift
+was deliberately left untouched. No browser authorization exists for this task.
