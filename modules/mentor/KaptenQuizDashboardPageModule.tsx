@@ -91,21 +91,7 @@ const columnLabels: Record<string, string> = {
   averageScore: "Rata-rata",
   publication: "Status",
   creator: "Pembuat",
-  updatedAt: "Perubahan Terakhir",
 };
-const dateFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  timeZone: "Asia/Jakarta",
-});
-const timestampFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Asia/Jakarta",
-});
 const numberFormatter = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 1,
 });
@@ -293,12 +279,17 @@ export function KaptenQuizDashboardPageModule({
     },
     {
       accessorKey: "subjectCode",
-      size: 160,
+      size: 100,
       cell: ({ row }) => (
         <Badge tone="category" size="sm" title={row.original.subjectName}>
           {row.original.subjectCode}
         </Badge>
       ),
+    },
+    {
+      accessorKey: "creator",
+      size: 88,
+      cell: ({ row }) => <UserCardPopover {...row.original.creator} />,
     },
     {
       accessorKey: "completedAttempts",
@@ -333,26 +324,6 @@ export function KaptenQuizDashboardPageModule({
           {row.original.isHidden && (
             <span className={styles.secondary}>Disembunyikan</span>
           )}
-        </>
-      ),
-    },
-    {
-      accessorKey: "creator",
-      size: 88,
-      cell: ({ row }) => <UserCardPopover {...row.original.creator} />,
-    },
-    {
-      accessorKey: "updatedAt",
-      size: 180,
-      cell: ({ row }) => (
-        <>
-          <time
-            dateTime={row.original.updatedAt}
-            title={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
-            aria-label={`${timestampFormatter.format(new Date(row.original.updatedAt))} WIB`}
-          >
-            {dateFormatter.format(new Date(row.original.updatedAt))}
-          </time>
           {row.original.hasUnpublishedChanges && (
             <span className={`${styles.secondary} ${styles.change}`}>
               Ada perubahan

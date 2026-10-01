@@ -81,7 +81,7 @@
 }
 .table {
   table-layout: fixed;
-  min-width: 1040px;
+  min-width: 860px;
   width: 100%;
   text-align: left;
   font-size: 14px;
@@ -240,7 +240,7 @@
     margin-right: auto;
   }
   .table {
-    min-width: 1040px;
+    min-width: 860px;
   }
   .table :is(th, td):nth-child(2) {
     position: sticky;
