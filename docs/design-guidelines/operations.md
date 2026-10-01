@@ -191,3 +191,9 @@ client-side server-state synchronization to manage.
   marquees, and illustration-led sections should stay with native links,
   existing primitives, or focused local state. A library is justified by the
   interaction model, not by the presence of a component.
+
+## Sortable lists
+
+Use the shared `Sortable`, `SortableItem`, and `SortableHandle` primitives for
+user-controlled row ordering. Follow the [sortable usage guide](sortable.md)
+for composition, keyboard behavior, disabled states, and persistence boundaries.

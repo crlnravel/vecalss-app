@@ -240,6 +240,7 @@ export const primitiveInventory = [
   },
   { source: "components/ui/chart.tsx", category: "data", kind: "component", demoId: "charts" },
   { source: "components/ui/checkbox.tsx", category: "forms", kind: "component", demoId: "choice-controls" },
+  { source: "components/ui/sortable.tsx", category: "data", kind: "component", demoId: "sortable", variants: { orientation: ["vertical", "horizontal"] }, defaults: { orientation: "vertical", disabled: "false" } },
   { source: "components/ui/compact-filter-tabs.tsx", category: "navigation", kind: "component", demoId: "specialty-tabs" },
   { source: "components/ui/context-menu.tsx", category: "navigation", kind: "component", demoId: "menus" },
   {

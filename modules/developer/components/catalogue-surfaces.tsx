@@ -24,8 +24,16 @@ import {
   SidebarPreview,
 } from "./catalogue-surfaces-navigation";
 import { NotificationsPreview } from "./catalogue-surfaces-notifications";
+import { SortablePreview } from "./catalogue-sortable-preview";
 
 export const surfaceSections: CatalogueSurfaceSection[] = [
+  {
+    id: "sortable",
+    title: "Sortable",
+    description: "Pengurutan daftar lewat pegangan, sentuhan, dan keyboard; coba juga keadaan nonaktif.",
+    sources: ["components/ui/sortable.tsx", "components/ui/button.tsx", "components/ui/tooltip.tsx", "lib/icons.tsx"],
+    preview: <SortablePreview />,
+  },
   {
     id: "accordion",
     title: "AccordionList",

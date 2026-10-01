@@ -379,26 +379,6 @@ function useQuizEditorQuestionListActions({
     ],
   );
 
-  const moveQuestion = useCallback(
-    (questionId: string, direction: "up" | "down") => {
-      if (editorDisabled) return;
-      const index = form.questions.findIndex(
-        (question) => question.id === questionId,
-      );
-      const nextIndex = direction === "up" ? index - 1 : index + 1;
-      if (index < 0 || nextIndex < 0 || nextIndex >= form.questions.length)
-        return;
-      const questions = [...form.questions];
-      const [moved] = questions.splice(index, 1);
-      if (!moved) return;
-      questions.splice(nextIndex, 0, moved);
-      const nextForm = { ...form, questions };
-      setForm(nextForm);
-      markChanged(nextForm);
-    },
-    [editorDisabled, form, markChanged, setForm],
-  );
-
   const reorderQuestion = useCallback(
     (questionId: string, targetId: string) => {
       if (editorDisabled || questionId === targetId) return;
@@ -415,7 +395,7 @@ function useQuizEditorQuestionListActions({
     [editorDisabled, form, markChanged, setForm],
   );
 
-  return { moveQuestion, removeQuestion, reorderQuestion };
+  return { removeQuestion, reorderQuestion };
 }
 
 function useQuizEditorPersistence({
@@ -935,7 +915,6 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
     idPrefix: "quiz",
     onAdd: () => state.setQuestionBankPickerOpen(true),
     onDelete: state.setPendingDeleteId,
-    onMove: state.questionActions.moveQuestion,
     onSelect: selectQuestion,
     questions: state.form.questions.map((question) => ({
       id: question.id,

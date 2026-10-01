@@ -42,6 +42,7 @@ import {
   Compass as PhosphorCompass,
   Copy as PhosphorCopy,
   DotsThree as PhosphorMoreHorizontal,
+  DotsSixVertical as PhosphorGripVertical,
   Download as PhosphorDownload,
   Eye as PhosphorEye,
   EyeSlash as PhosphorEyeSlash,
@@ -126,6 +127,7 @@ import {
 export type AppIcon = PhosphorIcon;
 
 export const Activity = PhosphorActivity;
+export const GripVertical = PhosphorGripVertical;
 export const AlertCircle = PhosphorAlertCircle;
 export const AlertTriangle = PhosphorAlertTriangle;
 export const Archive = PhosphorArchive;
