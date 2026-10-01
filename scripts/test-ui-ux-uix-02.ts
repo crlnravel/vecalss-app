@@ -102,7 +102,7 @@ includes(settingsPage, "initialSettings={settings}", "Settings page must pass se
 includes(settingsModule, "Nama profil", "Settings must expose the supported profile name field.");
 includes(settingsModule, "Email login", "Settings must explain the account login identity.");
 excludes(settingsModule, 'updateDraft("email"', "Login identity must not be editable in profile settings.");
-excludes(settingsModule, "Subjek utama", "Unused teaching defaults must not be exposed.");
+includes(settingsModule, "Subjek yang diajar", "Settings must expose the teaching subject used by the quiz-table default.");
 excludes(settingsModule, "Bahasa konten", "Unused language preferences must not be exposed.");
 includes(settingsModule, "Salin ID akun", "Account ID must be copyable as account information.");
 includes(settingsModule, "Ada perubahan yang belum disimpan", "Settings must disclose dirty state.");
@@ -112,7 +112,7 @@ includes(settingsModule, "Batal", "Settings must expose a cancel action.");
 includes(settingsModule, "saveKaptenSettingsAction", "Settings must persist through a server action.");
 includes(settingsModule, "showSearch={false}", "Settings must omit nonfunctional search.");
 includes(settingsActions, 'data: { fullName: profileName }', "The atomic profile write must only change the name.");
-excludes(settingsActions, "systemConfig", "Profile settings must not persist unused teaching preferences.");
+excludes(settingsActions, "systemConfig", "Teaching subject must use the typed tutor profile rather than JSON configuration.");
 includes(settingsActions, 'revalidatePath("/mentor/settings")', "Settings writes must revalidate the server page.");
 includes(settingsActions, "requireTutorSession", "Settings reads and writes must derive identity from the authenticated tutor session.");
 
