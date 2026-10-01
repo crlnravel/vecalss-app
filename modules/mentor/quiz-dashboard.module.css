@@ -91,55 +91,20 @@
 }
 .viewport {
   width: 100%;
-  overflow: hidden;
-}
-.viewport > [data-slot="table-container"] {
+  overflow-x: auto;
   contain: layout paint;
   overscroll-behavior-x: contain;
 }
+.viewport > [data-slot="table-container"] {
+  overflow: visible;
+}
 .table {
-  border-collapse: separate;
-  border-spacing: 0;
   table-layout: fixed;
   min-width: 1080px;
   width: 100%;
   text-align: left;
   font-size: 14px;
   line-height: 20px;
-}
-.table th {
-  background: var(--voyage-canvas);
-  height: 44px;
-  color: var(--voyage-ink);
-  padding: 0 12px;
-  border-bottom: 1px solid var(--voyage-soft-border);
-}
-.table td {
-  height: 56px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--voyage-soft-border);
-  vertical-align: middle;
-}
-.table tr:last-child td {
-  border-bottom: 0;
-}
-.table tbody tr:hover td {
-  background: var(--voyage-canvas);
-}
-.table tbody tr[data-selected="true"] td {
-  background: var(--primary-50);
-}
-.table tbody tr[data-selected="true"] .secondary {
-  color: var(--secondary-700);
-}
-.table :is(th, td):first-child {
-  width: 48px;
-  padding-left: 16px;
-  padding-right: 12px;
-}
-.table :is(th, td):last-child {
-  width: 60px;
-  padding: 0 10px;
 }
 .table :is(th, td)[data-numeric="true"] {
   text-align: right;
@@ -304,19 +269,12 @@
   .table :is(th, td):nth-child(2) {
     position: sticky;
     left: 0;
-    background: var(--voyage-surface);
+    background: inherit;
     z-index: 1;
     box-shadow: 1px 0 var(--voyage-soft-border);
   }
   .table th:nth-child(2) {
-    background: var(--voyage-canvas);
     z-index: 2;
-  }
-  .table tbody tr:hover td:nth-child(2) {
-    background: var(--voyage-canvas);
-  }
-  .table tbody tr[data-selected="true"] td:nth-child(2) {
-    background: var(--primary-50);
   }
 }
 @media (pointer: coarse) {

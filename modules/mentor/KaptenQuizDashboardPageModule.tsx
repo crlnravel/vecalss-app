@@ -770,7 +770,7 @@ export function KaptenQuizDashboardPageModule({
             </colgroup>
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id}>
+                <TableRow key={group.id} className="bg-voyage-surface">
                   {group.headers.map((header) => (
                     <TableHead
                       key={header.id}
@@ -867,7 +867,11 @@ export function KaptenQuizDashboardPageModule({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-selected={row.getIsSelected()}>
+                <TableRow
+                  key={row.id}
+                  className="bg-voyage-surface"
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
