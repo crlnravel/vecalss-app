@@ -21,9 +21,12 @@ Use this file before introducing a new pattern or visual exception.
   compact filters and equal-width tabs for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
   and action lists instead of reaching for browser-native dropdowns.
-- **Do** use the shared bottom-center Sonner toast for every notification
+- **Do** use the shared top-center Sonner toast for every notification
   alert; keep field validation, blocking recovery content, and confirmation
   decisions in their proper task context.
+- **Do** use a persistent, lifecycle-managed Sonner notice for unsaved changes,
+  saving and edit locks. Clear it on resolution and navigation; never duplicate
+  it as inline page status text or a custom fixed bar.
 - **Do** default to silence for flawless entries, reserving status color and
   iconography for attention states or meaningful user-triggered outcomes.
 - **Do** use a quiet centered empty-state placeholder and offer only actions

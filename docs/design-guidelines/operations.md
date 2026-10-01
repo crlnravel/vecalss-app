@@ -173,7 +173,9 @@ client-side server-state synchronization to manage.
   unless the immediate feedback prevents a costly mistake.
 - **Make state perceivable:** Invalid fields need `aria-invalid`, a stable
   `aria-describedby` reference, and an adjacent readable error. Submission
-  progress and completion need a visible label plus an `aria-live` region.
+  progress can remain in the action's pending label; dynamic page status uses
+  the shared persistent Sonner hook and completion uses a Sonner outcome. Do
+  not add a separate inline status sentence or duplicate live region.
 - **Do not fake persistence:** TanStack Form may manage a local prototype state,
   but a production submit must hand off to a Next.js Server Action or route
   handler and render the server result. Never present a local acknowledgement

@@ -236,8 +236,9 @@ to conflict, the root tokens and the most specific interaction rule win.
   equal-width peer navigation. Generic filled and underline tab styles are retired.
 - Use the shared custom `DropdownMenu` family instead of native dropdowns in
   ordinary product UI.
-- Use the shared bottom-center Sonner surface for every notification alert;
-  inline Alert and page-local notification banners are retired. Keep field
+- Use the shared top-center Sonner surface for notification alerts and dynamic
+  page status, including unsaved changes, saving, and edit-lock notices. Inline
+  status text and page-local notification banners are retired. Keep field
   validation, blocking recovery content, and confirmation dialogs in place.
 - Use one tactile Button family and one app-wide Badge based on the former
   StudentBadge treatment. Do not create audience-specific alternatives.

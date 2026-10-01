@@ -23,7 +23,7 @@ success border.
 - **Action feedback:** Use success styling for an immediate user-triggered
   outcome—such as save, submit, upload, or copy—or for a meaningful completed
   state that changes what the user can do next. Keep transient confirmation
-  brief and always use the shared bottom-center Sonner surface for notification
+  brief and always use the shared top-center Sonner surface for notification
   alerts. This rule governs status indicators, not the brand color
   of primary action buttons.
 - **Complex-input exception:** Positive inline validation is appropriate when it
@@ -50,7 +50,7 @@ success border.
 
 For every notification alert, use the shared Sonner surface
 from `components/ui/sonner.tsx`, mounted once in the root layout. Its approved
-placement is floating and centered at the bottom of the viewport; use
+placement is floating and centered at the top of the viewport; use
 `toast.success(...)`, `toast.error(...)`, or `showToast(..., { variant })`
 instead of building a page-local in-content toast. This includes success,
 failure, information, and warning notifications across every audience.
@@ -85,7 +85,7 @@ and polling repeats. A retry or a new user action may emit a new outcome.
   `info`, and `warning` variants. Success uses the student-status success
   tokens; error uses the student-status danger tokens; info and warning remain
   supporting states rather than competing with primary actions.
-- **Placement:** Keep transient notifications bottom-center, above the safe
+- **Placement:** Keep notifications top-center, below the top safe
   area, with a constrained readable width on desktop and full-width insets on
   mobile. Allow dismissal, swipe dismissal, and a short automatic duration.
 - **Geometry:** Use `rounded-field` (20px) for the toast surface and
@@ -97,3 +97,24 @@ and polling repeats. A retry or a new user action may emit a new outcome.
   close label, visible keyboard focus, and reduced-motion behavior. Keep field
   validation, persistent recovery instructions, destructive confirmations,
   empty states, and content users must read in the page flow.
+
+## Dynamic page status
+
+Use the shared persistent Sonner status hook for unsaved changes, saving,
+background synchronization, and resource edit locks. Do not render these states
+as inline sentences, header badges, custom fixed bars, or page-local banners.
+
+- Keep one stable notice per state owner. Update it when the meaningful state
+  changes; do not create another toast for each keystroke, render, or poll.
+- Unsaved changes remain visible until saved, discarded, or reverted. A pending
+  save updates that notice. Failed saving keeps the unsaved warning and recovery
+  action available. Clean and ready states stay quiet.
+- Persistent notices do not time out or permit dismissal while their underlying
+  state remains active. Dismiss them on resolution and owner unmount, including
+  navigation. Cleanup must be safe under React Strict Mode.
+- Preserve save, discard and retry actions when moving a custom status bar to
+  Sonner. Form submission still uses the real form and its validation.
+- Preserve navigation guards, before-unload warnings, edit-lock permissions,
+  field errors, blocking recovery details and confirmation dialogs. Static
+  record metadata such as published/draft labels and meaningful progress data
+  remain content; they are not extra notification messages.
