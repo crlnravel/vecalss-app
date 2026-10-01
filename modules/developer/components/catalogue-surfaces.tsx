@@ -3,7 +3,6 @@
 import type { CatalogueSurfaceSection } from "./catalogue-surfaces-types";
 import {
   AccordionPreview,
-  AlertsPreview,
   DialogsPreview,
   MenusPreview,
   PopoversTooltipsPreview,
@@ -33,13 +32,6 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
     description: "Default dan minimal; bandingkan satu bagian terbuka dengan beberapa bagian yang bisa dibuka bersama.",
     sources: ["components/ui/accordion.tsx", "lib/icons.tsx"],
     preview: <AccordionPreview />,
-  },
-  {
-    id: "alerts",
-    title: "Alert",
-    description: "Tone default dan destructive, termasuk tindakan rincian di dalam pemberitahuan.",
-    sources: ["components/ui/alert.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts", "lib/icons.tsx"],
-    preview: <AlertsPreview />,
   },
   {
     id: "dialogs",

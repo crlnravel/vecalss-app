@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,21 +21,17 @@ import {
 } from "@/components/ui/field";
 import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import {
-  FullWidthLineTabsList,
-  FullWidthLineTabsTrigger,
-} from "@/components/ui/full-width-line-tabs";
+  FullWidthTabsList,
+  FullWidthTabsTrigger,
+} from "@/components/ui/full-width-tabs";
 import { Input } from "@/components/ui/input";
-import { MentorBadge } from "@/components/ui/mentor-badge";
 import { ModeCardTabs } from "@/components/ui/mode-card-tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { RadioPillGroup } from "@/components/ui/radio-pill-group";
-import { StudentBadge } from "@/components/ui/student-badge";
 import {
   SunkenTabButton,
   SunkenTabLink,
   SunkenTabNavigation,
-  SunkenTabsList,
-  SunkenTabsTrigger,
 } from "@/components/ui/sunken-tabs";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -48,12 +44,9 @@ import { ArrowRight, BookOpenText, Check, GraduationCap, LoaderCircle, Sparkles 
 
 type ButtonVariant = NonNullable<ComponentProps<typeof Button>["variant"]>;
 type ButtonSize = NonNullable<ComponentProps<typeof Button>["size"]>;
-type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
+type BadgeTone = NonNullable<ComponentProps<typeof Badge>["tone"]>;
 type BadgeSize = NonNullable<ComponentProps<typeof Badge>["size"]>;
-type StudentTone = NonNullable<ComponentProps<typeof StudentBadge>["tone"]>;
-type StudentSize = NonNullable<ComponentProps<typeof StudentBadge>["size"]>;
-type StudentDepth = NonNullable<ComponentProps<typeof StudentBadge>["depth"]>;
-type MentorSize = NonNullable<ComponentProps<typeof MentorBadge>["size"]>;
+type BadgeDepth = NonNullable<ComponentProps<typeof Badge>["depth"]>;
 
 export type ControlSection = {
   id: string;
@@ -65,50 +58,22 @@ export type ControlSection = {
 
 const BUTTON_VARIANTS = [
   "default",
-  "brand",
-  "filterActive",
-  "marketing",
-  "marketingOutline",
-  "marketingOnDark",
-  "onboarding",
-  "learning",
-  "learningComplete",
-  "learningAttention",
-  "brandOutline",
-  "reference",
-  "context",
-  "contextSelected",
-  "attentionOutline",
-  "attention",
-  "dangerOutline",
-  "inverseOutline",
   "outline",
-  "secondary",
-  "ghost",
   "destructive",
-  "link",
+  "warning",
+  "inverse",
 ] satisfies readonly ButtonVariant[];
 
 const BUTTON_SIZES = [
-  "default",
-  "xs",
   "sm",
+  "default",
   "lg",
-  "marketing",
-  "marketingCompact",
-  "onboarding",
-  "learning",
-  "learningAttention",
-  "icon",
-  "icon-xs",
   "icon-sm",
+  "icon",
   "icon-lg",
 ] satisfies readonly ButtonSize[];
 
-const BADGE_VARIANTS = ["accent", "mint", "neutral"] satisfies readonly BadgeVariant[];
-const BADGE_SIZES = ["section", "card", "footer", "ui"] satisfies readonly BadgeSize[];
-
-const STUDENT_TONES = [
+const BADGE_TONES = [
   "category",
   "neutral",
   "active",
@@ -116,15 +81,11 @@ const STUDENT_TONES = [
   "success",
   "info",
   "danger",
-] satisfies readonly StudentTone[];
-const STUDENT_SIZES = ["xs", "sm", "md"] satisfies readonly StudentSize[];
-const STUDENT_DEPTHS = ["flat", "sunken"] satisfies readonly StudentDepth[];
+] satisfies readonly BadgeTone[];
+const BADGE_SIZES = ["xs", "sm", "md"] satisfies readonly BadgeSize[];
+const BADGE_DEPTHS = ["flat", "sunken"] satisfies readonly BadgeDepth[];
 
-const MENTOR_SIZES = ["compact", "xs", "sm", "md"] satisfies readonly MentorSize[];
-const MENTOR_DEPTH_OPTIONS = ["default", "flat", "sunken"] as const;
-type MentorDepthOption = (typeof MENTOR_DEPTH_OPTIONS)[number];
-
-const STUDENT_TONE_LABELS: Record<StudentTone, string> = {
+const BADGE_TONE_LABELS: Record<BadgeTone, string> = {
   category: "Kategori",
   neutral: "Tersimpan",
   active: "Sedang dipelajari",
@@ -138,6 +99,7 @@ const INPUT_TYPES = ["text", "email", "search", "password"] as const;
 type DemoInputType = (typeof INPUT_TYPES)[number];
 
 const AVATAR_PLACEHOLDER_SRC = "/landing-assets/avatar-placeholder.png";
+const AVATAR_FAILURE_SRC = "/avatar-katalog-demo-gambar-tidak-tersedia.png";
 
 const CSV_TEMPLATE_HREF =
   "data:text/csv;charset=utf-8," +
@@ -178,7 +140,7 @@ function DemoChoice({
       className="min-h-[44px]"
       onClick={onClick}
       type="button"
-      variant={active ? "secondary" : "outline"}
+      variant={active ? "default" : "outline"}
     >
       {children}
     </Button>
@@ -186,7 +148,7 @@ function DemoChoice({
 }
 
 function ButtonPreview() {
-  const [variant, setVariant] = useState<ButtonVariant>("brand");
+  const [variant, setVariant] = useState<ButtonVariant>("default");
   const [size, setSize] = useState<ButtonSize>("default");
   const [iconMode, setIconMode] = useState<"none" | "start" | "end">("none");
   const [disabled, setDisabled] = useState(false);
@@ -248,10 +210,10 @@ function ButtonPreview() {
         </div>
       </DemoGroup>
 
-      <DemoGroup api="buttonVariants · 23 nilai variant" title="Semua varian">
+      <DemoGroup api={`buttonVariants · ${BUTTON_VARIANTS.length} nilai variant`} title="Semua varian">
         <div className="grid gap-x-5 gap-y-2 sm:grid-cols-2 xl:grid-cols-3">
           {BUTTON_VARIANTS.map((option) => {
-            const usesDarkSurface = option === "inverseOutline" || option === "marketingOnDark";
+            const usesDarkSurface = option === "inverse";
 
             return (
               <div
@@ -261,7 +223,7 @@ function ButtonPreview() {
                 <Button
                   aria-pressed={variant === option}
                   onClick={() => setVariant(option)}
-                  size="sm"
+                  size="default"
                   type="button"
                   variant={option}
                 >
@@ -277,7 +239,7 @@ function ButtonPreview() {
         </div>
       </DemoGroup>
 
-      <DemoGroup api="buttonVariants · 13 nilai size" title="Semua ukuran">
+      <DemoGroup api={`buttonVariants · ${BUTTON_SIZES.length} nilai size`} title="Semua ukuran">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BUTTON_SIZES.map((option) => {
             const isIconOnly = String(option).startsWith("icon");
@@ -289,7 +251,7 @@ function ButtonPreview() {
                   onClick={() => setSize(option)}
                   size={option}
                   type="button"
-                  variant="brand"
+                  variant="default"
                 >
                   {isIconOnly ? <Sparkles aria-hidden="true" size={16} /> : "Lanjut"}
                 </Button>
@@ -302,20 +264,20 @@ function ButtonPreview() {
 
       <DemoGroup api="Button · disabled · ikon awal/akhir · icon-only" title="Status dan penempatan ikon">
         <div className="flex flex-wrap items-center gap-3">
-          <Button disabled type="button" variant="brand">Nonaktif</Button>
-          <Button aria-busy="true" disabled type="button" variant="brand">
+          <Button disabled type="button" variant="default">Nonaktif</Button>
+          <Button aria-busy="true" disabled type="button" variant="default">
             <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" data-icon="inline-start" />
             Memuat…
           </Button>
-          <Button type="button" variant="brand">
+          <Button type="button" variant="default">
             <Sparkles aria-hidden="true" data-icon="inline-start" size={16} />
             Ikon di kiri
           </Button>
-          <Button type="button" variant="brandOutline">
+          <Button type="button" variant="outline">
             Ikon di kanan
             <ArrowRight aria-hidden="true" data-icon="inline-end" size={16} />
           </Button>
-          <Button aria-label="Simpan contoh" size="icon" type="button" variant="brand">
+          <Button aria-label="Simpan contoh" size="icon" type="button" variant="default">
             <Check aria-hidden="true" size={18} />
           </Button>
         </div>
@@ -325,179 +287,71 @@ function ButtonPreview() {
 }
 
 function BadgePreview() {
-  const [variant, setVariant] = useState<BadgeVariant>("accent");
-  const [size, setSize] = useState<BadgeSize>("ui");
+  const [tone, setTone] = useState<BadgeTone>("category");
+  const [size, setSize] = useState<BadgeSize>("sm");
+  const [depth, setDepth] = useState<BadgeDepth>("sunken");
 
   return (
     <div className="space-y-7">
-      <DemoGroup api="Badge · variant · size" title="Pratinjau yang bisa diubah">
+      <DemoGroup api="Badge · tone · size · depth" title="Pratinjau yang bisa diubah">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Varian</span>
-            {BADGE_VARIANTS.map((option) => (
-              <DemoChoice active={variant === option} key={option} onClick={() => setVariant(option)}>{option}</DemoChoice>
+            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Tone</span>
+            {BADGE_TONES.map((option) => (
+              <DemoChoice active={tone === option} key={option} onClick={() => setTone(option)}>
+                {option}
+              </DemoChoice>
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Ukuran</span>
             {BADGE_SIZES.map((option) => (
-              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>{option}</DemoChoice>
-            ))}
-          </div>
-          <Badge size={size} variant={variant}>Contoh badge</Badge>
-        </div>
-      </DemoGroup>
-
-      <DemoGroup api="badgeVariants · 3 variant × 4 size" title="Seluruh kombinasi">
-        <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
-          {BADGE_VARIANTS.map((badgeVariant) => (
-            <div className="space-y-3 border-b border-voyage-soft-border pb-4" key={badgeVariant}>
-              <code className="text-xs text-voyage-muted-ink">{`variant="${badgeVariant}"`}</code>
-              <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-                {BADGE_SIZES.map((badgeSize) => (
-                  <div className="flex min-w-0 flex-col items-start gap-2" key={badgeSize}>
-                    <Badge size={badgeSize} variant={badgeVariant}>Kategori</Badge>
-                    <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </DemoGroup>
-    </div>
-  );
-}
-
-function StudentBadgePreview() {
-  const [tone, setTone] = useState<StudentTone>("category");
-  const [size, setSize] = useState<StudentSize>("sm");
-  const [depth, setDepth] = useState<StudentDepth>("sunken");
-
-  return (
-    <div className="space-y-7">
-      <DemoGroup api="StudentBadge · tone · size · depth" title="Pratinjau yang bisa diubah">
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Nada</span>
-            {STUDENT_TONES.map((option) => (
-              <DemoChoice active={tone === option} key={option} onClick={() => setTone(option)}>{option}</DemoChoice>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Ukuran</span>
-            {STUDENT_SIZES.map((option) => (
-              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>{option}</DemoChoice>
+              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>
+                {option}
+              </DemoChoice>
             ))}
             <span className="ml-2 text-xs font-semibold text-voyage-muted-ink">Kedalaman</span>
-            {STUDENT_DEPTHS.map((option) => (
-              <DemoChoice active={depth === option} key={option} onClick={() => setDepth(option)}>{option}</DemoChoice>
+            {BADGE_DEPTHS.map((option) => (
+              <DemoChoice active={depth === option} key={option} onClick={() => setDepth(option)}>
+                {option}
+              </DemoChoice>
             ))}
           </div>
-          <StudentBadge depth={depth} size={size} tone={tone}>{STUDENT_TONE_LABELS[tone]}</StudentBadge>
+          <Badge depth={depth} size={size} tone={tone}>{BADGE_TONE_LABELS[tone]}</Badge>
         </div>
       </DemoGroup>
 
-      <DemoGroup api="studentBadgeVariants · 7 tone × 3 size · flat/sunken" title="Semua nada dan ukuran">
+      <DemoGroup
+        api={`badgeVariants · ${BADGE_TONES.length} tone × ${BADGE_SIZES.length} ukuran × ${BADGE_DEPTHS.length} kedalaman`}
+        title="Semua kombinasi"
+      >
         <div className="space-y-4">
-          {STUDENT_TONES.map((badgeTone) => (
+          {BADGE_TONES.map((badgeTone) => (
             <div className="flex min-w-0 flex-col gap-3 border-b border-voyage-soft-border pb-4" key={badgeTone}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <code className="text-xs font-semibold text-voyage-ink">{`tone="${badgeTone}"`}</code>
-                <span className="text-xs text-voyage-muted-ink">{STUDENT_TONE_LABELS[badgeTone]}</span>
+                <span className="text-xs text-voyage-muted-ink">{BADGE_TONE_LABELS[badgeTone]}</span>
               </div>
-              <div className="flex flex-wrap items-end gap-4">
-                {STUDENT_SIZES.map((badgeSize) => (
-                  <div className="flex flex-col items-start gap-2" key={badgeSize}>
-                    <StudentBadge depth={depth} size={badgeSize} tone={badgeTone}>
-                      {STUDENT_TONE_LABELS[badgeTone]}
-                    </StudentBadge>
-                    <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {BADGE_DEPTHS.map((badgeDepth) => (
+                  <div className="flex min-w-0 flex-col gap-2" key={badgeDepth}>
+                    <code className="text-xs text-voyage-muted-ink">{`depth="${badgeDepth}"`}</code>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {BADGE_SIZES.map((badgeSize) => (
+                        <div className="flex flex-col items-start gap-1" key={badgeSize}>
+                          <Badge depth={badgeDepth} size={badgeSize} tone={badgeTone}>
+                            {BADGE_TONE_LABELS[badgeTone]}
+                          </Badge>
+                          <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
-      </DemoGroup>
-    </div>
-  );
-}
-
-function MentorBadgePreview() {
-  const [tone, setTone] = useState<StudentTone>("category");
-  const [size, setSize] = useState<MentorSize>("sm");
-  const [depth, setDepth] = useState<MentorDepthOption>("default");
-  const resolvedDepth = depth === "default" ? undefined : depth;
-
-  return (
-    <div className="space-y-7">
-      <DemoGroup api="MentorBadge · tone · size · depth" title="Pratinjau yang bisa diubah">
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Nada</span>
-            {STUDENT_TONES.map((option) => (
-              <DemoChoice active={tone === option} key={option} onClick={() => setTone(option)}>{option}</DemoChoice>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Ukuran</span>
-            {MENTOR_SIZES.map((option) => (
-              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>{option}</DemoChoice>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Kedalaman</span>
-            {MENTOR_DEPTH_OPTIONS.map((option) => (
-              <DemoChoice active={depth === option} key={option} onClick={() => setDepth(option)}>{option}</DemoChoice>
-            ))}
-          </div>
-          <MentorBadge depth={resolvedDepth} size={size} tone={tone}>
-            {STUDENT_TONE_LABELS[tone]}
-          </MentorBadge>
-        </div>
-      </DemoGroup>
-
-      <DemoGroup api="MentorBadge · 7 tone × 4 size · default/flat/sunken" title="Semua nada dan ukuran">
-        <div className="space-y-4">
-          {STUDENT_TONES.map((badgeTone) => (
-            <div className="flex min-w-0 flex-col gap-3 border-b border-voyage-soft-border pb-4" key={badgeTone}>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <code className="text-xs font-semibold text-voyage-ink">{`tone="${badgeTone}"`}</code>
-                <span className="text-xs text-voyage-muted-ink">{STUDENT_TONE_LABELS[badgeTone]}</span>
-              </div>
-              <div className="flex flex-wrap items-end gap-4">
-                {MENTOR_SIZES.map((badgeSize) => (
-                  <div className="flex flex-col items-start gap-2" key={badgeSize}>
-                    <MentorBadge depth={resolvedDepth} size={badgeSize} tone={badgeTone}>
-                      {STUDENT_TONE_LABELS[badgeTone]}
-                    </MentorBadge>
-                    <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-end gap-5 border-t border-voyage-soft-border pt-4">
-          {MENTOR_DEPTH_OPTIONS.map((option) => (
-            <div className="flex flex-col items-start gap-2" key={option}>
-              <MentorBadge
-                depth={option === "default" ? undefined : option}
-                size={size}
-                tone={tone}
-              >
-                {STUDENT_TONE_LABELS[tone]}
-              </MentorBadge>
-              <code className="text-xs text-voyage-muted-ink">
-                {option === "default" ? "depth omitted" : "depth=\"" + option + "\""}
-              </code>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs leading-5 text-voyage-muted-ink">
-          Pilih satu kedalaman untuk melihat seluruh kombinasi nada dan ukuran; perbandingan di atas selalu menampilkan nilai default, <code>flat</code>, dan <code>sunken</code>.
-        </p>
       </DemoGroup>
     </div>
   );
@@ -698,7 +552,7 @@ function FileControlsPreview() {
 
   return (
     <div className="space-y-7">
-      <DemoGroup api="FileUploadSlot · file · disabled · uploading · progress · completed" title="File upload slot">
+      <DemoGroup api="FileUploadSlot · file · disabled · uploading · progress · completed" title="Status unggah berkas">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             {(["empty", "selected", "uploading", "complete", "disabled"] as const).map((option) => (
@@ -734,6 +588,8 @@ function FileControlsPreview() {
         </div>
       </DemoGroup>
 
+      <MultiFileUploadPreview />
+
       <DemoGroup api="CsvTemplateDownload · href · fileName · title · description" title="Unduh templat CSV">
         <CsvTemplateDownload
           description="Berkas contoh berisi kolom pertanyaan dan pilihan jawaban."
@@ -746,55 +602,182 @@ function FileControlsPreview() {
   );
 }
 
+type MultiFileSlot = {
+  id: number;
+  file: File | null;
+};
+
+function MultiFileUploadPreview() {
+  const [slots, setSlots] = useState<MultiFileSlot[]>([{ id: 1, file: null }]);
+  const nextSlotId = useRef(2);
+
+  function addSlot() {
+    const newSlot = { id: nextSlotId.current++, file: null };
+    setSlots((current) => [...current, newSlot]);
+  }
+
+  function updateFile(slotId: number, file: File | null) {
+    setSlots((current) => current.map((slot) => (slot.id === slotId ? { ...slot, file } : slot)));
+  }
+
+  function addSelectedFiles(slotId: number, files: File[]) {
+    if (files.length === 0) return;
+
+    const selectedSlots = files.map((file, index) => ({
+      id: index === 0 ? slotId : nextSlotId.current++,
+      file,
+    }));
+    const emptySlot = { id: nextSlotId.current++, file: null };
+
+    setSlots((current) => {
+      if (!current.some((slot) => slot.id === slotId)) return current;
+      return [
+        ...current.flatMap((slot) => (slot.id === slotId ? selectedSlots : [slot])),
+        emptySlot,
+      ];
+    });
+  }
+
+  return (
+    <DemoGroup api="FileUploadSlot · multiple · onFilesSelected · file · onChange" title="Pilih beberapa berkas">
+      <div className="space-y-4">
+        <p className="max-w-[65ch] text-sm leading-6 text-voyage-muted-ink">
+          Pilih satu atau beberapa CSV. Setiap berkas terpilih mendapat slot sendiri; semua perubahan hanya tersimpan di pratinjau ini.
+        </p>
+        <Button className="min-h-[44px]" onClick={addSlot} type="button" variant="outline">
+          Tambah slot berkas
+        </Button>
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          {slots.map((slot, index) => (
+            <fieldset className="min-w-0 rounded-card border border-voyage-soft-border bg-white p-4" key={slot.id}>
+              <legend className="px-1 text-xs font-semibold text-voyage-muted-ink">Slot {index + 1}</legend>
+              <FileUploadSlot
+                accept=".csv,text/csv"
+                browseLabel="pilih berkas"
+                file={slot.file}
+                id={`catalogue-multiple-file-${slot.id}`}
+                maxSizeLabel="Pilih satu atau beberapa berkas CSV."
+                multiple
+                onChange={(file) => updateFile(slot.id, file)}
+                onFilesSelected={(files) => addSelectedFiles(slot.id, files)}
+              />
+            </fieldset>
+          ))}
+        </div>
+        <p aria-live="polite" className="text-xs text-voyage-muted-ink">
+          {slots.filter((slot) => slot.file !== null).length} berkas dipilih · {slots.filter((slot) => slot.file === null).length} slot siap menerima berkas
+        </p>
+      </div>
+    </DemoGroup>
+  );
+}
+
 type AvatarSize = NonNullable<ComponentProps<typeof Avatar>["size"]>;
 const AVATAR_SIZES = ["sm", "default", "lg"] satisfies readonly AvatarSize[];
+const AVATAR_SIZE_PIXELS: Record<AvatarSize, number> = { sm: 24, default: 32, lg: 40 };
+type AvatarImageLoadingStatus = "idle" | "loading" | "loaded" | "error";
+
+const AVATAR_IMAGE_STATUS_LABELS: Record<AvatarImageLoadingStatus, string> = {
+  idle: "Gambar belum dimuat",
+  loading: "Sedang memuat gambar",
+  loaded: "Gambar berhasil dimuat",
+  error: "Gambar gagal dimuat; inisial tampil",
+};
 
 function AvatarPreview() {
   const [size, setSize] = useState<AvatarSize>("default");
+  const [simulatedPresence, setSimulatedPresence] = useState(true);
+  const [fallbackStatus, setFallbackStatus] = useState<AvatarImageLoadingStatus>("idle");
 
   return (
     <div className="space-y-7">
-      <DemoGroup api="Avatar · size · AvatarImage · AvatarFallback · AvatarBadge" title="Pratinjau ukuran">
+      <DemoGroup api="Avatar · size · AvatarImage · AvatarFallback · AvatarBadge" title="Foto dan status simulasi lokal">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             {AVATAR_SIZES.map((option) => (
-              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>{option}</DemoChoice>
+              <DemoChoice active={size === option} key={option} onClick={() => setSize(option)}>
+                {option} · {AVATAR_SIZE_PIXELS[option]} px
+              </DemoChoice>
             ))}
           </div>
           <div className="flex items-center gap-4">
-            <Avatar size={size}>
-              <AvatarImage alt="Ilustrasi siluet contoh" src={AVATAR_PLACEHOLDER_SRC} />
+            <Avatar aria-describedby="catalog-avatar-simulation-note" size={size}>
+              <AvatarImage alt="Foto profil contoh AR" src={AVATAR_PLACEHOLDER_SRC} />
               <AvatarFallback>AR</AvatarFallback>
-              <AvatarBadge aria-label="Sedang aktif" />
+              {simulatedPresence ? (
+                <AvatarBadge aria-label="AR, status simulasi lokal: aktif" role="img" />
+              ) : null}
             </Avatar>
-            <p className="text-sm text-voyage-muted-ink">Gambar contoh dengan inisial sebagai fallback.</p>
+            <div className="space-y-2">
+              <p className="max-w-[56ch] text-sm text-voyage-muted-ink" id="catalog-avatar-simulation-note">
+                Simulasi lokal untuk AR; status ini tidak menunjukkan kehadiran pengguna sebenarnya. Saat ini: {simulatedPresence ? "aktif" : "tidak aktif"}.
+              </p>
+              <DemoChoice active={simulatedPresence} onClick={() => setSimulatedPresence((current) => !current)}>
+                Simulasi AR: {simulatedPresence ? "aktif" : "tidak aktif"}
+              </DemoChoice>
+            </div>
           </div>
         </div>
       </DemoGroup>
 
-      <DemoGroup api="Avatar · sm | default | lg" title="Semua ukuran">
+      <DemoGroup api={'Avatar · size="sm" | "default" | "lg"'} title="Ukuran yang tersedia">
         <div className="flex flex-wrap items-end gap-8">
           {AVATAR_SIZES.map((avatarSize) => (
             <div className="flex flex-col items-center gap-2" key={avatarSize}>
               <Avatar size={avatarSize}>
-                <AvatarImage alt="Ilustrasi siluet contoh" src={AVATAR_PLACEHOLDER_SRC} />
                 <AvatarFallback>AR</AvatarFallback>
               </Avatar>
-              <code className="text-xs text-voyage-muted-ink">{`size="${avatarSize}"`}</code>
+              <code className="text-xs text-voyage-muted-ink">{`size="${avatarSize}" · ${AVATAR_SIZE_PIXELS[avatarSize]} px`}</code>
             </div>
           ))}
         </div>
       </DemoGroup>
 
+      <DemoGroup api="AvatarImage · onLoadingStatusChange · AvatarFallback" title="Inisial saat foto gagal dimuat">
+        <div className="flex items-center gap-4">
+          <Avatar size="lg">
+            <AvatarImage
+              alt="Foto profil contoh yang sengaja tidak tersedia"
+              onLoadingStatusChange={(status) => setFallbackStatus(status)}
+              src={AVATAR_FAILURE_SRC}
+            />
+            <AvatarFallback>RA</AvatarFallback>
+          </Avatar>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-voyage-ink">Foto tidak tersedia</p>
+            <p className="text-sm text-voyage-muted-ink">Inisial tetap tampil pada latar hijau standar.</p>
+            <p aria-live="polite" className="text-xs text-voyage-muted-ink" role="status">
+              Status gambar: {AVATAR_IMAGE_STATUS_LABELS[fallbackStatus]}.
+            </p>
+          </div>
+        </div>
+      </DemoGroup>
+
       <DemoGroup api="AvatarGroup · AvatarGroupCount" title="Kelompok avatar">
         <div className="flex items-center gap-4">
-          <AvatarGroup aria-label="Tiga anggota kelompok" role="group">
-            <Avatar size="default"><AvatarFallback>AR</AvatarFallback></Avatar>
+          <AvatarGroup aria-label="Kelompok contoh: AR, BK, CN, dan dua anggota lain" role="group">
+            <Avatar size="default">
+              <AvatarFallback>AR</AvatarFallback>
+            </Avatar>
             <Avatar size="default"><AvatarFallback>BK</AvatarFallback></Avatar>
             <Avatar size="default"><AvatarFallback>CN</AvatarFallback></Avatar>
             <AvatarGroupCount>+2</AvatarGroupCount>
           </AvatarGroup>
-          <span className="text-sm text-voyage-muted-ink">Tiga avatar dan jumlah anggota lain.</span>
+          <span className="text-sm text-voyage-muted-ink">Kelompok contoh: AR, BK, CN, dan dua anggota lain.</span>
+        </div>
+      </DemoGroup>
+
+      <DemoGroup api={'Button · variant="outline" · size="icon" (44 px) · Avatar size="lg" (40 px)'} title="Komposisi tombol akun">
+        <div className="flex items-center gap-4">
+          <Button aria-label="Tombol akun contoh" className="rounded-pill" size="icon" type="button" variant="outline">
+            <Avatar aria-hidden="true" size="lg">
+              <AvatarImage alt="" src={AVATAR_FAILURE_SRC} />
+              <AvatarFallback>RA</AvatarFallback>
+            </Avatar>
+          </Button>
+          <p className="max-w-[50ch] text-sm text-voyage-muted-ink">
+            Tombol outline 44 px membungkus avatar 40 px. Contoh ini menampilkan komposisi saja dan tidak membuka menu akun.
+          </p>
         </div>
       </DemoGroup>
     </div>
@@ -810,77 +793,10 @@ const TAB_ITEMS: { value: TabValue; label: string; summary: string }[] = [
   { value: "arsip", label: "Arsip", summary: "Tab yang dinonaktifkan." },
 ];
 
-function CoreTabsPreview() {
-  const [defaultValue, setDefaultValue] = useState<TabValue>("materi");
-  const [lineValue, setLineValue] = useState<TabValue>("kuis");
-  const [verticalValue, setVerticalValue] = useState<TabValue>("tryout");
-
-  function renderTabContent(value: TabValue) {
-    return TAB_ITEMS.find((item) => item.value === value)?.summary;
-  }
-
-  return (
-    <div className="space-y-7">
-      <DemoGroup api={'Tabs · TabsList variant="default" · TabsTrigger · TabsContent'} title="Tabs standar">
-        <Tabs onValueChange={(value) => setDefaultValue(value as TabValue)} value={defaultValue}>
-          <TabsList aria-label="Konten belajar" variant="default">
-            {TAB_ITEMS.map((item) => (
-              <TabsTrigger disabled={item.value === "arsip"} key={item.value} value={item.value}>
-                {item.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {TAB_ITEMS.map((item) => (
-            <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
-              {renderTabContent(item.value)}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </DemoGroup>
-
-      <DemoGroup api={'TabsList variant="line" · orientation="horizontal"'} title="Tabs garis">
-        <Tabs onValueChange={(value) => setLineValue(value as TabValue)} value={lineValue}>
-          <TabsList aria-label="Ringkasan belajar" variant="line">
-            {TAB_ITEMS.map((item) => (
-              <TabsTrigger disabled={item.value === "arsip"} key={item.value} value={item.value}>
-                {item.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {TAB_ITEMS.map((item) => (
-            <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
-              {renderTabContent(item.value)}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </DemoGroup>
-
-      <DemoGroup api={'Tabs · orientation="vertical" · TabsList · TabsTrigger'} title="Arah vertikal">
-        <Tabs
-          className="min-h-36 sm:flex-row"
-          onValueChange={(value) => setVerticalValue(value as TabValue)}
-          orientation="vertical"
-          value={verticalValue}
-        >
-          <TabsList aria-label="Ruang belajar" className="w-fit" variant="default">
-            {TAB_ITEMS.slice(0, 3).map((item) => (
-              <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>
-            ))}
-          </TabsList>
-          {TAB_ITEMS.slice(0, 3).map((item) => (
-            <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
-              {renderTabContent(item.value)}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </DemoGroup>
-    </div>
-  );
-}
-
 function SpecialtyTabsPreview() {
   const [sunkenContentValue, setSunkenContentValue] = useState<TabValue>("materi");
   const [sunkenEqualValue, setSunkenEqualValue] = useState<TabValue>("kuis");
+  const [verticalValue, setVerticalValue] = useState<TabValue>("tryout");
   const [filterValue, setFilterValue] = useState("semua");
   const [composedFilterValue, setComposedFilterValue] = useState("semua");
   const [nativeTabValue, setNativeTabValue] = useState("materi");
@@ -916,14 +832,14 @@ function SpecialtyTabsPreview() {
 
   return (
     <div className="space-y-7">
-      <DemoGroup api={'SunkenTabsList · SunkenTabsTrigger · layout="content" | "equal"'} title="Sunken tabs">
+      <DemoGroup api={'TabsList · TabsTrigger · layout="content" | "equal"'} title="Tabs sunken">
         <div className="space-y-4">
           <Tabs onValueChange={(value) => setSunkenContentValue(value as TabValue)} value={sunkenContentValue}>
-            <SunkenTabsList aria-label="Filter belajar" layout="content">
+            <TabsList aria-label="Filter belajar" layout="content">
               {TAB_ITEMS.slice(0, 3).map((item) => (
-                <SunkenTabsTrigger key={item.value} layout="content" value={item.value}>{item.label}</SunkenTabsTrigger>
+                <TabsTrigger key={item.value} layout="content" value={item.value}>{item.label}</TabsTrigger>
               ))}
-            </SunkenTabsList>
+            </TabsList>
             {TAB_ITEMS.slice(0, 3).map((item) => (
               <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
                 {item.summary}
@@ -931,11 +847,11 @@ function SpecialtyTabsPreview() {
             ))}
           </Tabs>
           <Tabs onValueChange={(value) => setSunkenEqualValue(value as TabValue)} value={sunkenEqualValue}>
-            <SunkenTabsList aria-label="Area kerja" layout="equal">
+            <TabsList aria-label="Area kerja" layout="equal">
               {TAB_ITEMS.slice(0, 3).map((item) => (
-                <SunkenTabsTrigger key={item.value} layout="equal" value={item.value}>{item.label}</SunkenTabsTrigger>
+                <TabsTrigger key={item.value} layout="equal" value={item.value}>{item.label}</TabsTrigger>
               ))}
-            </SunkenTabsList>
+            </TabsList>
             {TAB_ITEMS.slice(0, 3).map((item) => (
               <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
                 {item.summary}
@@ -943,6 +859,26 @@ function SpecialtyTabsPreview() {
             ))}
           </Tabs>
         </div>
+      </DemoGroup>
+
+      <DemoGroup api={'Tabs · orientation="vertical" · layout="content"'} title="Susunan vertikal">
+        <Tabs
+          className="min-h-36 sm:flex-row"
+          onValueChange={(value) => setVerticalValue(value as TabValue)}
+          orientation="vertical"
+          value={verticalValue}
+        >
+          <TabsList aria-label="Ruang belajar" className="w-fit" layout="content">
+            {TAB_ITEMS.slice(0, 3).map((item) => (
+              <TabsTrigger key={item.value} layout="content" value={item.value}>{item.label}</TabsTrigger>
+            ))}
+          </TabsList>
+          {TAB_ITEMS.slice(0, 3).map((item) => (
+            <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
+              {item.summary}
+            </TabsContent>
+          ))}
+        </Tabs>
       </DemoGroup>
 
       <DemoGroup api="CompactFilterTabs · items · value · onValueChange" title="Compact filter tabs">
@@ -994,7 +930,7 @@ function SpecialtyTabsPreview() {
             </SunkenTabButton>
           </div>
           <SunkenTabNavigation aria-label="Navigasi pratinjau">
-            <SunkenTabLink href="/developer/components" selected>
+            <SunkenTabLink aria-current="page" href="/developer/components" selected>
               Komponen
             </SunkenTabLink>
             <SunkenTabLink href="/developer/reports" selected={false}>
@@ -1007,13 +943,13 @@ function SpecialtyTabsPreview() {
         </div>
       </DemoGroup>
 
-      <DemoGroup api="FullWidthLineTabsList · FullWidthLineTabsTrigger" title="Full-width line tabs">
+      <DemoGroup api="FullWidthTabsList · FullWidthTabsTrigger" title="Tabs lebar penuh">
         <Tabs onValueChange={(value) => setFullWidthValue(value as TabValue)} value={fullWidthValue}>
-          <FullWidthLineTabsList aria-label="Area belajar">
+          <FullWidthTabsList aria-label="Area belajar">
             {TAB_ITEMS.slice(0, 3).map((item) => (
-              <FullWidthLineTabsTrigger key={item.value} value={item.value}>{item.label}</FullWidthLineTabsTrigger>
+              <FullWidthTabsTrigger key={item.value} value={item.value}>{item.label}</FullWidthTabsTrigger>
             ))}
-          </FullWidthLineTabsList>
+          </FullWidthTabsList>
           {TAB_ITEMS.slice(0, 3).map((item) => (
             <TabsContent className="pt-2 text-sm text-voyage-muted-ink" key={item.value} value={item.value}>
               {item.summary}
@@ -1054,7 +990,7 @@ export const controlSections: ControlSection[] = [
   {
     id: "buttons",
     title: "Tombol",
-    description: "Semua varian, ukuran, status nonaktif dan memuat, serta contoh penempatan ikon.",
+    description: "Lima varian, enam ukuran, status nonaktif dan memuat, serta contoh penempatan ikon.",
     sources: [
       "components/ui/button.tsx — Button",
       "components/ui/button-variants.ts — buttonVariants",
@@ -1063,33 +999,13 @@ export const controlSections: ControlSection[] = [
   },
   {
     id: "badges",
-    title: "Badge umum",
-    description: "Tiga varian umum dalam seluruh ukuran yang tersedia.",
+    title: "Badge",
+    description: "Satu badge untuk semua ruang kerja: tujuh tone, tiga ukuran, dan kedalaman flat atau sunken.",
     sources: [
       "components/ui/badge.tsx — Badge",
       "components/ui/badge-variants.ts — badgeVariants",
     ],
     preview: <BadgePreview />,
-  },
-  {
-    id: "student-badges",
-    title: "Badge pelajar",
-    description: "Nada status, ukuran, dan kedalaman untuk label pada pengalaman pelajar.",
-    sources: [
-      "components/ui/student-badge.tsx — StudentBadge",
-      "components/ui/student-badge-variants.ts — studentBadgeVariants",
-    ],
-    preview: <StudentBadgePreview />,
-  },
-  {
-    id: "mentor-badges",
-    title: "Badge mentor",
-    description: "Seluruh nada dan ukuran yang digunakan pada ruang kerja Kapten.",
-    sources: [
-      "components/ui/mentor-badge.tsx — MentorBadge",
-      "components/ui/student-badge-variants.ts — peta nada bersama",
-    ],
-    preview: <MentorBadgePreview />,
   },
   {
     id: "fields",
@@ -1117,7 +1033,7 @@ export const controlSections: ControlSection[] = [
   {
     id: "file-controls",
     title: "Unggah dan unduh",
-    description: "Contoh status upload lokal dan unduhan templat CSV.",
+    description: "Status unggah lokal, pilihan beberapa berkas ke slot terpisah, dan unduhan templat CSV.",
     sources: [
       "components/ui/file-upload-slot.tsx — FileUploadSlot",
       "components/ui/csv-template-download.tsx — CsvTemplateDownload",
@@ -1127,30 +1043,21 @@ export const controlSections: ControlSection[] = [
   {
     id: "avatars",
     title: "Avatar",
-    description: "Ukuran avatar, gambar dengan fallback, tanda status, dan kelompok avatar.",
+    description: "Avatar 24/32/40 px, fallback inisial, status dan kelompok, serta komposisi tombol akun 44 px.",
     sources: [
       "components/ui/avatar.tsx — Avatar, AvatarImage, AvatarFallback, AvatarBadge, AvatarGroup, AvatarGroupCount",
     ],
     preview: <AvatarPreview />,
   },
   {
-    id: "tabs",
-    title: "Tabs dasar",
-    description: "Tabs standar dan garis, dengan arah horizontal maupun vertikal.",
+    id: "specialty-tabs",
+    title: "Tabs",
+    description: "Satu treatment sunken dengan susunan content atau equal, orientasi horizontal/vertikal, tab filter, navigasi, dan mode card.",
     sources: [
       "components/ui/tabs.tsx — Tabs, TabsList, TabsTrigger, TabsContent",
-      "components/ui/tabs-variants.ts — tabsListVariants",
-    ],
-    preview: <CoreTabsPreview />,
-  },
-  {
-    id: "specialty-tabs",
-    title: "Tabs khusus",
-    description: "Sunken tabs, compact filter tabs, full-width line tabs, dan mode card tabs.",
-    sources: [
-      "components/ui/sunken-tabs.tsx — SunkenTabsList, SunkenTabsTrigger, SunkenTabButton, SunkenTabNavigation, SunkenTabLink",
+      "components/ui/sunken-tabs.tsx — SunkenTabButton, SunkenTabNavigation, SunkenTabLink",
       "components/ui/compact-filter-tabs.tsx — CompactFilterTabs, CompactTabsList, CompactTabsTrigger",
-      "components/ui/full-width-line-tabs.tsx — FullWidthLineTabsList, FullWidthLineTabsTrigger",
+      "components/ui/full-width-tabs.tsx — FullWidthTabsList, FullWidthTabsTrigger",
       "components/ui/mode-card-tabs.tsx — ModeCardTabs",
     ],
     preview: <SpecialtyTabsPreview />,

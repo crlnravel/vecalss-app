@@ -86,10 +86,20 @@ function ReferenceSurfacesPreview() {
           <ReferenceStatusBadge key={status} label={label} status={status} />
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <ReferenceStatusBadge appearance="mentor" size="xs" status="scheduled" />
-        <ReferenceStatusBadge appearance="mentor" size="sm" status="published" />
-        <ReferenceStatusBadge appearance="reference" size="xs" status="draft" />
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-secondary-700">Pemetaan status ke tone Badge · ukuran xs, sm, dan md</p>
+        <div className="flex flex-wrap items-center gap-3">
+          {([
+            { size: "xs", status: "scheduled" },
+            { size: "sm", status: "in_progress" },
+            { size: "md", status: "completed" },
+          ] as const).map(({ size, status }) => (
+            <div className="flex items-center gap-2" key={size}>
+              <ReferenceStatusBadge size={size} status={status} />
+              <code className="text-xs text-secondary-600">{status} · {size}</code>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -37,21 +37,21 @@ function ActionToastPreview() {
         <Button
           onClick={() => setState({ message: "Contoh perubahan berhasil disimpan.", status: "success" })}
           type="button"
-          variant="brand"
+          variant="default"
         >
           Simulasikan sukses
         </Button>
         <Button
           onClick={() => setState({ message: "Contoh perubahan belum tersimpan. Coba lagi.", status: "error" })}
           type="button"
-          variant="dangerOutline"
+          variant="destructive"
         >
           Simulasikan gagal
         </Button>
         <Button
           onClick={() => setState({ fieldErrors: { nama: "Nama perlu diisi." }, message: "Periksa isian nama.", status: "error" })}
           type="button"
-          variant="brandOutline"
+          variant="outline"
         >
           Simulasikan error isian
         </Button>
@@ -87,7 +87,7 @@ export function NotificationsPreview() {
               key={value}
               onClick={() => showToast(`Contoh notifikasi ${label.toLowerCase()}.`, { variant: value })}
               type="button"
-              variant={value === "error" ? "dangerOutline" : "brandOutline"}
+              variant={value === "error" ? "destructive" : "outline"}
             >
               showToast · {label}
             </Button>
@@ -95,7 +95,7 @@ export function NotificationsPreview() {
           <Button
             onClick={() => toast.success("Contoh toast.success dari Sonner.")}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             toast.success
           </Button>
@@ -111,7 +111,7 @@ export function NotificationsPreview() {
             Komponen baru dipasang setelah tombol dipilih, jadi galeri tidak menampilkan notifikasi sendiri ketika dibuka.
           </p>
         </div>
-        <Button onClick={() => setMountKey((current) => current + 1)} type="button" variant="brandOutline">
+        <Button onClick={() => setMountKey((current) => current + 1)} type="button" variant="outline">
           Pasang contoh notifikasi
         </Button>
         {mountKey > 0 ? (

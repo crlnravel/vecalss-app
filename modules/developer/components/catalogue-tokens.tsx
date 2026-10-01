@@ -297,19 +297,22 @@ function TokenCatalogue() {
         <div className="mb-5 flex flex-col gap-2">
           <h2 className="text-xl font-semibold text-secondary-900" id="catalogue-token-radius">Sudut</h2>
           <p className="max-w-[65ch] text-sm leading-6 text-secondary-700">
-            Kelas radius bersama ditampilkan dengan ukuran sudut yang dihitung browser.
+            Tujuh token radius dipakai untuk peran yang jelas. Nilai yang ditampilkan berasal dari hasil perhitungan browser.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
           {RADIUS_PROBES.map((probe) => (
             <div className="min-w-0" key={probe.id}>
-              <div className="mb-3 flex h-20 items-center justify-center rounded-xl bg-primary-50 p-3">
+              <div className="mb-3 flex h-20 items-center justify-center rounded-control bg-primary-50 p-3">
                 <div className={`h-12 w-full border border-primary-300 bg-white ${probe.className}`} data-token-radius={probe.id} />
               </div>
-              <code className="block text-xs font-medium text-secondary-800">{probe.className}</code>
+              <p className="text-sm font-semibold text-secondary-900">{probe.use}</p>
+              <code className="mt-1 block break-all text-xs font-medium text-secondary-800">{probe.token}</code>
+              <code className="mt-1 block text-xs text-secondary-600">{probe.className}</code>
               <code className="mt-1 block text-xs tabular-nums text-secondary-600">
                 {displayValue(computedProbes[probe.id]?.radius)}
               </code>
+              <p className="text-xs text-secondary-600">Nilai acuan: {probe.expectedValue}</p>
             </div>
           ))}
         </div>

@@ -23,11 +23,11 @@ type CatalogueSection = {
 type CatalogueCategory = "all" | "controls" | "surfaces" | "tokens" | "inventory";
 
 const categories: { label: string; value: CatalogueCategory }[] = [
-  { label: "Semua komponen", value: "all" },
+  { label: "Semua", value: "all" },
   { label: "Kontrol", value: "controls" },
-  { label: "Tampilan dan interaksi", value: "surfaces" },
+  { label: "Permukaan dan interaksi", value: "surfaces" },
   { label: "Token", value: "tokens" },
-  { label: "Inventaris sumber", value: "inventory" },
+  { label: "Sumber", value: "inventory" },
 ];
 
 const componentSections: CatalogueSection[] = [...controlSections, ...surfaceSections, ...dashboardSections];
@@ -49,8 +49,8 @@ function ComponentCatalogue() {
     <div className="flex min-w-0 flex-col gap-8">
       <div className="flex min-w-0 flex-col gap-5">
         <p className="max-w-[65ch] text-sm leading-6 text-secondary-700">
-          Referensi komponen dan token yang dipakai di Vecalss. Coba interaksinya,
-          bandingkan variasinya, lalu gunakan sumber yang sama untuk halaman baru.
+          Jelajahi contoh yang tersedia di Vecalss, coba interaksinya, lalu ikuti
+          sumber komponennya saat membangun halaman baru.
         </p>
         <div aria-label="Kategori katalog" className="flex flex-wrap gap-2" role="group">
           {categories.map((item) => (
@@ -60,7 +60,7 @@ function ComponentCatalogue() {
               key={item.value}
               onClick={() => setCategory(item.value)}
               type="button"
-              variant={category === item.value ? "secondary" : "ghost"}
+              variant={category === item.value ? "default" : "outline"}
             >
               {item.label}
             </Button>
@@ -72,8 +72,8 @@ function ComponentCatalogue() {
         <section aria-labelledby="catalogue-inventory-title" className="min-w-0">
           <h2 className="text-xl font-semibold text-secondary-900" id="catalogue-inventory-title">Inventaris sumber</h2>
           <p className="mt-2 max-w-[65ch] text-sm leading-6 text-secondary-700">
-            {primitiveInventory.length} berkas bersama. Komponen memiliki contoh visual;
-            resep varian, token, dan helper mendukung contoh yang terkait.
+              {primitiveInventory.length} berkas sumber. Komponen memiliki contoh visual;
+            resep varian, token, dan helper ditautkan ke contoh yang menggunakannya.
           </p>
           <ul className="mt-5 divide-y divide-primary-100 border-y border-primary-100">
             {primitiveInventory.map((entry) => {
@@ -97,7 +97,7 @@ function ComponentCatalogue() {
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full sm:max-w-md">
               <label className="mb-2 block text-sm font-semibold text-secondary-900" htmlFor="component-search">
-                Cari komponen
+                Cari contoh komponen
               </label>
               <div className="relative">
                 <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-secondary-600" />
@@ -105,20 +105,20 @@ function ComponentCatalogue() {
                   className="pl-10"
                   id="component-search"
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Button, badge, dialog…"
+                  placeholder="Contoh: Badge, Button, dialog"
                   type="search"
                   value={search}
                 />
               </div>
             </div>
             <p aria-live="polite" className="text-sm text-secondary-600 tabular-nums">
-              {matchingSections.length} dari {sections.length} kelompok komponen
+              {matchingSections.length} dari {sections.length} contoh komponen
             </p>
           </div>
 
           {matchingSections.length > 0 ? (
             <>
-              <nav aria-label="Daftar komponen" className="flex flex-wrap gap-x-5 gap-y-2 border-y border-primary-100 py-4">
+              <nav aria-label="Lompat ke contoh komponen" className="flex flex-wrap gap-x-5 gap-y-2 border-y border-primary-100 py-4">
                 {matchingSections.map((section) => (
                   <a className="inline-flex min-h-[44px] items-center rounded-md text-sm font-medium text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500" href={`#component-${section.id}`} key={section.id}>
                     {section.title}

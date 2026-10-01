@@ -178,7 +178,7 @@ export function EmptyStatesPreview() {
               onClick={() => setRouteStateIndex((current) => (current - 1 + routeStates.length) % routeStates.length)}
               size="sm"
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Sebelumnya
             </Button>
@@ -187,7 +187,7 @@ export function EmptyStatesPreview() {
               onClick={() => setRouteStateIndex((current) => (current + 1) % routeStates.length)}
               size="sm"
               type="button"
-              variant="brandOutline"
+              variant="outline"
             >
               Berikutnya
             </Button>
@@ -225,7 +225,7 @@ export function ProgressSkeletonPreview() {
             disabled={progress <= 0}
             onClick={() => setProgress((current) => Math.max(0, current - 10))}
             type="button"
-            variant="brandOutline"
+            variant="outline"
           >
             Kurangi 10%
           </Button>
@@ -233,7 +233,7 @@ export function ProgressSkeletonPreview() {
             disabled={progress >= 100}
             onClick={() => setProgress((current) => Math.min(100, current + 10))}
             type="button"
-            variant="brand"
+            variant="default"
           >
             Tambah 10%
           </Button>
@@ -246,7 +246,7 @@ export function ProgressSkeletonPreview() {
             <h3 className="font-heading text-base font-semibold text-secondary-900">Skeleton</h3>
             <p className="mt-1 text-sm leading-6 text-secondary-600">Pratinjau pemuatan dapat dinyalakan atau disembunyikan.</p>
           </div>
-          <Button onClick={() => setIsLoading((current) => !current)} type="button" variant="brandOutline">
+          <Button onClick={() => setIsLoading((current) => !current)} type="button" variant="outline">
             {isLoading ? "Tampilkan isi" : "Tampilkan skeleton"}
           </Button>
         </div>
@@ -262,7 +262,7 @@ export function ProgressSkeletonPreview() {
           <div className="space-y-2 rounded-2xl border border-voyage-soft-border bg-white p-5">
             <h4 className="font-semibold text-secondary-900">Peluang kejadian</h4>
             <p className="text-sm leading-6 text-secondary-600">Selesaikan satu bagian lagi untuk menutup materi ini.</p>
-            <Button size="sm" type="button" variant="brandOutline">Lanjutkan materi</Button>
+            <Button size="sm" type="button" variant="outline">Lanjutkan materi</Button>
           </div>
         )}
       </div>
@@ -406,7 +406,7 @@ export function AttachmentsPreview() {
               aria-label="Tandai lampiran contoh untuk ditinjau"
               onClick={() => setSelectedFile("Lampiran contoh ditandai untuk ditinjau.")}
               type="button"
-              variant="ghost"
+              variant="outline"
             >
               <Check aria-hidden="true" />
             </AttachmentAction>

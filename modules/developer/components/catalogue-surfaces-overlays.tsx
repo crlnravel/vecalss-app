@@ -4,12 +4,6 @@ import { useState, type ReactNode } from "react";
 
 import { AccordionList } from "@/components/ui/accordion";
 import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -115,45 +109,6 @@ export function AccordionPreview() {
   );
 }
 
-export function AlertsPreview() {
-  const [showDetails, setShowDetails] = useState(false);
-
-  return (
-    <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-      <Alert variant="default">
-        <Info aria-hidden="true" />
-        <AlertTitle>Contoh · perubahan tersimpan</AlertTitle>
-        <AlertDescription>
-          Ringkasan materi sudah diperbarui. Pilih rincian untuk melihat keterangan contoh.
-        </AlertDescription>
-        <AlertAction>
-          <Button
-            onClick={() => setShowDetails((current) => !current)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            {showDetails ? "Tutup" : "Rincian"}
-          </Button>
-        </AlertAction>
-        {showDetails ? (
-          <AlertDescription className="pt-2">
-            Pemberitahuan inline tetap berada di alur halaman dan tidak menghilang sendiri.
-          </AlertDescription>
-        ) : null}
-      </Alert>
-
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>File belum dapat dibuka</AlertTitle>
-        <AlertDescription>
-          Periksa koneksi lalu coba buka file sekali lagi.
-        </AlertDescription>
-      </Alert>
-    </div>
-  );
-}
-
 const modalVariants: Array<{ value: ModalVariant; label: string; icon: ReactNode }> = [
   { value: "default", label: "Default", icon: <CircleHelp aria-hidden="true" /> },
   { value: "info", label: "Info", icon: <Info aria-hidden="true" /> },
@@ -192,7 +147,7 @@ export function DialogsPreview() {
                   onClick={() => setDialogVariant(value)}
                   size="sm"
                   type="button"
-                  variant={dialogVariant === value ? "contextSelected" : "context"}
+                  variant={dialogVariant === value ? "default" : "outline"}
                 >
                   {label}
                 </Button>
@@ -214,7 +169,7 @@ export function DialogsPreview() {
                   onClick={() => setDialogWidth(value)}
                   size="sm"
                   type="button"
-                  variant={dialogWidth === value ? "contextSelected" : "context"}
+                  variant={dialogWidth === value ? "default" : "outline"}
                 >
                   {label}
                 </Button>
@@ -223,7 +178,7 @@ export function DialogsPreview() {
           </div>
 
           <Dialog>
-            <DialogTrigger render={<Button type="button" variant="brand" />}>
+            <DialogTrigger render={<Button type="button" variant="default" />}>
               Buka dialog
             </DialogTrigger>
             <DialogContent className={dialogWidthClasses[dialogWidth]} variant={dialogVariant}>
@@ -237,7 +192,7 @@ export function DialogsPreview() {
                 Tona saat ini: <span className="font-semibold">{dialogVariantsLabel(dialogVariant)}</span>
               </div>
               <DialogFooter>
-                <DialogClose render={<Button type="button" variant="brandOutline" />}>
+                <DialogClose render={<Button type="button" variant="outline" />}>
                   Tutup contoh
                 </DialogClose>
               </DialogFooter>
@@ -265,7 +220,7 @@ export function DialogsPreview() {
                   onClick={() => setAlertDialogSize(value)}
                   size="sm"
                   type="button"
-                  variant={alertDialogSize === value ? "contextSelected" : "context"}
+                  variant={alertDialogSize === value ? "default" : "outline"}
                 >
                   {label}
                 </Button>
@@ -282,7 +237,7 @@ export function DialogsPreview() {
                   onClick={() => setAlertDialogVariant(value)}
                   size="sm"
                   type="button"
-                  variant={alertDialogVariant === value ? "contextSelected" : "context"}
+                  variant={alertDialogVariant === value ? "default" : "outline"}
                 >
                   {label}
                 </Button>
@@ -290,7 +245,7 @@ export function DialogsPreview() {
             </div>
           </div>
           <AlertDialog onOpenChange={setAlertOpen} open={alertOpen}>
-            <AlertDialogTrigger render={<Button type="button" variant="attentionOutline" />}>
+            <AlertDialogTrigger render={<Button type="button" variant="warning" />}>
               Buka konfirmasi
             </AlertDialogTrigger>
             <AlertDialogContent size={alertDialogSize} variant={alertDialogVariant}>
@@ -358,7 +313,7 @@ export function SheetsPreview() {
             onOpenChange={(open) => setOpenSide(open ? side : null)}
             open={openSide === side}
           >
-            <SheetTrigger render={<Button type="button" variant="brandOutline" />}>
+            <SheetTrigger render={<Button type="button" variant="outline" />}>
               Dari {sheetSideLabels[side].toLowerCase()}
             </SheetTrigger>
             <SheetContent side={side}>
@@ -372,7 +327,7 @@ export function SheetsPreview() {
                 Contoh ini tidak mengubah halaman atau menyimpan pilihan.
               </div>
               <SheetFooter>
-                <SheetClose render={<Button type="button" variant="brandOutline" />}>
+                <SheetClose render={<Button type="button" variant="outline" />}>
                   Tutup panel
                 </SheetClose>
               </SheetFooter>
@@ -391,7 +346,7 @@ export function PopoversTooltipsPreview() {
     <TooltipProvider>
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <Popover>
-          <PopoverTrigger render={<Button type="button" variant="brandOutline" />}>
+          <PopoverTrigger render={<Button type="button" variant="outline" />}>
             Periode: {period}
           </PopoverTrigger>
           <PopoverContent align="start" className="w-[min(18rem,calc(100vw-2rem))]">
@@ -407,7 +362,7 @@ export function PopoversTooltipsPreview() {
                   onClick={() => setPeriod(value)}
                   size="sm"
                   type="button"
-                  variant={period === value ? "contextSelected" : "context"}
+                  variant={period === value ? "default" : "outline"}
                 >
                   {value}
                 </Button>
@@ -449,7 +404,7 @@ export function MenusPreview() {
           </p>
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" variant="brandOutline" />}>
+          <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>
             Buka menu pilihan
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">

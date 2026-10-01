@@ -17,6 +17,8 @@ hierarchy comes from color and contrast, not a competing flat button family.
   `lg` (48px), `icon-sm` (40px), `icon` (44px), and `icon-lg` (48px).
   Size changes geometry, never tone or corner style. Main and touch actions
   stay at least 44px; enlarge the hit area when a dense utility uses 40px.
+  The navbar avatar trigger uses `rounded-pill` as the circular identity
+  composition described below, while retaining the canonical tactile recipe.
 - **States:** Keep visible focus, disabled and loading cues, and consistent
   hover/press behavior. Reduced motion removes transforms and transitions
   while preserving color, border, focus, and loading state.
@@ -59,6 +61,28 @@ The token prefix is historical; it does not restrict audience.
   MentorBadge, and audience-specific badge geometry are removed after all
   consumers migrate. Status helpers may map domain states to canonical Badge
   tones; they must not own a separate style.
+
+## Avatars
+
+Use the shared `Avatar`, `AvatarImage`, and `AvatarFallback` composition,
+following the [ReUI avatar reference](https://reui.io/components/avatar).
+
+- **Geometry:** Circular `rounded-pill`; `sm` is 24px, `default` is 32px,
+  and `lg` is 40px in exact CSS pixels. Profile editors may use an explicit
+  larger size without creating a separate avatar style.
+- **Identity:** Real available images use meaningful alt text and fall back
+  to initials when unavailable or failed. Use Sea-Glass Wash and Voyage Deep
+  for the shared fallback, with a quiet semantic border. Do not create
+  route-specific fallback palettes or gradients.
+- **Navbar:** All account menus consume the shared Avatar inside a named,
+  circular 44px tactile outline trigger. Preserve account switching, menu
+  keyboard behavior, and logout confirmation. Display initials when the
+  account contract has no photo; never insert a sample user image.
+- **Groups and status:** Keep shared AvatarGroup, AvatarGroupCount, and
+  AvatarBadge helpers. Presence indicators require real presence data; a
+  static identity avatar must not imply that a user is online.
+- **Library contract:** Preserve Base UI loading/fallback behavior and
+  state-derived class callbacks on Root, Image, and Fallback.
 
 ## Tabs
 

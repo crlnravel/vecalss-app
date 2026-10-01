@@ -146,7 +146,7 @@ export function BreadcrumbsPaginationPreview() {
                       onClick={() => setPage(pageNumber)}
                       size="icon-sm"
                       type="button"
-                      variant={page === pageNumber ? "contextSelected" : "ghost"}
+                      variant={page === pageNumber ? "default" : "outline"}
                     >
                       {pageNumber}
                     </Button>
@@ -199,7 +199,7 @@ function ProgrammeFilterMenu({
         },
       ]}
     >
-      <Button onClick={onClear} size="sm" type="button" variant="brandOutline">
+      <Button onClick={onClear} size="sm" type="button" variant="outline">
         Hapus semua filter
       </Button>
     </DataTableFilterMenu>
