@@ -134,13 +134,7 @@
   align-items: center;
   position: relative;
   width: 256px;
-  height: 32px;
-  background: var(--voyage-sea-glass-wash);
-  border: 1px solid var(--voyage-soft-border);
-  border-radius: 10px;
-  padding: 0 9px;
   gap: 7px;
-  color: var(--secondary-700);
 }
 .search svg {
   width: 16px;
@@ -157,9 +151,10 @@
   font: inherit;
   line-height: 20px;
   padding: 0;
+  min-height: 44px;
 }
 .search:focus-within {
-  outline: 2px solid var(--voyage-deep);
+  outline: 2px solid color-mix(in oklab, var(--primary-700) 15%, transparent);
   outline-offset: 2px;
 }
 .search input::placeholder {

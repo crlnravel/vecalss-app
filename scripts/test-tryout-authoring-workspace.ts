@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, childRoute, shell, sidebar, repository, deliveryRepository, useRoute, actions, policy, sessions, sessionCreate, sessionRoute, catalogue, attemptRepository, sessionDetail, workspaceHeader, workspaceFrame, operations, operationsModule, participantsRoute, policyRoute, questionManager] = await Promise.all([
+const [workspace, route, createRoute, childRoute, shell, sidebar, repository, deliveryRepository, useRoute, actions, policy, sessions, sessionCreate, sessionRoute, catalogue, attemptRepository, sessionDetail, workspaceHeader, workspaceFrame, operationsModule, participantsRoute, policyRoute, questionManager] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
@@ -23,7 +23,6 @@ const [workspace, route, createRoute, childRoute, shell, sidebar, repository, de
   readFile(`${root}/modules/mentor/KaptenTryoutSessionDetailPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenTryoutWorkspaceHeader.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenTryoutWorkspaceFrame.tsx`, "utf8"),
-  readFile(`${root}/app/mentor/tryout/[tryoutId]/operations/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenTryoutOperationsModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/operations/participants/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/operations/policy/page.tsx`, "utf8"),

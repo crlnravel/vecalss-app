@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -59,11 +60,24 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
   const menuDirty = { profil: profileName !== savedSettings.profileName, subjek: subjectCode !== (savedSettings.subjectCode ?? "") };
   const dirty = menuDirty.profil || menuDirty.subjek;
   const saving = feedback.profil.status === "saving" || feedback.subjek.status === "saving";
-  const { error, status } = feedback[activeMenu];
+  const { error } = feedback[activeMenu];
   const activeDirty = menuDirty[activeMenu];
   const otherMenu = activeMenu === "profil" ? "subjek" : "profil";
   const initials = savedSettings.profileName.trim().split(/\s+/u).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const currentSession = { ...session, user: { ...session.user, fullName: savedSettings.profileName } };
+
+  usePageStatusToast({
+    active: dirty || saving,
+    description: error?.message,
+    message: saving
+      ? "Menyimpan perubahan…"
+      : error
+        ? "Perubahan belum tersimpan"
+        : activeDirty
+          ? `Ada perubahan yang belum disimpan di ${activeMenu === "profil" ? "Profil" : "Subjek"}`
+          : `Ada perubahan yang belum disimpan di ${otherMenu === "profil" ? "Profil" : "Subjek"}`,
+    variant: error ? "error" : "info",
+  });
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 768px)");
@@ -95,7 +109,6 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
         : await saveKaptenSubjectAction({ subjectCode: subjectCode || null });
       if (!result.ok) {
         updateFeedback(menu, { status: "error", error: { field: result.field, message: result.message } });
-        if (!result.field) showToast(result.message, { variant: "error" });
         return;
       }
       setSavedSettings(result.settings);
@@ -105,8 +118,7 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
       updateFeedback(menu, { status: "saved" });
       showToast("Perubahan tersimpan.", { variant: "success" });
     } catch {
-      updateFeedback(menu, { status: "error" });
-      showToast("Perubahan belum tersimpan. Coba simpan lagi.", { variant: "error" });
+      updateFeedback(menu, { status: "error", error: { message: "Perubahan belum tersimpan. Coba simpan lagi." } });
     }
   }
 
@@ -139,7 +151,7 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="break-words text-xl font-semibold leading-7 text-voyage-ink">{savedSettings.profileName}</p>
-            <Badge depth="flat" size="xs" tone="neutral">Kapten</Badge>
+            <Badge size="xs" tone="neutral">Kapten</Badge>
           </div>
           <p className="mt-1 break-all text-sm leading-6 text-voyage-muted-ink">{savedSettings.email}</p>
         </div>
@@ -204,9 +216,6 @@ function KaptenSettingsPageModule({ initialSettings, session }: { initialSetting
               </div>
             </div>}
             <footer className="flex flex-wrap items-center justify-end gap-4 border-t border-voyage-soft-border px-5 py-4">
-              <p className="mr-auto min-w-0 flex-1 basis-full text-sm leading-6 text-voyage-muted-ink sm:basis-auto">
-                {saving ? "Menyimpan perubahan…" : activeDirty ? "Ada perubahan yang belum disimpan" : menuDirty[otherMenu] ? `Ada perubahan yang belum disimpan di ${otherMenu === "profil" ? "Profil" : "Subjek"}` : status === "saved" ? "Perubahan tersimpan" : ""}
-              </p>
               <Button disabled={!activeDirty || saving} onClick={cancelChanges} type="button" variant="outline">Batal</Button>
               <Button disabled={!activeDirty || saving} type="submit">{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
             </footer>

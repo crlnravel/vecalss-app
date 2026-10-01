@@ -132,8 +132,8 @@ function ReferenceContentPreview() {
 }
 
 const dashboardSections = [
-  { id: "reference-controls", title: "ReferenceSelect", description: "Pilihan dashboard: tanpa label, dengan label dan bantuan, nonaktif, serta pesan kesalahan.", sources: ["components/dashboard/reference-dashboard-controls.tsx", "components/dashboard/reference-select-field.tsx"], preview: <ReferenceControlsPreview /> },
-  { id: "reference-surfaces", title: "ReferenceSurface dan kartu dashboard", description: "Permukaan inset, raised, tactile; kartu statistik, kartu tugas, dan semua pemetaan status dashboard.", sources: ["components/dashboard/reference-dashboard-primitives.tsx", "components/dashboard/reference-dashboard-tokens.ts"], preview: <ReferenceSurfacesPreview /> },
+  { id: "reference-controls", title: "ReferenceSelect", description: "Pilihan dashboard dengan permukaan field inset bersama, label/bantuan, keadaan nonaktif, dan validasi melalui pemicu tooltip bernama.", sources: ["components/dashboard/reference-dashboard-controls.tsx", "components/dashboard/reference-select-field.tsx", "components/dashboard/reference-dashboard-tokens.ts", "components/ui/field.tsx", "components/ui/field-constants.ts", "components/ui/tooltip.tsx", "components/ui/button.tsx"], preview: <ReferenceControlsPreview /> },
+  { id: "reference-surfaces", title: "ReferenceSurface dan kartu dashboard", description: "Permukaan inset, raised, tactile; kartu statistik, kartu tugas, pemetaan status badge, dan kontrol field bersama.", sources: ["components/dashboard/reference-dashboard-primitives.tsx", "components/dashboard/reference-dashboard-tokens.ts", "components/ui/field-constants.ts"], preview: <ReferenceSurfacesPreview /> },
   { id: "reference-content", title: "Header, aktivitas, dan progres dashboard", description: "Header halaman dan bagian, ring dan baris progres, aktivitas, keadaan kosong, serta referensi komposisi shell.", sources: ["components/dashboard/reference-dashboard-primitives.tsx", "components/dashboard/reference-dashboard-shell.tsx", "components/dashboard/reference-dashboard-preview.tsx", "components/dashboard/index.ts"], preview: <ReferenceContentPreview /> },
 ];
 

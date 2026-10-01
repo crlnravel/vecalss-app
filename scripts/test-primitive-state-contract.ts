@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { FieldError } from "@/components/ui/field";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Exercise the wrappers through Base UI, so callback regressions cannot pass
@@ -65,4 +67,16 @@ assert.match(initialsAvatar, /avatar-idle/);
 assert.match(initialsAvatar, /fallback-idle/);
 assert.match(initialsAvatar, />AR<\/span>/);
 
-console.log("PASS primitive state contracts: tabs/avatar callback composition and rendered-anchor disabled semantics");
+const invalidField = renderToStaticMarkup(createElement(TooltipProvider, {},
+  createElement(FieldError, { error: "Isi nama lengkap untuk melanjutkan.", id: "full-name-error" }),
+));
+assert.match(invalidField, /id="full-name-error"/);
+assert.match(invalidField, /aria-describedby="full-name-error"/);
+assert.match(invalidField, /role="alert"/);
+assert.match(invalidField, /sr-only/);
+assert.match(invalidField, /<button\b[^>]*type="button"/);
+assert.match(invalidField, /Isi nama lengkap untuk melanjutkan\./);
+assert.equal(renderToStaticMarkup(createElement(FieldError, { id: "full-name-error" })), "",
+  "Resolved validation must remove both the visible trigger and its error description");
+
+console.log("PASS primitive state contracts: callbacks, disabled anchors and persistent validation descriptions");

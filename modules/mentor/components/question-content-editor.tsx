@@ -346,7 +346,7 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
         <span className="text-sm font-semibold text-primary-800">{optionLabel}</span>
         <input
           aria-label={`Opsi ${optionLabel}`}
-          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-w-0 flex-1 bg-transparent py-2")}
+          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-w-0 flex-1")}
           disabled={disabled}
           id={textInputId}
           onChange={(event) => updateQuestion(question.id, (current) => ({

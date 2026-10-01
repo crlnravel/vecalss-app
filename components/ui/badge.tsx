@@ -6,13 +6,12 @@ import { badgeVariants } from "./badge-variants"
 
 type BadgeProps = ComponentProps<"span"> & VariantProps<typeof badgeVariants>
 
-function Badge({ className, depth, size, tone, ...props }: BadgeProps) {
+function Badge({ className, size, tone, ...props }: BadgeProps) {
   return (
     <span
-      data-depth={depth ?? "sunken"}
       data-slot="badge"
       data-tone={tone ?? "neutral"}
-      className={cn(badgeVariants({ depth, size, tone }), className)}
+      className={cn(badgeVariants({ size, tone }), className)}
       {...props}
     />
   )

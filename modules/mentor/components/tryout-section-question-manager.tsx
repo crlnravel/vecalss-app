@@ -9,9 +9,10 @@ import {
   Search,
   Trash2,
 } from "@/lib/icons";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -1215,8 +1216,7 @@ function TryoutQuestionImportBankSelector({
           }
         >
           <span className="min-w-0 truncate">
-            {activeBrowseBank?.title ??
-              (browseBankId ? "Memuat Bank Soal…" : "Pilih Bank Soal")}
+            {activeBrowseBank?.title ?? "Pilih Bank Soal"}
           </span>
         </PopoverTrigger>
         <PopoverContent
@@ -1231,11 +1231,6 @@ function TryoutQuestionImportBankSelector({
             placeholder="Cari judul, folder, atau materi…"
             value={sourceBankSearch}
           />
-          {sourceBankLoading ? (
-            <p className="px-2 text-xs text-secondary-500">
-              Memuat Bank Soal…
-            </p>
-          ) : null}
           <div
             aria-label="Bank Soal Tryout"
             className="grid max-h-64 gap-1 overflow-y-auto"
@@ -1362,11 +1357,6 @@ function TryoutQuestionImportResults({
   return (
     <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="grid gap-3">
-        {sourceQuestionLoading ? (
-          <p aria-live="polite" className="text-xs text-secondary-500">
-            Memuat soal siap…
-          </p>
-        ) : null}
         {importError ? (
           <div
             className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
@@ -1530,6 +1520,15 @@ function TryoutQuestionImportDialog({
     1,
     Math.ceil(sourceQuestionTotal / TRYOUT_SOURCE_QUESTION_PAGE_SIZE),
   );
+  usePageStatusToast({
+    active: (open || importing) && (importing || sourceBankLoading || sourceQuestionLoading),
+    message: importing
+      ? "Menambahkan soal ke Tryout…"
+      : sourceBankLoading
+        ? "Memuat Bank Soal…"
+        : "Memuat soal siap…",
+    variant: "info",
+  });
 
   return (
     <>

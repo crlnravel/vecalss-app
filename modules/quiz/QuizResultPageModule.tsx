@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Flag,
   CircleX,
   House,
   RefreshCw,
@@ -18,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
 import {
-  AssessmentUtilityPill,
   AssessmentResultNavigation,
   AssessmentResultWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
@@ -283,9 +281,7 @@ function QuizResultQuestionCard({
   isCorrect,
   onNext,
   onPrevious,
-  onToggleReport,
   question,
-  reported,
   result,
   readingTextClass,
   selectedOptions,
@@ -295,9 +291,7 @@ function QuizResultQuestionCard({
   isCorrect: boolean;
   onNext: () => void;
   onPrevious: () => void;
-  onToggleReport: () => void;
   question: QuizResultQuestion;
-  reported: boolean;
   result: QuizResult;
   readingTextClass: string;
   selectedOptions: QuizResultQuestion["options"];
@@ -335,12 +329,6 @@ function QuizResultQuestionCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* <AssessmentUtilityPill */}
-          {/*   active={reported} */}
-          {/*   icon={Flag} */}
-          {/*   label="Tandai untuk ditinjau" */}
-          {/*   onClick={onToggleReport} */}
-          {/* /> */}
           <Badge size="md" tone={badgeTone}>
             {badgeIcon}
             {badgeLabel}
@@ -406,7 +394,6 @@ function QuizResultPageModule({
   const router = useRouter();
   const restartRequestIdRef = useRef<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(1);
-  const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<string | null>(null);
   const isAttemptLimitReached =
@@ -415,14 +402,6 @@ function QuizResultPageModule({
   const resultStatLabelClassName = "font-bold tracking-[0.14em] uppercase";
   const readingTextClass = "text-lg leading-[1.85]";
   const explanationTextClass = "text-base leading-7";
-
-  function toggleReport() {
-    setReportedQuestions((current) =>
-      current.includes(currentQuestion)
-        ? current.filter((number) => number !== currentQuestion)
-        : [...current, currentQuestion],
-    );
-  }
 
   async function restartQuiz() {
     if (isRestarting) return;
@@ -513,9 +492,7 @@ function QuizResultPageModule({
           isCorrect={isCorrect}
           onNext={() => setCurrentQuestion((number) => number + 1)}
           onPrevious={() => setCurrentQuestion((number) => number - 1)}
-          onToggleReport={toggleReport}
           question={question}
-          reported={reportedQuestions.includes(currentQuestion)}
           result={result}
           readingTextClass={readingTextClass}
           selectedOptions={selectedOptions}

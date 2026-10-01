@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FieldInput } from "@/components/ui/field";
 import {
@@ -425,8 +426,7 @@ function QuestionBankSelector({
           }
         >
           <span className="min-w-0 truncate">
-            {selectedBankTitle ||
-              (selectedBankId ? "Memuat Bank Soal…" : "Pilih Bank Soal")}
+            {selectedBankTitle || "Pilih Bank Soal"}
           </span>
         </PopoverTrigger>
         <PopoverContent
@@ -441,11 +441,6 @@ function QuestionBankSelector({
             placeholder="Cari judul, folder, atau materi…"
             value={bankSearch}
           />
-          {loadingBanks ? (
-            <p className="px-2 text-xs text-secondary-500">
-              Memuat Bank Soal…
-            </p>
-          ) : null}
           <BankList
             banks={banks}
             disabled={disabled || importing}
@@ -536,10 +531,6 @@ function QuestionBankSelectionControls({
             />
             <span className="min-w-0">Pilih semua</span>
           </label>
-        ) : loadingEligibleQuestionCount ? (
-          <p aria-live="polite" className="text-xs text-secondary-500">
-            Memuat jumlah soal siap…
-          </p>
         ) : eligibleQuestionCount === 0 ? (
           <p className="text-xs text-secondary-500">
             Belum ada soal siap di bank ini.
@@ -606,11 +597,6 @@ function QuestionBankQuestionResults({
   return (
     <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="grid gap-3">
-        {loadingQuestions ? (
-          <p aria-live="polite" className="text-xs text-secondary-500">
-            Memuat soal siap…
-          </p>
-        ) : null}
         {error || importError ? (
           <div
             className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
@@ -812,6 +798,17 @@ function QuestionBankPickerDialog({
   useQuestionBankPageLoad({ bankId, bankPage, bankSearch, disabled, open, quizId, reloadNonce, setBankId, setBankTotal, setBanks, setError, setLoadingBanks, setSelectedBankTitle, subjectCode });
   useQuestionBankEligibleCountLoad({ bankId, disabled, open, quizId, reloadNonce, setAllInBank, setEligibleQuestionCount, setEligibleQuestionCountError, setLoadingEligibleQuestionCount, setSelectedQuestions, subjectCode });
   useQuestionBankQuestionPageLoad({ bankId, disabled, open, questionPage, questionSearch, quizId, reloadNonce, setError, setLoadingQuestions, setQuestionTotal, setQuestions, subjectCode });
+
+  const loadStatusMessage = loadingBanks
+    ? "Memuat Bank Soal…"
+    : loadingEligibleQuestionCount
+      ? "Memuat jumlah soal siap…"
+      : "Memuat soal siap…";
+  usePageStatusToast({
+    active: (open || importing) && (importing || loadingBanks || loadingEligibleQuestionCount || loadingQuestions),
+    message: importing ? "Menambahkan soal ke kuis…" : loadStatusMessage,
+    variant: "info",
+  });
 
   const toggleQuestion = (question: PickerQuestion) => {
     if (allInBank) return;

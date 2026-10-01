@@ -16,6 +16,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { Badge } from "@/components/ui/badge";
 import {
+  getStudentBannerDescription,
+  getStudentBannerHeading,
   isStudentBannerDraftUnavailable,
   type AdminStudentBannerRead,
 } from "@/lib/student/banner-presentation";

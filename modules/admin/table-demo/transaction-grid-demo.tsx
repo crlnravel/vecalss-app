@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useMemo, useRef, useState, type UIEvent } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { fieldControlClassName } from "@/components/ui/field-constants";
+import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowDown, ArrowUp, Buildings, ChevronDown, Download, ListFilter, RefreshCw, Search, SlidersHorizontal, X, Zap } from "@/lib/icons";
@@ -106,7 +108,7 @@ export function TransactionGridDemo() {
       </div>
       <div className={styles.frame}>
         <div className={styles.toolbar}>
-          <label className={styles.search}><Search size={16} aria-hidden="true" /><input aria-label="Search transactions" placeholder="Search id, customer, card..." type="search" value={query} onChange={(event) => { setQuery(event.target.value); resetViewport(); }} /></label>
+          <label className={cn(fieldControlClassName, "py-0", styles.search)}><Search size={16} aria-hidden="true" /><input aria-label="Search transactions" placeholder="Search id, customer, card..." type="search" value={query} onChange={(event) => { setQuery(event.target.value); resetViewport(); }} /></label>
           <DropdownMenu>
             <DropdownMenuTrigger className={styles.control}><ListFilter size={16} aria-hidden="true" />Filters{status !== "all" ? <span className={styles.filterCount}>1</span> : null}</DropdownMenuTrigger>
             <DropdownMenuContent align="start">

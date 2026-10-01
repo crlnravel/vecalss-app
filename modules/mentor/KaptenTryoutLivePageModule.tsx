@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { liveStateLabels, type LiveState } from "@/lib/tryout/operations-projections";
-import { TryoutRefreshNotice, TryoutRefreshToolbar, useTryoutOperationsRefresh } from "@/modules/mentor/KaptenTryoutOperationsRefresh";
+import { TryoutRefreshToolbar, useTryoutOperationsRefresh } from "@/modules/mentor/KaptenTryoutOperationsRefresh";
 
 const liveStates: LiveState[] = [
   "registered",
@@ -16,7 +16,7 @@ const liveStates: LiveState[] = [
 ];
 
 function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
-  const { refreshMessage, refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
+  const { refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
 
   const scopedLive = selectedSessionId ? view.live.filter((item) => item.session?.id === selectedSessionId) : view.live;
   const counts = liveStates.reduce<Record<LiveState, number>>((summary, state) => {
@@ -41,8 +41,6 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
           updatedLabel={updatedLabel}
         />
       </header>
-
-      <TryoutRefreshNotice message={refreshMessage} onRetry={retryRefresh} />
 
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {liveStates.map((state) => (

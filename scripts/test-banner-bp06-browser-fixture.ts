@@ -7,7 +7,6 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { once } from "node:events";
 
 import { parse as parseDotenv } from "dotenv";
 import pg from "pg";
@@ -2838,7 +2837,8 @@ async function runBrowserSupervisor() {
     privatePaths = await assertBrowserPrivatePaths(state);
     if (!state || !privatePaths) throw new Error("BP06 fixture preflight did not produce state and private paths");
     const fixtureEnv = parseDotenv(await readFile(state.envFile, "utf8"));
-    const { NODE_OPTIONS: _nodeOptions, ...inheritedEnv } = process.env;
+    const inheritedEnv = { ...process.env };
+    delete inheritedEnv.NODE_OPTIONS;
     const childEnv = {
       ...inheritedEnv,
       ...fixtureEnv,

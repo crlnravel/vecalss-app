@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -414,7 +415,8 @@ function DataTableSearchForm({
       action={search.action}
       aria-busy={tableIsLoading}
       className={cn(
-        "relative min-w-[min(100%,18rem)] flex-1 rounded-field border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25",
+        fieldControlClassName,
+        "relative min-w-[min(100%,18rem)] flex-1 px-0 py-0 focus-within:border-primary-500/65 focus-within:ring-3 focus-within:ring-primary-700/15",
         className,
       )}
       method="get"
@@ -437,7 +439,7 @@ function DataTableSearchForm({
         {search.label ?? "Cari tabel"}
       </label>
       <input
-        className="h-auto min-h-[44px] w-full rounded-field border-0 bg-transparent py-2.5 pl-10 pr-11 text-sm text-secondary-900 outline-none transition-[color,background-color] motion-reduce:transition-none placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
+        className="min-h-[44px] w-full min-w-0 border-0 bg-transparent py-2.5 pl-10 pr-11 font-sans text-sm leading-5 text-secondary-900 outline-none transition-[color,background-color] motion-reduce:transition-none placeholder:text-secondary-400 focus-visible:outline-none focus-visible:ring-0"
         id={searchId}
         name="q"
         onChange={handleSearchChange}

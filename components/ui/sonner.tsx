@@ -9,6 +9,7 @@ import {
 import { AlertTriangle, CircleCheckBig, CircleX, Info } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./button-variants";
+import styles from "./sonner-layout.module.css";
 import { toastVariantClassNames, type ToastVariant, type VecalssToastOptions } from "./toast";
 
 const SONNER_BUTTON_CASCADE_CLASSES =
@@ -29,16 +30,16 @@ const defaultToastClassNames: ToastClassnames = {
     variant: "outline",
     size: "sm",
   }),
-  closeButton: "!left-auto !right-2 !top-1/2 !translate-x-0 !-translate-y-1/2 !min-h-[44px] !min-w-[44px] !rounded-control !border-0 !bg-transparent !text-secondary-500 !opacity-100 hover:!bg-secondary-100 hover:!text-secondary-900 focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-primary-700/30",
-  content: "min-w-0",
+  closeButton: `${styles.closeButton} !min-h-[44px] !min-w-[44px] !rounded-control !border-0 !bg-transparent !text-secondary-500 !opacity-100 hover:!bg-secondary-100 hover:!text-secondary-900 focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-primary-700/30`,
+  content: styles.content,
   default: toastVariantClassNames.default,
-  description: "pr-12 text-xs leading-5 text-secondary-600",
+  description: `${styles.text} text-xs leading-5 text-secondary-600`,
   error: toastVariantClassNames.error,
-  icon: "size-5",
+  icon: styles.icon,
   info: toastVariantClassNames.info,
   success: toastVariantClassNames.success,
-  title: "pr-12 text-sm font-semibold text-secondary-950",
-  toast: "group/sonner-toast relative w-[min(calc(100vw-2rem),28rem)] !rounded-field border px-4 py-3 shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)] [&_[data-button]:last-of-type]:!mr-[44px]",
+  title: `${styles.text} text-sm font-semibold text-secondary-950`,
+  toast: `${styles.toast} group/sonner-toast !rounded-field border shadow-[0_18px_48px_-24px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]`,
   warning: toastVariantClassNames.warning,
 };
 
@@ -46,9 +47,10 @@ function Toaster({ className, toastOptions, ...props }: ToasterProps) {
   return (
     <Sonner
       {...props}
-      className={cn("toaster group", className)}
+      className={cn("toaster group", styles.viewport, className)}
       closeButton
       duration={4500}
+      expand
       gap={12}
       icons={{
         error: <CircleX aria-hidden="true" className="text-student-status-danger-fg" />,
@@ -56,11 +58,11 @@ function Toaster({ className, toastOptions, ...props }: ToasterProps) {
         success: <CircleCheckBig aria-hidden="true" className="text-student-status-success-fg" />,
         warning: <AlertTriangle aria-hidden="true" className="text-student-status-attention-fg" />,
       }}
-      mobileOffset={{ bottom: 16, left: 16, right: 16 }}
+      mobileOffset={{ top: "calc(16px + env(safe-area-inset-top, 0px))", left: 16, right: 16 }}
       offset={24}
-      position="bottom-center"
+      position="top-center"
       richColors={false}
-      swipeDirections={["bottom", "left", "right"]}
+      swipeDirections={["top", "left", "right"]}
       toastOptions={{
         ...toastOptions,
         className: cn("group/sonner-toast", toastOptions?.className),

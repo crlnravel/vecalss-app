@@ -46,7 +46,6 @@ type ButtonVariant = NonNullable<ComponentProps<typeof Button>["variant"]>;
 type ButtonSize = NonNullable<ComponentProps<typeof Button>["size"]>;
 type BadgeTone = NonNullable<ComponentProps<typeof Badge>["tone"]>;
 type BadgeSize = NonNullable<ComponentProps<typeof Badge>["size"]>;
-type BadgeDepth = NonNullable<ComponentProps<typeof Badge>["depth"]>;
 
 export type ControlSection = {
   id: string;
@@ -76,27 +75,32 @@ const BUTTON_SIZES = [
 const BADGE_TONES = [
   "category",
   "neutral",
-  "active",
   "attention",
   "success",
   "info",
   "danger",
 ] satisfies readonly BadgeTone[];
 const BADGE_SIZES = ["xs", "sm", "md"] satisfies readonly BadgeSize[];
-const BADGE_DEPTHS = ["flat", "sunken"] satisfies readonly BadgeDepth[];
 
 const BADGE_TONE_LABELS: Record<BadgeTone, string> = {
   category: "Kategori",
   neutral: "Tersimpan",
-  active: "Sedang dipelajari",
   attention: "Perlu ditinjau",
   success: "Selesai",
-  info: "Latihan",
+  info: "Sedang dipelajari",
   danger: "Keliru",
 };
 
-const INPUT_TYPES = ["text", "email", "search", "password"] as const;
+const INPUT_TYPES = ["text", "email", "password", "number", "date", "search"] as const;
 type DemoInputType = (typeof INPUT_TYPES)[number];
+const INPUT_SAMPLE_VALUES: Record<DemoInputType, string> = {
+  text: "Alya Ramadhani",
+  email: "alya@vecalss.id",
+  password: "contoh-rahasia",
+  number: "24",
+  date: "2026-10-01",
+  search: "Peluang",
+};
 
 const AVATAR_PLACEHOLDER_SRC = "/landing-assets/avatar-placeholder.png";
 const AVATAR_FAILURE_SRC = "/avatar-katalog-demo-gambar-tidak-tersedia.png";
@@ -289,11 +293,10 @@ function ButtonPreview() {
 function BadgePreview() {
   const [tone, setTone] = useState<BadgeTone>("category");
   const [size, setSize] = useState<BadgeSize>("sm");
-  const [depth, setDepth] = useState<BadgeDepth>("sunken");
 
   return (
     <div className="space-y-7">
-      <DemoGroup api="Badge · tone · size · depth" title="Pratinjau yang bisa diubah">
+      <DemoGroup api="Badge · tone · size · treatment sunken tetap" title="Pratinjau yang bisa diubah">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">Tone</span>
@@ -310,19 +313,13 @@ function BadgePreview() {
                 {option}
               </DemoChoice>
             ))}
-            <span className="ml-2 text-xs font-semibold text-voyage-muted-ink">Kedalaman</span>
-            {BADGE_DEPTHS.map((option) => (
-              <DemoChoice active={depth === option} key={option} onClick={() => setDepth(option)}>
-                {option}
-              </DemoChoice>
-            ))}
           </div>
-          <Badge depth={depth} size={size} tone={tone}>{BADGE_TONE_LABELS[tone]}</Badge>
+          <Badge size={size} tone={tone}>{BADGE_TONE_LABELS[tone]}</Badge>
         </div>
       </DemoGroup>
 
       <DemoGroup
-        api={`badgeVariants · ${BADGE_TONES.length} tone × ${BADGE_SIZES.length} ukuran × ${BADGE_DEPTHS.length} kedalaman`}
+        api={`badgeVariants · ${BADGE_TONES.length} tone × ${BADGE_SIZES.length} ukuran · sunken tetap`}
         title="Semua kombinasi"
       >
         <div className="space-y-4">
@@ -332,20 +329,13 @@ function BadgePreview() {
                 <code className="text-xs font-semibold text-voyage-ink">{`tone="${badgeTone}"`}</code>
                 <span className="text-xs text-voyage-muted-ink">{BADGE_TONE_LABELS[badgeTone]}</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {BADGE_DEPTHS.map((badgeDepth) => (
-                  <div className="flex min-w-0 flex-col gap-2" key={badgeDepth}>
-                    <code className="text-xs text-voyage-muted-ink">{`depth="${badgeDepth}"`}</code>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {BADGE_SIZES.map((badgeSize) => (
-                        <div className="flex flex-col items-start gap-1" key={badgeSize}>
-                          <Badge depth={badgeDepth} size={badgeSize} tone={badgeTone}>
-                            {BADGE_TONE_LABELS[badgeTone]}
-                          </Badge>
-                          <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
-                        </div>
-                      ))}
-                    </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {BADGE_SIZES.map((badgeSize) => (
+                  <div className="flex flex-col items-start gap-1" key={badgeSize}>
+                    <Badge size={badgeSize} tone={badgeTone}>
+                      {BADGE_TONE_LABELS[badgeTone]}
+                    </Badge>
+                    <code className="text-xs text-voyage-muted-ink">{`size="${badgeSize}"`}</code>
                   </div>
                 ))}
               </div>
@@ -359,7 +349,7 @@ function BadgePreview() {
 
 function FieldPreview() {
   const [inputType, setInputType] = useState<DemoInputType>("email");
-  const [inputValue, setInputValue] = useState("alya@vecalss.id");
+  const [inputValue, setInputValue] = useState(INPUT_SAMPLE_VALUES.email);
   const [fullName, setFullName] = useState("");
   const [summary, setSummary] = useState("");
   const [showNameError, setShowNameError] = useState(false);
@@ -367,17 +357,26 @@ function FieldPreview() {
 
   return (
     <div className="space-y-7">
-      <DemoGroup api="Input · native type · disabled · aria-invalid" title="Input">
+      <DemoGroup api="Input · type native · nonaktif" title="Input">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-xs font-semibold text-voyage-muted-ink">type</span>
             {INPUT_TYPES.map((option) => (
-              <DemoChoice active={inputType === option} key={option} onClick={() => setInputType(option)}>{option}</DemoChoice>
+              <DemoChoice
+                active={inputType === option}
+                key={option}
+                onClick={() => {
+                  setInputType(option);
+                  setInputValue(INPUT_SAMPLE_VALUES[option]);
+                }}
+              >
+                {option}
+              </DemoChoice>
             ))}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium text-voyage-ink" htmlFor="catalog-control-input">
-              Alamat email contoh
+            <Field>
+              <FieldLabel htmlFor="catalog-control-input">Nilai contoh</FieldLabel>
               <Input
                 autoComplete="off"
                 id="catalog-control-input"
@@ -385,63 +384,77 @@ function FieldPreview() {
                 type={inputType}
                 value={inputValue}
               />
-            </label>
-            <label className="grid gap-2 text-sm font-medium text-voyage-ink" htmlFor="catalog-control-search">
-              Pencarian
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="catalog-control-search">Pencarian</FieldLabel>
               <Input id="catalog-control-search" placeholder="Cari materi…" type="search" />
-            </label>
-            <label className="grid gap-2 text-sm font-medium text-voyage-ink" htmlFor="catalog-control-disabled">
-              Tidak dapat diubah
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="catalog-control-disabled">Tidak dapat diubah</FieldLabel>
               <Input disabled id="catalog-control-disabled" value="Contoh yang dikunci" />
-            </label>
-            <label className="grid gap-2 text-sm font-medium text-voyage-ink" htmlFor="catalog-control-invalid">
-              Nilai tidak valid
-              <Input aria-invalid="true" id="catalog-control-invalid" defaultValue="alamat keliru" />
-            </label>
+            </Field>
           </div>
           <p className="text-xs text-voyage-muted-ink">
-            <code>Input</code> memakai atribut input native dan tidak memiliki varian desain khusus.
+            <code>Input</code> memakai atribut native. Tipe yang ditampilkan berbagi satu treatment field.
           </p>
         </div>
       </DemoGroup>
 
       <DemoGroup api="Field · FieldLabel · FieldInput · FieldTextarea · FieldError" title="Field">
-        <div className="grid gap-5 md:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="catalog-control-name" required>Nama lengkap</FieldLabel>
-            <FieldInput
-              aria-describedby={hasNameError ? "catalog-control-name-error" : undefined}
-              aria-invalid={hasNameError}
-              id="catalog-control-name"
-              onChange={(event) => setFullName(event.currentTarget.value)}
-              placeholder="Alya Ramadhani"
-              required
-              value={fullName}
-            />
-            <FieldError
-              error={hasNameError ? "Isi nama lengkap untuk melanjutkan." : undefined}
-              id="catalog-control-name-error"
-            />
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-[62ch] text-sm leading-6 text-voyage-muted-ink">
+              Saat ada kesalahan, pemicu bernama membuka pesannya saat diarahkan, difokuskan, atau diketuk. Teksnya tetap tersedia untuk pembaca layar.
+            </p>
             <DemoChoice active={showNameError} onClick={() => setShowNameError((current) => !current)}>
               {showNameError ? "Sembunyikan pesan" : "Tampilkan pesan validasi"}
             </DemoChoice>
-          </Field>
+          </div>
 
-          <Field>
-            <FieldLabel htmlFor="catalog-control-summary">Ringkasan</FieldLabel>
-            <FieldTextarea
-              id="catalog-control-summary"
-              onChange={(event) => setSummary(event.currentTarget.value)}
-              placeholder="Tambahkan keterangan singkat"
-              value={summary}
-            />
-            <p className="text-xs text-voyage-muted-ink">Label tanpa tanda wajib bersifat opsional.</p>
-          </Field>
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="catalog-control-name" required>Nama lengkap</FieldLabel>
+              <FieldInput
+                aria-describedby={hasNameError ? "catalog-control-name-error" : undefined}
+                aria-invalid={hasNameError}
+                id="catalog-control-name"
+                onChange={(event) => setFullName(event.currentTarget.value)}
+                placeholder="Alya Ramadhani"
+                required
+                value={fullName}
+              />
+              <FieldError
+                error={hasNameError ? "Isi nama lengkap untuk melanjutkan." : undefined}
+                id="catalog-control-name-error"
+              />
+            </Field>
 
-          <Field>
-            <FieldLabel htmlFor="catalog-control-field-disabled">Field nonaktif</FieldLabel>
-            <FieldInput disabled id="catalog-control-field-disabled" value="Nilai tersimpan" />
-          </Field>
+            <Field>
+              <FieldLabel htmlFor="catalog-control-summary">Ringkasan</FieldLabel>
+              <FieldTextarea
+                id="catalog-control-summary"
+                onChange={(event) => setSummary(event.currentTarget.value)}
+                placeholder="Tambahkan keterangan singkat"
+                value={summary}
+              />
+              <p className="text-xs text-voyage-muted-ink">Label tanpa tanda wajib bersifat opsional.</p>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="catalog-control-settings-email">Email</FieldLabel>
+              <FieldInput
+                defaultValue="student@vecalss.local"
+                id="catalog-control-settings-email"
+                readOnly
+                type="email"
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="catalog-control-field-disabled">Field nonaktif</FieldLabel>
+              <FieldInput disabled id="catalog-control-field-disabled" value="Nilai tersimpan" />
+            </Field>
+          </div>
         </div>
       </DemoGroup>
     </div>
@@ -1000,7 +1013,7 @@ export const controlSections: ControlSection[] = [
   {
     id: "badges",
     title: "Badge",
-    description: "Satu badge untuk semua ruang kerja: tujuh tone, tiga ukuran, dan kedalaman flat atau sunken.",
+    description: "Satu Badge untuk semua ruang kerja: enam tone, tiga ukuran, dan treatment sunken yang tetap.",
     sources: [
       "components/ui/badge.tsx — Badge",
       "components/ui/badge-variants.ts — badgeVariants",
@@ -1010,11 +1023,13 @@ export const controlSections: ControlSection[] = [
   {
     id: "fields",
     title: "Input dan field",
-    description: "Input native, label wajib, textarea, keadaan nonaktif, dan pesan validasi.",
+    description: "Tipe input native dengan satu permukaan inset, textarea, label wajib, keadaan nonaktif, dan validasi melalui tooltip.",
     sources: [
       "components/ui/input.tsx — Input",
       "components/ui/field.tsx — Field, FieldLabel, FieldInput, FieldTextarea, FieldError",
       "components/ui/field-constants.ts — fieldControlClassName",
+      "components/ui/tooltip.tsx — Tooltip, TooltipTrigger, TooltipContent",
+      "components/ui/button.tsx — Button",
     ],
     preview: <FieldPreview />,
   },
@@ -1036,6 +1051,9 @@ export const controlSections: ControlSection[] = [
     description: "Status unggah lokal, pilihan beberapa berkas ke slot terpisah, dan unduhan templat CSV.",
     sources: [
       "components/ui/file-upload-slot.tsx — FileUploadSlot",
+      "components/ui/field-constants.ts — fieldControlClassName",
+      "components/ui/button.tsx — Button",
+      "lib/icons.tsx",
       "components/ui/csv-template-download.tsx — CsvTemplateDownload",
     ],
     preview: <FileControlsPreview />,

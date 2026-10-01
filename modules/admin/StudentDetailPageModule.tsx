@@ -11,6 +11,7 @@ import { formatStudentStatus, studentStatusTone } from "./student-status";
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldRequiredMark } from "@/components/ui/field";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Badge } from "@/components/ui/badge";
 import type {
@@ -151,7 +152,7 @@ function StudentAccountSummary({ student }: { student: StudentDetail }) {
         </div>
         <div className="min-w-0 space-y-2 text-sm">
           <span className="font-medium text-secondary-900">Status</span>
-          <div className="flex min-h-[52px] items-center"><Badge depth="sunken" size="md" tone={studentStatusTone(student.status)}>{formatStudentStatus(student.status)}</Badge></div>
+          <div className="flex min-h-[52px] items-center"><Badge size="md" tone={studentStatusTone(student.status)}>{formatStudentStatus(student.status)}</Badge></div>
         </div>
       </div>
     </DetailSection>
@@ -162,10 +163,10 @@ function StudentPersonalFields({ firstName, lastName, student }: { firstName: st
   return (
     <DetailSection title="Informasi pribadi">
       <div className="grid gap-5 md:grid-cols-2">
-        <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama depan<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" /></label>
-        <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Nama belakang</span><input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" /></label>
-        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Alamat email<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" /></label>
-        <label className="min-w-0 space-y-2 text-sm md:col-span-2"><span className="font-medium text-secondary-900">Nomor telepon</span><input aria-readonly="true" className={`${detailFieldClassName} text-secondary-700`} defaultValue={student.phone ?? "Belum diisi"} readOnly type="text" /></label>
+        <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Nama depan<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" /></label>
+        <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Nama belakang</span><input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" /></label>
+        <label className="min-w-0 space-y-2 md:col-span-2"><span className={fieldLabelClassName}>Alamat email<FieldRequiredMark /></span><input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" /></label>
+        <label className="min-w-0 space-y-2 md:col-span-2"><span className={fieldLabelClassName}>Nomor telepon</span><input aria-readonly="true" className={`${detailFieldClassName} text-secondary-700`} defaultValue={student.phone ?? "Belum diisi"} readOnly type="text" /></label>
       </div>
     </DetailSection>
   );
@@ -194,7 +195,7 @@ function StudentEnrollmentProfile({
     <DetailSection title="Profil pendaftaran">
       <div className="grid gap-5 md:grid-cols-2">
         <Field className="min-w-0 gap-2 text-sm md:col-span-2">
-          <FieldLabel className="text-sm font-medium leading-5 text-secondary-900" htmlFor="student-target-exam">Target ujian</FieldLabel>
+          <FieldLabel htmlFor="student-target-exam">Target ujian</FieldLabel>
           <StudentDetailTargetExamSelect
             initialValue={persistedTargetExamId}
             options={[

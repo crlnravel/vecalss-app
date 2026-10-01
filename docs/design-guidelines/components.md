@@ -153,8 +153,8 @@ outer card contract should not.
 ## Inputs / Fields
 
 - **Style:** One sunken field surface, matching Student `/settings`: exact 44px
-  minimum height, `rounded-field` (20px), pale mint fill, quiet border and inset
-  depth. This applies to text, email, password, number, date, search, select,
+  minimum height, `rounded-field` (20px), near-white green fill, muted green values, a quiet border and inset
+  depth, copied from the original Student `/settings` Email field. This applies to text, email, password, number, date, search, select,
   file/choice field surfaces and textareas. Textareas grow with their content
   needs. Do not offer flat/raised field alternatives.
 - **Focus:** A visible 3px green-tinted ring and a slightly stronger border;
@@ -171,10 +171,14 @@ outer card contract should not.
 
 ### Settings-style field labels and control families
 
-All app forms share the Student `/settings` field contract. Use the exported
+All app forms share the Student `/settings` field contract. The original
+Email field and supplied screenshot are the visual authority. Extract their
+appearance into the shared recipe; do not change `/settings` to match a new
+field design. Use the exported
 `REFERENCE_FIELD_LABEL_CLASS_NAME` for visible field labels, also consumed by
-`FieldLabel`: Manrope (`font-heading`), the standard 14px UI size, semibold,
-sentence case and muted green. Input values, options and actions remain Plus
+`FieldLabel`: Manrope (`font-heading`), 12px, semibold,
+sentence case, subtle tracking and muted green, following the original label
+scale in `/settings`. Input values, options and actions remain Plus
 Jakarta Sans at the standard 14px size. Checkbox/radio option text is a value,
 not a field heading; it keeps the body font.
 
@@ -183,7 +187,7 @@ geometry in a route module:
 
 | Control family | Shared implementation | Contract |
 | --- | --- | --- |
-| Text, number, date, search, and textarea | `REFERENCE_CONTROL_CLASS_NAMES.input` | Pale mint surface, 44px minimum height, 20px corners, inset depth, and a visible green focus ring. Add only field-specific sizing such as a textarea minimum height. |
+| Text, number, date, search, and textarea | `REFERENCE_CONTROL_CLASS_NAMES.input` | Original `/settings` Email surface: near-white green fill, muted green values, 44px minimum height, 20px corners, inset depth, and a visible green focus ring. Add only field-specific sizing such as a textarea minimum height. |
 | Select and dropdown | `ReferenceSelect`, `DropdownField`, or a custom listbox trigger with `REFERENCE_CONTROL_CLASS_NAMES.select` | Keep the visible label above the trigger; preserve keyboard navigation, selected state, and the shared popup surface. |
 | Radio or checkbox choices | `RadioGroup` / `Checkbox` inside a `REFERENCE_CONTROL_CLASS_NAMES.choice` surface | Apply the reference surface to the choice row, use a visible focus-within ring, and keep option labels at `text-sm` or larger. The group label uses the compact settings label token. |
 | File and media | A keyboard-accessible visible trigger with `REFERENCE_CONTROL_CLASS_NAMES.file` plus a native `input[type="file"]` kept `sr-only` | The trigger names the action (`Pilih gambar`, `Ganti gambar`, or `Upload gambar`), remains at least 44px high, and exposes disabled/uploading state without hiding the input semantics. |

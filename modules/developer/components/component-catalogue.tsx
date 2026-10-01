@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { Search } from "@/lib/icons";
 
 import { controlSections } from "./catalogue-controls";
@@ -96,7 +97,7 @@ function ComponentCatalogue() {
         <>
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full sm:max-w-md">
-              <label className="mb-2 block text-sm font-semibold text-secondary-900" htmlFor="component-search">
+              <label className={`mb-2 block ${fieldLabelClassName}`} htmlFor="component-search">
                 Cari contoh komponen
               </label>
               <div className="relative">

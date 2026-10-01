@@ -47,7 +47,7 @@ function DeveloperNavigation({ activePage, isDetailPage }: { activePage: Develop
     <Sidebar
       collapsible="icon"
       variant="floating"
-      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-4xl [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
+      className="border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-control [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] [&>div]:ring-0"
     >
       <SidebarHeader className="mb-2 gap-5 p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
         <Link
@@ -115,7 +115,7 @@ function DeveloperWorkspaceShell({
         <DeveloperNavigation activePage={activePage} isDetailPage={isDetailPage} />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
-          <header aria-label="Header workspace Developer" className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-3xl lg:border">
+          <header aria-label="Header workspace Developer" className="sticky top-0 z-20 mx-auto w-[calc(100%-2rem)] max-w-[calc(1420px-2rem)] bg-voyage-canvas/90 backdrop-blur-xl md:w-[calc(100%-4rem)] md:max-w-[calc(1420px-4rem)] lg:top-6 lg:w-[calc(100%-5rem)] lg:max-w-[calc(1420px-5rem)] lg:rounded-control lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger aria-label="Buka atau tutup navigasi" className="size-[44px] min-h-[44px] min-w-[44px] shrink-0 motion-reduce:transition-none lg:hidden" />
 

@@ -1,4 +1,10 @@
+// Visual source: the original Student /settings Email field, including its
+// near-white green fill, inset depth and muted green value. Shared controls
+// inherit this recipe; /settings must not be restyled to suit another field.
 const fieldControlClassName =
-  "min-w-0 w-full rounded-field border border-secondary-900/14 bg-white px-5 py-3.5 text-sm text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25";
+  "min-h-[44px] min-w-0 w-full rounded-field border border-primary-100/80 bg-secondary-50 px-4 py-3 font-sans text-sm font-normal leading-5 text-secondary-500 shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-500/65 focus-visible:ring-3 focus-visible:ring-primary-700/15 disabled:cursor-not-allowed disabled:opacity-55 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25 motion-reduce:transition-none";
 
-export { fieldControlClassName };
+const fieldLabelClassName =
+  "font-heading text-xs leading-7 font-semibold tracking-[0.04em] text-secondary-600";
+
+export { fieldControlClassName, fieldLabelClassName };

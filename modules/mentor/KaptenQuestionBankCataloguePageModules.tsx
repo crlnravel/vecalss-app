@@ -58,13 +58,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
@@ -1008,7 +1001,7 @@ function QuestionBankLifecycleConfirmationDialog({
           <AlertDialogAction
             disabled={isApplying}
             onClick={onConfirm}
-            variant={pendingConfirmation ? "destructive" : "brand"}
+            variant={pendingConfirmation ? "destructive" : "default"}
           >
             {isApplying
               ? "Memproses…"
@@ -1389,7 +1382,6 @@ function getQuestionBankCatalogueViewModel({
   flatFolders,
   folders,
   initialPageSize,
-  initialPurpose,
   initialSearch,
   initialTotal,
   page,
@@ -1398,7 +1390,6 @@ function getQuestionBankCatalogueViewModel({
   flatFolders: Array<{ depth: number; folder: FolderNode }>;
   folders: FolderNode[];
   initialPageSize: number;
-  initialPurpose: QuestionBankPurpose;
   initialSearch: string;
   initialTotal: number;
   page: number;
@@ -1410,7 +1401,7 @@ function getQuestionBankCatalogueViewModel({
       : selectedFolder === null
         ? findFolder(folders, null)
         : null;
-  const rootLabel = questionBankNavigationLabel(initialPurpose);
+  const rootLabel = "#";
   const currentPath =
     selectedFolder === ROOT_FOLDER
       ? [{ id: null, name: rootLabel }]
@@ -1520,7 +1511,6 @@ function useQuestionBankCatalogueState({
     flatFolders,
     folders,
     initialPageSize,
-    initialPurpose,
     initialSearch,
     initialTotal,
     page,
@@ -1789,7 +1779,6 @@ function QuestionBankCataloguePageContent({
     isApplying,
     moveBankToFolder,
     openFolderCreate,
-    openFolderManage,
     pendingConfirmation,
     pendingLifecycle,
     selectedBank,

@@ -186,7 +186,7 @@ function ParticipantTryoutWorkspace({
             <span className="sr-only">Cari tryout</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
-              className="h-12 rounded-2xl border-primary-100 bg-primary-50/60 pl-11 shadow-none"
+              className="pl-11"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari tryout…"
               value={query}

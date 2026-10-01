@@ -22,32 +22,32 @@ function excludes(source: string, unexpected: string, message: string) {
 const materiBuilder = read("modules/mentor/KaptenMateriBuilderPageModule.tsx");
 includes(materiBuilder, "Belum ada PDF dipilih", "Materi must disclose when no PDF is selected.");
 includes(materiBuilder, "Pilih PDF dari pustaka media untuk melanjutkan.", "Materi must explain how to resolve a missing PDF.");
-includes(materiBuilder, 'aria-describedby={errors.documentAssetId || errors.documentMimeType ? "materi-document-error"', "PDF picker must link its validation message.");
-includes(materiBuilder, "aria-invalid={Boolean(errors.documentAssetId || errors.documentMimeType)}", "PDF picker must expose invalid state.");
+assert.match(materiBuilder, /aria-describedby=\{\s*errors\.documentAssetId\s*\|\|\s*errors\.documentMimeType\s*\?\s*"materi-document-error"/u, "PDF picker must link its validation message.");
+assert.match(materiBuilder, /aria-invalid=\{Boolean\(\s*errors\.documentAssetId\s*\|\|\s*errors\.documentMimeType,?\s*\)\}/u, "PDF picker must expose invalid state.");
+checks += 2;
 excludes(materiBuilder, '|| "test.pdf"', "Materi must not present a fake PDF filename.");
 
 const pdfPreview = read("modules/courses/StudentPdfPreview.tsx");
 const pdfDocument = read("modules/courses/StudentPdfDocument.tsx");
-includes(pdfPreview, "const completionReady = documentActionsReady && renderedKey === requestKey;", "Completion must wait for a rendered document.");
+includes(pdfPreview, "completionReady: model.completionReady && renderedKey === model.requestKey,", "Completion must wait for a rendered document.");
 includes(pdfPreview, "{completionReady ? completionAction : null}", "Completion action must be hidden until the PDF is ready.");
-includes(pdfPreview, "onReady={() => setRenderedKey(requestKey)}", "Preview must report successful PDF rendering.");
-includes(pdfPreview, "onError={() => setRenderedKey(null)}", "Preview must clear completion readiness on render failure.");
+includes(pdfPreview, "onPreviewReady: () => setRenderedKey(model.requestKey)", "Preview must report successful PDF rendering.");
+includes(pdfPreview, "onPreviewError: () => { setFailedKey(model.requestKey); setRenderedKey(null); }", "Preview must clear completion readiness on render failure.");
 includes(pdfDocument, "const PAGE_BATCH_SIZE = 3;", "PDF pages must render in bounded batches.");
 includes(pdfDocument, "Tampilkan halaman berikutnya", "PDF preview must provide progressive page loading.");
 
 const quizOngoing = read("modules/quiz/QuizOngoingPageModule.tsx");
 const quizResult = read("modules/quiz/QuizResultPageModule.tsx");
 const quizActions = read("modules/quiz/actions.ts");
-includes(quizOngoing, 'label="Tandai untuk ditinjau"', "Ongoing quiz must use the truthful review label.");
-includes(quizResult, 'label="Tandai untuk ditinjau"', "Quiz result must use the truthful review label.");
-includes(quizOngoing, "tidak dikirim ke staf", "Ongoing quiz must disclose the local-only review marker.");
-includes(quizResult, "terhapus saat halaman ditutup atau dimuat ulang", "Quiz result must disclose local retention.");
+const activeQuizOngoing = quizOngoing.replace(/\{\/\*[\s\S]*?\*\/\}/gu, "");
+excludes(activeQuizOngoing, 'label="Tandai untuk ditinjau"', "Ongoing quiz must not imply the retired reporting action exists.");
+excludes(quizResult, 'label="Tandai untuk ditinjau"', "Quiz results must not imply the retired reporting action exists.");
 excludes(quizActions, "reportQuestion", "No server report contract may be implied when none exists.");
 excludes(quizActions, "laporkan", "No server report action may be implied when none exists.");
-console.log("Learner report contract: no server-visible action found; local-only review marker is disclosed.");
+console.log("Learner report contract: no unsupported reporting action is exposed.");
 
 const dashboard = read("modules/dashboard/DashboardPageModule.tsx");
-includes(dashboard, "Data dashboard belum tersedia", "Dashboard must disclose unavailable live data.");
+includes(dashboard, "Ringkasan belajar belum tersedia", "Dashboard must disclose unavailable live summary data.");
 includes(dashboard, 'aria-disabled="true"', "Unavailable missions must not present interactive completion controls.");
 includes(dashboard, "Belum tersedia", "Unavailable analytics must have an explicit empty state.");
 excludes(dashboard, 'xp="1.840"', "Dashboard must not display hardcoded XP.");
@@ -82,7 +82,7 @@ for (const path of [
 const policy = read("modules/admin/AiPolicyPageModule.tsx");
 includes(policy, "policy-action-confirmation", "Policy actions must expose a confirmation surface.");
 includes(policy, "requestConfirmation", "Policy actions must require an explicit confirmation request.");
-includes(policy, "future-only", "Policy confirmation must state future-only impact.");
+includes(policy, "hanya berlaku ke depan", "Policy confirmation must state future-only impact in user-facing language.");
 includes(policy, "audit", "Policy confirmation must state audit context.");
 includes(policy, 'method,', "Policy commands must expose an explicit HTTP method contract.");
 includes(policy, 'expectedRevision: draft.revision', "Policy commands must send the persisted revision.");
@@ -106,7 +106,8 @@ includes(settingsModule, "Subjek yang diajar", "Settings must expose the teachin
 excludes(settingsModule, "Bahasa konten", "Unused language preferences must not be exposed.");
 includes(settingsModule, "Salin ID akun", "Account ID must be copyable as account information.");
 includes(settingsModule, "Ada perubahan yang belum disimpan", "Settings must disclose dirty state.");
-includes(settingsModule, "Perubahan tersimpan", "Settings must retain save feedback in the page.");
+includes(settingsModule, "usePageStatusToast", "Settings must disclose unsaved changes through floating Sonner.");
+includes(settingsModule, "Perubahan tersimpan", "Settings must retain save outcome feedback through Sonner.");
 includes(settingsModule, "Simpan perubahan", "Settings must expose a save action.");
 includes(settingsModule, "Batal", "Settings must expose a cancel action.");
 includes(settingsModule, "saveKaptenSettingsAction", "Settings must persist through a server action.");
@@ -120,7 +121,7 @@ const studentDetail = read("modules/admin/StudentDetailPageModule.tsx");
 includes(studentDetail, "targetExamIsInactive", "Student detail must detect persisted inactive targets.");
 includes(studentDetail, "sudah tidak aktif", "Student detail must label inactive targets explicitly.");
 includes(studentDetail, "blockedField", "Student detail must guard unchanged inactive targets on submit.");
-includes(studentDetail, "Password tersamarkan, tidak dapat disalin", "Masked password copy must announce its unavailable outcome.");
+includes(studentDetail, "Kata sandi disamarkan, tidak dapat disalin", "Masked password copy must announce its unavailable outcome.");
 
 const kuisDetail = read("modules/mentor/KaptenQuizDetailPageModule.tsx");
 excludes(kuisDetail, "Assembly Kuis", "Standalone Kuis detail must not expose assembly source UI.");
@@ -129,27 +130,20 @@ excludes(kuisDetail, "Kelola sumber", "Standalone Kuis detail must not expose so
 
 const vera = read("modules/vera-ai/VeraAiPageModule.tsx");
 includes(vera, 'dataState === "live"', "Vera actions and workspace must require live server data.");
-includes(vera, "sources_unavailable", "Vera must identify unavailable source data.");
-includes(vera, "Sumber data: {state}", "Vera must disclose the loaded data provenance state.");
+includes(vera, 'setDataState("unavailable")', "Vera must identify unavailable server data.");
+includes(vera, "setBackendError(veraErrorMessage(caught))", "Vera must retain actionable recovery when server hydration fails.");
+includes(vera, "setUsage(null)", "Vera must clear stale usage when hydration fails.");
 includes(vera, "Data penggunaan belum tersedia dari server.", "Vera usage must disclose unavailable server data.");
 excludes(vera, "DAILY_TOKEN_USAGE", "Vera must not fabricate a fallback quota usage value.");
 excludes(vera, "DAILY_TOKEN_LIMIT", "Vera must not fabricate a fallback quota limit value.");
 
-const tryoutPolicy = read("modules/mentor/KaptenTryoutPolicyPageModule.tsx");
 const tryoutBuilder = read("modules/mentor/KaptenTryoutBuilderPageModule.tsx");
 const tryoutRepository = read("lib/tryout/repository.ts");
 const tryoutActions = read("modules/mentor/tryout-actions.ts");
-includes(tryoutPolicy, "initial.admissionMode", "Tryout edit mode must initialize from persisted admission mode.");
-includes(tryoutPolicy, 'mode === "create"', "Tryout create mode must have an explicit branch.");
-includes(tryoutPolicy, "Kebijakan awal siap. Simpan draf Tryout untuk menerapkannya.", "Tryout create mode must disclose that policy is applied on the first draft save.");
-excludes(tryoutPolicy, 'useState<Mode>("open")', "Tryout edit mode must not reset admission to open.");
-includes(tryoutPolicy, "tryout-admission-confirmation", "Admission changes must require confirmation.");
-includes(tryoutPolicy, "Pengaturan akses peserta Tryout", "Admission confirmation must name its audit context.");
-includes(tryoutPolicy, "Perlu persetujuan", "Restricted admission mode must be selectable when deliberate.");
-includes(tryoutBuilder, 'mode="create"', "Tryout create route must render the create-mode policy surface.");
-includes(tryoutBuilder, "onCreatePolicyChange", "Tryout create policy changes must flow back to the draft before saving.");
-includes(tryoutBuilder, "admissionMode: id ? undefined : draftToSave.admissionMode ?? \"open\"", "Tryout create saves must carry the selected admission mode without resetting edit state.");
-includes(tryoutBuilder, "defaultResultReleasePolicy: id ? undefined : defaultPolicyForDraft(draftToSave.defaultReleasePolicy)", "Tryout create saves must carry the selected release policy without resetting edit state.");
+includes(tryoutBuilder, 'admissionMode: "open"', "New Tryout drafts must initialize the supported admission default.");
+includes(tryoutBuilder, "admissionMode: id ? undefined : (draftToSave.admissionMode ?? \"open\")", "Tryout create saves must carry the selected admission mode without resetting edit state.");
+assert.match(tryoutBuilder, /defaultResultReleasePolicy: id\s*\? undefined\s*: defaultPolicyForDraft\(draftToSave\.defaultReleasePolicy\)/u, "Tryout create saves must carry the selected release policy without resetting edit state.");
+checks += 1;
 includes(tryoutRepository, "admissionMode?: \"open\" | \"approval_required\" | \"invitation_only\"", "Tryout persistence must accept the create admission policy.");
 includes(tryoutRepository, "defaultResultReleasePolicy?: \"immediate\" | \"manual\" | \"automatic_at_end\"", "Tryout persistence must accept the create release policy.");
 includes(tryoutRepository, "admissionMode: (input.admissionMode ?? \"open\")", "New Tryout records must persist the visible open default when unchanged.");

@@ -11,7 +11,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useEffect, useReducer, useState, type ReactNode } from "react";
+import { useReducer, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn } from "@/components/ui/data-table";
@@ -199,10 +199,6 @@ function KaptenMateriPageModule({
   const [createDialogOpen, setCreateDialogOpen] = useState(
     initialCreateDialogOpen,
   );
-
-  useEffect(() => {
-    setCreateDialogOpen(initialCreateDialogOpen);
-  }, [initialCreateDialogOpen]);
 
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);

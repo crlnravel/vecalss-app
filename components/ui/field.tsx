@@ -1,7 +1,22 @@
+"use client";
+
+import { useState } from "react";
 import { Field as FieldPrimitive } from "@base-ui/react/field";
 
+import { Button } from "@/components/ui/button";
+import { CircleAlert } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-import { fieldControlClassName } from "./field-constants";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
+import { fieldControlClassName, fieldLabelClassName } from "./field-constants";
+
+function composeClassName<State>(
+  baseClassName: string,
+  className: string | ((state: State) => string | undefined) | undefined,
+) {
+  return typeof className === "function"
+    ? (state: State) => cn(baseClassName, className(state))
+    : cn(baseClassName, className);
+}
 
 function Field({
   className,
@@ -10,7 +25,10 @@ function Field({
   return (
     <FieldPrimitive.Root
       data-slot="field"
-      className={cn("flex min-w-0 flex-col gap-[5px] text-primary-900", className)}
+      className={composeClassName<FieldPrimitive.Root.State>(
+        "flex min-w-0 flex-col gap-[5px] text-primary-900",
+        className,
+      )}
       {...props}
     />
   );
@@ -36,7 +54,10 @@ function FieldLabel({
   return (
     <FieldPrimitive.Label
       data-slot="field-label"
-      className={cn("text-base leading-7 text-primary-900", className)}
+      className={composeClassName<FieldPrimitive.Label.State>(
+        fieldLabelClassName,
+        className,
+      )}
       {...props}
     >
       {children}
@@ -52,7 +73,10 @@ function FieldInput({
   return (
     <FieldPrimitive.Control
       data-slot="field-input"
-      className={cn(fieldControlClassName, className)}
+      className={composeClassName<FieldPrimitive.Control.State>(
+        fieldControlClassName,
+        className,
+      )}
       {...props}
     />
   );
@@ -84,10 +108,39 @@ function FieldError({
 }) {
   if (!error) return null;
 
+  return <ActiveFieldError error={error} id={id} />;
+}
+
+function ActiveFieldError({ error, id }: { error: string; id: string }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <p className="text-sm leading-5 text-student-status-danger-fg" id={id} role="alert">
-      {error}
-    </p>
+    <>
+      <span className="sr-only" id={id} role="alert">
+        {error}
+      </span>
+      <div className="flex min-h-[44px] items-center">
+        <Tooltip open={open} onOpenChange={setOpen}>
+          <TooltipTrigger
+            closeOnClick={false}
+            render={
+              <Button
+                aria-describedby={id}
+                aria-label="Lihat pesan kesalahan"
+                className="border-student-status-danger-border text-student-status-danger-fg hover:border-student-status-danger-fg hover:bg-student-status-danger-bg/70 focus-visible:ring-student-status-danger-border/35"
+                onClick={() => setOpen(true)}
+                size="icon"
+                type="button"
+                variant="outline"
+              >
+                <CircleAlert aria-hidden="true" className="size-5" />
+              </Button>
+            }
+          />
+          <TooltipContent>{error}</TooltipContent>
+        </Tooltip>
+      </div>
+    </>
   );
 }
 

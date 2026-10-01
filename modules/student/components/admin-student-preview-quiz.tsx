@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import {
   buildAdminStudentPreviewQuizRoute,
-  buildAdminStudentPreviewRoute,
 } from "@/lib/student/preview-routes";
 import type { AdminStudentBannerRead } from "@/lib/student/banner-presentation";
 import type { StudentBannerVariables } from "@/lib/student/banner-content";

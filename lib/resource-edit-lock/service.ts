@@ -690,7 +690,10 @@ async function withTransientEditLeases<T>(
       }
     }
 
-    const result = await callback(resources.map(({ holderUserId: _holderUserId, ...resource }) => resource));
+    const result = await callback(resources.map(({ holderUserId: _holderUserId, ...resource }) => {
+      void _holderUserId;
+      return resource;
+    }));
     for (const claim of claims) {
       // react-doctor-disable-next-line async-await-in-loop -- release every claim after the callback in canonical order.
       const serverNow = await databaseNow(tx);

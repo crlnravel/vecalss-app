@@ -39,10 +39,11 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-cohort" required>Kelas</FieldLabel>
+          <FieldLabel htmlFor="kelas-notification-cohort" required>Kelas</FieldLabel>
           <ReferenceSelect
             aria-label="Kelas penerima"
             aria-describedby={state.fieldErrors?.cohortId ? "kelas-notification-cohort-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.cohortId)}
             className={state.fieldErrors?.cohortId ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
             id="kelas-notification-cohort"
             name="cohortId"
@@ -60,7 +61,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
         </Field>
 
         <Field>
-          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-title" required>Judul</FieldLabel>
+          <FieldLabel htmlFor="kelas-notification-title" required>Judul</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.title ? "kelas-notification-title-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.title)}
@@ -77,7 +78,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
         <Field className="md:col-span-2">
           <div className="flex items-center gap-1.5">
-            <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-body" required>Pesan</FieldLabel>
+            <FieldLabel htmlFor="kelas-notification-body" required>Pesan</FieldLabel>
             <Tooltip>
               <TooltipTrigger render={<Button aria-label="Bantuan format pesan" className="text-secondary-500 hover:text-primary-800" size="icon-sm" type="button" variant="outline" />}>
                 <CircleHelp aria-hidden="true" />

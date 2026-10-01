@@ -323,7 +323,6 @@ function ReferenceStatusBadge({
   return (
     <Badge
       className={className}
-      depth="sunken"
       size={size}
       tone={resolvedTone}
     >

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { useActionToast } from "@/components/ui/use-action-toast";
 import type { LoginAudience } from "@/lib/auth/types";
 
@@ -33,8 +33,10 @@ function ResetPasswordForm({
       {state.message && keepMessageInline ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
       <Field>
-        <FieldLabel htmlFor="reset-password">Kata sandi baru</FieldLabel>
+        <FieldLabel htmlFor="reset-password" required>Kata sandi baru</FieldLabel>
         <FieldInput
+          aria-describedby={state.fieldErrors?.password ? "reset-password-error" : undefined}
+          aria-invalid={Boolean(state.fieldErrors?.password)}
           autoComplete="new-password"
           id="reset-password"
           name="password"
@@ -43,24 +45,22 @@ function ResetPasswordForm({
           type="password"
         />
         <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
-        {state.fieldErrors?.password ? (
-          <p className="text-sm text-danger-700">{state.fieldErrors.password}</p>
-        ) : null}
+        <FieldError error={state.fieldErrors?.password} id="reset-password-error" />
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="reset-password-confirmation">Konfirmasi kata sandi</FieldLabel>
+        <FieldLabel htmlFor="reset-password-confirmation" required>Konfirmasi kata sandi</FieldLabel>
         <FieldInput
           autoComplete="new-password"
           id="reset-password-confirmation"
+          aria-describedby={state.fieldErrors?.confirmPassword ? "reset-password-confirmation-error" : undefined}
+          aria-invalid={Boolean(state.fieldErrors?.confirmPassword)}
           name="confirmPassword"
           placeholder="Ulangi kata sandi baru"
           required
           type="password"
         />
-        {state.fieldErrors?.confirmPassword ? (
-          <p className="text-sm text-danger-700">{state.fieldErrors.confirmPassword}</p>
-        ) : null}
+        <FieldError error={state.fieldErrors?.confirmPassword} id="reset-password-confirmation-error" />
       </Field>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

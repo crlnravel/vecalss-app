@@ -26,7 +26,7 @@ const statusLabels: Record<string, string> = {
 
 const TRYOUT_STATUS_TONES: Record<string, ReferenceStatusTone> = {
   abandoned: "danger",
-  active: "active",
+  active: "info",
   archived: "neutral",
   auto_submitted: "success",
   closed: "neutral",
@@ -34,7 +34,7 @@ const TRYOUT_STATUS_TONES: Record<string, ReferenceStatusTone> = {
   draft: "attention",
   expired: "danger",
   failed: "danger",
-  in_progress: "active",
+  in_progress: "info",
   not_applicable: "neutral",
   pending: "attention",
   published: "success",

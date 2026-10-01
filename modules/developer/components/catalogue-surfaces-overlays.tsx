@@ -95,6 +95,7 @@ export function AccordionPreview() {
     <div className="grid min-w-0 gap-6 lg:grid-cols-2">
       <div className="min-w-0 space-y-3">
         <p className="text-sm font-semibold text-secondary-800">Default · satu bagian terbuka</p>
+        <p className="text-sm leading-6 text-secondary-600">Nomor, pertanyaan, dan jawaban memakai teks antarmuka 14px di semua ukuran layar. Pemicu memiliki tinggi minimal 44px.</p>
         <AccordionList items={accordionItems} variant="default" />
       </div>
       <div className="min-w-0 space-y-3">

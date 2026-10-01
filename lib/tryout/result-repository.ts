@@ -705,4 +705,4 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   });
 }
 
-export { calculateTryoutAttempt, hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };
+export { calculateTryoutAttempt, hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeAttemptReleaseState, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };

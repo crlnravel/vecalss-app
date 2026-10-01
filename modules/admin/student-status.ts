@@ -1,6 +1,6 @@
 import type { UserStatus } from "@/generated/prisma/client";
 
-type StudentStatusTone = "active" | "attention" | "danger" | "neutral";
+type StudentStatusTone = "info" | "attention" | "danger" | "neutral";
 
 function formatStudentStatus(status: string) {
   return {
@@ -13,7 +13,7 @@ function formatStudentStatus(status: string) {
 
 function studentStatusTone(status: UserStatus): StudentStatusTone {
   if (status === "active") {
-    return "active";
+    return "info";
   }
 
   if (status === "disabled" || status === "soft_deleted") {

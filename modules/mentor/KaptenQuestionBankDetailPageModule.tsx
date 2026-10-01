@@ -943,7 +943,7 @@ function QuestionBankDetailContent({
       setIsEditingTitle(false);
       showToast("Judul Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
-    } catch (err) {
+    } catch {
       showToast(
         err instanceof Error ? err.message : "Gagal mengubah judul bank soal.",
         { variant: "error" },
@@ -984,7 +984,7 @@ function QuestionBankDetailContent({
       setIsEditingDescription(false);
       showToast("Deskripsi Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
-    } catch (err) {
+    } catch {
       showToast(
         err instanceof Error
           ? err.message
@@ -1025,7 +1025,7 @@ function QuestionBankDetailContent({
       }[operation];
       showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
-    } catch (err) {
+    } catch {
       showToast("Status bank soal tidak dapat diperbarui. Coba lagi.", { variant: "error" });
     } finally {
       setIsSavingLifecycle(false);
@@ -1048,7 +1048,7 @@ function QuestionBankDetailContent({
       router.replace(
         `/mentor/quiz/question-bank?purpose=${encodeURIComponent(bank.purpose ?? "quiz")}`,
       );
-    } catch (err) {
+    } catch {
       showToast("Bank soal tidak dapat dihapus. Coba lagi.", { variant: "error" });
     } finally {
       setIsDeleting(false);

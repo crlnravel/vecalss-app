@@ -174,7 +174,7 @@ function TryoutActionConfirmationDialog({ draftTitle, onConfirm, onOpenChange, p
               disabled={saving}
               onClick={(event) => {
                 event.preventDefault();
-                confirmAction();
+                onConfirm();
               }}
               variant="destructive"
             >

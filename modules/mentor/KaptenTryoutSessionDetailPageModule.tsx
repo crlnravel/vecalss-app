@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
-import { Field, FieldInput } from "@/components/ui/field";
+import { Field, FieldError, FieldInput } from "@/components/ui/field";
 import {
   Table,
   TableBody,
@@ -112,7 +112,7 @@ function SessionScheduleCard({
           <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
           <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
         </div>
-        {validationMessage ? <p className="text-sm text-student-status-danger-fg" id="session-detail-schedule-error" role="alert">{validationMessage}</p> : null}
+        <FieldError error={validationMessage ?? undefined} id="session-detail-schedule-error" />
         <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-sm">
             {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p> : null}

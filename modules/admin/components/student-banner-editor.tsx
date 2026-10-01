@@ -601,7 +601,6 @@ function BannerEditorCard({
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
             aria-label="Judul"
-            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_65%,transparent)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}

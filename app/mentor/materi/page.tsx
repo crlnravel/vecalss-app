@@ -69,6 +69,7 @@ export default async function MentorMateriPage({
   return (
     <KaptenMateriPageModule
       catalogue={view.lessons}
+      key={initialCreateDialogOpen ? "create" : "catalogue"}
       initialCreateDialogOpen={initialCreateDialogOpen}
       initialReturnTo={initialReturnTo}
       initialSubjectSlug={initialSubjectSlug}

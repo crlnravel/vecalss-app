@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   Dialog,
   DialogContent,
@@ -54,7 +55,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { MATERI_DOCUMENT_MIME_TYPE } from "@/lib/materi/contract";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -156,14 +157,6 @@ function getInitialState(
   };
 }
 
-function FieldError({ error, id }: { error?: string; id: string }) {
-  return error ? (
-    <p className="text-sm leading-5 text-student-status-danger-fg" id={id}>
-      {error}
-    </p>
-  ) : null;
-}
-
 function mapActionErrors(
   fieldErrors: Partial<Record<string, string>> | undefined,
   source: MateriDocumentSource,
@@ -234,45 +227,15 @@ function MateriUnsavedChangesBar({
   onReset: () => void;
   onSave: () => void;
 }) {
-  return true ? (
-    <></>
-  ) : (
-    <ReferenceSurface
-      aria-live="polite"
-      className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 p-3 pl-4 transition-opacity transition-transform duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-      role="status"
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center text-primary-800">
-          <AlertCircle className="size-5" strokeWidth={2.2} />
-        </span>
-        <p className="text-sm font-medium leading-5 text-secondary-800">
-          Ada perubahan yang belum disimpan.
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
-        <Button
-          className="w-32 justify-center text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-solid-bg"
-          onClick={onReset}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Batal
-        </Button>
-        <Button
-          className="w-32 justify-center"
-          disabled={isArchived || isSaving}
-          onClick={onSave}
-          size="sm"
-          type="button"
-          variant="default"
-        >
-          {isSaving ? "Menyimpan..." : "Simpan"}
-        </Button>
-      </div>
-    </ReferenceSurface>
-  );
+  usePageStatusToast({
+    active: true,
+    message: isSaving ? "Menyimpan perubahan…" : "Ada perubahan yang belum disimpan",
+    variant: "info",
+    action: !isArchived && !isSaving ? { label: "Simpan", onClick: onSave } : undefined,
+    cancel: !isSaving ? { label: "Batal", onClick: onReset } : undefined,
+  });
+
+  return null;
 }
 
 function MateriBuilderPreview({
@@ -1236,7 +1199,6 @@ function MateriBuilderContent({
   />;
 
   return <MateriBuilderPresentation
-    children={builderContent}
     dialogOpen={dialogOpen}
     hasUnsavedChanges={hasUnsavedChanges}
     isCreateDialog={isCreateDialog}
@@ -1247,7 +1209,7 @@ function MateriBuilderContent({
     onDiscardOpenChange={setDiscardConfirmationOpen}
     discardConfirmationOpen={discardConfirmationOpen}
     session={session}
-  />;
+  >{builderContent}</MateriBuilderPresentation>;
 }
 
 function MateriBuilderPresentation({ children, dialogOpen, discardConfirmationOpen, hasUnsavedChanges, isCreateDialog, isSaving, mode, onDialogOpenChange, onDiscard, onDiscardOpenChange, session }: {
@@ -1331,7 +1293,7 @@ function MateriBuilderBody({
         <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
       </div>
       <MediaPickerDialog allowedMimeTypes={["application/pdf"]} onOpenChange={onPickerOpenChange} onSelect={onSelectDocument} open={isPickerOpen && !isArchived && !isEditLocked} selectedAssetId={builderState.documentAssetId || null} title="Pilih PDF Materi" />
-      {hasUnsavedChanges ? <MateriUnsavedChangesBar isArchived={isArchived} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}
+      {hasUnsavedChanges || isSaving ? <MateriUnsavedChangesBar isArchived={isArchived || isEditLocked} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}
     </>
   );
 }

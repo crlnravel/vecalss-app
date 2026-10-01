@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
@@ -162,12 +163,7 @@ function StudentSearchSection({
       </Field>
 
       <div aria-live="polite" className="min-h-7 text-sm" id={searchResultsStatusId}>
-        {searchState === "loading" ? (
-          <div className="flex min-h-11 items-center gap-2 rounded-xl border border-primary-100 bg-white px-3 text-secondary-600" role="status">
-            <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />
-            Mencari peserta…
-          </div>
-        ) : searchState === "error" ? (
+        {searchState === "error" ? (
           <div className="flex items-start gap-2 text-sm text-[var(--voyage-warm-sun-ink)]" role="alert">
             <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="min-w-0">
@@ -341,6 +337,11 @@ function KaptenTryoutInvitationPicker({
 }) {
   const [state, dispatch] = useReducer(pickerReducer, initialPickerState);
   const { activeIndex, busy, query, reason, searchError, searchState, selectedSessionId, selectedStudent, students } = state;
+  usePageStatusToast({
+    active: searchState === "loading",
+    message: "Mencari peserta…",
+    variant: "info",
+  });
   const searchRequestRef = useRef(0);
   const [currentTime] = useState(() => Date.now());
 

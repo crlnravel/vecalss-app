@@ -13,6 +13,7 @@ import {
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { useActionToast } from "@/components/ui/use-action-toast";
 import {
   ReferenceSelect,
@@ -32,7 +33,6 @@ const ONBOARDING_SELECT_CLASS_NAMES = {
   icon: "text-[var(--voyage-forest)]",
   item: "data-[highlighted]:bg-[var(--voyage-sea-glass)] data-[highlighted]:text-secondary-900 data-[selected]:bg-[var(--voyage-sea-glass)] data-[selected]:text-secondary-900",
   popup: "border-secondary-200 text-secondary-800 shadow-none",
-  trigger: "border-secondary-200 bg-white text-secondary-800 shadow-none hover:border-secondary-200 hover:bg-voyage-surface focus-visible:border-[var(--voyage-forest)] focus-visible:ring-[var(--voyage-sea-glass)] data-popup-open:border-[var(--voyage-forest)] data-popup-open:ring-[var(--voyage-sea-glass)]",
 } as const;
 
 type OnboardingSelectProps = Omit<ReferenceSelectProps, "classNames">;
@@ -260,12 +260,12 @@ function OnboardingForm({
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
               <div><h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Pilih kampus dan jurusan tujuan</h1><p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Belum yakin? Pilih nanti. Kamu bisa mengubah target ini di Profil.</p></div>
             </div>
-            <label className="mt-9 block text-sm font-bold text-secondary-800" htmlFor="university">Pilih kampus</label>
+            <label className={`${fieldLabelClassName} mt-9 block`} htmlFor="university">Pilih kampus</label>
             <div className="relative mt-2">
               <MapPin className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--voyage-forest)]" size={20} weight="duotone" />
               <OnboardingSelect
                 aria-label="Pilih kampus"
-                className="h-14 pl-11"
+                className="pl-11"
                 id="university"
                 onValueChange={chooseUniversity}
                 options={[
@@ -279,10 +279,10 @@ function OnboardingForm({
                 value={universityId}
               />
             </div>
-            <label className="mt-6 block text-sm font-bold text-secondary-800" htmlFor="major">Jurusan tujuan</label>
+            <label className={`${fieldLabelClassName} mt-6 block`} htmlFor="major">Jurusan tujuan</label>
             <OnboardingSelect
               aria-label="Jurusan tujuan"
-              className="mt-2 h-14"
+              className="mt-2"
               id="major"
               onValueChange={setMajorId}
               options={[

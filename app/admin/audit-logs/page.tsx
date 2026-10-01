@@ -19,13 +19,13 @@ export default async function AdminAuditLogsPage({
   const session = await requireAdminSession();
   const params = await searchParams;
   const auditQuery = parseAuditLogParams({
-    direction: params.direction,
+    range: params.range,
     page: params.page,
     q: params.q,
-    sort: params.sort,
     targetType: params.targetType,
   });
   const auditLogPage = await getAdminAuditLogPage({
+    range: auditQuery.range,
     direction: auditQuery.direction,
     page: auditQuery.page,
     query: auditQuery.query,
@@ -33,5 +33,5 @@ export default async function AdminAuditLogsPage({
     targetType: auditQuery.targetType,
   });
 
-  return <AuditLogsPageModule {...auditQuery} session={session} {...auditLogPage} />;
+  return <AuditLogsPageModule {...auditQuery} now={new Date().toISOString()} session={session} {...auditLogPage} />;
 }

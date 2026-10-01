@@ -56,8 +56,8 @@ second competing brand palette across ordinary cards or navigation.
 
 **Body Font:** Plus Jakarta Sans (with Avenir Next and Segoe UI fallbacks)
 
-**Field Label Font:** Manrope for form field headings, at the standard 14px UI
-size with semibold weight and muted green. Values and option text stay Plus
+**Field Label Font:** Manrope for form field headings, at 12px, matching the original Student `/settings` label
+scale, with semibold weight and muted green. Values and option text stay Plus
 Jakarta Sans. Other compact metadata labels follow the hierarchy below.
 The local Sports World face is reserved for the Vecalss logo lockup.
 

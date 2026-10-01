@@ -52,7 +52,12 @@ For every notification alert, use the shared Sonner surface
 from `components/ui/sonner.tsx`, mounted once in the root layout. Its approved
 placement is floating and centered at the top of the viewport; use
 `toast.success(...)`, `toast.error(...)`, or `showToast(..., { variant })`
-instead of building a page-local in-content toast. This includes success,
+instead of building a page-local in-content toast. Toast width follows the
+message and any actions, capped at the viewport minus 16px on each side.
+Use equal 16px horizontal padding; do not reserve an empty right gutter when
+there is no close button. A visible close control occupies its own space.
+On narrow screens, actions move below the message so sentences wrap at words
+instead of being squeezed into a thin column. This includes success,
 failure, information, and warning notifications across every audience.
 
 **The Toast-Only Alert Rule.** The inline `Alert`, `AlertTitle`,

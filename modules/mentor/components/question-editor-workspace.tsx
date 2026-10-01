@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { ReferenceStatusBadge } from "@/components/dashboard/reference-dashboard-primitives";
 import { cn } from "@/lib/utils";
 import { QuestionMobileInventoryOption } from "@/modules/mentor/components/question-mobile-inventory-option";
 
@@ -38,12 +38,17 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
   saving: boolean;
   title: string;
 }) {
+  usePageStatusToast({
+    active: dirty || saving,
+    message: saving ? "Menyimpan perubahan…" : "Ada perubahan yang belum disimpan",
+    variant: "info",
+  });
+
   return <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
     <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
       {backControl}
       <div className="flex min-w-0 items-center gap-2.5">
         <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{title}</h1>
-        {dirty ? <ReferenceStatusBadge label="Belum disimpan" size="xs" status="need_help" /> : null}
         {category ? <Badge className="hidden sm:inline-flex" size="xs" tone="category">{category}</Badge> : null}
       </div>
     </div>

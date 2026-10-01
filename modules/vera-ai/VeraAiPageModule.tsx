@@ -15,9 +15,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import {
   ArrowUpRight,
   Archive,
-  CalendarDays,
   ChartNoAxesColumnIncreasing,
-  Check,
   ChevronRight,
   FileQuestion,
   FileText,
@@ -27,7 +25,6 @@ import {
   LoaderCircle,
   Maximize2,
   MessageCircleMore,
-  NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -42,9 +39,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
-import { Switch } from "@/components/ui/switch";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,7 +69,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   FullWidthTabsList,
   FullWidthTabsTrigger,
@@ -728,6 +723,7 @@ type VeraAiWorkspaceProps = {
   automaticContext: VeraAutomaticContextAuthority;
   automaticProgress: VeraAutomaticContextProgress | null;
   busy: boolean;
+  requestCancelable: boolean;
   draft: string;
   fullscreenArtifact: VeraStudioTool | null;
   fullscreenArtifactDetail: VeraBackendArtifactDetail | null;
@@ -771,6 +767,7 @@ function VeraAiWorkspace({
   automaticContext,
   automaticProgress,
   busy,
+  requestCancelable,
   draft,
   error,
   fullscreenArtifact,
@@ -807,6 +804,25 @@ function VeraAiWorkspace({
   returnToHref,
 }: VeraAiWorkspaceProps) {
   const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
+  const recoveryMessage = recoveryStatus ?? error;
+  const noticeMessage = recoveryStatus
+    ? "Memulihkan permintaan Vera…"
+    : error
+      ? "Jawaban Vera belum berhasil dibuat."
+      : getVeraOperationStatusMessage(automaticProgress, progress);
+
+  usePageStatusToast({
+    active: busy || Boolean(recoveryMessage),
+    action: !busy && recoveryMessage
+      ? { label: error ? "Coba lagi" : "Periksa lagi", onClick: onRetry }
+      : undefined,
+    cancel: busy && requestCancelable
+      ? { label: "Batalkan", onClick: onCancelRequest }
+      : undefined,
+    description: recoveryMessage ?? undefined,
+    message: noticeMessage,
+    variant: busy ? "info" : error ? "error" : "warning",
+  });
 
   return (
     <div className="student-page-canvas vera-ai-motion min-h-svh text-secondary-900 md:h-svh md:overflow-hidden">
@@ -849,15 +865,7 @@ function VeraAiWorkspace({
                 }
                 value={workspaceTab}
               >
-                <VeraStatusBanner
-                  automaticProgress={automaticProgress}
-                  busy={busy}
-                  error={error}
-                  recoveryStatus={recoveryStatus}
-                  onCancel={onCancelRequest}
-                  onRetry={onRetry}
-                  progress={progress}
-                />
+                <VeraProgressIndicator automaticProgress={automaticProgress} progress={progress} />
                 <WorkspaceTabs onChange={onSetWorkspaceTab} />
                 <TabsContent
                   className="min-h-0 min-w-0 flex-1 overflow-hidden"
@@ -990,6 +998,7 @@ function useVeraAiModuleState({
     useState<VeraBackendArtifactDetail | null>(null);
   const [usage, setUsage] = useState<VeraBackendUsage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requestCancelable, setRequestCancelable] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [automaticProgress, setAutomaticProgress] =
     useState<VeraAutomaticContextProgress | null>(null);
@@ -1537,6 +1546,7 @@ function useVeraAiModuleState({
     const automaticEnabled = isVeraAutomaticContextEnabled(automaticContext);
 
     abortRef.current = controller;
+    setRequestCancelable(true);
     setBusy(true);
     setError(null);
     setRecoveryStatus(null);
@@ -1827,7 +1837,7 @@ function useVeraAiModuleState({
       }
     } catch (caught) {
       if (controller.signal.aborted) {
-        setError(veraErrorMessage(new VeraRequestError("request_cancelled")));
+        setError(null);
         setLastFailed(null);
       } else {
         setError(veraErrorMessage(caught));
@@ -1835,6 +1845,7 @@ function useVeraAiModuleState({
       }
     } finally {
       abortRef.current = null;
+      setRequestCancelable(false);
       setBusy(false);
       setProgress(null);
       setAutomaticProgress(null);
@@ -1876,6 +1887,7 @@ function useVeraAiModuleState({
     automaticContext,
     automaticProgress,
     busy,
+    requestCancelable,
     draft,
     error: backendError ?? error,
     fullscreenArtifact,
@@ -1933,171 +1945,45 @@ function VeraAiPageModule({
   return <VeraAiWorkspace {...workspaceProps} />;
 }
 
-function VeraStatusBanner({
+function getVeraOperationStatusMessage(
+  automaticProgress: VeraAutomaticContextProgress | null,
+  progress: number | null,
+) {
+  switch (automaticProgress?.phase) {
+    case "selecting":
+    case "retrieving":
+      return "Mencari sumber belajar…";
+    case "answering":
+      return "Menyusun jawaban Vera…";
+    case "complete":
+      return "Menyelesaikan jawaban Vera…";
+    case "no_match":
+    case "evidence_limited":
+      return "Merampungkan jawaban Vera…";
+    case "unavailable":
+      return "Menyelesaikan permintaan Vera…";
+    default:
+      return progress !== null
+        ? "Menyiapkan hasil Vera…"
+        : "Vera sedang memproses permintaan…";
+  }
+}
+
+function VeraProgressIndicator({
   automaticProgress,
-  busy,
-  error,
-  recoveryStatus,
-  onCancel,
-  onRetry,
   progress,
 }: {
   automaticProgress: VeraAutomaticContextProgress | null;
-  busy: boolean;
-  error: string | null;
-  recoveryStatus: string | null;
-  onCancel: () => void;
-  onRetry: () => void;
   progress: number | null;
 }) {
-  const hidden =
-    !busy &&
-    !error &&
-    !recoveryStatus &&
-    (!automaticProgress || automaticProgress.phase === "complete");
-  if (hidden) return null;
+  const value = automaticProgress?.progress ?? progress;
+  if (value === null) return null;
 
-  const automaticStatusText = getVeraAutomaticStatusText(automaticProgress);
-  const statusText = getVeraStatusText({
-    automaticStatusText,
-    error,
-    recoveryStatus,
-    progress,
-  });
   return (
-    <VeraStatusBannerContent
-      automaticPercent={automaticProgress?.progress}
-      busy={busy}
-      error={error}
-      onCancel={onCancel}
-      onRetry={onRetry}
-      statusText={statusText}
-    />
-  );
-}
-
-function getVeraAutomaticStatusText(
-  progress: VeraAutomaticContextProgress | null,
-) {
-  if (!progress) return null;
-  return {
-    selecting: "Mencari sumber belajar…",
-    retrieving: "Mencari sumber belajar…",
-    answering: "Menyusun jawaban…",
-    complete: "Jawaban sudah tersimpan.",
-    no_match: "Tidak ada sumber belajar yang cocok.",
-    evidence_limited: "Sumber belajar yang ditemukan terbatas.",
-    unavailable: "Sumber belajar belum tersedia.",
-  }[progress.phase];
-}
-
-function getVeraStatusText({
-  automaticStatusText,
-  error,
-  recoveryStatus,
-  progress,
-}: {
-  automaticStatusText: string | null;
-  error: string | null;
-  recoveryStatus: string | null;
-  progress: number | null;
-}) {
-  return (
-    error ??
-    recoveryStatus ??
-    automaticStatusText ??
-    (progress !== null
-      ? `Vera sedang menyusun hasil… ${progress}%`
-      : "Vera sedang menyusun jawaban…")
-  );
-}
-
-function VeraStatusBannerContent({
-  automaticPercent,
-  busy,
-  error,
-  onCancel,
-  onRetry,
-  statusText,
-}: {
-  automaticPercent: number | null | undefined;
-  busy: boolean;
-  error: string | null;
-  onCancel: () => void;
-  onRetry: () => void;
-  statusText: string;
-}) {
-  return (
-    <div
-      aria-live={error ? "assertive" : "polite"}
-      className={cn(
-        "mb-2 flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-xs font-medium",
-        error
-          ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
-          : "border-primary-100 bg-primary-50 text-primary-800",
-      )}
-      role={error ? "alert" : "status"}
-    >
-      <div className="min-w-0 flex-1">
-        <span className="block truncate">
-          {statusText}
-          {automaticPercent !== null && automaticPercent !== undefined
-            ? ` ${automaticPercent}%`
-            : ""}
-        </span>
-        {automaticPercent !== null && automaticPercent !== undefined ? (
-          <Progress
-            aria-label="Kemajuan pencarian sumber belajar"
-            className="mt-1 h-1.5"
-            value={automaticPercent}
-          />
-        ) : null}
-      </div>
-      <VeraStatusBannerAction
-        busy={busy}
-        error={Boolean(error)}
-        onCancel={onCancel}
-        onRetry={onRetry}
-      />
+    <div className="mb-2 flex items-center gap-2 px-1">
+      <Progress aria-label="Progres permintaan Vera" className="h-1.5 flex-1" value={value} />
+      <span aria-hidden="true" className="shrink-0 text-xs tabular-nums text-secondary-600">{Math.round(value)}%</span>
     </div>
-  );
-}
-
-function VeraStatusBannerAction({
-  busy,
-  error,
-  onCancel,
-  onRetry,
-}: {
-  busy: boolean;
-  error: boolean;
-  onCancel: () => void;
-  onRetry: () => void;
-}) {
-  if (busy) {
-    return (
-      <Button
-        className="shrink-0 "
-        onClick={onCancel}
-        size="default"
-        variant="outline"
-      >
-        <X data-icon="inline-start" />
-        Batalkan
-      </Button>
-    );
-  }
-  if (!error) return null;
-  return (
-    <Button
-      className="shrink-0 "
-      onClick={onRetry}
-      size="default"
-      variant="outline"
-    >
-      <RotateCcw data-icon="inline-start" />
-      Coba lagi
-    </Button>
   );
 }
 
@@ -2732,7 +2618,7 @@ function SessionListItem({
         <Input
           aria-label={`Judul sesi ${item.title}`}
           autoFocus
-          className="h-9 min-w-0 flex-1 rounded-xl px-2 text-sm font-semibold"
+          className="min-w-0 flex-1"
           onBlur={onFinishRename}
           onChange={(event) => onDraftTitleChange(event.target.value)}
           onKeyDown={(event) => {
@@ -2933,7 +2819,6 @@ function ChatWorkspace({
           {provisionalText !== null ||
           (automaticContextEnabled && busy && automaticProgress !== null) ? (
             <ProvisionalMessageCard
-              automaticProgress={automaticProgress}
               body={provisionalText ?? ""}
             />
           ) : null}
@@ -3237,24 +3122,10 @@ function VeraManualCitations({
 }
 
 function ProvisionalMessageCard({
-  automaticProgress,
   body,
 }: {
-  automaticProgress: VeraAutomaticContextProgress | null;
   body: string;
 }) {
-  const progressLabel = automaticProgress
-    ? {
-        selecting: "Mencari sumber belajar…",
-        retrieving: "Mencari sumber belajar…",
-        answering: "Menyusun jawaban…",
-        complete: "Jawaban sudah tersimpan.",
-        no_match: "Tidak ada sumber belajar yang cocok.",
-        evidence_limited: "Sumber belajar yang ditemukan terbatas.",
-        unavailable: "Sumber belajar belum tersedia.",
-      }[automaticProgress.phase]
-    : null;
-
   return (
     <article className="flex items-start gap-3.5">
       <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
@@ -3270,18 +3141,16 @@ function ProvisionalMessageCard({
       <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
         <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-secondary-950">Vera</p>
-          <LoaderCircle className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" />
+          <LoaderCircle aria-label="Vera sedang menyiapkan jawaban" className="size-3.5 animate-spin text-primary-600 motion-reduce:animate-none" role="img" />
         </div>
-        <BubbleContent
-          aria-live="polite"
-          className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
-        >
-          {body ? (
+        {body ? (
+          <BubbleContent
+            aria-live="polite"
+            className="mt-2 max-w-[68ch] rounded-2xl border border-dashed border-primary-200 bg-primary-50/45 px-4 py-3 text-base leading-7 text-secondary-700"
+          >
             <StreamingAnswerText content={body} />
-          ) : (
-            progressLabel || "Vera sedang menyusun jawaban…"
-          )}
-        </BubbleContent>
+          </BubbleContent>
+        ) : null}
       </Bubble>
     </article>
   );
@@ -3311,7 +3180,7 @@ function ChatComposer({
         <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
-            className="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
+            className="min-w-0 flex-1"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             placeholder="Tanyakan konsep, soal, atau langkah belajarmu…"

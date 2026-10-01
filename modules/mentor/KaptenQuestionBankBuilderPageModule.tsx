@@ -61,6 +61,7 @@ import {
   FieldTextarea,
 } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -807,7 +808,7 @@ function QuestionChoiceControls({
         aria-label={"Opsi " + (Number(choiceLabel.charCodeAt(0)) - 64)}
         className={cn(
           REFERENCE_CONTROL_CLASS_NAMES.input,
-          "min-w-0 flex-1 bg-transparent py-2",
+          "min-w-0 flex-1",
         )}
         data-question-anchor="choice"
         data-question-choice-id={choice.id}
@@ -2231,25 +2232,11 @@ function QuestionBankAutoSaveStatus({
   const isBlocked = state.hasUnsavedChanges && state.readiness.incompleteCount > 0;
   const hasDisconnectedLock =
     state.hasUnsavedChanges && state.lockState !== "owned";
-  if (!hasDisconnectedLock && !state.saveError) return null;
 
-  const statusMessage = hasDisconnectedLock
-    ? "Akses edit terputus. Perubahan belum tersimpan."
-    : state.saveError ?? "Bank Soal belum dapat disimpan. Coba lagi.";
-  const hasError = Boolean(state.saveError) || hasDisconnectedLock;
+  if (!state.isSaving && !hasDisconnectedLock && !state.saveError) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p
-        aria-live="polite"
-        className={cn(
-          "text-sm",
-          hasError ? "text-student-status-danger-fg" : "text-secondary-600",
-        )}
-        role="status"
-      >
-        {statusMessage}
-      </p>
       {state.saveError && !isBlocked && state.lockState === "owned" ? (
         <Button
           disabled={state.isSaving || state.isMetadataLocked}
@@ -4648,6 +4635,18 @@ function QuestionBankBuilderContent({
     readinessAnnouncement: editorState.readinessAnnouncement,
     selectedMediaAssetId,
   };
+  const hasDisconnectedLock = mode === "edit" && editorState.hasUnsavedChanges && lockState !== "owned";
+  const hasSaveError = Boolean(editorState.saveError) || hasDisconnectedLock;
+  usePageStatusToast({
+    active: (presentation !== "modal" || open) && (editorState.hasUnsavedChanges || editorState.isSaving || Boolean(editorState.saveError)),
+    description: !editorState.isSaving && hasSaveError
+      ? hasDisconnectedLock ? "Akses edit terputus. Perubahan belum tersimpan." : editorState.saveError ?? undefined
+      : undefined,
+    message: editorState.isSaving
+      ? "Menyimpan perubahan…"
+      : hasSaveError ? "Bank Soal belum dapat disimpan" : "Ada perubahan Bank Soal yang belum disimpan",
+    variant: hasSaveError && !editorState.isSaving ? "error" : "info",
+  });
   const screen = (
     <QuestionBankBuilderScreen
       actions={actions}

@@ -406,10 +406,7 @@ await withReactDomTest(async (_root, render) => {
 await withReactDomTest(async (_root, render) => {
   const routes: string[] = [];
   const requestId = "66666666-6666-4666-8666-666666666666";
-  const action = async (
-    _previousState: BannerMakerDestinationFormState,
-    _formData: FormData,
-  ): Promise<BannerMakerDestinationFormState> => ({
+  const action = async (): Promise<BannerMakerDestinationFormState> => ({
     destination: "beranda",
     message: "Publikasi gagal karena konflik.",
     requestId,
@@ -505,10 +502,7 @@ await withReactDomTest(async (_root, render) => {
   const routes: string[] = [];
   const requestId = "55555555-5555-4555-8555-555555555555";
   let resolveWaitingAction: ((state: BannerMakerDestinationFormState) => void) | undefined;
-  const action = async (
-    _previousState: BannerMakerDestinationFormState,
-    _formData: FormData,
-  ): Promise<BannerMakerDestinationFormState> => new Promise((resolve) => {
+  const action = async (): Promise<BannerMakerDestinationFormState> => new Promise((resolve) => {
     resolveWaitingAction = resolve;
   });
   let latest: Controller = null as unknown as Controller;

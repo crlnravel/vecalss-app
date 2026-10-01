@@ -2998,6 +2998,7 @@ function useTryoutBuilderState({
     activeDirectQuestions,
     activeSection,
     activeSourceQuestions,
+    archive,
     browseBankId,
     discardDraft,
     dirty,
@@ -3079,7 +3080,8 @@ function TryoutQuestionEditorWorkspace({
         draftTitle={state.draft.title}
         guardExternalNavigation={state.guardExternalNavigation}
         readOnly={readOnly}
-        saving={state.saving || state.editLocked}
+        editLocked={state.editLocked}
+        saving={state.saving}
         saveDraft={() => state.save("draft")}
         subtest={activeSection.subtest}
       />
@@ -3183,6 +3185,7 @@ function TryoutQuestionEditorHeader({
   backHref,
   dirty,
   draftTitle,
+  editLocked,
   guardExternalNavigation,
   readOnly,
   saving,
@@ -3192,6 +3195,7 @@ function TryoutQuestionEditorHeader({
   backHref: string;
   dirty: boolean;
   draftTitle: string;
+  editLocked: boolean;
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   saveDraft: () => Promise<boolean>;
   readOnly: boolean;
@@ -3202,7 +3206,7 @@ function TryoutQuestionEditorHeader({
     backControl={<Button
       aria-label={`Kembali ke detail subtes ${subtest}`}
       className="shrink-0"
-      disabled={saving}
+      disabled={saving || editLocked}
       nativeButton={false}
       onClick={(event) => guardExternalNavigation(backHref, event)}
       render={<Link href={backHref} />}
@@ -3213,7 +3217,7 @@ function TryoutQuestionEditorHeader({
     category={subtest}
     dirty={dirty}
     onSave={readOnly ? undefined : () => void saveDraft()}
-    saveDisabled={saving}
+    saveDisabled={saving || editLocked}
     saveId="tryout-save-button"
     saving={saving}
     title={draftTitle || "Tryout"}
@@ -3664,8 +3668,6 @@ function TryoutBuilderContent({
     save,
     saveMetadata,
     saving,
-    lockState,
-    retryLock,
     sourceBankLoading,
     sourceBankPage,
     sourceBankSearch,

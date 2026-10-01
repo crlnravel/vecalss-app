@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { useActionToast } from "@/components/ui/use-action-toast";
 import type { LoginAudience } from "@/lib/auth/types";
 
@@ -46,8 +46,10 @@ function ForgotPasswordForm({
       ) : null}
 
       <Field>
-        <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
+        <FieldLabel htmlFor="forgot-email" required>Email</FieldLabel>
         <FieldInput
+          aria-describedby={state.fieldErrors?.email ? "forgot-email-error" : undefined}
+          aria-invalid={Boolean(state.fieldErrors?.email)}
           autoComplete="email"
           defaultValue={state.fields?.email ?? defaultEmail ?? ""}
           id="forgot-email"
@@ -56,9 +58,7 @@ function ForgotPasswordForm({
           required
           type="email"
         />
-        {state.fieldErrors?.email ? (
-          <p className="text-sm text-danger-700">{state.fieldErrors.email}</p>
-        ) : null}
+        <FieldError error={state.fieldErrors?.email} id="forgot-email-error" />
       </Field>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ReuiDirectoryGrid, ReuiDirectoryMember, ReuiDirectoryFilters, type ReuiDirectoryColumn, type ReuiDirectoryFilter } from "./reui-directory-grid";
 import styles from "./reui-directory-grid.module.css";
 import { FieldRequiredMark } from "@/components/ui/field";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus, UserStatus } from "@/generated/prisma/client";
 import { XIcon } from "@/lib/icons";
@@ -127,12 +128,12 @@ function KaptenDetailPanel({
             <input name="userId" type="hidden" value={kapten.id} />
             <input name="directoryQuery" type="hidden" value={directoryQuery} />
             <div className="grid gap-5 sm:grid-cols-2">
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nama Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Email Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nomor telepon</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
-               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
+               <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Nama Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
+               <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Email Kapten<FieldRequiredMark /></span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
+               <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Nomor telepon</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
+               <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
             </div>
-            <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Bio</span><textarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
+            <label className="min-w-0 space-y-2"><span className={fieldLabelClassName}>Bio</span><textarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
            <div className="flex justify-end"><Button type="submit" variant="default">Simpan perubahan</Button></div>
           </form>
 

@@ -21,9 +21,7 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  FileImage,
   ImageOff,
-  PenTool,
   Trash2,
 } from "@/lib/icons";
 import {
@@ -118,12 +116,6 @@ function backgroundStyle(background: BannerBackground, hasImageSource = false): 
 function layerLabel(layer: BannerLayer) {
   if (layer.type === "text") return layer.text || "Teks kosong";
   return layer.alt || "Gambar";
-}
-
-function LayerIcon({ layer }: { layer: BannerLayer }) {
-  return layer.type === "text"
-    ? <PenTool aria-hidden="true" className="size-4" />
-    : <FileImage aria-hidden="true" className="size-4" />;
 }
 
 export function LayerContextMenu({
@@ -324,12 +316,15 @@ export function BannerCanvas({
       <div className="pointer-events-none absolute inset-0" style={backgroundStyle(design.background, Boolean(backgroundImageUrl))} />
       {backgroundImageUrl ? (
         <>
-          <img
+          <Image
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 size-full object-cover"
+            fill
+            sizes="100vw"
             src={backgroundImageUrl}
             style={getBannerImagePaint("background")}
+            unoptimized
           />
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(1,76,56,0.42),rgba(23,107,77,0.08))]" />
         </>

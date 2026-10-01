@@ -8,7 +8,9 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type RefObject,
 } from "react";
+import { useFormStatus } from "react-dom";
 
 import {
   ReferenceSelect,
@@ -27,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandMark } from "@/modules/home/components/home-primitives";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   ArrowLeft,
   ArrowDown,
@@ -961,7 +964,7 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
       </div>
       <label className="order-last w-full min-w-0 sm:order-none sm:ml-3 sm:w-auto sm:max-w-72 sm:flex-1">
         <span className="sr-only">Nama banner</span>
-        <Input aria-label="Nama banner" className="h-11 rounded-xl border-white/20 bg-white/10 text-sm font-semibold text-white placeholder:text-white/70 focus-visible:border-white/65 focus-visible:ring-white/20" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
+        <Input aria-label="Nama banner" maxLength={120} onChange={(event) => actions.changeDesign((current) => ({ ...current, name: event.target.value }))} value={controller.design.name} />
       </label>
       <div className="ml-auto flex items-center gap-2">
         <SubmitButton aria-label="Simpan draf" name="intent" pendingLabel="Menyimpan…" type="submit" value="save-draft" variant="inverse">
@@ -1016,7 +1019,7 @@ function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEd
             <IconAction ariaLabel={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} className={cn("size-11", controller.showGuides && "bg-primary-50 text-primary-800")} onClick={actions.toggleGuides} pressed={controller.showGuides}><Eye /></IconAction>
           </div>
         </TooltipProvider>
-        <p className="text-xs font-medium text-secondary-600" role="status">{controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum dirilis" : "Banner aktif"}</p>
+        {controller.savedHasUnpublishedChanges ? <p className="text-xs font-medium text-secondary-600">Draf belum dirilis</p> : null}
       </div>
       <div className="flex flex-1 flex-col">
         <section aria-label="Area kerja banner" className="flex min-h-72 flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:py-12 xl:px-8">
@@ -1032,6 +1035,37 @@ function BannerMakerEditorCanvasArea({ controller }: { controller: BannerMakerEd
   );
 }
 
+function BannerMakerEditorPageStatus({
+  dirty,
+  formRef,
+}: {
+  dirty: boolean;
+  formRef: RefObject<HTMLFormElement | null>;
+}) {
+  const { data, pending } = useFormStatus();
+  const isPublishing = data?.get("intent") === "publish";
+
+  usePageStatusToast({
+    active: dirty || pending,
+    action: dirty && !pending
+      ? {
+          label: "Simpan draf",
+          onClick: () => {
+            const form = formRef.current;
+            const submitter = form?.querySelector<HTMLButtonElement>('button[name="intent"][value="save-draft"]');
+            if (form && submitter) form.requestSubmit(submitter);
+          },
+        }
+      : undefined,
+    message: pending
+      ? isPublishing ? "Menerbitkan banner…" : "Menyimpan perubahan banner…"
+      : "Perubahan banner belum disimpan.",
+    variant: pending ? "info" : "warning",
+  });
+
+  return null;
+}
+
 function BannerMakerEditorPropertiesSidebar({ controller }: { controller: BannerMakerEditorController }) {
   return <aside aria-label="Edit elemen" className="hidden w-72 shrink-0 overflow-y-auto border-l border-primary-100 bg-white lg:block"><div className="sticky top-0 z-10 flex min-h-16 items-center border-b border-primary-100 bg-white px-4"><h2 className="text-sm font-semibold text-secondary-900">Edit banner</h2></div><div className="p-4"><BannerMakerEditorProperties controller={controller} idPrefix="desktop" /></div></aside>;
 }
@@ -1041,7 +1075,8 @@ function BannerMakerEditorWorkspace({ controller }: { controller: BannerMakerEdi
 }
 
 function BannerMakerEditorForm({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {
-  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorWorkspace controller={controller} /></form>;
+  const formRef = useRef<HTMLFormElement>(null);
+  return <form action={controller.formAction} className="flex h-full min-h-0 flex-col" onSubmit={controller.prepareSubmit} ref={formRef}><input name="design" type="hidden" value={JSON.stringify(controller.design)} readOnly /><input name="version" type="hidden" value={controller.version ?? ""} readOnly /><BannerMakerEditorPageStatus dirty={controller.isDirty} formRef={formRef} /><BannerMakerEditorHeader controller={controller} session={session} /><BannerMakerEditorWorkspace controller={controller} /></form>;
 }
 
 function BannerMakerEditorShell({ controller, session }: { controller: BannerMakerEditorController; session: SessionContext }) {

@@ -112,7 +112,7 @@ function storedQuiz(id: string, title: string, href: string): StoredQuizDraftInp
     resourceType: "quiz" as const,
     sourceBank: "Bank lokal",
     sourceBankId: "bank-1",
-    status: "draft",
+    status: "published",
     subjectCode: "PU",
     subjectName: "Penalaran Umum",
     title,
@@ -311,7 +311,8 @@ const projection: DashboardProjection = {
   scheduledTryout: [],
 };
 
-const validDraft = quizDraft();
+const publishedDraftQuiz = { ...quizDraft().quiz, status: "published" as const };
+const validDraft = quizDraft({ quiz: publishedDraftQuiz });
 (validDraft.quiz as unknown as { href: string }).href = "/mentor/quiz/foreign-target";
 const invalidDraft = quizDraft({ quiz: { ...validDraft.quiz, id: "malformed-id" } });
 const foreignDraft = quizDraft({ quiz: { ...validDraft.quiz, id: foreignQuizId } });
@@ -330,6 +331,7 @@ assert.equal(overlaid.recentKuis[0]?.title, "Judul dari server", "draft title ca
 assert.equal(overlaid.recentKuis[0]?.href, `/mentor/quiz/${quizId}`, "tampered href must be canonicalized");
 assert.equal(overlaid.recentKuis[0]?.description, "Deskripsi dari browser");
 assert.equal(overlaid.recentKuis[0]?.source, "tutor_scoped_local_draft");
+assert.equal(overlaid.recentKuis[0]?.status, "draft", "a browser draft cannot replace the server lifecycle status even when its stored status is published");
 assert.equal(overlaid.recentMateri[0]?.source, "persisted");
 
 const poisonedDraft = quizDraft({ savedAt: Number.MAX_VALUE });

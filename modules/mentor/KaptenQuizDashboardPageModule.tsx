@@ -31,6 +31,8 @@ import {
 } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { showToast } from "@/components/ui/toast";
+import { fieldControlClassName } from "@/components/ui/field-constants";
+import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MentorQuizCreateDialog } from "@/modules/mentor/KaptenQuizEditorPageModule";
 import { manageQuizDashboardAction } from "@/modules/mentor/quiz-dashboard-actions";
@@ -141,6 +143,8 @@ export function KaptenQuizDashboardPageModule({
   subjects: { code: string; name: string }[];
   initialCreateDialogOpen?: boolean;
 }) {
+  "use no memo"; // TanStack Table's mutable table API cannot be safely memoized by the React Compiler.
+
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selection, setSelection] = useState<RowSelectionState>({});
@@ -379,6 +383,8 @@ export function KaptenQuizDashboardPageModule({
       ),
     },
   ];
+  // TanStack's mutable table API intentionally opts out of React Compiler memoization.
+  // eslint-disable-next-line react-hooks/incompatible-library -- The compiler skips this supported TanStack integration.
   const table = useReactTable({
     data: result.rows,
     columns,
@@ -475,7 +481,7 @@ export function KaptenQuizDashboardPageModule({
         <div className={styles.toolbar}>
           <div className={styles.filters}>
             <form
-              className={styles.search}
+              className={cn(fieldControlClassName, "py-0", styles.search)}
               onSubmit={(event) => {
                 event.preventDefault();
                 navigate({

@@ -29,7 +29,7 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
   {
     id: "accordion",
     title: "AccordionList",
-    description: "Default dan minimal; bandingkan satu bagian terbuka dengan beberapa bagian yang bisa dibuka bersama.",
+    description: "Varian default dan minimal; bandingkan satu atau beberapa bagian terbuka. Teks tetap 14px dan setiap pemicu setinggi minimal 44px di semua ukuran layar.",
     sources: ["components/ui/accordion.tsx", "lib/icons.tsx"],
     preview: <AccordionPreview />,
   },
@@ -107,7 +107,7 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
     id: "data-tables",
     title: "Table, DataTable & DataTableFilterMenu",
     description: "Tabel semantik dan DataTable dengan pencarian, filter status, filter chip, responsif, serta keadaan tanpa hasil.",
-    sources: ["components/ui/table.tsx", "components/ui/data-table.tsx", "components/ui/data-table-utils.ts", "components/ui/data-table-filter-menu.tsx", "components/ui/checkbox.tsx", "components/ui/popover.tsx", "components/ui/dropdown-menu.tsx", "components/ui/context-menu.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts", "lib/icons.tsx"],
+    sources: ["components/ui/table.tsx", "components/ui/data-table.tsx", "components/ui/data-table-utils.ts", "components/ui/data-table-filter-menu.tsx", "components/ui/field-constants.ts", "components/ui/checkbox.tsx", "components/ui/popover.tsx", "components/ui/dropdown-menu.tsx", "components/ui/context-menu.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts", "lib/icons.tsx"],
     preview: <DataTablesPreview />,
   },
   {
@@ -127,15 +127,15 @@ export const surfaceSections: CatalogueSurfaceSection[] = [
   {
     id: "notifications",
     title: "Sonner, toast & action feedback",
-    description: "Lima tone showToast, toast.success, useActionToast, dan ToastOnMount yang hanya berjalan setelah dipilih.",
-    sources: ["components/ui/toast.ts", "components/ui/sonner.tsx", "components/ui/use-action-toast.ts", "components/ui/toast-on-mount.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts", "app/layout.tsx"],
+    description: "Lima tone showToast, useActionToast, status halaman persisten, dan ToastOnMount yang hanya berjalan setelah dipilih.",
+    sources: ["components/ui/toast.ts", "components/ui/sonner.tsx", "components/ui/sonner-layout.module.css", "components/ui/use-action-toast.ts", "components/ui/use-page-status-toast.ts", "components/ui/page-status-toast-controller.ts", "components/ui/toast-on-mount.tsx", "components/ui/button.tsx", "components/ui/button-variants.ts", "app/layout.tsx"],
     preview: <NotificationsPreview />,
   },
   {
     id: "sidebar",
     title: "Sidebar · DeveloperWorkspaceShell",
     description: "Kendali sidebar Developer serta pratinjau terpisah untuk mencoba posisi, tampilan, perilaku ciut, dan ukuran menu Sidebar.",
-    sources: ["components/ui/sidebar.tsx", "components/ui/input.tsx", "components/ui/separator.tsx", "components/ui/sheet.tsx", "components/ui/skeleton.tsx", "components/ui/tooltip.tsx", "components/ui/button.tsx", "components/dashboard/reference-dashboard-controls.tsx", "components/dashboard/reference-dashboard-tokens.ts", "lib/icons.tsx", "hooks/use-mobile.ts", "modules/developer/components/developer-workspace-shell.tsx", "modules/developer/components/catalogue-sidebar-preview.tsx", "modules/student/components/student-sidebar-utils.ts", "modules/home/components/home-primitives.tsx"],
+    sources: ["components/ui/sidebar.tsx", "components/ui/input.tsx", "components/ui/field-constants.ts", "components/ui/separator.tsx", "components/ui/sheet.tsx", "components/ui/skeleton.tsx", "components/ui/tooltip.tsx", "components/ui/button.tsx", "components/dashboard/reference-dashboard-controls.tsx", "components/dashboard/reference-dashboard-tokens.ts", "lib/icons.tsx", "hooks/use-mobile.ts", "modules/developer/components/developer-workspace-shell.tsx", "modules/developer/components/catalogue-sidebar-preview.tsx", "modules/student/components/student-sidebar-utils.ts", "modules/home/components/home-primitives.tsx"],
     preview: <SidebarPreview />,
   },
 ];

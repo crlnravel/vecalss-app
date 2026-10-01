@@ -17,8 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { kaptenSubjects, type BankQuestion, type KaptenQuestionBank } from "@/modules/mentor/mock-data";
@@ -477,6 +478,11 @@ function usePackageBuilderState({ id, initialDraft, sourceCatalog, sourceCatalog
   const editLease = id ? resourceLock.proof ?? undefined : undefined;
   const save = usePackageBuilderSaveAction({ dispatch, editLease, id, navigatingAfterSaveRef, state });
   const lockState: AuthoringLockState = id ? resourceLock.state : "owned";
+  usePageStatusToast({
+    active: hasUnsavedChanges || state.saving,
+    message: state.saving ? "Menyimpan perubahan…" : "Ada perubahan Paket Soal yang belum disimpan",
+    variant: state.saving ? "info" : "warning",
+  });
   const lockedState = id && !resourceLock.canEdit ? { ...state, saving: true } : state;
   return { actions: { ...selectionActions, save }, dispatch, hasUnsavedChanges, id, lockState, retryLock: resourceLock.retry, saved, state: lockedState, view };
 }
@@ -552,7 +558,7 @@ function PackageBuilderSourceControls({ controller }: { controller: PackageBuild
   const { actions, dispatch, state, view } = controller;
   const { bankCategoryFilter, bankSearch, draft, saving, sourceBankLoading, sourceBankPage, sourceBankTotal } = state;
 
-  return <div className="mt-4 grid gap-4"><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-source-bank-picker" required>Bank Soal</FieldLabel><Picker disabled={saving} empty="Tidak ada Bank Soal siap." id="package-source-bank-picker" label={view.selectedSource?.bank.title ?? "Pilih Bank Soal"} openContent={<><FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl px-3 py-2 text-sm`} disabled={saving} onChange={(event) => { if (saving) return; dispatch({ search: event.target.value, type: "setBankSearch" }); }} placeholder="Cari judul, folder, atau kategori…" value={bankSearch} /><PackageCategoryFilter disabled={saving} onValueChange={(value) => { if (saving) return; dispatch({ filter: value, type: "setBankCategoryFilter" }); }} options={view.sourceBankCategories.map((category) => ({ label: category.name, value: category.id }))} value={bankCategoryFilter} />{sourceBankLoading ? <p className="px-2 py-1 text-xs text-secondary-500">Memuat bank soal…</p> : null}<PackageSourceBankOptions bankCategoryFilter={bankCategoryFilter} bankSearch={bankSearch} onChangeBank={actions.changeBank} saving={saving} sourceBankId={draft.sourceBankId} sourceEntries={state.sourceEntries} /></>} /></Field><PackageSourceBankPagination onPageChange={(page) => dispatch({ page, type: "setSourceBankPage" })} page={sourceBankPage} saving={saving} total={sourceBankTotal} /><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-subtest-picker" required>Subtes</FieldLabel><Picker disabled={saving || !draft.sourceBankId} empty="Belum ada subtes." id="package-subtest-picker" label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank Soal terlebih dahulu"} openContent={<PackageSubtestOptions draft={draft} onChangeSubtest={actions.changeSubtest} saving={saving} selectedSource={view.selectedSource} />} /></Field></div>;
+  return <div className="mt-4 grid gap-4"><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-source-bank-picker" required>Bank Soal</FieldLabel><Picker disabled={saving} empty="Tidak ada Bank Soal siap." id="package-source-bank-picker" label={view.selectedSource?.bank.title ?? "Pilih Bank Soal"} openContent={<><FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[44px]`} disabled={saving} onChange={(event) => { if (saving) return; dispatch({ search: event.target.value, type: "setBankSearch" }); }} placeholder="Cari judul, folder, atau kategori…" value={bankSearch} /><PackageCategoryFilter disabled={saving} onValueChange={(value) => { if (saving) return; dispatch({ filter: value, type: "setBankCategoryFilter" }); }} options={view.sourceBankCategories.map((category) => ({ label: category.name, value: category.id }))} value={bankCategoryFilter} />{sourceBankLoading ? <p className="px-2 py-1 text-xs text-secondary-500">Memuat bank soal…</p> : null}<PackageSourceBankOptions bankCategoryFilter={bankCategoryFilter} bankSearch={bankSearch} onChangeBank={actions.changeBank} saving={saving} sourceBankId={draft.sourceBankId} sourceEntries={state.sourceEntries} /></>} /></Field><PackageSourceBankPagination onPageChange={(page) => dispatch({ page, type: "setSourceBankPage" })} page={sourceBankPage} saving={saving} total={sourceBankTotal} /><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-subtest-picker" required>Subtes</FieldLabel><Picker disabled={saving || !draft.sourceBankId} empty="Belum ada subtes." id="package-subtest-picker" label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank Soal terlebih dahulu"} openContent={<PackageSubtestOptions draft={draft} onChangeSubtest={actions.changeSubtest} saving={saving} selectedSource={view.selectedSource} />} /></Field></div>;
 }
 
 function PackageBuilderSourcePanel({ controller }: { controller: PackageBuilderController }) {
@@ -562,7 +568,34 @@ function PackageBuilderSourcePanel({ controller }: { controller: PackageBuilderC
 }
 
 function PackageSelectedQuestionItem({ index, invalid, item, itemCount, onMove, onRemove, onUpdate, question, saving }: { index: number; invalid: boolean; item: PackageItem; itemCount: number; onMove: (index: number, direction: -1 | 1) => void; onRemove: () => void; onUpdate: (sourceQuestionId: string, pointValue: number) => void; question?: BankQuestion; saving: boolean }) {
-  return <li className="rounded-2xl bg-white/80 p-3"><div className="flex gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary-50 text-xs font-bold text-primary-800">{index + 1}</span><p className="min-w-0 flex-1 text-sm leading-6 text-secondary-900">{question?.prompt ?? "Soal sumber tidak tersedia untuk filter ini."}</p></div><div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-end gap-2"><Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`points-${item.sourceQuestionId}`} required>Poin</FieldLabel><FieldInput aria-describedby={invalid ? `points-error-${item.sourceQuestionId}` : undefined} aria-invalid={invalid} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl px-3 py-2`} disabled={saving} id={`points-${item.sourceQuestionId}`} min="0.01" onChange={(event) => onUpdate(item.sourceQuestionId, Number(event.target.value))} step="0.01" type="number" value={item.pointValue} /></Field><Button aria-label={`Naikkan urutan soal ${index + 1}`} disabled={saving || !index} onClick={() => onMove(index, -1)} size="icon-sm" variant="outline"><ArrowUp /></Button><Button aria-label={`Turunkan urutan soal ${index + 1}`} disabled={saving || index === itemCount - 1} onClick={() => onMove(index, 1)} size="icon-sm" variant="outline"><ArrowDown /></Button><Button aria-label={`Hapus soal ${index + 1}`} disabled={saving} onClick={onRemove} size="icon-sm" variant="outline"><X /></Button></div>{invalid ? <p className="mt-2 text-xs font-medium text-danger-600" id={`points-error-${item.sourceQuestionId}`}>Masukkan poin lebih dari 0.</p> : null}</li>;
+  return (
+    <li className="rounded-2xl bg-white/80 p-3">
+      <div className="flex gap-3">
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary-50 text-xs font-bold text-primary-800">{index + 1}</span>
+        <p className="min-w-0 flex-1 text-sm leading-6 text-secondary-900">{question?.prompt ?? "Soal sumber tidak tersedia untuk filter ini."}</p>
+      </div>
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-end gap-2">
+        <Field>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`points-${item.sourceQuestionId}`} required>Poin</FieldLabel>
+          <FieldInput
+            aria-describedby={invalid ? `points-error-${item.sourceQuestionId}` : undefined}
+            aria-invalid={invalid}
+            disabled={saving}
+            id={`points-${item.sourceQuestionId}`}
+            min="0.01"
+            onChange={(event) => onUpdate(item.sourceQuestionId, Number(event.target.value))}
+            step="0.01"
+            type="number"
+            value={item.pointValue}
+          />
+        </Field>
+        <Button aria-label={`Naikkan urutan soal ${index + 1}`} disabled={saving || !index} onClick={() => onMove(index, -1)} size="icon-sm" variant="outline"><ArrowUp /></Button>
+        <Button aria-label={`Turunkan urutan soal ${index + 1}`} disabled={saving || index === itemCount - 1} onClick={() => onMove(index, 1)} size="icon-sm" variant="outline"><ArrowDown /></Button>
+        <Button aria-label={`Hapus soal ${index + 1}`} disabled={saving} onClick={onRemove} size="icon-sm" variant="outline"><X /></Button>
+      </div>
+      <FieldError error={invalid ? "Masukkan poin lebih dari 0." : undefined} id={`points-error-${item.sourceQuestionId}`} />
+    </li>
+  );
 }
 
 function PackageBuilderSelectedQuestions({ controller }: { controller: PackageBuilderController }) {
@@ -592,15 +625,17 @@ function PackageBuilderQuestionsWorkspace({ controller }: { controller: PackageB
 }
 
 function PackageBuilderReviewValidation({ controller }: { controller: PackageBuilderController }) {
-  const { state, view } = controller;
+  const { view } = controller;
 
-  return <ReferenceSurface aria-labelledby="package-review-validation-heading" aria-live="polite" className="px-4 py-4 text-sm text-secondary-700" id="package-review-validation" role="region" tabIndex={-1} variant="inset"><h3 className="font-semibold text-secondary-900" id="package-review-validation-heading">{view.reviewIssues.length ? "Belum siap" : "Pemeriksaan selesai"}</h3><p className="mt-1 leading-6">{state.saving ? "Penyimpanan sedang berlangsung. Semua kontrol editor dikunci sampai proses selesai." : view.reviewIssues.length ? "Aksi siap dinonaktifkan sampai semua hal berikut diperbaiki:" : "Semua pemeriksaan selesai. Versi aktif siap dibuat."}</p>{view.reviewIssues.length ? <ul className="mt-3 grid gap-2 pl-5" role="list">{view.reviewIssues.map((issue) => <li key={`${issue.href}-${issue.message}`}><a className="font-medium text-primary-800 underline decoration-primary-300 underline-offset-2 hover:text-primary-950 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700" href={issue.href}>{issue.message}</a></li>)}</ul> : null}</ReferenceSurface>;
+  if (!view.reviewIssues.length) return null;
+
+  return <ReferenceSurface aria-labelledby="package-review-validation-heading" className="px-4 py-4 text-sm text-secondary-700" id="package-review-validation" role="region" tabIndex={-1} variant="inset"><h3 className="font-semibold text-secondary-900" id="package-review-validation-heading">Belum siap</h3><p className="mt-1 leading-6">Aksi siap dinonaktifkan sampai semua hal berikut diperbaiki:</p><ul className="mt-3 grid gap-2 pl-5" role="list">{view.reviewIssues.map((issue) => <li key={`${issue.href}-${issue.message}`}><a className="font-medium text-primary-800 underline decoration-primary-300 underline-offset-2 hover:text-primary-950 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700" href={issue.href}>{issue.message}</a></li>)}</ul></ReferenceSurface>;
 }
 
 function PackageBuilderReview({ controller }: { controller: PackageBuilderController }) {
   const { actions, dispatch, state, view } = controller;
 
-  return <ReferenceSurface as="section" aria-labelledby="package-review-heading" className="grid gap-5 p-5 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-secondary-900" id="package-review-heading">Tinjau lalu pilih hasil akhir</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-500">Draf dapat dilanjutkan kapan saja. Saat siap, aksi berikutnya membuat versi aktif tanpa mengubah versi yang sudah tersimpan.</p></div><dl className="grid min-w-44 grid-cols-2 gap-x-5 gap-y-2 text-sm"><div><dt className="text-secondary-500">Soal</dt><dd className="mt-1 font-semibold text-secondary-900">{state.draft.items.length}</dd></div><div><dt className="text-secondary-500">Total poin</dt><dd className="mt-1 font-semibold text-secondary-900">{view.draftTotalPoints}</dd></div></dl></div><PackageBuilderReviewValidation controller={controller} /><div className="flex flex-wrap gap-3"><Button disabled={state.saving} onClick={() => void actions.save("draft")} size="sm" variant="outline"><Save />{state.saving ? "Menyimpan…" : "Simpan draf"}</Button><Button aria-describedby="package-review-validation" disabled={state.saving || !view.canReady} onClick={() => dispatch({ confirm: true, type: "setConfirmReady" })} size="sm" variant="default"><Upload />{view.readyActionLabel}</Button></div></ReferenceSurface>;
+  return <ReferenceSurface as="section" aria-labelledby="package-review-heading" className="grid gap-5 p-5 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-secondary-900" id="package-review-heading">Tinjau lalu pilih hasil akhir</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-500">Draf dapat dilanjutkan kapan saja. Saat siap, aksi berikutnya membuat versi aktif tanpa mengubah versi yang sudah tersimpan.</p></div><dl className="grid min-w-44 grid-cols-2 gap-x-5 gap-y-2 text-sm"><div><dt className="text-secondary-500">Soal</dt><dd className="mt-1 font-semibold text-secondary-900">{state.draft.items.length}</dd></div><div><dt className="text-secondary-500">Total poin</dt><dd className="mt-1 font-semibold text-secondary-900">{view.draftTotalPoints}</dd></div></dl></div><PackageBuilderReviewValidation controller={controller} /><div className="flex flex-wrap gap-3"><Button disabled={state.saving} onClick={() => void actions.save("draft")} size="sm" variant="outline"><Save />{state.saving ? "Menyimpan…" : "Simpan draf"}</Button><Button aria-describedby={view.reviewIssues.length ? "package-review-validation" : undefined} disabled={state.saving || !view.canReady} onClick={() => dispatch({ confirm: true, type: "setConfirmReady" })} size="sm" variant="default"><Upload />{view.readyActionLabel}</Button></div></ReferenceSurface>;
 }
 
 function PackageBuilderReadyDialog({ controller }: { controller: PackageBuilderController }) {

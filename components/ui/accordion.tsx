@@ -69,7 +69,7 @@ export function AccordionList({
               aria-controls={panelId}
               aria-expanded={isOpen}
               className={cn(
-                "flex w-full cursor-pointer items-center justify-between gap-6 border-0 bg-transparent p-0 text-left",
+                "flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-6 border-0 bg-transparent p-0 text-left",
                 "outline-none focus-visible:ring-4 focus-visible:ring-voyage-deep/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white",
               )}
               id={triggerId}
@@ -77,17 +77,17 @@ export function AccordionList({
               type="button"
             >
               <div className="flex items-center gap-3 text-[var(--voyage-deep)] md:gap-4">
-                <span className="shrink-0 text-ui-sm font-semibold leading-none text-[var(--voyage-deep)] md:text-ui-base">
+                <span className="shrink-0 text-sm font-semibold leading-5 text-[var(--voyage-deep)]">
                   {item.number}
                 </span>
-                <span className="text-ui-lg font-medium leading-tight md:text-ui-title">
+                <span className="text-sm font-medium leading-5">
                   {item.question}
                 </span>
               </div>
 
               <span
                 className={cn(
-                  "flex size-11 shrink-0 items-center justify-center text-[var(--voyage-deep)] transition-transform duration-300 group-data-[state=open]:rotate-180",
+                  "flex size-[44px] shrink-0 items-center justify-center text-[var(--voyage-deep)] transition-transform duration-300 group-data-[state=open]:rotate-180",
                   variant === "default" && "rounded-pill border border-[var(--voyage-deep)]/12 bg-white group-data-[state=open]:border-[var(--voyage-deep)]/30 group-data-[state=open]:bg-[var(--voyage-deep)]/10",
                 )}
                 aria-hidden="true"
@@ -108,7 +108,7 @@ export function AccordionList({
             >
               <div className="overflow-hidden">
                 {variant === "default" ? <div className="mt-4 h-px w-full bg-[var(--voyage-deep)]/10" /> : null}
-                <p className={cn("text-ui-base text-voyage-ink", variant === "default" ? "pt-4" : "max-w-[62ch] pt-3 pl-9 md:pl-11")}>
+                <p className={cn("text-sm leading-5 text-voyage-ink", variant === "default" ? "pt-4" : "max-w-[62ch] pt-3 pl-9 md:pl-11")}>
                   {item.answer}
                 </p>
               </div>

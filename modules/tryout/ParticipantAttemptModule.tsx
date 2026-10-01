@@ -8,7 +8,6 @@ import {
   Check,
   Clock,
   ClockCountdown,
-  CircleAlert,
   Expand,
   Flag,
   ListChecks,
@@ -33,7 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { TypedRouteState } from "@/components/ui/typed-route-state";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import { Minus, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -110,7 +111,6 @@ function ParticipantAttemptStatusScreen({
   attemptId,
   busy,
   finished,
-  message,
   nextRun,
   onBegin,
   returnToHref,
@@ -124,7 +124,6 @@ function ParticipantAttemptStatusScreen({
   attemptId: string;
   busy: boolean;
   finished: boolean;
-  message: string;
   nextRun?: RunSummary;
   onBegin: (runId: string) => void;
   returnToHref?: string;
@@ -173,8 +172,6 @@ function ParticipantAttemptStatusScreen({
           </dl>
         </section>
 
-        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><CircleAlert />{message}</p> : null}
-
         {finished ? (
           <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
             <div className="grid gap-3 sm:grid-cols-3">
@@ -219,13 +216,13 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const [state, setState] = useState<State | null>(null);
   const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [message, setMessage] = useState("Memulihkan pengerjaan Tryout…");
   const [busy, setBusy] = useState(false);
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [reported, setReported] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [operationStatus, setOperationStatus] = useState<"beginning" | "submitting" | null>(null);
   const [exitOpen, setExitOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
@@ -234,8 +231,19 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const router = useRouter();
   const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
+  usePageStatusToast({
+    active: saveState === "saving" || (busy && state !== null),
+    message: operationStatus === "beginning"
+      ? "Memulai bagian Tryout…"
+      : operationStatus === "submitting"
+        ? "Mengumpulkan jawaban bagian…"
+        : busy
+          ? "Memperbarui pengerjaan Tryout…"
+          : "Menyimpan jawaban…",
+    variant: "info",
+  });
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function refreshAttempt() {
     setBusy(true);
     setLoadState(stateRef.current ? "ready" : "loading");
     setLoadError(null);
@@ -243,11 +251,13 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       const response = await tryoutAttemptStateAction(attemptId);
       if (!response.ok) {
         if (stateRef.current) {
-          setMessage(response.message);
+          showToast(response.message, {
+            action: { label: "Coba lagi", onClick: () => void refreshAttempt() },
+            variant: "error",
+          });
         } else {
           setLoadState("error");
           setLoadError(response.message);
-          setMessage("");
         }
         return;
       }
@@ -279,18 +289,20 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
       setState(nextState);
       setLoadState("ready");
       setLoadError(null);
-      setMessage(restoredPositionMessage);
+      if (restoredPositionMessage) showToast(restoredPositionMessage, { variant: "info" });
     } catch (refreshError) {
       unstable_rethrow(refreshError);
       const failureMessage = stateRef.current
         ? "Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi."
         : "Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi.";
       if (stateRef.current) {
-        setMessage(failureMessage);
+        showToast(failureMessage, {
+          action: { label: "Coba lagi", onClick: () => void refreshAttempt() },
+          variant: "error",
+        });
       } else {
         setLoadState("error");
         setLoadError(failureMessage);
-        setMessage("");
       }
     } finally {
       setBusy(false);
@@ -332,8 +344,14 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     if (!activeRunId) return;
     const report = (eventType: "focus_lost" | "focus_returned" | "visibility_hidden" | "visibility_visible" | "fullscreen_exited") => {
       void recordTryoutIntegrityEventAction(attemptId, activeRunId, eventType).then((response) => {
-        if (!response.ok) setMessage(response.message);
-        else if (["focus_lost", "visibility_hidden", "fullscreen_exited"].includes(eventType)) setMessage("Perpindahan layar dicatat sebagai peringatan. Timer tetap berjalan tanpa penalti otomatis.");
+        if (!response.ok) showToast(response.message, { variant: "error" });
+        else if (["focus_lost", "visibility_hidden", "fullscreen_exited"].includes(eventType)) {
+          showToast("Perpindahan layar tercatat.", {
+            id: `tryout-integrity-${attemptId}-${activeRunId}`,
+            description: "Timer tetap berjalan tanpa penalti otomatis.",
+            variant: "info",
+          });
+        }
       });
     };
     const handleFocus = () => report("focus_returned");
@@ -392,12 +410,14 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
         : [...selectedOptionIds, optionId]
       : [optionId];
     setSaveState("saving");
-    setMessage("");
     try {
       const response = await saveTryoutAnswerAction(attemptId, run.id, item.id, nextSelectedOptionIds);
       if (!response.ok) {
         setSaveState("error");
-        setMessage(response.message);
+        showToast(response.message, {
+          action: { label: "Coba simpan lagi", onClick: () => void save(optionId) },
+          variant: "error",
+        });
         return;
       }
       setSaveState("saved");
@@ -409,24 +429,34 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     } catch (saveError) {
       unstable_rethrow(saveError);
       setSaveState("error");
-      setMessage("Jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.");
+      showToast("Jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.", {
+        action: { label: "Coba simpan lagi", onClick: () => void save(optionId) },
+        variant: "error",
+      });
     }
   };
 
   const begin = async (runId: string) => {
     setBusy(true);
-    setMessage("");
+    setOperationStatus("beginning");
     try {
       const response = await startActiveTryoutTestRunAction(attemptId, runId);
       if (!response.ok) {
-        setMessage(response.message);
+        showToast(response.message, {
+          action: { label: "Mulai lagi", onClick: () => void begin(runId) },
+          variant: "error",
+        });
         return;
       }
       await refresh();
     } catch (beginError) {
       unstable_rethrow(beginError);
-      setMessage("Bagian ini belum berhasil dimulai. Coba lagi beberapa saat lagi.");
+      showToast("Bagian ini belum berhasil dimulai. Coba lagi beberapa saat lagi.", {
+        action: { label: "Mulai lagi", onClick: () => void begin(runId) },
+        variant: "error",
+      });
     } finally {
+      setOperationStatus(null);
       setBusy(false);
     }
   };
@@ -435,17 +465,25 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     if (!run) return;
     setSubmitOpen(false);
     setBusy(true);
+    setOperationStatus("submitting");
     try {
       const response = await sealTryoutTestRunAction(attemptId, run.id);
       if (!response.ok) {
-        setMessage(response.message);
+        showToast(response.message, {
+          action: { label: "Coba kumpulkan lagi", onClick: () => void submit() },
+          variant: "error",
+        });
         return;
       }
       await refresh();
     } catch (submitError) {
       unstable_rethrow(submitError);
-      setMessage("Bagian ini belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.");
+      showToast("Bagian ini belum berhasil dikumpulkan. Coba lagi beberapa saat lagi.", {
+        action: { label: "Coba kumpulkan lagi", onClick: () => void submit() },
+        variant: "error",
+      });
     } finally {
+      setOperationStatus(null);
       setBusy(false);
     }
   };
@@ -465,10 +503,13 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     try {
       await document.documentElement.requestFullscreen();
       const response = await recordTryoutIntegrityEventAction(attemptId, run.id, "fullscreen_entered");
-      if (!response.ok) setMessage(response.message);
+      if (!response.ok) showToast(response.message, { variant: "error" });
     } catch (error) {
       unstable_rethrow(error);
-      setMessage("Browser tidak dapat memasuki layar penuh. Tryout tetap dapat dilanjutkan.");
+      showToast("Browser tidak dapat memasuki layar penuh.", {
+        description: "Tryout tetap dapat dilanjutkan.",
+        variant: "warning",
+      });
     }
   };
   return {
@@ -485,7 +526,6 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     loadState,
     marked,
     markedCount,
-    message,
     now,
     refresh,
     reported,
@@ -523,13 +563,13 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
 
   const nextRun = state.runs.find((candidate) => candidate.status === "pending");
   if (!run) {
-    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} message={controller.message} nextRun={nextRun} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} nextRun={nextRun} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
   }
   if (!item) {
     return <main className="student-page-canvas mx-auto min-h-svh max-w-3xl px-5 py-12"><p role="alert">Snapshot soal aktif tidak tersedia. Muat ulang untuk memulihkan keadaan server.</p><Button className="mt-5" onClick={() => void controller.refresh()} variant="default">Muat ulang</Button></main>;
   }
 
-  return <ParticipantAttemptScreen answerIds={controller.answerIds} annotationOpen={controller.annotationOpen} busy={controller.busy} enterFullscreen={controller.enterFullscreen} exitOpen={controller.exitOpen} index={controller.index} item={item} items={controller.items} marked={controller.marked} markedCount={controller.markedCount} message={controller.message} now={controller.now} onIndexChange={controller.setIndex} onExit={() => controller.router.push(controller.safeReturnHref)} onToggleAnnotation={controller.toggleAnnotation} onToggleReport={controller.toggleReport} reported={controller.reported} run={run} save={controller.save} saveState={controller.saveState} selected={controller.selected} selectionMode={controller.selectionMode} setExitOpen={controller.setExitOpen} setSubmitOpen={controller.setSubmitOpen} snapshot={controller.snapshot} submit={controller.submit} submitOpen={controller.submitOpen} timerUrgent={controller.timerUrgent} tryoutTitle={state.tryoutTitle} runCount={state.runs.length} unansweredCount={controller.unansweredCount} />;
+  return <ParticipantAttemptScreen answerIds={controller.answerIds} annotationOpen={controller.annotationOpen} busy={controller.busy} enterFullscreen={controller.enterFullscreen} exitOpen={controller.exitOpen} index={controller.index} item={item} items={controller.items} marked={controller.marked} markedCount={controller.markedCount} now={controller.now} onIndexChange={controller.setIndex} onExit={() => controller.router.push(controller.safeReturnHref)} onToggleAnnotation={controller.toggleAnnotation} onToggleReport={controller.toggleReport} reported={controller.reported} run={run} save={controller.save} saveState={controller.saveState} selected={controller.selected} selectionMode={controller.selectionMode} setExitOpen={controller.setExitOpen} setSubmitOpen={controller.setSubmitOpen} snapshot={controller.snapshot} submit={controller.submit} submitOpen={controller.submitOpen} timerUrgent={controller.timerUrgent} tryoutTitle={state.tryoutTitle} runCount={state.runs.length} unansweredCount={controller.unansweredCount} />;
 }
 
 type ActiveRun = NonNullable<State["activeRun"]>;
@@ -545,7 +585,6 @@ type ParticipantAttemptScreenProps = {
   items: Item[];
   marked: Set<string>;
   markedCount: number;
-  message: string;
   now: number;
   onIndexChange: (index: number) => void;
   onExit: () => void;
@@ -572,16 +611,6 @@ function getAttemptReadingTextClass(textScale: "compact" | "default" | "large") 
   return textScale === "large" ? "text-xl leading-[1.9]" : textScale === "compact" ? "text-base leading-[1.8]" : "text-lg leading-[1.85]";
 }
 
-function getAttemptSaveStatus(saveState: ParticipantAttemptScreenProps["saveState"]) {
-  return saveState === "saving"
-    ? { className: "text-secondary-500", icon: LoaderCircle, label: "Menyimpan jawaban…", role: "status" as const }
-    : saveState === "saved"
-      ? { className: "text-student-status-success-fg", icon: Check, label: "Jawaban tersimpan", role: "status" as const }
-      : saveState === "error"
-        ? { className: "text-student-status-danger-fg", icon: CircleAlert, label: "Gagal tersimpan · pilih lagi", role: "alert" as const }
-        : null;
-}
-
 function getAttemptNavigationItems(items: Item[], index: number, marked: Set<string>, answerIds: Set<string>): AssessmentQuestionMarkerItem[] {
   return items.map((candidate, candidateIndex) => ({
     id: candidate.id,
@@ -596,18 +625,16 @@ function ParticipantAttemptQuestionContent({
   index,
   item,
   items,
-  message,
   onToggleReport,
   reported,
   save,
   saveState,
   selected,
   selectionMode,
-}: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "item" | "items" | "message" | "onToggleReport" | "reported" | "save" | "saveState" | "selected" | "selectionMode">) {
+}: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "item" | "items" | "onToggleReport" | "reported" | "save" | "saveState" | "selected" | "selectionMode">) {
   const [textScale, setTextScale] = useState<"compact" | "default" | "large">("default");
   const selectedOptionIdSet = new Set(selected);
-  const saveStatus = getAttemptSaveStatus(saveState);
-  return <div className="mx-auto w-full max-w-[1650px]"><div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16"><section className="min-w-0"><div className="flex min-h-12 items-center justify-between gap-4"><span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span><div className="flex min-w-0 flex-1 items-center justify-end gap-2">{saveStatus ? <span aria-live="polite" className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatus.className)} role={saveStatus.role}>{saveStatus.icon === LoaderCircle ? <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : saveStatus.icon === Check ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />}<span className="truncate">{saveStatus.label}</span></span> : null}<div className="flex shrink-0 items-center gap-2"><AssessmentUtilityPill active={reported.has(item.id)} icon={Flag} label="Laporkan soal" onClick={onToggleReport} /><AssessmentIconButton ariaLabel="Perkecil ukuran font" icon={Minus} onClick={() => setTextScale((current) => current === "large" ? "default" : "compact")} /><AssessmentIconButton ariaLabel="Perbesar ukuran font" icon={Plus} onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")} /></div></div></div>{message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role={saveState === "error" ? "alert" : "status"}><CircleAlert aria-hidden="true" />{message}</p> : null}<p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", getAttemptReadingTextClass(textScale))}>{item.prompt}</p></section><section className="grid gap-4">{item.options.map((option) => <AssessmentAnswerOption disabled={saveState === "saving" || busy} key={option.id} onClick={() => void save(option.id)} option={{ id: option.id, key: option.choiceKey, text: option.content }} selected={selectedOptionIdSet.has(option.id)} selectionMode={selectionMode} textScale={textScale} />)}</section></div></div>;
+  return <div className="mx-auto w-full max-w-[1650px]"><div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16"><section className="min-w-0"><div className="flex min-h-12 items-center justify-between gap-4"><span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span><div className="flex shrink-0 items-center gap-2"><AssessmentUtilityPill active={reported.has(item.id)} icon={Flag} label="Laporkan soal" onClick={onToggleReport} /><AssessmentIconButton ariaLabel="Perkecil ukuran font" icon={Minus} onClick={() => setTextScale((current) => current === "large" ? "default" : "compact")} /><AssessmentIconButton ariaLabel="Perbesar ukuran font" icon={Plus} onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")} /></div></div><p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", getAttemptReadingTextClass(textScale))}>{item.prompt}</p></section><section className="grid gap-4">{item.options.map((option) => <AssessmentAnswerOption disabled={saveState === "saving" || busy} key={option.id} onClick={() => void save(option.id)} option={{ id: option.id, key: option.choiceKey, text: option.content }} selected={selectedOptionIdSet.has(option.id)} selectionMode={selectionMode} textScale={textScale} />)}</section></div></div>;
 }
 
 function ParticipantAttemptDialogs({
@@ -630,9 +657,7 @@ function ParticipantAttemptFooter({
   items,
   onIndexChange,
   saveState,
-  selected,
   setSubmitOpen,
-  snapshot,
 }: Pick<ParticipantAttemptScreenProps, "busy" | "index" | "items" | "onIndexChange" | "saveState" | "selected" | "setSubmitOpen" | "snapshot">) {
   return <AssessmentNavigationFooter><Button aria-label="Soal sebelumnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="outline"><ArrowLeft /><span className="sr-only">Sebelumnya</span></Button><button aria-label="Coretan (sementara dinonaktifkan)" className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60" disabled title="Coretan sementara dinonaktifkan" type="button"><span className="grid size-11 place-items-center rounded-full border-2 border-secondary-300"><PenTool className="size-6" /></span></button>{index >= items.length - 1 ? <Button aria-label="Kumpulkan bagian" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="default">Kumpulkan bagian</Button> : <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="default"><span className="sr-only">Selanjutnya</span><ArrowRight /></Button>}</AssessmentNavigationFooter>;
 }
@@ -643,6 +668,6 @@ function ParticipantAttemptHeader({ enterFullscreen, now, run, runCount, timerUr
 
 function ParticipantAttemptScreen(props: ParticipantAttemptScreenProps) {
   const navigationItems = getAttemptNavigationItems(props.items, props.index, props.marked, props.answerIds);
-  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} message={props.message} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} selectionMode={props.selectionMode} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari Tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari Tryout" variant="outline"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
+  return <AssessmentWorkspace content={<ParticipantAttemptQuestionContent busy={props.busy} index={props.index} item={props.item} items={props.items} onToggleReport={props.onToggleReport} reported={props.reported} save={props.save} saveState={props.saveState} selected={props.selected} selectionMode={props.selectionMode} />} dialog={<ParticipantAttemptDialogs busy={props.busy} exitOpen={props.exitOpen} markedCount={props.markedCount} onExit={props.onExit} setExitOpen={props.setExitOpen} setSubmitOpen={props.setSubmitOpen} submit={props.submit} submitOpen={props.submitOpen} unansweredCount={props.unansweredCount} />} exitControl={<Button aria-label="Keluar dari Tryout" disabled={props.busy} onClick={() => props.setExitOpen(true)} size="icon" title="Keluar dari Tryout" variant="outline"><ArrowLeft /></Button>} footer={<ParticipantAttemptFooter busy={props.busy} index={props.index} items={props.items} onIndexChange={props.onIndexChange} saveState={props.saveState} selected={props.selected} setSubmitOpen={props.setSubmitOpen} snapshot={props.snapshot} />} header={<ParticipantAttemptHeader enterFullscreen={props.enterFullscreen} now={props.now} run={props.run} runCount={props.runCount} timerUrgent={props.timerUrgent} tryoutTitle={props.tryoutTitle} />} annotation={<AssessmentAnnotationOverlay onClose={props.onToggleAnnotation} open={props.annotationOpen} />} navigation={<AssessmentQuestionNavigation items={navigationItems} onSelect={(number) => props.onIndexChange(number - 1)} />}/>;
 }
 export { ParticipantAttemptModule };

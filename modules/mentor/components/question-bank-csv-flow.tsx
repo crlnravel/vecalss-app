@@ -26,6 +26,7 @@ import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   toQuestionBankCsvDraftPayload,
   type QuestionBankCsvDraftQuestion,
@@ -250,33 +251,24 @@ function CsvFilePicker({
 }
 
 function CsvFileSummary({ preview }: { preview: CsvPreview }) {
+  const isLoading = preview.status === "loading";
+  usePageStatusToast({
+    active: isLoading,
+    message: "Memeriksa file dan menyiapkan ringkasan soal…",
+    variant: "info",
+  });
+
   if (preview.status === "idle") return null;
-  if (preview.status === "loading") {
-    return (
-      <div
-        aria-label="Memeriksa file soal"
-        aria-live="polite"
-        className="rounded-2xl border border-primary-100 bg-primary-50/50 px-4 py-3 text-sm text-primary-950"
-        data-csv-preview-status="loading"
-        role="status"
-      >
-        Memeriksa file dan menyiapkan ringkasan soal…
-      </div>
-    );
-  }
+  if (preview.status === "loading") return null;
   if (preview.status === "valid") {
     return (
       <div
-        aria-live="polite"
         className="flex min-w-0 items-start gap-3 rounded-2xl border border-primary-200 bg-primary-50/70 px-4 py-3 text-sm text-primary-950"
         data-csv-preview-status="valid"
-        role="status"
       >
         <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
         <div className="min-w-0">
-          <p className="font-semibold">
-            {preview.rowCount} soal siap ditinjau.
-          </p>
+          <p className="font-semibold">{preview.rowCount} soal</p>
           <p className="mt-1 break-words text-primary-900/80">
             {preview.fileName} · pratinjau tidak menyimpan atau mengubah Bank
             Soal.
@@ -412,12 +404,7 @@ function QuestionBankCsvDraftStatus({
     <div
       className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-primary-100 py-3"
       data-question-bank-csv-draft-status="true"
-      role="status"
     >
-      <div className="flex min-w-0 items-center gap-2 text-sm text-secondary-700">
-        <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-student-status-success-fg" />
-        <p>File siap disimpan bersama Bank Soal.</p>
-      </div>
       <Button
         disabled={disabled}
         onClick={onRemove}

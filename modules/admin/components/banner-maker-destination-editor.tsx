@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { ReferenceSelect, type ReferenceSelectOption } from "@/components/dashboard/reference-dashboard-controls";
 import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { ArrowLeft, CircleHelp, Eye, FileImage, ImagePlus, PenTool, Save, SendHorizontal } from "@/lib/icons";
 import {
   BANNER_DESTINATIONS,
@@ -123,7 +124,7 @@ function StarterCorrectionPanel({
         <Field>
           <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="banner-starter-title">Judul</FieldLabel>
           <Input
-            aria-describedby="banner-starter-title-help"
+            aria-describedby={`banner-starter-title-help${titleError ? " banner-starter-title-error" : ""}`}
             aria-invalid={titleError}
             className={REFERENCE_CONTROL_CLASS_NAMES.input}
             id="banner-starter-title"
@@ -138,7 +139,7 @@ function StarterCorrectionPanel({
         <Field>
           <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="banner-starter-description">Deskripsi</FieldLabel>
           <textarea
-            aria-describedby="banner-starter-description-help"
+            aria-describedby={`banner-starter-description-help${descriptionError ? " banner-starter-description-error" : ""}`}
             aria-invalid={descriptionError}
             aria-label="Deskripsi"
             className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 resize-y py-3`}
@@ -314,23 +315,17 @@ function DestinationEditorHeader({
   );
 }
 
-function DestinationEditorStatus({ state }: { state: BannerMakerDestinationFormState }) {
-  if (!state.message || state.status === "idle") return null;
-  return (
-    <div
-      aria-live={state.status === "error" ? "assertive" : "polite"}
-      className={state.status === "error"
-        ? "mx-3 mt-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg sm:mx-5"
-        : "mx-3 mt-3 rounded-2xl border border-student-status-success-border bg-student-status-success-bg px-4 py-3 text-sm leading-6 text-student-status-success-fg sm:mx-5"}
-      role={state.status === "error" ? "alert" : "status"}
-    >
-      {state.message}
-    </div>
-  );
-}
-
 function DestinationEditorToolbar({ controller }: { controller: DestinationEditorController }) {
   const { actions } = controller;
+  usePageStatusToast({
+    active: controller.isDirty || controller.isPending,
+    action: controller.isDirty && !controller.isPending
+      ? { label: "Simpan draf", onClick: controller.submitSave }
+      : undefined,
+    message: controller.isPending ? "Menyimpan perubahan…" : "Perubahan belum disimpan.",
+    variant: controller.isPending ? "info" : "warning",
+  });
+
   return (
     <div className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-primary-100 bg-white px-3 py-2 sm:px-5">
       <div aria-label="Alat banner" className="flex items-center gap-1">
@@ -339,9 +334,7 @@ function DestinationEditorToolbar({ controller }: { controller: DestinationEdito
         <span aria-hidden="true" className="mx-2 h-5 w-px bg-primary-100" />
         <Button aria-label={controller.showGuides ? "Sembunyikan panduan" : "Tampilkan panduan"} aria-pressed={controller.showGuides} className={controller.showGuides ? "size-11 bg-primary-50 text-primary-800" : "size-11"} disabled={controller.isPending} onClick={actions.toggleGuides} size="icon" type="button" variant="outline"><Eye /></Button>
       </div>
-      <p className="text-xs font-medium text-secondary-600" role="status">
-        {controller.isPending ? "Menyimpan perubahan…" : controller.isDirty ? "Perubahan belum disimpan" : controller.savedHasUnpublishedChanges ? "Draf belum diterbitkan" : "Banner aktif"}
-      </p>
+      {controller.savedHasUnpublishedChanges ? <p className="text-xs font-medium text-secondary-600">Draf belum diterbitkan</p> : null}
     </div>
   );
 }
@@ -428,7 +421,6 @@ function BannerMakerDestinationEditorInstance({ action, requestId, session, snap
           </Field>
           <p className="hidden text-xs font-medium text-secondary-500 sm:block">Perubahan lokal tetap berada di tujuan yang sedang dibuka.</p>
         </div>
-        <DestinationEditorStatus state={controller.formState} />
         <DestinationEditorRecovery controller={controller} />
       </form>
 

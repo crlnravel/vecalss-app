@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import { Field, FieldInput } from "@/components/ui/field";
+import { Field, FieldError, FieldInput } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { showToast } from "@/components/ui/toast";
 import { parseTryoutDateTime } from "@/lib/tryout/time";
@@ -102,7 +102,7 @@ function KaptenTryoutSessionCreatePageModule({
             <FieldInput
               aria-describedby={validation?.field === "name" ? "session-name-error" : undefined}
               aria-invalid={validation?.field === "name" || undefined}
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`}
+              className={REFERENCE_CONTROL_CLASS_NAMES.input}
               id="session-name"
               onChange={(event) => {
                 setSession({ ...session, name: event.target.value });
@@ -112,7 +112,7 @@ function KaptenTryoutSessionCreatePageModule({
               required
               value={session.name}
             />
-            {validation?.field === "name" ? <p className="text-sm text-student-status-danger-fg" id="session-name-error" role="alert">{validation.message}</p> : null}
+            <FieldError error={validation?.field === "name" ? validation.message : undefined} id="session-name-error" />
           </Field>
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -149,7 +149,7 @@ function KaptenTryoutSessionCreatePageModule({
               />
             </Field>
           </div>
-          {validation?.field === "schedule" ? <p className="text-sm text-student-status-danger-fg" id="session-schedule-error" role="alert">{validation.message}</p> : null}
+          <FieldError error={validation?.field === "schedule" ? validation.message : undefined} id="session-schedule-error" />
 
           <div className="grid gap-3 md:grid-cols-2">
             <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)]">

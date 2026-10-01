@@ -28,6 +28,7 @@ import { FileUploadSlot } from "@/components/ui/file-upload-slot";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { CircleAlert, FileText, Upload } from "@/lib/icons";
 import {
   toQuestionBankCsvDraftPayload,
@@ -791,14 +792,14 @@ function XlsxOverwriteImpactSummary({
   impact: XlsxOverwriteImpactSnapshot | null;
   phase: XlsxOverwriteImpactPhase;
 }) {
+  usePageStatusToast({
+    active: phase === "loading",
+    message: "Menghitung perubahan pada Bank Soal…",
+    variant: "info",
+  });
+
   let result: ReactNode = null;
-  if (phase === "loading" || phase === "idle") {
-    result = (
-      <p aria-live="polite" className="text-sm text-secondary-600" role="status">
-        Menghitung perubahan pada Bank Soal…
-      </p>
-    );
-  } else if (phase === "error") {
+  if (phase === "error") {
     result = (
       <p className="text-sm leading-6 text-student-status-danger-fg" role="alert">
         {error ?? "Dampak impor belum dapat dihitung. Muat ulang halaman lalu coba lagi."}
@@ -1803,8 +1804,8 @@ function useXlsxFlowCommands(options: XlsxFlowCommandOptions) {
   }, [mountedRef]);
 
   const startInitialUploadEvent = useEffectEvent(() => {
-    if (!shouldStartInitialXlsxUpload(options) || !options.initialFile) return;
-    options.autoStartedFileRef.current = options.initialFile;
+    if (!shouldStartInitialXlsxUpload(options) || !initialFile) return;
+    autoStartedFileRef.current = initialFile;
     // react-doctor-disable-next-line no-adjust-state-on-prop-change, no-derived-state -- initialFile is an imperative upload command; file state retains the selected File for preview, status, and apply.
     handleXlsxFileChange(options, options.initialFile);
   });
@@ -2154,6 +2155,12 @@ function XlsxImportFileSection({
   flow: QuestionBankXlsxFlowViewModel;
 }) {
   const { disabled, file, handleFileChange, inputId, isBusy, phase, presentation } = flow;
+  usePageStatusToast({
+    active: isBusy,
+    message: xlsxUploadStatusMessage(phase),
+    variant: "info",
+  });
+
   return (
     <>
       {presentation === "dialog" ? <StakeholderWorkbookNotice /> : null}
@@ -2174,11 +2181,6 @@ function XlsxImportFileSection({
           uploading={isBusy}
           uploadMeta={file ? formatFileSize(file.size) : undefined}
         />
-        {isBusy ? (
-          <p aria-live="polite" className="text-sm text-secondary-600" role="status">
-            {xlsxUploadStatusMessage(phase)}
-          </p>
-        ) : null}
       </div>
     </>
   );

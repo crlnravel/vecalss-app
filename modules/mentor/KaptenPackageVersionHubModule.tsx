@@ -114,7 +114,7 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2 font-semibold text-secondary-900">
                       <span>{packageReleaseLabel(version.versionNo)}</span>
-                      {isActive ? <Badge size="xs" tone="active">Versi aktif</Badge> : null}
+                      {isActive ? <Badge size="xs" tone="info">Versi aktif</Badge> : null}
                     </span>
                     <span className="mt-1 block text-xs text-secondary-500">{packageDateFormatter.format(new Date(versionDate))} · {version.itemCount} soal</span>
                   </span>

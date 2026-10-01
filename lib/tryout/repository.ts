@@ -764,42 +764,56 @@ function toTryoutDto(record: TryoutReadRecord) {
     isHidden: record.isHidden,
     locked: record.attempts.length > 0,
     sections: record.sections.map((section) => ({
-      directQuestions: section.packageVersionId ? [] : section.items.flatMap((item) => {
-        if (item.packageVersionId) return [];
-        const isDetachedSnapshot = item.snapshotId !== null;
-        return [{
-          ...(isDetachedSnapshot ? {} : {
-            bankId: item.sourceQuestion?.questionBank?.id,
-            bankTitle: item.sourceQuestion?.questionBank?.name,
-            sourceContentDigest: item.sourceContentDigest ?? undefined,
-            sourceQuestionId: item.sourceQuestionId ?? undefined,
-            sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined,
-            sourceRevisionProvenance: item.sourceRevisionProvenance ?? undefined,
-          }),
+      directQuestions: section.packageVersionId ? [] : section.items.filter((item) => !item.packageVersionId).map((item) => {
+        const questionType: QuestionAnswerMode = answerModeForQuestionType(item.questionType) ?? "single_choice";
+        const common = {
           difficulty: item.difficulty,
           explanation: item.explanation,
           explanationAssetId: item.explanationAssetId,
           hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId),
           hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"),
+          points: Number(item.points),
+          prompt: item.prompt,
+          promptAssetId: item.promptAssetId,
+          questionType,
+          sortOrder: item.sortOrder,
+        };
+        if (item.snapshotId !== null) {
+          return {
+            ...common,
+            snapshotId: item.snapshotId,
+            options: item.options.map((option) => {
+              if (!option.snapshotOptionId) throw new TryoutValidationError("Pilihan soal Tryout belum lengkap. Muat ulang lalu periksa kembali.");
+              return {
+                assetId: option.assetId,
+                choiceKey: option.choiceKey,
+                content: option.content,
+                isCorrect: option.isCorrect,
+                snapshotOptionId: option.snapshotOptionId,
+                sortOrder: option.sortOrder,
+              };
+            }),
+          };
+        }
+        if (!item.sourceQuestionId) throw new TryoutValidationError("Sumber soal Tryout belum tersedia. Muat ulang lalu periksa kembali.");
+        return {
+          ...common,
+          bankId: item.sourceQuestion?.questionBank?.id,
+          bankTitle: item.sourceQuestion?.questionBank?.name,
+          sourceContentDigest: item.sourceContentDigest ?? undefined,
+          sourceQuestionId: item.sourceQuestionId,
+          sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined,
+          sourceRevisionProvenance: item.sourceRevisionProvenance ?? undefined,
           options: item.options.map((option) => ({
             assetId: option.assetId,
             choiceKey: option.choiceKey,
             content: option.content,
             isCorrect: option.isCorrect,
-            snapshotOptionId: option.snapshotOptionId ?? undefined,
             sortOrder: option.sortOrder,
-            ...(!isDetachedSnapshot ? {
-              sourceQuestionOptionId: option.sourceQuestionOptionId ?? undefined,
-              sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId ?? undefined,
-            } : {}),
+            sourceQuestionOptionId: option.sourceQuestionOptionId ?? undefined,
+            sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId ?? undefined,
           })),
-          points: Number(item.points),
-          prompt: item.prompt,
-          promptAssetId: item.promptAssetId,
-          questionType: answerModeForQuestionType(item.questionType) ?? "single_choice",
-          snapshotId: item.snapshotId ?? undefined,
-          sortOrder: item.sortOrder,
-        }];
+        };
       }),
       durationMinutes: Math.round(section.durationSeconds / 60),
       id: section.id,
@@ -1433,7 +1447,7 @@ function validateTryoutInput(input: SaveTryoutInput) {
     if (section.testType !== "cbt") throw new TryoutValidationError("Tryout ini harus menggunakan ujian berbasis komputer (CBT).");
     try {
       canonicalizeCbtScoringConfig(section.scoringConfig);
-    } catch (error) {
+    } catch {
       throw new TryoutValidationError("Pengaturan penilaian CBT tidak valid. Periksa kembali metode penilaiannya.");
     }
   }
@@ -1520,7 +1534,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     }> = [];
     const allSourceIds: string[] = [];
     const allSnapshotIds: string[] = [];
-    for (const [index, subjectCode] of SUBJECTS.entries()) {
+    for (const subjectCode of SUBJECTS) {
       const sectionInput = sectionBySubtest.get(subjectCode)!;
       const subtest = subtestByCode.get(sectionInput.subtest);
       if (!subtest) throw new TryoutValidationError("Subtes Tryout tidak ditemukan. Periksa kembali susunan Tryout.");

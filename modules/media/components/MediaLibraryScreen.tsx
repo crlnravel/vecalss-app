@@ -14,7 +14,6 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
-  REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
@@ -676,7 +675,7 @@ function MediaLibraryMinimalView(props: MediaLibraryScreenViewProps) {
           />
           <Input
             aria-label="Cari media"
-            className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none"
+            className="pl-10"
             onChange={(event) => actions.setSearchInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -823,7 +822,7 @@ function MediaLibraryReferenceToolbar({
         <span className="sr-only">Cari {mediaLabel}</span>
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
         <Input
-          className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 rounded-2xl py-2 pl-11 shadow-sm`}
+          className="pl-11"
           onChange={(event) => actions.setSearchInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -951,11 +950,7 @@ function MediaLibraryWorkspaceStandardToolbar({
           )}
         />
         <Input
-          className={
-            isPicker
-              ? `${REFERENCE_CONTROL_CLASS_NAMES.input} pl-11`
-              : "h-11 border-primary-100 bg-white pl-11"
-          }
+          className="pl-11"
           onChange={(event) => actions.setSearchInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -1209,7 +1204,7 @@ function MediaLibraryDriveControls({
             <span className="sr-only">Search {mediaLabel}</span>
             <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-secondary-500" />
             <Input
-              className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none"
+              className="pl-10"
               onChange={(event) => actions.setSearchInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {

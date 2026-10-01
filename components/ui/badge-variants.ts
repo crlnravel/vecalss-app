@@ -1,21 +1,14 @@
 import { cva } from "class-variance-authority"
 
 const badgeVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-pill border font-semibold leading-none whitespace-nowrap transition-colors motion-reduce:transition-none",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-pill border font-semibold leading-none whitespace-nowrap shadow-[inset_0_1px_1px_color-mix(in_oklab,var(--voyage-surface)_74%,transparent),inset_0_-2px_6px_color-mix(in_oklab,var(--voyage-deep)_16%,transparent)] transition-colors motion-reduce:transition-none",
   {
     variants: {
-      depth: {
-        flat: null,
-        sunken:
-          "shadow-[inset_0_1px_1px_color-mix(in_oklab,var(--voyage-surface)_74%,transparent),inset_0_-2px_6px_color-mix(in_oklab,var(--voyage-deep)_16%,transparent)]",
-      },
       tone: {
         category:
           "border-student-status-category-border bg-student-status-category-bg text-student-status-category-fg",
         neutral:
           "border-student-status-neutral-border bg-student-status-neutral-bg text-student-status-neutral-fg",
-        active:
-          "border-student-status-active-border bg-student-status-active-bg text-student-status-active-fg",
         attention:
           "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
         success:
@@ -31,7 +24,6 @@ const badgeVariants = cva(
       },
     },
     defaultVariants: {
-      depth: "sunken",
       size: "sm",
       tone: "neutral",
     },

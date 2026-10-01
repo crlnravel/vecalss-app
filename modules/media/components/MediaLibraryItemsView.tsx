@@ -218,7 +218,7 @@ export function MediaLibraryItemsView({
   visibleAssets,
   visibleFolders,
 }: MediaLibraryItemsViewProps) {
-  const { isDrive, isLoading, isMinimalGallery, isPicker, isReference } = flags;
+  const { isDrive, isLoading, isMinimalGallery, isReference } = flags;
   const { driveAsset: renderDriveAsset } = itemRenderers;
 
   const clearFilters = () => {

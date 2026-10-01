@@ -1,0 +1,70 @@
+.viewport {
+  width: calc(100vw - 32px) !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+}
+
+.toast {
+  width: max-content !important;
+  max-width: 100% !important;
+  left: 50% !important;
+  right: auto !important;
+  /* Keep Sonner's transform free for its vertical and swipe animations. */
+  translate: -50% 0;
+  display: flex !important;
+  align-items: center;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  overflow-wrap: break-word;
+}
+
+.content {
+  flex: 0 1 auto !important;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.text {
+  padding: 0 !important;
+}
+
+.icon {
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+.toast > :is([data-button], [data-slot="button"]) {
+  margin: 0 !important;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.closeButton {
+  /* An actual close control takes its own space, rather than reserving a
+     trailing gutter on every message and action, including persistent ones. */
+  /* Sonner renders close first; preserve that same visual/keyboard order. */
+  position: static !important;
+  transform: none !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .toast:has(> [data-button], > [data-slot="button"]) {
+    flex-wrap: wrap;
+  }
+
+  .toast:has(> [data-button], > [data-slot="button"]) > .content {
+    flex-basis: 100% !important;
+  }
+
+  .toast:has(> [data-icon]):has(> [data-button], > [data-slot="button"]) > .content {
+    /* Icon and message share the first row; actions use the following row. */
+    flex-basis: calc(100% - 32px) !important;
+  }
+}

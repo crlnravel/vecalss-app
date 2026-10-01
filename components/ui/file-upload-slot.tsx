@@ -5,6 +5,7 @@ import { useId, useRef, useState, type ChangeEvent, type DragEvent, type Keyboar
 import { CheckCircle2, FileText, Upload, X } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { fieldControlClassName } from "./field-constants";
 
 type FileUploadSlotProps = {
   accept?: string;
@@ -148,12 +149,14 @@ function EmptyFileDropZone({ browseLabel, disabled, dropZoneClassName, inputRef,
   return (
     <div
       className={cn(
-        "relative grid min-h-44 min-w-0 place-items-center rounded-field border-2 border-dashed px-5 py-8 text-center transition-[background-color,border-color,box-shadow]",
+        fieldControlClassName,
+        "relative grid min-h-44 place-items-center border-2 border-dashed px-5 py-8 text-center transition-[background-color,border-color,box-shadow]",
         dropZoneClassName,
         isDragging ? "border-primary-500 bg-primary-100/70 shadow-[inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)]" : "border-primary-200 bg-primary-50/35 hover:border-primary-300 hover:bg-primary-50/70",
         disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
       )}
       aria-label="Pilih file untuk diunggah"
+      aria-disabled={disabled || undefined}
       onDragEnter={(event) => handleDragStart(event, Boolean(disabled), setIsDragging)}
       onDragLeave={(event) => handleDragLeave(event, setIsDragging)}
       onDragOver={(event) => handleDragStart(event, Boolean(disabled), setIsDragging)}
@@ -165,15 +168,9 @@ function EmptyFileDropZone({ browseLabel, disabled, dropZoneClassName, inputRef,
     >
       <div className="grid w-full justify-items-center">
         <span aria-hidden="true" className="mb-3 grid size-11 place-items-center rounded-pill bg-primary-100 text-primary-800"><Upload className="size-5" weight="bold" /></span>
-        <button
-          aria-label={`${browseLabel} file`}
-          className="rounded-control px-2 py-1 text-sm leading-6 text-secondary-500 outline-none transition-colors hover:text-secondary-800 focus-visible:ring-3 focus-visible:ring-primary-700/20"
-          disabled={disabled}
-          onClick={(event) => { event.stopPropagation(); openFinder(); }}
-          type="button"
-        >
+        <p className="rounded-control px-2 py-1 text-sm leading-6 text-secondary-500">
           Letakkan file di sini atau <span className="font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4">{browseLabel}</span>
-        </button>
+        </p>
         <p className="pointer-events-none mt-1 select-none text-xs leading-5 text-secondary-500">{maxSizeLabel}</p>
       </div>
     </div>
@@ -188,7 +185,7 @@ function SelectedFilePill({ disabled, file, inputRef, onChange }: Pick<FileUploa
   };
   return (
     <div className="flex min-w-0 justify-center">
-      <div className="inline-flex max-w-full items-center gap-2 rounded-pill border border-primary-200 bg-white px-2 py-1.5 text-left shadow-sm">
+      <div className={cn(fieldControlClassName, "inline-flex w-fit max-w-full items-center gap-2 px-2 py-1.5 text-left")}>
         <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-control bg-primary-100 text-primary-800"><FileText className="size-4" /></span>
         <span className="min-w-0 max-w-[min(58vw,20rem)] truncate text-xs font-semibold text-secondary-800" title={file.name}>{file.name}</span>
         <Button aria-label={`Hapus file ${file.name}`} disabled={disabled} onClick={removeFile} size="icon-sm" type="button" variant="outline"><X aria-hidden="true" /></Button>
@@ -197,11 +194,11 @@ function SelectedFilePill({ disabled, file, inputRef, onChange }: Pick<FileUploa
   );
 }
 
-function FileUploadProgressRow({ completed, completionLabel, disabled, file, inputRef, onCancelUpload, onChange, progress, progressValue, uploadLabel, uploadMeta }: Pick<FileUploadSlotProps, "completed" | "completionLabel" | "disabled" | "file" | "onCancelUpload" | "onChange" | "progress" | "uploadLabel" | "uploadMeta"> & { file: File; inputRef: RefObject<HTMLInputElement | null>; progressValue: number }) {
+function FileUploadProgressRow({ completed = false, completionLabel, disabled, file, inputRef, onCancelUpload, onChange, progress = null, progressValue, uploadLabel, uploadMeta }: Pick<FileUploadSlotProps, "completed" | "completionLabel" | "disabled" | "file" | "onCancelUpload" | "onChange" | "progress" | "uploadLabel" | "uploadMeta"> & { file: File; inputRef: RefObject<HTMLInputElement | null>; progressValue: number }) {
   const progressLabel = completed ? "Unggahan selesai, 100%" : typeof progress === "number" ? `${progressValue}% selesai` : "File sedang diproses";
   const progressWidth = typeof progress === "number" ? { width: `${progressValue}%` } : undefined;
   return (
-    <div className="rounded-card border border-primary-100 bg-white px-4 py-3.5 shadow-sm">
+    <div className={cn(fieldControlClassName, "px-4 py-3.5")}>
       <div className="flex items-start justify-between gap-3">
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-pill bg-primary-100 text-primary-800"><FileText className="size-5" /></span>
         <div className="min-w-0 flex-1">
@@ -236,7 +233,7 @@ function FileUploadProgressAction({ completed, disabled, file, inputRef, onCance
     );
   }
   return (
-    <Button aria-label={onCancelUpload ? "Batalkan proses" : `Hapus file ${file.name}`} onClick={onCancelUpload ?? removeFile} size="icon-sm" type="button" variant="outline"><X aria-hidden="true" /></Button>
+    <Button aria-label={onCancelUpload ? "Batalkan proses" : `Hapus file ${file.name}`} disabled={disabled} onClick={onCancelUpload ?? removeFile} size="icon-sm" type="button" variant="outline"><X aria-hidden="true" /></Button>
   );
 }
 

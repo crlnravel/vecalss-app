@@ -67,6 +67,10 @@ import {
   ResourceEditLockProvider,
   useResourceEditLock,
 } from "@/modules/mentor/resource-edit-lock-provider";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+} from "@phosphor-icons/react";
 
 type QuizDetailTab = "preview" | "hasil" | "pengaturan";
 
@@ -688,6 +692,9 @@ function QuizSettings({
               value={form.closesAt}
             />
           </Field>
+          <p className="text-sm leading-6 text-secondary-600 sm:col-span-2">
+            Jika dikosongkan, maka kuis terbuka seterusnya
+          </p>
           <Field>
             <FieldLabel
               className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -770,22 +777,39 @@ function QuizSettings({
         </Button>
       </ReferenceSurface>
 
-      <QuizLifecycleSettings disabled={disabled} isHidden={isHidden} isSaving={isSaving} onArchive={onArchive} onSetHidden={onSetHidden} />
+      <QuizLifecycleSettings
+        disabled={disabled}
+        isHidden={isHidden}
+        isSaving={isSaving}
+        onArchive={onArchive}
+        onSetHidden={onSetHidden}
+      />
     </div>
   );
 }
 
 function getQuizSettingsErrors(form: SettingsForm) {
-  const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt)
-    ? "Waktu tutup harus setelah waktu buka."
-    : null;
-  const durationError = form.durationMinutes !== null && (!Number.isInteger(form.durationMinutes) || form.durationMinutes < 1)
-    ? "Durasi harus berupa jumlah menit positif atau dikosongkan untuk tanpa batas."
-    : null;
+  const scheduleError =
+    form.opensAt &&
+    form.closesAt &&
+    new Date(form.closesAt) <= new Date(form.opensAt)
+      ? "Waktu tutup harus setelah waktu buka."
+      : null;
+  const durationError =
+    form.durationMinutes !== null &&
+    (!Number.isInteger(form.durationMinutes) || form.durationMinutes < 1)
+      ? "Durasi harus berupa jumlah menit positif atau dikosongkan untuk tanpa batas."
+      : null;
   return { durationError, scheduleError };
 }
 
-function QuizLifecycleSettings({ disabled, isHidden, isSaving, onArchive, onSetHidden }: {
+function QuizLifecycleSettings({
+  disabled,
+  isHidden,
+  isSaving,
+  onArchive,
+  onSetHidden,
+}: {
   disabled: boolean;
   isHidden: boolean;
   isSaving: boolean;
@@ -796,11 +820,27 @@ function QuizLifecycleSettings({ disabled, isHidden, isSaving, onArchive, onSetH
   return (
     <>
       {onArchive || onSetHidden ? (
-        <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7" data-quiz-settings-card="lifecycle">
+        <ReferenceSurface
+          as="section"
+          className="max-w-6xl p-5 md:p-7"
+          data-quiz-settings-card="lifecycle"
+        >
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-secondary-900">Administrasi</h2>
-            <QuizVisibilityAction disabled={disabled} isHidden={isHidden} isSaving={isSaving} onSetHidden={onSetHidden} />
-            <QuizArchiveAction disabled={disabled} isSaving={isSaving} onArchiveRequested={() => setArchiveConfirmationOpen(true)} onArchive={onArchive} />
+            <h2 className="text-lg font-semibold text-secondary-900">
+              Administrasi
+            </h2>
+            <QuizVisibilityAction
+              disabled={disabled}
+              isHidden={isHidden}
+              isSaving={isSaving}
+              onSetHidden={onSetHidden}
+            />
+            <QuizArchiveAction
+              disabled={disabled}
+              isSaving={isSaving}
+              onArchiveRequested={() => setArchiveConfirmationOpen(true)}
+              onArchive={onArchive}
+            />
           </div>
         </ReferenceSurface>
       ) : null}
@@ -808,14 +848,21 @@ function QuizLifecycleSettings({ disabled, isHidden, isSaving, onArchive, onSetH
         isOpen={archiveConfirmationOpen}
         isSaving={isSaving}
         onArchive={onArchive}
-        onOpenChange={(open) => { if (!isSaving) setArchiveConfirmationOpen(open); }}
+        onOpenChange={(open) => {
+          if (!isSaving) setArchiveConfirmationOpen(open);
+        }}
         onSuccess={() => setArchiveConfirmationOpen(false)}
       />
     </>
   );
 }
 
-function QuizVisibilityAction({ disabled, isHidden, isSaving, onSetHidden }: {
+function QuizVisibilityAction({
+  disabled,
+  isHidden,
+  isSaving,
+  onSetHidden,
+}: {
   disabled: boolean;
   isHidden: boolean;
   isSaving: boolean;
@@ -825,14 +872,32 @@ function QuizVisibilityAction({ disabled, isHidden, isSaving, onSetHidden }: {
   return (
     <AdministrationActionRow
       action={isHidden ? "Tampilkan Kuis" : "Sembunyikan Kuis"}
-      description={isHidden ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat memulai pengerjaan baru." : "Kuis tidak muncul di katalog siswa dan tidak menerima pengerjaan baru. Pengerjaan yang sedang berjalan dan riwayat hasil tetap tersedia."}
+      description={
+        isHidden
+          ? "Tampilkan kembali Kuis di katalog siswa agar siswa dapat melihat kuis ini."
+          : "Sembunyikan kuis dari siswa. Siswa yang sudah mulai mengerjakan tetap dapat melanjutkan, dan hasil pengerjaan tetap tersimpan."
+      }
     >
-      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={() => void onSetHidden(!isHidden)} type="button" variant="outline">{isHidden ? "Tampilkan lagi" : "Sembunyikan"}</Button>
+      <Button
+        aria-busy={isSaving}
+        disabled={disabled || isSaving}
+        onClick={() => void onSetHidden(!isHidden)}
+        type="button"
+        variant="outline"
+      >
+        {isHidden ? <EyeIcon /> : <EyeSlashIcon />}
+        {isHidden ? "Tampilkan" : "Sembunyikan"}
+      </Button>
     </AdministrationActionRow>
   );
 }
 
-function QuizArchiveAction({ disabled, isSaving, onArchiveRequested, onArchive }: {
+function QuizArchiveAction({
+  disabled,
+  isSaving,
+  onArchiveRequested,
+  onArchive,
+}: {
   disabled: boolean;
   isSaving: boolean;
   onArchiveRequested: () => void;
@@ -840,13 +905,31 @@ function QuizArchiveAction({ disabled, isSaving, onArchiveRequested, onArchive }
 }) {
   if (!onArchive) return null;
   return (
-    <AdministrationActionRow action="Arsipkan Kuis" description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa.">
-      <Button aria-busy={isSaving} disabled={disabled || isSaving} onClick={onArchiveRequested} type="button" variant="destructive"><Archive />Arsipkan</Button>
+    <AdministrationActionRow
+      action="Arsipkan Kuis"
+      description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa."
+    >
+      <Button
+        aria-busy={isSaving}
+        disabled={disabled || isSaving}
+        onClick={onArchiveRequested}
+        type="button"
+        variant="destructive"
+      >
+        <Archive />
+        Arsipkan
+      </Button>
     </AdministrationActionRow>
   );
 }
 
-function QuizArchiveConfirmation({ isOpen, isSaving, onArchive, onOpenChange, onSuccess }: {
+function QuizArchiveConfirmation({
+  isOpen,
+  isSaving,
+  onArchive,
+  onOpenChange,
+  onSuccess,
+}: {
   isOpen: boolean;
   isSaving: boolean;
   onArchive?: () => Promise<boolean>;
@@ -861,13 +944,24 @@ function QuizArchiveConfirmation({ isOpen, isSaving, onArchive, onOpenChange, on
     <AlertDialog onOpenChange={onOpenChange} open={isOpen}>
       <AlertDialogContent pending={isSaving} variant="danger">
         <AlertDialogHeader>
-          <AlertDialogMedia variant="danger"><Archive /></AlertDialogMedia>
+          <AlertDialogMedia variant="danger">
+            <Archive />
+          </AlertDialogMedia>
           <AlertDialogTitle>Arsipkan Kuis?</AlertDialogTitle>
-          <AlertDialogDescription>Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan tetap tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.</AlertDialogDescription>
+          <AlertDialogDescription>
+            Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan tetap
+            tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isSaving}>Batal</AlertDialogCancel>
-          <AlertDialogAction disabled={isSaving} onClick={confirmArchive} variant="destructive">{isSaving ? "Mengarsipkan…" : "Arsipkan Kuis"}</AlertDialogAction>
+          <AlertDialogAction
+            disabled={isSaving}
+            onClick={confirmArchive}
+            variant="destructive"
+          >
+            {isSaving ? "Mengarsipkan…" : "Arsipkan Kuis"}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -1036,8 +1130,6 @@ function KaptenQuizDetailPageContent({
       setIsVisibilitySaving(false);
     }
   }
-
-
 
   return (
     <MentorWorkspaceShell

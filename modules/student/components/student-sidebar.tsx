@@ -154,7 +154,7 @@ function StudentSidebar({
       className={cn(
         "border-primary-100 bg-white/95 backdrop-blur",
         isReference &&
-          "border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-4xl [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_28%,transparent)] [&>div]:ring-0",
+          "border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-control [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_28%,transparent)] [&>div]:ring-0",
       )}
     >
       <StudentSidebarBrand isCompactReferenceMark={isCompactReferenceMark} isReference={isReference} previewMode={previewMode} />

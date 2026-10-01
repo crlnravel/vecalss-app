@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { ToastOnMount } from "@/components/ui/toast-on-mount";
 import { useActionToast } from "@/components/ui/use-action-toast";
 
@@ -42,10 +42,11 @@ function LoginForm({
       ) : null}
 
       <Field>
-        <FieldLabel htmlFor="login-email">Email</FieldLabel>
+        <FieldLabel htmlFor="login-email" required>Email</FieldLabel>
         <FieldInput
           autoComplete="email"
-          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] placeholder:text-secondary-400 focus-visible:bg-white"
+          aria-describedby={state.fieldErrors?.email ? "login-email-error" : undefined}
+          aria-invalid={Boolean(state.fieldErrors?.email)}
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
@@ -53,27 +54,22 @@ function LoginForm({
           required
           type="email"
         />
-        {state.fieldErrors?.email ? (
-          <p className="text-sm text-danger-700">{state.fieldErrors.email}</p>
-        ) : null}
+        <FieldError error={state.fieldErrors?.email} id="login-email-error" />
       </Field>
 
       <Field>
-        <FieldLabel htmlFor="login-password">Kata sandi</FieldLabel>
+        <FieldLabel htmlFor="login-password" required>Kata sandi</FieldLabel>
         <FieldInput
           autoComplete="current-password"
-          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)] placeholder:text-secondary-400 focus-visible:bg-white"
+          aria-describedby={state.fieldErrors?.password ? "login-password-error" : undefined}
+          aria-invalid={Boolean(state.fieldErrors?.password)}
           id="login-password"
           name="password"
           placeholder="Masukkan kata sandi"
           required
           type="password"
         />
-        {state.fieldErrors?.password ? (
-          <p className="text-sm text-danger-700">
-            {state.fieldErrors.password}
-          </p>
-        ) : null}
+        <FieldError error={state.fieldErrors?.password} id="login-password-error" />
       </Field>
 
       <div className="flex items-center justify-end pt-1">

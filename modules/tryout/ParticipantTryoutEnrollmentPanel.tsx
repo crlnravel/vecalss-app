@@ -74,7 +74,7 @@ function UniversityPicker({
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari universitas target"
-              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              className="pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari universitas…"
               value={query}
@@ -161,7 +161,7 @@ function MajorPicker({
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari jurusan target"
-              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              className="pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari jurusan…"
               value={query}

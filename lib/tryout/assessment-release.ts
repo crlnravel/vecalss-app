@@ -455,7 +455,6 @@ function sourceReadinessIssues(
     sourceQuestionRevisionId: string;
     sourceRevisionProvenance?: QuestionRevisionProvenance | null;
   },
-  allowMultipleChoice = true,
 ) {
   if (!source) {
     return [resolutionBlocker("stale_candidate", "Soal kandidat tidak lagi ditemukan.", {
@@ -929,7 +928,7 @@ async function resolveAndMaterializeAssemblies(
           sourceQuestionId: item.sourceQuestionId,
           sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
           sourceRevisionProvenance: item.sourceRevisionProvenance,
-        }, true);
+        });
         if (itemBlockers.length) {
           invalidSourceIds.push(item.sourceQuestionId);
           blockers.push(...itemBlockers.map((blocker) => ({
@@ -1007,7 +1006,7 @@ async function resolveAndMaterializeAssemblies(
     const invalidBlockers: AssessmentReleaseResolutionBlocker[] = [];
     const validSources: ReleaseSourceRecord[] = [];
     for (const source of scopedSources) {
-      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds, undefined, true);
+      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds);
       if (blockers.length) {
         invalidSourceIds.push(source.id);
         invalidBlockers.push(...blockers.map((blocker) => ({

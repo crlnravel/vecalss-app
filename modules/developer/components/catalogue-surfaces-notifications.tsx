@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ToastOnMount } from "@/components/ui/toast-on-mount";
 import { showToast, toast, type ToastVariant } from "@/components/ui/toast";
 import { useActionToast } from "@/components/ui/use-action-toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 
 const toastVariants: Array<{ value: ToastVariant; label: string }> = [
   { value: "default", label: "Default" },
@@ -60,11 +61,47 @@ function ActionToastPreview() {
         <p aria-live="polite" className="text-sm font-medium text-student-status-danger-fg" role="alert">
           {state.fieldErrors?.nama ?? state.message}
         </p>
-      ) : (
-        <p aria-live="polite" className="text-xs text-secondary-500">
-          {state.status === "idle" ? "Status awal: idle." : "Hasil aksi dikirim ke Sonner."}
+      ) : null}
+    </div>
+  );
+}
+
+function PageStatusToastPreview() {
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  usePageStatusToast({
+    active: dirty || saving,
+    action: dirty
+      ? saving
+        ? undefined
+        : { label: "Simpan draf", onClick: () => setSaving(true) }
+      : undefined,
+    cancel: dirty
+      ? saving
+        ? { label: "Batalkan simpan", onClick: () => setSaving(false) }
+        : { label: "Buang perubahan", onClick: () => { setDirty(false); setSaving(false); } }
+      : undefined,
+    message: saving ? "Menyimpan draf…" : "Ada perubahan yang belum disimpan.",
+    variant: saving ? "info" : "warning",
+  });
+
+  return (
+    <div className="space-y-3 border-t border-voyage-soft-border pt-5">
+      <div>
+        <p className="text-sm font-semibold text-secondary-800">usePageStatusToast · status halaman persisten</p>
+        <p className="mt-1 text-xs leading-5 text-secondary-600">
+          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan atau batalkan simpanan. Pemberitahuan aktif tetap berada di Sonner selama statusnya berlaku.
         </p>
-      )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={dirty} onClick={() => { setDirty(true); setSaving(false); }} type="button" variant="outline">
+          Tandai perubahan
+        </Button>
+        <Button disabled={!saving} onClick={() => { setDirty(false); setSaving(false); }} type="button" variant="default">
+          Selesaikan simpanan
+        </Button>
+      </div>
     </div>
   );
 }
@@ -103,6 +140,7 @@ export function NotificationsPreview() {
       </div>
 
       <ActionToastPreview />
+      <PageStatusToastPreview />
 
       <div className="space-y-3 border-t border-voyage-soft-border pt-5">
         <div>

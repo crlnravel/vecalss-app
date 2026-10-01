@@ -329,7 +329,7 @@ function validateHeader(header: readonly string[]) {
     return issue("structural", "header_invalid");
   }
   const expected = [...QUESTION_BANK_CSV_HEADER];
-  const expectedSet = new Set(expected);
+  const expectedSet = new Set<string>(expected);
   const headerSet = new Set(header);
   const seen = new Set<string>();
   const reason = header.some((name) => {

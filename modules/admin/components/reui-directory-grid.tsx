@@ -8,6 +8,8 @@ import { useState, type ComponentProps, type FormEvent, type ReactNode } from "r
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { fieldControlClassName, fieldLabelClassName } from "@/components/ui/field-constants";
+import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Search, X } from "@/lib/icons";
 import { DIRECTORY_PAGE_SIZE_OPTIONS } from "@/lib/admin/operations/directory-page-constants";
 import styles from "./reui-directory-grid.module.css";
@@ -42,7 +44,7 @@ function ReuiDirectoryGrid<T>({ caption, title, total, actions, columns, rows, g
       <div className={styles.toolbar}>
         <div className={styles.titleGroup}><h1 className={styles.title}>{title}</h1><span className={styles.count}>{total}</span></div>
         <div className={styles.tools}>
-          {search ? <form action={search.action} method="get" onSubmit={submitSearch} className={styles.search}>
+          {search ? <form action={search.action} method="get" onSubmit={submitSearch} className={cn(fieldControlClassName, "py-0", styles.search)}>
             <Search size={16} aria-hidden="true" />
             {Object.entries(search.hiddenFields ?? {}).flatMap(([key, value]) => (Array.isArray(value) ? value : [value]).map((item, index) => <input key={`${key}-${index}`} type="hidden" name={key} value={item} />))}
             <input name="q" aria-label={search.label ?? `Cari ${title}`} placeholder={search.placeholder ?? "Cari…"} defaultValue={search.onValueChange ? undefined : search.value} value={search.onValueChange ? search.value : undefined} onChange={search.onValueChange ? event => search.onValueChange?.(event.target.value) : undefined} key={search.onValueChange ? "local-search" : search.value} type="search" />
@@ -106,7 +108,7 @@ function ReuiDirectoryFilters({ basePath, query, statuses, multiple = false, dat
     <Popover.Portal><Popover.Positioner className={styles.positioner} align="end" sideOffset={4}><Popover.Popup className={styles.popup}>
       <form className={styles.filterForm} action={basePath} method="get" onSubmit={apply}>
         <fieldset><legend>Status akun</legend>{Object.entries(labels).map(([value, label]) => <label key={value}><input type={multiple ? "checkbox" : "radio"} name="status" value={value} defaultChecked={statuses.includes(value)} />{label}</label>)}</fieldset>
-        {dateRange ? <fieldset className={styles.dateFields}><legend>Ditambahkan</legend><label>Dari tanggal<input type="date" name="addedFrom" defaultValue={dateRange.from ?? ""} /></label><label>Sampai tanggal<input type="date" name="addedTo" defaultValue={dateRange.to ?? ""} /></label></fieldset> : null}
+        {dateRange ? <fieldset className={styles.dateFields}><legend>Ditambahkan</legend><label className={fieldLabelClassName}>Dari tanggal<input className={fieldControlClassName} type="date" name="addedFrom" defaultValue={dateRange.from ?? ""} /></label><label className={fieldLabelClassName}>Sampai tanggal<input className={fieldControlClassName} type="date" name="addedTo" defaultValue={dateRange.to ?? ""} /></label></fieldset> : null}
         <div className={styles.filterActions}><Link className={buttonVariants({ size: "sm", variant: "outline" })} href={clearHref} onClick={() => setOpen(false)}>Hapus filter</Link><Button size="sm" type="submit" variant="default">Terapkan</Button></div>
       </form>
     </Popover.Popup></Popover.Positioner></Popover.Portal>

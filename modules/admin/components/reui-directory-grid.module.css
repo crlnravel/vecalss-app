@@ -30,8 +30,8 @@
 .title { margin: 0; font: 600 24px/32px "Directory Inter", sans-serif; letter-spacing: -.6px; color: var(--directory-ink); }
 .count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid var(--directory-border); border-radius: 999px; font-size: 10px; line-height: 14px; }
 .tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.search { display: flex; align-items: center; width: 288px; height: 32px; padding: 0 8px; gap: 8px; border: 1px solid var(--directory-border); border-radius: 10px; background: var(--voyage-surface); box-shadow: 0 1px 2px #0000000d; color: var(--directory-muted); }
-.search input { width: 100%; min-width: 0; border: 0; outline: none; background: transparent; color: var(--directory-ink); font: inherit; }
+.search { display: flex; align-items: center; flex: 0 1 288px; gap: 8px; }
+.search input { width: 100%; min-width: 0; min-height: 44px; border: 0; outline: none; background: transparent; color: var(--directory-ink); font: inherit; }
 .search input::placeholder { color: var(--directory-muted); opacity: 1; }
 .search input::-webkit-search-cancel-button { display: none; }
 .search:focus-within { outline: 2px solid var(--voyage-leaf); outline-offset: 2px; }
@@ -81,8 +81,7 @@
 .filterForm label { display: flex; align-items: center; gap: 8px; }
 .filterForm input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--voyage-deep); }
 .dateFields { display: grid; gap: 8px; }
-.dateFields label { display: grid; gap: 4px; color: var(--directory-muted); font-size: 12px; }
-.dateFields input { font: inherit; padding: 6px 8px; border: 1px solid var(--directory-border); border-radius: 6px; color: var(--directory-ink); background: white; }
+.dateFields label { display: grid; gap: 4px; }
 .filterActions { display: flex; justify-content: space-between; gap: 8px; }
 .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; }
 .chip { display: flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--voyage-canvas); padding: 2px 8px; color: var(--directory-muted); font-size: 12px; }

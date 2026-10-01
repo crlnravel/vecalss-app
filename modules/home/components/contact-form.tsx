@@ -4,7 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { RadioPillGroup } from "@/components/ui/radio-pill-group";
 import { contactTopicOptions } from "../data";
 
@@ -82,7 +82,6 @@ function ContactForm() {
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
                       autoComplete="name"
-                      className="rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -94,15 +93,7 @@ function ContactForm() {
                       type="text"
                       value={field.state.value}
                     />
-                    {error ? (
-                      <p
-                        className="text-sm text-danger-700"
-                        id={`${field.name}-error`}
-                        role="alert"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
+                    <FieldError error={error ?? undefined} id={`${field.name}-error`} />
                   </Field>
                 );
               }}
@@ -129,7 +120,6 @@ function ContactForm() {
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
                       autoComplete="email"
-                      className="rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -141,15 +131,7 @@ function ContactForm() {
                       type="email"
                       value={field.state.value}
                     />
-                    {error ? (
-                      <p
-                        className="text-sm text-danger-700"
-                        id={`${field.name}-error`}
-                        role="alert"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
+                    <FieldError error={error ?? undefined} id={`${field.name}-error`} />
                   </Field>
                 );
               }}
@@ -175,7 +157,6 @@ function ContactForm() {
                     <FieldTextarea
                       aria-describedby={error ? `${field.name}-error` : undefined}
                       aria-invalid={Boolean(error)}
-                      className="min-h-[190px] rounded-xl border-[var(--voyage-deep)]/14 bg-white text-[var(--voyage-deep)] placeholder:text-[var(--voyage-deep)]/38"
                       id={field.name}
                       name={field.name}
                       onBlur={field.handleBlur}
@@ -186,15 +167,7 @@ function ContactForm() {
                       placeholder="Ceritakan target, kelas, atau program yang ingin kamu tanyakan."
                       value={field.state.value}
                     />
-                    {error ? (
-                      <p
-                        className="text-sm text-danger-700"
-                        id={`${field.name}-error`}
-                        role="alert"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
+                    <FieldError error={error ?? undefined} id={`${field.name}-error`} />
                   </Field>
                 );
               }}

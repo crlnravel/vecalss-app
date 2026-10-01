@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  Clipboard,
   LockKeyhole,
   MessageCircle,
 } from "@/lib/icons";
@@ -13,6 +12,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
+import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -85,8 +85,12 @@ function CourseLessonPlayerModule({
     progressSnapshot,
   );
   const nextLesson = getNextAvailableLesson(course, progressSnapshot);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isPending, setIsPending] = useState(false);
+  usePageStatusToast({
+    active: isPending,
+    message: "Menyimpan progres materi…",
+    variant: "info",
+  });
 
   const handleComplete = async () => {
     if (lessonStatus === "completed" || isPending) {
@@ -94,7 +98,6 @@ function CourseLessonPlayerModule({
     }
 
     setIsPending(true);
-    setFeedback(null);
     try {
       const response = await fetch(`/api/courses/${encodeURIComponent(course.slug)}/${encodeURIComponent(lesson.id)}/progress`, {
         body: JSON.stringify({ action: "complete" }),
@@ -103,7 +106,6 @@ function CourseLessonPlayerModule({
         method: "POST",
       });
       if (!response.ok) {
-        const errorPayload = await response.json().catch(() => null) as { error?: unknown } | null;
         throw new Error("Status materi belum dapat diperbarui.");
       }
       const payload = await response.json().catch(() => null) as {
@@ -128,8 +130,9 @@ function CourseLessonPlayerModule({
         { variant: "success" },
       );
     } catch {
-      setFeedback({
-        text: "Status materi belum dapat diperbarui. Muat ulang halaman untuk memeriksa, lalu coba lagi jika belum berubah.",
+      showToast("Status materi belum dapat diperbarui. Muat ulang halaman untuk memeriksa, lalu coba lagi jika belum berubah.", {
+        action: { label: "Coba lagi", onClick: () => void handleComplete() },
+        variant: "error",
       });
     } finally {
       setIsPending(false);
@@ -154,7 +157,6 @@ function CourseLessonPlayerModule({
       ) : (
         <LessonPlayer
           course={course}
-          feedback={feedback}
           lesson={lesson}
           lessonStatus={lessonStatus}
           nextLesson={nextLesson}
@@ -168,7 +170,6 @@ function CourseLessonPlayerModule({
 
 function LessonPlayer({
   course,
-  feedback,
   lesson,
   lessonStatus,
   nextLesson,
@@ -176,7 +177,6 @@ function LessonPlayer({
   pending,
 }: {
   course: Course;
-  feedback: Feedback | null;
   lesson: CourseLesson;
   lessonStatus: LessonProgressStatus | undefined;
   nextLesson?: CourseLesson;
@@ -233,8 +233,6 @@ function LessonPlayer({
         title={lesson.title}
         videoUrl={lesson.optionalVideo?.mediaUrl}
       />
-
-      <FeedbackNotice feedback={feedback} />
 
       {isCompleted && nextLesson ? (
         <Button
@@ -303,30 +301,6 @@ function LockedLessonState({
         </Button>
       ) : null}
     </section>
-  );
-}
-
-type Feedback = {
-  text: string;
-};
-
-function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
-  if (!feedback) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-live="polite"
-      className={cn(
-        "mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm leading-6",
-        "bg-student-status-danger-bg text-student-status-danger-fg",
-      )}
-      role="status"
-    >
-      <Clipboard className="mt-1 size-4 shrink-0" />
-      <span>{feedback.text}</span>
-    </div>
   );
 }
 

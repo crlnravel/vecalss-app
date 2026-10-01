@@ -42,7 +42,6 @@ import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import {
   assertAuthoringEditLease,
   type AuthoringEditLease,
-  withTransientAuthoringEditLeases,
 } from "@/lib/serialization/authoring-lease";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type {
@@ -4114,7 +4113,7 @@ async function getAvailableStandaloneQuiz(
     slug,
     subtest: { code: subjectCode },
   });
-  return quiz?.questionCount ? quiz : null;
+  return quiz?.items.length ? quiz : null;
 }
 class QuizAttemptValidationError extends Error {}
 
@@ -5651,7 +5650,7 @@ async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
     studentAvailabilityWhere(now),
     { updatedAt: "desc" },
   );
-  return quizzes.filter((quiz) => quiz.questionCount > 0);
+  return quizzes.filter((quiz) => quiz.items.length > 0);
 }
 
 export {

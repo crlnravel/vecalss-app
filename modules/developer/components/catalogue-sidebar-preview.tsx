@@ -24,6 +24,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { BookOpen, LayoutGrid } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ export function SidebarVariantPreview() {
       </div>
 
       <div className="grid min-w-0 gap-4 rounded-3xl border border-voyage-soft-border bg-white p-4 md:grid-cols-3">
-        <label className="grid min-w-0 gap-2 text-xs font-semibold text-secondary-700" htmlFor="sidebar-preview-side">
+        <label className={`grid min-w-0 gap-2 ${fieldLabelClassName}`} htmlFor="sidebar-preview-side">
           Posisi
           <ReferenceSelect
             classNames={{ trigger: "min-h-[44px]" }}
@@ -75,7 +76,7 @@ export function SidebarVariantPreview() {
             value={side}
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-xs font-semibold text-secondary-700" htmlFor="sidebar-preview-variant">
+        <label className={`grid min-w-0 gap-2 ${fieldLabelClassName}`} htmlFor="sidebar-preview-variant">
           Tampilan
           <ReferenceSelect
             classNames={{ trigger: "min-h-[44px]" }}
@@ -85,7 +86,7 @@ export function SidebarVariantPreview() {
             value={variant}
           />
         </label>
-        <label className="grid min-w-0 gap-2 text-xs font-semibold text-secondary-700" htmlFor="sidebar-preview-collapsible">
+        <label className={`grid min-w-0 gap-2 ${fieldLabelClassName}`} htmlFor="sidebar-preview-collapsible">
           Perilaku ciut
           <ReferenceSelect
             classNames={{ trigger: "min-h-[44px]" }}
