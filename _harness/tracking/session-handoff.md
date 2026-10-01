@@ -2,6 +2,8 @@
 
 ## Bank Soal create dialog (2026-10-01)
 
+- Follow-up: independent behavior review (`ae268ded`) is complete with no actionable findings; standards review (`5b918078`) remains pending. Review artifact: epic `bank-soal-create-dialog/behavior-review`.
+
 - User requested that Buat Bank open without refreshing/closing the dialog and that filling the create dialog produce no floating Sonner status notice.
 - `f46b489` updates only Bank Soal catalogue/builder and a callback regression. Native history retains catalogue query context without server remount; popstate synchronizes Back/Forward. Create-modal persistent status is suppressed; save outcomes and full-page editor status are preserved.
 - Guarded `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`: red before fix, green afterward. `pnpm test:mentor-bank-soal-lock-csv-ui`, focused `pnpm exec eslint` on all three files, and diff-check pass.
