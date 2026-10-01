@@ -6,83 +6,87 @@ Use this file when selecting or extending a shared UI component.
 
 ## Buttons
 
-Buttons use three intentional families. The family follows the surface and
-the user's job; it is not chosen ad hoc by route.
+Use one shared tactile `Button` family on every surface. The approved
+`variant` values are `default` (primary), `outline` (secondary),
+`destructive`, `warning`, and `inverse` (on dark surfaces). All five have
+the same restrained offset edge, hover lift, and press response. Primary
+hierarchy comes from color and contrast, not a competing flat button family.
 
-- **Workspace / admin:** Use 12px corners, a 44px default height, and the
-  shared `button-primary`, `button-outline`, or ghost variants. Primary is
-  Voyage Deep with white text. Outline is a white surface with a 1px Soft
-  Border and Ink text. Ghost controls are transparent at rest and use a
-  Sea-Glass Wash hover state. Compact utilities may use 40px or 36px only
-  when the surrounding density makes the reduced target clear; important
-  actions stay at least 44px.
-- **Primary action depth:** Workspace and admin primary actions across Student,
-  Mentor, Admin, and Affiliator surfaces use the shared elevated `brand`
-  variant. Its restrained offset edge, soft lift on hover, and press response
-  make the action feel pressable without turning secondary links, outline
-  controls, or section navigation into primary actions. Route modules should
-  consume the shared variant rather than recreating its shadow.
-- **Marketing / onboarding:** Use the pill silhouette for high-confidence
-  entry and conversion actions. Marketing hero actions are typically 56px;
-  compact header actions are 44px. Onboarding uses Warm Sun with Warm-Sun Ink
-  for the main step action, while its secondary “skip” action remains a quiet
-  text control. These pills do not spread into ordinary workspace screens.
-- **Learning journey:** Use Voyage Forest or Voyage Deep for primary progress
-  actions. Larger 20–36px corners and tactile offset shadows are reserved for
-  journey nodes, completion, and other progress landmarks. Warm Sun is the
-  attention/skip cue, not a second everyday primary.
-- **Shared states:** Every family keeps an explicit green-tinted focus ring,
-  a visible disabled treatment, and a short tonal or lift response on hover.
-  Learning actions may add a short downward press; reduced motion removes
-  translation while preserving color, border, and loading-state changes.
-- **Compact utility preference:** For familiar, repeated utility actions such
-  as search, close, edit, preview, and more-actions, prefer an icon-only button
-  with the shared `Tooltip`, `TooltipTrigger`, and `TooltipContent` primitives
-  over a lengthy text button. The icon should communicate the action clearly;
-  the tooltip should name the outcome, not just the icon.
-- **When text stays visible:** Keep a visible text label for primary,
-  destructive, unfamiliar, onboarding, or high-consequence actions. A tooltip
-  is supporting guidance, not a reason to hide an action whose meaning is not
-  immediately recognizable.
-- **Icon-only accessibility:** Every icon-only trigger needs an explicit
-  `aria-label`, visible keyboard focus, and a touch target of at least 44px.
-  Compact utility controls may use the shared 40px size only when the
-  surrounding density and spacing keep the target clear. Do not rely on a
-  browser `title` or hover-only tooltip as the accessible name.
-- **Labeling:** Use a verb-led label that describes the result (“Mulai
-  belajar”, “Simpan”, “Lihat program”). Keep one primary action per group and
-  let secondary/ghost controls recede through surface and border treatment.
+- **Geometry:** Every Button uses `rounded-control` (12px).
+  Sizes are `sm` (40px, dense utilities only), `default` (44px),
+  `lg` (48px), `icon-sm` (40px), `icon` (44px), and `icon-lg` (48px).
+  Size changes geometry, never tone or corner style. Main and touch actions
+  stay at least 44px; enlarge the hit area when a dense utility uses 40px.
+- **States:** Keep visible focus, disabled and loading cues, and consistent
+  hover/press behavior. Reduced motion removes transforms and transitions
+  while preserving color, border, focus, and loading state.
+- **Use by intent:** Save/start/submit uses primary; cancel/back/secondary uses
+  outline; destructive mutations use destructive; exceptional attention uses
+  warning. Inverse provides a readable white action on a dark surface.
+- **Navigation and filters:** Ordinary text links remain links. Collections
+  use specialty tabs, rather than a selected Button variant. Menu items and
+  field selectors keep their own semantics and shared geometry.
+- **Retired:** `brand`, `brandOutline`, `reference`, `ghost`,
+  `secondary`, `link`, context, marketing, onboarding, learning, and
+  separate attention variants are removed after consumer migration. Do not
+  retain compatibility exports or reintroduce them as route-local classes.
+- **Utilities:** Prefer a familiar icon plus shared Tooltip for search, close,
+  edit, preview, and more-actions. Every icon-only Button needs an explicit
+  accessible name and visible keyboard focus. Keep visible text for primary,
+  destructive, unfamiliar, and high-consequence actions.
+- **Labels:** Use a verb describing the result (“Mulai belajar”, “Simpan”,
+  “Lihat program”). Keep one primary action per group.
 
-## Chips
+## Badges and chips
 
-- **Style:** Compact, fully rounded labels with sea-glass wash and deep green
-  text; status variants may use a pale warm-sun wash for drafts.
-- **State:** Keep selected/active chips visibly stronger through background,
-  border, or weight—not color alone.
-- **Boundary:** Never use a chip or badge for a sentence or an empty, error,
-  unavailable, or not-found message; use inline copy or a contextual state
-  block instead.
+`Badge` is the single app-wide compact metadata primitive, using the former
+StudentBadge appearance and existing `student-status-*` semantic tokens.
+It applies equally to Student, Mentor, Admin, Affiliator, and public surfaces.
+The token prefix is historical; it does not restrict audience.
+
+- **Contract:** `tone` is category, neutral, active, attention, success, info,
+  or danger. `size` is xs, sm, or md. `depth` is flat or sunken, with sunken
+  as the default. Use `rounded-pill` consistently.
+- **Meaning:** Category names content; neutral labels passive metadata; active
+  marks current progress; attention flags upcoming/unread/review states;
+  success marks meaningful completion; info marks informational/practice
+  context; danger marks failure or an incorrect result.
+- **Boundary:** Badges are short metadata, never page headings, complete
+  sentences, empty/error messages, or standalone notification alerts.
+  Marketing headings formerly wrapped in a general Badge become plain heading
+  text. Keep selected metadata discernible beyond color alone.
+- **Retired:** The old general Badge variant/heading-size API, StudentBadge,
+  MentorBadge, and audience-specific badge geometry are removed after all
+  consumers migrate. Status helpers may map domain states to canonical Badge
+  tones; they must not own a separate style.
 
 ## Tabs
 
-Vecalss has two tab layouts and one shared sunken treatment, implemented by
-`SunkenTabsList`, `SunkenTabsTrigger`, `SunkenTabButton`, `SunkenTabLink`, and
-`SunkenTabNavigation` in `components/ui/sunken-tabs.tsx`.
+Specialty tabs are the standard across the app. Use one shared sunken trigger
+treatment with two layouts: content-sized filters and equal-width peer
+navigation. Generic filled tabs and line/underline styles are retired.
 
-- **Compact filters:** Use content-sized triggers for filters or categories
-  within one collection, as on `/tryout` (“Semua”, “Tryout saya”, “Selesai”,
-  “Latihan”). Let the row scroll horizontally on narrow screens.
-- **Full-width navigation:** Use equal-width triggers when switching between
-  peer workspace areas, as on `/vera-ai` (“Percakapan”, “Konteks”, “Studio”).
-- **Shared treatment:** Use 12px corners, an 8px gap, a 44px minimum target,
-  and a 1px Soft Border at rest. The selected tab has a Voyage Deep border on
-  all four sides, Sea-Glass Wash fill, Voyage Deep text, and the shared inset
-  depth. Keep the selected border visible instead of adding an underline.
-- **Shared behavior:** Preserve semantic tabs, one clearly selected state,
-  visible keyboard focus, readable labels, reduced-motion support, and disabled
-  treatment. Use `SunkenTabButton` for native button groups and
-  `SunkenTabNavigation` with `SunkenTabLink` for route navigation, keeping their
-  existing semantics while sharing the same appearance.
+- **Compact filters:** Use `CompactFilterTabs` for a collection filter group
+  or the compact semantic tab list/trigger helpers for content panels. Allow
+  horizontal scrolling on narrow screens.
+- **Peer panels:** Use `FullWidthTabsList` / `FullWidthTabsTrigger` for an
+  equal-width row. The former FullWidthLineTabs name is retired because the
+  treatment no longer has an underline.
+- **Canonical tabs:** `Tabs`, `TabsContent`, `TabsList`, and
+  `TabsTrigger` provide panel semantics; list/trigger use the same specialty
+  treatment, with `layout="content" | "equal"`, without a visual
+  `variant` prop. Preserve orientation and library keyboard behavior.
+- **Route and button groups:** Use the SunkenTab link/button/navigation
+  helpers for their native semantics. A collection filter is a pressed button
+  group, a route link is navigation with `aria-current`, and content panels
+  are semantic tabs.
+- **Mode choices:** ModeCardTabs may preserve its icon/description item API
+  where authoring needs it, but consumes the same sunken selection and control
+  radius. It must not create another card/underline tab family.
+- **Shared geometry and state:** 12px `rounded-control`, 8px gap, and 44px
+  minimum target. At rest use a 1px Soft Border; selected state has a full
+  Voyage Deep border, Sea-Glass Wash fill, Voyage Deep text, and inset depth.
+  Keep visible focus, readable labels, disabled state, and reduced motion.
 
 ## Tooltips
 
@@ -99,32 +103,12 @@ Vecalss has two tab layouts and one shared sunken treatment, implemented by
   Affiliator surfaces. Keep tooltip copy concise and never use it as the only
   label for an unfamiliar or high-consequence action.
 
-## Student status tokens
-
-Student badges and status chips use the semantic `student-status-*` token
-family rather than route-specific hex values:
-
-- **Category:** sea-glass wash with voyage-deep text for subject and content
-  labels.
-- **Neutral:** white surface with muted green text for passive metadata.
-- **Active:** voyage-deep fill with white text for the current or in-progress
-  state.
-- **Attention:** warm-sun wash for upcoming, unread, flagged, or review-needed
-  states.
-- **Success:** pale green for completed or correct states.
-- **Info:** a quiet blue wash for informational or practice states.
-- **Danger:** a restrained red wash for incorrect or failed states.
-- Solid variants are reserved for high-emphasis actions or result markers; use
-  the wash variants for ordinary status labels.
-
-Use the shared `StudentBadge` component for compact pills. The warm-sun
-attention tone is intentionally separate from the legacy `accent-*` ramp used
-by generic shadcn-compatible components.
 
 ## Cards / Containers
 
-- **Corner Style:** 32px for learning cards; 20px for compact controls; 36px or
-  more for expressive route panels.
+- **Corner Style:** `rounded-card` (32px) for bounded cards and table frames;
+  `rounded-field` (20px) for compact field surfaces; `rounded-panel` (36px)
+  for dialogs, sheets, sidebar shells, and large route panels.
 - **Background:** Surface white at rest, sea-glass wash for selected or
   supporting areas, and a mint-to-paper gradient for icon or milestone blocks.
 - **Shadow Strategy:** Follow the Soft-Lift Rule; use tactile offset shadows only
@@ -143,7 +127,7 @@ outer card contract should not.
 
 ## Inputs / Fields
 
-- **Style:** 44px minimum height, 20px corners, white or pale mint fill, and a
+- **Style:** 44px minimum height, `rounded-field` (20px), white or pale mint fill, and a
   quiet border.
 - **Focus:** A visible 3px green-tinted ring and a slightly stronger border;
   never rely on a color change alone.

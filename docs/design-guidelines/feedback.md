@@ -23,8 +23,8 @@ success border.
 - **Action feedback:** Use success styling for an immediate user-triggered
   outcome—such as save, submit, upload, or copy—or for a meaningful completed
   state that changes what the user can do next. Keep transient confirmation
-  brief and use the shared bottom-center Sonner surface when it does not belong
-  in the content flow. This rule governs status indicators, not the brand color
+  brief and always use the shared bottom-center Sonner surface for notification
+  alerts. This rule governs status indicators, not the brand color
   of primary action buttons.
 - **Complex-input exception:** Positive inline validation is appropriate when it
   prevents a costly mistake or unlocks the next step, such as password rules,
@@ -44,21 +44,42 @@ success border.
 | Normal / flawless | Standard text, neutral surface, existing structural borders; no status icon, tint, or badge. | Low — blends into the page | Keep routine reading fast and calm. |
 | Warning / review needed | Attention token, concise label or icon, and a short explanation or next step. | Medium to high | Signal risk before it becomes an error. |
 | Faulty / error | Danger token, high-contrast text, a message tied to the field or row, and a clear recovery path. | High — demands focus | Help the user locate and fix the problem. |
-| Meaningful success / change | Brief success toast or local status after a user action; use success styling only when it confirms a consequential result. | Focused and temporary | Confirm the outcome without turning the page green. |
+| Meaningful success / change | Brief shared Sonner toast after a user action; use success styling only when it confirms a consequential result. | Focused and temporary | Confirm the outcome without turning the page green. |
 
 ## Toasts / Notifications
 
-For transient success and failure feedback, prefer the shared Sonner surface
+For every notification alert, use the shared Sonner surface
 from `components/ui/sonner.tsx`, mounted once in the root layout. Its approved
 placement is floating and centered at the bottom of the viewport; use
 `toast.success(...)`, `toast.error(...)`, or `showToast(..., { variant })`
-instead of building a page-local in-content toast.
+instead of building a page-local in-content toast. This includes success,
+failure, information, and warning notifications across every audience.
 
-- **Mentor lifecycle actions:** Publish, unpublish, archive, restore, open,
+**The Toast-Only Alert Rule.** The inline `Alert`, `AlertTitle`,
+`AlertDescription`, and `AlertAction` family is retired and removed from the
+primitive library and developer catalogue. Do not replace it with a one-off
+colored notification banner, a sentence badge, or a local toast implementation.
+Use the shared `showToast`/`toast` helpers and the single root Toaster.
+
+**Notification versus task content.** Field validation stays attached to the
+field through `FieldError`, `aria-invalid`, and `aria-describedby`. Blocking
+page/load/session states retain a calm `TypedRouteState`/Empty or task-specific
+recovery section with an available next action. Confirmation dialogs retain
+their decision and recovery copy. Those are task content, not alternative
+notification alerts. AlertDialog is a confirmation primitive and is not removed.
+Static status metadata may remain a Badge. Do not toast routine static data.
+
+**Delivery.** Emit from the user action or a guarded state transition, never
+during render. When a server result needs a client notification, use a narrow
+client bridge and a stable event identity; deduplicate re-renders, Strict Mode,
+and polling repeats. A retry or a new user action may emit a new outcome.
+
+- **All lifecycle actions:** Publish, unpublish, archive, restore, open,
   admission, scheduling, invitation, and similar user-triggered status
   mutations use the shared toast for transient success and failure. Keep field
-  validation, readiness blockers, search/load errors, persistent recovery
-  instructions, and destructive confirmation copy in the page or dialog flow.
+  validation, readiness blockers, blocking search/load states, persistent
+  recovery instructions, and destructive confirmation copy in the page or
+  dialog flow. Remove notification banners once their toast is emitted.
 
 - **Variants:** The shared component provides `default`, `success`, `error`,
   `info`, and `warning` variants. Success uses the student-status success
@@ -67,6 +88,8 @@ instead of building a page-local in-content toast.
 - **Placement:** Keep transient notifications bottom-center, above the safe
   area, with a constrained readable width on desktop and full-width insets on
   mobile. Allow dismissal, swipe dismissal, and a short automatic duration.
+- **Geometry:** Use `rounded-field` (20px) for the toast surface and
+  `rounded-control` (12px) for tactile toast action buttons.
 - **Content:** State the outcome in one short sentence. Add a description or
   action only when it helps recovery; do not repeat the entire form or page
   message in the toast.

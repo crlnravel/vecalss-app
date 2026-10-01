@@ -41,7 +41,7 @@ references before creating a new table shell:
 | `/admin/kapten` | Kapten directory | Search/status filtering, sortable columns, clickable rows with a detail sheet, status treatment, and pagination. |
 | `/mentor/quiz/question-bank` | Kapten Bank Soal catalogue | Folder and bank rows in one grid, breadcrumb/header actions, subject/category/status filters, sorting, row action menus, and dense-column overflow. |
 
-- **Frame:** Render the table inside the approved white `rounded-2xl`
+- **Frame:** Render the table inside the approved white `rounded-card` (32px)
   surface. Use `DataTable` for the toolbar, filter chips, sortable header,
   row states, empty state, and responsive overflow; use `Table` primitives for
   semantic markup.

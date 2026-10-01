@@ -123,9 +123,10 @@ The system is soft-lifted. Most surfaces are white or pale mint with a quiet
 border and a diffuse shadow; hover states lift by a few pixels. Stronger
 offset/bottom-edge shadows are reserved for playful learning nodes, progress
 controls, and pressable actions where the physical cue helps the user
-understand state. Workspace and admin primary buttons are pressable actions too:
-use their shared restrained elevated treatment, while keeping secondary and
-navigation controls quiet.
+understand state. All action buttons use the shared tactile treatment. Keep
+secondary actions quieter through color and border contrast rather than
+removing their pressable edge. Tabs, navigation links, fields, and passive
+metadata retain their own semantic treatments.
 
 ### Shadow Vocabulary
 
@@ -143,22 +144,38 @@ navigation controls quiet.
 **The Soft-Lift Rule.** Resting surfaces should feel light; motion and shadow
 should explain affordance, state, or progress rather than decorate every edge.
 
-**The Primary Action Depth Rule.** Across Student, Mentor, Admin, and Affiliator
-surfaces, a primary button uses the shared elevated action variant so its offset
-edge, hover lift, and press response remain consistent. Do not reproduce those
-shadows in route-local classes or apply them to secondary actions.
+**The Shared Action Depth Rule.** Every Button uses the same restrained offset
+edge, hover lift, and press response across all audiences. Select primary,
+outline, destructive, warning, or inverse by meaning; do not add a flat family
+or reproduce its shadows in route-local classes. Reduced motion removes
+translation and keeps the border, color, focus, and disabled cues.
 
 **The Sunken Filter Rule.** The active trigger in a compact filter-tab row uses
-an inset, recessed depth to communicate selection. Full-width line tabs stay
-flat and use their Voyage Deep underline; the two tab variants must not be
-blended.
+an inset, recessed depth to communicate selection. Equal-width peer tabs use
+the same full selected border and sunken fill. Layout changes width allocation,
+not the visual treatment; underline and generic filled tabs are retired.
 
 ## Shapes
 
-Shapes are generous and friendly. Use 12px corners for ordinary controls,
-20px for icon blocks and compact fields, 32px for cards, and 36px or more for
-hero-scale or route surfaces. Pills are fully rounded and reserved for compact
-status, tags, and actions that benefit from a capsule silhouette.
+Shapes use one semantic radius scale, defined once as CSS custom properties
+in `app/globals.css`. Values are CSS pixels so the app's 15px root font size
+does not change the geometry. All states of a component retain its radius.
+
+| Token / utility | Value | Use |
+| --- | --- | --- |
+| `--radius-indicator` / `rounded-indicator` | 4px | Small checkbox marks and internal selection indicators. |
+| `--radius-detail` / `rounded-detail` | 8px | Small menu items, tooltip interiors, and nested details. |
+| `--radius-control` / `rounded-control` | 12px | Every Button, tab trigger, and navigation action. |
+| `--radius-field` / `rounded-field` | 20px | Inputs, selects, choice/file fields, icon blocks, menus, popovers, and toasts. |
+| `--radius-card` / `rounded-card` | 32px | Cards, table frames, and bounded content surfaces. |
+| `--radius-panel` / `rounded-panel` | 36px | Dialogs, sheets, sidebar shells, and large route panels. |
+| `--radius-pill` / `rounded-pill` | 9999px | Compact Badge metadata, avatar circles, and switch tracks. |
+
+Use these utilities in shared primitives. Numeric rounded utilities remain
+compatibility aliases to this scale, not additional design choices. Do not use
+arbitrary `rounded-[...]` values or vary Button corners by audience. Structural
+dividers, continuous marketing sections, and native media crops may remain
+square; circles and capsule metadata use the pill token.
 
 **The No-Message-Badge Rule.** Do not render complete sentences or user-facing
 empty, error, unavailable, or not-found states as standalone capsule badges.
