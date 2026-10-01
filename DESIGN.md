@@ -241,7 +241,11 @@ to conflict, the root tokens and the most specific interaction rule win.
   status text and page-local notification banners are retired. Keep field
   validation, blocking recovery content, and confirmation dialogs in place.
 - Use one tactile Button family and one app-wide Badge based on the former
-  StudentBadge treatment. Do not create audience-specific alternatives.
+  StudentBadge treatment. Badges are always sunken; flat depth and the active
+  tone are retired. Do not create audience-specific alternatives.
+- All field controls use the sunken `/settings` treatment. Field labels use
+  Manrope; values use Plus Jakarta Sans. Show field validation through the
+  shared accessible tooltip treatment, retaining its programmatic error text.
 - Use the semantic radius tokens from Foundations rather than arbitrary
   route-local corners or a rem-scaled radius formula.
 - Prefer icon-only controls with shared tooltips for familiar compact utilities;

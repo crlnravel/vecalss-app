@@ -56,8 +56,10 @@ second competing brand palette across ordinary cards or navigation.
 
 **Body Font:** Plus Jakarta Sans (with Avenir Next and Segoe UI fallbacks)
 
-**Label/Logo Font:** Plus Jakarta Sans for UI labels; the local Sports World
-face is reserved for the Vecalss logo lockup.
+**Field Label Font:** Manrope for form field headings, at the standard 14px UI
+size with semibold weight and muted green. Values and option text stay Plus
+Jakarta Sans. Other compact metadata labels follow the hierarchy below.
+The local Sports World face is reserved for the Vecalss logo lockup.
 
 **Character:** The pairing is confident, rounded, and highly legible. Heavy
 weights make learning milestones feel inviting and decisive, while the body

@@ -46,11 +46,12 @@ StudentBadge appearance and existing `student-status-*` semantic tokens.
 It applies equally to Student, Mentor, Admin, Affiliator, and public surfaces.
 The token prefix is historical; it does not restrict audience.
 
-- **Contract:** `tone` is category, neutral, active, attention, success, info,
-  or danger. `size` is xs, sm, or md. `depth` is flat or sunken, with sunken
-  as the default. Use `rounded-pill` consistently.
-- **Meaning:** Category names content; neutral labels passive metadata; active
-  marks current progress; attention flags upcoming/unread/review states;
+- **Contract:** `tone` is category, neutral, attention, success, info,
+  or danger. `size` is xs, sm, or md. Every badge is sunken; there is no
+  selectable depth. Use `rounded-pill` consistently.
+- **Meaning:** Category names content; neutral labels passive metadata;
+  info also represents ongoing or active domain states while preserving their
+  actual labels. Attention flags upcoming/unread/review states;
   success marks meaningful completion; info marks informational/practice
   context; danger marks failure or an incorrect result.
 - **Boundary:** Badges are short metadata, never page headings, complete
@@ -151,8 +152,11 @@ outer card contract should not.
 
 ## Inputs / Fields
 
-- **Style:** 44px minimum height, `rounded-field` (20px), white or pale mint fill, and a
-  quiet border.
+- **Style:** One sunken field surface, matching Student `/settings`: exact 44px
+  minimum height, `rounded-field` (20px), pale mint fill, quiet border and inset
+  depth. This applies to text, email, password, number, date, search, select,
+  file/choice field surfaces and textareas. Textareas grow with their content
+  needs. Do not offer flat/raised field alternatives.
 - **Focus:** A visible 3px green-tinted ring and a slightly stronger border;
   never rely on a color change alone.
 - **Error / Disabled:** Keep the same geometry, reduce opacity only for
@@ -167,11 +171,12 @@ outer card contract should not.
 
 ### Settings-style field labels and control families
 
-Mentor settings and the embedded Tryout detail workspace share one field
-contract. Use the exported `REFERENCE_FIELD_LABEL_CLASS_NAME` for the visible
-label above every settings-style control. Keep the label compact and muted;
-the value, option, or action text inside the control remains readable at the
-normal body size.
+All app forms share the Student `/settings` field contract. Use the exported
+`REFERENCE_FIELD_LABEL_CLASS_NAME` for visible field labels, also consumed by
+`FieldLabel`: Manrope (`font-heading`), the standard 14px UI size, semibold,
+sentence case and muted green. Input values, options and actions remain Plus
+Jakarta Sans at the standard 14px size. Checkbox/radio option text is a value,
+not a field heading; it keeps the body font.
 
 Use the shared control token for the control family instead of recreating its
 geometry in a route module:
@@ -188,3 +193,11 @@ the primitive supports it. Do not make a radio option or checkbox value look
 like the compact field label: the group label establishes the field, while
 the option text explains the choice. Selected, invalid, disabled, and
 uploading states must retain the same geometry and a non-color cue.
+
+## Accordion lists
+
+Use the shared standard 14px UI size for question triggers, item numbers and
+answer text at every breakpoint. Questions can use semibold weight; answers
+use normal body weight and readable line height. Do not promote ordinary
+accordion questions to responsive title typography. Preserve expansion,
+keyboard access, visible focus and a 44px minimum trigger target.

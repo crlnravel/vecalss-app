@@ -62,7 +62,13 @@ colored notification banner, a sentence badge, or a local toast implementation.
 Use the shared `showToast`/`toast` helpers and the single root Toaster.
 
 **Notification versus task content.** Field validation stays attached to the
-field through `FieldError`, `aria-invalid`, and `aria-describedby`. Blocking
+field through `FieldError`, `aria-invalid`, and `aria-describedby`. Its visible
+message uses the shared validation tooltip rather than an inline paragraph:
+provide a named, visible error trigger, open on hover, keyboard focus and tap,
+and retain the error text in an accessible description even while the tooltip
+is closed. Do not make validation hover-only, remove native validation, or
+turn field errors into page-status toasts. Clear the tooltip and accessible
+error when the correction is recognized. Blocking
 page/load/session states retain a calm `TypedRouteState`/Empty or task-specific
 recovery section with an available next action. Confirmation dialogs retain
 their decision and recovery copy. Those are task content, not alternative
